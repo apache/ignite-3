@@ -15,35 +15,24 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.replicator.command;
+package org.apache.ignite.internal.replicator.exception;
 
-import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
-
-import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.raft.WriteCommand;
-import org.apache.ignite.network.annotations.WithSetter;
+import org.apache.ignite.internal.lang.IgniteStringFormatter;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.lang.ErrorGroups.Replicator;
 
 /**
- * Common interface for commands carrying safe time.
+ * The exception is thrown when an amount of replication retries exceeds the limit.
  */
-public interface SafeTimePropagatingCommand extends WriteCommand {
+public class ReplicationMaxRetriesExceededException extends ReplicationException {
     /**
-     * Returns safe time.
+     * The constructor.
+     *
+     * @param replicaGrpId Replication group id.
+     * @param limit Maximum possible amount of retries.
      */
-    @WithSetter
-    long safeTimeLong();
-
-    /**
-     * Setter for the safeTime field.
-     */
-    default void safeTimeLong(long safeTime) {
-        // No-op.
-    }
-
-    /**
-     * Returns safe time.
-     */
-    default HybridTimestamp safeTime() {
-        return hybridTimestamp(safeTimeLong());
+    public ReplicationMaxRetriesExceededException(ReplicationGroupId replicaGrpId, int limit) {
+        super(Replicator.REPLICA_COMMON_ERR, IgniteStringFormatter.format(
+                "Replication retries exceeds the limit [replicaGrpId={}, limit={}]", replicaGrpId, limit));
     }
 }

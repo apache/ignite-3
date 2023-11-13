@@ -347,19 +347,17 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
     void testSkipWriteCommandByAppliedIndex() {
         mvPartitionStorage.lastApplied(10L, 1L);
 
-        HybridTimestamp timestamp = hybridClock.now();
-
         UpdateCommand updateCommand = mock(UpdateCommand.class);
-        when(updateCommand.safeTime()).thenReturn(timestamp);
+        when(updateCommand.safeTime()).thenAnswer(v -> hybridClock.now());
 
         TxCleanupCommand txCleanupCommand = mock(TxCleanupCommand.class);
-        when(txCleanupCommand.safeTime()).thenReturn(timestamp);
+        when(txCleanupCommand.safeTime()).thenAnswer(v -> hybridClock.now());
 
         SafeTimeSyncCommand safeTimeSyncCommand = mock(SafeTimeSyncCommand.class);
-        when(safeTimeSyncCommand.safeTime()).thenReturn(timestamp);
+        when(safeTimeSyncCommand.safeTime()).thenAnswer(v -> hybridClock.now());
 
         FinishTxCommand finishTxCommand = mock(FinishTxCommand.class);
-        when(finishTxCommand.safeTime()).thenReturn(timestamp);
+        when(finishTxCommand.safeTime()).thenAnswer(v -> hybridClock.now());
 
         // Checks for MvPartitionStorage.
         commandListener.onWrite(List.of(

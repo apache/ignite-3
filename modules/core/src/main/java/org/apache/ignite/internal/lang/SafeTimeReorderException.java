@@ -15,35 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.replicator.command;
+package org.apache.ignite.internal.lang;
 
-import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
-
-import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.raft.WriteCommand;
-import org.apache.ignite.network.annotations.WithSetter;
+import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICATION_SAFE_TIME_REORDERING_ERR;
 
 /**
- * Common interface for commands carrying safe time.
+ * This exception is used to indicate a detection of a safe time reordering.
  */
-public interface SafeTimePropagatingCommand extends WriteCommand {
-    /**
-     * Returns safe time.
-     */
-    @WithSetter
-    long safeTimeLong();
+public class SafeTimeReorderException extends IgniteInternalException {
 
     /**
-     * Setter for the safeTime field.
+     * The constructor.
      */
-    default void safeTimeLong(long safeTime) {
-        // No-op.
+    public SafeTimeReorderException() {
+        super(REPLICATION_SAFE_TIME_REORDERING_ERR, "Replication safe time reordering detected.");
     }
 
-    /**
-     * Returns safe time.
-     */
-    default HybridTimestamp safeTime() {
-        return hybridTimestamp(safeTimeLong());
-    }
 }
+

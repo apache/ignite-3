@@ -767,7 +767,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
      * Restarts the node which stores some data.
      */
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20709")
     public void nodeWithDataTest() {
         IgniteImpl ignite = startNode(0);
 
