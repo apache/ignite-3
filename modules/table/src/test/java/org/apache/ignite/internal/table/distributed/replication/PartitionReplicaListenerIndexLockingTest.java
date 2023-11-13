@@ -111,7 +111,6 @@ import org.hamcrest.CustomMatcher;
 import org.hamcrest.Matcher;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -337,7 +336,6 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                 throw new AssertionError("Unexpected operation type: " + arg.type);
         }
 
-        LOCK_MANAGER.recordLocks(true);
         CompletableFuture<?> fut = partitionReplicaListener.invoke(request, "local");
 
         await(fut);
