@@ -437,14 +437,6 @@ public interface InternalTable extends ManuallyCloseable {
     CompletableFuture<List<PrimaryReplica>> primaryReplicas();
 
     /**
-     * Gets the current primary replica for the given partition.
-     *
-     * @param partition Partition number.
-     * @return Primary replica.
-     */
-    CompletableFuture<PrimaryReplica> primaryReplica(int partition);
-
-    /**
      * Returns cluster node that is the leader of the corresponding partition group or throws an exception if
      * it cannot be found.
      *

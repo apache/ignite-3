@@ -1516,19 +1516,6 @@ public class InternalTableImpl implements InternalTable {
     }
 
     @Override
-    public CompletableFuture<PrimaryReplica> primaryReplica(int partition) {
-        var raftGroupService = raftGroupServiceByPartitionId.get(partition);
-        assert raftGroupService != null : "No such partition " + partition + " in table " + tableName;
-
-        return placementDriver
-                .awaitPrimaryReplica(raftGroupService.groupId(), clock.now(), AWAIT_PRIMARY_REPLICA_TIMEOUT, SECONDS)
-                .thenApply(primaryReplica -> {
-                    ClusterNode node = clusterNodeResolver.apply(primaryReplica.getLeaseholder());
-                    return new PrimaryReplica(node, primaryReplica.getStartTime().longValue());
-                });
-    }
-
-    @Override
     public ClusterNode leaderAssignment(int partition) {
         awaitLeaderInitialization();
 

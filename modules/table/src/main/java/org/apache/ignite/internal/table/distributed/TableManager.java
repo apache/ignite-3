@@ -88,7 +88,6 @@ import org.apache.ignite.internal.causality.CompletionListener;
 import org.apache.ignite.internal.causality.IncrementalVersionedValue;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
-import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
@@ -105,8 +104,6 @@ import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Conditions;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
-import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
-import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
@@ -168,7 +165,6 @@ import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
-import org.apache.ignite.internal.utils.PrimaryReplica;
 import org.apache.ignite.internal.utils.RebalanceUtil;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.IgniteException;
@@ -1042,26 +1038,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         } catch (InterruptedException | ExecutionException | TimeoutException e) {
             LOG.error("Unable to clean table resources", e);
         }
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public CompletableFuture<List<PrimaryReplica>> primaryReplicasAsync(int tableId) {
-        return tableAsync(tableId).thenCompose(table -> table != null
-                ? table.internalTable().primaryReplicas()
-                : completedFuture(null));
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void addPrimaryReplicaChangeListener(EventListener<PrimaryReplicaEventParameters> listener) {
-        placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, listener);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void removePrimaryReplicaChangeListener(EventListener<PrimaryReplicaEventParameters> listener) {
-        placementDriver.removeListener(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, listener);
     }
 
     /**

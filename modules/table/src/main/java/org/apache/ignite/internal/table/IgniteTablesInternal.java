@@ -17,12 +17,8 @@
 
 package org.apache.ignite.internal.table;
 
-import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.lang.NodeStoppingException;
-import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
-import org.apache.ignite.internal.utils.PrimaryReplica;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.manager.IgniteTables;
 
@@ -77,29 +73,4 @@ public interface IgniteTablesInternal extends IgniteTables {
      *                         </ul>
      */
     CompletableFuture<TableViewInternal> tableViewAsync(String name);
-
-    /**
-     * Gets a list of the current table assignments.
-     *
-     * <p>Returns a list where on the i-th place resides a node id that considered as a leader for
-     * the i-th partition on the moment of invocation.
-     *
-     * @param tableId Unique id of a table.
-     * @return List of the current assignments.
-     */
-    CompletableFuture<List<PrimaryReplica>> primaryReplicasAsync(int tableId) throws NodeStoppingException;
-
-    /**
-     * Adds a listener to track changes in {@link #primaryReplicasAsync}.
-     *
-     * @param listener Listener.
-     */
-    void addPrimaryReplicaChangeListener(EventListener<PrimaryReplicaEventParameters> listener);
-
-    /**
-     * Removes primary replica change listener.
-     *
-     * @param listener Listener.
-     */
-    void removePrimaryReplicaChangeListener(EventListener<PrimaryReplicaEventParameters> listener);
 }
