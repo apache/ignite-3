@@ -24,6 +24,7 @@ import static org.apache.calcite.sql.type.SqlTypeName.TINYINT;
 import static org.apache.ignite.lang.ErrorGroups.Sql.RUNTIME_ERR;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import org.apache.ignite.sql.SqlException;
 
 /** Math operations with overflow checking. */
@@ -264,14 +265,13 @@ public class IgniteMath {
 
     /** Cast value to {@code long}, throwing an exception if the result overflows an {@code long}. */
     public static long convertToLongExact(String x) {
-        long exact;
-        try {
-            exact = Long.parseLong(x);
-        } catch (NumberFormatException e) {
+        BigDecimal decimal = new BigDecimal(x);
+        if (UPPER_LONG.compareTo(decimal.setScale(0, RoundingMode.HALF_UP)) < 0
+                || LOWER_LONG.compareTo(decimal.setScale(0, RoundingMode.HALF_UP)) > 0) {
             throw new SqlException(RUNTIME_ERR, BIGINT.getName() + " out of range");
         }
 
-        return exact;
+        return decimal.longValue();
     }
 
     /** Cast value to {@code short}, throwing an exception if the result overflows an {@code short}. */

@@ -25,6 +25,7 @@ import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_PARSE_ERR;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.List;
@@ -62,6 +63,7 @@ import org.apache.calcite.sql.SqlUtil;
 import org.apache.calcite.sql.dialect.CalciteSqlDialect;
 import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.sql.type.SqlTypeName;
+import org.apache.calcite.sql.type.SqlTypeName.Limit;
 import org.apache.calcite.sql.type.SqlTypeUtil;
 import org.apache.calcite.sql.util.SqlBasicVisitor;
 import org.apache.calcite.sql.validate.SelectScope;
@@ -538,20 +540,27 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
                 return;
             }
 
-            long max = Commons.getMaxValue(toType);
-            long min = Commons.getMinValue(toType);
+            int precision = toType.getSqlTypeName().allowsPrec() ? toType.getPrecision() : -1;
+            int scale = toType.getSqlTypeName().allowsScale() ? toType.getScale() : -1;
+
+            BigDecimal max = (BigDecimal) toType.getSqlTypeName().getLimit(true, Limit.OVERFLOW, false, precision, scale);
+            BigDecimal min = (BigDecimal) toType.getSqlTypeName().getLimit(false, Limit.OVERFLOW, false, precision, scale);
 
             String litValue = Objects.requireNonNull(literal.toValue());
 
+            BigDecimal litValueToDecimal = null;
+
             try {
-                if (Long.valueOf(litValue).compareTo(max) > 0 || Long.valueOf(litValue).compareTo(min) < 0) {
-                    throw new SqlException(STMT_PARSE_ERR, "Value '" + litValue + "'"
-                            + " out of range for type " + toType.getSqlTypeName());
-                }
+                litValueToDecimal = new BigDecimal(litValue).setScale(0, RoundingMode.HALF_UP);
             } catch (NumberFormatException e) {
                 if (!NUMERIC.matcher(litValue).matches()) {
                     throw new SqlException(STMT_PARSE_ERR, e);
                 }
+            }
+
+            if (max.compareTo(litValueToDecimal) < 0 || min.compareTo(litValueToDecimal) > 0) {
+                throw new SqlException(STMT_PARSE_ERR, "Value '" + litValue + "'"
+                        + " out of range for type " + toType.getSqlTypeName());
             }
         }
     }

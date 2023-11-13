@@ -460,6 +460,56 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
         );
     }
 
+    @ParameterizedTest(name = "{1}")
+    @MethodSource("decimalOverflowsValidation")
+    public void testCalcOpOverflowValidationCheck(SqlTypeName type, String expr, Boolean withException) {
+        if (withException) {
+            assertThrowsSqlException(Sql.STMT_PARSE_ERR, "out of range", () -> sql(expr));
+        } else {
+            sql(expr);
+        }
+    }
+
+    private static Stream<Arguments> decimalOverflowsValidation() {
+        return Stream.of(
+                //BIGINT
+                arguments(SqlTypeName.BIGINT, "SELECT CAST(9223372036854775807.1 AS BIGINT)", false),
+                arguments(SqlTypeName.BIGINT, "SELECT CAST(9223372036854775807.5 AS BIGINT)", true),
+                arguments(SqlTypeName.BIGINT, "SELECT CAST(9223372036854775807.5 - 1 AS BIGINT)", false),
+                arguments(SqlTypeName.BIGINT, "SELECT CAST(9223372036854775808.1 AS BIGINT)", true),
+                arguments(SqlTypeName.BIGINT, "SELECT CAST(9223372036854775808 AS BIGINT)", true),
+                arguments(SqlTypeName.BIGINT, "SELECT CAST(-9223372036854775809 AS BIGINT)", true),
+                arguments(SqlTypeName.BIGINT, "SELECT CAST(-9223372036854775808.1 AS BIGINT)", false),
+
+                // INTEGER
+                arguments(SqlTypeName.INTEGER, "SELECT CAST(2147483647.1 AS INTEGER)", false),
+                arguments(SqlTypeName.INTEGER, "SELECT CAST(2147483647.5 AS INTEGER)", true),
+                arguments(SqlTypeName.INTEGER, "SELECT CAST(2147483647.5 - 1 AS INTEGER)", false),
+                arguments(SqlTypeName.INTEGER, "SELECT CAST(2147483648.1 AS INTEGER)", true),
+                arguments(SqlTypeName.INTEGER, "SELECT CAST(2147483648 AS INTEGER)", true),
+                arguments(SqlTypeName.INTEGER, "SELECT CAST(-2147483649 AS INTEGER)", true),
+                arguments(SqlTypeName.INTEGER, "SELECT CAST(-2147483648.1 AS INTEGER)", false),
+
+                //SMALLINT
+                arguments(SqlTypeName.SMALLINT, "SELECT CAST(32767.1 AS SMALLINT)", false),
+                arguments(SqlTypeName.SMALLINT, "SELECT CAST(32767.5 AS SMALLINT)", true),
+                arguments(SqlTypeName.SMALLINT, "SELECT CAST(32767.5 - 1 AS SMALLINT)", false),
+                arguments(SqlTypeName.SMALLINT, "SELECT CAST(32768.1 AS SMALLINT)", true),
+                arguments(SqlTypeName.SMALLINT, "SELECT CAST(32768 AS SMALLINT)", true),
+                arguments(SqlTypeName.SMALLINT, "SELECT CAST(-32769 AS SMALLINT)", true),
+                arguments(SqlTypeName.SMALLINT, "SELECT CAST(-32768.1 AS SMALLINT)", false),
+
+                //TINYINT
+                arguments(SqlTypeName.TINYINT, "SELECT CAST(127.1 AS TINYINT)", false),
+                arguments(SqlTypeName.TINYINT, "SELECT CAST(127.5 AS TINYINT)", true),
+                arguments(SqlTypeName.TINYINT, "SELECT CAST(127.5 - 1 AS TINYINT)", false),
+                arguments(SqlTypeName.TINYINT, "SELECT CAST(128.1 AS TINYINT)", true),
+                arguments(SqlTypeName.TINYINT, "SELECT CAST(128 AS TINYINT)", true),
+                arguments(SqlTypeName.TINYINT, "SELECT CAST(-129 AS TINYINT)", true),
+                arguments(SqlTypeName.TINYINT, "SELECT CAST(-128.1 AS TINYINT)", false)
+        );
+    }
+
     static String asLiteral(Object value, RelDataType type) {
         if (SqlTypeUtil.isCharacter(type)) {
             String str = (String) value;
