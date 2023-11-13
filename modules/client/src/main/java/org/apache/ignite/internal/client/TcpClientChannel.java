@@ -56,9 +56,9 @@ import org.apache.ignite.internal.client.proto.HandshakeExtension;
 import org.apache.ignite.internal.client.proto.ProtocolVersion;
 import org.apache.ignite.internal.client.proto.ResponseFlags;
 import org.apache.ignite.internal.client.proto.ServerMessageType;
-import org.apache.ignite.internal.lang.IgniteExceptionMapperUtil;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.ErrorGroups.Table;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.NetworkAddress;
@@ -326,7 +326,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
 
             metrics.requestsActiveDecrement();
 
-            throw sneakyThrow(IgniteExceptionMapperUtil.mapToPublicException(t));
+            throw sneakyThrow(ExceptionUtils.unwrapToPublicException(t));
         }
     }
 
@@ -468,7 +468,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         try {
             Class<? extends Throwable> errCls = (Class<? extends Throwable>) Class.forName(errClassName);
             Throwable err = copyExceptionWithCause(errCls, traceId, code, errMsg, causeWithStackTrace);
-            return IgniteExceptionMapperUtil.mapToPublicException(err);
+            return ExceptionUtils.unwrapToPublicException(err);
         } catch (ClassNotFoundException ignored) {
             // Ignore: incompatible exception class. Fall back to generic exception.
         }

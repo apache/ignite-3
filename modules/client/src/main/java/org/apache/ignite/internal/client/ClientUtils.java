@@ -24,9 +24,9 @@ import java.util.concurrent.ExecutionException;
 import org.apache.ignite.client.ClientOperationType;
 import org.apache.ignite.client.IgniteClientConfiguration;
 import org.apache.ignite.internal.client.proto.ClientOp;
-import org.apache.ignite.internal.lang.IgniteExceptionMapperUtil;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.LoggerFactory;
 
 /**
@@ -46,9 +46,9 @@ public class ClientUtils {
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt(); // Restore interrupt flag.
 
-            throw sneakyThrow(IgniteExceptionMapperUtil.mapToPublicException(e));
+            throw sneakyThrow(ExceptionUtils.unwrapToPublicException(e));
         } catch (ExecutionException e) {
-            throw sneakyThrow(IgniteExceptionMapperUtil.mapToPublicException(e));
+            throw sneakyThrow(ExceptionUtils.unwrapToPublicException(e));
         }
     }
 
