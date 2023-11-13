@@ -17,15 +17,19 @@
 
 package org.apache.ignite.client.handler;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.internal.event.EventListener;
+import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.table.IgniteTablesInternal;
+import org.apache.ignite.internal.utils.PrimaryReplica;
 import org.jetbrains.annotations.Nullable;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 
@@ -43,10 +47,11 @@ public class ClientPrimaryReplicaTracker {
 
     private final PlacementDriver placementDriver;
 
-    public ClientPrimaryReplicaTracker(PlacementDriver placementDriver) {
-        assert placementDriver != null;
+    private final IgniteTablesInternal igniteTables;
 
+    public ClientPrimaryReplicaTracker(PlacementDriver placementDriver, IgniteTablesInternal igniteTables) {
         this.placementDriver = placementDriver;
+        this.igniteTables = igniteTables;
 
         EventListener<PrimaryReplicaEventParameters> listener = (eventParameters, err) -> {
             if (err != null || !(eventParameters.groupId() instanceof TablePartitionId)) {
@@ -70,24 +75,38 @@ public class ClientPrimaryReplicaTracker {
             return CompletableFuture.completedFuture(null);
         };
 
-        // TODO: Unsubscribe somewhere.
+        // TODO: Unsubscribe somewhere?
         placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, listener);
     }
 
-    // TODO: For every tracked table, maintain an "assignment version" that is incremented every time a replica changes.
     public @Nullable List<String> primaryReplicas(int tableId) {
         List<String> replicas = primaryReplicas.computeIfAbsent(tableId, this::init);
 
         return replicas == PENDING ? null : replicas;
     }
 
-    public long updateCount() {
+    long updateCount() {
         return updateCount.get();
     }
 
     private List<String> init(Integer tableId) {
-        // TODO: Where do we get partition count?
-        // TODO: Request initial assignment.
+        try {
+            // Initially, request all primary replicas for the table.
+            // Then keep them updated via PRIMARY_REPLICA_ELECTED events.
+            igniteTables
+                    .tableAsync(tableId)
+                    .thenCompose(t -> t.internalTable().primaryReplicas())
+                    .thenAccept(replicas -> {
+                        List<String> replicaNames = new ArrayList<>(replicas.size());
+                        for (PrimaryReplica replica : replicas) {
+                            replicaNames.add(replica.node().name());
+                        }
+
+                        primaryReplicas.put(tableId, replicaNames);
+                    });
+        } catch (NodeStoppingException ignored) {
+            // Ignore. When node is stopping, we don't need to track primary replicas.
+        }
 
         return PENDING;
     }
