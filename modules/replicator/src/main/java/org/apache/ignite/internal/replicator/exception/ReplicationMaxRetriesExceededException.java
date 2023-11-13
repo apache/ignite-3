@@ -32,7 +32,7 @@ public class ReplicationMaxRetriesExceededException extends ReplicationException
      * @param limit Maximum possible amount of retries.
      */
     public ReplicationMaxRetriesExceededException(ReplicationGroupId replicaGrpId, int limit) {
-        super(Replicator.REPLICATION_RETRIES_AMOUNT_EXCEEDED_ERR, IgniteStringFormatter.format(
+        super(Replicator.REPLICA_COMMON_ERR, IgniteStringFormatter.format(
                 "Replication retries exceeds the limit [replicaGrpId={}, limit={}]", replicaGrpId, limit));
     }
 }

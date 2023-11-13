@@ -942,8 +942,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         applyCmdWithRetryOnSafeTimeReorderException(
                 REPLICA_MESSAGES_FACTORY.safeTimeSyncCommand().safeTimeLong(hybridClock.nowLong()).build(),
-                resultFuture,
-                0
+                resultFuture
         );
 
         return resultFuture.thenApply(res -> null);
@@ -1639,7 +1638,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             }
             CompletableFuture<Object> resultFuture = new CompletableFuture<>();
 
-            applyCmdWithRetryOnSafeTimeReorderException(finishTxCmdBldr.build(), resultFuture, 0);
+            applyCmdWithRetryOnSafeTimeReorderException(finishTxCmdBldr.build(), resultFuture);
 
             return resultFuture;
         }
@@ -1741,7 +1740,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         CompletableFuture<Object> resultFuture = new CompletableFuture<>();
 
-        applyCmdWithRetryOnSafeTimeReorderException(txCleanupCmd, resultFuture, 0);
+        applyCmdWithRetryOnSafeTimeReorderException(txCleanupCmd, resultFuture);
 
         return resultFuture
                 .exceptionally(e -> {
@@ -2421,7 +2420,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @return Raft future.
      */
     private CompletableFuture<Object> applyCmdWithExceptionHandling(Command cmd, CompletableFuture<Object> resultFuture) {
-        applyCmdWithRetryOnSafeTimeReorderException(cmd, resultFuture, 0);
+        applyCmdWithRetryOnSafeTimeReorderException(cmd, resultFuture);
 
         return resultFuture.exceptionally(throwable -> {
             if (throwable instanceof TimeoutException) {
@@ -2432,6 +2431,10 @@ public class PartitionReplicaListener implements ReplicaListener {
                 throw new ReplicationException(replicationGroupId, throwable);
             }
         });
+    }
+
+    private void applyCmdWithRetryOnSafeTimeReorderException(Command cmd, CompletableFuture<Object> resultFuture) {
+        applyCmdWithRetryOnSafeTimeReorderException(cmd, resultFuture, 0);
     }
 
     private void applyCmdWithRetryOnSafeTimeReorderException(Command cmd, CompletableFuture<Object> resultFuture, int attemptsCounter) {
@@ -2468,7 +2471,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                     safeTimePropagatingCommand.safeTimeLong(safeTimeForRetry.longValue());
 
-                    applyCmdWithRetryOnSafeTimeReorderException(safeTimePropagatingCommand, resultFuture, 0);
+                    applyCmdWithRetryOnSafeTimeReorderException(safeTimePropagatingCommand, resultFuture);
                 } else {
                     resultFuture.completeExceptionally(ex);
                 }
