@@ -119,27 +119,27 @@ public class OrphanDetector {
      * @return Future to complete.
      */
     private CompletableFuture<Void> handleLockHolderInternal(UUID txId) {
-        TxStateMeta txSate = txStateMap.get(txId);
+        TxStateMeta txState = txStateMap.get(txId);
 
-        assert txSate != null : "The transaction is undefined in the local node [txId=" + txId + "].";
+        assert txState != null : "The transaction is undefined in the local node [txId=" + txId + "].";
 
-        if (clusterService.topologyService().getById(txSate.txCoordinatorId()) == null) {
+        if (clusterService.topologyService().getById(txState.txCoordinatorId()) == null) {
             LOG.info(
                     "Conflict was found, and the coordinator of the transaction that holds a lock is not available "
                             + "[txId={}, txCrd={}].",
                     txId,
-                    txSate.txCoordinatorId()
+                    txState.txCoordinatorId()
             );
 
             return placementDriver.awaitPrimaryReplica(
-                    txSate.commitPartitionId(),
+                    txState.commitPartitionId(),
                     clock.now(),
                     AWAIT_PRIMARY_REPLICA_TIMEOUT_SEC,
                     SECONDS
             ).thenApply(replicaMeta -> {
-                ClusterNode cmpPartNode = clusterService.topologyService().getByConsistentId(replicaMeta.getLeaseholder());
+                ClusterNode commitPartNode = clusterService.topologyService().getByConsistentId(replicaMeta.getLeaseholder());
 
-                clusterService.messagingService().weakSend(cmpPartNode, FACTORY.txRecoveryMessage()
+                clusterService.messagingService().weakSend(commitPartNode, FACTORY.txRecoveryMessage()
                         .txId(txId)
                         .build());
 

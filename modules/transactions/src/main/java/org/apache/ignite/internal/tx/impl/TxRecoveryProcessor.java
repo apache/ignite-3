@@ -86,11 +86,17 @@ public class TxRecoveryProcessor {
         TxStateMeta txState = txStateMap.get(msg.txId());
 
         if (txState == null || !TxState.isFinalState(txState.txState())) {
-            assert txState == null || clusterService.topologyService().getById(txState.txCoordinatorId()) == null :
-                    "Transaction coordinator is alive [tx=" + msg.txId() + ", crd=" + txState.txCoordinatorId()
-                            + ']';
+            if (txState != null && clusterService.topologyService().getById(txState.txCoordinatorId()) == null) {
+                LOG.warn(
+                        "The transaction coordinator is alive, which is why the recovery message is ignored [tx={}, crd={}].",
+                        msg.txId(),
+                        txState.txCoordinatorId()
+                );
 
-            LOG.warn("Transaction have to be aborted [tx={}].", msg.txId());
+                return;
+            }
+
+            LOG.warn("Transaction has to be aborted [tx={}].", msg.txId());
         }
     }
 

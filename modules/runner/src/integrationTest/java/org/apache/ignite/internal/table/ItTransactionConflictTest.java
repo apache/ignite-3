@@ -86,7 +86,7 @@ public class ItTransactionConflictTest extends ClusterPerTestIntegrationTest {
         IgniteImpl commitPartNode = IntStream.range(0, initialNodes()).mapToObj(this::node).filter(n -> leaseholder.equals(n.name()))
                 .findFirst().get();
 
-        log.info("Transaction coordinator is determined [node={}].", commitPartNode.name());
+        log.info("Transaction commit partition is determined [node={}].", commitPartNode.name());
 
         IgniteImpl txCrdNode = IntStream.range(1, initialNodes()).mapToObj(this::node).filter(n -> !leaseholder.equals(n.name()))
                 .findFirst().get();
