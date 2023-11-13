@@ -24,8 +24,6 @@ import static org.hamcrest.Matchers.is;
 
 import java.util.List;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
-import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.Test;
@@ -34,18 +32,13 @@ class FullTableSchemaTest {
     @Test
     void sameSchemasHaveEmptyDiff() {
         CatalogTableColumnDescriptor column = someColumn("a");
-        CatalogIndexDescriptor index = someIndex(1, "ind_a");
 
-        var schema1 = new FullTableSchema(1, 1, List.of(column), List.of(index));
-        var schema2 = new FullTableSchema(2, 1, List.of(column), List.of(index));
+        var schema1 = new FullTableSchema(1, 1, List.of(column));
+        var schema2 = new FullTableSchema(2, 1, List.of(column));
 
         TableDefinitionDiff diff = schema2.diffFrom(schema1);
 
         assertThat(diff.isEmpty(), is(true));
-    }
-
-    private static CatalogHashIndexDescriptor someIndex(int id, String name) {
-        return new CatalogHashIndexDescriptor(id, name, 1, true, List.of("a"), true);
     }
 
     private static CatalogTableColumnDescriptor someColumn(String columnName) {
@@ -58,8 +51,8 @@ class FullTableSchemaTest {
         CatalogTableColumnDescriptor column2 = someColumn("b");
         CatalogTableColumnDescriptor column3 = someColumn("c");
 
-        var schema1 = new FullTableSchema(1, 1, List.of(column1, column2), List.of());
-        var schema2 = new FullTableSchema(2, 1, List.of(column2, column3), List.of());
+        var schema1 = new FullTableSchema(1, 1, List.of(column1, column2));
+        var schema2 = new FullTableSchema(2, 1, List.of(column2, column3));
 
         TableDefinitionDiff diff = schema2.diffFrom(schema1);
 
@@ -73,10 +66,9 @@ class FullTableSchemaTest {
     void changedColumnsAreReflectedInDiff() {
         CatalogTableColumnDescriptor column1 = someColumn("a");
 
-        var schema1 = new FullTableSchema(1, 1, List.of(column1), List.of());
+        var schema1 = new FullTableSchema(1, 1, List.of(column1));
         var schema2 = new FullTableSchema(2, 1,
-                List.of(new CatalogTableColumnDescriptor("a", ColumnType.STRING, true, 0, 0, 10, DefaultValue.constant(null))),
-                List.of()
+                List.of(new CatalogTableColumnDescriptor("a", ColumnType.STRING, true, 0, 0, 10, DefaultValue.constant(null)))
         );
 
         TableDefinitionDiff diff = schema2.diffFrom(schema1);
@@ -85,21 +77,5 @@ class FullTableSchemaTest {
 
         List<ColumnDefinitionDiff> changedColumns = diff.changedColumns();
         assertThat(changedColumns, is(hasSize(1)));
-    }
-
-    @Test
-    void addedRemovedIndexesAreReflectedInDiff() {
-        CatalogIndexDescriptor index1 = someIndex(1, "a");
-        CatalogIndexDescriptor index2 = someIndex(2, "b");
-        CatalogIndexDescriptor index3 = someIndex(3, "c");
-
-        var schema1 = new FullTableSchema(1, 1, List.of(someColumn("a")), List.of(index1, index2));
-        var schema2 = new FullTableSchema(2, 1, List.of(someColumn("a")), List.of(index2, index3));
-
-        TableDefinitionDiff diff = schema2.diffFrom(schema1);
-
-        assertThat(diff.isEmpty(), is(false));
-        assertThat(diff.addedIndexes(), is(List.of(index3)));
-        assertThat(diff.removedIndexes(), is(List.of(index1)));
     }
 }

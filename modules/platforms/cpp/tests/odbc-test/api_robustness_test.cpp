@@ -771,9 +771,7 @@ TEST_F(api_robustness_test, sql_special_columns) {
     SQLRETURN ret = SQLSpecialColumns(m_statement, SQL_BEST_ROWID, catalog_name, sizeof(catalog_name), schema_name,
         sizeof(schema_name), table_name, sizeof(table_name), SQL_SCOPE_CURROW, SQL_NO_NULLS);
 
-    UNUSED_VALUE ret;
-    // TODO IGNITE-19218: Uncomment once special columns query execution is implemented.
-    // ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
+    ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
     SQLCloseCursor(m_statement);
 

@@ -120,7 +120,7 @@ public class EventProducerTest {
         TEST
     }
 
-    private static class TestEventParameters extends EventParameters {
+    private static class TestEventParameters extends CausalEventParameters {
         private TestEventParameters(long causalityToken) {
             super(causalityToken);
         }

@@ -172,8 +172,6 @@ public class FakeTxManager implements TxManager {
     public CompletableFuture<Void> finish(
             HybridTimestampTracker timestampTracker,
             TablePartitionId commitPartition,
-            ClusterNode recipientNode,
-            Long term,
             boolean commit,
             Map<TablePartitionId, Long> enlistedGroups,
             UUID txId

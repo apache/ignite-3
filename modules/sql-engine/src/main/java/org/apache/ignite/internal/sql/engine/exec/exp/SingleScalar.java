@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.exec.exp;
 
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
+import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowBuilder;
 
 /**
  * Single scalar used for single input and single output.
@@ -25,5 +26,5 @@ import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 @FunctionalInterface
 public interface SingleScalar extends Scalar {
     /** Single input and single output. */
-    void execute(ExecutionContext ctx, Object in, Object out);
+    void execute(ExecutionContext ctx, Object in, RowBuilder out);
 }

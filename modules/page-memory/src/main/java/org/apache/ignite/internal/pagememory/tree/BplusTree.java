@@ -6461,7 +6461,8 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
                 int lvl,
                 IoStatisticsHolder statHolder
         ) throws IgniteInternalCheckedException {
-            assert PageIo.getPageId(pageAddr) == pageId;
+            assert PageIo.getPageId(pageAddr) == pageId
+                    : "pageId mismatch [requested=" + pageId + ", stored=" + PageIo.getPageId(pageAddr) + "]";
 
             // If we've passed the check for correct page ID, we can safely cast.
             BplusIo<L> io = (BplusIo<L>) iox;

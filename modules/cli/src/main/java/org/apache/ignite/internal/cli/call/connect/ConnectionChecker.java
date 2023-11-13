@@ -19,6 +19,7 @@ package org.apache.ignite.internal.cli.call.connect;
 
 import static org.apache.ignite.internal.cli.config.CliConfigKeys.BASIC_AUTHENTICATION_PASSWORD;
 import static org.apache.ignite.internal.cli.config.CliConfigKeys.BASIC_AUTHENTICATION_USERNAME;
+import static org.apache.ignite.internal.cli.config.CliConfigKeys.REST_CIPHERS;
 import static org.apache.ignite.internal.cli.config.CliConfigKeys.REST_KEY_STORE_PASSWORD;
 import static org.apache.ignite.internal.cli.config.CliConfigKeys.REST_KEY_STORE_PATH;
 import static org.apache.ignite.internal.cli.config.CliConfigKeys.REST_TRUST_STORE_PASSWORD;
@@ -125,15 +126,11 @@ public class ConnectionChecker {
         }
     }
 
-    private void buildSslSettings(SslConfig sslConfig, ApiClientSettingsBuilder settingsBuilder) {
-        if (sslConfig != null) {
-            settingsBuilder.keyStorePath(sslConfig.keyStorePath())
-                    .keyStorePassword(sslConfig.keyStorePassword())
-                    .trustStorePath(sslConfig.trustStorePath())
-                    .trustStorePassword(sslConfig.trustStorePassword());
-        } else {
-            buildSslSettingsFromConfig(settingsBuilder);
-        }
+    private static void buildSslSettings(SslConfig sslConfig, ApiClientSettingsBuilder settingsBuilder) {
+        settingsBuilder.keyStorePath(sslConfig.keyStorePath())
+                .keyStorePassword(sslConfig.keyStorePassword())
+                .trustStorePath(sslConfig.trustStorePath())
+                .trustStorePassword(sslConfig.trustStorePassword());
     }
 
     private void buildSslSettingsFromConfig(ApiClientSettingsBuilder settingsBuilder) {
@@ -141,7 +138,8 @@ public class ConnectionChecker {
         settingsBuilder.keyStorePath(configManager.getCurrentProperty(REST_KEY_STORE_PATH.value()))
                 .keyStorePassword(configManager.getCurrentProperty(REST_KEY_STORE_PASSWORD.value()))
                 .trustStorePath(configManager.getCurrentProperty(REST_TRUST_STORE_PATH.value()))
-                .trustStorePassword(configManager.getCurrentProperty(REST_TRUST_STORE_PASSWORD.value()));
+                .trustStorePassword(configManager.getCurrentProperty(REST_TRUST_STORE_PASSWORD.value()))
+                .ciphers(configManager.getCurrentProperty(REST_CIPHERS.value()));
     }
 
     /**
@@ -159,11 +157,6 @@ public class ConnectionChecker {
                 manager.setProperty(REST_KEY_STORE_PATH.value(), sslConfig.keyStorePath());
                 manager.setProperty(REST_KEY_STORE_PASSWORD.value(), sslConfig.keyStorePassword());
             }
-        }
-
-        if (!nullOrBlank(callInput.username()) && !nullOrBlank(callInput.password())) {
-            manager.setProperty(BASIC_AUTHENTICATION_USERNAME.value(), callInput.username());
-            manager.setProperty(BASIC_AUTHENTICATION_PASSWORD.value(), callInput.password());
         }
     }
 }

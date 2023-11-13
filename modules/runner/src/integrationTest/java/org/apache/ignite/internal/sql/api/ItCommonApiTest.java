@@ -24,32 +24,22 @@ import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
-import org.apache.calcite.schema.SchemaPlus;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
-import org.apache.ignite.internal.sql.engine.QueryCancelledException;
-import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
-import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
-import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
-import org.apache.ignite.internal.testframework.IgniteTestUtils;
-import org.apache.ignite.internal.tx.InternalTransaction;
-import org.apache.ignite.internal.tx.TxManager;
-import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.sql.CursorClosedException;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
-import org.apache.ignite.tx.Transaction;
-import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 
 /** Test common SQL API. */
@@ -70,24 +60,24 @@ public class ItCommonApiTest extends BaseSqlIntegrationTest {
         Session ses1 = sql.sessionBuilder().defaultPageSize(1).idleTimeout(2, TimeUnit.SECONDS).build();
         Session ses2 = sql.sessionBuilder().defaultPageSize(1).idleTimeout(100, TimeUnit.SECONDS).build();
 
-        assertEquals(2, queryProcessor().liveSessions().size());
+        assertEquals(2, activeSessionsCount());
 
         ResultSet rs1 = ses1.execute(null, "SELECT id FROM TST");
         ResultSet rs2 = ses2.execute(null, "SELECT id FROM TST");
 
-        waitForCondition(() -> queryProcessor().liveSessions().size() == 1, 10_000);
+        assertTrue(waitForCondition(ses1::closed, 10_000));
 
         // first session should no longer exist for the moment
         ExecutionException err = assertThrows(ExecutionException.class, () -> ses1.executeAsync(null, "SELECT 1 + 1").get());
         assertThat(err.getCause(), instanceOf(IgniteException.class));
-        assertThat(err.getCause().getMessage(), containsString("Session not found"));
+        assertThat(err.getCause().getMessage(), containsString("Session is closed"));
 
         // already started query should fail due to session has been expired
         assertThrowsWithCause(() -> {
             while (rs1.hasNext()) {
                 rs1.next();
             }
-        }, QueryCancelledException.class);
+        }, CursorClosedException.class);
 
         rs1.close();
 
@@ -150,82 +140,7 @@ public class ItCommonApiTest extends BaseSqlIntegrationTest {
         }
     }
 
-    /** Check transaction change status with erroneous statements. */
-    @Test
-    // TODO should be removed after https://issues.apache.org/jira/browse/IGNITE-20534  is fixed.
-    public void testTxStateChangedOnErroneousOp() {
-        sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
-
-        TxManager txManager = txManager();
-
-        SqlSchemaManager oldManager =
-                (SqlSchemaManager) IgniteTestUtils.getFieldValue(queryProcessor(), SqlQueryProcessor.class, "sqlSchemaManager");
-
-        Transaction tx = CLUSTER.aliveNode().transactions().begin();
-
-        try {
-            sql(tx, "INSERT INTO PUBLIC.TEST VALUES(1, 1)");
-            sql(tx, "INSERT INTO NOTEXIST.TEST VALUES(1, 1)");
-        } catch (Throwable ignore) {
-            // No op.
-        }
-
-        assertEquals(0, txManager.pending());
-        InternalTransaction tx0 = (InternalTransaction) tx;
-        assertEquals(TxState.ABORTED, tx0.state());
-
-        tx.rollback();
-        assertEquals(0, txManager.pending());
-
-        sql("INSERT INTO TEST VALUES(1, 1)");
-        assertEquals(0, txManager.pending());
-
-        var schemaManager = new ErroneousSchemaManager();
-
-        // TODO: refactor after https://issues.apache.org/jira/browse/IGNITE-17694
-        IgniteTestUtils.setFieldValue(queryProcessor(), "sqlSchemaManager", schemaManager);
-
-        try {
-            sql("SELECT a FROM NOTEXIST.TEST");
-        } catch (Throwable ignore) {
-            // No op.
-        }
-
-        try {
-            sql("INSERT INTO NOTEXIST.TEST VALUES(1, 1)");
-        } catch (Throwable ignore) {
-            // No op.
-        }
-
-        assertEquals(0, txManager.pending());
-
-        IgniteTestUtils.setFieldValue(queryProcessor(), "sqlSchemaManager", oldManager);
-    }
-
-    private static class ErroneousSchemaManager implements SqlSchemaManager {
-
-        /** {@inheritDoc} */
-        @Override
-        public @Nullable SchemaPlus schema(int version) {
-            return null;
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public @Nullable SchemaPlus schema(long timestamp) {
-            return null;
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public CompletableFuture<Void> schemaReadyFuture(int version) {
-            throw new UnsupportedOperationException();
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public @Nullable IgniteTable table(int schemaVersion, int tableId) {
-            return null;
-        }
+    private int activeSessionsCount() {
+        return ((IgniteSqlImpl) igniteSql()).sessions().size();
     }
 }

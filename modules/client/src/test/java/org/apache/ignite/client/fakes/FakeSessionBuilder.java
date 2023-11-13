@@ -23,7 +23,6 @@ import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.Session.SessionBuilder;
-import org.apache.ignite.tx.IgniteTransactions;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -39,16 +38,6 @@ public class FakeSessionBuilder implements SessionBuilder {
     private Long defaultSessionTimeoutMs;
 
     private Integer pageSize;
-
-    @Override
-    public IgniteTransactions igniteTransactions() {
-        return null;
-    }
-
-    @Override
-    public SessionBuilder igniteTransactions(IgniteTransactions transactions) {
-        return this;
-    }
 
     /** {@inheritDoc} */
     @Override

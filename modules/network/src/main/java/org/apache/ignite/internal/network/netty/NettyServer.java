@@ -135,11 +135,18 @@ public class NettyServer {
                     });
 
             int port = configuration.port();
-            int portRange = configuration.portRange();
 
             var bindFuture = new CompletableFuture<Channel>();
 
-            tryBind(bootstrap, port, port + portRange, port, bindFuture);
+            bootstrap.bind(port).addListener((ChannelFuture future) -> {
+                if (future.isSuccess()) {
+                    bindFuture.complete(future.channel());
+                } else if (future.isCancelled()) {
+                    bindFuture.cancel(true);
+                } else {
+                    bindFuture.completeExceptionally(new IllegalStateException("Port " + port + " is not available."));
+                }
+            });
 
             serverStartFuture = bindFuture
                     .handle((channel, err) -> {
@@ -163,31 +170,6 @@ public class NettyServer {
 
             return serverStartFuture;
         }
-    }
-
-    /**
-     * Try bind this server to a port.
-     *
-     * @param bootstrap Bootstrap.
-     * @param port      Target port.
-     * @param endPort   Last port that server can be bound to.
-     * @param startPort Start port.
-     * @param fut       Future.
-     */
-    private void tryBind(ServerBootstrap bootstrap, int port, int endPort, int startPort, CompletableFuture<Channel> fut) {
-        if (port > endPort) {
-            fut.completeExceptionally(new IllegalStateException("No available port in range [" + startPort + "-" + endPort + ']'));
-        }
-
-        bootstrap.bind(port).addListener((ChannelFuture future) -> {
-            if (future.isSuccess()) {
-                fut.complete(future.channel());
-            } else if (future.isCancelled()) {
-                fut.cancel(true);
-            } else {
-                tryBind(bootstrap, port + 1, endPort, startPort, fut);
-            }
-        });
     }
 
     /**

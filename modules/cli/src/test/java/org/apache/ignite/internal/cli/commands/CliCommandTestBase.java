@@ -26,8 +26,6 @@ import jakarta.inject.Inject;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.Arrays;
-import org.apache.ignite.internal.cli.commands.node.NodeNameOrUrl;
-import org.apache.ignite.internal.cli.core.converters.NodeNameOrUrlConverter;
 import org.apache.ignite.internal.cli.core.repl.registry.NodeNameRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import picocli.CommandLine;
@@ -53,8 +51,7 @@ public abstract class CliCommandTestBase {
 
     @BeforeEach
     public void setUp() {
-        cmd = new CommandLine(getCommandClass(), new MicronautFactory(context))
-                .registerConverter(NodeNameOrUrl.class, new NodeNameOrUrlConverter(nodeNameRegistry));
+        cmd = new CommandLine(getCommandClass(), new MicronautFactory(context));
         sout = new StringWriter();
         serr = new StringWriter();
         cmd.setOut(new PrintWriter(sout));

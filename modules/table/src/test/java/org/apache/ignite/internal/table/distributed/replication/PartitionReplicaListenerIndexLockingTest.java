@@ -91,7 +91,7 @@ import org.apache.ignite.internal.table.distributed.replicator.action.RequestTyp
 import org.apache.ignite.internal.table.distributed.schema.AlwaysSyncedSchemaSyncService;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
-import org.apache.ignite.internal.table.impl.DummySchemas;
+import org.apache.ignite.internal.table.impl.DummyValidationSchemasSource;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.tx.Lock;
 import org.apache.ignite.internal.tx.LockManager;
@@ -206,7 +206,11 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
         TestPartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(TABLE_ID, PART_ID, TEST_MV_PARTITION_STORAGE);
 
         CatalogService catalogService = mock(CatalogService.class);
-        when(catalogService.table(anyInt(), anyLong())).thenReturn(mock(CatalogTableDescriptor.class));
+
+        CatalogTableDescriptor tableDescriptor = mock(CatalogTableDescriptor.class);
+        when(tableDescriptor.tableVersion()).thenReturn(schemaDescriptor.version());
+
+        when(catalogService.table(anyInt(), anyLong())).thenReturn(tableDescriptor);
 
         ClusterNode localNode = mock(ClusterNode.class);
 
@@ -240,11 +244,11 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                         indexUpdateHandler,
                         new GcUpdateHandler(partitionDataStorage, safeTime, indexUpdateHandler)
                 ),
-                new DummySchemas(schemaManager),
+                new DummyValidationSchemasSource(schemaManager),
                 localNode,
                 new AlwaysSyncedSchemaSyncService(),
                 catalogService,
-                new TestPlacementDriver(localNode.name())
+                new TestPlacementDriver(localNode)
         );
 
         kvMarshaller = new ReflectionMarshallerFactory().create(schemaDescriptor, Integer.class, Integer.class);

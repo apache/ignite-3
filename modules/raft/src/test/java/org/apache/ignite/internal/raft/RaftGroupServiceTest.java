@@ -86,6 +86,7 @@ import org.apache.ignite.raft.jraft.rpc.CliRequests.TransferLeaderRequest;
 import org.apache.ignite.raft.jraft.rpc.RaftRpcFactory;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.ErrorResponse;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.ReadIndexRequest;
+import org.apache.ignite.raft.jraft.rpc.WriteActionRequest;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftException;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
@@ -617,7 +618,7 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
                 argThat(new ArgumentMatcher<ActionRequest>() {
                     @Override
                     public boolean matches(ActionRequest arg) {
-                        return arg.command() instanceof TestWriteCommand;
+                        return arg instanceof WriteActionRequest && ((WriteActionRequest) arg).command() instanceof TestWriteCommand;
                     }
                 }),
                 anyLong()

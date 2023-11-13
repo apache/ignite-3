@@ -993,6 +993,7 @@ public class RexImpTable {
       defineMethod(IS_NOT_DISTINCT_FROM, IgniteMethod.IS_NOT_DISTINCT_FROM.method(), NullPolicy.NONE);
       defineMethod(IgniteSqlOperatorTable.LEAST2, LEAST2.method(), NullPolicy.NONE);
       defineMethod(IgniteSqlOperatorTable.LENGTH, LENGTH.method(), NullPolicy.STRICT);
+      defineMethod(IgniteSqlOperatorTable.OCTET_LENGTH, IgniteMethod.OCTET_LENGTH.method(), NullPolicy.STRICT);
       defineMethod(SUBSTR, IgniteMethod.SUBSTR.method(), NullPolicy.STRICT);
       defineMethod(ROUND, IgniteMethod.ROUND.method(), NullPolicy.STRICT);
 

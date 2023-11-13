@@ -41,25 +41,30 @@ import java.util.stream.Collectors;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
-import org.apache.ignite.internal.sql.engine.QueryContext;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
+import org.apache.ignite.internal.sql.engine.QueryProperty;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.hint.IgniteHint;
-import org.apache.ignite.internal.sql.engine.property.PropertiesHelper;
-import org.apache.ignite.internal.sql.engine.session.SessionId;
+import org.apache.ignite.internal.sql.engine.property.SqlProperties;
+import org.apache.ignite.internal.sql.engine.property.SqlPropertiesHelper;
+import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.tx.IgniteTransactions;
-import org.apache.ignite.tx.Transaction;
 import org.hamcrest.Matcher;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Query checker base class.
  */
 abstract class QueryCheckerImpl implements QueryChecker {
     private static final IgniteLogger LOG = Loggers.forClass(QueryCheckerImpl.class);
+
+    private static final SqlProperties PROPERTIES = SqlPropertiesHelper.newBuilder()
+            .set(QueryProperty.ALLOWED_QUERY_TYPES, SqlQueryType.SINGLE_STMT_TYPES)
+            .build();
 
     private final QueryTemplate queryTemplate;
 
@@ -75,7 +80,7 @@ abstract class QueryCheckerImpl implements QueryChecker {
 
     private Object[] params = OBJECT_EMPTY_ARRAY;
 
-    private final Transaction tx;
+    private final @Nullable InternalTransaction tx;
 
     /**
      * Constructor.
@@ -83,7 +88,7 @@ abstract class QueryCheckerImpl implements QueryChecker {
      * @param tx Transaction.
      * @param queryTemplate A query template.
      */
-    QueryCheckerImpl(Transaction tx, QueryTemplate queryTemplate) {
+    QueryCheckerImpl(@Nullable InternalTransaction tx, QueryTemplate queryTemplate) {
         this.tx = tx;
         this.queryTemplate = new AddDisabledRulesTemplate(Objects.requireNonNull(queryTemplate), disabledRules);
     }
@@ -264,62 +269,53 @@ abstract class QueryCheckerImpl implements QueryChecker {
         // Check plan.
         QueryProcessor qryProc = getEngine();
 
-        SessionId sessionId = qryProc.createSession(PropertiesHelper.emptyHolder());
-
-        QueryContext context = QueryContext.create(SqlQueryType.SINGLE_STMT_TYPES, tx);
-
         String qry = queryTemplate.createQuery();
 
         LOG.info("Executing query: {}", qry);
 
-        try {
+        if (!CollectionUtils.nullOrEmpty(planMatchers)) {
+
+            CompletableFuture<AsyncSqlCursor<List<Object>>> explainCursors = qryProc.querySingleAsync(
+                    PROPERTIES, transactions(), tx, "EXPLAIN PLAN FOR " + qry, params);
+            AsyncSqlCursor<List<Object>> explainCursor = await(explainCursors);
+            List<List<Object>> explainRes = getAllFromCursor(explainCursor);
+
+            String actualPlan = (String) explainRes.get(0).get(0);
 
             if (!CollectionUtils.nullOrEmpty(planMatchers)) {
-
-                CompletableFuture<AsyncSqlCursor<List<Object>>> explainCursors = qryProc.querySingleAsync(sessionId,
-                        context, transactions(), "EXPLAIN PLAN FOR " + qry, params);
-                AsyncSqlCursor<List<Object>> explainCursor = await(explainCursors);
-                List<List<Object>> explainRes = getAllFromCursor(explainCursor);
-
-                String actualPlan = (String) explainRes.get(0).get(0);
-
-                if (!CollectionUtils.nullOrEmpty(planMatchers)) {
-                    for (Matcher<String> matcher : planMatchers) {
-                        assertThat("Invalid plan:\n" + actualPlan, actualPlan, matcher);
-                    }
+                for (Matcher<String> matcher : planMatchers) {
+                    assertThat("Invalid plan:\n" + actualPlan, actualPlan, matcher);
                 }
             }
-            // Check result.
-            CompletableFuture<AsyncSqlCursor<List<Object>>> cursors =
-                    qryProc.querySingleAsync(sessionId, context, transactions(), qry, params);
+        }
+        // Check result.
+        CompletableFuture<AsyncSqlCursor<List<Object>>> cursors =
+                qryProc.querySingleAsync(PROPERTIES, transactions(), tx, qry, params);
 
-            AsyncSqlCursor<List<Object>> cur = await(cursors);
+        AsyncSqlCursor<List<Object>> cur = await(cursors);
 
-            checkMetadata(cur.metadata());
+        checkMetadata(cur.metadata());
 
-            if (metadataMatchers != null) {
-                List<ColumnMetadata> columnMetadata = cur.metadata().columns();
+        if (metadataMatchers != null) {
+            List<ColumnMetadata> columnMetadata = cur.metadata().columns();
 
-                Iterator<ColumnMetadata> valueIterator = columnMetadata.iterator();
-                Iterator<ColumnMatcher> matcherIterator = metadataMatchers.iterator();
+            Iterator<ColumnMetadata> valueIterator = columnMetadata.iterator();
+            Iterator<ColumnMatcher> matcherIterator = metadataMatchers.iterator();
 
-                while (matcherIterator.hasNext() && valueIterator.hasNext()) {
-                    ColumnMatcher matcher = matcherIterator.next();
-                    ColumnMetadata actualElement = valueIterator.next();
+            while (matcherIterator.hasNext() && valueIterator.hasNext()) {
+                ColumnMatcher matcher = matcherIterator.next();
+                ColumnMetadata actualElement = valueIterator.next();
 
-                    matcher.check(actualElement);
-                }
-
-                assertEquals(metadataMatchers.size(), columnMetadata.size(), "Column metadata doesn't match");
+                matcher.check(actualElement);
             }
 
-            List<List<?>> res = Commons.cast(getAllFromCursor(cur));
+            assertEquals(metadataMatchers.size(), columnMetadata.size(), "Column metadata doesn't match");
+        }
 
-            if (resultChecker != null) {
-                resultChecker.check(res, ordered);
-            }
-        } finally {
-            await(qryProc.closeSession(sessionId));
+        List<List<?>> res = Commons.cast(getAllFromCursor(cur));
+
+        if (resultChecker != null) {
+            resultChecker.check(res, ordered);
         }
     }
 

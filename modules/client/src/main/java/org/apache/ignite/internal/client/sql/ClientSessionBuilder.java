@@ -24,7 +24,6 @@ import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.client.ReliableChannel;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.Session.SessionBuilder;
-import org.apache.ignite.tx.IgniteTransactions;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -56,16 +55,6 @@ public class ClientSessionBuilder implements SessionBuilder {
      */
     public ClientSessionBuilder(ReliableChannel ch) {
         this.ch = ch;
-    }
-
-    @Override
-    public IgniteTransactions igniteTransactions() {
-        throw new UnsupportedOperationException("Should not be used in this implementation.");
-    }
-
-    @Override
-    public SessionBuilder igniteTransactions(IgniteTransactions transactions) {
-        throw new UnsupportedOperationException("Should not be used in this implementation.");
     }
 
     @Override

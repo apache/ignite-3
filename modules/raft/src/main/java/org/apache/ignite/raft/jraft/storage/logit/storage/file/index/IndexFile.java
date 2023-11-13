@@ -22,6 +22,7 @@ import java.util.Arrays;
 
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.storage.logit.storage.file.AbstractFile;
 
 /**
@@ -49,8 +50,8 @@ public class IndexFile extends AbstractFile {
 
     public static final int     RECORD_MAGIC_BYTES_SIZE = RECORD_MAGIC_BYTES.length;
 
-    public IndexFile(final String filePath, final int fileSize) {
-        super(filePath, fileSize, true);
+    public IndexFile(RaftOptions raftOptions, final String filePath, final int fileSize) {
+        super(raftOptions, filePath, fileSize, true);
     }
 
     /**
@@ -204,9 +205,7 @@ public class IndexFile extends AbstractFile {
         if (buffer.remaining() < getIndexSize() - RECORD_MAGIC_BYTES_SIZE - 1) {
             return CheckDataResult.CHECK_FAIL;
         }
-        final CheckDataResult result = CheckDataResult.CHECK_SUCCESS;
-        result.setSize(getIndexSize());
-        return result;
+        return new CheckDataResult(getIndexSize());
     }
 
     @Override

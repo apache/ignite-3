@@ -70,7 +70,7 @@ public class JdbcQueryCursorSelfTest extends BaseIgniteAbstractTest {
     private List<Integer> fetchFullBatch(int maxRows, int fetchSize) {
         JdbcQueryCursor<Integer> cursor = new JdbcQueryCursor<>(maxRows,
                 new AsyncSqlCursorImpl<>(SqlQueryType.QUERY, null, txWrapper,
-                        new AsyncWrapper<>(CompletableFuture.completedFuture(ROWS.iterator()), Runnable::run)));
+                        new AsyncWrapper<>(CompletableFuture.completedFuture(ROWS.iterator()), Runnable::run), () -> {}));
 
         List<Integer> results = new ArrayList<>(maxRows);
         BatchedResult<Integer> requestResult;

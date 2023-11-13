@@ -98,8 +98,9 @@ public class AlterTableDropColumnCommand extends AbstractTableCommand {
             }
 
             if (indexedColumns.contains(columnName)) {
-                List<String> indexesNames = Arrays.stream(schema.indexes()).filter(
-                        index -> index instanceof CatalogHashIndexDescriptor
+                List<String> indexesNames = Arrays.stream(schema.indexes())
+                        .filter(index -> index.tableId() == table.id())
+                        .filter(index -> index instanceof CatalogHashIndexDescriptor
                                 ? ((CatalogHashIndexDescriptor) index).columns().contains(columnName)
                                 : ((CatalogSortedIndexDescriptor) index).columns().stream().map(CatalogIndexColumnDescriptor::name)
                                         .anyMatch(column -> column.equals(columnName))

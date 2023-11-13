@@ -24,13 +24,13 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Row with time.
  */
-class TimedBinaryRow {
+public class TimedBinaryRow {
 
     private final @Nullable BinaryRow binaryRow;
 
     private final @Nullable HybridTimestamp commitTimestamp;
 
-    TimedBinaryRow(@Nullable BinaryRow binaryRow, @Nullable HybridTimestamp commitTimestamp) {
+    public TimedBinaryRow(@Nullable BinaryRow binaryRow, @Nullable HybridTimestamp commitTimestamp) {
         this.binaryRow = binaryRow;
         this.commitTimestamp = commitTimestamp;
     }

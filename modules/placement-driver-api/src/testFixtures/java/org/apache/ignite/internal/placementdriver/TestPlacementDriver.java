@@ -18,15 +18,18 @@
 package org.apache.ignite.internal.placementdriver;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.CompletableFuture.failedFuture;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiFunction;
+import java.util.function.Supplier;
 import org.apache.ignite.internal.event.AbstractEventProducer;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -37,13 +40,26 @@ import org.jetbrains.annotations.TestOnly;
 @TestOnly
 public class TestPlacementDriver extends AbstractEventProducer<PrimaryReplicaEvent, PrimaryReplicaEventParameters>
         implements PlacementDriver {
-    private final TestReplicaMetaImpl primaryReplica;
+    private final Supplier<TestReplicaMetaImpl> primaryReplicaSupplier;
 
     @Nullable
     private BiFunction<ReplicationGroupId, HybridTimestamp, CompletableFuture<ReplicaMeta>> awaitPrimaryReplicaFunction = null;
 
-    public TestPlacementDriver(String leaseholder) {
-        this.primaryReplica = new TestReplicaMetaImpl(leaseholder);
+    /** Auxiliary constructor that will create replica meta by {@link TestReplicaMetaImpl#TestReplicaMetaImpl(ClusterNode)} internally. */
+    public TestPlacementDriver(ClusterNode leaseholder) {
+        primaryReplicaSupplier = () -> new TestReplicaMetaImpl(leaseholder);
+    }
+
+    /**
+     * Auxiliary constructor that allows you to create {@link TestPlacementDriver} in cases where the node ID will be known only after the
+     * start of the components/node. Will use {@link TestReplicaMetaImpl#TestReplicaMetaImpl(ClusterNode)}.
+     */
+    public TestPlacementDriver(Supplier<ClusterNode> leaseholderSupplier) {
+        primaryReplicaSupplier = () -> new TestReplicaMetaImpl(leaseholderSupplier.get());
+    }
+
+    public TestPlacementDriver(String leaseholder, String leaseholderId) {
+        primaryReplicaSupplier = () -> new TestReplicaMetaImpl(leaseholder, leaseholderId);
     }
 
     @Override
@@ -57,12 +73,12 @@ public class TestPlacementDriver extends AbstractEventProducer<PrimaryReplicaEve
             return awaitPrimaryReplicaFunction.apply(groupId, timestamp);
         }
 
-        return completedFuture(primaryReplica);
+        return getReplicaMetaFuture();
     }
 
     @Override
     public CompletableFuture<ReplicaMeta> getPrimaryReplica(ReplicationGroupId replicationGroupId, HybridTimestamp timestamp) {
-        return completedFuture(primaryReplica);
+        return getReplicaMetaFuture();
     }
 
     @Override
@@ -79,5 +95,13 @@ public class TestPlacementDriver extends AbstractEventProducer<PrimaryReplicaEve
             @Nullable BiFunction<ReplicationGroupId, HybridTimestamp, CompletableFuture<ReplicaMeta>> awaitPrimaryReplicaFunction
     ) {
         this.awaitPrimaryReplicaFunction = awaitPrimaryReplicaFunction;
+    }
+
+    private CompletableFuture<ReplicaMeta> getReplicaMetaFuture() {
+        try {
+            return completedFuture(primaryReplicaSupplier.get());
+        } catch (Throwable t) {
+            return failedFuture(t);
+        }
     }
 }

@@ -36,29 +36,31 @@ public class TestTable extends IgniteTableImpl {
     private static final String DATA_PROVIDER_NOT_CONFIGURED_MESSAGE_TEMPLATE =
             "DataProvider is not configured [table={}, node={}]";
 
-    private static final AtomicInteger ID = new AtomicInteger();
+    static final AtomicInteger ID = new AtomicInteger();
 
     private final Map<String, DataProvider<?>> dataProviders;
 
     /** Constructor. */
     public TestTable(
+            int tableId,
             TableDescriptor descriptor,
             String name,
             double rowCnt,
             List<IgniteIndex> indexes
     ) {
-        this(descriptor, name, rowCnt, indexes, Map.of());
+        this(tableId, descriptor, name, rowCnt, indexes, Map.of());
     }
 
     /** Constructor. */
     public TestTable(
+            int tableId,
             TableDescriptor descriptor,
             String name,
             double rowCnt,
             List<IgniteIndex> indexList,
             Map<String, DataProvider<?>> dataProviders
     ) {
-        super(name, ID.incrementAndGet(), 1, descriptor, new TestStatistic(rowCnt),
+        super(name, tableId, 1, descriptor, new TestStatistic(rowCnt),
                 indexList.stream().collect(Collectors.toUnmodifiableMap(IgniteIndex::name, Function.identity())));
 
         this.dataProviders = dataProviders;

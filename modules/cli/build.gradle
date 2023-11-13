@@ -114,6 +114,7 @@ dependencies {
     integrationTestImplementation libs.awaitility
     integrationTestImplementation libs.hamcrest.core
     integrationTestImplementation libs.hamcrest.optional
+    integrationTestImplementation libs.micronaut.inject
 }
 
 // Use the same logging implementation for ignite components and cli.

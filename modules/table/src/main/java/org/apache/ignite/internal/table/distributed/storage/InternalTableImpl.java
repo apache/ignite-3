@@ -21,6 +21,7 @@ import static it.unimi.dsi.fastutil.ints.Int2ObjectMaps.emptyMap;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.table.distributed.replicator.action.RequestType.RW_DELETE_ALL;
 import static org.apache.ignite.internal.table.distributed.replicator.action.RequestType.RW_GET;
 import static org.apache.ignite.internal.table.distributed.replicator.action.RequestType.RW_GET_ALL;
@@ -70,7 +71,6 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.IgnitePentaFunction;
-import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.lang.IgniteTriFunction;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
@@ -107,7 +107,6 @@ import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.LockException;
 import org.apache.ignite.internal.tx.TxManager;
-import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -328,12 +327,6 @@ public class InternalTableImpl implements InternalTable {
             );
         }
 
-        // It's possible to have null txState if transaction isn't started yet.
-        if (tx != null && !(tx.state() == TxState.PENDING || tx.state() == null)) {
-            return failedFuture(new TransactionException(
-                    "The operation is attempted for completed transaction"));
-        }
-
         boolean implicit = tx == null;
         InternalTransaction actualTx = startImplicitRwTxIfNeeded(tx);
 
@@ -524,9 +517,9 @@ public class InternalTableImpl implements InternalTable {
             // Track only write requests from explicit transactions.
             if (!txManager.addInflight(tx.id())) {
                 return failedFuture(
-                        new TransactionException(TX_UNEXPECTED_STATE_ERR, IgniteStringFormatter.format(
+                        new TransactionException(TX_UNEXPECTED_STATE_ERR, format(
                                 "Failed to enlist a write operation into a transaction, tx is locked for updates "
-                                        + "[tableName={}, partId={}, txState={}]",
+                                        + "[tableName={}, partId={}, txState={}].",
                                 tableName,
                                 partId,
                                 tx.state()
@@ -629,8 +622,8 @@ public class InternalTableImpl implements InternalTable {
             } catch (Throwable e) {
                 throw new TransactionException(
                         INTERNAL_ERR,
-                        IgniteStringFormatter.format(
-                                "Failed to invoke the replica request [tableName={}, partId={}]",
+                        format(
+                                "Failed to invoke the replica request [tableName={}, partId={}].",
                                 tableName,
                                 partId
                         ),
@@ -680,8 +673,8 @@ public class InternalTableImpl implements InternalTable {
             } catch (Throwable e) {
                 throw new TransactionException(
                         INTERNAL_ERR,
-                        IgniteStringFormatter.format(
-                                "Failed to invoke the replica request [tableName={}, partId={}]",
+                        format(
+                                "Failed to invoke the replica request [tableName={}, partId={}].",
                                 tableName,
                                 partId
                         ),
@@ -1451,7 +1444,7 @@ public class InternalTableImpl implements InternalTable {
     private void validatePartitionIndex(int p) {
         if (p < 0 || p >= partitions) {
             throw new IllegalArgumentException(
-                    IgniteStringFormatter.format(
+                    format(
                             "Invalid partition [partition={}, minValue={}, maxValue={}].",
                             p,
                             0,
@@ -1829,9 +1822,8 @@ public class InternalTableImpl implements InternalTable {
                 if (n <= 0) {
                     cancel(null, true);
 
-                    subscriber.onError(new IllegalArgumentException(IgniteStringFormatter
-                            .format("Invalid requested amount of items [requested={}, minValue=1]", n))
-                    );
+                    subscriber.onError(new IllegalArgumentException(
+                            format("Invalid requested amount of items [requested={}, minValue=1].", n)));
                 }
 
                 if (canceled.get()) {

@@ -33,19 +33,21 @@ import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
-import org.apache.ignite.internal.table.TableImpl;
+import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.schema.CheckCatalogVersionOnAppendEntries;
 import org.apache.ignite.internal.test.WatchListenerInhibitor;
 import org.apache.ignite.internal.testframework.log4j2.LogInspector;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
  * Tests about interaction between Schema Synchronization and Replication.
  */
 @SuppressWarnings("resource")
+@Disabled("https://issues.apache.org/jira/browse/IGNITE-20709")
 class ItSchemaSyncAndReplicationTest extends ClusterPerTestIntegrationTest {
     private static final int NODES_TO_START = 3;
 
@@ -150,7 +152,7 @@ class ItSchemaSyncAndReplicationTest extends ClusterPerTestIntegrationTest {
 
     private static MvPartitionStorage solePartitionStorage(IgniteImpl node) {
         // We use this api because there is no waiting for schemas to sync.
-        TableImpl table = ((TableManager) node.tables()).getTable(TABLE_NAME);
+        TableViewInternal table = ((TableManager) node.tables()).getTable(TABLE_NAME);
 
         assertNotNull(table);
 

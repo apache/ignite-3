@@ -25,6 +25,7 @@ import org.apache.ignite.internal.schema.Columns;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.type.NativeType;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Object statistic.
@@ -48,7 +49,7 @@ class ObjectStatistics {
     /**
      * Reads object fields and gather statistic.
      */
-    private static ObjectStatistics collectObjectStats(Columns cols, Marshaller marsh, Object obj) {
+    private static ObjectStatistics collectObjectStats(Columns cols, Marshaller marsh, @Nullable Object obj) {
         if (obj == null) {
             return ZERO_STATISTICS;
         }
@@ -84,7 +85,8 @@ class ObjectStatistics {
         return new RowAssembler(schema.keyColumns(), null, schema.version(), totalValueSize);
     }
 
-    static RowAssembler createAssembler(SchemaDescriptor schema, Marshaller keyMarsh, Marshaller valMarsh, Object key, Object val) {
+    static RowAssembler createAssembler(
+            SchemaDescriptor schema, Marshaller keyMarsh, Marshaller valMarsh, Object key, @Nullable Object val) {
         ObjectStatistics keyStat = collectObjectStats(schema.keyColumns(), keyMarsh, key);
         ObjectStatistics valStat = collectObjectStats(schema.valueColumns(), valMarsh, val);
 

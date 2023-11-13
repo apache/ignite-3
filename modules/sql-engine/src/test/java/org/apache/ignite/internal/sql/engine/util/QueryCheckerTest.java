@@ -21,11 +21,9 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThr
 import static org.hamcrest.Matchers.containsString;
 
 import java.util.List;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursorImpl;
-import org.apache.ignite.internal.sql.engine.QueryContext;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.QueryTransactionWrapper;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
@@ -35,11 +33,9 @@ import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.framework.TestCluster;
 import org.apache.ignite.internal.sql.engine.framework.TestNode;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
-import org.apache.ignite.internal.sql.engine.property.PropertiesHolder;
-import org.apache.ignite.internal.sql.engine.session.SessionId;
-import org.apache.ignite.internal.sql.engine.session.SessionInfo;
-import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
+import org.apache.ignite.internal.sql.engine.property.SqlProperties;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.AsyncCursor;
 import org.apache.ignite.sql.ColumnMetadata;
@@ -71,11 +67,10 @@ public class QueryCheckerTest extends BaseIgniteAbstractTest {
                     .name("T1")
                     .addKeyColumn("ID", NativeTypes.INT32)
                     .addColumn("VAL", NativeTypes.INT32)
-                    .distribution(IgniteDistributions.hash(List.of(0)))
-                    .defaultDataProvider(DataProvider.fromCollection(List.of(
-                            new Object[] {1, 1}, new Object[] {2, 2}
-                    )))
                     .end()
+            .dataProvider(NODE_NAME, "T1", TestBuilders.tableScan(DataProvider.fromCollection(List.of(
+                    new Object[] {1, 1}, new Object[] {2, 2}
+            ))))
             .build();
     // @formatter:on
 
@@ -271,23 +266,13 @@ public class QueryCheckerTest extends BaseIgniteAbstractTest {
         }
 
         @Override
-        public SessionId createSession(PropertiesHolder properties) {
-            return new SessionId(UUID.randomUUID());
-        }
-
-        @Override
-        public CompletableFuture<Void> closeSession(SessionId sessionId) {
-            return CompletableFuture.completedFuture(null);
-        }
-
-        @Override
-        public List<SessionInfo> liveSessions() {
-            return List.of();
-        }
-
-        @Override
-        public CompletableFuture<AsyncSqlCursor<List<Object>>> querySingleAsync(SessionId sessionId, QueryContext context,
-                IgniteTransactions transactions, String qry, Object... params) {
+        public CompletableFuture<AsyncSqlCursor<List<Object>>> querySingleAsync(
+                SqlProperties properties,
+                IgniteTransactions transactions,
+                @Nullable InternalTransaction transaction,
+                String qry,
+                Object... params
+        ) {
             assert params == null || params.length == 0 : "params are not supported";
 
             QueryPlan plan = node.prepare(qry);
@@ -301,7 +286,8 @@ public class QueryCheckerTest extends BaseIgniteAbstractTest {
                     type,
                     plan.metadata(),
                     new QueryTransactionWrapper(new NoOpTransaction("test"), false),
-                    dataCursor
+                    dataCursor,
+                    () -> {}
             );
 
             return CompletableFuture.completedFuture(sqlCursor);
