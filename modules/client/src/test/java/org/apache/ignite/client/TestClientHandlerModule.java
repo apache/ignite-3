@@ -209,7 +209,8 @@ public class TestClientHandlerModule implements IgniteComponent {
                                         clock,
                                         new AlwaysSyncedSchemaSyncService(),
                                         TestServer.mockCatalogService(),
-                                        connectionIdGen.incrementAndGet()
+                                        connectionIdGen.incrementAndGet(),
+                                        mock()
                                 )
                         );
                     }

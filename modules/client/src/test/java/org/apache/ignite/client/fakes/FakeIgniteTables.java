@@ -26,8 +26,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
-import java.util.stream.Collectors;
-import org.apache.ignite.internal.client.ClientClusterNode;
 import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRowConverter;
@@ -41,7 +39,6 @@ import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.type.NativeTypes;
-import org.apache.ignite.internal.utils.PrimaryReplica;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.Table;
 
@@ -169,34 +166,6 @@ public class FakeIgniteTables implements IgniteTablesInternal {
     @Override
     public CompletableFuture<TableViewInternal> tableViewAsync(String name) {
         return completedFuture(tableView(name));
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public CompletableFuture<List<PrimaryReplica>> primaryReplicasAsync(int tableId) {
-        if (partitionAssignments == null) {
-            return completedFuture(null);
-        }
-
-        var replicas = partitionAssignments.stream()
-                .map(nodeName -> new PrimaryReplica(new ClientClusterNode("", nodeName, null), 0))
-                .collect(Collectors.toList());
-
-        return completedFuture(replicas);
-    }
-
-    /** {@inheritDoc} */
-    @SuppressWarnings("rawtypes")
-    @Override
-    public void addPrimaryReplicaChangeListener(EventListener listener) {
-        assignmentsChangeListeners.add(listener);
-    }
-
-    /** {@inheritDoc} */
-    @SuppressWarnings("rawtypes")
-    @Override
-    public void removePrimaryReplicaChangeListener(EventListener listener) {
-        assignmentsChangeListeners.remove(listener);
     }
 
     /**
