@@ -341,16 +341,15 @@ public interface ChildView {
 }
 
 public interface PolymorphicView {
-  String typeId();
+    String typeId();
 }
 
 public interface FirstPolymorphicInstanceView extends PolymorphicView {
-  int intVal();
+    int intVal();
 }
 ```
 
-`ParentView#polymorphicChild()` will return a view of a specific type of polymorphic configuration, for
-example `FirstPolymorphicInstanceView`.
+`ParentView#polymorphicChild()` will return a view of a specific type of polymorphic configuration, for example `FirstPolymorphicInstanceView`.
 
 ### Dynamic configuration defaults
 
@@ -391,31 +390,28 @@ start, the provided configuration will be ignored.
 
 ### Changing the configuration
 
-To modify the configuration tree, one should use the `change` method, which executes the update requests
+To modify the configuration tree, one should use the `change` method, which executes the update requests 
 asynchronously and in a transactional manner. Update requests are represented by a set of `Change` interfaces.
 For the example above, the following interfaces would be generated:
 
 ```java
-public interface ParentChange extends ParentView {
-  ParentChange changeElements(Consumer<NamedListChange<NamedElementChange>> elements);
+public interface ParentChange extends ParentView { 
+    ParentChange changeElements(Consumer<NamedListChange<NamedElementChange>> elements);
+    NamedListChange<NamedElementChange> changeElements();
 
-  NamedListChange<NamedElementChange> changeElements();
+    ParentChange changeChild(Consumer<ChildChange> child);
+    ChildChange changeChild();
 
-  ParentChange changeChild(Consumer<ChildChange> child);
-
-  ChildChange changeChild();
-
-  ParentChange changePolymorphicChild(Consumer<PolymorphicChange> polymorphicChild);
-
-  PolymorphicChange changePolymorphicChild();
+    ParentChange changePolymorphicChild(Consumer<PolymorphicChange> polymorphicChild);
+    PolymorphicChange changePolymorphicChild();
 }
 
 public interface ChildChange extends ChildView {
-  ChildChange changeStr(String str);
+    ChildChange changeStr(String str);
 }
 
 public interface PolymorphicChange extends FirstPolymorphicView {
-  <T extends PolymorphicChange> T convert(Class<T> changeClass);
+    <T extends PolymorphicChange> T convert(Class<T> changeClass);
 }
 
 public interface FirstPolymorphicInstanceChange extends FirstPolymorphicInstanceView, PolymorphicChange {

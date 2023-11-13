@@ -49,6 +49,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -109,6 +110,9 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
 
     /** Lock for reading/updating the {@link #storageRoots}. Fair, to give a higher priority to external updates. */
     private final ReadWriteLock rwLock = new ReentrantReadWriteLock(true);
+
+    /** Flag indicating whether the component is started. */
+    private final AtomicBoolean started = new AtomicBoolean(false);
 
     /**
      * Closure interface to be used by the configuration changer. An instance of this closure is passed into the constructor and invoked
@@ -291,6 +295,8 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
         storage.registerConfigurationListener(configurationStorageListener());
 
         persistDefaults();
+
+        started.set(true);
     }
 
     /**
@@ -316,12 +322,14 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
 
     /**
      * Sets {@link #initialConfiguration}. This configuration will be used to initialize the configuration if the storage is empty. If the
-     * storage is not empty, this configuration will be ignored. This method should be called before {@link #start()}. If the method is
-     * called after the start, the provided configuration will be ignored.
+     * storage is not empty, this configuration will be ignored. This method must be called before {@link #start()}. If the method is not
+     * called, the initial configuration will be empty.
      *
      * @param configurationSource the configuration source to initialize with.
      */
     public void initializeConfigurationWith(ConfigurationSource configurationSource) {
+        assert !started.get() : "ConfigurationChanger#initializeConfigurationWith must be called before the start.";
+
         initialConfiguration = configurationSource;
     }
 
