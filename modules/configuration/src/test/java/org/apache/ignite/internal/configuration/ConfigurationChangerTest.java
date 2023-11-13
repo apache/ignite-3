@@ -577,7 +577,7 @@ public class ConfigurationChangerTest {
         com.typesafe.config.Config config = ConfigFactory.parseString(initialConfiguration);
         ConfigurationSource hoconSource = HoconConverter.hoconSource(config.root());
 
-        var changer = createChanger(DefaultsConfiguration.KEY);
+        ConfigurationChanger changer = createChanger(DefaultsConfiguration.KEY);
 
         changer.initializeConfigurationWith(hoconSource);
 

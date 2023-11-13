@@ -129,7 +129,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
     /** Local node's attributes. */
     private final NodeAttributes nodeAttributes;
 
-    /** Future that resolves into the initial cluster configuration. */
+    /** Future that resolves into the initial cluster configuration in HOCON format. */
     private final CompletableFuture<String> initialClusterConfigurationFuture = new CompletableFuture<>();
 
     /** Constructor. */
@@ -793,8 +793,8 @@ public class ClusterManagementGroupManager implements IgniteComponent {
     }
 
     /**
-     * Returns a future resolving to the initial cluster configuration. The resulting configuration may be {@code null} if not provided by
-     * the user.
+     * Returns a future resolving to the initial cluster configuration in HOCON format. The resulting configuration may be {@code null} if
+     * not provided by the user.
      *
      * @return a CompletableFuture that, upon completion, provides the initial cluster configuration, which may be {@code null}.
      */
