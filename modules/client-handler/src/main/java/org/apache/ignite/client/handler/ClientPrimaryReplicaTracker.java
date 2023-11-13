@@ -18,7 +18,6 @@
 package org.apache.ignite.client.handler;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -38,13 +37,10 @@ import org.jetbrains.annotations.Nullable;
  * Tracks primary replica for every partition.
  */
 public class ClientPrimaryReplicaTracker {
-    private static final List<String> PENDING = Collections.emptyList();
-
     private static final PrimaryReplicaEvent EVENT = PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED;
 
-    private final ConcurrentHashMap<Integer, List<String>> primaryReplicas = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<Integer, CompletableFuture<List<String>>> primaryReplicas = new ConcurrentHashMap<>();
 
-    /** Update counter for all tables. */
     private final AtomicLong updateCount = new AtomicLong();
 
     private final PlacementDriver placementDriver;
@@ -64,19 +60,15 @@ public class ClientPrimaryReplicaTracker {
         }
 
         TablePartitionId tablePartitionId = (TablePartitionId) eventParameters.groupId();
-        primaryReplicas.computeIfPresent(tablePartitionId.tableId(), (ignored, oldVal) -> {
-            if (oldVal.isEmpty()) {
-                // Initial value is not set yet.
-                return oldVal;
-            }
+        var fut = primaryReplicas.get(tablePartitionId.tableId());
 
-            assert oldVal.size() > tablePartitionId.partitionId() : "replicas.size() > tablePartitionId.partitionId()";
-            oldVal.set(tablePartitionId.partitionId(), eventParameters.leaseholder());
+        if (fut != null) {
+            fut.thenAccept(replicas -> {
+                replicas.set(tablePartitionId.partitionId(), eventParameters.leaseholder());
+                updateCount.incrementAndGet();
+            });
+        }
 
-            return oldVal;
-        });
-
-        updateCount.incrementAndGet();
         return CompletableFuture.completedFuture(false); // false: don't remove listener.
     }
 
@@ -86,10 +78,8 @@ public class ClientPrimaryReplicaTracker {
      * @param tableId Table ID.
      * @return Primary replicas for the table, or null when not yet known.
      */
-    public @Nullable List<String> primaryReplicas(int tableId) {
-        List<String> replicas = primaryReplicas.computeIfAbsent(tableId, this::init);
-
-        return replicas == PENDING ? null : replicas;
+    public CompletableFuture<List<String>> primaryReplicasAsync(int tableId) {
+        return primaryReplicas.computeIfAbsent(tableId, this::init);
     }
 
     long updateCount() {
@@ -104,26 +94,23 @@ public class ClientPrimaryReplicaTracker {
         placementDriver.removeListener(EVENT, listener);
     }
 
-    private List<String> init(Integer tableId) {
+    private CompletableFuture<List<String>> init(Integer tableId) {
         try {
             // Initially, request all primary replicas for the table.
             // Then keep them updated via PRIMARY_REPLICA_ELECTED events.
-            igniteTables
+            return igniteTables
                     .tableAsync(tableId)
                     .thenCompose(t -> t.internalTable().primaryReplicas())
-                    .thenAccept(replicas -> {
+                    .thenApply(replicas -> {
                         List<String> replicaNames = new ArrayList<>(replicas.size());
                         for (PrimaryReplica replica : replicas) {
                             replicaNames.add(replica.node().name());
                         }
 
-                        primaryReplicas.put(tableId, replicaNames);
-                        updateCount.incrementAndGet();
+                        return replicaNames;
                     });
-        } catch (NodeStoppingException ignored) {
-            // Ignore. When node is stopping, we don't need to track primary replicas.
+        } catch (NodeStoppingException e) {
+            return CompletableFuture.failedFuture(e);
         }
-
-        return PENDING;
     }
 }

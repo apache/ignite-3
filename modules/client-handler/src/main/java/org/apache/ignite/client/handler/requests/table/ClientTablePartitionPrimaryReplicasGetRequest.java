@@ -17,7 +17,6 @@
 
 package org.apache.ignite.client.handler.requests.table;
 
-import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.ClientPrimaryReplicaTracker;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
@@ -45,18 +44,17 @@ public class ClientTablePartitionPrimaryReplicasGetRequest {
             ClientPrimaryReplicaTracker tracker
     ) throws NodeStoppingException {
         int tableId = in.unpackInt();
-        List<String> primaryReplicas = tracker.primaryReplicas(tableId);
 
-        if (primaryReplicas == null) {
-            out.packInt(0);
-        } else {
-            out.packInt(primaryReplicas.size());
+        return tracker.primaryReplicasAsync(tableId).thenAccept(primaryReplicas -> {
+            if (primaryReplicas == null) {
+                out.packInt(0);
+            } else {
+                out.packInt(primaryReplicas.size());
 
-            for (String primaryReplicaName : primaryReplicas) {
-                out.packString(primaryReplicaName);
+                for (String primaryReplicaName : primaryReplicas) {
+                    out.packString(primaryReplicaName);
+                }
             }
-        }
-
-        return null;
+        });
     }
 }
