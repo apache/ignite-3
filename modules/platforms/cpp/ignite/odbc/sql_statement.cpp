@@ -24,6 +24,7 @@
 #include "ignite/odbc/query/foreign_keys_query.h"
 #include "ignite/odbc/query/primary_keys_query.h"
 #include "ignite/odbc/query/table_metadata_query.h"
+#include "ignite/odbc/query/special_columns_query.h"
 #include "ignite/odbc/query/type_info_query.h"
 #include "ignite/odbc/sql_statement.h"
 #include "ignite/odbc/system/odbc_constants.h"
@@ -622,13 +623,8 @@ void sql_statement::execute_special_columns_query(uint16_t type, const std::stri
     IGNITE_ODBC_API_CALL(internal_execute_special_columns_query(type, catalog, schema, table, scope, nullable));
 }
 
-sql_result sql_statement::internal_execute_special_columns_query(uint16_t type, const std::string &catalog,
-    const std::string &schema, const std::string &table, uint16_t scope, uint16_t nullable) {
-    UNUSED_VALUE catalog;
-    UNUSED_VALUE schema;
-    UNUSED_VALUE table;
-    UNUSED_VALUE scope;
-    UNUSED_VALUE nullable;
+sql_result sql_statement::internal_execute_special_columns_query(std::uint16_t type, const std::string &catalog,
+    const std::string &schema, const std::string &table, std::uint16_t scope, std::uint16_t nullable) {
 
     if (type != SQL_BEST_ROWID && type != SQL_ROWVER) {
         add_status_record(sql_state::SHY097_COLUMN_TYPE_OUT_OF_RANGE, "An invalid IdentifierType value was specified.");
@@ -638,9 +634,9 @@ sql_result sql_statement::internal_execute_special_columns_query(uint16_t type, 
     if (m_current_query)
         m_current_query->close();
 
-    // TODO: IGNITE-19218 Implement special columns query
-    add_status_record(sql_state::SHYC00_OPTIONAL_FEATURE_NOT_IMPLEMENTED, "Special columns query is not supported.");
-    return sql_result::AI_ERROR;
+    m_current_query = std::make_unique<special_columns_query>(*this, type, catalog, schema, table, scope, nullable);
+
+    return m_current_query->execute();
 }
 
 void sql_statement::execute_get_type_info_query(std::int16_t sql_type) {
