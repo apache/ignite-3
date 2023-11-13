@@ -18,13 +18,13 @@
 package org.apache.ignite.client.handler;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
+import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.jetbrains.annotations.Nullable;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 
@@ -33,7 +33,7 @@ import org.apache.ignite.internal.placementdriver.PlacementDriver;
  * Tracks primary replica for every partition.
  */
 public class ClientPrimaryReplicaTracker {
-    private final ConcurrentHashMap<String, PrimaryReplicas> primaryReplicas = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<Integer, PrimaryReplicas> primaryReplicas = new ConcurrentHashMap<>();
 
     private final PlacementDriver placementDriver;
 
@@ -41,36 +41,66 @@ public class ClientPrimaryReplicaTracker {
         assert placementDriver != null;
 
         this.placementDriver = placementDriver;
-    }
 
-    // TODO: For every tracked table, maintain an "assignment version" that is incremented every time a replica changes.
-    public @Nullable PrimaryReplicas primaryReplicas(String table) {
-        // TODO: Start tracking the table on first request.
-        return primaryReplicas.computeIfAbsent(table, this::init);
-    }
-
-    private PrimaryReplicas init(String table) {
-        // TODO: Where do we get partition count?
-        EventListener<PrimaryReplicaEventParameters> listener = eventParameters -> {
-            if (eventParameters.tableName().equals(table)) {
-                primaryReplicas.put(table, new PrimaryReplicas(eventParameters.version(), eventParameters.primaryReplicas()));
+        EventListener<PrimaryReplicaEventParameters> listener = (eventParameters, err) -> {
+            if (err != null || !(eventParameters.groupId() instanceof TablePartitionId)) {
+                return CompletableFuture.completedFuture(null);
             }
+
+            TablePartitionId tablePartitionId = (TablePartitionId) eventParameters.groupId();
+            int eventTableId = tablePartitionId.tableId();
+
+            primaryReplicas.computeIfPresent(eventTableId, (tableId, oldVal) -> {
+                if (oldVal.replicas == null) {
+                    // Initial value is not set yet.
+                    return oldVal;
+                }
+
+                assert oldVal.replicas.size() > tablePartitionId.partitionId() : "replicas.size() > tablePartitionId.partitionId()";
+
+                oldVal.replicas.set(tablePartitionId.partitionId(), eventParameters.leaseholder());
+
+                return new PrimaryReplicas(oldVal.version + 1, oldVal.replicas);
+
+            });
 
             return CompletableFuture.completedFuture(null);
         };
-        var event = PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED;
-        placementDriver.listen(event, listener);
+
+        // TODO: Unsubscribe somewhere.
+        placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, listener);
+    }
+
+    // TODO: For every tracked table, maintain an "assignment version" that is incremented every time a replica changes.
+    public @Nullable PrimaryReplicas primaryReplicas(int tableId) {
+        // TODO: Start tracking the table on first request.
+        return primaryReplicas.computeIfAbsent(tableId, this::init);
+    }
+
+    private PrimaryReplicas init(Integer tableId) {
+        // TODO: Where do we get partition count?
+        // TODO: Request initial assignment.
 
         return new PrimaryReplicas(0, new ArrayList<>());
     }
 
     public class PrimaryReplicas {
-        public final int version;
-        public final List<String> primaryReplicas;
+        private final int version;
 
-        public PrimaryReplicas(int version, List<String> primaryReplicas) {
+        @Nullable
+        private final List<String> replicas;
+
+        private PrimaryReplicas(int version, @Nullable List<String> replicas) {
             this.version = version;
-            this.primaryReplicas = primaryReplicas;
+            this.replicas = replicas;
+        }
+
+        public int version() {
+            return version;
+        }
+
+        public @Nullable List<String> replicas() {
+            return replicas;
         }
     }
 }

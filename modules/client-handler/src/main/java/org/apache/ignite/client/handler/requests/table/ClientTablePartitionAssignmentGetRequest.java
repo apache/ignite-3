@@ -18,6 +18,7 @@
 package org.apache.ignite.client.handler.requests.table;
 
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.client.handler.ClientPrimaryReplicaTracker;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.lang.NodeStoppingException;
@@ -32,16 +33,16 @@ public class ClientTablePartitionAssignmentGetRequest {
     /**
      * Processes the request.
      *
-     * @param in     Unpacker.
-     * @param out    Packer.
-     * @param tables Ignite tables.
+     * @param in      Unpacker.
+     * @param out     Packer.
+     * @param tracker Replica tracker.
      * @return Future.
      * @throws IgniteException When schema registry is no initialized.
      */
     public static CompletableFuture<Void> process(
             ClientMessageUnpacker in,
             ClientMessagePacker out,
-            IgniteTablesInternal tables
+            ClientPrimaryReplicaTracker tracker
     ) throws NodeStoppingException {
         int tableId = in.unpackInt();
 
