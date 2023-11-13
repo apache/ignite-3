@@ -576,10 +576,9 @@ public class RaftGroupServiceImpl implements RaftGroupService {
         if (recoverable(err)) {
             LOG.warn(
                     "Recoverable error during the request occurred (will be retried on the randomly selected node) "
-                            + "[type={}, groupId={}, peer={}].",
+                            + "[request={}, peer={}].",
                     err,
-                    sentRequest.getClass().getSimpleName(),
-                    realGroupId,
+                    sentRequest,
                     peer
             );
 
