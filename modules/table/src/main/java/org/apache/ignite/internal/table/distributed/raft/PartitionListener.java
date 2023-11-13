@@ -163,12 +163,10 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
                 SafeTimePropagatingCommand cmd = (SafeTimePropagatingCommand) command;
                 long proposedSafeTime = cmd.safeTime().longValue();
 
-                if (proposedSafeTime > maxObservableSafeTimeVerifier) {
-                    maxObservableSafeTimeVerifier = proposedSafeTime;
-                } else {
-                    assert false : "Safe time reordering detected [current=" + maxObservableSafeTimeVerifier
-                            + ", proposed=" + proposedSafeTime + "]";
-                }
+                assert proposedSafeTime > maxObservableSafeTimeVerifier : "Safe time reordering detected [current="
+                        + maxObservableSafeTimeVerifier + ", proposed=" + proposedSafeTime + "]";
+
+                maxObservableSafeTimeVerifier = proposedSafeTime;
             }
 
             long commandIndex = clo.index();
