@@ -44,22 +44,20 @@ public final class ScriptParseResult extends ParseResult {
             SqlDynamicParamsAdjuster dynamicParamsAdjuster = new SqlDynamicParamsAdjuster();
 
             List<StatementParseResult> results = list.stream()
-                    .map(node -> makeParseResultFromTree(dynamicParamsAdjuster, node, dynamicParamsCount))
+                    .map(node -> {
+                        if (dynamicParamsCount == 0) {
+                            return new StatementParseResult(node, 0);
+                        }
+
+                        SqlNode newTree = dynamicParamsAdjuster.visitNode(node);
+
+                        assert newTree != null;
+
+                        return new StatementParseResult(newTree, dynamicParamsAdjuster.paramsCount());
+                    })
                     .collect(Collectors.toList());
 
             return new ScriptParseResult(results, dynamicParamsCount);
-        }
-
-        private StatementParseResult makeParseResultFromTree(SqlDynamicParamsAdjuster adjuster, SqlNode tree, int dynamicParamsCount) {
-            if (dynamicParamsCount == 0) {
-                return new StatementParseResult(tree, 0);
-            }
-
-            SqlNode newTree = adjuster.visitNode(tree);
-
-            assert newTree != null;
-
-            return new StatementParseResult(newTree, adjuster.count);
         }
     };
 
@@ -86,18 +84,29 @@ public final class ScriptParseResult extends ParseResult {
      */
     @NotThreadSafe
     private static final class SqlDynamicParamsAdjuster extends SqlShuttle {
-        private int count;
+        private int counter;
 
         @Override
         public SqlNode visit(SqlDynamicParam param) {
-            return new SqlDynamicParam(count++, param.getParserPosition());
+            return new SqlDynamicParam(counter++, param.getParserPosition());
         }
 
+        /**
+         * Rewrites dynamic parameter nodes in the provided tree.
+         *
+         * @param node Source tree.
+         * @return New tree with dynamic parameters that have adjusted indexes.
+         */
         @Override
-        public @Nullable SqlNode visitNode(SqlNode n) {
-            count = 0;
+        public @Nullable SqlNode visitNode(SqlNode node) {
+            counter = 0;
 
-            return super.visitNode(n);
+            return super.visitNode(node);
+        }
+
+        /** Returns the number of dynamic parameters for the last visited tree. */
+        int paramsCount() {
+            return counter;
         }
     }
 
