@@ -17,19 +17,22 @@
 
 package org.apache.ignite.client.handler;
 
+import static java.util.concurrent.TimeUnit.SECONDS;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.internal.event.EventListener;
+import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
+import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
-import org.apache.ignite.internal.utils.PrimaryReplica;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -38,6 +41,8 @@ import org.jetbrains.annotations.Nullable;
  */
 public class ClientPrimaryReplicaTracker {
     private static final PrimaryReplicaEvent EVENT = PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED;
+
+    private static final int AWAIT_PRIMARY_REPLICA_TIMEOUT = 30;
 
     private final ConcurrentHashMap<Integer, CompletableFuture<List<String>>> primaryReplicas = new ConcurrentHashMap<>();
 
@@ -49,9 +54,15 @@ public class ClientPrimaryReplicaTracker {
 
     private final EventListener<PrimaryReplicaEventParameters> listener = this::onEvent;
 
-    public ClientPrimaryReplicaTracker(PlacementDriver placementDriver, IgniteTablesInternal igniteTables) {
+    private final HybridClock clock;
+
+    public ClientPrimaryReplicaTracker(
+            PlacementDriver placementDriver,
+            IgniteTablesInternal igniteTables,
+            HybridClock clock) {
         this.placementDriver = placementDriver;
         this.igniteTables = igniteTables;
+        this.clock = clock;
     }
 
     private CompletableFuture<Boolean> onEvent(PrimaryReplicaEventParameters eventParameters, @Nullable Throwable err) {
@@ -100,17 +111,37 @@ public class ClientPrimaryReplicaTracker {
             // Then keep them updated via PRIMARY_REPLICA_ELECTED events.
             return igniteTables
                     .tableAsync(tableId)
-                    .thenCompose(t -> t.internalTable().primaryReplicas())
-                    .thenApply(replicas -> {
-                        List<String> replicaNames = new ArrayList<>(replicas.size());
-                        for (PrimaryReplica replica : replicas) {
-                            replicaNames.add(replica.node().name());
-                        }
-
-                        return replicaNames;
-                    });
+                    .thenCompose(t -> primaryReplicas(t.tableId(), t.internalTable().partitions()));
         } catch (NodeStoppingException e) {
             return CompletableFuture.failedFuture(e);
         }
+    }
+
+    private CompletableFuture<List<String>> primaryReplicas(int tableId, int partitions) {
+        CompletableFuture<ReplicaMeta>[] futs = (CompletableFuture<ReplicaMeta>[]) new CompletableFuture[partitions];
+
+        for (int partition = 0; partition < partitions; partition++) {
+            futs[partition] = placementDriver.awaitPrimaryReplica(
+                    new TablePartitionId(tableId, partition),
+                    clock.now(),
+                    AWAIT_PRIMARY_REPLICA_TIMEOUT,
+                    SECONDS
+            );
+        }
+
+        CompletableFuture<Void> all = CompletableFuture.allOf(futs);
+
+        return all.thenApply(v -> {
+            List<String> replicaNames = new ArrayList<>(partitions);
+
+            for (int partition = 0; partition < partitions; partition++) {
+                ReplicaMeta replicaMeta = futs[partition].join();
+                assert replicaMeta != null : "Primary replica is null for partition " + partition;
+
+                replicaNames.add(replicaMeta.getLeaseholder());
+            }
+
+            return replicaNames;
+        });
     }
 }
