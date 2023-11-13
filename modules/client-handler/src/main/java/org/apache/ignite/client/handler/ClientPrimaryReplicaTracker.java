@@ -17,10 +17,10 @@
 
 package org.apache.ignite.client.handler;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
@@ -34,6 +34,9 @@ import org.apache.ignite.internal.placementdriver.PlacementDriver;
  */
 public class ClientPrimaryReplicaTracker {
     private final ConcurrentHashMap<Integer, PrimaryReplicas> primaryReplicas = new ConcurrentHashMap<>();
+
+    /** Update counter for all tables. */
+    private final AtomicLong updateCount = new AtomicLong();
 
     private final PlacementDriver placementDriver;
 
@@ -61,8 +64,9 @@ public class ClientPrimaryReplicaTracker {
                 oldVal.replicas.set(tablePartitionId.partitionId(), eventParameters.leaseholder());
 
                 return new PrimaryReplicas(oldVal.version + 1, oldVal.replicas);
-
             });
+
+            updateCount.incrementAndGet();
 
             return CompletableFuture.completedFuture(null);
         };
@@ -81,7 +85,7 @@ public class ClientPrimaryReplicaTracker {
         // TODO: Where do we get partition count?
         // TODO: Request initial assignment.
 
-        return new PrimaryReplicas(0, new ArrayList<>());
+        return new PrimaryReplicas(0, null);
     }
 
     public class PrimaryReplicas {

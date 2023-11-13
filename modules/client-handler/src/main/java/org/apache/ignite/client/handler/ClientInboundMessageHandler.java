@@ -679,6 +679,9 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
 
     private void writeFlags(ClientMessagePacker out, ChannelHandlerContext ctx) {
         // TODO: ClientPrimaryReplicaTracker
+        // TODO: We must notify the client about change in primary replica for ANY table.
+        // We can't assume that the client only uses uses a particular table (e.g. the one present in the replica tracker), because
+        // the client can be connected to multiple nodes.
         boolean primaryReplicasChanged = false;
 
         if (primaryReplicasChanged && LOG.isInfoEnabled()) {
