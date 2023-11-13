@@ -52,14 +52,11 @@ public class ClientPrimaryReplicaTracker {
 
     private final IgniteTablesInternal igniteTables;
 
-    private final EventListener<PrimaryReplicaEventParameters> listener;
+    private final EventListener<PrimaryReplicaEventParameters> listener = this::onEvent;
 
     public ClientPrimaryReplicaTracker(PlacementDriver placementDriver, IgniteTablesInternal igniteTables) {
         this.placementDriver = placementDriver;
         this.igniteTables = igniteTables;
-
-        listener = this::onEvent;
-        placementDriver.listen(EVENT, listener);
     }
 
     @NotNull
@@ -93,6 +90,10 @@ public class ClientPrimaryReplicaTracker {
 
     long updateCount() {
         return updateCount.get();
+    }
+
+    void start() {
+        placementDriver.listen(EVENT, listener);
     }
 
     void stop() {

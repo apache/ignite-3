@@ -212,7 +212,8 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
             HybridClock clock,
             SchemaSyncService schemaSyncService,
             CatalogService catalogService,
-            long connectionId
+            long connectionId,
+            ClientPrimaryReplicaTracker primaryReplicaTracker
     ) {
         assert igniteTables != null;
         assert igniteTransactions != null;
@@ -227,6 +228,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         assert clock != null;
         assert schemaSyncService != null;
         assert catalogService != null;
+        assert primaryReplicaTracker != null;
 
         this.igniteTables = igniteTables;
         this.igniteTransactions = igniteTransactions;
@@ -238,6 +240,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         this.metrics = metrics;
         this.authenticationManager = authenticationManager;
         this.clock = clock;
+        this.primaryReplicaTracker = primaryReplicaTracker;
 
         jdbcQueryCursorHandler = new JdbcQueryCursorHandlerImpl(resources);
         jdbcQueryEventHandler = new JdbcQueryEventHandlerImpl(

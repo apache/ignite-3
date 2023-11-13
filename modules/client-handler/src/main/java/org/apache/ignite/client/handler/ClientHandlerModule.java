@@ -46,6 +46,7 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.network.ssl.SslContextProvider;
+import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.security.authentication.AuthenticationManager;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
@@ -114,6 +115,8 @@ public class ClientHandlerModule implements IgniteComponent {
 
     private final CatalogService catalogService;
 
+    private final ClientPrimaryReplicaTracker primaryReplicaTracker;
+
     /**
      * Constructor.
      *
@@ -145,7 +148,8 @@ public class ClientHandlerModule implements IgniteComponent {
             AuthenticationManager authenticationManager,
             HybridClock clock,
             SchemaSyncService schemaSyncService,
-            CatalogService catalogService
+            CatalogService catalogService,
+            PlacementDriver placementDriver
     ) {
         assert igniteTables != null;
         assert registry != null;
@@ -161,6 +165,7 @@ public class ClientHandlerModule implements IgniteComponent {
         assert clock != null;
         assert schemaSyncService != null;
         assert catalogService != null;
+        assert placementDriver != null;
 
         this.queryProcessor = queryProcessor;
         this.igniteTables = igniteTables;
@@ -177,6 +182,7 @@ public class ClientHandlerModule implements IgniteComponent {
         this.clock = clock;
         this.schemaSyncService = schemaSyncService;
         this.catalogService = catalogService;
+        this.primaryReplicaTracker = new ClientPrimaryReplicaTracker(placementDriver, igniteTables);
     }
 
     /** {@inheritDoc} */
@@ -193,6 +199,8 @@ public class ClientHandlerModule implements IgniteComponent {
             metrics.enable();
         }
 
+        primaryReplicaTracker.start();
+
         try {
             channel = startEndpoint(configuration).channel();
         } catch (InterruptedException e) {
@@ -204,6 +212,7 @@ public class ClientHandlerModule implements IgniteComponent {
     @Override
     public void stop() throws Exception {
         metricManager.unregisterSource(metrics);
+        primaryReplicaTracker.stop();
 
         var ch = channel;
         if (ch != null) {
@@ -327,7 +336,8 @@ public class ClientHandlerModule implements IgniteComponent {
                 clock,
                 schemaSyncService,
                 catalogService,
-                connectionId
+                connectionId,
+                primaryReplicaTracker
         );
     }
 
