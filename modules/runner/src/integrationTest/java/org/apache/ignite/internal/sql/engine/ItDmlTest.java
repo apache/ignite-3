@@ -677,11 +677,12 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
     public void testInsertValueOverflow(String type, long max, long min) {
         try {
             sql(String.format("CREATE TABLE %s (ID INT PRIMARY KEY, VAL %s);", type, type));
+            sql(String.format("INSERT INTO %s VALUES (1, 1);", type));
+
             sql(String.format("CREATE TABLE T_HELPER (ID INT PRIMARY KEY, VAL %s);", type));
             sql("INSERT INTO T_HELPER VALUES (1, 1);");
             sql(String.format("INSERT INTO T_HELPER VALUES (2, %d);", max));
             sql("INSERT INTO T_HELPER VALUES (3, -1);");
-            sql(String.format("INSERT INTO %s VALUES (1, 1);", type));
             sql(String.format("INSERT INTO T_HELPER VALUES (4, %d);", min));
 
             BigDecimal moreThanMax = new BigDecimal(max).add(BigDecimal.ONE);

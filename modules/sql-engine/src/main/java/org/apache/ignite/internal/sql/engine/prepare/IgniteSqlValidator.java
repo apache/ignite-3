@@ -98,7 +98,7 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
     public static final String NUMERIC_FIELD_OVERFLOW_ERROR = "Numeric field overflow";
 
     //approximate and exact numeric types
-    private static final Pattern numeric = Pattern.compile("^\\s*\\d+(\\.{1}\\d*)\\s*$");
+    private static final Pattern NUMERIC = Pattern.compile("^\\s*\\d+(\\.{1}\\d*)\\s*$");
 
     static {
         EnumSet<SqlKind> kinds = EnumSet.noneOf(SqlKind.class);
@@ -549,7 +549,7 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
                             + " out of range for type " + toType.getSqlTypeName());
                 }
             } catch (NumberFormatException e) {
-                if (!numeric.matcher(litValue).matches()) {
+                if (!NUMERIC.matcher(litValue).matches()) {
                     throw new SqlException(STMT_PARSE_ERR, e);
                 }
             }

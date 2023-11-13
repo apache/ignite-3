@@ -287,10 +287,6 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
             return TypeUtils.customDataTypeNeedCast(typeFactory, fromType, toType);
         }
 
-        if (fromType.getSqlTypeName() == SqlTypeName.ROW) {
-            return false;
-        }
-
         return super.needToCast(scope, node, toType);
     }
 
