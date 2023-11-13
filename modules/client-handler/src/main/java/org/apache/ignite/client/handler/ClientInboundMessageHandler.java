@@ -33,6 +33,7 @@ import java.util.EnumMap;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicLong;
 import javax.net.ssl.SSLException;
 import org.apache.ignite.client.handler.configuration.ClientConnectorView;
 import org.apache.ignite.client.handler.requests.cluster.ClientClusterGetNodesRequest;
@@ -169,6 +170,11 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
 
     /** Chanel handler context. */
     private ChannelHandlerContext channelHandlerContext;
+
+    /** Primary replicas update counter. */
+    private final AtomicLong primaryReplicaUpdateCount = new AtomicLong(-1);
+
+    private final ClientPrimaryReplicaTracker primaryReplicaTracker;
 
     /** Authentication manager. */
     private final AuthenticationManager authenticationManager;
@@ -678,11 +684,13 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
     }
 
     private void writeFlags(ClientMessagePacker out, ChannelHandlerContext ctx) {
-        // TODO: ClientPrimaryReplicaTracker
-        // TODO: We must notify the client about change in primary replica for ANY table.
+        // Notify the client about primary replica change that happened for ANY table since the last request.
         // We can't assume that the client only uses uses a particular table (e.g. the one present in the replica tracker), because
         // the client can be connected to multiple nodes.
-        boolean primaryReplicasChanged = false;
+        long localUpdateCount = primaryReplicaUpdateCount.get();
+        long updateCount = primaryReplicaTracker.updateCount();
+        boolean primaryReplicasChanged = localUpdateCount < updateCount
+                && primaryReplicaUpdateCount.compareAndSet(localUpdateCount, updateCount);
 
         if (primaryReplicasChanged && LOG.isInfoEnabled()) {
             LOG.info("Partition primary replica changed, notifying client [connectionId=" + connectionId + ", remoteAddress="

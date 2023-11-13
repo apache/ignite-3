@@ -81,6 +81,10 @@ public class ClientPrimaryReplicaTracker {
         return primaryReplicas.computeIfAbsent(tableId, this::init);
     }
 
+    public long updateCount() {
+        return updateCount.get();
+    }
+
     private PrimaryReplicas init(Integer tableId) {
         // TODO: Where do we get partition count?
         // TODO: Request initial assignment.
