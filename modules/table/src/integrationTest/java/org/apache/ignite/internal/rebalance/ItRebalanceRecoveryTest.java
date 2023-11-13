@@ -76,11 +76,6 @@ public class ItRebalanceRecoveryTest extends ClusterPerTestIntegrationTest {
                 .storage()
                 .getMvPartition(0);
 
-        System.out.println("qqq containsPartition node=" + ((IgniteImpl)node).node() +
-                ", tableManager=" + tableManager + ", internalTable=" + tableManager.tableView("TEST").internalTable() +
-                ", partition=" + storage
-        );
-
         if (storage == null) {
             return false;
         }

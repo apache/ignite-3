@@ -324,6 +324,8 @@ public class ItIgniteInMemoryNodeRestartTest extends BaseIgniteRestartTest {
 
             assertEquals(VALUE_PRODUCER.apply(i), row.stringValue("name"));
         }
+
+        System.out.println("qqq");
     }
 
     /**

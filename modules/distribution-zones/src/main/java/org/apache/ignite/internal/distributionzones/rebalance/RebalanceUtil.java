@@ -160,6 +160,7 @@ public class RebalanceUtil {
             newAssignmentsCondition = and(value(partAssignmentsStableKey).ne(partAssignmentsBytes), exists(partAssignmentsStableKey));
         }
 
+        System.out.println("qqqms reb.utils pending=" + partAssignments.size() + " " + partAssignments);
         var iif = iif(or(notExists(partChangeTriggerKey), value(partChangeTriggerKey).lt(ByteUtils.longToBytes(revision))),
                 iif(and(notExists(partAssignmentsPendingKey), newAssignmentsCondition),
                         ops(

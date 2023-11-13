@@ -154,7 +154,11 @@ public class MvPartitionStorages<T extends MvPartitionStorage> {
         });
 
         return completedFuture(null)
-                .thenCompose(unused -> destroyStorageFunction.apply(storageByPartitionId.getAndSet(partitionId, null)))
+                .thenCompose(unused -> {
+                    System.out.println("qqq destroying2 partId=" + partitionId + ", this=" + MvPartitionStorages.this);
+
+                    return destroyStorageFunction.apply(storageByPartitionId.getAndSet(partitionId, null));
+                })
                 .whenComplete((unused, throwable) -> {
                     operationByPartitionId.compute(partitionId, (partId, operation) -> {
                         assert operation instanceof DestroyStorageOperation : createStorageInfo(partitionId) + ", op=" + operation;
@@ -461,7 +465,10 @@ public class MvPartitionStorages<T extends MvPartitionStorage> {
         return CompletableFuture.allOf(operationFutures.toArray(CompletableFuture[]::new))
                 .thenApply(unused ->
                         IntStream.range(0, storageByPartitionId.length())
-                                .mapToObj(partitionId -> storageByPartitionId.getAndSet(partitionId, null))
+                                .mapToObj(partitionId -> {
+                                    System.out.println("qqq destroying1 partId=" + partitionId + ", this=" + MvPartitionStorages.this);
+                                    return storageByPartitionId.getAndSet(partitionId, null);
+                                })
                                 .filter(Objects::nonNull)
                                 .collect(toList())
                 );

@@ -370,6 +370,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
             byte[] switchAppendByteArray = ByteUtils.toBytes(calculatedSwitchAppend);
 
             if (!calculatedSwitchAppend.isEmpty()) {
+                System.out.println("qqqms reb.list. put stable=" + stable.size() + " " + stable + ", pending=" + calculatedPendingAddition.size() + " " + calculatedPendingAddition);
                 successCase = ops(
                         put(stablePartAssignmentsKey, stableByteArray),
                         put(pendingPartAssignmentsKey, additionByteArray),
@@ -378,6 +379,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
                 ).yield(SWITCH_APPEND_SUCCESS);
                 failCase = ops().yield(SWITCH_APPEND_FAIL);
             } else if (!calculatedSwitchReduce.isEmpty()) {
+                System.out.println("qqqms reb.list. put stable=" + stable.size() + " " + stable + ", pending=" + calculatedPendingReduction.size() + " " + calculatedPendingReduction);
                 successCase = ops(
                         put(stablePartAssignmentsKey, stableByteArray),
                         put(pendingPartAssignmentsKey, reductionByteArray),
@@ -391,6 +393,8 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
                     // eq(revision(partition.assignments.planned), plannedEntry.revision)
                     con5 = revision(plannedPartAssignmentsKey).eq(plannedEntry.revision());
 
+                    var planned = readAssignments(plannedEntry);
+                    System.out.println("qqqms reb.list. put stable=" + stable.size() + " " + stable + ", pending=" + planned.size() + " " + planned);
                     successCase = ops(
                             put(stablePartAssignmentsKey, ByteUtils.toBytes(stable)),
                             put(pendingPartAssignmentsKey, plannedEntry.value()),
@@ -402,6 +406,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
                     // notExists(partition.assignments.planned)
                     con5 = notExists(plannedPartAssignmentsKey);
 
+                    System.out.println("qqqms reb.list. put stable=" + stable.size() + " " + stable);
                     successCase = ops(
                             put(stablePartAssignmentsKey, ByteUtils.toBytes(stable)),
                             remove(pendingPartAssignmentsKey)

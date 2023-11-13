@@ -815,6 +815,11 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
 
                         addDataToBatch(batch, key, op.value(), curRev, counter);
 
+                        String keyS = new String(key, StandardCharsets.UTF_8);
+                        if (keyS.startsWith("assignments.")) {
+                            System.out.println("qqqms put rev=" + curRev + ", key=" + keyS);
+                        }
+
                         updatedKeys.add(key);
 
                         modified = true;
@@ -825,6 +830,11 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
                         counter++;
 
                         boolean removed = addToBatchForRemoval(batch, key, curRev, counter);
+
+                        String keyS0 = new String(key, StandardCharsets.UTF_8);
+                        if (keyS0.startsWith("assignments.")) {
+                            System.out.println("qqqms remove rev=" + curRev + ", key=" + keyS0);
+                        }
 
                         if (!removed) {
                             counter--;
