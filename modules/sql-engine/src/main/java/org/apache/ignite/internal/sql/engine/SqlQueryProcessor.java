@@ -672,9 +672,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                                 return;
                             }
 
-                            if (parsedResult.queryType() != SqlQueryType.QUERY) {
-                                txWrapper.commitImplicit();
-                            }
+                            txWrapper.commitImplicit();
 
                             taskExecutor.execute(this::processNext);
 
