@@ -25,13 +25,13 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCo
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.everyItem;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.not;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Path;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -441,12 +441,14 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
 
         transferLeadershipOnSolePartitionTo(2);
 
-        List<Integer> expectedKeysAndNextKey = IntStream.rangeClosed(1, lastLoadedKey.get() + 1).boxed().collect(toList());
+        assertThat(getVia(2, 1), is("one"));
+
+        List<Integer> expectedKeysAndNextKey = IntStream.rangeClosed(2, lastLoadedKey.get() + 1).boxed().collect(toList());
         Map<Integer, String> keysToValues = tableViewAt(2).getAll(null, expectedKeysAndNextKey);
 
-        Set<Integer> expectedKeys = IntStream.rangeClosed(1, lastLoadedKey.get()).boxed().collect(toSet());
+        Set<Integer> expectedKeys = IntStream.rangeClosed(2, lastLoadedKey.get()).boxed().collect(toSet());
         assertThat(keysToValues.keySet(), equalTo(expectedKeys));
-        assertThat(new HashSet<>(keysToValues.values()), is(Set.of("one", "extra")));
+        assertThat(keysToValues.values(), everyItem(is("extra")));
     }
 
     /**
