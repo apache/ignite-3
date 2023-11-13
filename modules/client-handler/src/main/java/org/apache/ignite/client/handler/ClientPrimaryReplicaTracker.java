@@ -30,6 +30,7 @@ import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParam
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.utils.PrimaryReplica;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 
@@ -40,6 +41,8 @@ import org.apache.ignite.internal.placementdriver.PlacementDriver;
 public class ClientPrimaryReplicaTracker {
     private static final List<String> PENDING = Collections.emptyList();
 
+    private static final PrimaryReplicaEvent EVENT = PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED;
+
     private final ConcurrentHashMap<Integer, List<String>> primaryReplicas = new ConcurrentHashMap<>();
 
     /** Update counter for all tables. */
@@ -49,34 +52,37 @@ public class ClientPrimaryReplicaTracker {
 
     private final IgniteTablesInternal igniteTables;
 
+    private final EventListener<PrimaryReplicaEventParameters> listener;
+
     public ClientPrimaryReplicaTracker(PlacementDriver placementDriver, IgniteTablesInternal igniteTables) {
         this.placementDriver = placementDriver;
         this.igniteTables = igniteTables;
 
-        EventListener<PrimaryReplicaEventParameters> listener = (eventParameters, err) -> {
-            if (err != null || !(eventParameters.groupId() instanceof TablePartitionId)) {
-                return CompletableFuture.completedFuture(null);
+        listener = this::onEvent;
+        placementDriver.listen(EVENT, listener);
+    }
+
+    @NotNull
+    private CompletableFuture<Boolean> onEvent(PrimaryReplicaEventParameters eventParameters, @Nullable Throwable err) {
+        if (err != null || !(eventParameters.groupId() instanceof TablePartitionId)) {
+            return CompletableFuture.completedFuture(null);
+        }
+
+        TablePartitionId tablePartitionId = (TablePartitionId) eventParameters.groupId();
+        primaryReplicas.computeIfPresent(tablePartitionId.tableId(), (ignored, oldVal) -> {
+            if (oldVal.isEmpty()) {
+                // Initial value is not set yet.
+                return oldVal;
             }
 
-            TablePartitionId tablePartitionId = (TablePartitionId) eventParameters.groupId();
-            primaryReplicas.computeIfPresent(tablePartitionId.tableId(), (ignored, oldVal) -> {
-                if (oldVal.isEmpty()) {
-                    // Initial value is not set yet.
-                    return oldVal;
-                }
+            assert oldVal.size() > tablePartitionId.partitionId() : "replicas.size() > tablePartitionId.partitionId()";
+            oldVal.set(tablePartitionId.partitionId(), eventParameters.leaseholder());
 
-                assert oldVal.size() > tablePartitionId.partitionId() : "replicas.size() > tablePartitionId.partitionId()";
-                oldVal.set(tablePartitionId.partitionId(), eventParameters.leaseholder());
+            return oldVal;
+        });
 
-                return oldVal;
-            });
-
-            updateCount.incrementAndGet();
-            return CompletableFuture.completedFuture(null);
-        };
-
-        // TODO: Unsubscribe somewhere?
-        placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, listener);
+        updateCount.incrementAndGet();
+        return CompletableFuture.completedFuture(null);
     }
 
     public @Nullable List<String> primaryReplicas(int tableId) {
@@ -87,6 +93,10 @@ public class ClientPrimaryReplicaTracker {
 
     long updateCount() {
         return updateCount.get();
+    }
+
+    void stop() {
+        placementDriver.removeListener(EVENT, listener);
     }
 
     private List<String> init(Integer tableId) {
