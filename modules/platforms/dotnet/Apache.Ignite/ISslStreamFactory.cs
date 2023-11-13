@@ -19,6 +19,7 @@ namespace Apache.Ignite;
 
 using System.IO;
 using System.Net.Security;
+using System.Threading;
 using System.Threading.Tasks;
 
 /// <summary>
@@ -33,8 +34,9 @@ public interface ISslStreamFactory
     /// </summary>
     /// <param name="stream">The underlying raw stream.</param>
     /// <param name="targetHost">Target host.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>
     /// SSL stream, or null if SSL is not enabled.
     /// </returns>
-    Task<SslStream?> CreateAsync(Stream stream, string targetHost);
+    Task<SslStream?> CreateAsync(Stream stream, string targetHost, CancellationToken cancellationToken);
 }
