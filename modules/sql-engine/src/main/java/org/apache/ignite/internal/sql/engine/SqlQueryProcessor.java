@@ -406,7 +406,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
             QueryTransactionWrapper txWrapper = wrapTxOrStartImplicit(result.queryType(), transactions, explicitTransaction);
 
-            return executeParsedStatement(schemaName, result, txWrapper, queryCancel, params, null);
+            return executeParsedStatement(schemaName, result, txWrapper, queryCancel, params, false);
         });
 
         // TODO IGNITE-20078 Improve (or remove) CancellationException handling.
@@ -456,20 +456,30 @@ public class SqlQueryProcessor implements QueryProcessor {
             QueryTransactionWrapper txWrapper,
             QueryCancel queryCancel,
             Object[] params,
-            @Nullable QueryPrefetchCallback prefetchCallback
+            boolean waitForPrefetch
     ) {
         return waitForActualSchema(schemaName, txWrapper.unwrap().startTimestamp())
                 .thenCompose(schema -> {
+                    PrefetchCallback callback = waitForPrefetch ? new PrefetchCallback() : null;
+
                     BaseQueryContext ctx = BaseQueryContext.builder()
                             .frameworkConfig(Frameworks.newConfigBuilder(FRAMEWORK_CONFIG).defaultSchema(schema).build())
                             .queryId(UUID.randomUUID())
                             .cancel(queryCancel)
-                            .prefetchCallback(prefetchCallback)
+                            .prefetchCallback(callback)
                             .parameters(params)
                             .build();
 
-                    return prepareSvc.prepareAsync(parsedResult, ctx).thenApply(plan -> executePlan(txWrapper, ctx, plan));
-                }).whenComplete((res, ex) -> {
+                    CompletableFuture<AsyncSqlCursor<List<Object>>> fut = prepareSvc.prepareAsync(parsedResult, ctx)
+                            .thenApply(plan -> executePlan(txWrapper, ctx, plan));
+
+                    if (waitForPrefetch) {
+                        fut = fut.thenCompose(cursor -> callback.prefetchFuture().thenApply(ignore -> cursor));
+                    }
+
+                    return fut;
+                })
+                .whenComplete((res, ex) -> {
                     if (ex != null) {
                         txWrapper.rollback();
                     }
@@ -666,10 +676,11 @@ public class SqlQueryProcessor implements QueryProcessor {
 
                 QueryTransactionWrapper txWrapper = wrapTxOrStartImplicit(parsedResult.queryType(), transactions, explicitTransaction);
 
-                executeParsedStatementAndWaitPrefetch(txWrapper, parsedResult, dynamicParams)
+                QueryCancel cancel = new QueryCancel();
+
+                executeParsedStatement(schemaName, parsedResult, txWrapper, cancel, dynamicParams, true)
                         .whenComplete((res, ex) -> {
                             if (ex != null) {
-                                txWrapper.rollback();
                                 cursorFuture.completeExceptionally(ex);
                                 cancelAll(ex);
 
@@ -687,20 +698,6 @@ public class SqlQueryProcessor implements QueryProcessor {
 
                 cancelAll(e);
             }
-        }
-
-        private CompletableFuture<AsyncSqlCursor<List<Object>>> executeParsedStatementAndWaitPrefetch(
-                QueryTransactionWrapper txWrapper,
-                ParsedResult parsedResult,
-                Object[] dynamicParams
-        ) {
-            CompletableFuture<Void> prefetchFut = new CompletableFuture<>();
-            QueryCancel cancel = new QueryCancel();
-
-            return executeParsedStatement(schemaName, parsedResult, txWrapper, cancel, dynamicParams, new PrefetchCallback(prefetchFut))
-                    // Wait for the prefetch, otherwise the user will be able to execute
-                    // a dependent statement before the current one completes.
-                    .thenCompose(cur -> prefetchFut.thenApply(ignored -> cur));
         }
 
         private List<ScriptStatementParameters> splitDynamicParameters(List<ParsedResult> parsedResults, Object[] params) {
@@ -739,24 +736,6 @@ public class SqlQueryProcessor implements QueryProcessor {
             }
         }
 
-        /** Completes the provided future when the callback is called. */
-        private class PrefetchCallback implements QueryPrefetchCallback {
-            private final CompletableFuture<Void> prefetchFuture;
-
-            PrefetchCallback(CompletableFuture<Void> prefetchFuture) {
-                this.prefetchFuture = prefetchFuture;
-            }
-
-            @Override
-            public void onPrefetchComplete(@Nullable Throwable ex) {
-                if (ex == null) {
-                    prefetchFuture.complete(null);
-                } else {
-                    prefetchFuture.completeExceptionally(mapToPublicSqlException(ex));
-                }
-            }
-        }
-
         private class ScriptStatementParameters {
             private final ParsedResult parsedResult;
             private final Object[] dynamicParams;
@@ -767,6 +746,24 @@ public class SqlQueryProcessor implements QueryProcessor {
                 this.dynamicParams = dynamicParams;
                 this.cursorFuture = parsedResult.queryType() == SqlQueryType.TX_CONTROL ? null : new CompletableFuture<>();
             }
+        }
+    }
+
+    /** Completes the provided future when the callback is called. */
+    private static class PrefetchCallback implements QueryPrefetchCallback {
+        private final CompletableFuture<Void> prefetchFuture = new CompletableFuture<>();
+
+        @Override
+        public void onPrefetchComplete(@Nullable Throwable ex) {
+            if (ex == null) {
+                prefetchFuture.complete(null);
+            } else {
+                prefetchFuture.completeExceptionally(mapToPublicSqlException(ex));
+            }
+        }
+
+        CompletableFuture<Void> prefetchFuture() {
+            return prefetchFuture;
         }
     }
 
