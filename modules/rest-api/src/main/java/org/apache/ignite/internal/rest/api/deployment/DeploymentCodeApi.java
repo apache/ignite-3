@@ -29,8 +29,6 @@ import io.micronaut.http.annotation.Get;
 import io.micronaut.http.annotation.Post;
 import io.micronaut.http.annotation.QueryValue;
 import io.micronaut.http.multipart.CompletedFileUpload;
-import io.micronaut.security.annotation.Secured;
-import io.micronaut.security.rules.SecurityRule;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -49,7 +47,6 @@ import org.reactivestreams.Publisher;
  */
 @SuppressWarnings("OptionalContainsCollection")
 @Controller("/management/v1/deployment/")
-@Secured(SecurityRule.IS_AUTHENTICATED)
 @Tag(name = "deployment")
 public interface DeploymentCodeApi {
 

@@ -17,8 +17,11 @@
 
 package org.apache.ignite.internal.hlc;
 
+import static org.apache.ignite.internal.lang.JavaLoggerFormatter.DATE_FORMATTER;
+
 import java.io.Serializable;
-import org.apache.ignite.internal.tostring.S;
+import java.time.Instant;
+import java.time.ZoneId;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -230,7 +233,9 @@ public final class HybridTimestamp implements Comparable<HybridTimestamp>, Seria
 
     @Override
     public String toString() {
-        return S.toString(HybridTimestamp.class, this, "physical", getPhysical(), "logical", getLogical());
+        String formattedTime = DATE_FORMATTER.format(Instant.ofEpochMilli(getPhysical()).atZone(ZoneId.systemDefault()));
+
+        return String.format("HybridTimestamp [physical=%s, logical=%d, composite=%d]", formattedTime, getLogical(), time);
     }
 
     /**

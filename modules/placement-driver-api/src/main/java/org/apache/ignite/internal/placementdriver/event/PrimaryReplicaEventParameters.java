@@ -17,11 +17,11 @@
 
 package org.apache.ignite.internal.placementdriver.event;
 
-import org.apache.ignite.internal.event.EventParameters;
+import org.apache.ignite.internal.event.CausalEventParameters;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 
 /** Primary replica event parameters. There are properties which associate with a concrete primary replica. */
-public class PrimaryReplicaEventParameters extends EventParameters {
+public class PrimaryReplicaEventParameters extends CausalEventParameters {
     private final ReplicationGroupId groupId;
 
     private final String leaseholder;

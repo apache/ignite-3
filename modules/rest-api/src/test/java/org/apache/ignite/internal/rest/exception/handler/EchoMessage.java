@@ -15,22 +15,24 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.session;
+package org.apache.ignite.internal.rest.exception.handler;
 
-import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
-import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
-
-import org.apache.ignite.internal.lang.IgniteInternalException;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 /**
- * Thrown when session has expired or no longer exists.
+ * Echo message.
  */
-public class SessionNotFoundException extends IgniteInternalException {
+public class EchoMessage {
+    private final String text;
 
-    private static final long serialVersionUID = -6297499977667006250L;
+    @JsonCreator
+    public EchoMessage(@JsonProperty("text") String text) {
+        this.text = text;
+    }
 
-    /** Constructor. */
-    public SessionNotFoundException(SessionId sessionId) {
-        super(INTERNAL_ERR, format("Session not found [{}]", sessionId));
+    @JsonProperty("text")
+    public String msg() {
+        return text;
     }
 }

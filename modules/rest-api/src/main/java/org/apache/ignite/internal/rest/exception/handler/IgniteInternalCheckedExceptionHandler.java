@@ -15,32 +15,33 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.rest.authentication.exception;
+package org.apache.ignite.internal.rest.exception.handler;
 
-import io.micronaut.context.annotation.Replaces;
 import io.micronaut.context.annotation.Requires;
 import io.micronaut.http.HttpRequest;
-import io.micronaut.http.MutableHttpResponse;
+import io.micronaut.http.HttpResponse;
 import io.micronaut.http.server.exceptions.ExceptionHandler;
-import io.micronaut.security.authentication.AuthorizationException;
-import io.micronaut.security.authentication.DefaultAuthorizationExceptionHandler;
 import jakarta.inject.Singleton;
+import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.rest.api.Problem;
 import org.apache.ignite.internal.rest.constants.HttpCode;
 import org.apache.ignite.internal.rest.problem.HttpProblemResponse;
 
 /**
- * Replacement for {@link DefaultAuthorizationExceptionHandler}. Returns {@link HttpProblemResponse}.
+ * Handles {@link IgniteInternalCheckedException} and represents it as a rest response.
  */
 @Singleton
-@Replaces(DefaultAuthorizationExceptionHandler.class)
-@Requires(classes = {Exception.class, ExceptionHandler.class})
-public class DefaultAuthorizationExceptionHandlerReplacement extends DefaultAuthorizationExceptionHandler {
+@Requires(classes = {IgniteInternalCheckedException.class, ExceptionHandler.class})
+public class IgniteInternalCheckedExceptionHandler
+        implements ExceptionHandler<IgniteInternalCheckedException, HttpResponse<? extends Problem>> {
 
     @Override
-    protected MutableHttpResponse<? extends Problem> httpResponseWithStatus(HttpRequest<?> request, AuthorizationException exception) {
+    public HttpResponse<? extends Problem> handle(HttpRequest request, IgniteInternalCheckedException exception) {
         return HttpProblemResponse.from(
-                Problem.fromHttpCode(exception.isForbidden() ? HttpCode.FORBIDDEN : HttpCode.UNAUTHORIZED)
+                Problem.fromHttpCode(HttpCode.INTERNAL_SERVER_ERROR)
+                        .traceId(exception.traceId())
+                        .code(exception.codeAsString())
+                        .detail(exception.getMessage())
         );
     }
 }

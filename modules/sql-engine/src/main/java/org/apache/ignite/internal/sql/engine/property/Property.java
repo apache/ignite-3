@@ -31,15 +31,13 @@ import org.apache.ignite.internal.tostring.S;
  *         public static final Property&lt;Long&gt; LONG_PROPERTY = new Property<>("long_prop_name", Long.class);
  *     }
  *
- *     var holder = PropertiesHolder.holderFor(
- *             Map.of(
- *                     MyProperties.STRING_PROPERTY, "the value of a string prop",
- *                     MyProperties.LONG_PROPERTY, 42L
- *             )
- *     );
+ *     var properties = SqlPropertiesHelper.newBuilder()
+ *             .set(MyProperties.STRING_PROPERTY, "the value of a string prop")
+ *             .set(MyProperties.LONG_PROPERTY, 42L)
+ *             .build();
  *
- *     String stringVal = holder.get(MyProperties.STRING_PROPERTY);
- *     long longVal = holder.getOrDefault(MyProperties.LONG_PROPERTY, 10L);
+ *     String stringVal = properties.get(MyProperties.STRING_PROPERTY);
+ *     long longVal = properties.getOrDefault(MyProperties.LONG_PROPERTY, 10L);
  * </pre>
  *
  * @param <T> Expected value type with which the property is associated.
@@ -67,17 +65,8 @@ public class Property<T> {
     /** {@inheritDoc} */
     @Override
     public boolean equals(Object o) {
-        if (this == o) {
-            return true;
-        }
-
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-
-        Property<?> property = (Property<?>) o;
-
-        return name.equals(property.name);
+        // reference comparison is intentional
+        return this == o;
     }
 
     /** {@inheritDoc} */

@@ -51,6 +51,11 @@ import org.jetbrains.annotations.Nullable;
  * resources for the example.
  */
 public class RestComponent implements IgniteComponent {
+    /**
+     * Lock for micronaut server startup.
+     * TODO: remove when fix https://github.com/micronaut-projects/micronaut-core/issues/10091
+     */
+    private static final Object SHARED_STARTUP_LOCK = new Object();
 
     /** Unavailable port. */
     private static final int UNAVAILABLE_PORT = -1;
@@ -70,10 +75,10 @@ public class RestComponent implements IgniteComponent {
     private volatile ApplicationContext context;
 
     /** Server port. */
-    private int httpPort = UNAVAILABLE_PORT;
+    private volatile int httpPort = UNAVAILABLE_PORT;
 
     /** Server SSL port. */
-    private int httpsPort = UNAVAILABLE_PORT;
+    private volatile int httpsPort = UNAVAILABLE_PORT;
 
     /**
      * Creates a new instance of REST module.
@@ -114,23 +119,27 @@ public class RestComponent implements IgniteComponent {
      * @param dualProtocol Dual protocol flag.
      * @return {@code True} if server was started successfully, {@code False} if couldn't bind one of the ports.
      */
-    private synchronized boolean startServer(int httpPortCandidate, int httpsPortCandidate, boolean sslEnabled, boolean dualProtocol) {
-        try {
-            httpPort = httpPortCandidate;
-            httpsPort = httpsPortCandidate;
-            context = buildMicronautContext(httpPortCandidate, httpsPortCandidate)
-                    .deduceEnvironment(false)
-                    .environments(BARE_METAL)
-                    .start();
+    private boolean startServer(int httpPortCandidate, int httpsPortCandidate, boolean sslEnabled, boolean dualProtocol) {
+        // Workaround to avoid micronaut race condition on startup.
+        synchronized (SHARED_STARTUP_LOCK) {
+            try {
+                httpPort = httpPortCandidate;
+                httpsPort = httpsPortCandidate;
 
-            logSuccessRestStart(sslEnabled, dualProtocol);
-            return true;
-        } catch (ApplicationStartupException e) {
-            BindException bindException = findBindException(e);
-            if (bindException != null) {
-                return false;
+                context = buildMicronautContext(httpPortCandidate, httpsPortCandidate)
+                        .deduceEnvironment(false)
+                        .environments(BARE_METAL)
+                        .start();
+
+                logSuccessRestStart(sslEnabled, dualProtocol);
+                return true;
+            } catch (ApplicationStartupException e) {
+                BindException bindException = findBindException(e);
+                if (bindException != null) {
+                    return false;
+                }
+                throw new IgniteException(Common.COMPONENT_NOT_STARTED_ERR, e);
             }
-            throw new IgniteException(Common.COMPONENT_NOT_STARTED_ERR, e);
         }
     }
 
@@ -164,12 +173,8 @@ public class RestComponent implements IgniteComponent {
         Micronaut micronaut = Micronaut.build("");
         setFactories(micronaut);
 
-        Map<String, Object> properties = new HashMap<>();
-        properties.putAll(serverProperties(portCandidate, sslPortCandidate));
-        properties.putAll(authProperties());
-
         return micronaut
-                .properties(properties)
+                .properties(serverProperties(portCandidate, sslPortCandidate))
                 .banner(false)
                 // -1 forces the micronaut to throw an ApplicationStartupException instead of doing System.exit
                 .mapError(ServerStartupException.class, ex -> -1)
@@ -190,6 +195,8 @@ public class RestComponent implements IgniteComponent {
         result.put("micronaut.server.port", port);
         result.put("micronaut.server.cors.enabled", "true");
         result.put("micronaut.server.cors.configurations.web.allowed-headers", "Authorization");
+        result.put("micronaut.security.intercept-url-map[0].pattern", "/**");
+        result.put("micronaut.security.intercept-url-map[0].access", "isAuthenticated()");
         result.put("ignite.endpoints.filter-non-initialized", "true");
 
         if (sslEnabled) {
@@ -221,12 +228,6 @@ public class RestComponent implements IgniteComponent {
         }
 
         return result;
-    }
-
-    private Map<String, Object> authProperties() {
-        return Map.of("micronaut.security.enabled", true,
-                        "micronaut.security.intercept-url-map[1].pattern", "/**",
-                        "micronaut.security.intercept-url-map[1].access", "isAuthenticated()");
     }
 
     private static String toMicronautClientAuth(ClientAuth clientAuth) {

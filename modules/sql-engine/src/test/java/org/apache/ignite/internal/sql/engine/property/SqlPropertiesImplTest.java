@@ -24,9 +24,9 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import org.junit.jupiter.api.Test;
 
 /**
- * Test to verify {@link PropertiesHolderImpl}.
+ * Test to verify {@link SqlPropertiesImpl}.
  */
-class PropertiesHolderImplTest {
+class SqlPropertiesImplTest {
 
     @SuppressWarnings("WeakerAccess")
     private static class TestProps {
@@ -34,10 +34,10 @@ class PropertiesHolderImplTest {
         public static Property<Integer> ANOTHER_PROP = new Property<>("another_int_prop", Integer.class);
     }
 
-    /** Simple test covering basic api of the {@link PropertiesHolder}. */
+    /** Simple test covering basic api of the {@link SqlProperties}. */
     @Test
     public void test() {
-        PropertiesHolder holder = PropertiesHelper.newBuilder()
+        SqlProperties holder = SqlPropertiesHelper.newBuilder()
                 .set(TestProps.PROP, 42)
                 .build();
 

@@ -27,7 +27,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * A simple implementation backed by unmodifiable map.
  */
-class PropertiesHolderImpl implements PropertiesHolder {
+class SqlPropertiesImpl implements SqlProperties {
     private final Map<Property<?>, Object> props;
 
     /**
@@ -35,7 +35,7 @@ class PropertiesHolderImpl implements PropertiesHolder {
      *
      * @param props Properties to hold.
      */
-    PropertiesHolderImpl(Map<Property<?>, Object> props) {
+    SqlPropertiesImpl(Map<Property<?>, Object> props) {
         this.props = Map.copyOf(props);
     }
 
@@ -61,6 +61,12 @@ class PropertiesHolderImpl implements PropertiesHolder {
         }
 
         return val;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public boolean hasProperty(Property<?> prop) {
+        return props.containsKey(prop);
     }
 
     /** {@inheritDoc} */

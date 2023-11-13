@@ -24,8 +24,6 @@ import io.micronaut.http.annotation.Get;
 import io.micronaut.http.annotation.Patch;
 import io.micronaut.http.annotation.PathVariable;
 import io.micronaut.http.annotation.Produces;
-import io.micronaut.security.annotation.Secured;
-import io.micronaut.security.rules.SecurityRule;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -41,7 +39,6 @@ import org.apache.ignite.internal.rest.constants.MediaType;
  * Cluster configuration controller.
  */
 @Controller("/management/v1/configuration/cluster/")
-@Secured(SecurityRule.IS_AUTHENTICATED)
 @Tag(name = "clusterConfiguration")
 public interface ClusterConfigurationApi {
     /**

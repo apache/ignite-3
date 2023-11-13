@@ -64,6 +64,8 @@ import org.jetbrains.annotations.Nullable;
 public class SqlRowHandler implements RowHandler<RowWrapper> {
     public static final RowHandler<RowWrapper> INSTANCE = new SqlRowHandler();
 
+    private static final ObjectsArrayRowWrapper EMPTY_ROW = new ObjectsArrayRowWrapper(RowSchema.builder().build(), new Object[0]);
+
     private SqlRowHandler() {
     }
 
@@ -71,12 +73,6 @@ public class SqlRowHandler implements RowHandler<RowWrapper> {
     @Override
     public @Nullable Object get(int field, RowWrapper row) {
         return row.get(field);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void set(int field, RowWrapper row, @Nullable Object val) {
-        row.set(field, val);
     }
 
     /** {@inheritDoc} */
@@ -152,6 +148,11 @@ public class SqlRowHandler implements RowHandler<RowWrapper> {
                 return SqlRowHandler.this;
             }
 
+            @Override
+            public RowBuilder<RowWrapper> rowBuilder() {
+                return new RowBuilderImpl(rowSchema);
+            }
+
             /** {@inheritDoc} */
             @Override
             public RowWrapper create() {
@@ -186,8 +187,6 @@ public class SqlRowHandler implements RowHandler<RowWrapper> {
 
         abstract @Nullable Object get(int field);
 
-        abstract void set(int field, @Nullable Object value);
-
         abstract BinaryTuple toBinaryTuple();
     }
 
@@ -211,11 +210,6 @@ public class SqlRowHandler implements RowHandler<RowWrapper> {
         @Override
         @Nullable Object get(int field) {
             return row[field];
-        }
-
-        @Override
-        void set(int field, @Nullable Object value) {
-            row[field] = value;
         }
 
         @Override
@@ -363,8 +357,6 @@ public class SqlRowHandler implements RowHandler<RowWrapper> {
 
     /**
      * Wrapper over an {@link BinaryTuple}.
-     *
-     * <p>Since {@link BinaryTuple binary tuple} is immutable this wrapper doesn't support {@link #set(int, Object)} operation.
      */
     private static class BinaryTupleRowWrapper extends RowWrapper {
         private final RowSchema rowSchema;
@@ -395,12 +387,6 @@ public class SqlRowHandler implements RowHandler<RowWrapper> {
             }
 
             return TypeUtils.toInternal(value, Commons.nativeTypeToClass(nativeType));
-        }
-
-        @Override
-        void set(int field, @Nullable Object value) {
-            // TODO https://issues.apache.org/jira/browse/IGNITE-20356
-            throw new UnsupportedOperationException();
         }
 
         @Override
@@ -437,6 +423,66 @@ public class SqlRowHandler implements RowHandler<RowWrapper> {
                 case DATETIME: return tuple.dateTimeValue(fieldIndex);
                 case TIMESTAMP: return tuple.timestampValue(fieldIndex);
                 default: throw new InvalidTypeException("Unknown element type: " + nativeType);
+            }
+        }
+    }
+
+    private static class RowBuilderImpl implements RowBuilder<RowWrapper> {
+
+        private final int schemaLen;
+
+        private final RowSchema rowSchema;
+
+        Object[] data;
+
+        int fieldIdx;
+
+        RowBuilderImpl(RowSchema rowSchema) {
+            this.rowSchema = rowSchema;
+            this.schemaLen = rowSchema.fields().size();
+            fieldIdx = 0;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public RowBuilder<RowWrapper> addField(Object value) {
+            if (fieldIdx == 0 && data == null) {
+                data = new Object[schemaLen];
+            }
+
+            checkIndex();
+
+            data[fieldIdx++] = value;
+            return this;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public RowWrapper build() {
+            checkState();
+
+            return rowSchema.fields().isEmpty() ? EMPTY_ROW : new ObjectsArrayRowWrapper(rowSchema, data);
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public void reset() {
+            data = null;
+            fieldIdx = 0;
+        }
+
+        private void checkState() {
+            if (schemaLen != 0 && data == null) {
+                throw new IllegalStateException("Row has not been initialised");
+            }
+            if (fieldIdx != schemaLen) {
+                throw new IllegalStateException(format("Row has not been fully built. Index: {}, fields: {}", fieldIdx, schemaLen));
+            }
+        }
+
+        private void checkIndex() {
+            if (fieldIdx >= schemaLen) {
+                throw new IllegalStateException(format("Field index is out of bounds. Index: {}, fields: {}", fieldIdx, schemaLen));
             }
         }
     }
