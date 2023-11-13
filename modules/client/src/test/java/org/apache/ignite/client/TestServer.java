@@ -227,7 +227,8 @@ public class TestServer implements AutoCloseable {
                         authenticationManager(securityConfigurationOnInit),
                         clock,
                         new AlwaysSyncedSchemaSyncService(),
-                        mockCatalogService()
+                        mockCatalogService(),
+                        mock()
                 );
 
         module.start();

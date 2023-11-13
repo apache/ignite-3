@@ -133,7 +133,8 @@ public class TestServer {
                 authenticationManager(),
                 new HybridClockImpl(),
                 new AlwaysSyncedSchemaSyncService(),
-                mock(CatalogService.class)
+                mock(CatalogService.class),
+                mock()
         );
 
         module.start();
