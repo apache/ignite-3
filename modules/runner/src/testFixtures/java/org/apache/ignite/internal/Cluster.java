@@ -88,8 +88,6 @@ public class Cluster {
 
     private static final int BASE_HTTPS_PORT = 10400;
 
-    private static final String CONNECT_NODE_ADDR = "\"localhost:" + BASE_PORT + '\"';
-
     /** Timeout for SQL queries (in milliseconds). */
     private static final int QUERY_TIMEOUT_MS = 10_000;
 
