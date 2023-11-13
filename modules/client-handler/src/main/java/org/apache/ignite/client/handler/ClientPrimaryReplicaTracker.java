@@ -25,14 +25,13 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.lang.NodeStoppingException;
+import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.utils.PrimaryReplica;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import org.apache.ignite.internal.placementdriver.PlacementDriver;
 
 /**
  * Primary partition replica tracker. Shared by all instances of {@link ClientInboundMessageHandler}.
@@ -59,7 +58,6 @@ public class ClientPrimaryReplicaTracker {
         this.igniteTables = igniteTables;
     }
 
-    @NotNull
     private CompletableFuture<Boolean> onEvent(PrimaryReplicaEventParameters eventParameters, @Nullable Throwable err) {
         if (err != null || !(eventParameters.groupId() instanceof TablePartitionId)) {
             return CompletableFuture.completedFuture(null);
@@ -82,6 +80,12 @@ public class ClientPrimaryReplicaTracker {
         return CompletableFuture.completedFuture(null);
     }
 
+    /**
+     * Gets primary replicas by partition for the table.
+     *
+     * @param tableId Table ID.
+     * @return Primary replicas for the table, or null when not yet known.
+     */
     public @Nullable List<String> primaryReplicas(int tableId) {
         List<String> replicas = primaryReplicas.computeIfAbsent(tableId, this::init);
 
