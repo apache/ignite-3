@@ -77,7 +77,7 @@ public class ClientPrimaryReplicaTracker {
         });
 
         updateCount.incrementAndGet();
-        return CompletableFuture.completedFuture(null);
+        return CompletableFuture.completedFuture(false); // false: don't remove listener.
     }
 
     /**
@@ -118,6 +118,7 @@ public class ClientPrimaryReplicaTracker {
                         }
 
                         primaryReplicas.put(tableId, replicaNames);
+                        updateCount.incrementAndGet();
                     });
         } catch (NodeStoppingException ignored) {
             // Ignore. When node is stopping, we don't need to track primary replicas.
