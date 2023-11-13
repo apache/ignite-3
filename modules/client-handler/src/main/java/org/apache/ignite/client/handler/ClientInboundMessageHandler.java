@@ -57,7 +57,7 @@ import org.apache.ignite.client.handler.requests.sql.ClientSqlCursorNextPageRequ
 import org.apache.ignite.client.handler.requests.sql.ClientSqlExecuteRequest;
 import org.apache.ignite.client.handler.requests.table.ClientSchemasGetRequest;
 import org.apache.ignite.client.handler.requests.table.ClientTableGetRequest;
-import org.apache.ignite.client.handler.requests.table.ClientTablePartitionAssignmentGetRequest;
+import org.apache.ignite.client.handler.requests.table.ClientTablePartitionPrimaryReplicasGetRequest;
 import org.apache.ignite.client.handler.requests.table.ClientTablesGetRequest;
 import org.apache.ignite.client.handler.requests.table.ClientTupleContainsKeyRequest;
 import org.apache.ignite.client.handler.requests.table.ClientTupleDeleteAllExactRequest;
@@ -673,7 +673,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
                 return ClientSqlCursorCloseRequest.process(in, out, resources, igniteTransactions);
 
             case ClientOp.PARTITION_ASSIGNMENT_GET:
-                return ClientTablePartitionAssignmentGetRequest.process(in, out, igniteTables);
+                return ClientTablePartitionPrimaryReplicasGetRequest.process(in, out, primaryReplicaTracker);
 
             case ClientOp.JDBC_TX_FINISH:
                 return ClientJdbcFinishTxRequest.process(in, out, jdbcQueryEventHandler);

@@ -17,19 +17,19 @@
 
 package org.apache.ignite.client.handler.requests.table;
 
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.ClientPrimaryReplicaTracker;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.lang.NodeStoppingException;
-import org.apache.ignite.internal.table.IgniteTablesInternal;
-import org.apache.ignite.internal.utils.PrimaryReplica;
 import org.apache.ignite.lang.IgniteException;
+import org.jetbrains.annotations.Nullable;
 
 /**
- * Client partition assignment retrieval request.
+ * Client partition primary replicas retrieval request.
  */
-public class ClientTablePartitionAssignmentGetRequest {
+public class ClientTablePartitionPrimaryReplicasGetRequest {
     /**
      * Processes the request.
      *
@@ -39,24 +39,24 @@ public class ClientTablePartitionAssignmentGetRequest {
      * @return Future.
      * @throws IgniteException When schema registry is no initialized.
      */
-    public static CompletableFuture<Void> process(
+    public static @Nullable CompletableFuture<Void> process(
             ClientMessageUnpacker in,
             ClientMessagePacker out,
             ClientPrimaryReplicaTracker tracker
     ) throws NodeStoppingException {
         int tableId = in.unpackInt();
+        List<String> primaryReplicas = tracker.primaryReplicas(tableId);
 
-        return tables.primaryReplicasAsync(tableId).thenAccept(primaryReplicas -> {
-            if (primaryReplicas == null) {
-                out.packInt(0);
-                return;
-            }
-
+        if (primaryReplicas == null) {
+            out.packInt(0);
+        } else {
             out.packInt(primaryReplicas.size());
 
-            for (PrimaryReplica primaryReplica : primaryReplicas) {
-                out.packString(primaryReplica.node().name());
+            for (String primaryReplicaName : primaryReplicas) {
+                out.packString(primaryReplicaName);
             }
-        });
+        }
+
+        return null;
     }
 }
