@@ -34,7 +34,7 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * Primary partition replica tracker. Shared by all instances of {@link ClientInboundMessageHandler}.
- * Tracks primary replica for every partition.
+ * Tracks primary replicas by partition for every table.
  */
 public class ClientPrimaryReplicaTracker {
     private static final PrimaryReplicaEvent EVENT = PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED;
@@ -79,7 +79,7 @@ public class ClientPrimaryReplicaTracker {
      * @return Primary replicas for the table, or null when not yet known.
      */
     public CompletableFuture<List<String>> primaryReplicasAsync(int tableId) {
-        return primaryReplicas.computeIfAbsent(tableId, this::init);
+        return primaryReplicas.computeIfAbsent(tableId, this::initTable);
     }
 
     long updateCount() {
@@ -94,7 +94,7 @@ public class ClientPrimaryReplicaTracker {
         placementDriver.removeListener(EVENT, listener);
     }
 
-    private CompletableFuture<List<String>> init(Integer tableId) {
+    private CompletableFuture<List<String>> initTable(Integer tableId) {
         try {
             // Initially, request all primary replicas for the table.
             // Then keep them updated via PRIMARY_REPLICA_ELECTED events.
