@@ -29,10 +29,10 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.ThreadLocalRandom;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.IgniteCompute;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.util.ExceptionUtils;
-import org.apache.ignite.internal.utils.PrimaryReplica;
 import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.lang.util.IgniteNameUtils;
 import org.apache.ignite.network.ClusterNode;
@@ -133,8 +133,8 @@ public class IgniteComputeImpl implements IgniteCompute {
         Objects.requireNonNull(jobClassName);
 
         return requiredTable(tableName)
-                .thenCompose(table -> primaryReplicaByTupleKey(table, key))
-                .thenCompose(primaryReplica -> executeOnOneNode(primaryReplica.node(), units, jobClassName, args));
+                .thenApply(table -> leaderOfTablePartitionByTupleKey(table, key))
+                .thenCompose(primaryNode -> executeOnOneNode(primaryNode, units, jobClassName, args));
     }
 
     /** {@inheritDoc} */
@@ -154,8 +154,8 @@ public class IgniteComputeImpl implements IgniteCompute {
         Objects.requireNonNull(jobClassName);
 
         return requiredTable(tableName)
-                .thenCompose(table -> primaryReplicaByMappedKey(table, key, keyMapper))
-                .thenCompose(primaryReplica -> executeOnOneNode(primaryReplica.node(), units, jobClassName, args));
+                .thenApply(table -> leaderOfTablePartitionByMappedKey(table, key, keyMapper))
+                .thenCompose(primaryNode -> executeOnOneNode(primaryNode, units, jobClassName, args));
     }
 
     /** {@inheritDoc} */
@@ -203,16 +203,21 @@ public class IgniteComputeImpl implements IgniteCompute {
                 });
     }
 
-    private static CompletableFuture<PrimaryReplica> primaryReplicaByTupleKey(TableViewInternal table, Tuple key) {
-        return primaryReplicaByPartition(table, table.partition(key));
+    private static ClusterNode leaderOfTablePartitionByTupleKey(TableViewInternal table, Tuple key) {
+        return requiredLeaderByPartition(table, table.partition(key));
     }
 
-    private static  <K> CompletableFuture<PrimaryReplica> primaryReplicaByMappedKey(TableViewInternal table, K key, Mapper<K> keyMapper) {
-        return primaryReplicaByPartition(table, table.partition(key, keyMapper));
+    private static  <K> ClusterNode leaderOfTablePartitionByMappedKey(TableViewInternal table, K key, Mapper<K> keyMapper) {
+        return requiredLeaderByPartition(table, table.partition(key, keyMapper));
     }
 
-    private static CompletableFuture<PrimaryReplica> primaryReplicaByPartition(TableViewInternal table, int partitionIndex) {
-        return table.internalTable().primaryReplica(partitionIndex);
+    private static ClusterNode requiredLeaderByPartition(TableViewInternal table, int partitionIndex) {
+        ClusterNode leaderNode = table.leaderAssignment(partitionIndex);
+        if (leaderNode == null) {
+            throw new IgniteInternalException("Leader not found for partition " + partitionIndex);
+        }
+
+        return leaderNode;
     }
 
     /** {@inheritDoc} */
