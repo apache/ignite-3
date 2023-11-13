@@ -19,28 +19,27 @@ package org.apache.ignite.internal.sql.engine;
 
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Sql.EXECUTION_CANCELLED_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.RUNTIME_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_FAILED_READ_WRITE_OPERATION_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.notNullValue;
+import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
-import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.engine.property.SqlPropertiesHelper;
 import org.apache.ignite.internal.tx.InternalTransaction;
-import org.apache.ignite.internal.util.AsyncCursor;
 import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
+import org.apache.ignite.sql.NoRowSetExpectedException;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
@@ -51,8 +50,6 @@ import org.junit.jupiter.api.Test;
  */
 @SuppressWarnings("ThrowableNotThrown")
 public class ItSqlMultiStatementTest extends BaseSqlIntegrationTest {
-    private static final String CANCELLED_ERR_MSG = "script execution was canceled";
-
     @AfterEach
     void dropTables() {
         dropAllTables();
@@ -70,14 +67,17 @@ public class ItSqlMultiStatementTest extends BaseSqlIntegrationTest {
                 + "EXPLAIN PLAN FOR SELECT * FROM test;"
                 + "SELECT * FROM test";
 
-        AsyncIterator<AsyncSqlCursor<List<Object>>> itr = runScript(sql);
+        List<AsyncSqlCursor<List<Object>>> cursors = fetchAllCursors(runScript(sql));
+        assertNotNull(cursors);
 
-        validateSingleResult(itr.fetchNext(), true);
-        validateSingleResult(itr.fetchNext(), 1L);
-        assertThat(itr.fetchNext(), willCompleteSuccessfully()); // Skip explain.
-        validateSingleResult(itr.fetchNext(), 0, 0);
+        Iterator<AsyncSqlCursor<List<Object>>> iterator = cursors.iterator();
 
-        assertFalse(itr.hasNext());
+        validateSingleResult(iterator.next(), true);
+        validateSingleResult(iterator.next(), 1L);
+        assertNotNull(iterator.next()); // skip EXPLAIN.
+        validateSingleResult(iterator.next(), 0, 0);
+
+        assertFalse(iterator.hasNext());
 
         // Ensures that the script is executed completely, even if the cursor data has not been read.
         sql = "INSERT INTO test VALUES (1, 1);"
@@ -85,15 +85,7 @@ public class ItSqlMultiStatementTest extends BaseSqlIntegrationTest {
                 + "SELECT * FROM test;"
                 + "INSERT INTO test VALUES (3, 3);";
 
-        itr = runScript(sql);
-
-        List<AsyncSqlCursor<List<Object>>> cursorsToClose = new ArrayList<>();
-
-        while (itr.hasNext()) {
-            AsyncSqlCursor<List<Object>> cursor = await(itr.fetchNext());
-
-            cursorsToClose.add(cursor);
-        }
+        fetchAllCursors(runScript(sql));
 
         assertQuery("select * from test")
                 .returns(0, 0)
@@ -101,20 +93,23 @@ public class ItSqlMultiStatementTest extends BaseSqlIntegrationTest {
                 .returns(2, 2)
                 .returns(3, 3)
                 .check();
-
-        cursorsToClose.forEach(AsyncCursor::closeAsync);
     }
 
     /** Checks single statement execution using multi-statement API. */
     @Test
     void singleStatementQuery() {
-        AsyncIterator<AsyncSqlCursor<List<Object>>> itr = runScript("CREATE TABLE test (id INT PRIMARY KEY, val INT)");
-        validateSingleResult(itr.fetchNext(), true);
-        assertFalse(itr.hasNext());
+        AsyncSqlCursor<List<Object>> cursor = runScript("CREATE TABLE test (id INT PRIMARY KEY, val INT)");
+        assertNotNull(cursor);
+        validateSingleResult(cursor, true);
+        assertFalse(cursor.hasNextResult());
+        assertThat(cursor.nextResult(), willThrow(NoRowSetExpectedException.class));
 
-        itr = runScript("INSERT INTO test VALUES (0, 0)");
-        validateSingleResult(itr.fetchNext(), 1L);
-        assertFalse(itr.hasNext());
+        cursor = runScript("INSERT INTO test VALUES (0, 0)");
+        assertNotNull(cursor);
+        validateSingleResult(cursor, 1L);
+        assertFalse(cursor.hasNextResult());
+
+        assertQuery("SELECT * FROM test").returns(0, 0).check();
     }
 
     @Test
@@ -124,12 +119,7 @@ public class ItSqlMultiStatementTest extends BaseSqlIntegrationTest {
                 + "INSERT INTO test VALUES(?, DEFAULT);"
                 + "INSERT INTO test VALUES(?, ?);";
 
-        AsyncIterator<AsyncSqlCursor<List<Object>>> itr = runScript(sql, null, 0, "1", 2, 4, "5");
-        assertThat(itr, notNullValue());
-
-        while (itr.hasNext()) {
-            assertThat(itr.fetchNext(), willCompleteSuccessfully());
-        }
+        fetchAllCursors(runScript(sql, null, 0, "1", 2, 4, "5"));
 
         assertQuery("SELECT * FROM test")
                 .returns(0, "1")
@@ -152,17 +142,18 @@ public class ItSqlMultiStatementTest extends BaseSqlIntegrationTest {
 
     @Test
     void transactionControlStatementDoesNotCreateCursor() {
-        assertFalse(runScript("START TRANSACTION; COMMIT").hasNext());
+        assertThat(runScript("START TRANSACTION; COMMIT"), nullValue());
 
-        AsyncIterator<AsyncSqlCursor<List<Object>>> curItr = runScript(
+        AsyncSqlCursor<List<Object>> cursor = runScript(
                 "START TRANSACTION;"
                         + "SELECT 1;"
                         + "COMMIT"
         );
 
-        validateSingleResult(curItr.fetchNext(), 1);
+        assertNotNull(cursor);
+        validateSingleResult(cursor, 1);
 
-        assertFalse(curItr.hasNext());
+        assertFalse(cursor.hasNextResult());
     }
 
     @Test
@@ -172,22 +163,20 @@ public class ItSqlMultiStatementTest extends BaseSqlIntegrationTest {
                 + "SELECT 2/0;"
                 + "INSERT INTO test VALUES (0)";
 
-        AsyncIterator<AsyncSqlCursor<List<Object>>> itr0 = runScript(sql);
+        AsyncSqlCursor<List<Object>> cursor = runScript(sql);
+        assertNotNull(cursor);
+        assertTrue(cursor.hasNextResult());
 
-        assertThat(itr0.fetchNext(), willCompleteSuccessfully());
-        assertThrowsSqlException(RUNTIME_ERR, "/ by zero", () -> await(itr0.fetchNext()));
-        assertThrowsSqlException(EXECUTION_CANCELLED_ERR, "execution was canceled", () -> await(itr0.fetchNext()));
+        CompletableFuture<AsyncSqlCursor<List<Object>>> curFut0 = cursor.nextResult();
+        assertThrowsSqlException(RUNTIME_ERR, "/ by zero", () -> await(curFut0));
 
         // Validation error.
-        sql = "INSERT INTO test VALUES (?);"
-                + "INSERT INTO test VALUES (1)";
+        assertThrowsSqlException(STMT_VALIDATION_ERR, "operator must have compatible types",
+                () -> runScript("INSERT INTO test VALUES (?); INSERT INTO test VALUES (1)", null, "Incompatible param"));
 
-        AsyncIterator<AsyncSqlCursor<List<Object>>> itr1 = runScript(sql, null, "Incompatible param");
-
-        assertThrowsSqlException(STMT_VALIDATION_ERR, "operator must have compatible types", () -> await(itr1.fetchNext()));
-        assertThrowsSqlException(EXECUTION_CANCELLED_ERR, CANCELLED_ERR_MSG, () -> await(itr1.fetchNext()));
-
-        assertQuery("SELECT count(*) FROM test").returns(0L).check();
+        assertQuery("SELECT count(*) FROM test")
+                .returns(0L)
+                .check();
 
         // Internal error.
         sql = "INSERT INTO test VALUES(0);"
@@ -195,17 +184,16 @@ public class ItSqlMultiStatementTest extends BaseSqlIntegrationTest {
                 + "SELECT (SELECT id FROM test);"
                 + "INSERT INTO test VALUES(2);";
 
-        AsyncIterator<AsyncSqlCursor<List<Object>>>  itr2 = runScript(sql);
+        cursor = runScript(sql);
+        assertNotNull(cursor);
+        assertTrue(cursor.hasNextResult());
 
-        for (int i = 0; i < 2; i++) {
-            assertTrue(itr2.hasNext());
-            assertThat(itr2.fetchNext(), willCompleteSuccessfully());
-        }
+        cursor = await(cursor.nextResult());
+        assertNotNull(cursor);
+        assertTrue(cursor.hasNextResult());
 
-        assertTrue(itr2.hasNext());
-
-        assertThrowsSqlException(INTERNAL_ERR, "Subquery returned more than 1 value", () -> await(itr2.fetchNext()));
-        assertThrowsSqlException(EXECUTION_CANCELLED_ERR, CANCELLED_ERR_MSG, () -> await(itr2.fetchNext()));
+        CompletableFuture<AsyncSqlCursor<List<Object>>> cursFut = cursor.nextResult();
+        assertThrowsSqlException(INTERNAL_ERR, "Subquery returned more than 1 value", () -> await(cursFut));
 
         assertQuery("SELECT * FROM test")
                 .returns(0)
@@ -217,44 +205,55 @@ public class ItSqlMultiStatementTest extends BaseSqlIntegrationTest {
         sql(tx, "INSERT INTO test VALUES(2);");
         tx.commit();
 
-        sql = "INSERT INTO test VALUES(3);"
-                + "INSERT INTO test VALUES(4);"
-                + "SELECT 1;";
+        assertThrowsSqlException(TX_FAILED_READ_WRITE_OPERATION_ERR, "Transaction is already finished",
+                () -> runScript("INSERT INTO test VALUES(3); INSERT INTO test VALUES(4);", (InternalTransaction) tx));
 
-        AsyncIterator<AsyncSqlCursor<List<Object>>> itr3 = runScript(sql, (InternalTransaction) tx);
-
-        assertThrowsSqlException(TX_FAILED_READ_WRITE_OPERATION_ERR, "Transaction is already finished", () -> await(itr3.fetchNext()));
-        assertThrowsSqlException(EXECUTION_CANCELLED_ERR, CANCELLED_ERR_MSG, () -> await(itr3.fetchNext()));
-        assertThrowsSqlException(EXECUTION_CANCELLED_ERR, CANCELLED_ERR_MSG, () -> await(itr3.fetchNext()));
-
-        assertFalse(itr3.hasNext());
+        assertQuery("SELECT * FROM test")
+                .returns(0)
+                .returns(1)
+                .returns(2)
+                .check();
 
         // DDL inside outer transaction.
         assertThrowsSqlException(STMT_VALIDATION_ERR, "DDL doesn't support transactions.",
-                () -> await(runScript("CREATE TABLE test2 (id INT PRIMARY KEY)", (InternalTransaction) tx).fetchNext()));
+                () -> runScript("CREATE TABLE test2 (id INT PRIMARY KEY)", (InternalTransaction) tx));
     }
 
-    private AsyncIterator<AsyncSqlCursor<List<Object>>> runScript(String query) {
+    private @Nullable AsyncSqlCursor<List<Object>> runScript(String query) {
         return runScript(query, null);
     }
 
-    private AsyncIterator<AsyncSqlCursor<List<Object>>> runScript(
+    private @Nullable AsyncSqlCursor<List<Object>> runScript(
             String query,
             @Nullable InternalTransaction tx,
             Object ... params
     ) {
         QueryProcessor qryProc = queryProcessor();
 
-        return Objects.requireNonNull(
-                await(qryProc.queryScriptAsync(SqlPropertiesHelper.emptyProperties(), igniteTx(), tx, query, params)),
-                "Unexpected 'null' result"
-        );
+        return await(qryProc.queryScriptAsync(SqlPropertiesHelper.emptyProperties(), igniteTx(), tx, query, params));
     }
 
-    private static void validateSingleResult(CompletableFuture<AsyncSqlCursor<List<Object>>> cursorFut, Object... expected) {
-        AsyncSqlCursor<List<Object>> cursor = await(cursorFut);
-        assertNotNull(cursor);
+    private static @Nullable List<AsyncSqlCursor<List<Object>>> fetchAllCursors(@Nullable AsyncSqlCursor<List<Object>> cursor) {
+        if (cursor == null) {
+            return null;
+        }
 
+        List<AsyncSqlCursor<List<Object>>> cursors = new ArrayList<>();
+
+        cursors.add(cursor);
+
+        while (cursor.hasNextResult()) {
+            cursor = await(cursor.nextResult());
+
+            assertNotNull(cursor);
+
+            cursors.add(cursor);
+        }
+
+        return cursors;
+    }
+
+    private static void validateSingleResult(AsyncSqlCursor<List<Object>> cursor, Object... expected) {
         BatchedResult<List<Object>> res = await(cursor.requestNextAsync(1));
         assertNotNull(res);
         assertEquals(List.of(List.of(expected)), res.items());

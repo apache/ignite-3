@@ -17,7 +17,9 @@
 
 package org.apache.ignite.internal.sql.engine;
 
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.util.AsyncCursor;
+import org.apache.ignite.sql.NoRowSetExpectedException;
 import org.apache.ignite.sql.ResultSetMetadata;
 
 /**
@@ -35,4 +37,13 @@ public interface AsyncSqlCursor<T> extends AsyncCursor<T> {
      * Returns column metadata.
      */
     ResultSetMetadata metadata();
+
+    default boolean hasNextResult() {
+        return false;
+    }
+
+    default CompletableFuture<AsyncSqlCursor<T>> nextResult() {
+        // TODO
+        return CompletableFuture.failedFuture(new NoRowSetExpectedException());
+    }
 }

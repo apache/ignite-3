@@ -99,6 +99,8 @@ import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.SchemaNotFoundException;
 import org.apache.ignite.network.ClusterService;
+import org.apache.ignite.sql.NoRowSetExpectedException;
+import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.tx.IgniteTransactions;
 import org.apache.ignite.tx.TransactionOptions;
@@ -359,7 +361,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<AsyncIterator<AsyncSqlCursor<List<Object>>>> queryScriptAsync(
+    public CompletableFuture<AsyncSqlCursor<List<Object>>> queryScriptAsync(
             SqlProperties properties,
             IgniteTransactions transactions,
             @Nullable InternalTransaction transaction,
@@ -419,7 +421,7 @@ public class SqlQueryProcessor implements QueryProcessor {
         return stage;
     }
 
-    private CompletableFuture<AsyncIterator<AsyncSqlCursor<List<Object>>>> queryScript0(
+    private CompletableFuture<AsyncSqlCursor<List<Object>>> queryScript0(
             SqlProperties properties,
             IgniteTransactions transactions,
             @Nullable InternalTransaction explicitTransaction,
@@ -431,9 +433,9 @@ public class SqlQueryProcessor implements QueryProcessor {
 
         CompletableFuture<?> start = new CompletableFuture<>();
 
-        CompletableFuture<AsyncIterator<AsyncSqlCursor<List<Object>>>> parseFut = start
+        CompletableFuture<AsyncSqlCursor<List<Object>>> parseFut = start
                 .thenApply(ignored -> parserService.parseScript(sql))
-                .thenApply(parsedResults -> {
+                .thenCompose(parsedResults -> {
                     MultiStatementHandler handler = new MultiStatementHandler(
                             schemaName, transactions, explicitTransaction, parsedResults, params);
 
@@ -634,8 +636,10 @@ public class SqlQueryProcessor implements QueryProcessor {
                     .collect(toUnmodifiableList());
         }
 
-        AsyncIterator<AsyncSqlCursor<List<Object>>> cursorIterator() {
-            return new AsyncIteratorImpl<>(cursorFutures.iterator());
+        CompletableFuture<AsyncSqlCursor<List<Object>>> cursorIterator() {
+            return cursorFutures.isEmpty()
+                    ? CompletableFuture.completedFuture(null)
+                    : cursorFutures.get(0).thenApply(cur -> new ScriptAsyncCursorImpl<>(cur, cursorFutures));
         }
 
         void processNext() {
@@ -763,6 +767,61 @@ public class SqlQueryProcessor implements QueryProcessor {
                 this.dynamicParams = dynamicParams;
                 this.cursorFuture = parsedResult.queryType() == SqlQueryType.TX_CONTROL ? null : new CompletableFuture<>();
             }
+        }
+    }
+
+    private static class ScriptAsyncCursorImpl<T> implements AsyncSqlCursor<T> {
+        private final AsyncSqlCursor<T> current;
+        private final CompletableFuture<AsyncSqlCursor<T>> next;
+        private final boolean hasNext;
+
+        ScriptAsyncCursorImpl(AsyncSqlCursor<T> delegate, List<CompletableFuture<AsyncSqlCursor<T>>> list) {
+            this(delegate, list, 0);
+        }
+
+        private ScriptAsyncCursorImpl(AsyncSqlCursor<T> delegate, List<CompletableFuture<AsyncSqlCursor<T>>> list, int idx) {
+            this.current = delegate;
+
+            int idx0 = idx + 1;
+
+            hasNext = list.size() > idx0;
+
+            next = hasNext ? list.get(idx0).thenApply(cur -> new ScriptAsyncCursorImpl<>(cur, list, idx0)) : null;
+        }
+
+        @Override
+        public SqlQueryType queryType() {
+            return current.queryType();
+        }
+
+        @Override
+        public ResultSetMetadata metadata() {
+            return current.metadata();
+        }
+
+        @Override
+        public CompletableFuture<BatchedResult<T>> requestNextAsync(int rows) {
+            return current.requestNextAsync(rows);
+        }
+
+        @Override
+        public CompletableFuture<Void> closeAsync() {
+            return current.closeAsync();
+        }
+
+        @Override
+        public boolean hasNextResult() {
+            return hasNext;
+        }
+
+        @Override
+        public CompletableFuture<AsyncSqlCursor<T>> nextResult() {
+            if (!hasNextResult()) {
+                // TODO
+                return CompletableFuture.failedFuture(new NoRowSetExpectedException());
+            }
+
+            return next;
         }
     }
 }

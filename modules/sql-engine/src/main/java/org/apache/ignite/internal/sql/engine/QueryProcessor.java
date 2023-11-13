@@ -67,7 +67,7 @@ public interface QueryProcessor extends IgniteComponent {
      *
      * @throws IgniteException in case of an error.
      */
-    CompletableFuture<AsyncIterator<AsyncSqlCursor<List<Object>>>> queryScriptAsync(
+    CompletableFuture<AsyncSqlCursor<List<Object>>> queryScriptAsync(
             SqlProperties properties,
             IgniteTransactions transactions,
             @Nullable InternalTransaction transaction,
