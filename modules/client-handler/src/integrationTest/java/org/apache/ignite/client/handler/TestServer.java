@@ -134,7 +134,7 @@ public class TestServer {
                 new HybridClockImpl(),
                 new AlwaysSyncedSchemaSyncService(),
                 mock(CatalogService.class),
-                mock()
+                mock(org.apache.ignite.internal.placementdriver.PlacementDriver.class)
         );
 
         module.start();
