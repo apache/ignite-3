@@ -638,6 +638,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                 break;
             case EREORDER:
                 fut.completeExceptionally(new SafeTimeReorderException());
+
                 break;
 
             default:
