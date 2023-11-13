@@ -17,6 +17,7 @@
 
 package org.apache.ignite.client.handler;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -33,7 +34,9 @@ import org.apache.ignite.internal.placementdriver.PlacementDriver;
  * Tracks primary replica for every partition.
  */
 public class ClientPrimaryReplicaTracker {
-    private final ConcurrentHashMap<Integer, PrimaryReplicas> primaryReplicas = new ConcurrentHashMap<>();
+    private static final List<String> PENDING = Collections.emptyList();
+
+    private final ConcurrentHashMap<Integer, List<String>> primaryReplicas = new ConcurrentHashMap<>();
 
     /** Update counter for all tables. */
     private final AtomicLong updateCount = new AtomicLong();
@@ -51,23 +54,19 @@ public class ClientPrimaryReplicaTracker {
             }
 
             TablePartitionId tablePartitionId = (TablePartitionId) eventParameters.groupId();
-            int eventTableId = tablePartitionId.tableId();
-
-            primaryReplicas.computeIfPresent(eventTableId, (tableId, oldVal) -> {
-                if (oldVal.replicas == null) {
+            primaryReplicas.computeIfPresent(tablePartitionId.tableId(), (ignored, oldVal) -> {
+                if (oldVal.isEmpty()) {
                     // Initial value is not set yet.
                     return oldVal;
                 }
 
-                assert oldVal.replicas.size() > tablePartitionId.partitionId() : "replicas.size() > tablePartitionId.partitionId()";
+                assert oldVal.size() > tablePartitionId.partitionId() : "replicas.size() > tablePartitionId.partitionId()";
+                oldVal.set(tablePartitionId.partitionId(), eventParameters.leaseholder());
 
-                oldVal.replicas.set(tablePartitionId.partitionId(), eventParameters.leaseholder());
-
-                return new PrimaryReplicas(oldVal.version + 1, oldVal.replicas);
+                return oldVal;
             });
 
             updateCount.incrementAndGet();
-
             return CompletableFuture.completedFuture(null);
         };
 
@@ -76,39 +75,20 @@ public class ClientPrimaryReplicaTracker {
     }
 
     // TODO: For every tracked table, maintain an "assignment version" that is incremented every time a replica changes.
-    public @Nullable PrimaryReplicas primaryReplicas(int tableId) {
-        // TODO: Start tracking the table on first request.
-        return primaryReplicas.computeIfAbsent(tableId, this::init);
+    public @Nullable List<String> primaryReplicas(int tableId) {
+        List<String> replicas = primaryReplicas.computeIfAbsent(tableId, this::init);
+
+        return replicas == PENDING ? null : replicas;
     }
 
     public long updateCount() {
         return updateCount.get();
     }
 
-    private PrimaryReplicas init(Integer tableId) {
+    private List<String> init(Integer tableId) {
         // TODO: Where do we get partition count?
         // TODO: Request initial assignment.
 
-        return new PrimaryReplicas(0, null);
-    }
-
-    public class PrimaryReplicas {
-        private final int version;
-
-        @Nullable
-        private final List<String> replicas;
-
-        private PrimaryReplicas(int version, @Nullable List<String> replicas) {
-            this.version = version;
-            this.replicas = replicas;
-        }
-
-        public int version() {
-            return version;
-        }
-
-        public @Nullable List<String> replicas() {
-            return replicas;
-        }
+        return PENDING;
     }
 }
