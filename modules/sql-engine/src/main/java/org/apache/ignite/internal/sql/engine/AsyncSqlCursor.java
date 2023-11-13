@@ -38,12 +38,22 @@ public interface AsyncSqlCursor<T> extends AsyncCursor<T> {
      */
     ResultSetMetadata metadata();
 
+    /**
+     * Returns {@code true} if the current cursor is the result of a multi-statement query
+     * and this statement is not the last one, {@code false} otherwise.
+     */
     default boolean hasNextResult() {
         return false;
     }
 
+    /**
+     * Returns the future for the next statement if the current cursor is the result of a multi-statement query
+     * and this statement is not the last one, {@code false} otherwise.
+     *
+     * @return Future that completes when the next statement completes.
+     * @throws NoRowSetExpectedException if this is the last statement.
+     */
     default CompletableFuture<AsyncSqlCursor<T>> nextResult() {
-        // TODO
         return CompletableFuture.failedFuture(new NoRowSetExpectedException());
     }
 }

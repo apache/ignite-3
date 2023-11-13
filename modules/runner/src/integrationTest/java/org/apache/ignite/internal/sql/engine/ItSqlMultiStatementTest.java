@@ -70,22 +70,20 @@ public class ItSqlMultiStatementTest extends BaseSqlIntegrationTest {
         List<AsyncSqlCursor<List<Object>>> cursors = fetchAllCursors(runScript(sql));
         assertNotNull(cursors);
 
-        Iterator<AsyncSqlCursor<List<Object>>> iterator = cursors.iterator();
+        Iterator<AsyncSqlCursor<List<Object>>> curItr = cursors.iterator();
 
-        validateSingleResult(iterator.next(), true);
-        validateSingleResult(iterator.next(), 1L);
-        assertNotNull(iterator.next()); // skip EXPLAIN.
-        validateSingleResult(iterator.next(), 0, 0);
+        validateSingleResult(curItr.next(), true);
+        validateSingleResult(curItr.next(), 1L);
+        assertNotNull(curItr.next()); // skip EXPLAIN.
+        validateSingleResult(curItr.next(), 0, 0);
 
-        assertFalse(iterator.hasNext());
+        assertFalse(curItr.hasNext());
 
         // Ensures that the script is executed completely, even if the cursor data has not been read.
-        sql = "INSERT INTO test VALUES (1, 1);"
+        fetchAllCursors(runScript("INSERT INTO test VALUES (1, 1);"
                 + "INSERT INTO test VALUES (2, 2);"
                 + "SELECT * FROM test;"
-                + "INSERT INTO test VALUES (3, 3);";
-
-        fetchAllCursors(runScript(sql));
+                + "INSERT INTO test VALUES (3, 3);"));
 
         assertQuery("select * from test")
                 .returns(0, 0)
@@ -159,11 +157,11 @@ public class ItSqlMultiStatementTest extends BaseSqlIntegrationTest {
     @Test
     void scriptStopsExecutionOnError() {
         // Runtime error.
-        String sql = "CREATE TABLE test (id INT PRIMARY KEY);"
-                + "SELECT 2/0;"
-                + "INSERT INTO test VALUES (0)";
-
-        AsyncSqlCursor<List<Object>> cursor = runScript(sql);
+        AsyncSqlCursor<List<Object>> cursor = runScript(
+                "CREATE TABLE test (id INT PRIMARY KEY);"
+                + "SELECT 2/0;" // Runtime error.
+                + "INSERT INTO test VALUES (0)"
+        );
         assertNotNull(cursor);
         assertTrue(cursor.hasNextResult());
 
@@ -179,12 +177,12 @@ public class ItSqlMultiStatementTest extends BaseSqlIntegrationTest {
                 .check();
 
         // Internal error.
-        sql = "INSERT INTO test VALUES(0);"
+        cursor = runScript(
+                "INSERT INTO test VALUES(0);"
                 + "INSERT INTO test VALUES(1);"
-                + "SELECT (SELECT id FROM test);"
-                + "INSERT INTO test VALUES(2);";
-
-        cursor = runScript(sql);
+                + "SELECT (SELECT id FROM test);" // Internal error.
+                + "INSERT INTO test VALUES(2);"
+        );
         assertNotNull(cursor);
         assertTrue(cursor.hasNextResult());
 
@@ -205,8 +203,14 @@ public class ItSqlMultiStatementTest extends BaseSqlIntegrationTest {
         sql(tx, "INSERT INTO test VALUES(2);");
         tx.commit();
 
-        assertThrowsSqlException(TX_FAILED_READ_WRITE_OPERATION_ERR, "Transaction is already finished",
-                () -> runScript("INSERT INTO test VALUES(3); INSERT INTO test VALUES(4);", (InternalTransaction) tx));
+        assertThrowsSqlException(
+                TX_FAILED_READ_WRITE_OPERATION_ERR,
+                "Transaction is already finished",
+                () -> runScript(
+                        "INSERT INTO test VALUES(3); INSERT INTO test VALUES(4);",
+                        (InternalTransaction) tx
+                )
+        );
 
         assertQuery("SELECT * FROM test")
                 .returns(0)
@@ -214,7 +218,7 @@ public class ItSqlMultiStatementTest extends BaseSqlIntegrationTest {
                 .returns(2)
                 .check();
 
-        // DDL inside outer transaction.
+        // DDL inside external transaction.
         assertThrowsSqlException(STMT_VALIDATION_ERR, "DDL doesn't support transactions.",
                 () -> runScript("CREATE TABLE test2 (id INT PRIMARY KEY)", (InternalTransaction) tx));
     }

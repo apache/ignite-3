@@ -647,9 +647,8 @@ public class SqlQueryProcessor implements QueryProcessor {
         }
 
         CompletableFuture<AsyncSqlCursor<List<Object>>> cursorIterator() {
-            return cursorFutures.isEmpty()
-                    ? CompletableFuture.completedFuture(null)
-                    : cursorFutures.get(0).thenApply(cur -> new ScriptAsyncCursorImpl<>(cur, cursorFutures));
+            return cursorFutures.isEmpty() ? CompletableFuture.completedFuture(null)
+                    : cursorFutures.get(0).thenApply(cur -> new MultiStatementCursor<>(cur, cursorFutures, 1));
         }
 
         void processNext() {
@@ -767,58 +766,63 @@ public class SqlQueryProcessor implements QueryProcessor {
         }
     }
 
-    private static class ScriptAsyncCursorImpl<T> implements AsyncSqlCursor<T> {
-        private final AsyncSqlCursor<T> current;
+    private static class MultiStatementCursor<T> implements AsyncSqlCursor<T> {
         private final CompletableFuture<AsyncSqlCursor<T>> next;
-        private final boolean hasNext;
+        private final AsyncSqlCursor<T> delegate;
 
-        ScriptAsyncCursorImpl(AsyncSqlCursor<T> delegate, List<CompletableFuture<AsyncSqlCursor<T>>> list) {
-            this(delegate, list, 0);
+        private MultiStatementCursor(
+                AsyncSqlCursor<T> delegate,
+                List<CompletableFuture<AsyncSqlCursor<T>>> cursors,
+                int nextIndex
+        ) {
+            this.delegate = delegate;
+
+            next = nextCursorFuture(cursors, nextIndex);
         }
 
-        private ScriptAsyncCursorImpl(AsyncSqlCursor<T> delegate, List<CompletableFuture<AsyncSqlCursor<T>>> list, int idx) {
-            this.current = delegate;
+        private @Nullable CompletableFuture<AsyncSqlCursor<T>> nextCursorFuture(
+                List<CompletableFuture<AsyncSqlCursor<T>>> cursors,
+                int index
+        ) {
+            if (index >= cursors.size()) {
+                return null;
+            }
 
-            int idx0 = idx + 1;
-
-            hasNext = list.size() > idx0;
-
-            next = hasNext ? list.get(idx0).thenApply(cur -> new ScriptAsyncCursorImpl<>(cur, list, idx0)) : null;
-        }
-
-        @Override
-        public SqlQueryType queryType() {
-            return current.queryType();
-        }
-
-        @Override
-        public ResultSetMetadata metadata() {
-            return current.metadata();
-        }
-
-        @Override
-        public CompletableFuture<BatchedResult<T>> requestNextAsync(int rows) {
-            return current.requestNextAsync(rows);
-        }
-
-        @Override
-        public CompletableFuture<Void> closeAsync() {
-            return current.closeAsync();
+            return cursors.get(index).thenApply(cur -> new MultiStatementCursor<>(cur, cursors, index + 1));
         }
 
         @Override
         public boolean hasNextResult() {
-            return hasNext;
+            return next != null;
         }
 
         @Override
         public CompletableFuture<AsyncSqlCursor<T>> nextResult() {
             if (!hasNextResult()) {
-                // TODO
                 return CompletableFuture.failedFuture(new NoRowSetExpectedException());
             }
 
             return next;
+        }
+
+        @Override
+        public SqlQueryType queryType() {
+            return delegate.queryType();
+        }
+
+        @Override
+        public ResultSetMetadata metadata() {
+            return delegate.metadata();
+        }
+
+        @Override
+        public CompletableFuture<BatchedResult<T>> requestNextAsync(int rows) {
+            return delegate.requestNextAsync(rows);
+        }
+
+        @Override
+        public CompletableFuture<Void> closeAsync() {
+            return delegate.closeAsync();
         }
     }
 }
