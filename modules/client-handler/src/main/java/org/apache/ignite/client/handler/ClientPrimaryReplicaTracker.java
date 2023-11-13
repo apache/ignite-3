@@ -111,7 +111,17 @@ public class ClientPrimaryReplicaTracker {
             // Then keep them updated via PRIMARY_REPLICA_ELECTED events.
             return igniteTables
                     .tableAsync(tableId)
-                    .thenCompose(t -> primaryReplicas(t.tableId(), t.internalTable().partitions()));
+                    .thenCompose(t -> primaryReplicas(t.tableId(), t.internalTable().partitions()))
+                    .handle((replicas, err) -> {
+                        if (err != null) {
+                            // Remove failed future from the map to allow retry.
+                            primaryReplicas.remove(tableId);
+
+                            throw new RuntimeException(err);
+                        }
+
+                        return replicas;
+                    });
         } catch (NodeStoppingException e) {
             return CompletableFuture.failedFuture(e);
         }
