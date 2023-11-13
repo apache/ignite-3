@@ -178,10 +178,10 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
 
         transferLeadershipOnSolePartitionTo(2);
 
-        assertThat(getVia(2, 1), is("one"));
+        assertThat(getFromNode(2, 1), is("one"));
     }
 
-    private @Nullable String getVia(int clusterNode, int key) {
+    private @Nullable String getFromNode(int clusterNode, int key) {
         return tableViewAt(clusterNode).get(null, key);
     }
 
@@ -236,17 +236,17 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
 
         knockoutNode(2);
 
-        putVia(0, 1, "one");
+        putToNode(0, 1, "one");
 
         // Make sure AppendEntries from leader to follower is impossible, making the leader to use InstallSnapshot.
         causeLogTruncationOnSolePartitionLeader(0);
     }
 
-    private void putVia(int nodeIndex, int key, String value) {
-        putVia(nodeIndex, key, value, null);
+    private void putToNode(int nodeIndex, int key, String value) {
+        putToNode(nodeIndex, key, value, null);
     }
 
-    private void putVia(int nodeIndex, int key, String value, @Nullable Transaction tx) {
+    private void putToNode(int nodeIndex, int key, String value, @Nullable Transaction tx) {
         tableViewAt(nodeIndex).put(tx, key, value);
     }
 
@@ -382,7 +382,7 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
 
         Transaction tx = cluster.node(0).transactions().begin();
 
-        putVia(0, 1, "one", tx);
+        putToNode(0, 1, "one", tx);
 
         knockoutNode(2);
 
@@ -395,7 +395,7 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
 
         transferLeadershipOnSolePartitionTo(2);
 
-        assertThat(getVia(2, 1), is("one"));
+        assertThat(getFromNode(2, 1), is("one"));
     }
 
     /**
@@ -405,12 +405,12 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
     void entriesKeepAppendedAfterSnapshotInstallation() throws Exception {
         feedNode2WithSnapshotOfOneRow();
 
-        putVia(0, 2, "two");
+        putToNode(0, 2, "two");
 
         transferLeadershipOnSolePartitionTo(2);
 
-        assertThat(getVia(0, 1), is("one"));
-        assertThat(getVia(0, 2), is("two"));
+        assertThat(getFromNode(0, 1), is("one"));
+        assertThat(getFromNode(0, 2), is("two"));
     }
 
     /**
@@ -428,7 +428,7 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
 
         CompletableFuture<?> loadingFuture = IgniteTestUtils.runAsync(() -> {
             for (int key = 2; !installedSnapshot.get(); key++) {
-                putVia(0, key, "extra");
+                putToNode(0, key, "extra");
                 lastLoadedKey.set(key);
             }
         });
@@ -441,7 +441,7 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
 
         transferLeadershipOnSolePartitionTo(2);
 
-        assertThat(getVia(2, 1), is("one"));
+        assertThat(getFromNode(2, 1), is("one"));
 
         List<Integer> expectedKeysAndNextKey = IntStream.rangeClosed(2, lastLoadedKey.get() + 1).boxed().collect(toList());
         Map<Integer, String> keysToValues = tableViewAt(2).getAll(null, expectedKeysAndNextKey);
@@ -467,7 +467,7 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
 
         knockoutNode(0);
 
-        putVia(2, 2, "two");
+        putToNode(2, 2, "two");
 
         // Make sure AppendEntries from leader to follower is impossible, making the leader to use InstallSnapshot.
         causeLogTruncationOnSolePartitionLeader(2);
@@ -476,8 +476,8 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
 
         transferLeadershipOnSolePartitionTo(0);
 
-        assertThat(getVia(0, 1), is("one"));
-        assertThat(getVia(0, 2), is("two"));
+        assertThat(getFromNode(0, 1), is("one"));
+        assertThat(getFromNode(0, 2), is("two"));
     }
 
     /**
@@ -607,7 +607,7 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
         assertThat(installSnapshotSuccessfulFuture, willSucceedIn(1, TimeUnit.MINUTES));
 
         // Make sure the rebalancing is complete.
-        assertThat(getVia(2, 1), is("one"));
+        assertThat(getFromNode(2, 1), is("one"));
     }
 
     /**
@@ -661,7 +661,7 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
         // Change the leader to node 1.
         transferLeadershipOnSolePartitionTo(1);
 
-        boolean replicated = waitForCondition(() -> getVia(2, 1) != null, 20_000);
+        boolean replicated = waitForCondition(() -> getFromNode(2, 1) != null, 20_000);
 
         assertTrue(replicated, "Data has not been replicated to node 2 in time");
 
@@ -669,7 +669,7 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
         assertFalse(installSnapshotSuccessfulFuture.isDone());
 
         // Make sure the rebalancing is complete.
-        assertThat(getVia(2, 1), is("one"));
+        assertThat(getFromNode(2, 1), is("one"));
     }
 
     /**
