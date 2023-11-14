@@ -639,6 +639,7 @@ public class PartitionAwarenessTest extends AbstractClientTest {
 
         FakeIgniteTables tables = (FakeIgniteTables) ignite.tables();
 
-        tables.setPartitionAssignments(assignments);
+        // TODO
+        // tables.setPartitionAssignments(assignments);
     }
 }

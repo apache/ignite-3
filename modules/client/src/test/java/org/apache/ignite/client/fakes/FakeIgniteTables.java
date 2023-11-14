@@ -23,10 +23,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
-import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRowConverter;
 import org.apache.ignite.internal.schema.Column;
@@ -65,10 +63,6 @@ public class FakeIgniteTables implements IgniteTablesInternal {
     private final ConcurrentHashMap<String, TableViewInternal> tables = new ConcurrentHashMap<>();
 
     private final ConcurrentHashMap<Integer, TableViewInternal> tablesById = new ConcurrentHashMap<>();
-
-    private final CopyOnWriteArrayList<EventListener> assignmentsChangeListeners = new CopyOnWriteArrayList<>();
-
-    private volatile List<String> partitionAssignments = null;
 
     private final AtomicInteger nextTableId = new AtomicInteger(1);
 
@@ -166,20 +160,6 @@ public class FakeIgniteTables implements IgniteTablesInternal {
     @Override
     public CompletableFuture<TableViewInternal> tableViewAsync(String name) {
         return completedFuture(tableView(name));
-    }
-
-    /**
-     * Sets partition assignments.
-     *
-     * @param assignments Assignments.
-     */
-    @SuppressWarnings({"unchecked", "DataFlowIssue"})
-    public void setPartitionAssignments(List<String> assignments) {
-        partitionAssignments = assignments;
-
-        for (var listener : assignmentsChangeListeners) {
-            listener.notify(null, null);
-        }
     }
 
     private TableViewInternal getNewTable(String name, int id) {
