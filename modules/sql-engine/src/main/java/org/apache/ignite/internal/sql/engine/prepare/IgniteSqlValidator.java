@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.prepare;
 
+import static java.util.Objects.requireNonNull;
 import static org.apache.calcite.sql.type.SqlTypeName.INT_TYPES;
 import static org.apache.calcite.sql.type.SqlTypeUtil.equalSansNullability;
 import static org.apache.calcite.sql.type.SqlTypeUtil.isNull;
@@ -194,6 +195,45 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         // Update creates a source expression list which is not updated
         // after type coercion adds CASTs to source expressions.
         syncSelectList(select, call);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    protected void checkTypeAssignment(
+            SqlValidatorScope sourceScope,
+            SqlValidatorTable table,
+            RelDataType sourceRowType,
+            RelDataType targetRowType,
+            SqlNode query
+    ) {
+        boolean coerced = false;
+
+        if (query instanceof SqlUpdate) {
+            SqlNodeList targetColumnList =
+                    requireNonNull(((SqlUpdate) query).getTargetColumnList());
+            int targetColumnCount = targetColumnList.size();
+            targetRowType =
+                    SqlTypeUtil.extractLastNFields(typeFactory, targetRowType,
+                            targetColumnCount);
+            sourceRowType =
+                    SqlTypeUtil.extractLastNFields(typeFactory, sourceRowType,
+                            targetColumnCount);
+        }
+
+        if (config().typeCoercionEnabled()) {
+            if (SqlTypeUtil.equalAsStructSansNullability(typeFactory,
+                    sourceRowType, targetRowType, null)) {
+                if ((query.getKind() == SqlKind.INSERT || query.getKind() == SqlKind.UPDATE)
+                        && targetRowType.getFieldList().stream().anyMatch(fld -> fld.getType().getSqlTypeName() == SqlTypeName.BIGINT)
+                        && sourceRowType.getFieldList().stream().anyMatch(fld -> fld.getType().getSqlTypeName() == SqlTypeName.BIGINT)) {
+                    coerced = getTypeCoercion().querySourceCoercion(sourceScope, sourceRowType, targetRowType, query);
+                }
+            }
+        }
+
+        if (!coerced) {
+            super.checkTypeAssignment(sourceScope, table, sourceRowType, targetRowType, query);
+        }
     }
 
     /** {@inheritDoc} */
