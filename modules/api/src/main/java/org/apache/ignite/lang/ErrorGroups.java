@@ -510,6 +510,9 @@ public class ErrorGroups {
 
         /** Class loader error. */
         public static final int CLASS_LOADER_ERR = COMPUTE_ERR_GROUP.registerErrorCode((short) 2);
+
+        /** Job class initialization error. */
+        public static final int CLASS_INITIALIZATION_ERR = COMPUTE_ERR_GROUP.registerErrorCode((short) 3);
     }
 
     /** Catalog error group. */

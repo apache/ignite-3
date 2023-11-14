@@ -35,7 +35,20 @@ public interface ComputeComponent extends IgniteComponent {
      * @param <R>      result type
      * @return future execution result
      */
-    <R> CompletableFuture<R> executeLocally(List<DeploymentUnit> units, String jobClassName, Object... args);
+    <R> CompletableFuture<R> executeLocally(
+            ExecutionOptions options,
+            List<DeploymentUnit> units,
+            String jobClassName,
+            Object... args
+    );
+
+    default <R> CompletableFuture<R> executeLocally(
+            List<DeploymentUnit> units,
+            String jobClassName,
+            Object... args
+    ) {
+        return executeLocally(ExecutionOptions.DEFAULT, units, jobClassName, args);
+    }
 
     /**
      * Executes a job of the given class on a remote node.
@@ -46,5 +59,20 @@ public interface ComputeComponent extends IgniteComponent {
      * @param <R>      result type
      * @return future execution result
      */
-    <R> CompletableFuture<R> executeRemotely(ClusterNode remoteNode, List<DeploymentUnit> units, String jobClassName, Object... args);
+    <R> CompletableFuture<R> executeRemotely(
+            ExecutionOptions options,
+            ClusterNode remoteNode,
+            List<DeploymentUnit> units,
+            String jobClassName,
+            Object... args
+    );
+
+    default <R> CompletableFuture<R> executeRemotely(
+            ClusterNode remoteNode,
+            List<DeploymentUnit> units,
+            String jobClassName,
+            Object... args
+    ) {
+        return executeRemotely(ExecutionOptions.DEFAULT, remoteNode, units, jobClassName, args);
+    }
 }
