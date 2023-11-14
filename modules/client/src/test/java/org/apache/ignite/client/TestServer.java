@@ -39,8 +39,10 @@ import java.util.function.Function;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.client.fakes.FakeCompute;
 import org.apache.ignite.client.fakes.FakeIgnite;
+import org.apache.ignite.client.fakes.FakePlacementDriver;
 import org.apache.ignite.client.handler.ClientHandlerMetricSource;
 import org.apache.ignite.client.handler.ClientHandlerModule;
+import org.apache.ignite.client.handler.ClientPrimaryReplicaTracker;
 import org.apache.ignite.client.handler.configuration.ClientConnectorConfiguration;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.internal.catalog.CatalogService;
@@ -200,6 +202,8 @@ public class TestServer implements AutoCloseable {
             clock = new HybridClockImpl();
         }
 
+        var placementDriver = new FakePlacementDriver();
+
         module = shouldDropConnection != null
                 ? new TestClientHandlerModule(
                         ignite,
@@ -212,7 +216,8 @@ public class TestServer implements AutoCloseable {
                         clusterId,
                         metrics,
                         securityConfigurationOnInit,
-                        clock)
+                        clock,
+                        placementDriver)
                 : new ClientHandlerModule(
                         ((FakeIgnite) ignite).queryEngine(),
                         (IgniteTablesInternal) ignite.tables(),
@@ -229,7 +234,7 @@ public class TestServer implements AutoCloseable {
                         clock,
                         new AlwaysSyncedSchemaSyncService(),
                         mockCatalogService(),
-                        mock(PlacementDriver.class)
+                        placementDriver
                 );
 
         module.start();

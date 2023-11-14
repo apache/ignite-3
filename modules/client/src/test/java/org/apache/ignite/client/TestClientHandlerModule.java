@@ -37,12 +37,14 @@ import java.util.function.Function;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.client.handler.ClientHandlerMetricSource;
 import org.apache.ignite.client.handler.ClientInboundMessageHandler;
+import org.apache.ignite.client.handler.ClientPrimaryReplicaTracker;
 import org.apache.ignite.client.handler.configuration.ClientConnectorConfiguration;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.internal.client.proto.ClientMessageDecoder;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.security.authentication.AuthenticationManager;
 import org.apache.ignite.internal.security.authentication.AuthenticationManagerImpl;
 import org.apache.ignite.internal.security.configuration.SecurityConfiguration;
@@ -86,6 +88,9 @@ public class TestClientHandlerModule implements IgniteComponent {
     /** Clock. */
     private final HybridClock clock;
 
+    /** Placement driver. */
+    private final PlacementDriver placementDriver;
+
     /** Netty channel. */
     private volatile Channel channel;
 
@@ -121,7 +126,8 @@ public class TestClientHandlerModule implements IgniteComponent {
             UUID clusterId,
             ClientHandlerMetricSource metrics,
             SecurityConfiguration securityConfiguration,
-            HybridClock clock) {
+            HybridClock clock,
+            PlacementDriver placementDriver) {
         assert ignite != null;
         assert registry != null;
         assert bootstrapFactory != null;
@@ -137,6 +143,7 @@ public class TestClientHandlerModule implements IgniteComponent {
         this.metrics = metrics;
         this.securityConfiguration = securityConfiguration;
         this.clock = clock;
+        this.placementDriver = placementDriver;
     }
 
     /** {@inheritDoc} */
@@ -210,7 +217,7 @@ public class TestClientHandlerModule implements IgniteComponent {
                                         new AlwaysSyncedSchemaSyncService(),
                                         TestServer.mockCatalogService(),
                                         connectionIdGen.incrementAndGet(),
-                                        mock()
+                                        new ClientPrimaryReplicaTracker(placementDriver, (IgniteTablesInternal) ignite.tables(), clock)
                                 )
                         );
                     }
