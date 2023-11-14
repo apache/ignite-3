@@ -21,7 +21,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.netty.util.ResourceLeakDetector;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -173,12 +172,7 @@ public class PartitionAwarenessTest extends AbstractClientTest {
         assertOpOnNode(nodeKey2, "get", x -> recordView.get(null, Tuple.create().set("ID", 2L)));
 
         // Update partition assignment.
-        var assignments = new ArrayList<String>();
-
-        assignments.add(testServer2.nodeName());
-        assignments.add(testServer.nodeName());
-
-        initPrimaryReplicas(assignments);
+        initPrimaryReplicas(reversedReplicas());
 
         if (useHeartbeat) {
             // Wait for heartbeat message to receive change notification flag.
@@ -535,7 +529,7 @@ public class PartitionAwarenessTest extends AbstractClientTest {
     }
 
     @Test
-    public void testDataStreamerReceivesPartitionAssignmentUpdates() throws InterruptedException {
+    public void testDataStreamerReceivesPartitionAssignmentUpdates() {
         DataStreamerOptions options = DataStreamerOptions.builder()
                 .batchSize(1)
                 .perNodeParallelOperations(1)
@@ -550,6 +544,7 @@ public class PartitionAwarenessTest extends AbstractClientTest {
 
             Consumer<Long> submit = id -> {
                 try {
+                    lastOpServerName = null;
                     publisher.submit(Tuple.create().set("ID", id));
                     assertTrue(IgniteTestUtils.waitForCondition(() -> lastOpServerName != null, 1000));
                 } catch (InterruptedException e) {
@@ -561,21 +556,12 @@ public class PartitionAwarenessTest extends AbstractClientTest {
             assertOpOnNode(nodeKey2, "upsertAll", x -> submit.accept(2L));
 
             // Update partition assignment.
-            var assignments = new ArrayList<String>();
-
-            assignments.add(testServer2.nodeName());
-            assignments.add(testServer.nodeName());
-
-            initPrimaryReplicas(assignments);
+            initPrimaryReplicas(reversedReplicas());
 
             // Send some batches so that the client receives updated assignment.
-            lastOpServerName = null;
-            submit.accept(1L);
-            assertTrue(IgniteTestUtils.waitForCondition(() -> lastOpServerName != null, 1000));
-
-            lastOpServerName = null;
-            submit.accept(2L);
-            assertTrue(IgniteTestUtils.waitForCondition(() -> lastOpServerName != null, 1000));
+            for (long i = 0; i < 10; i++) {
+                submit.accept(i);
+            }
 
             // Check updated assignment.
             assertOpOnNode(nodeKey2, "upsertAll", x -> submit.accept(1L));
@@ -623,21 +609,24 @@ public class PartitionAwarenessTest extends AbstractClientTest {
         });
     }
 
-    private static void initPrimaryReplicas(@Nullable ArrayList<String> replicas) {
+    private static void initPrimaryReplicas(@Nullable List<String> replicas) {
         initPrimaryReplicas(testServer.placementDriver(), replicas);
         initPrimaryReplicas(testServer2.placementDriver(), replicas);
     }
 
     private static void initPrimaryReplicas(FakePlacementDriver placementDriver, @Nullable List<String> replicas) {
         if (replicas == null) {
-            replicas = new ArrayList<>();
-
-            replicas.add(testServer.nodeName());
-            replicas.add(testServer2.nodeName());
-            replicas.add(testServer.nodeName());
-            replicas.add(testServer2.nodeName());
+            replicas = defaultReplicas();
         }
 
         placementDriver.setReplicas(replicas);
+    }
+
+    private static List<String> defaultReplicas() {
+        return List.of(testServer.nodeName(), testServer2.nodeName(), testServer.nodeName(), testServer2.nodeName());
+    }
+
+    private static List<String> reversedReplicas() {
+        return List.of(testServer2.nodeName(), testServer.nodeName(), testServer2.nodeName(), testServer.nodeName());
     }
 }
