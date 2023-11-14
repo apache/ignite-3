@@ -146,7 +146,7 @@ public class ClientPrimaryReplicaTracker implements EventListener<PrimaryReplica
     @Override
     public CompletableFuture<Boolean> notify(PrimaryReplicaEventParameters parameters, @Nullable Throwable exception) {
         if (exception != null || !(parameters.groupId() instanceof TablePartitionId)) {
-            return CompletableFuture.completedFuture(null);
+            return CompletableFuture.completedFuture(false);
         }
 
         TablePartitionId tablePartitionId = (TablePartitionId) parameters.groupId();
