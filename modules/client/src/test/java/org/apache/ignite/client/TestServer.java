@@ -42,7 +42,6 @@ import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.client.fakes.FakePlacementDriver;
 import org.apache.ignite.client.handler.ClientHandlerMetricSource;
 import org.apache.ignite.client.handler.ClientHandlerModule;
-import org.apache.ignite.client.handler.ClientPrimaryReplicaTracker;
 import org.apache.ignite.client.handler.configuration.ClientConnectorConfiguration;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.internal.catalog.CatalogService;
@@ -57,7 +56,6 @@ import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
-import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.security.authentication.AuthenticationManager;
 import org.apache.ignite.internal.security.authentication.AuthenticationManagerImpl;
 import org.apache.ignite.internal.security.configuration.SecurityConfiguration;
@@ -88,6 +86,8 @@ public class TestServer implements AutoCloseable {
     private final ClientHandlerMetricSource metrics;
 
     private final Ignite ignite;
+
+    private final FakePlacementDriver placementDriver = new FakePlacementDriver();
 
     /**
      * Constructor.
@@ -202,8 +202,6 @@ public class TestServer implements AutoCloseable {
             clock = new HybridClockImpl();
         }
 
-        var placementDriver = new FakePlacementDriver();
-
         module = shouldDropConnection != null
                 ? new TestClientHandlerModule(
                         ignite,
@@ -299,6 +297,15 @@ public class TestServer implements AutoCloseable {
      */
     public ClientHandlerMetricSource metrics() {
         return metrics;
+    }
+
+    /**
+     * Gets the placement driver.
+     *
+     * @return Placement driver.
+     */
+    public FakePlacementDriver placementDriver() {
+        return placementDriver;
     }
 
     /** {@inheritDoc} */

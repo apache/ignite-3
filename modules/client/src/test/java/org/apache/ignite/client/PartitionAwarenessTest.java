@@ -34,6 +34,7 @@ import org.apache.ignite.client.AbstractClientTableTest.PersonPojo;
 import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.client.fakes.FakeIgniteTables;
 import org.apache.ignite.client.fakes.FakeInternalTable;
+import org.apache.ignite.client.fakes.FakePlacementDriver;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.internal.client.tx.ClientTransaction;
 import org.apache.ignite.internal.table.TableViewInternal;
@@ -623,11 +624,11 @@ public class PartitionAwarenessTest extends AbstractClientTest {
     }
 
     private static void initPartitionAssignment(@Nullable ArrayList<String> assignments) {
-        initPartitionAssignment(server, assignments);
-        initPartitionAssignment(server2, assignments);
+        initPartitionAssignment(testServer.placementDriver(), assignments);
+        initPartitionAssignment(testServer2.placementDriver(), assignments);
     }
 
-    private static void initPartitionAssignment(Ignite ignite, @Nullable ArrayList<String> assignments) {
+    private static void initPartitionAssignment(FakePlacementDriver placementDriver, @Nullable List<String> assignments) {
         if (assignments == null) {
             assignments = new ArrayList<>();
 
@@ -637,9 +638,6 @@ public class PartitionAwarenessTest extends AbstractClientTest {
             assignments.add(testServer2.nodeName());
         }
 
-        FakeIgniteTables tables = (FakeIgniteTables) ignite.tables();
-
-        // TODO
-        // tables.setPartitionAssignments(assignments);
+        placementDriver.update(assignments);
     }
 }

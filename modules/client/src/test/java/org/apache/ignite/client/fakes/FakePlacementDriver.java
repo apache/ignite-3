@@ -17,30 +17,40 @@
 
 package org.apache.ignite.client.fakes;
 
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
-import org.apache.ignite.internal.event.EventListener;
+import org.apache.ignite.internal.event.AbstractEventProducer;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.replicator.TablePartitionId;
 
-public class FakePlacementDriver implements PlacementDriver {
+public class FakePlacementDriver extends AbstractEventProducer<PrimaryReplicaEvent, PrimaryReplicaEventParameters>
+        implements PlacementDriver {
+    private volatile List<String> primaryReplicas = List.of("unknown");
 
-    @Override
-    public void listen(PrimaryReplicaEvent evt, EventListener<? extends PrimaryReplicaEventParameters> listener) {
-    }
+    public void update(List<String> replicas) {
+        primaryReplicas = replicas;
 
-    @Override
-    public void removeListener(PrimaryReplicaEvent evt, EventListener<? extends PrimaryReplicaEventParameters> listener) {
+        for (int partition = 0; partition < replicas.size(); partition++) {
+            String replica = replicas.get(partition);
+            TablePartitionId groupId = new TablePartitionId(0, partition);
+
+            PrimaryReplicaEventParameters params = new PrimaryReplicaEventParameters(0, groupId, replica);
+            fireEvent(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, params);
+        }
     }
 
     @Override
     public CompletableFuture<ReplicaMeta> awaitPrimaryReplica(ReplicationGroupId groupId, HybridTimestamp timestamp, long timeout,
             TimeUnit unit) {
-        return CompletableFuture.completedFuture(getReplicaMeta("server-1"));
+        var id = (TablePartitionId)groupId;
+
+        return CompletableFuture.completedFuture(getReplicaMeta(primaryReplicas.get(id.partitionId())));
     }
 
     @Override
@@ -53,7 +63,8 @@ public class FakePlacementDriver implements PlacementDriver {
         return CompletableFuture.completedFuture(null);
     }
 
-    public static ReplicaMeta getReplicaMeta(String leaseholder) {
+    private static ReplicaMeta getReplicaMeta(String leaseholder) {
+        //noinspection serial
         return new ReplicaMeta() {
             @Override
             public String getLeaseholder() {
