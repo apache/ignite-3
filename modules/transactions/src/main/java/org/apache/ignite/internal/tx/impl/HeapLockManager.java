@@ -217,16 +217,19 @@ public class HeapLockManager implements LockManager {
         if (states != null) {
             for (LockState state : states) {
                 if (state.tryRelease(txId)) {
-                    locks.compute(state.key, (k, v) -> {
-                        // Mapping may already change.
-                        if (v != state || !v.markedForRemove) {
-                            return v;
-                        }
+                    LockKey key = state.key; // State may be already invalidated.
+                    if (key != null) {
+                        locks.compute(key, (k, v) -> {
+                            // Mapping may already change.
+                            if (v != state || !v.markedForRemove) {
+                                return v;
+                            }
 
-                        v.key = null;
-                        empty.add(v);
-                        return null;
-                    });
+                            v.key = null;
+                            empty.add(v);
+                            return null;
+                        });
+                    }
                 }
             }
         }
