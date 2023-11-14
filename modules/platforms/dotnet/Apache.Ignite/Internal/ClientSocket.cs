@@ -160,22 +160,32 @@ namespace Apache.Ignite.Internal
             "Microsoft.Reliability",
             "CA2000:Dispose objects before losing scope",
             Justification = "NetworkStream is returned from this method in the socket.")]
+        [SuppressMessage("Maintainability", "CA1508:Avoid dead conditional code", Justification = "False positive")]
+        [SuppressMessage("Design", "CA1031:Do not catch general exception types", Justification = "Reviewed")]
         public static async Task<ClientSocket> ConnectAsync(
             SocketEndpoint endPoint,
             IgniteClientConfiguration configuration,
             IClientSocketEventListener listener)
         {
-            var socket = new Socket(SocketType.Stream, ProtocolType.Tcp)
-            {
-                NoDelay = true
-            };
-
+            using var cts = new CancellationTokenSource();
             var logger = configuration.Logger.GetLogger(nameof(ClientSocket) + "-" + Interlocked.Increment(ref _socketId));
+
             bool connected = false;
+            Socket? socket = null;
+            Stream? stream = null;
 
             try
             {
-                await socket.ConnectAsync(endPoint.EndPoint).ConfigureAwait(false);
+                socket = new Socket(SocketType.Stream, ProtocolType.Tcp)
+                {
+                    NoDelay = true
+                };
+
+                await socket.ConnectAsync(endPoint.EndPoint, cts.Token)
+                    .AsTask()
+                    .WaitAsync(configuration.SocketTimeout, cts.Token)
+                    .ConfigureAwait(false);
+
                 connected = true;
 
                 if (logger?.IsEnabled(LogLevel.Debug) == true)
@@ -186,10 +196,12 @@ namespace Apache.Ignite.Internal
                 Metrics.ConnectionsEstablished.Add(1);
                 Metrics.ConnectionsActiveIncrement();
 
-                Stream stream = new NetworkStream(socket, ownsSocket: true);
+                stream = new NetworkStream(socket, ownsSocket: true);
 
                 if (configuration.SslStreamFactory is { } sslStreamFactory &&
-                    await sslStreamFactory.CreateAsync(stream, endPoint.Host).ConfigureAwait(false) is { } sslStream)
+                    await sslStreamFactory.CreateAsync(stream, endPoint.Host, cts.Token)
+                        .WaitAsync(configuration.SocketTimeout, cts.Token)
+                        .ConfigureAwait(false) is { } sslStream)
                 {
                     stream = sslStream;
 
@@ -200,8 +212,8 @@ namespace Apache.Ignite.Internal
                     }
                 }
 
-                var context = await HandshakeAsync(stream, endPoint.EndPoint, configuration)
-                    .WaitAsync(configuration.SocketTimeout)
+                var context = await HandshakeAsync(stream, endPoint.EndPoint, configuration, cts.Token)
+                    .WaitAsync(configuration.SocketTimeout, cts.Token)
                     .ConfigureAwait(false);
 
                 if (logger?.IsEnabled(LogLevel.Debug) == true)
@@ -211,11 +223,26 @@ namespace Apache.Ignite.Internal
 
                 return new ClientSocket(stream, configuration, context, listener, logger);
             }
-            catch (Exception e)
+            catch (Exception ex)
             {
-                logger?.Warn($"Connection failed before or during handshake [remoteAddress={endPoint.EndPoint}]: {e.Message}.", e);
+                try
+                {
+                    cts.Cancel();
+                    socket?.Dispose();
 
-                if (e.GetBaseException() is TimeoutException)
+                    if (stream != null)
+                    {
+                        await stream.DisposeAsync().ConfigureAwait(false);
+                    }
+                }
+                catch (Exception disposeEx)
+                {
+                    logger?.Warn(disposeEx, "Failed to dispose socket after failed connection attempt: " + disposeEx.Message);
+                }
+
+                logger?.Warn(ex, $"Connection failed before or during handshake [remoteAddress={endPoint.EndPoint}]: {ex.Message}.");
+
+                if (ex.GetBaseException() is TimeoutException)
                 {
                     Metrics.HandshakesFailedTimeout.Add(1);
                 }
@@ -223,9 +250,6 @@ namespace Apache.Ignite.Internal
                 {
                     Metrics.HandshakesFailed.Add(1);
                 }
-
-                // ReSharper disable once MethodHasAsyncOverload
-                socket.Dispose();
 
                 if (connected)
                 {
@@ -235,7 +259,7 @@ namespace Apache.Ignite.Internal
                 throw new IgniteClientConnectionException(
                     ErrorGroups.Client.Connection,
                     "Failed to connect to endpoint: " + endPoint.EndPoint,
-                    e);
+                    ex);
             }
         }
 
@@ -315,29 +339,31 @@ namespace Apache.Ignite.Internal
         /// <param name="stream">Network stream.</param>
         /// <param name="endPoint">Endpoint.</param>
         /// <param name="configuration">Configuration.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
         private static async Task<ConnectionContext> HandshakeAsync(
             Stream stream,
             IPEndPoint endPoint,
-            IgniteClientConfiguration configuration)
+            IgniteClientConfiguration configuration,
+            CancellationToken cancellationToken)
         {
-            await stream.WriteAsync(ProtoCommon.MagicBytes).ConfigureAwait(false);
-            await WriteHandshakeAsync(stream, CurrentProtocolVersion, configuration).ConfigureAwait(false);
+            await stream.WriteAsync(ProtoCommon.MagicBytes, cancellationToken).ConfigureAwait(false);
+            await WriteHandshakeAsync(stream, CurrentProtocolVersion, configuration, cancellationToken).ConfigureAwait(false);
 
-            await stream.FlushAsync().ConfigureAwait(false);
+            await stream.FlushAsync(cancellationToken).ConfigureAwait(false);
 
-            await CheckMagicBytesAsync(stream).ConfigureAwait(false);
+            await CheckMagicBytesAsync(stream, cancellationToken).ConfigureAwait(false);
 
             using var response = await ReadResponseAsync(stream, new byte[4], CancellationToken.None).ConfigureAwait(false);
             return ReadHandshakeResponse(response.GetReader(), endPoint, GetSslInfo(stream));
         }
 
-        private static async ValueTask CheckMagicBytesAsync(Stream stream)
+        private static async ValueTask CheckMagicBytesAsync(Stream stream, CancellationToken cancellationToken)
         {
             var responseMagic = ByteArrayPool.Rent(ProtoCommon.MagicBytes.Length);
 
             try
             {
-                await ReceiveBytesAsync(stream, responseMagic, ProtoCommon.MagicBytes.Length, CancellationToken.None).ConfigureAwait(false);
+                await ReceiveBytesAsync(stream, responseMagic, ProtoCommon.MagicBytes.Length, cancellationToken).ConfigureAwait(false);
 
                 for (var i = 0; i < ProtoCommon.MagicBytes.Length; i++)
                 {
@@ -484,7 +510,8 @@ namespace Apache.Ignite.Internal
         private static async ValueTask WriteHandshakeAsync(
             Stream stream,
             ClientProtocolVersion version,
-            IgniteClientConfiguration configuration)
+            IgniteClientConfiguration configuration,
+            CancellationToken token)
         {
             using var bufferWriter = new PooledArrayBuffer(prefixSize: ProtoCommon.MessagePrefixSize);
             WriteHandshake(bufferWriter.MessageWriter, version, configuration);
@@ -495,7 +522,7 @@ namespace Apache.Ignite.Internal
             var resBuf = buf.Slice(ProtoCommon.MessagePrefixSize - 4);
             WriteMessageSize(resBuf, size);
 
-            await stream.WriteAsync(resBuf).ConfigureAwait(false);
+            await stream.WriteAsync(resBuf, token).ConfigureAwait(false);
             Metrics.BytesSent.Add(resBuf.Length);
         }
 

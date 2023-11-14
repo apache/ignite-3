@@ -22,9 +22,8 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
 
-import java.io.File;
 import java.net.InetAddress;
-import java.net.URI;
+import java.net.URL;
 import java.net.UnknownHostException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -53,14 +52,10 @@ public class ItRestAddressReportTest extends IgniteIntegrationTest {
     @WorkDirectory
     private Path workDir;
 
-    private static int cutPort(String retAddress) {
-        return Integer.parseInt(retAddress.split(":")[1]);
-    }
-
     @Test
     @DisplayName("Should report rest port to the file after RestComponent started")
     void restPortReportedToFile() throws Exception {
-        // Given configuration with rest port configured rest.port=10333, rest.portRange=10
+        // Given configuration with rest port configured rest.port=10333
         Path configPath = Path.of(IgniteRunnerTest.class.getResource("/ignite-config-rest-port-not-default.json").toURI());
 
         // When start node
@@ -83,26 +78,24 @@ public class ItRestAddressReportTest extends IgniteIntegrationTest {
         assertThat(ign, willCompleteSuccessfully());
 
         // And there is a file in work dir with the rest address
-        File reportFile = workDir.resolve(NODE_NAME).resolve("rest-address").toFile();
-        assertThat(reportFile.exists(), is(true));
+        Path reportFile = workDir.resolve(NODE_NAME).resolve("rest-address");
+        assertThat(Files.exists(reportFile), is(true));
 
         // And the file contains valid rest server network address
-        URI restUri = URI.create(Files.readString(workDir.resolve(NODE_NAME).resolve("rest-address")));
-        assertThat(restUri.getHost(), is(equalTo(getHostAddress())));
-        // And port is in configured range
-        int port = restUri.getPort();
-        assertThat(port >= 10333 && port < 10333 + 10, is(true));
+        URL restUri = new URL(Files.readString(reportFile));
+        assertThat(restUri.getHost(), is(equalTo(getHostName())));
+        assertThat(restUri.getPort(), is(equalTo(10333)));
 
         // When stop node
         IgnitionManager.stop(NODE_NAME);
 
         // Then the file is removed
-        assertThat(reportFile.exists(), is(false));
+        assertThat(Files.exists(reportFile), is(false));
     }
 
-    private static String getHostAddress() {
+    private static String getHostName() {
         try {
-            return InetAddress.getLocalHost().getHostAddress();
+            return InetAddress.getLocalHost().getHostName();
         } catch (UnknownHostException e) {
             return "localhost";
         }

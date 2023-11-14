@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.raft;
 
+import static java.util.Objects.requireNonNullElse;
+
 import java.nio.file.Path;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -38,6 +40,7 @@ import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
+import org.apache.ignite.internal.raft.util.ThreadLocalOptimizedMarshaller;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -113,6 +116,7 @@ public class Loza implements RaftManager {
         NodeOptions options = new NodeOptions();
 
         options.setClock(clock);
+        options.setCommandsMarshaller(new ThreadLocalOptimizedMarshaller(clusterNetSvc.serializationRegistry()));
 
         this.opts = options;
 
@@ -300,7 +304,9 @@ public class Loza implements RaftManager {
                     configuration,
                     lsnr,
                     eventsLsnr,
-                    RaftGroupOptions.defaults().ownFsmCallerExecutorDisruptorConfig(disruptorConfiguration),
+                    // Use default marshaller here, because this particular method is used in very specific circumstances.
+                    RaftGroupOptions.defaults()
+                            .ownFsmCallerExecutorDisruptorConfig(disruptorConfiguration),
                     factory
             );
 
@@ -313,6 +319,7 @@ public class Loza implements RaftManager {
         }
     }
 
+    @TestOnly
     @Override
     public CompletableFuture<RaftGroupService> startRaftGroupService(
             ReplicationGroupId groupId,
@@ -323,7 +330,8 @@ public class Loza implements RaftManager {
         }
 
         try {
-            return startRaftGroupServiceInternal(groupId, configuration);
+            // Use default command marshaller here.
+            return startRaftGroupServiceInternal(groupId, configuration, opts.getCommandsMarshaller());
         } finally {
             busyLock.leaveBusy();
         }
@@ -333,14 +341,19 @@ public class Loza implements RaftManager {
     public <T extends RaftGroupService> CompletableFuture<T> startRaftGroupService(
             ReplicationGroupId groupId,
             PeersAndLearners configuration,
-            RaftServiceFactory<T> factory
+            RaftServiceFactory<T> factory,
+            @Nullable Marshaller commandsMarshaller
     ) throws NodeStoppingException {
         if (!busyLock.enterBusy()) {
             throw new NodeStoppingException();
         }
 
         try {
-            return factory.startRaftGroupService(groupId, configuration, raftConfiguration, executor);
+            if (commandsMarshaller == null) {
+                commandsMarshaller = opts.getCommandsMarshaller();
+            }
+
+            return factory.startRaftGroupService(groupId, configuration, raftConfiguration, executor, commandsMarshaller);
         } finally {
             busyLock.leaveBusy();
         }
@@ -367,13 +380,17 @@ public class Loza implements RaftManager {
             ));
         }
 
+        Marshaller cmdMarshaller = requireNonNullElse(groupOptions.commandsMarshaller(), opts.getCommandsMarshaller());
+
         return raftServiceFactory == null
-                ? (CompletableFuture<T>) startRaftGroupServiceInternal(nodeId.groupId(), configuration)
-                : raftServiceFactory.startRaftGroupService(nodeId.groupId(), configuration, raftConfiguration, executor);
+                ? (CompletableFuture<T>) startRaftGroupServiceInternal(nodeId.groupId(), configuration, cmdMarshaller)
+                : raftServiceFactory.startRaftGroupService(nodeId.groupId(), configuration, raftConfiguration, executor, cmdMarshaller);
     }
 
     private CompletableFuture<RaftGroupService> startRaftGroupServiceInternal(
-            ReplicationGroupId grpId, PeersAndLearners membersConfiguration
+            ReplicationGroupId grpId,
+            PeersAndLearners membersConfiguration,
+            Marshaller commandsMarshaller
     ) {
         return RaftGroupServiceImpl.start(
                 grpId,
@@ -382,7 +399,8 @@ public class Loza implements RaftManager {
                 raftConfiguration,
                 membersConfiguration,
                 true,
-                executor
+                executor,
+                commandsMarshaller
         );
     }
 

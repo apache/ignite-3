@@ -15,20 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.raft.jraft.rpc.impl;
+package org.apache.ignite.network.annotations;
 
-import org.apache.ignite.internal.raft.Marshaller;
-import org.apache.ignite.raft.jraft.rpc.ActionRequest;import org.apache.ignite.raft.jraft.rpc.Message;
-import org.apache.ignite.raft.jraft.rpc.RpcContext;
-import org.jetbrains.annotations.Nullable;
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
 
 /**
- * An {@link ActionRequestInterceptor} that never intercepts anything and always asks the standard handling
- * to be used.
+ * Annotation for methods of {@link Transferable} interface, that makes generated serializer/deserializer ignore the property.
  */
-public class NullActionRequestInterceptor implements ActionRequestInterceptor {
-    @Override
-    public @Nullable Message intercept(RpcContext rpcCtx, ActionRequest request, Marshaller commandsMarshaller) {
-        return null;
-    }
+@Target(ElementType.METHOD)
+@Retention(RetentionPolicy.SOURCE)
+public @interface Transient {
+
 }

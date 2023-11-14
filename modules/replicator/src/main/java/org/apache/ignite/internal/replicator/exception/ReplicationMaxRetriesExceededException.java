@@ -15,26 +15,24 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed.schema;
+package org.apache.ignite.internal.replicator.exception;
 
-import java.nio.ByteBuffer;
-import org.apache.ignite.internal.raft.Marshaller;
+import org.apache.ignite.internal.lang.IgniteStringFormatter;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.lang.ErrorGroups.Replicator;
 
 /**
- * {@link Marshaller} that first writes some metadata about an object and then it writes the actual serialized
- * representation of the object.
+ * The exception is thrown when an amount of replication retries exceeds the limit.
  */
-public interface PartitionCommandsMarshaller extends Marshaller {
+public class ReplicationMaxRetriesExceededException extends ReplicationException {
     /**
-     * Used instead of a required catalog version when there is no requirement.
-     */
-    int NO_VERSION_REQUIRED = -1;
-
-    /**
-     * Reads required catalog version from the provided buffer.
+     * The constructor.
      *
-     * @param raw Buffer to read from.
-     * @return Catalog version. {@value #NO_VERSION_REQUIRED} if version is not required for the given command.
+     * @param replicaGrpId Replication group id.
+     * @param limit Maximum possible amount of retries.
      */
-    int readRequiredCatalogVersion(ByteBuffer raw);
+    public ReplicationMaxRetriesExceededException(ReplicationGroupId replicaGrpId, int limit) {
+        super(Replicator.REPLICA_COMMON_ERR, IgniteStringFormatter.format(
+                "Replication retries exceeds the limit [replicaGrpId={}, limit={}]", replicaGrpId, limit));
+    }
 }

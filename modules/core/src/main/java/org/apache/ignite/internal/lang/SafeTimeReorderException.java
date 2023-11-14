@@ -14,14 +14,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ignite.raft.jraft.util;
 
-import java.nio.ByteBuffer;
+package org.apache.ignite.internal.lang;
 
-public interface Marshaller {
-    public static Marshaller DEFAULT = new JDKMarshaller();
+import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICATION_SAFE_TIME_REORDERING_ERR;
 
-    byte[] marshall(Object o);
+/**
+ * This exception is used to indicate a detection of a safe time reordering.
+ */
+public class SafeTimeReorderException extends IgniteInternalException {
 
-    <T> T unmarshall(ByteBuffer raw);
+    /**
+     * The constructor.
+     */
+    public SafeTimeReorderException() {
+        super(REPLICATION_SAFE_TIME_REORDERING_ERR, "Replication safe time reordering detected.");
+    }
+
 }
+
