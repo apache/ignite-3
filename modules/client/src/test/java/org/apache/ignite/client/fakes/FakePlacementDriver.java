@@ -40,13 +40,13 @@ public class FakePlacementDriver extends AbstractEventProducer<PrimaryReplicaEve
     /**
      * Updates primary replicas.
      */
-    public void setReplicas(List<String> replicas) {
+    public void setReplicas(List<String> replicas, int tableId) {
         assert replicas.size() == 4;
         primaryReplicas = replicas;
 
         for (int partition = 0; partition < replicas.size(); partition++) {
             String replica = replicas.get(partition);
-            TablePartitionId groupId = new TablePartitionId(0, partition);
+            TablePartitionId groupId = new TablePartitionId(tableId, partition);
 
             PrimaryReplicaEventParameters params = new PrimaryReplicaEventParameters(0, groupId, replica);
             fireEvent(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, params);

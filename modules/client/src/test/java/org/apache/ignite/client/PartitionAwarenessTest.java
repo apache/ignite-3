@@ -74,7 +74,7 @@ public class PartitionAwarenessTest extends AbstractClientTest {
 
     private @Nullable String lastOpServerName;
 
-    private final AtomicInteger nextTableId = new AtomicInteger(101);
+    private static final AtomicInteger nextTableId = new AtomicInteger(101);
 
     /**
      * Before all.
@@ -619,7 +619,7 @@ public class PartitionAwarenessTest extends AbstractClientTest {
             replicas = defaultReplicas();
         }
 
-        placementDriver.setReplicas(replicas);
+        placementDriver.setReplicas(replicas, nextTableId.get() - 1);
     }
 
     private static List<String> defaultReplicas() {
