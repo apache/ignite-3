@@ -98,15 +98,16 @@ public class ClientPrimaryReplicaTracker implements EventListener<EventParameter
         return updateCount.get();
     }
 
+    @SuppressWarnings({"rawtypes", "unchecked"})
     void start() {
-        placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, (EventListener<? extends PrimaryReplicaEventParameters>) this);
-        catalogEventProducer.listen(CatalogEvent.TABLE_DROP, (EventListener<? extends CatalogEventParameters>) this);
+        placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, (EventListener) this);
+        catalogEventProducer.listen(CatalogEvent.TABLE_DROP, (EventListener) this);
     }
 
+    @SuppressWarnings({"rawtypes", "unchecked"})
     void stop() {
-        catalogEventProducer.removeListener(CatalogEvent.TABLE_DROP, (EventListener<? extends CatalogEventParameters>) this);
-        placementDriver.removeListener(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED,
-                (EventListener<? extends PrimaryReplicaEventParameters>) this);
+        catalogEventProducer.removeListener(CatalogEvent.TABLE_DROP, (EventListener) this);
+        placementDriver.removeListener(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, (EventListener) this);
     }
 
     private CompletableFuture<List<String>> initReplicasForTableAsync(Integer tableId) {

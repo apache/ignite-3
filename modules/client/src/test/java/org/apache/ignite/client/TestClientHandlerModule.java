@@ -40,6 +40,7 @@ import org.apache.ignite.client.handler.ClientInboundMessageHandler;
 import org.apache.ignite.client.handler.ClientPrimaryReplicaTracker;
 import org.apache.ignite.client.handler.configuration.ClientConnectorConfiguration;
 import org.apache.ignite.compute.IgniteCompute;
+import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.client.proto.ClientMessageDecoder;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -198,6 +199,7 @@ public class TestClientHandlerModule implements IgniteComponent {
         bootstrap.childHandler(new ChannelInitializer<>() {
                     @Override
                     protected void initChannel(Channel ch) {
+                        CatalogService catalogService = TestServer.mockCatalogService();
                         ch.pipeline().addLast(
                                 new ClientMessageDecoder(),
                                 new ConnectionDropHandler(requestCounter, shouldDropConnection),
@@ -215,9 +217,10 @@ public class TestClientHandlerModule implements IgniteComponent {
                                         authenticationManager(securityConfiguration),
                                         clock,
                                         new AlwaysSyncedSchemaSyncService(),
-                                        TestServer.mockCatalogService(),
+                                        catalogService,
                                         connectionIdGen.incrementAndGet(),
-                                        new ClientPrimaryReplicaTracker(placementDriver, (IgniteTablesInternal) ignite.tables(), clock)
+                                        new ClientPrimaryReplicaTracker(
+                                                placementDriver, (IgniteTablesInternal) ignite.tables(), catalogService, clock)
                                 )
                         );
                     }
