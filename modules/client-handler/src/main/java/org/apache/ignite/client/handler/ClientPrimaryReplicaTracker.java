@@ -39,7 +39,7 @@ import org.jetbrains.annotations.Nullable;
  * Primary partition replica tracker. Shared by all instances of {@link ClientInboundMessageHandler}.
  * Tracks primary replicas by partition for every table.
  */
-public class ClientPrimaryReplicaTracker {
+public class ClientPrimaryReplicaTracker implements EventListener<PrimaryReplicaEventParameters> {
     private static final PrimaryReplicaEvent EVENT = PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED;
 
     private static final int AWAIT_PRIMARY_REPLICA_TIMEOUT = 30;
@@ -52,8 +52,6 @@ public class ClientPrimaryReplicaTracker {
     private final PlacementDriver placementDriver;
 
     private final IgniteTablesInternal igniteTables;
-
-    private final EventListener<PrimaryReplicaEventParameters> listener = this::onEvent;
 
     private final HybridClock clock;
 
@@ -71,24 +69,6 @@ public class ClientPrimaryReplicaTracker {
         this.placementDriver = placementDriver;
         this.igniteTables = igniteTables;
         this.clock = clock;
-    }
-
-    private CompletableFuture<Boolean> onEvent(PrimaryReplicaEventParameters eventParameters, @Nullable Throwable err) {
-        if (err != null || !(eventParameters.groupId() instanceof TablePartitionId)) {
-            return CompletableFuture.completedFuture(null);
-        }
-
-        TablePartitionId tablePartitionId = (TablePartitionId) eventParameters.groupId();
-        var fut = primaryReplicas.get(tablePartitionId.tableId());
-
-        if (fut != null) {
-            fut.thenAccept(replicas -> replicas.set(tablePartitionId.partitionId(), eventParameters.leaseholder()));
-        }
-
-        // Increment counter always, even if the table is not tracked. Client could retrieve the table from another node.
-        updateCount.incrementAndGet();
-
-        return CompletableFuture.completedFuture(false); // false: don't remove listener.
     }
 
     /**
@@ -112,11 +92,11 @@ public class ClientPrimaryReplicaTracker {
     }
 
     void start() {
-        placementDriver.listen(EVENT, listener);
+        placementDriver.listen(EVENT, this);
     }
 
     void stop() {
-        placementDriver.removeListener(EVENT, listener);
+        placementDriver.removeListener(EVENT, this);
     }
 
     private CompletableFuture<List<String>> initTable(Integer tableId) {
@@ -157,5 +137,24 @@ public class ClientPrimaryReplicaTracker {
 
             return replicaNames;
         });
+    }
+
+    @Override
+    public CompletableFuture<Boolean> notify(PrimaryReplicaEventParameters parameters, @Nullable Throwable exception) {
+        if (exception != null || !(parameters.groupId() instanceof TablePartitionId)) {
+            return CompletableFuture.completedFuture(null);
+        }
+
+        TablePartitionId tablePartitionId = (TablePartitionId) parameters.groupId();
+        var fut = primaryReplicas.get(tablePartitionId.tableId());
+
+        if (fut != null) {
+            fut.thenAccept(replicas -> replicas.set(tablePartitionId.partitionId(), parameters.leaseholder()));
+        }
+
+        // Increment counter always, even if the table is not tracked. Client could retrieve the table from another node.
+        updateCount.incrementAndGet();
+
+        return CompletableFuture.completedFuture(false); // false: don't remove listener.
     }
 }
