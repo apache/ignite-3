@@ -17,6 +17,7 @@
 
 package org.apache.ignite.client.fakes;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
@@ -34,14 +35,13 @@ import org.apache.ignite.internal.replicator.TablePartitionId;
  */
 public class FakePlacementDriver extends AbstractEventProducer<PrimaryReplicaEvent, PrimaryReplicaEventParameters>
         implements PlacementDriver {
-    // 4 partitions - according to FakeInternalTable.partitions
-    private volatile List<String> primaryReplicas = List.of("s1", "s2", "s3", "s4");
+    private volatile List<String> primaryReplicas = Collections.nCopies(FakeInternalTable.PARTITIONS, "s");
 
     /**
      * Updates primary replicas.
      */
     public void setReplicas(List<String> replicas, int tableId) {
-        assert replicas.size() == 4;
+        assert replicas.size() == FakeInternalTable.PARTITIONS;
         primaryReplicas = replicas;
 
         for (int partition = 0; partition < replicas.size(); partition++) {

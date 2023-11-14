@@ -178,9 +178,9 @@ public class DataStreamerTest extends AbstractClientTableTest {
 
             var streamerFut = view.streamData(publisher, options);
 
-            // Stream 40 items (10 per partition) while buffer capacity is 2 to trigger back pressure.
+            // Stream 10 items while buffer capacity is 2 to trigger back pressure.
             var submitFut = CompletableFuture.runAsync(() -> {
-                for (long i = 0; i < 40; i++) {
+                for (long i = 0; i < 10; i++) {
                     publisher.submit(tuple(i, "foo_" + i));
                 }
             });
