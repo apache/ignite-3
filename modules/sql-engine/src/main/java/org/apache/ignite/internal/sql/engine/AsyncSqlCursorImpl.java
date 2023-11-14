@@ -22,7 +22,6 @@ import java.util.concurrent.CompletionException;
 import org.apache.ignite.internal.lang.SqlExceptionMapperUtil;
 import org.apache.ignite.internal.util.AsyncCursor;
 import org.apache.ignite.internal.util.ExceptionUtils;
-import org.apache.ignite.sql.NoRowSetExpectedException;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.jetbrains.annotations.Nullable;
 
@@ -40,7 +39,13 @@ public class AsyncSqlCursorImpl<T> implements AsyncSqlCursor<T> {
     private final CompletableFuture<AsyncSqlCursor<T>> nextStatement;
 
     /**
-     * Constructs the object.
+     * Constructor.
+     *
+     * @param queryType Type of the query.
+     * @param meta The meta of the result set.
+     * @param txWrapper Transaction wrapper.
+     * @param dataCursor The result set.
+     * @param onClose Callback to invoke when cursor is closed.
      */
     public AsyncSqlCursorImpl(
             SqlQueryType queryType,
@@ -120,7 +125,7 @@ public class AsyncSqlCursorImpl<T> implements AsyncSqlCursor<T> {
     @Override
     public CompletableFuture<AsyncSqlCursor<T>> nextResult() {
         if (nextStatement == null) {
-            throw new NoRowSetExpectedException();
+            throw new QueryHasNoMoreResultsException();
         }
 
         return nextStatement;

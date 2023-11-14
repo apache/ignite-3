@@ -19,7 +19,6 @@ package org.apache.ignite.internal.sql.engine;
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.util.AsyncCursor;
-import org.apache.ignite.sql.NoRowSetExpectedException;
 import org.apache.ignite.sql.ResultSetMetadata;
 
 /**
@@ -45,11 +44,10 @@ public interface AsyncSqlCursor<T> extends AsyncCursor<T> {
     boolean hasNextResult();
 
     /**
-     * Returns the future for the next statement if the current cursor is the result of a multi-statement query
-     * and this statement is not the last one, {@code false} otherwise.
+     * Returns the future for the next statement of the query.
      *
      * @return Future that completes when the next statement completes.
-     * @throws NoRowSetExpectedException if this is the last statement.
+     * @throws QueryHasNoMoreResultsException if the query has no more statements to execute.
      */
     CompletableFuture<AsyncSqlCursor<T>> nextResult();
 }

@@ -39,7 +39,6 @@ import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.engine.property.SqlPropertiesHelper;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
-import org.apache.ignite.sql.NoRowSetExpectedException;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
@@ -100,7 +99,7 @@ public class ItSqlMultiStatementTest extends BaseSqlIntegrationTest {
         assertNotNull(cursor);
         validateSingleResult(cursor, true);
         assertFalse(cursor.hasNextResult());
-        assertThrows(NoRowSetExpectedException.class, cursor::nextResult, "Query has no result set");
+        assertThrows(QueryHasNoMoreResultsException.class, cursor::nextResult, "Query has no more results");
 
         AsyncSqlCursor<List<Object>> cursor2 = runScript("INSERT INTO test VALUES (0, 0)");
         assertNotNull(cursor2);
