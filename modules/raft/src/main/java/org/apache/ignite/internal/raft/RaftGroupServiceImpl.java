@@ -466,6 +466,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                     .groupId(groupId)
                     .command(commandBytes)
                     // Having prepared deserialized command makes its handling more efficient in the state machine.
+                    // This saves us from extra-deserialization on a local machine, which would take precious time to do.
                     .deserializedCommand((WriteCommand) cmd)
                     .build();
         } else {
