@@ -34,12 +34,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.NoSuchElementException;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.engine.property.SqlPropertiesHelper;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
-import org.apache.ignite.sql.QueryHasNoMoreResultsException;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
@@ -100,7 +100,7 @@ public class ItSqlMultiStatementTest extends BaseSqlIntegrationTest {
         assertNotNull(cursor);
         validateSingleResult(cursor, true);
         assertFalse(cursor.hasNextResult());
-        assertThrows(QueryHasNoMoreResultsException.class, cursor::nextResult, "Query has no more results");
+        assertThrows(NoSuchElementException.class, cursor::nextResult, "Query has no more results");
 
         AsyncSqlCursor<List<Object>> cursor2 = runScript("INSERT INTO test VALUES (0, 0)");
         assertNotNull(cursor2);

@@ -17,12 +17,12 @@
 
 package org.apache.ignite.internal.sql.engine;
 
+import java.util.NoSuchElementException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import org.apache.ignite.internal.lang.SqlExceptionMapperUtil;
 import org.apache.ignite.internal.util.AsyncCursor;
 import org.apache.ignite.internal.util.ExceptionUtils;
-import org.apache.ignite.sql.QueryHasNoMoreResultsException;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.jetbrains.annotations.Nullable;
 
@@ -126,7 +126,7 @@ public class AsyncSqlCursorImpl<T> implements AsyncSqlCursor<T> {
     @Override
     public CompletableFuture<AsyncSqlCursor<T>> nextResult() {
         if (nextStatement == null) {
-            throw new QueryHasNoMoreResultsException();
+            throw new NoSuchElementException("Query has no more results");
         }
 
         return nextStatement;

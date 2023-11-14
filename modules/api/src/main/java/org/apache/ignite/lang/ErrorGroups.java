@@ -264,9 +264,6 @@ public class ErrorGroups {
          * <p>See error message for details.
          */
         public static final int MAPPING_ERR = SQL_ERR_GROUP.registerErrorCode((short) 12);
-
-        /** Query has no more statements to execute. */
-        public static final int NO_MORE_RESULTS_ERR = SQL_ERR_GROUP.registerErrorCode((short) 13);
     }
 
     /** Meta storage error group. */
