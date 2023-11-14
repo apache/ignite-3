@@ -29,6 +29,7 @@ import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.event.EventParameters;
 import org.apache.ignite.internal.event.EventProducer;
 import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
@@ -83,7 +84,7 @@ public class ClientPrimaryReplicaTracker implements EventListener<EventParameter
      * @param tableId Table ID.
      * @return Primary replicas for the table, or null when not yet known.
      */
-    public CompletableFuture<List<String>> primaryReplicasAsync(int tableId) {
+    public CompletableFuture<List<ReplicaHolder>> primaryReplicasAsync(int tableId) {
         return primaryReplicas.compute(tableId, (id, hld) -> {
             if (hld == null || hld.replicas.isCompletedExceptionally()) {
                 return new Holder(initReplicasForTableAsync(id));
@@ -111,7 +112,7 @@ public class ClientPrimaryReplicaTracker implements EventListener<EventParameter
         primaryReplicas.clear();
     }
 
-    private CompletableFuture<List<String>> initReplicasForTableAsync(Integer tableId) {
+    private CompletableFuture<List<ReplicaHolder>> initReplicasForTableAsync(Integer tableId) {
         try {
             // Initially, request all primary replicas for the table.
             // Then keep them updated via PRIMARY_REPLICA_ELECTED events.
@@ -125,7 +126,7 @@ public class ClientPrimaryReplicaTracker implements EventListener<EventParameter
         }
     }
 
-    private CompletableFuture<List<String>> primaryReplicasAsyncInternal(int tableId, int partitions) {
+    private CompletableFuture<List<ReplicaHolder>> primaryReplicasAsyncInternal(int tableId, int partitions) {
         CompletableFuture<ReplicaMeta>[] futs = (CompletableFuture<ReplicaMeta>[]) new CompletableFuture[partitions];
 
         for (int partition = 0; partition < partitions; partition++) {
@@ -135,16 +136,18 @@ public class ClientPrimaryReplicaTracker implements EventListener<EventParameter
         CompletableFuture<Void> all = CompletableFuture.allOf(futs);
 
         return all.thenApply(v -> {
-            List<String> replicaNames = new ArrayList<>(partitions);
+            List<ReplicaHolder> replicaHolders = new ArrayList<>(partitions);
 
             for (int partition = 0; partition < partitions; partition++) {
                 ReplicaMeta replicaMeta = futs[partition].join();
 
                 // Returning null is fine - the client will use default channel for this partition.
-                replicaNames.add(replicaMeta == null ? null : replicaMeta.getLeaseholder());
+                replicaHolders.add(replicaMeta == null
+                        ? new ReplicaHolder(null, HybridTimestamp.MIN_VALUE)
+                        : new ReplicaHolder(replicaMeta.getLeaseholder(), replicaMeta.getStartTime()));
             }
 
-            return replicaNames;
+            return replicaHolders;
         });
     }
 
@@ -177,7 +180,9 @@ public class ClientPrimaryReplicaTracker implements EventListener<EventParameter
         var hld = primaryReplicas.get(tablePartitionId.tableId());
 
         if (hld != null) {
-            hld.replicas.thenAccept(replicas -> replicas.set(tablePartitionId.partitionId(), primaryReplicaEvent.leaseholder()));
+            hld.replicas.thenAccept(replicas ->
+                    replicas.get(tablePartitionId.partitionId())
+                            .update(primaryReplicaEvent.leaseholder(), primaryReplicaEvent.startTime()));
         }
 
         // Increment counter always, even if the table is not tracked. Client could retrieve the table from another node.
@@ -195,13 +200,37 @@ public class ClientPrimaryReplicaTracker implements EventListener<EventParameter
     }
 
     private static class Holder {
-        final CompletableFuture<List<String>> replicas;
+        final CompletableFuture<List<ReplicaHolder>> replicas;
 
         volatile long lastAccessTime;
 
-        private Holder(CompletableFuture<List<String>> replicas) {
+        private Holder(CompletableFuture<List<ReplicaHolder>> replicas) {
             this.replicas = replicas;
             this.lastAccessTime = System.currentTimeMillis();
+        }
+    }
+
+    public static class ReplicaHolder {
+        @Nullable
+        private volatile String nodeName;
+
+        private HybridTimestamp leaseStartTime;
+
+        private ReplicaHolder(@Nullable String nodeName, HybridTimestamp leaseStartTime) {
+            this.nodeName = nodeName;
+            this.leaseStartTime = leaseStartTime;
+        }
+
+        public @Nullable String nodeName() {
+            return nodeName;
+        }
+
+        private synchronized void update(String nodeName, HybridTimestamp leaseStartTime) {
+            // Ignore old updates.
+            if (leaseStartTime.compareTo(this.leaseStartTime) > 0) {
+                this.nodeName = nodeName;
+                this.leaseStartTime = leaseStartTime;
+            }
         }
     }
 }
