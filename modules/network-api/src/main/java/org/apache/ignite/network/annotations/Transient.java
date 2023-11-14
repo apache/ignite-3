@@ -24,7 +24,7 @@ import java.lang.annotation.Target;
 
 /**
  * Annotation for methods of {@link Transferable} interface, that makes generated serializer/deserializer ignore the property.
- *///TODO DEVNOTES
+ */
 @Target(ElementType.METHOD)
 @Retention(RetentionPolicy.SOURCE)
 public @interface Transient {
