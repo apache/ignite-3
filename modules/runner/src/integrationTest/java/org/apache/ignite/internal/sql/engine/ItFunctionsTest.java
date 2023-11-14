@@ -314,9 +314,7 @@ public class ItFunctionsTest extends BaseSqlIntegrationTest {
         assertQuery("SELECT TYPEOF('abcd' || COALESCE('efg', ?))").withParams("2").returns("VARCHAR").check();
 
         // An expression that produces an error
-        IgniteException failed = assertThrows(IgniteException.class, () -> assertQuery("SELECT typeof(CAST('NONE' as INTEGER))").check());
-        assertSame(NumberFormatException.class, failed.getCause().getClass(), "cause");
-        assertThat(failed.getCause().getMessage(), containsString("For input string: \"NONE\""));
+        assertThrowsSqlException(Sql.STMT_PARSE_ERR, "", () -> sql("SELECT typeof(CAST('NONE' as INTEGER))"));
 
         assertThrowsWithCause(() -> sql("SELECT TYPEOF()"), SqlValidatorException.class, "Invalid number of arguments");
 
