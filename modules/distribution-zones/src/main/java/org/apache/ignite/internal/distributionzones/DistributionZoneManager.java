@@ -30,6 +30,7 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.ZONE_ALTER;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.ZONE_CREATE;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.ZONE_DROP;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.conditionForGlobalStatesChanges;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.conditionForZoneCreation;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.conditionForZoneRemoval;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.createZoneManagerExecutor;
@@ -47,6 +48,7 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleUpChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneTopologyAugmentation;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesFilterUpdateRevision;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesGlobalStateRevision;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyPrefix;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyVersionKey;
@@ -54,6 +56,7 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.value;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
+import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.metastorage.dsl.Statements.iif;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToLong;
 import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
@@ -107,13 +110,13 @@ import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.dsl.CompoundCondition;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Iif;
+import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.dsl.SimpleCondition;
 import org.apache.ignite.internal.metastorage.dsl.StatementResult;
 import org.apache.ignite.internal.metastorage.dsl.Update;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.thread.StripedScheduledThreadPoolExecutor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultEntry;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.jetbrains.annotations.TestOnly;
@@ -777,7 +780,7 @@ public class DistributionZoneManager implements IgniteComponent {
 
                     logicalTopology = newLogicalTopology;
 
-                    futures.add(saveStatesToMetastorage(zoneIds));
+                    futures.add(saveGlobalStatesToMetastorage(zoneIds, revision));
 
                     return allOf(futures.toArray(CompletableFuture[]::new));
                 } finally {
@@ -811,21 +814,45 @@ public class DistributionZoneManager implements IgniteComponent {
     }
 
     /**
-     * Saves states of the Distribution Zone Manager to Meta Storage atomically in one batch.
+     * Saves global states of the Distribution Zone Manager to Meta Storage atomically in one batch.
      * After restart it could be used to restore these fields.
      *
-     * @param zoneIds Set of zone id's, whose states will be staved in the Vault
+     * @param zoneIds Set of zone id's, whose states will be staved in the Meta Storage.
+     * @param revision Revision of the event.
+     * @return Future representing pending completion of the operation.
      */
-    private CompletableFuture<Void> saveStatesToMetastorage(Set<Integer> zoneIds) {
-        Map<ByteArray, byte[]> batch = IgniteUtils.newHashMap(1 + zoneIds.size());
+    private CompletableFuture<Void> saveGlobalStatesToMetastorage(Set<Integer> zoneIds, long revision) {
+        Operation[] puts = new Operation[2 + zoneIds.size()];
 
-        batch.put(zonesNodesAttributes(), toBytes(nodesAttributes()));
+        puts[0] = put(zonesNodesAttributes(), toBytes(nodesAttributes()));
 
+        puts[1] = put(zonesGlobalStateRevision(), longToBytes(revision));
+
+        int i = 2;
+
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-19491 Properly utilise topology augmentation map. Also this map
+        // TODO: can be saved only once for all zones.
         for (Integer zoneId : zoneIds) {
-            batch.put(zoneTopologyAugmentation(zoneId), toBytes(zonesState.get(zoneId).topologyAugmentationMap));
+            puts[i++] = put(zoneTopologyAugmentation(zoneId), toBytes(zonesState.get(zoneId).topologyAugmentationMap));
         }
 
-        return metaStorageManager.putAll(batch);
+        Iif iif = iif(
+                conditionForGlobalStatesChanges(revision),
+                ops(puts).yield(true),
+                ops().yield(false)
+        );
+
+        return metaStorageManager.invoke(iif)
+                .thenApply(StatementResult::getAsBoolean)
+                .whenComplete((invokeResult, e) -> {
+                    if (e != null) {
+                        LOG.error("Failed to update global states for distribution zone manager [revision = {}]", e, revision);
+                    } else if (invokeResult) {
+                        LOG.info("Update global states for distribution zone manager [revision = {}]", revision);
+                    } else {
+                        LOG.debug("Failed to update global states for distribution zone manager [revision = {}]", revision);
+                    }
+                }).thenCompose((ignored) -> completedFuture(null));
     }
 
     /**
@@ -835,6 +862,8 @@ public class DistributionZoneManager implements IgniteComponent {
      * @param addedNodes Nodes that was added to a topology and should be added to zones data nodes.
      * @param removedNodes Nodes that was removed from a topology and should be removed from zones data nodes.
      * @param revision Revision that triggered that event.
+     * @return Future that represents the pending completion of the operation.
+     *         For the immediate timers it will be completed when data nodes will be updated in Meta Storage.
      */
     private CompletableFuture<Void> scheduleTimers(
             CatalogZoneDescriptor zone,
@@ -861,6 +890,8 @@ public class DistributionZoneManager implements IgniteComponent {
      * @param revision Revision that triggered that event.
      * @param saveDataNodesOnScaleUp Function that saves nodes to a zone's data nodes in case of scale up was triggered.
      * @param saveDataNodesOnScaleDown Function that saves nodes to a zone's data nodes in case of scale down was triggered.
+     * @return Future that represents the pending completion of the operation.
+     *         For the immediate timers it will be completed when data nodes will be updated in Meta Storage.
      */
     private CompletableFuture<Void> scheduleTimers(
             CatalogZoneDescriptor zone,

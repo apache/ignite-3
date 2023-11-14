@@ -25,6 +25,7 @@ import static org.apache.ignite.internal.metastorage.dsl.Conditions.and;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.exists;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notTombstone;
+import static org.apache.ignite.internal.metastorage.dsl.Conditions.or;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.value;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
@@ -80,6 +81,9 @@ public class DistributionZonesUtil {
     /** Key value for zones' nodes' attributes in vault. */
     private static final String DISTRIBUTION_ZONES_NODES_ATTRIBUTES = "distributionZones.nodesAttributes";
 
+    /** Key value for zones' global state revision. */
+    private static final String DISTRIBUTION_ZONES_GLOBAL_STATE_REVISION = "distributionZones.globalState.revision";
+
     /** Key value for zones' filter update revision in vault. */
     private static final String DISTRIBUTION_ZONES_FILTER_UPDATE_REVISION_VAULT = "vault.distributionZones.filterUpdate.revision";
 
@@ -101,6 +105,10 @@ public class DistributionZonesUtil {
 
     /** ByteArray representation of {@link DistributionZonesUtil#DISTRIBUTION_ZONES_NODES_ATTRIBUTES}. */
     private static final ByteArray DISTRIBUTION_ZONES_NODES_ATTRIBUTES_KEY = new ByteArray(DISTRIBUTION_ZONES_NODES_ATTRIBUTES);
+
+    /** ByteArray representation of {@link DistributionZonesUtil#DISTRIBUTION_ZONES_GLOBAL_STATE_REVISION}. */
+    private static final ByteArray DISTRIBUTION_ZONES_GLOBAL_STATE_REVISION_KEY =
+            new ByteArray(DISTRIBUTION_ZONES_GLOBAL_STATE_REVISION);
 
     /** ByteArray representation of {@link DistributionZonesUtil#DISTRIBUTION_ZONES_FILTER_UPDATE_REVISION_VAULT}. */
     private static final ByteArray DISTRIBUTION_ZONES_FILTER_UPDATE_REVISION_VAULT_KEY =
@@ -219,6 +227,14 @@ public class DistributionZonesUtil {
     }
 
     /**
+     * The key represents zones' global state revision. This is the revision of the event that triggered saving the global state
+     * of Distribution Zone Manager in Meta Storage.
+     */
+    public static ByteArray zonesGlobalStateRevision() {
+        return DISTRIBUTION_ZONES_GLOBAL_STATE_REVISION_KEY;
+    }
+
+    /**
      * The key represents the last revision of the zone's filter update.
      */
     public static ByteArray zonesFilterUpdateRevision() {
@@ -243,6 +259,20 @@ public class DistributionZonesUtil {
         return and(
                 notExists(zoneDataNodesKey(zoneId)),
                 notTombstone(zoneDataNodesKey(zoneId))
+        );
+    }
+
+    /**
+     * Condition fot updating global states of Distribution zone manager.
+     * Update only if the revision of the event is newer than value in that trigger key.
+     *
+     * @param revision Event revision.
+     * @return Update condition.
+     */
+    static CompoundCondition conditionForGlobalStatesChanges(long revision) {
+        return or(
+                notExists(zonesGlobalStateRevision()),
+                value(zonesGlobalStateRevision()).lt(ByteUtils.longToBytes(revision))
         );
     }
 
