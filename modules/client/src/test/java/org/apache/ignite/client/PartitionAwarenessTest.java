@@ -103,10 +103,10 @@ public class PartitionAwarenessTest extends AbstractClientTest {
     }
 
     @BeforeEach
-    public void initAssignments() throws InterruptedException {
+    public void initReplicas() throws InterruptedException {
         dropTables(server2);
 
-        initPartitionAssignment(null);
+        initPrimaryReplicas(null);
 
         assertTrue(IgniteTestUtils.waitForCondition(() -> client2.connections().size() == 2, 3000));
     }
@@ -178,7 +178,7 @@ public class PartitionAwarenessTest extends AbstractClientTest {
         assignments.add(testServer2.nodeName());
         assignments.add(testServer.nodeName());
 
-        initPartitionAssignment(assignments);
+        initPrimaryReplicas(assignments);
 
         if (useHeartbeat) {
             // Wait for heartbeat message to receive change notification flag.
@@ -566,7 +566,7 @@ public class PartitionAwarenessTest extends AbstractClientTest {
             assignments.add(testServer2.nodeName());
             assignments.add(testServer.nodeName());
 
-            initPartitionAssignment(assignments);
+            initPrimaryReplicas(assignments);
 
             // Send some batches so that the client receives updated assignment.
             lastOpServerName = null;
@@ -623,21 +623,21 @@ public class PartitionAwarenessTest extends AbstractClientTest {
         });
     }
 
-    private static void initPartitionAssignment(@Nullable ArrayList<String> assignments) {
-        initPartitionAssignment(testServer.placementDriver(), assignments);
-        initPartitionAssignment(testServer2.placementDriver(), assignments);
+    private static void initPrimaryReplicas(@Nullable ArrayList<String> replicas) {
+        initPrimaryReplicas(testServer.placementDriver(), replicas);
+        initPrimaryReplicas(testServer2.placementDriver(), replicas);
     }
 
-    private static void initPartitionAssignment(FakePlacementDriver placementDriver, @Nullable List<String> assignments) {
-        if (assignments == null) {
-            assignments = new ArrayList<>();
+    private static void initPrimaryReplicas(FakePlacementDriver placementDriver, @Nullable List<String> replicas) {
+        if (replicas == null) {
+            replicas = new ArrayList<>();
 
-            assignments.add(testServer.nodeName());
-            assignments.add(testServer2.nodeName());
-            assignments.add(testServer.nodeName());
-            assignments.add(testServer2.nodeName());
+            replicas.add(testServer.nodeName());
+            replicas.add(testServer2.nodeName());
+            replicas.add(testServer.nodeName());
+            replicas.add(testServer2.nodeName());
         }
 
-        placementDriver.setReplicas(assignments);
+        placementDriver.setReplicas(replicas);
     }
 }
