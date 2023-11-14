@@ -162,6 +162,7 @@ public interface RaftManager extends IgniteComponent {
      * @param groupId Raft group ID.
      * @param configuration Peers and Learners of the Raft group.
      * @param factory Factory that should be used to create raft service.
+     * @param commandsMarshaller Marshaller that should be used to serialize commands. {@code null} if default marshaller should be used.
      * @return Future that will be completed with an instance of a Raft group service.
      * @throws NodeStoppingException If node stopping intention was detected.
      */

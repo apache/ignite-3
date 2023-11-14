@@ -147,22 +147,22 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
             Command command,
             Marshaller commandsMarshaller
     ) throws SafeTimeReorderException {
-        if (beforeApplyHandler.onBeforeApply(command)) {
-            if (request instanceof WriteActionRequest) {
-                return (AR) factory.writeActionRequest()
-                    .groupId(request.groupId())
-                    .command(commandsMarshaller.marshall(command))
-                    .deserializedCommand((WriteCommand)command)
-                    .build();
-            } else {
-                return (AR) factory.readActionRequest()
-                    .groupId(request.groupId())
-                    .command((ReadCommand)command)
-                    .readOnlySafe(((ReadActionRequest)request).readOnlySafe())
-                    .build();
-            }
-        } else {
+        if (!beforeApplyHandler.onBeforeApply(command)) {
             return request;
+        }
+
+        if (request instanceof WriteActionRequest) {
+            return (AR) factory.writeActionRequest()
+                .groupId(request.groupId())
+                .command(commandsMarshaller.marshall(command))
+                .deserializedCommand((WriteCommand)command)
+                .build();
+        } else {
+            return (AR) factory.readActionRequest()
+                .groupId(request.groupId())
+                .command((ReadCommand)command)
+                .readOnlySafe(((ReadActionRequest)request).readOnlySafe())
+                .build();
         }
     }
 

@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.table.distributed.command;
 
+import org.apache.ignite.internal.table.distributed.schema.PartitionCommandsMarshaller;
+
 /**
  * A command that requires certain level of catalog version to be locally available just to be accepted on the node.
  */
@@ -27,7 +29,7 @@ public interface CatalogVersionAware {
     int requiredCatalogVersion();
 
     /**
-     * Setter for the required catalog version. Should be used with caution. Only object's creator should call it.
+     * Setter for {@link #requiredCatalogVersion()}. Called by the creator or the {@link PartitionCommandsMarshaller} while deserializing.
      */
     void requiredCatalogVersion(int version);
 }

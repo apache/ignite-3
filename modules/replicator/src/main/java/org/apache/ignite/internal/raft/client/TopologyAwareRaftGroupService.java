@@ -166,7 +166,7 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
      * @param logicalTopologyService Logical topology service.
      * @param notifyOnSubscription Whether to notify callback after subscription to pass the current leader and term into it, even
      *         if the leader did not change in that moment (see {@link #subscribeLeader}).
-     * @param cmdMarshaller Marshaller that should be used to [de]serialize commands.
+     * @param cmdMarshaller Marshaller that should be used to serialize/deserialize commands.
      * @return Future to create a raft client.
      */
     public static CompletableFuture<TopologyAwareRaftGroupService> start(

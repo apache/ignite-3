@@ -26,10 +26,15 @@ import org.apache.ignite.internal.raft.Marshaller;
  */
 public interface PartitionCommandsMarshaller extends Marshaller {
     /**
+     * Used instead of a required catalog version when there is no requirement.
+     */
+    int NO_VERSION_REQUIRED = -1;
+
+    /**
      * Reads required catalog version from the provided buffer.
      *
      * @param raw Buffer to read from.
-     * @return Catalog version. {@code 0} if version is not required for the given command.
+     * @return Catalog version. {@code -1} if version is not required for the given command.
      */
     int readRequiredCatalogVersion(ByteBuffer raw);
 }

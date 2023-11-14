@@ -17,13 +17,14 @@
 
 package org.apache.ignite.internal.network.processor.serialization;
 
+import static java.util.stream.Collectors.toList;
+
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.CodeBlock;
 import com.squareup.javapoet.MethodSpec;
 import com.squareup.javapoet.ParameterizedTypeName;
 import com.squareup.javapoet.TypeSpec;
 import java.util.List;
-import java.util.stream.Collectors;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
@@ -89,10 +90,9 @@ public class MessageSerializerGenerator {
 
         method.addStatement("$T message = ($T) msg", message.implClassName(), message.implClassName()).addCode("\n");
 
-        List<ExecutableElement> getters = message.getters()
-                .stream()
+        List<ExecutableElement> getters = message.getters().stream()
                 .filter(e -> e.getAnnotation(Transient.class) == null)
-                .collect(Collectors.toList());
+                .collect(toList());
 
         method
                 .beginControlFlow("if (!writer.isHeaderWritten())")

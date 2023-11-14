@@ -24,9 +24,10 @@ import java.nio.ByteBuffer;
 import org.apache.ignite.internal.raft.Marshaller;
 
 /**
- *
+ * {@link Marshaller} implementation, based on standard {@link ObjectInputStream} and {@link ObjectOutputStream}.
  */
 public class JDKMarshaller implements Marshaller {
+    /** Pre-allocated {@link JDKMarshaller} instance. */
     public static final Marshaller INSTANCE = new JDKMarshaller();
 
     /**

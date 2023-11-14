@@ -126,7 +126,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
      * @param membersConfiguration Raft members configuration.
      * @param leader Group leader.
      * @param executor Executor for retrying requests.
-     * @param commandsMarshaller Marshaller that should be used to [de]serialize commands.
+     * @param commandsMarshaller Marshaller that should be used to serialize/deserialize commands.
      */
     private RaftGroupServiceImpl(
             ReplicationGroupId groupId,
@@ -465,6 +465,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
             requestFactory = targetPeer -> factory.writeActionRequest()
                     .groupId(groupId)
                     .command(commandBytes)
+                    // Having prepared deserialized command makes its handling more efficient in the state machine.
                     .deserializedCommand((WriteCommand) cmd)
                     .build();
         } else {

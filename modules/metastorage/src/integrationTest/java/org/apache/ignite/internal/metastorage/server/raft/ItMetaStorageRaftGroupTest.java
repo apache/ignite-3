@@ -392,7 +392,7 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
         metaStorageRaftSrv3.startRaftNode(raftNodeId3, membersConfiguration,
                 new MetaStorageListener(mockStorage, mock(ClusterTimeImpl.class)), defaults());
 
-        metaStorageRaftGrpSvc1 = RaftGroupServiceImpl.start(
+        metaStorageRaftGrpSvc1 = waitForRaftGroupServiceSafely(RaftGroupServiceImpl.start(
                 MetastorageGroupId.INSTANCE,
                 cluster.get(0),
                 FACTORY,
@@ -401,9 +401,9 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
                 true,
                 executor,
                 commandsMarshaller
-        ).get();
+        ));
 
-        metaStorageRaftGrpSvc2 = RaftGroupServiceImpl.start(
+        metaStorageRaftGrpSvc2 = waitForRaftGroupServiceSafely(RaftGroupServiceImpl.start(
                 MetastorageGroupId.INSTANCE,
                 cluster.get(1),
                 FACTORY,
@@ -412,9 +412,9 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
                 true,
                 executor,
                 commandsMarshaller
-        ).get();
+        ));
 
-        metaStorageRaftGrpSvc3 = RaftGroupServiceImpl.start(
+        metaStorageRaftGrpSvc3 = waitForRaftGroupServiceSafely(RaftGroupServiceImpl.start(
                 MetastorageGroupId.INSTANCE,
                 cluster.get(2),
                 FACTORY,
@@ -423,7 +423,7 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
                 true,
                 executor,
                 commandsMarshaller
-        ).get();
+        ));
 
         assertTrue(waitForCondition(
                         () -> sameLeaders(metaStorageRaftGrpSvc1, metaStorageRaftGrpSvc2, metaStorageRaftGrpSvc3), 10_000),
@@ -437,6 +437,12 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
         raftServersRaftGroups.add(new Pair<>(metaStorageRaftSrv3, metaStorageRaftGrpSvc3));
 
         return raftServersRaftGroups;
+    }
+
+    private static RaftGroupService waitForRaftGroupServiceSafely(CompletableFuture<RaftGroupService> future) {
+        assertThat(future, willCompleteSuccessfully());
+
+        return future.join();
     }
 
     /**

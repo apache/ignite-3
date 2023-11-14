@@ -34,7 +34,9 @@ public interface WriteActionRequest extends ActionRequest {
     byte[] command();
 
     /**
-     * @return Original non-serialized command, if available. {@code null} if not.
+     * @return Original non-serialized command, if available. {@code null} if not. This field is used to avoid {@link #command()}
+     * deserialization in cases, where deserialized instance is already available. Typical situation for it is command's creation, where
+     * command is explicitly serialized into {@code byte[]} before building the message.
      */
     @Transient
     @Nullable WriteCommand deserializedCommand();

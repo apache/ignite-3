@@ -79,7 +79,7 @@ public class CheckCatalogVersionOnActionRequest implements ActionRequestIntercep
 
         int requiredCatalogVersion = partitionCommandsMarshaller.readRequiredCatalogVersion(ByteBuffer.wrap(command));
 
-        if (requiredCatalogVersion > 0) {
+        if (requiredCatalogVersion >= 0) {
             if (!isMetadataAvailableFor(requiredCatalogVersion, catalogService)) {
                 // TODO: IGNITE-20298 - throttle logging.
                 LOG.warn(
