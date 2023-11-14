@@ -29,7 +29,6 @@ import java.io.IOException;
 import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.internal.cli.commands.ItConnectToClusterTestBase;
 import org.apache.ignite.internal.cli.config.CliConfigKeys;
-import org.apache.ignite.internal.cli.config.CliConfigKeys.Constants;
 import org.apache.ignite.internal.cli.core.rest.ApiClientFactory;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -93,7 +92,7 @@ class ItConnectWithBasicAuthenticationCommandTest extends ItConnectToClusterTest
         // Given basic authentication is configured in config file
         configManagerProvider.setConfigFile(createIntegrationTestsConfig(), createJdbcTestsBasicSecretConfig());
         // And wrong password is provided
-        configManagerProvider.configManager.setProperty(CliConfigKeys.Constants.BASIC_AUTHENTICATION_PASSWORD, "wrong-password");
+        setConfigProperty(CliConfigKeys.BASIC_AUTHENTICATION_PASSWORD, "wrong-password");
 
         // Given prompt before connect
         assertThat(getPrompt()).isEqualTo("[disconnected]> ");
@@ -190,7 +189,7 @@ class ItConnectWithBasicAuthenticationCommandTest extends ItConnectToClusterTest
         // Given basic authentication is configured in config file
         configManagerProvider.setConfigFile(createIntegrationTestsConfig(), createJdbcTestsBasicSecretConfig());
         // And wrong password is in config
-        configManagerProvider.configManager.setProperty(CliConfigKeys.Constants.BASIC_AUTHENTICATION_PASSWORD, "wrong-password");
+        setConfigProperty(CliConfigKeys.BASIC_AUTHENTICATION_PASSWORD, "wrong-password");
 
         // Given prompt before connect
         assertThat(getPrompt()).isEqualTo("[disconnected]> ");
@@ -236,8 +235,8 @@ class ItConnectWithBasicAuthenticationCommandTest extends ItConnectToClusterTest
         // And prompt is still disconnected
         assertThat(getPrompt()).isEqualTo("[disconnected]> ");
         //Previous correct values restored in config
-        assertEquals("admin", configManagerProvider.get().getCurrentProperty(Constants.BASIC_AUTHENTICATION_USERNAME));
-        assertEquals("password", configManagerProvider.get().getCurrentProperty(Constants.BASIC_AUTHENTICATION_PASSWORD));
+        assertEquals("admin", getConfigProperty(CliConfigKeys.BASIC_AUTHENTICATION_USERNAME));
+        assertEquals("password", getConfigProperty(CliConfigKeys.BASIC_AUTHENTICATION_PASSWORD));
     }
 
     @Test
@@ -271,7 +270,7 @@ class ItConnectWithBasicAuthenticationCommandTest extends ItConnectToClusterTest
         // Given basic authentication is configured in config file
         configManagerProvider.setConfigFile(createIntegrationTestsConfig(), createJdbcTestsBasicSecretConfig());
         // And wrong password is in config
-        configManagerProvider.configManager.setProperty(CliConfigKeys.Constants.BASIC_AUTHENTICATION_PASSWORD, "wrong-password");
+        setConfigProperty(CliConfigKeys.BASIC_AUTHENTICATION_PASSWORD, "wrong-password");
 
         // Given prompt before connect
         assertThat(getPrompt()).isEqualTo("[disconnected]> ");
@@ -287,8 +286,7 @@ class ItConnectWithBasicAuthenticationCommandTest extends ItConnectToClusterTest
                 this::assertErrOutputIsEmpty,
                 () -> assertThat(getPrompt()).isEqualTo("[admin:" + nodeName() + "]> "),
                 () -> assertEquals("password", apiClientFactory.currentSessionSettings().basicAuthenticationPassword()),
-                () -> assertEquals("wrong-password",
-                        configManagerProvider.get().getCurrentProperty(Constants.BASIC_AUTHENTICATION_PASSWORD))
+                () -> assertEquals("wrong-password", getConfigProperty(CliConfigKeys.BASIC_AUTHENTICATION_PASSWORD))
         );
     }
 
@@ -429,7 +427,7 @@ class ItConnectWithBasicAuthenticationCommandTest extends ItConnectToClusterTest
         // And prompt shows username and node name
         assertThat(getPrompt()).isEqualTo("[admin:" + nodeName() + "]> ");
         // And correct values are stored in config
-        assertEquals("admin", configManagerProvider.get().getCurrentProperty(Constants.BASIC_AUTHENTICATION_USERNAME));
-        assertEquals("password", configManagerProvider.get().getCurrentProperty(Constants.BASIC_AUTHENTICATION_PASSWORD));
+        assertEquals("admin", getConfigProperty(CliConfigKeys.BASIC_AUTHENTICATION_USERNAME));
+        assertEquals("password", getConfigProperty(CliConfigKeys.BASIC_AUTHENTICATION_PASSWORD));
     }
 }
