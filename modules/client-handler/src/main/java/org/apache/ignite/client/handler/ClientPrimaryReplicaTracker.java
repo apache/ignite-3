@@ -42,10 +42,11 @@ import org.jetbrains.annotations.Nullable;
 public class ClientPrimaryReplicaTracker implements EventListener<PrimaryReplicaEventParameters> {
     private static final PrimaryReplicaEvent EVENT = PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED;
 
-    private static final int AWAIT_PRIMARY_REPLICA_TIMEOUT = 30;
+    private static final int AWAIT_PRIMARY_REPLICA_TIMEOUT_SECONDS = 30;
 
-    // TODO: This map can grow indefinitely. Need to remove entries for deleted tables.
-    private final ConcurrentHashMap<Integer, CompletableFuture<List<String>>> primaryReplicas = new ConcurrentHashMap<>();
+    private static final int LRU_CHECK_FREQ_MILLIS = 60 * 60 * 1000;
+
+    private final ConcurrentHashMap<Integer, Holder> primaryReplicas = new ConcurrentHashMap<>();
 
     private final AtomicLong updateCount = new AtomicLong();
 
@@ -54,6 +55,8 @@ public class ClientPrimaryReplicaTracker implements EventListener<PrimaryReplica
     private final IgniteTablesInternal igniteTables;
 
     private final HybridClock clock;
+
+    private final AtomicLong lruCheckTime = new AtomicLong(0);
 
     /**
      * Constructor.
@@ -78,13 +81,14 @@ public class ClientPrimaryReplicaTracker implements EventListener<PrimaryReplica
      * @return Primary replicas for the table, or null when not yet known.
      */
     public CompletableFuture<List<String>> primaryReplicasAsync(int tableId) {
-        return primaryReplicas.compute(tableId, (id, fut) -> {
-            if (fut == null || fut.isCompletedExceptionally()) {
-                return initTable(id);
+        return primaryReplicas.compute(tableId, (id, hld) -> {
+            if (hld == null || hld.replicas.isCompletedExceptionally()) {
+                return new Holder(initReplicasForTableAsync(id));
             }
 
-            return fut;
-        });
+            hld.lastAccessTime = System.currentTimeMillis();
+            return hld;
+        }).replicas;
     }
 
     long updateCount() {
@@ -99,26 +103,26 @@ public class ClientPrimaryReplicaTracker implements EventListener<PrimaryReplica
         placementDriver.removeListener(EVENT, this);
     }
 
-    private CompletableFuture<List<String>> initTable(Integer tableId) {
+    private CompletableFuture<List<String>> initReplicasForTableAsync(Integer tableId) {
         try {
             // Initially, request all primary replicas for the table.
             // Then keep them updated via PRIMARY_REPLICA_ELECTED events.
             return igniteTables
                     .tableAsync(tableId)
-                    .thenCompose(t -> primaryReplicas(t.tableId(), t.internalTable().partitions()));
+                    .thenCompose(t -> primaryReplicasAsyncInternal(t.tableId(), t.internalTable().partitions()));
         } catch (NodeStoppingException e) {
             return CompletableFuture.failedFuture(e);
         }
     }
 
-    private CompletableFuture<List<String>> primaryReplicas(int tableId, int partitions) {
+    private CompletableFuture<List<String>> primaryReplicasAsyncInternal(int tableId, int partitions) {
         CompletableFuture<ReplicaMeta>[] futs = (CompletableFuture<ReplicaMeta>[]) new CompletableFuture[partitions];
 
         for (int partition = 0; partition < partitions; partition++) {
             futs[partition] = placementDriver.awaitPrimaryReplica(
                     new TablePartitionId(tableId, partition),
                     clock.now(),
-                    AWAIT_PRIMARY_REPLICA_TIMEOUT,
+                    AWAIT_PRIMARY_REPLICA_TIMEOUT_SECONDS,
                     SECONDS
             );
         }
@@ -146,15 +150,33 @@ public class ClientPrimaryReplicaTracker implements EventListener<PrimaryReplica
         }
 
         TablePartitionId tablePartitionId = (TablePartitionId) parameters.groupId();
-        var fut = primaryReplicas.get(tablePartitionId.tableId());
+        var hld = primaryReplicas.get(tablePartitionId.tableId());
 
-        if (fut != null) {
-            fut.thenAccept(replicas -> replicas.set(tablePartitionId.partitionId(), parameters.leaseholder()));
+        if (hld != null) {
+            hld.replicas.thenAccept(replicas -> replicas.set(tablePartitionId.partitionId(), parameters.leaseholder()));
         }
 
         // Increment counter always, even if the table is not tracked. Client could retrieve the table from another node.
         updateCount.incrementAndGet();
 
+        // LRU check on every event, but not more often than LRU_CHECK_FREQ.
+        long lruCheckTime0 = lruCheckTime.get();
+        long time = System.currentTimeMillis();
+        if (time - lruCheckTime0 > LRU_CHECK_FREQ_MILLIS && lruCheckTime.compareAndSet(lruCheckTime0, time)) {
+            primaryReplicas.entrySet().removeIf(e -> time - e.getValue().lastAccessTime > LRU_CHECK_FREQ_MILLIS * 2);
+        }
+
         return CompletableFuture.completedFuture(false); // false: don't remove listener.
+    }
+
+    private static class Holder {
+        final CompletableFuture<List<String>> replicas;
+
+        volatile long lastAccessTime;
+
+        private Holder(CompletableFuture<List<String>> replicas) {
+            this.replicas = replicas;
+            this.lastAccessTime = System.currentTimeMillis();
+        }
     }
 }
