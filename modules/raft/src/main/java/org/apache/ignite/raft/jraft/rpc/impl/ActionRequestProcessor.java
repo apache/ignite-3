@@ -26,6 +26,7 @@ import org.apache.ignite.internal.lang.SafeTimeReorderException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.Marshaller;
+import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.ReadCommand;
@@ -110,20 +111,15 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
             if (fsm.getListener() instanceof BeforeApplyHandler) {
                 synchronized (groupIdSyncMonitor(request.groupId())) {
                     try {
-                        callOnBeforeApply(request, fsm);
+                        writeRequest = patchCommandBeforeApply(writeRequest, (BeforeApplyHandler) listener, command, commandsMarshaller);
                     } catch (SafeTimeReorderException e) {
                         rpcCtx.sendResponse(factory.errorResponse().errorCode(RaftError.EREORDER.getNumber()).build());
 
                         return;
                     }
 
-                    applyWrite(node, (WriteActionRequest) request, rpcCtx);
+                    applyWrite(node, writeRequest, command, rpcCtx);
                 }
-//                synchronized (groupIdSyncMonitor(request.groupId())) {
-//                    writeRequest = patchCommandBeforeApply(writeRequest, (BeforeApplyHandler) listener, command, commandsMarshaller);
-//
-//                    applyWrite(node, writeRequest, command, rpcCtx);
-//                }
             } else {
                 applyWrite(node, writeRequest, command, rpcCtx);
             }
@@ -150,7 +146,7 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
             BeforeApplyHandler beforeApplyHandler,
             Command command,
             Marshaller commandsMarshaller
-    ) {
+    ) throws SafeTimeReorderException {
         if (beforeApplyHandler.onBeforeApply(command)) {
             if (request instanceof WriteActionRequest) {
                 return (AR) factory.writeActionRequest()
