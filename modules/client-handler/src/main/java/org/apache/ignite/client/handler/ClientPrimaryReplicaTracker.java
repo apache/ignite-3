@@ -44,6 +44,7 @@ public class ClientPrimaryReplicaTracker {
 
     private static final int AWAIT_PRIMARY_REPLICA_TIMEOUT = 30;
 
+    // TODO: This map can grow indefinitely. Need to remove entries for deleted tables.
     private final ConcurrentHashMap<Integer, CompletableFuture<List<String>>> primaryReplicas = new ConcurrentHashMap<>();
 
     private final AtomicLong updateCount = new AtomicLong();
