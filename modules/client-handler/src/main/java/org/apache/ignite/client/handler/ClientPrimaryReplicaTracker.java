@@ -108,6 +108,7 @@ public class ClientPrimaryReplicaTracker implements EventListener<EventParameter
     void stop() {
         catalogEventProducer.removeListener(CatalogEvent.TABLE_DROP, (EventListener) this);
         placementDriver.removeListener(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, (EventListener) this);
+        primaryReplicas.clear();
     }
 
     private CompletableFuture<List<String>> initReplicasForTableAsync(Integer tableId) {
