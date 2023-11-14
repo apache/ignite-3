@@ -117,7 +117,9 @@ public class ClientPrimaryReplicaTracker implements EventListener<EventParameter
             // Then keep them updated via PRIMARY_REPLICA_ELECTED events.
             return igniteTables
                     .tableAsync(tableId)
-                    .thenCompose(t -> primaryReplicasAsyncInternal(t.tableId(), t.internalTable().partitions()));
+                    .thenCompose(t -> t != null
+                            ? primaryReplicasAsyncInternal(t.tableId(), t.internalTable().partitions())
+                            : CompletableFuture.completedFuture(null));
         } catch (NodeStoppingException e) {
             return CompletableFuture.failedFuture(e);
         }
