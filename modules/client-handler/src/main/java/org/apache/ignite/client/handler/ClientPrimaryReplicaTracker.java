@@ -150,7 +150,8 @@ public class ClientPrimaryReplicaTracker implements EventListener<PrimaryReplica
         // Increment counter always, even if the table is not tracked. Client could retrieve the table from another node.
         updateCount.incrementAndGet();
 
-        // LRU check on every event, but not more often than LRU_CHECK_FREQ.
+        // LRU check: remove entries that were not accessed for a long time to reduce memory usage.
+        // Check on every event, but not more often than LRU_CHECK_FREQ.
         long lruCheckTime0 = lruCheckTime.get();
         long time = System.currentTimeMillis();
         if (time - lruCheckTime0 > LRU_CHECK_FREQ_MILLIS && lruCheckTime.compareAndSet(lruCheckTime0, time)) {

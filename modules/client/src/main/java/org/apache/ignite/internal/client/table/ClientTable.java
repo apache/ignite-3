@@ -546,7 +546,7 @@ public class ClientTable implements Table {
                         List<String> res = new ArrayList<>(cnt);
 
                         for (int i = 0; i < cnt; i++) {
-                            res.add(r.in().unpackString());
+                            res.add(r.in().tryUnpackNil() ? null : r.in().unpackString());
                         }
 
                         return res;
