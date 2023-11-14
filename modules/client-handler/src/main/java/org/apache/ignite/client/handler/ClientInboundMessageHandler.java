@@ -252,6 +252,8 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
 
         schemaVersions = new SchemaVersionsImpl(schemaSyncService, catalogService, clock);
         this.connectionId = connectionId;
+
+        primaryReplicaUpdateCount.set(primaryReplicaTracker.updateCount());
     }
 
     @Override
