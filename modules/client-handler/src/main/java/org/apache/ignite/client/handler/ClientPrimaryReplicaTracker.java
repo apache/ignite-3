@@ -90,7 +90,13 @@ public class ClientPrimaryReplicaTracker {
      * @return Primary replicas for the table, or null when not yet known.
      */
     public CompletableFuture<List<String>> primaryReplicasAsync(int tableId) {
-        return primaryReplicas.computeIfAbsent(tableId, this::initTable);
+        return primaryReplicas.compute(tableId, (id, fut) -> {
+            if (fut == null || fut.isCompletedExceptionally()) {
+                return initTable(id);
+            }
+
+            return fut;
+        });
     }
 
     long updateCount() {
@@ -111,17 +117,7 @@ public class ClientPrimaryReplicaTracker {
             // Then keep them updated via PRIMARY_REPLICA_ELECTED events.
             return igniteTables
                     .tableAsync(tableId)
-                    .thenCompose(t -> primaryReplicas(t.tableId(), t.internalTable().partitions()))
-                    .handle((replicas, err) -> {
-                        if (err != null) {
-                            // Remove failed future from the map to allow retry.
-                            primaryReplicas.remove(tableId);
-
-                            throw new RuntimeException(err);
-                        }
-
-                        return replicas;
-                    });
+                    .thenCompose(t -> primaryReplicas(t.tableId(), t.internalTable().partitions()));
         } catch (NodeStoppingException e) {
             return CompletableFuture.failedFuture(e);
         }
