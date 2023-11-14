@@ -334,7 +334,9 @@ namespace Apache.Ignite.Tests.Compute
             Assert.IsNotNull(ex.InnerException);
 
             var str = ex.ToString();
-            StringAssert.Contains(" ---> Apache.Ignite.IgniteException: java.lang.RuntimeException: Test exception: foo-bar", str);
+
+            // TODO IGNITE-20858: Fix once user errors are handled properly
+            StringAssert.Contains("Apache.Ignite.IgniteException: Test exception: foo-bar", str);
             StringAssert.Contains(
                 "at org.apache.ignite.internal.runner.app.PlatformTestNodeRunner$ExceptionJob.execute(PlatformTestNodeRunner.java:",
                 str);
