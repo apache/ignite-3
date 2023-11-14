@@ -82,11 +82,11 @@ public class ClientPrimaryReplicaTracker {
         var fut = primaryReplicas.get(tablePartitionId.tableId());
 
         if (fut != null) {
-            fut.thenAccept(replicas -> {
-                replicas.set(tablePartitionId.partitionId(), eventParameters.leaseholder());
-                updateCount.incrementAndGet();
-            });
+            fut.thenAccept(replicas -> replicas.set(tablePartitionId.partitionId(), eventParameters.leaseholder()));
         }
+
+        // Increment counter always, even if the table is not tracked. Client could retrieve the table from another node.
+        updateCount.incrementAndGet();
 
         return CompletableFuture.completedFuture(false); // false: don't remove listener.
     }
