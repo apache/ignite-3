@@ -778,7 +778,7 @@ public class IgniteImpl implements Ignite {
                     cmgMgr
             );
 
-            clusterSvc.updateMetadata(new NodeMetadata(restComponent.host(), restComponent.httpPort(), restComponent.httpsPort()));
+            clusterSvc.updateMetadata(new NodeMetadata(restComponent.hostName(), restComponent.httpPort(), restComponent.httpsPort()));
 
             restAddressReporter.writeReport(restHttpAddress(), restHttpsAddress());
 
@@ -988,7 +988,7 @@ public class IgniteImpl implements Ignite {
     // TODO: should be encapsulated in local properties, see https://issues.apache.org/jira/browse/IGNITE-15131
     @Nullable
     public NetworkAddress restHttpAddress() {
-        String host = restComponent.host();
+        String host = restComponent.hostName();
         int port = restComponent.httpPort();
         if (port != -1) {
             return new NetworkAddress(host, port);
@@ -1005,7 +1005,7 @@ public class IgniteImpl implements Ignite {
      */
     // TODO: should be encapsulated in local properties, see https://issues.apache.org/jira/browse/IGNITE-15131
     public NetworkAddress restHttpsAddress() {
-        String host = restComponent.host();
+        String host = restComponent.hostName();
         int port = restComponent.httpsPort();
         if (port != -1) {
             return new NetworkAddress(host, port);
