@@ -24,7 +24,6 @@ import org.apache.calcite.sql.SqlDynamicParam;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.util.SqlShuttle;
 import org.apache.ignite.internal.tostring.S;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Result of parsing SQL string that multiple statements.
@@ -48,6 +47,8 @@ public final class ScriptParseResult extends ParseResult {
                         if (dynamicParamsCount == 0) {
                             return new StatementParseResult(node, 0);
                         }
+
+                        dynamicParamsAdjuster.reset();
 
                         SqlNode newTree = dynamicParamsAdjuster.visitNode(node);
 
@@ -91,20 +92,12 @@ public final class ScriptParseResult extends ParseResult {
             return new SqlDynamicParam(counter++, param.getParserPosition());
         }
 
-        /**
-         * Rewrites dynamic parameter nodes in the provided tree.
-         *
-         * @param node Source tree.
-         * @return New tree with dynamic parameters that have adjusted indexes.
-         */
-        @Override
-        public @Nullable SqlNode visitNode(SqlNode node) {
+        /** Resets the dynamic parameters counter. */
+        void reset() {
             counter = 0;
-
-            return super.visitNode(node);
         }
 
-        /** Returns the number of dynamic parameters for the last visited tree. */
+        /** Returns the number of processed dynamic parameters. */
         int paramsCount() {
             return counter;
         }
