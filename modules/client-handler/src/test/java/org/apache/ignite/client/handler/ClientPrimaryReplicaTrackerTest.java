@@ -17,6 +17,6 @@
 
 package org.apache.ignite.client.handler;
 
-public class ClientPrimaryReplicaTrackerTest {
+class ClientPrimaryReplicaTrackerTest {
     // TODO: Test initial retrieval, update by events, table drop, missing table, null replicas
 }
