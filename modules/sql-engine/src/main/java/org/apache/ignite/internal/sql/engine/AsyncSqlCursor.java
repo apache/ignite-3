@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine;
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.util.AsyncCursor;
+import org.apache.ignite.sql.QueryHasNoMoreResultsException;
 import org.apache.ignite.sql.ResultSetMetadata;
 
 /**

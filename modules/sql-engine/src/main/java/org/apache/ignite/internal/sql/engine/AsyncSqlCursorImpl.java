@@ -22,6 +22,7 @@ import java.util.concurrent.CompletionException;
 import org.apache.ignite.internal.lang.SqlExceptionMapperUtil;
 import org.apache.ignite.internal.util.AsyncCursor;
 import org.apache.ignite.internal.util.ExceptionUtils;
+import org.apache.ignite.sql.QueryHasNoMoreResultsException;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.jetbrains.annotations.Nullable;
 

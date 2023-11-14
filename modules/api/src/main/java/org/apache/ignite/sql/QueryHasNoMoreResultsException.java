@@ -15,16 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine;
+package org.apache.ignite.sql;
+
+import static org.apache.ignite.lang.ErrorGroups.Sql.NO_MORE_RESULTS_ERR;
 
 /**
  * Exception is thrown when the user tries to retrieve the result of the next statement, but there are no more statements in the query.
  */
-public class QueryHasNoMoreResultsException extends RuntimeException {
+public class QueryHasNoMoreResultsException extends SqlException {
     /**
      * Creates an exception.
      */
     public QueryHasNoMoreResultsException() {
-        super("Query has no more results");
+        super(NO_MORE_RESULTS_ERR, "Query has no more results");
     }
 }
