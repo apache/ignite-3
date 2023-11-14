@@ -294,7 +294,7 @@ public class MetaStorageWriteHandler {
         }
     }
 
-    void beforeApply(Command command) {
+    boolean beforeApply(Command command) {
         if (command instanceof MetaStorageWriteCommand) {
             // Initiator sends us a timestamp to adjust to.
             // Alter command by setting safe time based on the adjusted clock.
@@ -303,6 +303,10 @@ public class MetaStorageWriteHandler {
             clusterTime.adjust(writeCommand.initiatorTime());
 
             writeCommand.safeTimeLong(clusterTime.nowLong());
+
+            return true;
         }
+
+        return false;
     }
 }

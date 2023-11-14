@@ -14,14 +14,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ignite.raft.jraft.util;
 
-import java.nio.ByteBuffer;
+package org.apache.ignite.internal.rest.exception.handler;
 
-public interface Marshaller {
-    public static Marshaller DEFAULT = new JDKMarshaller();
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
-    byte[] marshall(Object o);
+/**
+ * Echo message.
+ */
+public class EchoMessage {
+    private final String text;
 
-    <T> T unmarshall(ByteBuffer raw);
+    @JsonCreator
+    public EchoMessage(@JsonProperty("text") String text) {
+        this.text = text;
+    }
+
+    @JsonProperty("text")
+    public String msg() {
+        return text;
+    }
 }

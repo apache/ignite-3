@@ -55,13 +55,13 @@ public class ItSslCustomCipherTest extends CliCommandTestNotInitializedIntegrati
     @Test
     void compatibleCiphers() {
         // When REST SSL is enabled
-        configManagerProvider.configManager.setProperty(CliConfigKeys.REST_TRUST_STORE_PATH.value(), NodeConfig.resolvedTruststorePath);
-        configManagerProvider.configManager.setProperty(CliConfigKeys.REST_TRUST_STORE_PASSWORD.value(), NodeConfig.trustStorePassword);
-        configManagerProvider.configManager.setProperty(CliConfigKeys.REST_KEY_STORE_PATH.value(), NodeConfig.resolvedKeystorePath);
-        configManagerProvider.configManager.setProperty(CliConfigKeys.REST_KEY_STORE_PASSWORD.value(), NodeConfig.keyStorePassword);
+        setConfigProperty(CliConfigKeys.REST_TRUST_STORE_PATH, NodeConfig.resolvedTruststorePath);
+        setConfigProperty(CliConfigKeys.REST_TRUST_STORE_PASSWORD, NodeConfig.trustStorePassword);
+        setConfigProperty(CliConfigKeys.REST_KEY_STORE_PATH, NodeConfig.resolvedKeystorePath);
+        setConfigProperty(CliConfigKeys.REST_KEY_STORE_PASSWORD, NodeConfig.keyStorePassword);
 
         // And explicitly set the same cipher as for the node
-        configManagerProvider.configManager.setProperty(CliConfigKeys.REST_CIPHERS.value(), CIPHER1);
+        setConfigProperty(CliConfigKeys.REST_CIPHERS, CIPHER1);
 
         // And connect via HTTPS
         connect("https://localhost:10400");
@@ -76,13 +76,13 @@ public class ItSslCustomCipherTest extends CliCommandTestNotInitializedIntegrati
     @Test
     void incompatibleCiphers() {
         // When REST SSL is enabled
-        configManagerProvider.configManager.setProperty(CliConfigKeys.REST_TRUST_STORE_PATH.value(), NodeConfig.resolvedTruststorePath);
-        configManagerProvider.configManager.setProperty(CliConfigKeys.REST_TRUST_STORE_PASSWORD.value(), NodeConfig.trustStorePassword);
-        configManagerProvider.configManager.setProperty(CliConfigKeys.REST_KEY_STORE_PATH.value(), NodeConfig.resolvedKeystorePath);
-        configManagerProvider.configManager.setProperty(CliConfigKeys.REST_KEY_STORE_PASSWORD.value(), NodeConfig.keyStorePassword);
+        setConfigProperty(CliConfigKeys.REST_TRUST_STORE_PATH, NodeConfig.resolvedTruststorePath);
+        setConfigProperty(CliConfigKeys.REST_TRUST_STORE_PASSWORD, NodeConfig.trustStorePassword);
+        setConfigProperty(CliConfigKeys.REST_KEY_STORE_PATH, NodeConfig.resolvedKeystorePath);
+        setConfigProperty(CliConfigKeys.REST_KEY_STORE_PASSWORD, NodeConfig.keyStorePassword);
 
         // And explicitly set cipher different from the node
-        configManagerProvider.configManager.setProperty(CliConfigKeys.REST_CIPHERS.value(), CIPHER2);
+        setConfigProperty(CliConfigKeys.REST_CIPHERS, CIPHER2);
 
         // And connect via HTTPS
         connect("https://localhost:10400");

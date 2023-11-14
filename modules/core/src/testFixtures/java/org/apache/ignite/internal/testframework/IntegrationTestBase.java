@@ -81,7 +81,6 @@ public class IntegrationTestBase extends BaseIgniteAbstractTest {
     private static final String NODE_BOOTSTRAP_CFG = "{\n"
             + "  network: {\n"
             + "    port:{},\n"
-            + "    portRange: 5,\n"
             + "    nodeFinder:{\n"
             + "      netClusterNodes: [ {} ]\n"
             + "    }\n"

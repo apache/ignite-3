@@ -35,6 +35,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.LeaderElectionListener;
+import org.apache.ignite.internal.raft.Marshaller;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftGroupServiceImpl;
@@ -165,6 +166,7 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
      * @param logicalTopologyService Logical topology service.
      * @param notifyOnSubscription Whether to notify callback after subscription to pass the current leader and term into it, even
      *         if the leader did not change in that moment (see {@link #subscribeLeader}).
+     * @param cmdMarshaller Marshaller that should be used to serialize/deserialize commands.
      * @return Future to create a raft client.
      */
     public static CompletableFuture<TopologyAwareRaftGroupService> start(
@@ -177,9 +179,10 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
             ScheduledExecutorService executor,
             LogicalTopologyService logicalTopologyService,
             RaftGroupEventsClientListener eventsClientListener,
-            boolean notifyOnSubscription
+            boolean notifyOnSubscription,
+            Marshaller cmdMarshaller
     ) {
-        return RaftGroupServiceImpl.start(groupId, cluster, factory, raftConfiguration, configuration, getLeader, executor)
+        return RaftGroupServiceImpl.start(groupId, cluster, factory, raftConfiguration, configuration, getLeader, executor, cmdMarshaller)
                 .thenApply(raftGroupService -> new TopologyAwareRaftGroupService(cluster, factory, executor, raftConfiguration,
                         raftGroupService, logicalTopologyService, eventsClientListener, notifyOnSubscription));
     }
@@ -209,38 +212,48 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
      */
     private void sendWithRetry(ClusterNode node, SubscriptionLeaderChangeRequest msg, CompletableFuture<Boolean> msgSendFut) {
         clusterService.messagingService().invoke(node, msg, raftConfiguration.responseTimeout().value()).whenCompleteAsync((unused, th) -> {
-            if (th != null) {
-                if (recoverable(th)) {
-                    logicalTopologyService.logicalTopologyOnLeader().whenCompleteAsync((logicalTopologySnapshot, topologyGetIssue) -> {
-                        if (topologyGetIssue != null) {
-                            LOG.error("Actual logical topology snapshot was not got.", topologyGetIssue);
-
-                            msgSendFut.completeExceptionally(topologyGetIssue);
-
-                            return;
-                        }
-
-                        if (logicalTopologySnapshot.nodes().contains(node)) {
-                            sendWithRetry(node, msg, msgSendFut);
-                        } else {
-                            LOG.info("Could not subscribe to leader update from a specific node, because the node had left from the"
-                                    + " cluster [node={}]", node);
-
-                            msgSendFut.complete(false);
-                        }
-                    }, executor);
-                } else {
-                    if (!(th instanceof NodeStoppingException)) {
-                        LOG.error("Could not send the subscribe message to the node [node={}, msg={}]", th, node, msg);
-                    }
-
-                    msgSendFut.completeExceptionally(th);
-                }
+            if (th == null) {
+                msgSendFut.complete(true);
 
                 return;
             }
 
-            msgSendFut.complete(true);
+            if (!msg.subscribe()) {
+                // We don't want to propagate exceptions when unsubscribing (if it's not an Error!).
+
+                if (th instanceof Error) {
+                    msgSendFut.completeExceptionally(th);
+                } else {
+                    LOG.debug("An exception while trying to unsubscribe", th);
+
+                    msgSendFut.complete(false);
+                }
+            } else if (recoverable(th)) {
+                logicalTopologyService.logicalTopologyOnLeader().whenCompleteAsync((logicalTopologySnapshot, topologyGetIssue) -> {
+                    if (topologyGetIssue != null) {
+                        LOG.error("Actual logical topology snapshot was not got.", topologyGetIssue);
+
+                        msgSendFut.completeExceptionally(topologyGetIssue);
+
+                        return;
+                    }
+
+                    if (logicalTopologySnapshot.nodes().contains(node)) {
+                        sendWithRetry(node, msg, msgSendFut);
+                    } else {
+                        LOG.info("Could not subscribe to leader update from a specific node, because the node had left from the"
+                                + " cluster [node={}]", node);
+
+                        msgSendFut.complete(false);
+                    }
+                }, executor);
+            } else {
+                if (!(th instanceof NodeStoppingException)) {
+                    LOG.error("Could not send the subscribe message to the node [node={}, msg={}]", th, node, msg);
+                }
+
+                msgSendFut.completeExceptionally(th);
+            }
         }, executor);
     }
 

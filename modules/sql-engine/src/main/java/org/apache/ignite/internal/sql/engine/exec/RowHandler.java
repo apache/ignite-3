@@ -23,7 +23,7 @@ import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Universal accessor and mutator for rows. It also has factory methods.
+ * Universal accessor for rows. It also has factory methods.
  */
 public interface RowHandler<RowT> {
     /**
@@ -33,14 +33,6 @@ public interface RowHandler<RowT> {
      * @param row Object to be extracted from.
      */
     @Nullable Object get(int field, RowT row);
-
-    /** Set incoming row field.
-     *
-     * @param field Field position to be processed.
-     * @param row Row which field need to be changed.
-     * @param val Value which should be set.
-     */
-    void set(int field, RowT row, @Nullable Object val);
 
     /** Concatenate two rows. */
     RowT concat(RowT left, RowT right);
@@ -85,6 +77,9 @@ public interface RowHandler<RowT> {
         /** Return row accessor and mutator implementation. */
         RowHandler<RowT> handler();
 
+        /** Creates a {@link RowBuilder row builder}. */
+        RowBuilder<RowT> rowBuilder();
+
         /** Create empty row. */
         RowT create();
 
@@ -103,5 +98,51 @@ public interface RowHandler<RowT> {
          * @return Instantiation defined representation.
          */
         RowT create(InternalTuple tuple);
+    }
+
+    /**
+     * A builder to create rows. It uses the schema provided by an instance of row factory that created it.
+     *
+     * <pre>
+     *     // Create a row builder.
+     *     var rowBuilder = rowFactory.rowBuilder();
+     *     ...
+     *     // Call build() after all fields have been set.
+     *     var row1 = rowBuilder.build();
+     *     // Call reset() to cleanup builder's state.
+     *     rowBuilder.reset();
+     * </pre>
+     */
+    interface RowBuilder<RowT> {
+
+        /**
+         * Adds a field to the current row.
+         *
+         * @param value Field value.
+         * @return this.
+         */
+        RowBuilder<RowT> addField(@Nullable Object value);
+
+        /** Creates a new row from a previously added fields. */
+        RowT build();
+
+        /**
+         * Resets the state of this builder.
+         */
+        void reset();
+
+        /**
+         * Creates a new row and resets the state of this builder. This is a shorthand for:
+         * <pre>
+         *     Row row = builder.build();
+         *     builder.reset();
+         *     return row;
+         * </pre>
+         */
+        default RowT buildAndReset() {
+            RowT row = build();
+            reset();
+            return row;
+        }
     }
 }

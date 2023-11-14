@@ -28,5 +28,5 @@ public interface ConfigurationDynamicDefaultsPatcher {
      * @param hocon The configuration in HOCON format.
      * @return The patched configuration in HOCON format.
      */
-    public String patchWithDynamicDefaults(String hocon);
+    String patchWithDynamicDefaults(String hocon);
 }

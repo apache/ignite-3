@@ -75,14 +75,15 @@ class ItConnectToSslAndAuthClusterTest extends ItConnectToClusterTestBase {
         // And prompt is changed to connect
         assertThat(getPrompt()).isEqualTo("[admin:" + nodeName() + "]> ");
 
-        assertAll(() -> assertThat(configManagerProvider.get().getCurrentProperty(CliConfigKeys.REST_TRUST_STORE_PATH.value()))
+        assertAll(
+                () -> assertThat(getConfigProperty(CliConfigKeys.REST_TRUST_STORE_PATH))
                         .isEqualTo(escapeWindowsPath(NodeConfig.resolvedTruststorePath)),
-                () -> assertThat(configManagerProvider.get().getCurrentProperty(CliConfigKeys.REST_TRUST_STORE_PASSWORD.value()))
+                () -> assertThat(getConfigProperty(CliConfigKeys.REST_TRUST_STORE_PASSWORD))
                         .isEqualTo(escapeWindowsPath(NodeConfig.trustStorePassword)),
 
-                () -> assertThat(configManagerProvider.get().getCurrentProperty(CliConfigKeys.BASIC_AUTHENTICATION_USERNAME.value()))
+                () -> assertThat(getConfigProperty(CliConfigKeys.BASIC_AUTHENTICATION_USERNAME))
                         .isEqualTo("admin"),
-                () -> assertThat(configManagerProvider.get().getCurrentProperty(CliConfigKeys.BASIC_AUTHENTICATION_PASSWORD.value()))
+                () -> assertThat(getConfigProperty(CliConfigKeys.BASIC_AUTHENTICATION_PASSWORD))
                         .isEqualTo("password")
         );
     }
@@ -117,10 +118,11 @@ class ItConnectToSslAndAuthClusterTest extends ItConnectToClusterTestBase {
         // And prompt is disconnected
         assertThat(getPrompt()).isEqualTo("[disconnected]> ");
 
-        assertAll(() -> assertNull(configManagerProvider.get().getCurrentProperty(CliConfigKeys.REST_TRUST_STORE_PATH.value())),
-                () -> assertNull(configManagerProvider.get().getCurrentProperty(CliConfigKeys.REST_TRUST_STORE_PASSWORD.value())),
-                () -> assertNull(configManagerProvider.get().getCurrentProperty(CliConfigKeys.BASIC_AUTHENTICATION_USERNAME.value())),
-                () -> assertNull(configManagerProvider.get().getCurrentProperty(CliConfigKeys.BASIC_AUTHENTICATION_PASSWORD.value()))
+        assertAll(
+                () -> assertNull(getConfigProperty(CliConfigKeys.REST_TRUST_STORE_PATH)),
+                () -> assertNull(getConfigProperty(CliConfigKeys.REST_TRUST_STORE_PASSWORD)),
+                () -> assertNull(getConfigProperty(CliConfigKeys.BASIC_AUTHENTICATION_USERNAME)),
+                () -> assertNull(getConfigProperty(CliConfigKeys.BASIC_AUTHENTICATION_PASSWORD))
         );
     }
 
@@ -155,10 +157,11 @@ class ItConnectToSslAndAuthClusterTest extends ItConnectToClusterTestBase {
         // And prompt is disconnected
         assertThat(getPrompt()).isEqualTo("[disconnected]> ");
 
-        assertAll(() -> assertNull(configManagerProvider.get().getCurrentProperty(CliConfigKeys.REST_TRUST_STORE_PATH.value())),
-                () -> assertNull(configManagerProvider.get().getCurrentProperty(CliConfigKeys.REST_TRUST_STORE_PASSWORD.value())),
-                () -> assertNull(configManagerProvider.get().getCurrentProperty(CliConfigKeys.BASIC_AUTHENTICATION_USERNAME.value())),
-                () -> assertNull(configManagerProvider.get().getCurrentProperty(CliConfigKeys.BASIC_AUTHENTICATION_PASSWORD.value()))
+        assertAll(
+                () -> assertNull(getConfigProperty(CliConfigKeys.REST_TRUST_STORE_PATH)),
+                () -> assertNull(getConfigProperty(CliConfigKeys.REST_TRUST_STORE_PASSWORD)),
+                () -> assertNull(getConfigProperty(CliConfigKeys.BASIC_AUTHENTICATION_USERNAME)),
+                () -> assertNull(getConfigProperty(CliConfigKeys.BASIC_AUTHENTICATION_PASSWORD))
         );
     }
 
@@ -193,13 +196,14 @@ class ItConnectToSslAndAuthClusterTest extends ItConnectToClusterTestBase {
         // And prompt is disconnected
         assertThat(getPrompt()).isEqualTo("[disconnected]> ");
 
-        assertAll(() -> assertThat(configManagerProvider.get().getCurrentProperty(CliConfigKeys.REST_TRUST_STORE_PATH.value()))
+        assertAll(
+                () -> assertThat(getConfigProperty(CliConfigKeys.REST_TRUST_STORE_PATH))
                         .isEqualTo(escapeWindowsPath(NodeConfig.resolvedTruststorePath)),
-                () -> assertThat(configManagerProvider.get().getCurrentProperty(CliConfigKeys.REST_TRUST_STORE_PASSWORD.value()))
+                () -> assertThat(getConfigProperty(CliConfigKeys.REST_TRUST_STORE_PASSWORD))
                         .isEqualTo(escapeWindowsPath(NodeConfig.trustStorePassword)),
 
-                () -> assertNull(configManagerProvider.get().getCurrentProperty(CliConfigKeys.BASIC_AUTHENTICATION_USERNAME.value())),
-                () -> assertNull(configManagerProvider.get().getCurrentProperty(CliConfigKeys.BASIC_AUTHENTICATION_PASSWORD.value()))
+                () -> assertNull(getConfigProperty(CliConfigKeys.BASIC_AUTHENTICATION_USERNAME)),
+                () -> assertNull(getConfigProperty(CliConfigKeys.BASIC_AUTHENTICATION_PASSWORD))
         );
     }
 
@@ -232,14 +236,15 @@ class ItConnectToSslAndAuthClusterTest extends ItConnectToClusterTestBase {
         // And prompt is changed to connect
         assertThat(getPrompt()).isEqualTo("[admin:" + nodeName() + "]> ");
 
-        assertAll(() -> assertThat(configManagerProvider.get().getCurrentProperty(CliConfigKeys.REST_TRUST_STORE_PATH.value()))
+        assertAll(
+                () -> assertThat(getConfigProperty(CliConfigKeys.REST_TRUST_STORE_PATH))
                         .isEqualTo(escapeWindowsPath(NodeConfig.resolvedTruststorePath)),
-                () -> assertThat(configManagerProvider.get().getCurrentProperty(CliConfigKeys.REST_TRUST_STORE_PASSWORD.value()))
+                () -> assertThat(getConfigProperty(CliConfigKeys.REST_TRUST_STORE_PASSWORD))
                         .isEqualTo(escapeWindowsPath(NodeConfig.trustStorePassword)),
 
-                () -> assertThat(configManagerProvider.get().getCurrentProperty(CliConfigKeys.BASIC_AUTHENTICATION_USERNAME.value()))
+                () -> assertThat(getConfigProperty(CliConfigKeys.BASIC_AUTHENTICATION_USERNAME))
                         .isEqualTo("admin"),
-                () -> assertThat(configManagerProvider.get().getCurrentProperty(CliConfigKeys.BASIC_AUTHENTICATION_PASSWORD.value()))
+                () -> assertThat(getConfigProperty(CliConfigKeys.BASIC_AUTHENTICATION_PASSWORD))
                         .isEqualTo("password")
         );
     }
@@ -274,14 +279,15 @@ class ItConnectToSslAndAuthClusterTest extends ItConnectToClusterTestBase {
         // And prompt is changed to connect
         assertThat(getPrompt()).isEqualTo("[admin:" + nodeName() + "]> ");
 
-        assertAll(() -> assertThat(configManagerProvider.get().getCurrentProperty(CliConfigKeys.REST_TRUST_STORE_PATH.value()))
+        assertAll(
+                () -> assertThat(getConfigProperty(CliConfigKeys.REST_TRUST_STORE_PATH))
                         .isEqualTo(escapeWindowsPath(NodeConfig.resolvedTruststorePath)),
-                () -> assertThat(configManagerProvider.get().getCurrentProperty(CliConfigKeys.REST_TRUST_STORE_PASSWORD.value()))
+                () -> assertThat(getConfigProperty(CliConfigKeys.REST_TRUST_STORE_PASSWORD))
                         .isEqualTo(escapeWindowsPath(NodeConfig.trustStorePassword)),
 
-                () -> assertThat(configManagerProvider.get().getCurrentProperty(CliConfigKeys.BASIC_AUTHENTICATION_USERNAME.value()))
+                () -> assertThat(getConfigProperty(CliConfigKeys.BASIC_AUTHENTICATION_USERNAME))
                         .isEqualTo("admin"),
-                () -> assertThat(configManagerProvider.get().getCurrentProperty(CliConfigKeys.BASIC_AUTHENTICATION_PASSWORD.value()))
+                () -> assertThat(getConfigProperty(CliConfigKeys.BASIC_AUTHENTICATION_PASSWORD))
                         .isEqualTo("password")
         );
     }
@@ -317,14 +323,15 @@ class ItConnectToSslAndAuthClusterTest extends ItConnectToClusterTestBase {
         // And prompt is changed to connect
         assertThat(getPrompt()).isEqualTo("[admin:" + nodeName() + "]> ");
 
-        assertAll(() -> assertThat(configManagerProvider.get().getCurrentProperty(CliConfigKeys.REST_TRUST_STORE_PATH.value()))
+        assertAll(
+                () -> assertThat(getConfigProperty(CliConfigKeys.REST_TRUST_STORE_PATH))
                         .isEqualTo(escapeWindowsPath(NodeConfig.resolvedTruststorePath)),
-                () -> assertThat(configManagerProvider.get().getCurrentProperty(CliConfigKeys.REST_TRUST_STORE_PASSWORD.value()))
+                () -> assertThat(getConfigProperty(CliConfigKeys.REST_TRUST_STORE_PASSWORD))
                         .isEqualTo(escapeWindowsPath(NodeConfig.trustStorePassword)),
 
-                () -> assertThat(configManagerProvider.get().getCurrentProperty(CliConfigKeys.BASIC_AUTHENTICATION_USERNAME.value()))
+                () -> assertThat(getConfigProperty(CliConfigKeys.BASIC_AUTHENTICATION_USERNAME))
                         .isEqualTo("admin"),
-                () -> assertThat(configManagerProvider.get().getCurrentProperty(CliConfigKeys.BASIC_AUTHENTICATION_PASSWORD.value()))
+                () -> assertThat(getConfigProperty(CliConfigKeys.BASIC_AUTHENTICATION_PASSWORD))
                         .isEqualTo("password")
         );
     }

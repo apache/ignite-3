@@ -56,6 +56,8 @@ import org.apache.ignite.internal.configuration.testframework.InjectConfiguratio
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
+import org.apache.ignite.internal.raft.util.OptimizedMarshaller;
+import org.apache.ignite.internal.raft.util.ThreadLocalOptimizedMarshaller;
 import org.apache.ignite.internal.replicator.TestReplicationGroupId;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
@@ -66,6 +68,7 @@ import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.TopologyService;
+import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.raft.TestWriteCommand;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.Status;
@@ -88,6 +91,7 @@ import org.apache.ignite.raft.jraft.rpc.RpcRequests.ErrorResponse;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.ReadIndexRequest;
 import org.apache.ignite.raft.jraft.rpc.WriteActionRequest;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftException;
+import org.apache.ignite.utils.ClusterServiceTestUtils;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -142,6 +146,9 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
     void before() {
         when(cluster.messagingService()).thenReturn(messagingService);
         when(cluster.topologyService()).thenReturn(topologyService);
+
+        MessageSerializationRegistry serializationRegistry = ClusterServiceTestUtils.defaultSerializationRegistry();
+        when(cluster.serializationRegistry()).thenReturn(serializationRegistry);
 
         when(topologyService.getByConsistentId(any()))
                 .thenAnswer(invocation -> {
@@ -587,8 +594,11 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
     private RaftGroupService startRaftGroupService(List<Peer> peers, boolean getLeader) {
         PeersAndLearners memberConfiguration = PeersAndLearners.fromPeers(peers, Set.of());
 
-        CompletableFuture<RaftGroupService> service =
-                RaftGroupServiceImpl.start(TEST_GRP, cluster, FACTORY, raftConfiguration, memberConfiguration, getLeader, executor);
+        var commandsSerializer = new ThreadLocalOptimizedMarshaller(cluster.serializationRegistry());
+
+        CompletableFuture<RaftGroupService> service = RaftGroupServiceImpl.start(
+                TEST_GRP, cluster, FACTORY, raftConfiguration, memberConfiguration, getLeader, executor, commandsSerializer
+        );
 
         assertThat(service, willCompleteSuccessfully());
 
@@ -613,12 +623,16 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
      * @param peer Fail the request targeted to given peer.
      */
     private void mockUserInput(boolean delay, @Nullable Peer peer) {
+        //noinspection Convert2Lambda
         when(messagingService.invoke(
                 any(ClusterNode.class),
-                argThat(new ArgumentMatcher<ActionRequest>() {
+                // Must be an anonymous class, to deduce the message type from the generic superclass.
+                argThat(new ArgumentMatcher<WriteActionRequest>() {
                     @Override
-                    public boolean matches(ActionRequest arg) {
-                        return arg instanceof WriteActionRequest && ((WriteActionRequest) arg).command() instanceof TestWriteCommand;
+                    public boolean matches(WriteActionRequest arg) {
+                        Object command = new OptimizedMarshaller(cluster.serializationRegistry()).unmarshall(arg.command());
+
+                        return command instanceof TestWriteCommand;
                     }
                 }),
                 anyLong()

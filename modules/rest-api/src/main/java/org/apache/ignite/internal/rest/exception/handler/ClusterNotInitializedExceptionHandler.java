@@ -34,11 +34,11 @@ import org.apache.ignite.internal.rest.problem.HttpProblemResponse;
 @Requires(classes = {ClusterNotInitializedException.class, ExceptionHandler.class})
 public class ClusterNotInitializedExceptionHandler implements
         ExceptionHandler<ClusterNotInitializedException, HttpResponse<? extends Problem>> {
-
     @Override
     public HttpResponse<? extends Problem> handle(HttpRequest request, ClusterNotInitializedException exception) {
         return HttpProblemResponse.from(
-                Problem.fromHttpCode(HttpCode.NOT_FOUND)
+                Problem.fromHttpCode(HttpCode.CONFLICT)
+                        .title("Cluster not initialized")
                         .detail("Cluster not initialized. Call /management/v1/cluster/init in order to initialize cluster")
         );
     }

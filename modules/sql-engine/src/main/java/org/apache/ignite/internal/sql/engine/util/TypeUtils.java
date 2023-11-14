@@ -53,6 +53,7 @@ import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.type.SqlTypeUtil;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
+import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowBuilder;
 import org.apache.ignite.internal.sql.engine.exec.row.BaseTypeSpec;
 import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
 import org.apache.ignite.internal.sql.engine.exec.row.RowSchemaTypes;
@@ -177,12 +178,19 @@ public class TypeUtils {
             RowHandler.RowFactory<RowT> factory = handler.factory(rowSchema);
             List<Function<Object, Object>> converters = transform(types, t -> fieldConverter(ectx, t));
             return r -> {
-                RowT newRow = factory.create();
-                assert handler.columnCount(newRow) == converters.size();
                 assert handler.columnCount(r) == converters.size();
+
+                RowBuilder<RowT> rowBuilder = factory.rowBuilder();
+
                 for (int i = 0; i < converters.size(); i++) {
-                    handler.set(i, newRow, converters.get(i).apply(handler.get(i, r)));
+                    Object converted = converters.get(i).apply(handler.get(i, r));
+                    rowBuilder.addField(converted);
                 }
+
+                RowT newRow = rowBuilder.buildAndReset();
+
+                assert handler.columnCount(newRow) == converters.size();
+
                 return newRow;
             };
         }
@@ -214,22 +222,9 @@ public class TypeUtils {
     }
 
     /**
-     * ToInternal. Converts the given value to its presentation used by the execution engine.
-     *
-     * @deprecated The implementation of this method is incorrect because it relies on the assumption that
-     *      {@code val.getClass() == storageType(val)} is always true, which sometimes is not the case.
-     *      Use {@link #toInternal(Object, Type)} that provides type information instead.
+     * Converts the given value to its presentation used by the execution engine.
      */
-    @Deprecated
-    public static @Nullable Object toInternal(Object val) {
-        return val == null ? null : toInternal(val, val.getClass());
-    }
-
-    /**
-     * ToInternal.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     */
-    public static @Nullable Object toInternal(Object val, Type storageType) {
+    public static @Nullable Object toInternal(@Nullable Object val, Type storageType) {
         if (val == null) {
             return null;
         } else if (storageType == LocalDate.class) {

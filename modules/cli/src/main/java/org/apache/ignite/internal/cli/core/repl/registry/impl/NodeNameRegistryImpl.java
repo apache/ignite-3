@@ -92,6 +92,10 @@ public class NodeNameRegistryImpl implements NodeNameRegistry, PeriodicSessionTa
             return null;
         }
         try {
+            Integer httpsPort = metadata.getHttpsPort();
+            if (httpsPort != -1) {
+                return new URL("https://" + metadata.getRestHost() + ":" + httpsPort).toString();
+            }
             return new URL("http://" + metadata.getRestHost() + ":" + metadata.getHttpPort()).toString();
         } catch (Exception e) {
             LOG.warn("Couldn't create URL: {}", e);
