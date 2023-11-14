@@ -629,10 +629,7 @@ public class SqlQueryProcessor implements QueryProcessor {
             this.schemaName = schemaName;
             this.transactions = transactions;
             this.explicitTransaction = explicitTransaction;
-
-            List<ScriptStatementParameters> statementsList = splitDynamicParameters(parsedResults, params);
-
-            statements = new ArrayBlockingQueue<>(Math.max(1, statementsList.size()), false, statementsList);
+            this.statements = prepareStatementsQueue(parsedResults, params);
         }
 
         CompletableFuture<AsyncSqlCursor<List<Object>>> processNext() {
@@ -679,30 +676,32 @@ public class SqlQueryProcessor implements QueryProcessor {
             return cursorFuture;
         }
 
-        private List<ScriptStatementParameters> splitDynamicParameters(List<ParsedResult> parsedResults, Object[] params) {
+        /**
+         * Returns a queue. each element of which represents parameters required to execute a single statement of the script.
+         */
+        private Queue<ScriptStatementParameters> prepareStatementsQueue(List<ParsedResult> parsedResults, Object[] params) {
             List<ParsedResult> parsedResults0 = parsedResults.stream()
                     // TODO https://issues.apache.org/jira/browse/IGNITE-20463 Integrate TX-related statements
                     .filter(res -> res.queryType() != SqlQueryType.TX_CONTROL).collect(Collectors.toList());
 
             int paramsCount = parsedResults0.stream().mapToInt(ParsedResult::dynamicParamsCount).sum();
+            validateDynamicParameters(paramsCount, params);
 
             ScriptStatementParameters[] results = new ScriptStatementParameters[parsedResults0.size()];
 
-            validateDynamicParameters(paramsCount, params);
-
-            for (int i = parsedResults0.size() - 1; i >= 0; i--) {
-                ParsedResult result = parsedResults0.get(i);
+            // We fill parameters in reverse order, because each script statement
+            // requires a reference to the future of the next statement.
+            for (int i = parsedResults0.size(); i > 0; i--) {
+                ParsedResult result = parsedResults0.get(i - 1);
 
                 Object[] params0 = Arrays.copyOfRange(params, paramsCount - result.dynamicParamsCount(), paramsCount);
-
-                boolean last = i + 1 == parsedResults0.size();
-
-                results[i] = new ScriptStatementParameters(result, params0, last ? null : results[i + 1].cursorFuture);
-
                 paramsCount -= result.dynamicParamsCount();
+
+                results[i - 1] = new ScriptStatementParameters(result, params0,
+                        i < parsedResults0.size() ? results[i].cursorFuture : null);
             }
 
-            return List.of(results);
+            return new ArrayBlockingQueue<>(Math.max(1, results.length), false, List.of(results));
         }
 
         private void cancelAll(Throwable cause) {
