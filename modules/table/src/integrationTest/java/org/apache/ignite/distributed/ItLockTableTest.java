@@ -166,12 +166,7 @@ public class ItLockTableTest extends IgniteAbstractTest {
         }
 
         for (CompletableFuture<?> finishFut : finishFuts) {
-            try {
-                finishFut.join();
-            } catch (Exception e) {
-                // Ignore.
-                System.out.println();
-            }
+            finishFut.join();
         }
 
         assertTrue(TestUtils.waitForCondition(() -> {

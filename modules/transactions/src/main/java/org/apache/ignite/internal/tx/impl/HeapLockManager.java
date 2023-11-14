@@ -57,12 +57,12 @@ import org.jetbrains.annotations.TestOnly;
  * A {@link LockManager} implementation which stores lock queues in the heap.
  *
  * <p>Lock waiters are placed in the queue, ordered according to comparator provided by {@link HeapLockManager#deadlockPreventionPolicy}.
- * When a new waiter is placed in the queue, it's validated against current lock owner: if there is an owner with a higher priority
- * (as defined by comparator) lock request is denied.
+ * When a new waiter is placed in the queue, it's validated against current lock owner: if there is an owner with a higher priority (as
+ * defined by comparator) lock request is denied.
  *
  * <p>Read lock can be upgraded to write lock (only available for the lowest read-locked entry of
  * the queue).
- *
+ * <p>
  * Additionally limits the lock map size.
  */
 public class HeapLockManager implements LockManager {
@@ -178,10 +178,17 @@ public class HeapLockManager implements LockManager {
         LockState state = lockState(lock.lockKey());
 
         if (state.tryRelease(lock.txId())) {
-            if (locks.remove(lock.lockKey(), state)) {
-                state.reset();
-                empty.add(state);
-            }
+            locks.compute(lock.lockKey(), (k, v) -> {
+                // Mapping may already change.
+                if (v != state || !v.markedForRemove) {
+                    return v;
+                }
+
+                // markedForRemove state should be cleared on entry reuse to avoid race.
+                v.key = null;
+                empty.add(v);
+                return null;
+            });
         }
     }
 
@@ -190,10 +197,16 @@ public class HeapLockManager implements LockManager {
         LockState state = lockState(lockKey);
 
         if (state.tryRelease(txId, lockMode)) {
-            if (locks.remove(lockKey, state)) {
-                state.reset();
-                empty.add(state);
-            }
+            locks.compute(lockKey, (k, v) -> {
+                // Mapping may already change.
+                if (v != state || !v.markedForRemove) {
+                    return v;
+                }
+
+                v.key = null;
+                empty.add(v);
+                return null;
+            });
         }
     }
 
@@ -204,11 +217,16 @@ public class HeapLockManager implements LockManager {
         if (states != null) {
             for (LockState state : states) {
                 if (state.tryRelease(txId)) {
-                    // Key may be null if a lock has bypassed the cache.
-                    if (locks.remove(state.key, state)) {
-                        state.reset();
-                        empty.add(state);
-                    }
+                    locks.compute(state.key, (k, v) -> {
+                        // Mapping may already change.
+                        if (v != state || !v.markedForRemove) {
+                            return v;
+                        }
+
+                        v.key = null;
+                        empty.add(v);
+                        return null;
+                    });
                 }
             }
         }
@@ -228,13 +246,7 @@ public class HeapLockManager implements LockManager {
             Waiter waiter = lockState.waiter(txId);
 
             if (waiter != null) {
-                result.add(
-                        new Lock(
-                                lockState.key,
-                                waiter.lockMode(),
-                                txId
-                        )
-                );
+                result.add(new Lock(lockState.key, waiter.lockMode(), txId));
             }
         }
 
@@ -258,7 +270,8 @@ public class HeapLockManager implements LockManager {
                     res[0] = slots[index];
                 } else {
                     v = empty.poll();
-                    v.key = key;
+                    v.markedForRemove = false;
+                    v.key = k;
                     res[0] = v;
                 }
             } else {
@@ -288,8 +301,9 @@ public class HeapLockManager implements LockManager {
     @Override
     public boolean isEmpty() {
         for (LockState slot : slots) {
-            if (!slot.waiters.isEmpty())
+            if (!slot.waiters.isEmpty()) {
                 return false;
+            }
         }
 
         return true;
@@ -305,7 +319,7 @@ public class HeapLockManager implements LockManager {
         /** Marked for removal flag. */
         private volatile boolean markedForRemove = false;
 
-        private LockKey key;
+        private volatile LockKey key;
 
         public LockState() {
             Comparator<UUID> txComparator =
@@ -631,11 +645,6 @@ public class HeapLockManager implements LockManager {
 
                 return v;
             });
-        }
-
-        public void reset() {
-            key = null;
-            markedForRemove = false;
         }
     }
 
