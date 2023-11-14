@@ -299,7 +299,7 @@ namespace Apache.Ignite.Internal
             ThrowIfDisposed();
 
             // 1. Preferred node connection.
-            if (preferredNode != default && _endpointsByName.TryGetValue(preferredNode.Name, out var endpoint))
+            if (preferredNode.Name != null && _endpointsByName.TryGetValue(preferredNode.Name, out var endpoint))
             {
                 try
                 {

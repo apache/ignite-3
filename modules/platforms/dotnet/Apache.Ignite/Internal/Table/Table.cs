@@ -77,7 +77,7 @@ namespace Apache.Ignite.Internal.Table
         private volatile int _partitionAssignmentVersion = -1;
 
         /** */
-        private volatile string[]? _partitionAssignment;
+        private volatile string?[]? _partitionAssignment;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="Table"/> class.
@@ -213,7 +213,7 @@ namespace Apache.Ignite.Internal.Table
         /// Gets the partition assignment.
         /// </summary>
         /// <returns>Partition assignment.</returns>
-        internal async ValueTask<string[]?> GetPartitionAssignmentAsync()
+        internal async ValueTask<string?[]?> GetPartitionAssignmentAsync()
         {
             var socketVer = _socket.PartitionAssignmentVersion;
             var assignment = _partitionAssignment;
@@ -392,7 +392,7 @@ namespace Apache.Ignite.Internal.Table
         /// Loads the partition assignment.
         /// </summary>
         /// <returns>Partition assignment.</returns>
-        private async Task<string[]?> LoadPartitionAssignmentAsync()
+        private async Task<string?[]?> LoadPartitionAssignmentAsync()
         {
             using var writer = ProtoCommon.GetMessageWriter();
             writer.MessageWriter.Write(Id);
@@ -400,7 +400,7 @@ namespace Apache.Ignite.Internal.Table
             using var resBuf = await _socket.DoOutInOpAsync(ClientOp.PartitionAssignmentGet, writer).ConfigureAwait(false);
             return Read();
 
-            string[]? Read()
+            string?[]? Read()
             {
                 var r = resBuf.GetReader();
                 var count = r.ReadInt32();
@@ -410,11 +410,11 @@ namespace Apache.Ignite.Internal.Table
                     return null;
                 }
 
-                var res = new string[count];
+                var res = new string?[count];
 
                 for (int i = 0; i < count; i++)
                 {
-                    res[i] = r.ReadString();
+                    res[i] = r.ReadStringNullable();
                 }
 
                 return res;
