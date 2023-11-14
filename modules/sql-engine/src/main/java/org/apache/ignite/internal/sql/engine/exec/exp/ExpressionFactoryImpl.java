@@ -66,6 +66,7 @@ import org.apache.calcite.sql.validate.SqlConformance;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
+import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowBuilder;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.exp.RexToLixTranslator.InputGetter;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.AccumulatorWrapper;
@@ -291,17 +292,24 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         }
 
         List<RowT> rows = new ArrayList<>(values.size() / columns);
-        RowT currRow = null;
-        for (int i = 0; i < values.size(); i++) {
-            int field = i % columns;
 
-            if (field == 0) {
-                rows.add(currRow = factory.create());
+        if (!values.isEmpty()) {
+            RowBuilder<RowT> rowBuilder = factory.rowBuilder();
+
+            for (int i = 0; i < values.size(); i++) {
+                int field = i % columns;
+
+                if (field == 0 && i > 0) {
+                    rows.add(rowBuilder.buildAndReset());
+                }
+
+                RexLiteral literal = values.get(i);
+                Object val = literal.getValueAs(types.get(field));
+
+                rowBuilder.addField(val);
             }
 
-            RexLiteral literal = values.get(i);
-
-            handler.set(field, currRow, literal.getValueAs(types.get(field)));
+            rows.add(rowBuilder.buildAndReset());
         }
 
         return rows;
@@ -537,7 +545,7 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
                 Expressions.parameter(Object.class, "in2");
 
         ParameterExpression out =
-                Expressions.parameter(Object.class, "out");
+                Expressions.parameter(RowBuilder.class, "out");
 
         builder.add(
                 Expressions.declare(Modifier.FINAL, DataContext.ROOT, Expressions.convert_(ctx, DataContext.class)));
@@ -556,12 +564,8 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
 
         for (int i = 0; i < projects.size(); i++) {
             Expression val = projects.get(i);
-
-            builder.add(
-                        Expressions.statement(
-                                Expressions.call(hnd,
-                                        IgniteMethod.ROW_HANDLER_SET.method(),
-                                        Expressions.constant(i), out, val)));
+            Expression addRowField = Expressions.call(out, IgniteMethod.ROW_BUILDER_ADD_FIELD.method(), val);
+            builder.add(Expressions.statement(addRowField));
         }
 
         ParameterExpression ex = Expressions.parameter(0, Exception.class, "e");
@@ -637,9 +641,9 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
     private abstract class AbstractScalarPredicate<T extends Scalar> {
         protected final T scalar;
 
-        protected final RowT out;
-
         protected final RowHandler<RowT> hnd;
+
+        protected final RowBuilder<RowT> rowBuilder;
 
         /**
          * Constructor.
@@ -654,7 +658,7 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
             RelDataType nullableType = TYPE_FACTORY.createTypeWithNullability(booleanType, true);
             RowSchema schema = TypeUtils.rowSchemaFromRelTypes(List.of(nullableType));
 
-            out = hnd.factory(schema).create();
+            rowBuilder = hnd.factory(schema).rowBuilder();
         }
     }
 
@@ -669,9 +673,10 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         /** {@inheritDoc} */
         @Override
         public boolean test(RowT r) {
-            scalar.execute(ctx, r, out);
+            scalar.execute(ctx, r, rowBuilder);
+            RowT res = rowBuilder.buildAndReset();
 
-            return Boolean.TRUE.equals(hnd.get(0, out));
+            return Boolean.TRUE.equals(hnd.get(0, res));
         }
     }
 
@@ -686,15 +691,17 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         /** {@inheritDoc} */
         @Override
         public boolean test(RowT r1, RowT r2) {
-            scalar.execute(ctx, r1, r2, out);
-            return Boolean.TRUE.equals(hnd.get(0, out));
+            scalar.execute(ctx, r1, r2, rowBuilder);
+            RowT res = rowBuilder.buildAndReset();
+
+            return Boolean.TRUE.equals(hnd.get(0, res));
         }
     }
 
     private class ProjectImpl implements Function<RowT, RowT> {
         private final SingleScalar scalar;
 
-        private final RowFactory<RowT> factory;
+        private final RowBuilder<RowT> rowBuilder;
 
         /**
          * Constructor.
@@ -704,60 +711,58 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
          */
         private ProjectImpl(SingleScalar scalar, RowFactory<RowT> factory) {
             this.scalar = scalar;
-            this.factory = factory;
+            this.rowBuilder = factory.rowBuilder();
         }
 
         /** {@inheritDoc} */
         @Override
         public RowT apply(RowT r) {
-            RowT res = factory.create();
-            scalar.execute(ctx, r, res);
+            scalar.execute(ctx, r, rowBuilder);
 
-            return res;
+            return rowBuilder.buildAndReset();
         }
     }
 
     private class ValuesImpl implements Supplier<RowT> {
         private final SingleScalar scalar;
 
-        private final RowFactory<RowT> factory;
+        private final RowBuilder<RowT> rowBuilder;
 
         /**
          * Constructor.
          */
         private ValuesImpl(SingleScalar scalar, RowFactory<RowT> factory) {
             this.scalar = scalar;
-            this.factory = factory;
+            this.rowBuilder = factory.rowBuilder();
         }
 
         /** {@inheritDoc} */
         @Override
         public RowT get() {
-            RowT res = factory.create();
-            scalar.execute(ctx, null, res);
+            scalar.execute(ctx, null, rowBuilder);
 
-            return res;
+            return rowBuilder.buildAndReset();
         }
     }
 
     private class ValueImpl<T> implements Supplier<T> {
         private final SingleScalar scalar;
 
-        private final RowFactory<RowT> factory;
+        private final RowBuilder<RowT> rowBuilder;
 
         /**
          * Constructor.
          */
         private ValueImpl(SingleScalar scalar, RowFactory<RowT> factory) {
             this.scalar = scalar;
-            this.factory = factory;
+            this.rowBuilder = factory.rowBuilder();
         }
 
         /** {@inheritDoc} */
         @Override
         public T get() {
-            RowT res = factory.create();
-            scalar.execute(ctx, null, res);
+            scalar.execute(ctx, null, rowBuilder);
+            RowT res = rowBuilder.buildAndReset();
 
             return (T) ctx.rowHandler().get(0, res);
         }
@@ -783,10 +788,10 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         private @Nullable RowT upperRow;
 
         /** Lower bound row factory. */
-        private final RowFactory<RowT> lowerFactory;
+        private final RowBuilder<RowT> lowerRowBuilder;
 
         /** Upper bound row factory. */
-        private final RowFactory<RowT> upperFactory;
+        private final RowBuilder<RowT> upperRowBuilder;
 
         /** Cached skip range flag. */
         private @Nullable Boolean skip;
@@ -806,20 +811,20 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
             this.lowerInclude = lowerInclude;
             this.upperInclude = upperInclude;
 
-            this.lowerFactory = lowerFactory;
-            this.upperFactory = upperFactory;
+            this.lowerRowBuilder = lowerFactory.rowBuilder();
+            this.upperRowBuilder = upperFactory.rowBuilder();
         }
 
         /** {@inheritDoc} */
         @Override
         public @Nullable RowT lower() {
-            return lowerRow != null ? lowerRow : (lowerRow = getRow(lowerBound, lowerFactory));
+            return lowerRow != null ? lowerRow : (lowerRow = getRow(lowerBound, lowerRowBuilder));
         }
 
         /** {@inheritDoc} */
         @Override
         public @Nullable RowT upper() {
-            return upperRow != null ? upperRow : (upperRow = getRow(upperBound, upperFactory));
+            return upperRow != null ? upperRow : (upperRow = getRow(upperBound, upperRowBuilder));
         }
 
         /** {@inheritDoc} */
@@ -835,14 +840,16 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         }
 
         /** Compute row. */
-        private RowT getRow(SingleScalar scalar, RowFactory<RowT> factory) {
-            RowT res = factory.create();
-            scalar.execute(ctx, null, res);
+        private RowT getRow(SingleScalar scalar, RowBuilder<RowT> rowBuilder) {
+            scalar.execute(ctx, null, rowBuilder);
+            RowT res = rowBuilder.buildAndReset();
 
             RowHandler<RowT> hnd = ctx.rowHandler();
 
             // Check bound for NULL values. If bound contains NULLs, the whole range should be skipped.
             // There is special placeholder for searchable NULLs, make this replacement here too.
+            boolean hasNullBounds = false;
+
             for (int i = 0; i < hnd.columnCount(res); i++) {
                 Object fldVal = hnd.get(i, res);
 
@@ -851,11 +858,24 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
                 }
 
                 if (fldVal == ctx.nullBound()) {
-                    hnd.set(i, res, null);
+                    hasNullBounds = true;
                 }
             }
 
-            return res;
+            if (!hasNullBounds) {
+                return res;
+            } else {
+                for (int i = 0; i < hnd.columnCount(res); i++) {
+                    Object fldVal = hnd.get(i, res);
+                    if (fldVal == ctx.nullBound()) {
+                        rowBuilder.addField(null);
+                    } else {
+                        rowBuilder.addField(fldVal);
+                    }
+                }
+
+                return rowBuilder.buildAndReset();
+            }
         }
 
         /** Clear cached rows. */

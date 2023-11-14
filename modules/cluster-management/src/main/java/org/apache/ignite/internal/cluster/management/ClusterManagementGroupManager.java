@@ -103,10 +103,6 @@ public class ClusterManagementGroupManager implements IgniteComponent {
      */
     private final CompletableFuture<Void> joinFuture = new CompletableFuture<>();
 
-    // TODO: IGNITE-19489 Cancel updateDistributedConfigurationActionFuture if the configuration is applied
-    private final CompletableFuture<UpdateDistributedConfigurationAction> updateDistributedConfigurationActionFuture =
-            new CompletableFuture<>();
-
     /** Message factory. */
     private final CmgMessagesFactory msgFactory = new CmgMessagesFactory();
 
@@ -132,6 +128,9 @@ public class ClusterManagementGroupManager implements IgniteComponent {
 
     /** Local node's attributes. */
     private final NodeAttributes nodeAttributes;
+
+    /** Future that resolves into the initial cluster configuration in HOCON format. */
+    private final CompletableFuture<String> initialClusterConfigurationFuture = new CompletableFuture<>();
 
     /** Constructor. */
     public ClusterManagementGroupManager(
@@ -356,6 +355,12 @@ public class ClusterManagementGroupManager implements IgniteComponent {
     private void onElectedAsLeader(long term) {
         LOG.info("CMG leader has been elected, executing onLeaderElected callback");
 
+        // The cluster state is broadcast via the messaging service; hence, the future must be completed here on the leader node.
+        // TODO: This needs to be reworked following the implementation of IGNITE-18275.
+        raftServiceAfterJoin()
+                .thenCompose(CmgRaftService::readClusterState)
+                .thenAccept(state -> initialClusterConfigurationFuture.complete(state.initialClusterConfiguration()));
+
         raftServiceAfterJoin()
                 .thenCompose(this::updateLogicalTopology)
                 .thenCompose(service -> service.updateLearners(term).thenApply(unused -> service))
@@ -382,50 +387,6 @@ public class ClusterManagementGroupManager implements IgniteComponent {
                         LOG.warn("Error when executing onLeaderElected callback", e);
                     } else {
                         LOG.info("onLeaderElected callback executed successfully");
-                    }
-                });
-
-        raftServiceAfterJoin().thenCompose(service -> service.readClusterState()
-                .whenComplete((state, e) -> {
-                    if (e != null) {
-                        LOG.error("Error when retrieving cluster configuration", e);
-                        updateDistributedConfigurationActionFuture.completeExceptionally(e);
-                    } else {
-                        String configuration = state.initialClusterConfiguration();
-                        if (configuration != null) {
-                            updateDistributedConfigurationActionFuture.complete(
-                                    new UpdateDistributedConfigurationAction(
-                                            configuration,
-                                            () -> removeClusterConfigFromClusterState(service)
-                                    ));
-                        } else {
-                            updateDistributedConfigurationActionFuture.cancel(true);
-                        }
-                    }
-                })
-        );
-    }
-
-    private CompletableFuture<Void> removeClusterConfigFromClusterState(CmgRaftService service) {
-        return service.readClusterState()
-                .thenCompose(state -> {
-                    if (state.initialClusterConfiguration() != null) {
-                        ClusterState clusterState = msgFactory.clusterState()
-                                .cmgNodes(Set.copyOf(state.cmgNodes()))
-                                .metaStorageNodes(Set.copyOf(state.metaStorageNodes()))
-                                .version(state.igniteVersion().toString())
-                                .clusterTag(state.clusterTag())
-                                .build();
-                        return service.updateClusterState(clusterState)
-                                .whenComplete((v, e) -> {
-                                    if (e != null) {
-                                        LOG.error("Error when removing configuration from cluster state", e);
-                                    } else {
-                                        LOG.info("Cluster configuration is removed from cluster state");
-                                    }
-                                });
-                    } else {
-                        return completedFuture(null);
                     }
                 });
     }
@@ -487,6 +448,9 @@ public class ClusterManagementGroupManager implements IgniteComponent {
         clusterService.messagingService().respond(senderConsistentId, msgFactory.successResponseMessage().build(), correlationId);
 
         ClusterState state = msg.clusterState();
+
+        // Complete the initialClusterConfigurationFuture to initialize the cluster configuration on the local node.
+        initialClusterConfigurationFuture.complete(state.initialClusterConfiguration());
 
         synchronized (raftServiceLock) {
             if (raftService == null) {
@@ -718,7 +682,8 @@ public class ClusterManagementGroupManager implements IgniteComponent {
 
         // Fail the futures to unblock dependent operations
         joinFuture.completeExceptionally(new NodeStoppingException());
-        updateDistributedConfigurationActionFuture.completeExceptionally(new NodeStoppingException());
+
+        initialClusterConfigurationFuture.completeExceptionally(new NodeStoppingException());
     }
 
     /**
@@ -828,8 +793,14 @@ public class ClusterManagementGroupManager implements IgniteComponent {
         }
     }
 
-    public CompletableFuture<UpdateDistributedConfigurationAction> clusterConfigurationToUpdate() {
-        return updateDistributedConfigurationActionFuture;
+    /**
+     * Returns a future resolving to the initial cluster configuration in HOCON format. The resulting configuration may be {@code null} if
+     * not provided by the user.
+     *
+     * @return a CompletableFuture that, upon completion, provides the initial cluster configuration, which may be {@code null}.
+     */
+    public CompletableFuture<String> initialClusterConfigurationFuture() {
+        return initialClusterConfigurationFuture;
     }
 
     /**

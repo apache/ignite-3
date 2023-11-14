@@ -55,7 +55,7 @@ public class AsyncSqlCursorImplTest {
         List<Integer> list = List.of(1, 2, 3);
 
         AsyncSqlCursorImpl<Integer> cursor = new AsyncSqlCursorImpl<>(SqlQueryType.QUERY, RESULT_SET_METADATA, txWrapper,
-                new AsyncWrapper<>(CompletableFuture.completedFuture(list.iterator()), Runnable::run));
+                new AsyncWrapper<>(CompletableFuture.completedFuture(list.iterator()), Runnable::run), () -> {});
 
         int requestRows = 2;
         BatchedResult<Integer> in1 = cursor.requestNextAsync(requestRows).join();
@@ -78,7 +78,7 @@ public class AsyncSqlCursorImplTest {
         IgniteException err = new IgniteException(Common.INTERNAL_ERR);
 
         AsyncSqlCursorImpl<Integer> cursor = new AsyncSqlCursorImpl<>(SqlQueryType.QUERY, RESULT_SET_METADATA, txWrapper,
-                new AsyncWrapper<>(CompletableFuture.failedFuture(err), Runnable::run));
+                new AsyncWrapper<>(CompletableFuture.failedFuture(err), Runnable::run), () -> {});
 
         CompletionException t = assertThrows(CompletionException.class, () -> cursor.requestNextAsync(1).join());
 
@@ -94,7 +94,7 @@ public class AsyncSqlCursorImplTest {
     @MethodSource("transactions")
     public void testCloseCommitsImplicitTx(boolean implicit, QueryTransactionWrapper txWrapper) {
         AsyncCursor<Integer> data = new AsyncWrapper<>(List.of(1, 2, 3, 4).iterator());
-        AsyncSqlCursorImpl<Integer> cursor = new AsyncSqlCursorImpl<>(SqlQueryType.QUERY, RESULT_SET_METADATA, txWrapper, data);
+        AsyncSqlCursorImpl<Integer> cursor = new AsyncSqlCursorImpl<>(SqlQueryType.QUERY, RESULT_SET_METADATA, txWrapper, data, () -> {});
         cursor.closeAsync().join();
 
         CompletableFuture<Void> f = ((NoOpTransaction) txWrapper.unwrap()).commitFuture();

@@ -67,13 +67,7 @@ public class JavaLoggerFormatter extends Formatter {
     public static final String ANONYMOUS_LOGGER_NAME = "UNKNOWN";
 
     /** Date formatter. */
-    private static final ThreadLocal<DateTimeFormatter> DATE_FORMATTER = new ThreadLocal<>() {
-        /** {@inheritDoc} */
-        @Override
-        protected DateTimeFormatter initialValue() {
-            return DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss:SSS Z");
-        }
-    };
+    public static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss:SSS Z");
 
     /** {@inheritDoc} */
     @Override
@@ -100,7 +94,7 @@ public class JavaLoggerFormatter extends Formatter {
             ex = "\n" + stackTrace;
         }
 
-        return DATE_FORMATTER.get().format(Instant.ofEpochMilli(record.getMillis()).atZone(ZoneId.systemDefault()))
+        return DATE_FORMATTER.format(Instant.ofEpochMilli(record.getMillis()).atZone(ZoneId.systemDefault()))
                 + " [" + toLevel(record.getLevel().intValue()) + "]["
                 + threadName + "]["
                 + logName + "] "

@@ -104,4 +104,22 @@ class JdbcUrlFactoryTest {
                 + "&basicAuthenticationPassword=pwd";
         assertEquals(expectedJdbcUrl, jdbcUrl);
     }
+
+    @Test
+    void withCustomCipher() {
+        // Given config with JDBC SSL and basic authentication enabled
+        configManagerProvider.setConfigFile(createIntegrationTestsConfig(), createJdbcTestsSslSecretConfig());
+        configManagerProvider.configManager.setProperty(CliConfigKeys.JDBC_CIPHERS.value(), "TLS_AES_256_GCM_SHA384");
+
+        // Then JDBC URL is constructed with SSL settings and custom cipher
+        String jdbcUrl = factory.constructJdbcUrl("http://localhost:10300", 10800);
+        String expectedJdbcUrl = "jdbc:ignite:thin://localhost:10800"
+                + "?sslEnabled=true"
+                + "&trustStorePath=ssl/truststore.jks"
+                + "&trustStorePassword=changeit"
+                + "&keyStorePath=ssl/keystore.p12"
+                + "&keyStorePassword=changeit"
+                + "&ciphers=TLS_AES_256_GCM_SHA384";
+        assertEquals(expectedJdbcUrl, jdbcUrl);
+    }
 }

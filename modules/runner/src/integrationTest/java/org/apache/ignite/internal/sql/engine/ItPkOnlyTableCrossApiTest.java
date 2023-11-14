@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine;
 
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.apache.ignite.lang.ErrorGroups.Sql.CONSTRAINT_VIOLATION_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -34,6 +35,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
+import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.NullableValue;
 import org.apache.ignite.lang.UnexpectedNullValueException;
@@ -233,7 +235,7 @@ public class ItPkOnlyTableCrossApiTest extends BaseSqlIntegrationTest {
 
         env.runInTransaction(
                 rwTx -> sql(rwTx, "insert into " + tableName + " values (0, 'A'), (1, 'B')"),
-                tx -> assertQuery(tx, "select count(*) from " + tableName).returns(2L).check()
+                tx -> assertQuery((InternalTransaction) tx, "select count(*) from " + tableName).returns(2L).check()
         );
     }
 
@@ -306,11 +308,12 @@ public class ItPkOnlyTableCrossApiTest extends BaseSqlIntegrationTest {
 
                         assertTrue(binView.contains(tx, key));
 
-                        assertQuery(tx, String.format("select * from %s where ID=%d and NAME='%s'", tab.name(), i, names[i]))
+                        assertQuery(
+                                (InternalTransaction) tx, format("select * from {} where ID={} and NAME='{}'", tab.name(), i, names[i]))
                                 .returns(i, names[i]).check();
                     }
 
-                    assertQuery(tx, "select count(*) from " + tab.name()).returns(4L).check();
+                    assertQuery((InternalTransaction) tx, "select count(*) from " + tab.name()).returns(4L).check();
                 }
         );
     }

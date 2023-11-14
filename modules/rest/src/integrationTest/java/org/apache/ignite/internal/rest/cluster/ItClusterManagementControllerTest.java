@@ -27,7 +27,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import io.micronaut.context.annotation.Bean;
 import io.micronaut.context.annotation.Factory;
-import io.micronaut.context.annotation.Property;
 import io.micronaut.context.annotation.Replaces;
 import io.micronaut.http.HttpRequest;
 import io.micronaut.http.HttpResponse;
@@ -51,7 +50,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 /**
  * Cluster management REST test.
  */
-@Property(name = "micronaut.security.enabled", value = "false")
 @ExtendWith(MockitoExtension.class)
 @ExtendWith(ConfigurationExtension.class)
 public class ItClusterManagementControllerTest extends RestTestBase {
@@ -92,8 +90,8 @@ public class ItClusterManagementControllerTest extends RestTestBase {
         HttpClientResponseException thrownBeforeInit = assertThrows(HttpClientResponseException.class,
                 () -> client.toBlocking().retrieve("state", ClusterState.class));
 
-        // Then status is 404: there is no "state"
-        assertThat(thrownBeforeInit.getStatus(), is(equalTo(HttpStatus.NOT_FOUND)));
+        // Then status is 409: cluster not initialized
+        assertThat(thrownBeforeInit.getStatus(), is(equalTo(HttpStatus.CONFLICT)));
         assertThat(
                 getProblem(thrownBeforeInit).detail(),
                 is(equalTo("Cluster not initialized. Call /management/v1/cluster/init in order to initialize cluster"))

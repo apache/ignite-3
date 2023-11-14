@@ -32,8 +32,8 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
-import org.apache.ignite.internal.sql.engine.QueryCancelledException;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.sql.CursorClosedException;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.Session;
@@ -60,7 +60,7 @@ public class ItCommonApiTest extends BaseSqlIntegrationTest {
         Session ses1 = sql.sessionBuilder().defaultPageSize(1).idleTimeout(2, TimeUnit.SECONDS).build();
         Session ses2 = sql.sessionBuilder().defaultPageSize(1).idleTimeout(100, TimeUnit.SECONDS).build();
 
-        assertEquals(2, queryProcessor().liveSessions().size());
+        assertEquals(2, activeSessionsCount());
 
         ResultSet rs1 = ses1.execute(null, "SELECT id FROM TST");
         ResultSet rs2 = ses2.execute(null, "SELECT id FROM TST");
@@ -77,7 +77,7 @@ public class ItCommonApiTest extends BaseSqlIntegrationTest {
             while (rs1.hasNext()) {
                 rs1.next();
             }
-        }, QueryCancelledException.class);
+        }, CursorClosedException.class);
 
         rs1.close();
 
@@ -138,5 +138,9 @@ public class ItCommonApiTest extends BaseSqlIntegrationTest {
 
             assertEquals(expDateTimeStr, res.next().datetimeValue(1).toString());
         }
+    }
+
+    private int activeSessionsCount() {
+        return ((IgniteSqlImpl) igniteSql()).sessions().size();
     }
 }

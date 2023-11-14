@@ -118,7 +118,6 @@ public class ItTruncateSuffixAndRestartTest extends BaseIgniteAbstractTest {
     @BeforeEach
     void setUp() {
         CompletableFuture<Void> changeFuture = networkConfiguration.change(cfg -> cfg
-                .changePortRange(0)
                 .changeNodeFinder().changeNetClusterNodes(
                         range(port(0), port(NODES)).mapToObj(port -> "localhost:" + port).toArray(String[]::new)
                 )

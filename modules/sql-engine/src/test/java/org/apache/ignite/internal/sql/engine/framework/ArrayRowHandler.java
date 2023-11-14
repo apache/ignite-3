@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.framework;
 
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.time.Instant;
@@ -54,12 +56,6 @@ public class ArrayRowHandler implements RowHandler<Object[]> {
     @Override
     public Object get(int field, Object[] row) {
         return row[field];
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void set(int field, Object[] row, Object val) {
-        row[field] = val;
     }
 
     /** {@inheritDoc} */
@@ -106,7 +102,7 @@ public class ArrayRowHandler implements RowHandler<Object[]> {
     /** {@inheritDoc} */
     @Override
     public RowFactory<Object[]> factory(RowSchema rowSchema) {
-        int rowLen = rowSchema.fields().size();
+        int schemaLen = rowSchema.fields().size();
 
         return new RowFactory<>() {
             /** {@inheritDoc} */
@@ -115,16 +111,21 @@ public class ArrayRowHandler implements RowHandler<Object[]> {
                 return ArrayRowHandler.this;
             }
 
+            @Override
+            public RowBuilder<Object[]> rowBuilder() {
+                return new RowBuilderImpl(schemaLen);
+            }
+
             /** {@inheritDoc} */
             @Override
             public Object[] create() {
-                return new Object[rowLen];
+                return new Object[schemaLen];
             }
 
             /** {@inheritDoc} */
             @Override
             public Object[] create(Object... fields) {
-                assert fields.length == rowLen;
+                assert fields.length == schemaLen;
 
                 return fields;
             }
@@ -260,6 +261,67 @@ public class ArrayRowHandler implements RowHandler<Object[]> {
             case DATETIME: return tuple.dateTimeValue(fieldIndex);
             case TIMESTAMP: return tuple.timestampValue(fieldIndex);
             default: throw new InvalidTypeException("Unknown element type: " + nativeType);
+        }
+    }
+
+    private static class RowBuilderImpl implements RowBuilder<Object[]> {
+
+        private final int schemaLen;
+
+        Object[] data;
+
+        int fieldIdx;
+
+        RowBuilderImpl(int schemaLen) {
+            this.schemaLen = schemaLen;
+            fieldIdx = 0;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public void reset() {
+            this.data = null;
+            fieldIdx = 0;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public RowBuilder<Object[]> addField(Object value) {
+            if (fieldIdx == 0 && data == null) {
+                data = new Object[schemaLen];
+            }
+
+            checkIndex();
+
+            data[fieldIdx++] = value;
+            return this;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public Object[] build() {
+            checkState();
+
+            if (schemaLen == 0) {
+                return new Object[0];
+            } else {
+                return data;
+            }
+        }
+
+        private void checkState() {
+            if (schemaLen != 0 && data == null) {
+                throw new IllegalStateException("Row has not been initialised");
+            }
+            if (fieldIdx != schemaLen) {
+                throw new IllegalStateException(format("Row has not been fully built. Index: {}, fields: {}", fieldIdx, schemaLen));
+            }
+        }
+
+        private void checkIndex() {
+            if (fieldIdx >= schemaLen) {
+                throw new IllegalStateException(format("Field index is out of bounds. Index: {}, fields: {}", fieldIdx, schemaLen));
+            }
         }
     }
 }

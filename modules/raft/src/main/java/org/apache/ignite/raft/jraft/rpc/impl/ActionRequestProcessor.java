@@ -22,13 +22,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
+import org.apache.ignite.internal.lang.SafeTimeReorderException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.Marshaller;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.ReadCommand;
-import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl.DelegatingStateMachine;
 import org.apache.ignite.internal.raft.service.BeforeApplyHandler;
 import org.apache.ignite.internal.raft.service.CommandClosure;
@@ -109,10 +109,21 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
 
             if (fsm.getListener() instanceof BeforeApplyHandler) {
                 synchronized (groupIdSyncMonitor(request.groupId())) {
-                    writeRequest = patchCommandBeforeApply(writeRequest, (BeforeApplyHandler) listener, command, commandsMarshaller);
+                    try {
+                        callOnBeforeApply(request, fsm);
+                    } catch (SafeTimeReorderException e) {
+                        rpcCtx.sendResponse(factory.errorResponse().errorCode(RaftError.EREORDER.getNumber()).build());
 
-                    applyWrite(node, writeRequest, command, rpcCtx);
+                        return;
+                    }
+
+                    applyWrite(node, (WriteActionRequest) request, rpcCtx);
                 }
+//                synchronized (groupIdSyncMonitor(request.groupId())) {
+//                    writeRequest = patchCommandBeforeApply(writeRequest, (BeforeApplyHandler) listener, command, commandsMarshaller);
+//
+//                    applyWrite(node, writeRequest, command, rpcCtx);
+//                }
             } else {
                 applyWrite(node, writeRequest, command, rpcCtx);
             }

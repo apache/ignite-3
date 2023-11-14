@@ -54,6 +54,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Function;
 import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.lang.SafeTimeReorderException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
@@ -585,8 +586,11 @@ public class RaftGroupServiceImpl implements RaftGroupService {
     ) {
         if (recoverable(err)) {
             LOG.warn(
-                    "Recoverable error during the request type={} occurred (will be retried on the randomly selected node): ",
-                    err, sentRequest.getClass().getSimpleName()
+                    "Recoverable error during the request occurred (will be retried on the randomly selected node) "
+                            + "[request={}, peer={}].",
+                    err,
+                    sentRequest,
+                    peer
             );
 
             scheduleRetry(() -> sendWithRetry(randomNode(peer), requestFactory, stopTime, fut));
@@ -643,6 +647,10 @@ public class RaftGroupServiceImpl implements RaftGroupService {
 
                     scheduleRetry(() -> sendWithRetry(leader, requestFactory, stopTime, fut));
                 }
+
+                break;
+            case EREORDER:
+                fut.completeExceptionally(new SafeTimeReorderException());
 
                 break;
 
