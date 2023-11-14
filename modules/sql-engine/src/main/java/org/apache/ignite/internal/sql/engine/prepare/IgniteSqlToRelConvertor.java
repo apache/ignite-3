@@ -101,6 +101,7 @@ public class IgniteSqlToRelConvertor extends SqlToRelConverter {
             }
             SqlNumericLiteral literal = (SqlNumericLiteral) op0;
             RelDataType derived = ((SqlDataTypeSpec) type).deriveType(validator);
+            // if BIGINT is present we need to preserve CAST from BIGINT to BIGINT for further overflow check possibility
             if (derived.getSqlTypeName() == SqlTypeName.BIGINT) {
                 RexLiteral lit = rexBuilder.makeLiteral(literal.toValue());
                 return rexBuilder.makeCast(derived, lit, false, false);

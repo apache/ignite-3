@@ -220,6 +220,7 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
                             targetColumnCount);
         }
 
+        // if BIGINT is present we need to preserve CAST from BIGINT to BIGINT for further overflow check possibility
         if (config().typeCoercionEnabled()) {
             if (SqlTypeUtil.equalAsStructSansNullability(typeFactory,
                     sourceRowType, targetRowType, null)) {

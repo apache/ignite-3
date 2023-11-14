@@ -272,6 +272,7 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
                 return false;
             }
 
+            // we need this check for further possibility to validate BIGINT overflow
             if (fromType.getSqlTypeName() == SqlTypeName.BIGINT && toType.getSqlTypeName() == SqlTypeName.BIGINT) {
                 if (node.getKind() == SqlKind.LITERAL) {
                     return true;
