@@ -18,8 +18,8 @@
 package org.apache.ignite.internal.sql.engine;
 
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.RUNTIME_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
@@ -100,12 +100,12 @@ public class ItSqlMultiStatementTest extends BaseSqlIntegrationTest {
         assertNotNull(cursor);
         validateSingleResult(cursor, true);
         assertFalse(cursor.hasNextResult());
-        assertThat(cursor.nextResult(), willThrow(NoRowSetExpectedException.class));
+        assertThrows(NoRowSetExpectedException.class, cursor::nextResult, "Query has no result set");
 
-        cursor = runScript("INSERT INTO test VALUES (0, 0)");
-        assertNotNull(cursor);
-        validateSingleResult(cursor, 1L);
-        assertFalse(cursor.hasNextResult());
+        AsyncSqlCursor<List<Object>> cursor2 = runScript("INSERT INTO test VALUES (0, 0)");
+        assertNotNull(cursor2);
+        validateSingleResult(cursor2, 1L);
+        assertFalse(cursor2.hasNextResult());
 
         assertQuery("SELECT * FROM test").returns(0, 0).check();
     }

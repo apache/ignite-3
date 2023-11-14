@@ -87,4 +87,18 @@ public class JdbcQueryCursor<T> implements AsyncSqlCursor<T> {
     public ResultSetMetadata metadata() {
         return cur.metadata();
     }
+
+    /** {@inheritDoc} */
+    @Override
+    public boolean hasNextResult() {
+        // TODO https://issues.apache.org/jira/browse/IGNITE-20661
+        return false;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<AsyncSqlCursor<T>> nextResult() {
+        // TODO https://issues.apache.org/jira/browse/IGNITE-20661
+        throw new UnsupportedOperationException();
+    }
 }
