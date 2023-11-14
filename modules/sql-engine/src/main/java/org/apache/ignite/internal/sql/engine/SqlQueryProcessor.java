@@ -648,7 +648,6 @@ public class SqlQueryProcessor implements QueryProcessor {
                     return cursorFuture;
                 }
 
-                // TODO https://issues.apache.org/jira/browse/IGNITE-20855 Use wrapper to start an implicit transaction.
                 QueryTransactionWrapper txWrapper = wrapTxOrStartImplicit(parsedResult.queryType(), transactions, explicitTransaction);
 
                 QueryCancel cancel = new QueryCancel();
