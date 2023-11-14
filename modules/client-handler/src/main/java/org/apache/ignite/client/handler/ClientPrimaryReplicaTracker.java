@@ -17,8 +17,6 @@
 
 package org.apache.ignite.client.handler;
 
-import static java.util.concurrent.TimeUnit.SECONDS;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -41,8 +39,6 @@ import org.jetbrains.annotations.Nullable;
  */
 public class ClientPrimaryReplicaTracker implements EventListener<PrimaryReplicaEventParameters> {
     private static final PrimaryReplicaEvent EVENT = PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED;
-
-    private static final int AWAIT_PRIMARY_REPLICA_TIMEOUT_SECONDS = 30;
 
     private static final int LRU_CHECK_FREQ_MILLIS = 60 * 60 * 1000;
 
@@ -119,12 +115,7 @@ public class ClientPrimaryReplicaTracker implements EventListener<PrimaryReplica
         CompletableFuture<ReplicaMeta>[] futs = (CompletableFuture<ReplicaMeta>[]) new CompletableFuture[partitions];
 
         for (int partition = 0; partition < partitions; partition++) {
-            futs[partition] = placementDriver.awaitPrimaryReplica(
-                    new TablePartitionId(tableId, partition),
-                    clock.now(),
-                    AWAIT_PRIMARY_REPLICA_TIMEOUT_SECONDS,
-                    SECONDS
-            );
+            futs[partition] = placementDriver.getPrimaryReplica(new TablePartitionId(tableId, partition), clock.now());
         }
 
         CompletableFuture<Void> all = CompletableFuture.allOf(futs);
@@ -134,9 +125,9 @@ public class ClientPrimaryReplicaTracker implements EventListener<PrimaryReplica
 
             for (int partition = 0; partition < partitions; partition++) {
                 ReplicaMeta replicaMeta = futs[partition].join();
-                assert replicaMeta != null : "Primary replica is null for partition " + partition;
 
-                replicaNames.add(replicaMeta.getLeaseholder());
+                // Returning null is fine - the client will use default channel for this partition.
+                replicaNames.add(replicaMeta == null ? null : replicaMeta.getLeaseholder());
             }
 
             return replicaNames;
