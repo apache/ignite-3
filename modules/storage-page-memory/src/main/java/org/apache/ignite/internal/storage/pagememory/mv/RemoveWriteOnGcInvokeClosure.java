@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.storage.pagememory.mv;
 
+import static org.apache.ignite.internal.pagememory.util.PageIdUtils.NULL_LINK;
 import static org.apache.ignite.internal.storage.pagememory.mv.AbstractPageMemoryMvPartitionStorage.ALWAYS_LOAD_VALUE;
 import static org.apache.ignite.internal.storage.pagememory.mv.AbstractPageMemoryMvPartitionStorage.DONT_LOAD_VALUE;
 import static org.apache.ignite.internal.storage.pagememory.mv.FindRowVersion.RowVersionFilter.equalsByNextLink;
@@ -59,6 +60,8 @@ public class RemoveWriteOnGcInvokeClosure implements InvokeClosure<VersionChain>
 
     private @Nullable RowVersion toUpdate;
 
+    private @Nullable RowVersion toDropFromQueue;
+
     RemoveWriteOnGcInvokeClosure(RowId rowId, HybridTimestamp timestamp, long link, AbstractPageMemoryMvPartitionStorage storage) {
         this.rowId = rowId;
         this.timestamp = timestamp;
@@ -76,14 +79,16 @@ public class RemoveWriteOnGcInvokeClosure implements InvokeClosure<VersionChain>
 
         result = nextRowVersion;
 
+        assert result.nextLink() == NULL_LINK;
+
         // If the found version is a tombstone, then we must remove it as well.
         if (rowVersion.isTombstone()) {
             toRemove = List.of(nextRowVersion, rowVersion);
 
             // If the found version is the head of the chain, then delete the entire chain.
-            if (oldRow.headLink() == rowVersion.link()) {
+            if (oldRow.headLink() == link) {
                 operationType = OperationType.REMOVE;
-            } else if (oldRow.nextLink() == rowVersion.link()) {
+            } else if (oldRow.nextLink() == link) {
                 operationType = OperationType.PUT;
 
                 // Find the version for which this version is RowVersion#nextLink.
@@ -96,7 +101,11 @@ public class RemoveWriteOnGcInvokeClosure implements InvokeClosure<VersionChain>
                 newRow = oldRow;
 
                 // Find the version for which this version is RowVersion#nextLink.
-                toUpdate = storage.findRowVersion(oldRow, equalsByNextLink(rowVersion.link()), false);
+                toUpdate = storage.findRowVersion(oldRow, equalsByNextLink(link), false);
+            }
+
+            if (toUpdate != null && toUpdate.isCommitted()) {
+                toDropFromQueue = toUpdate;
             }
         } else {
             operationType = OperationType.PUT;
@@ -105,7 +114,7 @@ public class RemoveWriteOnGcInvokeClosure implements InvokeClosure<VersionChain>
 
             toUpdate = rowVersion;
 
-            if (oldRow.headLink() == rowVersion.link()) {
+            if (oldRow.headLink() == link) {
                 newRow = oldRow.withNextLink(nextRowVersion.nextLink());
             } else {
                 newRow = oldRow;
@@ -115,7 +124,7 @@ public class RemoveWriteOnGcInvokeClosure implements InvokeClosure<VersionChain>
 
     @Override
     public @Nullable VersionChain newRow() {
-        assert operationType == OperationType.PUT ? newRow != null : newRow == null : "newRow=" + newRow + ", op=" + operationType;
+        assert (operationType == OperationType.PUT) ^ (newRow == null) : "newRow=" + newRow + ", op=" + operationType;
 
         return newRow;
     }
@@ -131,7 +140,7 @@ public class RemoveWriteOnGcInvokeClosure implements InvokeClosure<VersionChain>
     public void onUpdate() {
         if (toUpdate != null) {
             try {
-                storage.rowVersionFreeList.updateNextLink(toUpdate.link(), result.nextLink());
+                storage.rowVersionFreeList.updateNextLink(toUpdate.link(), NULL_LINK);
             } catch (IgniteInternalCheckedException e) {
                 throw new StorageException(
                         "Error updating the next link: [rowId={}, timestamp={}, rowLink={}, nextLink={}, {}]",
@@ -143,7 +152,7 @@ public class RemoveWriteOnGcInvokeClosure implements InvokeClosure<VersionChain>
     }
 
     private RowVersion readRowVersionWithChecks(VersionChain versionChain) {
-        RowVersion rowVersion = storage.readRowVersion(link, ALWAYS_LOAD_VALUE);
+        RowVersion rowVersion = storage.readRowVersion(link, DONT_LOAD_VALUE);
 
         if (rowVersion == null) {
             throw new StorageException(
@@ -168,8 +177,10 @@ public class RemoveWriteOnGcInvokeClosure implements InvokeClosure<VersionChain>
     void afterCompletion() {
         toRemove.forEach(storage::removeRowVersion);
 
-        if (toUpdate != null && !result.hasNextLink()) {
-            storage.gcQueue.remove(rowId, toUpdate.timestamp(), toUpdate.link());
+        if (toDropFromQueue != null) {
+            boolean remove = storage.gcQueue.remove(rowId, toDropFromQueue.timestamp(), toDropFromQueue.link());
+
+            assert remove : "Tombstone removal from GC queue should never happen in parallel";
         }
     }
 

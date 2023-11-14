@@ -154,8 +154,6 @@ public class StorageUpdateHandler {
 
             return null;
         });
-
-        executeBatchGc();
     }
 
     /**
@@ -223,8 +221,6 @@ public class StorageUpdateHandler {
 
             return null;
         });
-
-        executeBatchGc();
     }
 
     private void performStorageCleanupIfNeeded(UUID txId, RowId rowId, @Nullable HybridTimestamp lastCommitTs) {
