@@ -760,7 +760,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     }
 
     /**
-     * TODO: to be removed after IGNITE-20499 is fixed. This was introduced in a rush because of a burning release, should be fixe asap.
+     * TODO: to be removed after IGNITE-20854 is fixed. This was introduced in a rush because of a burning release, should be fixe asap.
      */
     public static long idleSafeTimePropagationPeriodMs() {
         return Long.parseLong(
