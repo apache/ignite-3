@@ -56,6 +56,13 @@ public class ClientPrimaryReplicaTracker {
 
     private final HybridClock clock;
 
+    /**
+     * Constructor.
+     *
+     * @param placementDriver Placement driver.
+     * @param igniteTables Ignite tables.
+     * @param clock Hybrid clock.
+     */
     public ClientPrimaryReplicaTracker(
             PlacementDriver placementDriver,
             IgniteTablesInternal igniteTables,

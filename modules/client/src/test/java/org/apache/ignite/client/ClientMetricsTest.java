@@ -259,7 +259,7 @@ public class ClientMetricsTest extends BaseIgniteAbstractTest {
         streamerFut.orTimeout(3, TimeUnit.SECONDS).join();
 
         assertEquals(2, metrics().streamerItemsSent());
-        assertEquals(1, metrics().streamerBatchesSent());
+        assertEquals(2, metrics().streamerBatchesSent());
         assertEquals(0, metrics().streamerBatchesActive());
         assertEquals(0, metrics().streamerItemsQueued());
     }

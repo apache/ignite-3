@@ -29,12 +29,19 @@ import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParam
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 
+/**
+ * Fake placement driver.
+ */
 public class FakePlacementDriver extends AbstractEventProducer<PrimaryReplicaEvent, PrimaryReplicaEventParameters>
         implements PlacementDriver {
     // 4 partitions - according to FakeInternalTable.partitions
     private volatile List<String> primaryReplicas = List.of("s1", "s2", "s3", "s4");
 
-    public void update(List<String> replicas) {
+    /**
+     * Updates primary replicas.
+     */
+    public void setReplicas(List<String> replicas) {
+        assert replicas.size() == 4;
         primaryReplicas = replicas;
 
         for (int partition = 0; partition < replicas.size(); partition++) {
@@ -49,7 +56,7 @@ public class FakePlacementDriver extends AbstractEventProducer<PrimaryReplicaEve
     @Override
     public CompletableFuture<ReplicaMeta> awaitPrimaryReplica(ReplicationGroupId groupId, HybridTimestamp timestamp, long timeout,
             TimeUnit unit) {
-        var id = (TablePartitionId)groupId;
+        var id = (TablePartitionId) groupId;
 
         return CompletableFuture.completedFuture(getReplicaMeta(primaryReplicas.get(id.partitionId())));
     }

@@ -638,6 +638,6 @@ public class PartitionAwarenessTest extends AbstractClientTest {
             assignments.add(testServer2.nodeName());
         }
 
-        placementDriver.update(assignments);
+        placementDriver.setReplicas(assignments);
     }
 }
