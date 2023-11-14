@@ -817,7 +817,7 @@ public class DistributionZoneManager implements IgniteComponent {
      * Saves global states of the Distribution Zone Manager to Meta Storage atomically in one batch.
      * After restart it could be used to restore these fields.
      *
-     * @param zoneIds Set of zone id's, whose states will be staved in the Meta Storage.
+     * @param zoneIds Set of zone id's, whose states will be saved in the Meta Storage.
      * @param revision Revision of the event.
      * @return Future representing pending completion of the operation.
      */
