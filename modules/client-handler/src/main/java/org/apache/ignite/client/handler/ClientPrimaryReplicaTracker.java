@@ -41,7 +41,8 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * Primary partition replica tracker. Shared by all instances of {@link ClientInboundMessageHandler}.
- * Tracks primary replicas by partition for every table.
+ *
+ * <p>Keeps up-to-date lists of primary replicas by partition for every table, avoiding expensive placement driver calls in most cases.
  */
 public class ClientPrimaryReplicaTracker implements EventListener<EventParameters> {
     private static final int LRU_CHECK_FREQ_MILLIS = 60 * 60 * 1000;
