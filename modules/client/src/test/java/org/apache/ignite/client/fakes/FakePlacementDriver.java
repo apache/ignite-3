@@ -31,7 +31,8 @@ import org.apache.ignite.internal.replicator.TablePartitionId;
 
 public class FakePlacementDriver extends AbstractEventProducer<PrimaryReplicaEvent, PrimaryReplicaEventParameters>
         implements PlacementDriver {
-    private volatile List<String> primaryReplicas = List.of("unknown");
+    // 4 partitions - according to FakeInternalTable.partitions
+    private volatile List<String> primaryReplicas = List.of("s1", "s2", "s3", "s4");
 
     public void update(List<String> replicas) {
         primaryReplicas = replicas;

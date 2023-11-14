@@ -86,7 +86,7 @@ public class FakeInternalTable implements InternalTable {
 
     @Override
     public int partitions() {
-        return 1;
+        return 4;
     }
 
     @Override
