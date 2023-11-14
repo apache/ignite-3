@@ -24,6 +24,8 @@ import static java.util.stream.Collectors.toSet;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectRBTreeMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectSortedMap;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import it.unimi.dsi.fastutil.ints.IntSet;
 import it.unimi.dsi.fastutil.ints.IntSets;
@@ -494,13 +496,32 @@ public final class CollectionUtils {
      * @param <V> the output type of the value mapping function.
      * @return Map collector.
      */
-    public static <T, V> Collector<T, ?, Int2ObjectMap<V>> toIntMapCollector(
-            Function<T, Integer> keyMapper, Function<T, V> valueMapper) {
+    public static <T, V> Collector<T, ?, Int2ObjectMap<V>> toIntMapCollector(Function<T, Integer> keyMapper, Function<T, V> valueMapper) {
         return Collectors.toMap(
                 keyMapper,
                 valueMapper,
                 (oldVal, newVal) -> newVal,
                 Int2ObjectOpenHashMap::new
+        );
+    }
+
+    /**
+     * Returns a {@code Collector} that accumulates elements into a {@link Int2ObjectRBTreeMap}.
+     *
+     * @param keyMapper Key mapper.
+     * @param valueMapper Value mapper.
+     * @param <T> the type of the input elements.
+     * @param <V> the output type of the value mapping function.
+     * @return Map collector.
+     */
+    public static <T, V> Collector<T, ?, Int2ObjectSortedMap<V>> toSortedIntMapCollector(
+            Function<T, Integer> keyMapper, Function<T, V> valueMapper
+    ) {
+        return Collectors.toMap(
+                keyMapper,
+                valueMapper,
+                (oldVal, newVal) -> newVal,
+                Int2ObjectRBTreeMap::new
         );
     }
 

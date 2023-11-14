@@ -19,6 +19,8 @@ package org.apache.ignite.internal.catalog;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
+import it.unimi.dsi.fastutil.ints.Int2ObjectSortedMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectSortedMaps;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Map;
@@ -51,6 +53,13 @@ public class Catalog {
         );
     }
 
+    private static <T extends CatalogObjectDescriptor> Collector<T, ?, Int2ObjectSortedMap<T>> toSortedMapById() {
+        return Collectors.collectingAndThen(
+                CollectionUtils.toSortedIntMapCollector(CatalogObjectDescriptor::id, Function.identity()),
+                Int2ObjectSortedMaps::unmodifiable
+        );
+    }
+
     private final int version;
     private final int objectIdGen;
     private final long activationTimestamp;
@@ -62,7 +71,7 @@ public class Catalog {
     @IgniteToStringExclude
     private final Int2ObjectMap<CatalogTableDescriptor> tablesById;
     @IgniteToStringExclude
-    private final Int2ObjectMap<CatalogIndexDescriptor> indexesById;
+    private final Int2ObjectSortedMap<CatalogIndexDescriptor> indexesById;
     @IgniteToStringExclude
     private final Int2ObjectMap<CatalogZoneDescriptor> zonesById;
 
@@ -95,7 +104,7 @@ public class Catalog {
 
         schemasById = schemas.stream().collect(toMapById());
         tablesById = schemas.stream().flatMap(s -> Arrays.stream(s.tables())).collect(toMapById());
-        indexesById = schemas.stream().flatMap(s -> Arrays.stream(s.indexes())).collect(toMapById());
+        indexesById = schemas.stream().flatMap(s -> Arrays.stream(s.indexes())).collect(toSortedMapById());
         zonesById = zones.stream().collect(toMapById());
     }
 

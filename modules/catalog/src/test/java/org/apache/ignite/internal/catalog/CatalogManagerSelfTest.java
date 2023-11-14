@@ -57,8 +57,10 @@ import static org.apache.ignite.sql.ColumnType.INT64;
 import static org.apache.ignite.sql.ColumnType.NULL;
 import static org.apache.ignite.sql.ColumnType.STRING;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.hasItems;
 import static org.hamcrest.Matchers.is;
@@ -107,6 +109,7 @@ import org.apache.ignite.internal.catalog.commands.MakeIndexAvailableCommand;
 import org.apache.ignite.internal.catalog.commands.RenameZoneParams;
 import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSortedIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
@@ -1780,20 +1783,6 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
                 willThrowFast(CatalogValidationException.class));
     }
 
-
-
-    private void createSomeTable(String tableName) {
-        assertThat(
-                manager.execute(createTableCommand(
-                        tableName,
-                        List.of(columnParams("key1", INT32), columnParams("val1", INT32)),
-                        List.of("key1"),
-                        List.of("key1")
-                )),
-                willCompleteSuccessfully()
-        );
-    }
-
     @Test
     void bulkCommandEitherAppliedAtomicallyOrDoesntAppliedAtAll() {
         String tableName1 = "TEST1";
@@ -2021,6 +2010,23 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertThat(currentTsVer, equalTo(latestVer));
     }
 
+    @Test
+    void testGetIndexesInSortedOrderById() {
+        createSomeTable(TABLE_NAME);
+        createSomeIndex(TABLE_NAME, INDEX_NAME);
+
+        int indexId0 = indexId(pkIndexName(TABLE_NAME));
+        int indexId1 = indexId(INDEX_NAME);
+
+        assertThat(indexId1, greaterThan(indexId0));
+
+        List<Integer> indexIds = manager.indexes(manager.latestCatalogVersion()).stream()
+                .map(CatalogObjectDescriptor::id)
+                .collect(toList());
+
+        assertThat(indexIds, contains(indexId0, indexId1));
+    }
+
     private CompletableFuture<Void> changeColumn(
             String tab,
             String col,
@@ -2096,5 +2102,24 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertNotNull(index, indexName);
 
         return index.id();
+    }
+
+    private void createSomeTable(String tableName) {
+        assertThat(
+                manager.execute(createTableCommand(
+                        tableName,
+                        List.of(columnParams("key1", INT32), columnParams("val1", INT32)),
+                        List.of("key1"),
+                        List.of("key1")
+                )),
+                willCompleteSuccessfully()
+        );
+    }
+
+    private void createSomeIndex(String tableName, String indexName) {
+        assertThat(
+                manager.execute(createHashIndexCommand(tableName, indexName, false, List.of("key1"))),
+                willCompleteSuccessfully()
+        );
     }
 }

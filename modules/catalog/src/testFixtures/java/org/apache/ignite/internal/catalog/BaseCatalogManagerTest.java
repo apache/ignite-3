@@ -112,17 +112,26 @@ public abstract class BaseCatalogManagerTest extends BaseIgniteAbstractTest {
     }
 
     protected static CatalogCommand createHashIndexCommand(
+            String tableName,
             String indexName,
             boolean uniq,
             @Nullable List<String> indexColumns
     ) {
         return CreateHashIndexCommand.builder()
                 .schemaName(DEFAULT_SCHEMA_NAME)
-                .tableName(TABLE_NAME)
+                .tableName(tableName)
                 .indexName(indexName)
                 .unique(uniq)
                 .columns(indexColumns)
                 .build();
+    }
+
+    protected static CatalogCommand createHashIndexCommand(
+            String indexName,
+            boolean uniq,
+            @Nullable List<String> indexColumns
+    ) {
+        return createHashIndexCommand(TABLE_NAME, indexName, uniq, indexColumns);
     }
 
     protected static CatalogCommand createHashIndexCommand(
