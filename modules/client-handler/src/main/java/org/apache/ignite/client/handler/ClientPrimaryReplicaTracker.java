@@ -158,6 +158,8 @@ public class ClientPrimaryReplicaTracker implements EventListener<EventParameter
         }
 
         if (!(parameters instanceof PrimaryReplicaEventParameters)) {
+            assert false : "Unexpected event parameters: " + parameters.getClass();
+
             return CompletableFuture.completedFuture(false);
         }
 
