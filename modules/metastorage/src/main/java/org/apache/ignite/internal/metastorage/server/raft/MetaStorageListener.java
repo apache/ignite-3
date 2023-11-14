@@ -154,8 +154,8 @@ public class MetaStorageListener implements RaftGroupListener, BeforeApplyHandle
     }
 
     @Override
-    public void onBeforeApply(Command command) {
-        writeHandler.beforeApply(command);
+    public boolean onBeforeApply(Command command) {
+        return writeHandler.beforeApply(command);
     }
 
     @Override

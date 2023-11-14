@@ -32,11 +32,13 @@ import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.raft.MetaStorageListener;
 import org.apache.ignite.internal.metastorage.server.time.ClusterTimeImpl;
+import org.apache.ignite.internal.raft.Marshaller;
 import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.raft.service.ItAbstractListenerSnapshotTest;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
+import org.apache.ignite.internal.raft.util.ThreadLocalOptimizedMarshaller;
 import org.apache.ignite.internal.replicator.TestReplicationGroupId;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -156,6 +158,11 @@ public class ItMetaStorageServicePersistenceTest extends ItAbstractListenerSnaps
     @Override
     public TestReplicationGroupId raftGroupId() {
         return new TestReplicationGroupId("metastorage");
+    }
+
+    @Override
+    protected Marshaller commandsMarshaller(ClusterService clusterService) {
+        return new ThreadLocalOptimizedMarshaller(clusterService.serializationRegistry());
     }
 
     /**

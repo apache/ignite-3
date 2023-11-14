@@ -477,7 +477,7 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
     }
 
     @Override
-    public void onBeforeApply(Command command) {
+    public boolean onBeforeApply(Command command) {
         // This method is synchronized by replication group specific monitor, see ActionRequestProcessor#handleRequest.
         if (command instanceof SafeTimePropagatingCommand) {
             SafeTimePropagatingCommand cmd = (SafeTimePropagatingCommand) command;
@@ -489,6 +489,8 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
                 throw new SafeTimeReorderException();
             }
         }
+
+        return false;
     }
 
     /**

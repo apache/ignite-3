@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.table.distributed.schema;
 
 import java.nio.ByteBuffer;
-import org.apache.ignite.raft.jraft.util.Marshaller;
+import org.apache.ignite.internal.raft.Marshaller;
 
 /**
  * {@link Marshaller} that first writes some metadata about an object and then it writes the actual serialized
@@ -26,10 +26,15 @@ import org.apache.ignite.raft.jraft.util.Marshaller;
  */
 public interface PartitionCommandsMarshaller extends Marshaller {
     /**
+     * Used instead of a required catalog version when there is no requirement.
+     */
+    int NO_VERSION_REQUIRED = -1;
+
+    /**
      * Reads required catalog version from the provided buffer.
      *
      * @param raw Buffer to read from.
-     * @return Catalog version.
+     * @return Catalog version. {@value #NO_VERSION_REQUIRED} if version is not required for the given command.
      */
     int readRequiredCatalogVersion(ByteBuffer raw);
 }

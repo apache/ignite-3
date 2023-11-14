@@ -19,7 +19,9 @@ package org.apache.ignite.raft.jraft.rpc;
 
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.network.annotations.Transferable;
+import org.apache.ignite.network.annotations.Transient;
 import org.apache.ignite.raft.jraft.RaftMessageGroup.RpcActionMessageGroup;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Submit a  write action to a replication group.
@@ -27,7 +29,15 @@ import org.apache.ignite.raft.jraft.RaftMessageGroup.RpcActionMessageGroup;
 @Transferable(RpcActionMessageGroup.WRITE_ACTION_REQUEST)
 public interface WriteActionRequest extends ActionRequest {
     /**
-     * Returns an action's command.
+     * @return Serialized action's command. Specific serialization format may differ from group to group.
      */
-    WriteCommand command();
+    byte[] command();
+
+    /**
+     * @return Original non-serialized command, if available. {@code null} if not. This field is used to avoid {@link #command()}
+     * deserialization in cases, where deserialized instance is already available. Typical situation for it is command's creation, where
+     * command is explicitly serialized into {@code byte[]} before building the message.
+     */
+    @Transient
+    @Nullable WriteCommand deserializedCommand();
 }
