@@ -22,7 +22,12 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
+import org.apache.ignite.internal.catalog.events.CatalogEvent;
+import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
+import org.apache.ignite.internal.catalog.events.DropTableEventParameters;
 import org.apache.ignite.internal.event.EventListener;
+import org.apache.ignite.internal.event.EventParameters;
+import org.apache.ignite.internal.event.EventProducer;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
@@ -37,9 +42,7 @@ import org.jetbrains.annotations.Nullable;
  * Primary partition replica tracker. Shared by all instances of {@link ClientInboundMessageHandler}.
  * Tracks primary replicas by partition for every table.
  */
-public class ClientPrimaryReplicaTracker implements EventListener<PrimaryReplicaEventParameters> {
-    private static final PrimaryReplicaEvent EVENT = PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED;
-
+public class ClientPrimaryReplicaTracker implements EventListener<EventParameters> {
     private static final int LRU_CHECK_FREQ_MILLIS = 60 * 60 * 1000;
 
     private final ConcurrentHashMap<Integer, Holder> primaryReplicas = new ConcurrentHashMap<>();
@@ -54,6 +57,8 @@ public class ClientPrimaryReplicaTracker implements EventListener<PrimaryReplica
 
     private final AtomicLong lruCheckTime = new AtomicLong(0);
 
+    private final EventProducer<CatalogEvent, CatalogEventParameters> catalogEventProducer;
+
     /**
      * Constructor.
      *
@@ -64,9 +69,11 @@ public class ClientPrimaryReplicaTracker implements EventListener<PrimaryReplica
     public ClientPrimaryReplicaTracker(
             PlacementDriver placementDriver,
             IgniteTablesInternal igniteTables,
+            EventProducer<CatalogEvent, CatalogEventParameters> catalogEventProducer,
             HybridClock clock) {
         this.placementDriver = placementDriver;
         this.igniteTables = igniteTables;
+        this.catalogEventProducer = catalogEventProducer;
         this.clock = clock;
     }
 
@@ -92,11 +99,14 @@ public class ClientPrimaryReplicaTracker implements EventListener<PrimaryReplica
     }
 
     void start() {
-        placementDriver.listen(EVENT, this);
+        placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, (EventListener<? extends PrimaryReplicaEventParameters>) this);
+        catalogEventProducer.listen(CatalogEvent.TABLE_DROP, (EventListener<? extends CatalogEventParameters>) this);
     }
 
     void stop() {
-        placementDriver.removeListener(EVENT, this);
+        catalogEventProducer.removeListener(CatalogEvent.TABLE_DROP, (EventListener<? extends CatalogEventParameters>) this);
+        placementDriver.removeListener(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED,
+                (EventListener<? extends PrimaryReplicaEventParameters>) this);
     }
 
     private CompletableFuture<List<String>> initReplicasForTableAsync(Integer tableId) {
@@ -135,16 +145,33 @@ public class ClientPrimaryReplicaTracker implements EventListener<PrimaryReplica
     }
 
     @Override
-    public CompletableFuture<Boolean> notify(PrimaryReplicaEventParameters parameters, @Nullable Throwable exception) {
-        if (exception != null || !(parameters.groupId() instanceof TablePartitionId)) {
+    public CompletableFuture<Boolean> notify(EventParameters parameters, @Nullable Throwable exception) {
+        if (exception != null) {
             return CompletableFuture.completedFuture(false);
         }
 
-        TablePartitionId tablePartitionId = (TablePartitionId) parameters.groupId();
+        if (parameters instanceof DropTableEventParameters) {
+            DropTableEventParameters dropTableEvent = (DropTableEventParameters) parameters;
+            primaryReplicas.remove(dropTableEvent.tableId());
+
+            return CompletableFuture.completedFuture(false);
+        }
+
+        if (!(parameters instanceof PrimaryReplicaEventParameters)) {
+            return CompletableFuture.completedFuture(false);
+        }
+
+        PrimaryReplicaEventParameters primaryReplicaEvent = (PrimaryReplicaEventParameters) parameters;
+
+        if (!(primaryReplicaEvent.groupId() instanceof TablePartitionId)) {
+            return CompletableFuture.completedFuture(false);
+        }
+
+        TablePartitionId tablePartitionId = (TablePartitionId) primaryReplicaEvent.groupId();
         var hld = primaryReplicas.get(tablePartitionId.tableId());
 
         if (hld != null) {
-            hld.replicas.thenAccept(replicas -> replicas.set(tablePartitionId.partitionId(), parameters.leaseholder()));
+            hld.replicas.thenAccept(replicas -> replicas.set(tablePartitionId.partitionId(), primaryReplicaEvent.leaseholder()));
         }
 
         // Increment counter always, even if the table is not tracked. Client could retrieve the table from another node.
