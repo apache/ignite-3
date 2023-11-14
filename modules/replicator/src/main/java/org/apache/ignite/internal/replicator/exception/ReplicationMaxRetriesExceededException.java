@@ -15,18 +15,24 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.configuration;
+package org.apache.ignite.internal.replicator.exception;
+
+import org.apache.ignite.internal.lang.IgniteStringFormatter;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.lang.ErrorGroups.Replicator;
 
 /**
- * Patcher for the configuration. This patcher is used to patch the configuration with the dynamic default values that are not known at the
- * compile time.
+ * The exception is thrown when an amount of replication retries exceeds the limit.
  */
-public interface ConfigurationDynamicDefaultsPatcher {
+public class ReplicationMaxRetriesExceededException extends ReplicationException {
     /**
-     * Patches the configuration with the dynamic default values that are not known at the compile time.
+     * The constructor.
      *
-     * @param hocon The configuration in HOCON format.
-     * @return The patched configuration in HOCON format.
+     * @param replicaGrpId Replication group id.
+     * @param limit Maximum possible amount of retries.
      */
-    String patchWithDynamicDefaults(String hocon);
+    public ReplicationMaxRetriesExceededException(ReplicationGroupId replicaGrpId, int limit) {
+        super(Replicator.REPLICA_COMMON_ERR, IgniteStringFormatter.format(
+                "Replication retries exceeds the limit [replicaGrpId={}, limit={}]", replicaGrpId, limit));
+    }
 }

@@ -382,6 +382,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     /**
      * Tests negative transfer scenario.
      */
+    @Test
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-17861")
     public void testTxClosureAbortAsync() {
         double balance1 = 10.;

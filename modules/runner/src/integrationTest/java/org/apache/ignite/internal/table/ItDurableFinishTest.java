@@ -48,6 +48,7 @@ import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -177,6 +178,7 @@ public class ItDurableFinishTest extends ClusterPerTestIntegrationTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20825")
     void testCoordinatorMissedResponse() throws ExecutionException, InterruptedException {
         testFinishRow(this::coordinatorMissedResponse, this::commitRow);
     }

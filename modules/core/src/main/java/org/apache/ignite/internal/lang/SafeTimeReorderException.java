@@ -15,18 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.configuration;
+package org.apache.ignite.internal.lang;
+
+import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICATION_SAFE_TIME_REORDERING_ERR;
 
 /**
- * Patcher for the configuration. This patcher is used to patch the configuration with the dynamic default values that are not known at the
- * compile time.
+ * This exception is used to indicate a detection of a safe time reordering.
  */
-public interface ConfigurationDynamicDefaultsPatcher {
+public class SafeTimeReorderException extends IgniteInternalException {
+
     /**
-     * Patches the configuration with the dynamic default values that are not known at the compile time.
-     *
-     * @param hocon The configuration in HOCON format.
-     * @return The patched configuration in HOCON format.
+     * The constructor.
      */
-    String patchWithDynamicDefaults(String hocon);
+    public SafeTimeReorderException() {
+        super(REPLICATION_SAFE_TIME_REORDERING_ERR, "Replication safe time reordering detected.");
+    }
+
 }
+
