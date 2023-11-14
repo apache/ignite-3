@@ -210,6 +210,9 @@ public class ClientPrimaryReplicaTracker implements EventListener<EventParameter
         }
     }
 
+    /**
+     * Replica holder.
+     */
     public static class ReplicaHolder {
         @Nullable
         private volatile String nodeName;
