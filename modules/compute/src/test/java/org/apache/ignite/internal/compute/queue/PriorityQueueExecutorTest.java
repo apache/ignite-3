@@ -30,6 +30,7 @@ import org.apache.ignite.internal.configuration.testframework.ConfigurationExten
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -38,7 +39,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * Test suite for {@link PriorityQueueExecutor}.
  */
 @ExtendWith(ConfigurationExtension.class)
-public class PriorityQueueExecutorTest {
+public class PriorityQueueExecutorTest extends BaseIgniteAbstractTest {
     private static final IgniteLogger LOG = Loggers.forClass(PriorityQueueExecutorTest.class);
 
     @InjectConfiguration
