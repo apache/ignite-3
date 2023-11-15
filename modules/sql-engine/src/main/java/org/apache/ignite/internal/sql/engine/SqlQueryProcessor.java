@@ -633,15 +633,18 @@ public class SqlQueryProcessor implements QueryProcessor {
         }
 
         CompletableFuture<AsyncSqlCursor<List<Object>>> processNext() {
-            ScriptStatementParameters parameters = statements.poll();
-
-            if (parameters == null) {
+            if (statements == null) {
                 return CompletableFuture.completedFuture(null);
             }
+
+            ScriptStatementParameters parameters = statements.poll();
+
+            assert parameters != null;
 
             ParsedResult parsedResult = parameters.parsedResult;
             Object[] dynamicParams = parameters.dynamicParams;
             CompletableFuture<AsyncSqlCursor<List<Object>>> cursorFuture = parameters.cursorFuture;
+            CompletableFuture<AsyncSqlCursor<List<Object>>> nextCursorFuture = parameters.nextStatementFuture;
 
             try {
                 if (cursorFuture.isDone()) {
@@ -652,7 +655,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
                 QueryCancel cancel = new QueryCancel();
 
-                executeParsedStatement(schemaName, parsedResult, txWrapper, cancel, dynamicParams, true, parameters.nextStatementFuture)
+                executeParsedStatement(schemaName, parsedResult, txWrapper, cancel, dynamicParams, true, nextCursorFuture)
                         .whenComplete((res, ex) -> {
                             if (ex != null) {
                                 cursorFuture.completeExceptionally(ex);
@@ -663,7 +666,9 @@ public class SqlQueryProcessor implements QueryProcessor {
 
                             txWrapper.commitImplicit();
 
-                            taskExecutor.execute(this::processNext);
+                            if (nextCursorFuture != null) {
+                                taskExecutor.execute(this::processNext);
+                            }
 
                             cursorFuture.complete(res);
                         });
@@ -679,10 +684,14 @@ public class SqlQueryProcessor implements QueryProcessor {
         /**
          * Returns a queue. each element of which represents parameters required to execute a single statement of the script.
          */
-        private Queue<ScriptStatementParameters> prepareStatementsQueue(List<ParsedResult> parsedResults, Object[] params) {
+        private @Nullable Queue<ScriptStatementParameters> prepareStatementsQueue(List<ParsedResult> parsedResults, Object[] params) {
             List<ParsedResult> parsedResults0 = parsedResults.stream()
                     // TODO https://issues.apache.org/jira/browse/IGNITE-20463 Integrate TX-related statements
                     .filter(res -> res.queryType() != SqlQueryType.TX_CONTROL).collect(Collectors.toList());
+
+            if (parsedResults0.isEmpty()) {
+                return null;
+            }
 
             int paramsCount = parsedResults0.stream().mapToInt(ParsedResult::dynamicParamsCount).sum();
             validateDynamicParameters(paramsCount, params);
@@ -701,7 +710,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                         i < parsedResults0.size() ? results[i].cursorFuture : null);
             }
 
-            return new ArrayBlockingQueue<>(Math.max(1, results.length), false, List.of(results));
+            return new ArrayBlockingQueue<>(results.length, false, List.of(results));
         }
 
         private void cancelAll(Throwable cause) {
