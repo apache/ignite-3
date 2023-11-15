@@ -172,7 +172,6 @@ public class ClientPrimaryReplicaTracker implements EventListener<EventParameter
         }
 
         PrimaryReplicaEventParameters primaryReplicaEvent = (PrimaryReplicaEventParameters) parameters;
-
         if (!(primaryReplicaEvent.groupId() instanceof TablePartitionId)) {
             return CompletableFuture.completedFuture(false);
         }
