@@ -25,7 +25,6 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.greaterThan;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Path;
 import java.util.concurrent.TimeUnit;
@@ -96,7 +95,7 @@ public class CatalogManagerRecoveryTest extends BaseIgniteAbstractTest {
         clock.update(updateNow);
 
         HybridTimestamp newNow = clock.now();
-        assertTrue(newNow.compareTo(updateNow) > 0, "updateNow=" + updateNow + ", newNow=" + newNow);
+        assertThat(newNow, greaterThan(updateNow));
 
         createAndStartComponents();
 
