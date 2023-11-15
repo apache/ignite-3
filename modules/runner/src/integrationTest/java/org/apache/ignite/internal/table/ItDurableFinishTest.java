@@ -205,6 +205,11 @@ public class ItDurableFinishTest extends ClusterPerTestIntegrationTest {
 
                 logger().info("Drop message [msg={}].", networkMessage);
 
+                // Here we act as a man-in-the-middle: the finish request is intercepted and further routed to
+                // the commit partition as normal. The coordinator instead fails with a timeout (see DefaultMessagingService.invoke0)
+                // and has to retry the finish request according to the durable finish logic.
+                // The second coordinator attempt succeeds and the commit partition applies a COMMIT over COMMIT.
+
                 CompletableFuture<NetworkMessage> finish = coordinatorMessaging.invoke(s, networkMessage, 3000);
 
                 futures.add(finish);
