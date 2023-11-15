@@ -29,39 +29,49 @@ import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableViewInternal;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 class ClientPrimaryReplicaTrackerTest {
-    // TODO: Test initial retrieval, update by events, table drop, missing table, null replicas
-    @Test
-    public void testInitialAssignmentIsRetrievedFromPlacementDriver() throws Exception {
-        int partitions = 2;
-        int tableId = 123;
-        var driver = new FakePlacementDriver(partitions);
-        driver.setReplicas(List.of("s1", "s2"), tableId);
+    private static final int PARTITIONS = 2;
+    private static final int TABLE_ID = 123;
+
+    private ClientPrimaryReplicaTracker tracker;
+
+    private FakePlacementDriver driver;
+
+    @SuppressWarnings("unchecked")
+    @BeforeEach
+    public void setUp() throws Exception {
+        driver = new FakePlacementDriver(PARTITIONS);
 
         InternalTable internalTable = mock(InternalTable.class);
-        when(internalTable.partitions()).thenReturn(partitions);
+        when(internalTable.partitions()).thenReturn(PARTITIONS);
 
         TableViewInternal table = mock(TableViewInternal.class);
-        when(table.tableId()).thenReturn(tableId);
+        when(table.tableId()).thenReturn(TABLE_ID);
         when(table.internalTable()).thenReturn(internalTable);
 
         IgniteTablesInternal tables = mock(IgniteTablesInternal.class);
-        when(tables.tableAsync(tableId)).thenReturn(CompletableFuture.completedFuture(table));
+        when(tables.tableAsync(TABLE_ID)).thenReturn(CompletableFuture.completedFuture(table));
 
-        var tracker = new ClientPrimaryReplicaTracker(
+        tracker = new ClientPrimaryReplicaTracker(
                 driver,
                 tables,
                 mock(EventProducer.class),
                 new HybridClockImpl());
+    }
 
+    // TODO: Test initial retrieval, update by events, table drop, missing table, null replicas
+    @Test
+    public void testInitialAssignmentIsRetrievedFromPlacementDriver() {
+        driver.setReplicas(List.of("s1", "s2"), TABLE_ID);
         tracker.start();
 
         assertEquals(0, tracker.updateCount());
 
-        List<ReplicaHolder> replicas = tracker.primaryReplicasAsync(tableId).join();
-        assertEquals(partitions, replicas.size());
+        List<ReplicaHolder> replicas = tracker.primaryReplicasAsync(TABLE_ID).join();
+        assertEquals(PARTITIONS, replicas.size());
         assertEquals("s1", replicas.get(0).nodeName());
         assertEquals("s2", replicas.get(1).nodeName());
     }
