@@ -21,7 +21,7 @@ package org.apache.ignite.internal;
  * Contains kludges needed for the whole codebase. Should be removed as quickly as possible.
  */
 public class Kludges {
-    // TODO: Remove after IGNITE-20499 is fixed.
+    // TODO: Remove after IGNITE-20854 is fixed.
     /** Name of the property overriding idle safe time propagation period (in milliseconds). */
     public static final String IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS_PROPERTY = "IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS";
 }
