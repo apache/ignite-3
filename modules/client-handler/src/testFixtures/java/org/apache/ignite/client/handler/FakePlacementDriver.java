@@ -17,6 +17,7 @@
 
 package org.apache.ignite.client.handler;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -37,29 +38,36 @@ public class FakePlacementDriver extends AbstractEventProducer<PrimaryReplicaEve
         implements PlacementDriver {
     private final int partitions;
 
-    private volatile List<String> primaryReplicas;
+    private final List<String> primaryReplicas;
 
     public FakePlacementDriver(int partitions) {
         this.partitions = partitions;
-        primaryReplicas = Collections.nCopies(partitions, "s");
+        primaryReplicas = new ArrayList<>(Collections.nCopies(partitions, "s"));
     }
 
     /**
-     * Updates primary replicas.
+     * Sets all primary replicas.
      */
     public void setReplicas(List<String> replicas, int tableId) {
         assert replicas.size() == partitions;
-        primaryReplicas = replicas;
 
         for (int partition = 0; partition < replicas.size(); partition++) {
             String replica = replicas.get(partition);
-            TablePartitionId groupId = new TablePartitionId(tableId, partition);
-
-            PrimaryReplicaEventParameters params = new PrimaryReplicaEventParameters(
-                    0, groupId, replica, new HybridTimestamp(System.currentTimeMillis(), 0));
-
-            fireEvent(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, params);
+            updateReplica(replica, tableId, partition);
         }
+    }
+
+    /**
+     * Sets primary replica for the given partition.
+     */
+    public void updateReplica(String replica, int tableId, int partition) {
+        primaryReplicas.set(partition, replica);
+        TablePartitionId groupId = new TablePartitionId(tableId, partition);
+
+        PrimaryReplicaEventParameters params = new PrimaryReplicaEventParameters(
+                0, groupId, replica, new HybridTimestamp(System.currentTimeMillis(), 0));
+
+        fireEvent(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, params);
     }
 
     @Override

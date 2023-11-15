@@ -18,6 +18,7 @@
 package org.apache.ignite.client.handler;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -44,6 +45,7 @@ class ClientPrimaryReplicaTrackerTest {
     @BeforeEach
     public void setUp() throws Exception {
         driver = new FakePlacementDriver(PARTITIONS);
+        driver.setReplicas(List.of("s1", "s2"), TABLE_ID);
 
         InternalTable internalTable = mock(InternalTable.class);
         when(internalTable.partitions()).thenReturn(PARTITIONS);
@@ -62,10 +64,9 @@ class ClientPrimaryReplicaTrackerTest {
                 new HybridClockImpl());
     }
 
-    // TODO: Test initial retrieval, update by events, table drop, missing table, null replicas
+    // TODO: table drop, missing table
     @Test
     public void testInitialAssignmentIsRetrievedFromPlacementDriver() {
-        driver.setReplicas(List.of("s1", "s2"), TABLE_ID);
         tracker.start();
 
         assertEquals(0, tracker.updateCount());
@@ -74,5 +75,36 @@ class ClientPrimaryReplicaTrackerTest {
         assertEquals(PARTITIONS, replicas.size());
         assertEquals("s1", replicas.get(0).nodeName());
         assertEquals("s2", replicas.get(1).nodeName());
+    }
+
+    @Test
+    public void testUpdateByEvent() {
+        tracker.start();
+
+        assertEquals(0, tracker.updateCount());
+        driver.updateReplica("s3", TABLE_ID, 0);
+
+        assertEquals(1, tracker.updateCount());
+
+        List<ReplicaHolder> replicas = tracker.primaryReplicasAsync(TABLE_ID).join();
+        assertEquals(PARTITIONS, replicas.size());
+        assertEquals("s3", replicas.get(0).nodeName());
+        assertEquals("s2", replicas.get(1).nodeName());
+    }
+
+    @Test
+    public void testNullReplicas() {
+        driver.updateReplica(null, TABLE_ID, 0);
+        tracker.start();
+
+        assertEquals(0, tracker.updateCount());
+        driver.updateReplica(null, TABLE_ID, 1);
+
+        assertEquals(1, tracker.updateCount());
+
+        List<ReplicaHolder> replicas = tracker.primaryReplicasAsync(TABLE_ID).join();
+        assertEquals(PARTITIONS, replicas.size());
+        assertNull(replicas.get(0).nodeName());
+        assertNull(replicas.get(1).nodeName());
     }
 }
