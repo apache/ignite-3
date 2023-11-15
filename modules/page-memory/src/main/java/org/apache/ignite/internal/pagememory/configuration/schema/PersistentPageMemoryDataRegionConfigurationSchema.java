@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.pagememory.configuration.schema;
 
 import static org.apache.ignite.internal.util.Constants.MiB;
+import static org.apache.ignite.internal.util.IgniteUtils.getTotalMemoryAvailable;
 
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.Value;
@@ -29,7 +30,8 @@ import org.apache.ignite.configuration.validation.OneOf;
 @Config
 public class PersistentPageMemoryDataRegionConfigurationSchema extends BasePageMemoryDataRegionConfigurationSchema {
     /** Default size. */
-    public static final long DFLT_DATA_REGION_SIZE = 256 * MiB;
+    @SuppressWarnings("NumericCastThatLosesPrecision")
+    public static final long DFLT_DATA_REGION_SIZE = Math.max(256 * MiB, (long) (0.2 * getTotalMemoryAvailable()));
 
     /** Random-LRU page replacement algorithm. */
     public static final String RANDOM_LRU_REPLACEMENT_MODE = "RANDOM_LRU";
