@@ -97,8 +97,8 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
     private volatile StorageRoots storageRoots;
 
     /**
-     * Initial configuration. This configuration will be used to initialize the configuration if the storage is empty. If the storage is not
-     * empty, this configuration will be ignored.
+     * Initial configuration. This configuration will be used to initialize the configuration if the revision of the storage is 0. If the
+     * revision of the storage is non-zero, this configuration will be ignored.
      */
     private volatile ConfigurationSource initialConfiguration = ConfigurationUtil.EMPTY_CFG_SRC;
 
@@ -255,7 +255,7 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
         }
 
         Map<String, ? extends Serializable> storageValues = data.values();
-        long version = data.changeId();
+        long revision = data.changeId();
 
         SuperRoot superRoot = new SuperRoot(rootCreator());
 
@@ -273,12 +273,13 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
             superRoot.addRoot(rootKey, rootNode);
         }
 
+        // Create a copy of the super root, excluding the initial configuration, for saving with the defaults.
         SuperRoot superRootNoDefaults = superRoot.copy();
 
         addDefaults(superRoot);
 
         // Fill the configuration with the initial configuration.
-        if (version == 0) {
+        if (revision == 0) {
             initialConfiguration.descend(superRoot);
         }
 
@@ -321,9 +322,9 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
     }
 
     /**
-     * Sets {@link #initialConfiguration}. This configuration will be used to initialize the configuration if the storage is empty. If the
-     * storage is not empty, this configuration will be ignored. This method must be called before {@link #start()}. If the method is not
-     * called, the initial configuration will be empty.
+     * Sets {@link #initialConfiguration}. This configuration will be used to initialize the configuration if the revision of the storage is
+     * 0. If the revision of the storage is non-zero, this configuration will be ignored. his method must be called before {@link #start()}.
+     * If the method is not called, the initial configuration will be empty.
      *
      * @param configurationSource the configuration source to initialize with.
      */
