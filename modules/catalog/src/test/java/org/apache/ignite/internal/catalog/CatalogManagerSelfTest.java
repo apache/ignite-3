@@ -57,10 +57,8 @@ import static org.apache.ignite.sql.ColumnType.INT64;
 import static org.apache.ignite.sql.ColumnType.NULL;
 import static org.apache.ignite.sql.ColumnType.STRING;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
-import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.hasItems;
 import static org.hamcrest.Matchers.is;
@@ -2011,20 +2009,45 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
     }
 
     @Test
-    void testGetIndexesInSortedOrderById() {
+    void testGetIndexesForTables() {
+        String tableName0 = TABLE_NAME + 0;
+        String tableName1 = TABLE_NAME + 1;
+
+        createSomeTable(tableName0);
+        createSomeTable(tableName1);
+
+        createSomeIndex(tableName1, INDEX_NAME);
+
+        int catalogVersion = manager.latestCatalogVersion();
+
+        // Let's check for a non-existent table.
+        assertThat(tableIndexIds(catalogVersion, Integer.MAX_VALUE), empty());
+
+        // Let's check for an existing tables.
+        int tableId0 = tableId(tableName0);
+        int tableId1 = tableId(tableName1);
+
+        assertThat(tableIndexIds(catalogVersion, tableId0), hasItems(indexId(pkIndexName(tableName0))));
+        assertThat(tableIndexIds(catalogVersion, tableId1), hasItems(indexId(pkIndexName(tableName1)), indexId(INDEX_NAME)));
+    }
+
+    @Test
+    void testGetIndexesForTableInSortedOrderById() {
         createSomeTable(TABLE_NAME);
-        createSomeIndex(TABLE_NAME, INDEX_NAME);
+
+        String indexName0 = INDEX_NAME + 0;
+        String indexName1 = INDEX_NAME + 1;
+
+        createSomeIndex(TABLE_NAME, indexName0);
+        createSomeIndex(TABLE_NAME, indexName1);
 
         int indexId0 = indexId(pkIndexName(TABLE_NAME));
-        int indexId1 = indexId(INDEX_NAME);
+        int indexId1 = indexId(indexName0);
+        int indexId2 = indexId(indexName1);
 
-        assertThat(indexId1, greaterThan(indexId0));
+        int catalogVersion = manager.latestCatalogVersion();
 
-        List<Integer> indexIds = manager.indexes(manager.latestCatalogVersion()).stream()
-                .map(CatalogObjectDescriptor::id)
-                .collect(toList());
-
-        assertThat(indexIds, contains(indexId0, indexId1));
+        assertThat(tableIndexIds(catalogVersion, tableId(TABLE_NAME)), equalTo(List.of(indexId0, indexId1, indexId2)));
     }
 
     private CompletableFuture<Void> changeColumn(
@@ -2096,6 +2119,14 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         return manager.schema(catalogVersion).index(indexName);
     }
 
+    private int tableId(String tableName) {
+        CatalogTableDescriptor table = manager.table(tableName, clock.nowLong());
+
+        assertNotNull(table, tableName);
+
+        return table.id();
+    }
+
     private int indexId(String indexName) {
         CatalogIndexDescriptor index = manager.index(indexName, clock.nowLong());
 
@@ -2121,5 +2152,9 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
                 manager.execute(createHashIndexCommand(tableName, indexName, false, List.of("key1"))),
                 willCompleteSuccessfully()
         );
+    }
+
+    private List<Integer> tableIndexIds(int catalogVersion, int tableId) {
+        return manager.indexes(catalogVersion, tableId).stream().map(CatalogObjectDescriptor::id).collect(toList());
     }
 }

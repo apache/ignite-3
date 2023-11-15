@@ -17,12 +17,16 @@
 
 package org.apache.ignite.internal.catalog;
 
+import static it.unimi.dsi.fastutil.ints.Int2ObjectMaps.unmodifiable;
+import static java.util.Comparator.comparingInt;
+import static java.util.stream.Collectors.toUnmodifiableList;
+
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
-import it.unimi.dsi.fastutil.ints.Int2ObjectSortedMap;
-import it.unimi.dsi.fastutil.ints.Int2ObjectSortedMaps;
+import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.function.Function;
@@ -53,13 +57,6 @@ public class Catalog {
         );
     }
 
-    private static <T extends CatalogObjectDescriptor> Collector<T, ?, Int2ObjectSortedMap<T>> toSortedMapById() {
-        return Collectors.collectingAndThen(
-                CollectionUtils.toSortedIntMapCollector(CatalogObjectDescriptor::id, Function.identity()),
-                Int2ObjectSortedMaps::unmodifiable
-        );
-    }
-
     private final int version;
     private final int objectIdGen;
     private final long activationTimestamp;
@@ -68,10 +65,16 @@ public class Catalog {
 
     @IgniteToStringExclude
     private final Int2ObjectMap<CatalogSchemaDescriptor> schemasById;
+
     @IgniteToStringExclude
     private final Int2ObjectMap<CatalogTableDescriptor> tablesById;
+
     @IgniteToStringExclude
-    private final Int2ObjectSortedMap<CatalogIndexDescriptor> indexesById;
+    private final Int2ObjectMap<CatalogIndexDescriptor> indexesById;
+
+    @IgniteToStringExclude
+    private final Int2ObjectMap<List<CatalogIndexDescriptor>> indexesByTableId;
+
     @IgniteToStringExclude
     private final Int2ObjectMap<CatalogZoneDescriptor> zonesById;
 
@@ -104,7 +107,8 @@ public class Catalog {
 
         schemasById = schemas.stream().collect(toMapById());
         tablesById = schemas.stream().flatMap(s -> Arrays.stream(s.tables())).collect(toMapById());
-        indexesById = schemas.stream().flatMap(s -> Arrays.stream(s.indexes())).collect(toSortedMapById());
+        indexesById = schemas.stream().flatMap(s -> Arrays.stream(s.indexes())).collect(toMapById());
+        indexesByTableId = unmodifiable(toIndexesByTableId(schemas));
         zonesById = zones.stream().collect(toMapById());
     }
 
@@ -148,6 +152,10 @@ public class Catalog {
         return indexesById.values();
     }
 
+    public List<CatalogIndexDescriptor> indexes(int tableId) {
+        return indexesByTableId.getOrDefault(tableId, List.of());
+    }
+
     public @Nullable CatalogZoneDescriptor zone(String name) {
         return zonesByName.get(name);
     }
@@ -163,5 +171,24 @@ public class Catalog {
     @Override
     public String toString() {
         return S.toString(this);
+    }
+
+    private static Int2ObjectMap<List<CatalogIndexDescriptor>> toIndexesByTableId(Collection<CatalogSchemaDescriptor> schemas) {
+        Int2ObjectMap<List<CatalogIndexDescriptor>> indexesByTableId = new Int2ObjectOpenHashMap<>();
+
+        for (CatalogSchemaDescriptor schema : schemas) {
+            for (CatalogTableDescriptor table : schema.tables()) {
+                int tableId = table.id();
+
+                List<CatalogIndexDescriptor> tableIndexes = Arrays.stream(schema.indexes())
+                        .filter(index -> tableId == index.tableId())
+                        .sorted(comparingInt(CatalogIndexDescriptor::id))
+                        .collect(toUnmodifiableList());
+
+                indexesByTableId.put(tableId, tableIndexes);
+            }
+        }
+
+        return indexesByTableId;
     }
 }

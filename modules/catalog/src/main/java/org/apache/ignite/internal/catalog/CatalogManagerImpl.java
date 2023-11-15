@@ -231,6 +231,11 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     }
 
     @Override
+    public List<CatalogIndexDescriptor> indexes(int catalogVersion, int tableId) {
+        return catalog(catalogVersion).indexes(tableId);
+    }
+
+    @Override
     public @Nullable CatalogSchemaDescriptor schema(int version) {
         Catalog catalog = catalog(version);
 
