@@ -28,6 +28,7 @@ import io.opentelemetry.api.trace.Span;
 import java.util.concurrent.CompletableFuture;
 import org.junit.jupiter.api.Test;
 
+/** Tests for CompletableFuture wrapper. */
 public class FutureTest {
     @Test
     public void preserveContextInFutureHandler() {

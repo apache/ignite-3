@@ -30,7 +30,6 @@ import io.opentelemetry.context.Context;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.tracing.TraceSpan;
-import org.apache.ignite.internal.tracing.TracingManager;
 import org.junit.jupiter.api.Test;
 
 /** For {@link io.opentelemetry.context.Scope} testing. */
@@ -49,7 +48,7 @@ public class ScopeTest {
 
         assertEquals(Context.root(), Context.current());
 
-        TracingManager.spanWithResult("process", parent, (span) -> {
+        spanWithResult("process", parent, (span) -> {
             assertTrue(span.isValid());
 
             return null;
@@ -63,7 +62,7 @@ public class ScopeTest {
         var f = new CompletableFuture<Integer>();
         AtomicReference<TraceSpan> processSpan = new AtomicReference<>();
 
-        try (var rootSpan = rootSpan("main")) {
+        try (var ignored = rootSpan("main")) {
             var t1 = new Thread(() -> f.thenCompose((s) -> spanWithResult("process", (span) -> {
                 processSpan.set(span);
 

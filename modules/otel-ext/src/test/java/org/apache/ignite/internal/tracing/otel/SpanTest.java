@@ -33,6 +33,7 @@ import java.util.function.Function;
 import org.apache.ignite.internal.tracing.TraceSpan;
 import org.junit.jupiter.api.Test;
 
+/** For {@link Span} testing. */
 public class SpanTest {
     @Test
     public void shouldEndedWithSpanClosure() {
