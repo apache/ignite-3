@@ -31,10 +31,11 @@ import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableViewInternal;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-class ClientPrimaryReplicaTrackerTest {
+class ClientPrimaryReplicaTrackerTest extends BaseIgniteAbstractTest {
     private static final int PARTITIONS = 2;
     private static final int TABLE_ID = 123;
 
