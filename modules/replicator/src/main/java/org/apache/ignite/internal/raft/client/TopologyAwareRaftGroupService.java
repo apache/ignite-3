@@ -35,6 +35,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.LeaderElectionListener;
+import org.apache.ignite.internal.raft.Marshaller;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftGroupServiceImpl;
@@ -165,6 +166,7 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
      * @param logicalTopologyService Logical topology service.
      * @param notifyOnSubscription Whether to notify callback after subscription to pass the current leader and term into it, even
      *         if the leader did not change in that moment (see {@link #subscribeLeader}).
+     * @param cmdMarshaller Marshaller that should be used to serialize/deserialize commands.
      * @return Future to create a raft client.
      */
     public static CompletableFuture<TopologyAwareRaftGroupService> start(
@@ -177,9 +179,10 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
             ScheduledExecutorService executor,
             LogicalTopologyService logicalTopologyService,
             RaftGroupEventsClientListener eventsClientListener,
-            boolean notifyOnSubscription
+            boolean notifyOnSubscription,
+            Marshaller cmdMarshaller
     ) {
-        return RaftGroupServiceImpl.start(groupId, cluster, factory, raftConfiguration, configuration, getLeader, executor)
+        return RaftGroupServiceImpl.start(groupId, cluster, factory, raftConfiguration, configuration, getLeader, executor, cmdMarshaller)
                 .thenApply(raftGroupService -> new TopologyAwareRaftGroupService(cluster, factory, executor, raftConfiguration,
                         raftGroupService, logicalTopologyService, eventsClientListener, notifyOnSubscription));
     }

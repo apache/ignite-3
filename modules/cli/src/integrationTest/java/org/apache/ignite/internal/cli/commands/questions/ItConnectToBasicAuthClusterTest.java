@@ -57,9 +57,7 @@ class ItConnectToBasicAuthClusterTest extends ItConnectToClusterTestBase {
         // And prompt shows user name and node name
         assertThat(getPrompt()).isEqualTo("[admin:" + nodeName() + "]> ");
 
-        assertThat(configManagerProvider.get().getCurrentProperty(CliConfigKeys.BASIC_AUTHENTICATION_USERNAME.value()))
-                .isEqualTo("admin");
-        assertThat(configManagerProvider.get().getCurrentProperty(CliConfigKeys.BASIC_AUTHENTICATION_PASSWORD.value()))
-                .isEqualTo("password");
+        assertThat(getConfigProperty(CliConfigKeys.BASIC_AUTHENTICATION_USERNAME)).isEqualTo("admin");
+        assertThat(getConfigProperty(CliConfigKeys.BASIC_AUTHENTICATION_PASSWORD)).isEqualTo("password");
     }
 }

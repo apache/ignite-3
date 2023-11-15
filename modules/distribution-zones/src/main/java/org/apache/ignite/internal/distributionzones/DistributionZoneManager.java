@@ -19,6 +19,7 @@ package org.apache.ignite.internal.distributionzones;
 
 import static java.util.Collections.emptySet;
 import static java.util.Collections.unmodifiableSet;
+import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -29,6 +30,7 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.ZONE_ALTER;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.ZONE_CREATE;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.ZONE_DROP;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.conditionForGlobalStatesChanges;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.conditionForZoneCreation;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.conditionForZoneRemoval;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.createZoneManagerExecutor;
@@ -44,17 +46,17 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleDownChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleUpChangeTriggerKey;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneTopologyAugmentationVault;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneTopologyAugmentation;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesFilterUpdateRevision;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesGlobalStateRevision;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyPrefix;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyVault;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyVersionKey;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesNodesAttributesVault;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesNodesAttributes;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.value;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
+import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.metastorage.dsl.Statements.iif;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToLong;
 import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
@@ -65,6 +67,7 @@ import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermin
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -107,13 +110,13 @@ import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.dsl.CompoundCondition;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Iif;
+import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.dsl.SimpleCondition;
 import org.apache.ignite.internal.metastorage.dsl.StatementResult;
 import org.apache.ignite.internal.metastorage.dsl.Update;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.thread.StripedScheduledThreadPoolExecutor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultEntry;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.jetbrains.annotations.TestOnly;
@@ -254,9 +257,16 @@ public class DistributionZoneManager implements IgniteComponent {
 
             metaStorageManager.registerPrefixWatch(zonesLogicalTopologyPrefix(), topologyWatchListener);
 
-            restoreGlobalStateFromVault();
+            CompletableFuture<Long> recoveryFinishFuture = metaStorageManager.recoveryFinishedFuture();
 
-            startZonesOnStartManagerBusy();
+            // At the moment of the start of this manager, it is guaranteed that Meta Storage has been recovered.
+            assert recoveryFinishFuture.isDone();
+
+            long recoveryRevision = recoveryFinishFuture.join();
+
+            restoreGlobalStateFromLocalMetastorage(recoveryRevision);
+
+            startZonesOnStartManagerBusy(recoveryRevision);
 
             rebalanceEngine.start();
         });
@@ -411,10 +421,11 @@ public class DistributionZoneManager implements IgniteComponent {
     private CompletableFuture<Void> createOrRestoreZoneStateBusy(CatalogZoneDescriptor zone, long causalityToken) {
         int zoneId = zone.id();
 
-        VaultEntry topologyAugmentationMapFromVault = vaultMgr.get(zoneTopologyAugmentationVault(zoneId)).join();
+        Entry topologyAugmentationMapLocalMetaStorage =
+                metaStorageManager.getLocally(zoneTopologyAugmentation(zoneId), causalityToken);
 
         // First creation of a zone, or first call on the manager start for the default zone.
-        if (topologyAugmentationMapFromVault == null) {
+        if (topologyAugmentationMapLocalMetaStorage.value() == null) {
             ZoneState zoneState = new ZoneState(executor);
 
             ZoneState prevZoneState = zonesState.putIfAbsent(zoneId, zoneState);
@@ -428,7 +439,7 @@ public class DistributionZoneManager implements IgniteComponent {
             return initDataNodesAndTriggerKeysInMetaStorage(zoneId, causalityToken, dataNodes);
         } else {
             // Restart case, when topologyAugmentationMap has already been saved during a cluster work.
-            ConcurrentSkipListMap<Long, Augmentation> topologyAugmentationMap = fromBytes(topologyAugmentationMapFromVault.value());
+            ConcurrentSkipListMap<Long, Augmentation> topologyAugmentationMap = fromBytes(topologyAugmentationMapLocalMetaStorage.value());
 
             ZoneState zoneState = new ZoneState(executor, topologyAugmentationMap);
 
@@ -664,29 +675,34 @@ public class DistributionZoneManager implements IgniteComponent {
     }
 
     /**
-     * Restores from vault logical topology and nodes' attributes fields in {@link DistributionZoneManager} after restart.
+     * Restores from local Meta Storage logical topology and nodes' attributes fields in {@link DistributionZoneManager} after restart.
      */
-    private void restoreGlobalStateFromVault() {
-        VaultEntry topologyEntry = vaultMgr.get(zonesLogicalTopologyVault()).join();
+    private void restoreGlobalStateFromLocalMetastorage(long revision) {
+        Entry topologyEntry = metaStorageManager.getLocally(zonesLogicalTopologyKey(), revision);
 
-        VaultEntry nodeAttributesEntry = vaultMgr.get(zonesNodesAttributesVault()).join();
+        Entry nodeAttributesEntry = metaStorageManager.getLocally(zonesNodesAttributes(), revision);
 
         if (topologyEntry != null && topologyEntry.value() != null) {
-            assert nodeAttributesEntry != null : "Nodes' attributes cannot be null when logical topology is not null.";
-            assert nodeAttributesEntry.value() != null : "Nodes' attributes cannot be null when logical topology is not null.";
-
             logicalTopology = fromBytes(topologyEntry.value());
 
-            nodesAttributes = fromBytes(nodeAttributesEntry.value());
+            if (nodeAttributesEntry.value() != null) {
+                nodesAttributes = fromBytes(nodeAttributesEntry.value());
+            } else {
+                // This possible, if after CMG has notified about new topology, but cluster restarted in the middle of
+                // DistributionZoneManager.createMetastorageTopologyListener, so nodeAttributes has not been saved to MS.
+                // In that case, we can initialise it with the current logical topology.
+                // TODO: https://issues.apache.org/jira/browse/IGNITE-20603 restore nodeAttributes as well
+                logicalTopology.forEach(n -> nodesAttributes.put(n.nodeId(), n.nodeAttributes()));
+            }
         }
 
         assert topologyEntry == null || topologyEntry.value() == null || logicalTopology.equals(fromBytes(topologyEntry.value()))
-                : "Initial value of logical topology was changed after initialization from the vault manager.";
+                : "Initial value of logical topology was changed after initialization from the Meta Storage manager.";
 
         assert nodeAttributesEntry == null
                 || nodeAttributesEntry.value() == null
                 || nodesAttributes.equals(fromBytes(nodeAttributesEntry.value()))
-                : "Initial value of nodes' attributes was changed after initialization from the vault manager.";
+                : "Initial value of nodes' attributes was changed after initialization from the Meta Storage manager.";
     }
 
     /**
@@ -729,17 +745,6 @@ public class DistributionZoneManager implements IgniteComponent {
                     assert newLogicalTopology != null : "The event doesn't contain logical topology";
                     assert revision > 0 : "The event doesn't contain logical topology version";
 
-                    VaultEntry globalStateRevision = vaultMgr.get(zonesGlobalStateRevision()).join();
-
-                    if (globalStateRevision != null) {
-                        // This means that we have already handled event with this revision.
-                        // It is possible when node was restarted after this listener completed,
-                        // but applied revision didn't have time to be propagated to the Vault.
-                        if (bytesToLong(globalStateRevision.value()) >= revision) {
-                            return completedFuture(null);
-                        }
-                    }
-
                     Set<NodeWithAttributes> newLogicalTopology0 = newLogicalTopology;
 
                     Set<Node> removedNodes =
@@ -759,8 +764,14 @@ public class DistributionZoneManager implements IgniteComponent {
 
                     Set<Integer> zoneIds = new HashSet<>();
 
+                    List<CompletableFuture<Void>> futures = new ArrayList<>();
+
                     for (CatalogZoneDescriptor zone : catalogManager.zones(catalogVersion)) {
-                        scheduleTimers(zone, addedNodes, removedNodes, revision);
+                        int zoneId = zone.id();
+
+                        updateTopologyAugmentationMap(addedNodes, removedNodes, revision, zoneId);
+
+                        futures.add(scheduleTimers(zone, addedNodes, removedNodes, revision));
 
                         zoneIds.add(zone.id());
                     }
@@ -769,9 +780,9 @@ public class DistributionZoneManager implements IgniteComponent {
 
                     logicalTopology = newLogicalTopology;
 
-                    saveStatesToVault(newLogicalTopology, revision, zoneIds);
+                    futures.add(saveGlobalStatesToMetastorage(zoneIds, revision));
 
-                    return completedFuture(null);
+                    return allOf(futures.toArray(CompletableFuture[]::new));
                 } finally {
                     busyLock.leaveBusy();
                 }
@@ -785,27 +796,63 @@ public class DistributionZoneManager implements IgniteComponent {
     }
 
     /**
-     * Saves states of the Distribution Zone Manager to vault atomically in one batch.
-     * After restart it could be used to restore these fields.
+     * Update topology augmentation map with newly added and removed nodes.
      *
-     * @param newLogicalTopology Logical topology.
-     * @param revision Revision of the event, which triggers update.
-     * @param zoneIds Set of zone id's, whose states will be staved in the Vault
+     * @param addedNodes Nodes that was added to a topology and should be added to zones data nodes.
+     * @param removedNodes Nodes that was removed from a topology and should be removed from zones data nodes.
+     * @param revision Revision of the event that triggered this method.
+     * @param zoneId Zone's id.
      */
-    private void saveStatesToVault(Set<NodeWithAttributes> newLogicalTopology, long revision, Set<Integer> zoneIds) {
-        Map<ByteArray, byte[]> batch = IgniteUtils.newHashMap(3 + zoneIds.size());
-
-        batch.put(zonesLogicalTopologyVault(), toBytes(newLogicalTopology));
-
-        batch.put(zonesNodesAttributesVault(), toBytes(nodesAttributes()));
-
-        for (Integer zoneId : zoneIds) {
-            batch.put(zoneTopologyAugmentationVault(zoneId), toBytes(zonesState.get(zoneId).topologyAugmentationMap));
+    private void updateTopologyAugmentationMap(Set<Node> addedNodes, Set<Node> removedNodes, long revision, int zoneId) {
+        if (!addedNodes.isEmpty()) {
+            zonesState.get(zoneId).nodesToAddToDataNodes(addedNodes, revision);
         }
 
-        batch.put(zonesGlobalStateRevision(), longToBytes(revision));
+        if (!removedNodes.isEmpty()) {
+            zonesState.get(zoneId).nodesToRemoveFromDataNodes(removedNodes, revision);
+        }
+    }
 
-        vaultMgr.putAll(batch).join();
+    /**
+     * Saves global states of the Distribution Zone Manager to Meta Storage atomically in one batch.
+     * After restart it could be used to restore these fields.
+     *
+     * @param zoneIds Set of zone id's, whose states will be saved in the Meta Storage.
+     * @param revision Revision of the event.
+     * @return Future representing pending completion of the operation.
+     */
+    private CompletableFuture<Void> saveGlobalStatesToMetastorage(Set<Integer> zoneIds, long revision) {
+        Operation[] puts = new Operation[2 + zoneIds.size()];
+
+        puts[0] = put(zonesNodesAttributes(), toBytes(nodesAttributes()));
+
+        puts[1] = put(zonesGlobalStateRevision(), longToBytes(revision));
+
+        int i = 2;
+
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-19491 Properly utilise topology augmentation map. Also this map
+        // TODO: can be saved only once for all zones.
+        for (Integer zoneId : zoneIds) {
+            puts[i++] = put(zoneTopologyAugmentation(zoneId), toBytes(zonesState.get(zoneId).topologyAugmentationMap));
+        }
+
+        Iif iif = iif(
+                conditionForGlobalStatesChanges(revision),
+                ops(puts).yield(true),
+                ops().yield(false)
+        );
+
+        return metaStorageManager.invoke(iif)
+                .thenApply(StatementResult::getAsBoolean)
+                .whenComplete((invokeResult, e) -> {
+                    if (e != null) {
+                        LOG.error("Failed to update global states for distribution zone manager [revision = {}]", e, revision);
+                    } else if (invokeResult) {
+                        LOG.info("Update global states for distribution zone manager [revision = {}]", revision);
+                    } else {
+                        LOG.debug("Failed to update global states for distribution zone manager [revision = {}]", revision);
+                    }
+                }).thenCompose((ignored) -> completedFuture(null));
     }
 
     /**
@@ -815,14 +862,16 @@ public class DistributionZoneManager implements IgniteComponent {
      * @param addedNodes Nodes that was added to a topology and should be added to zones data nodes.
      * @param removedNodes Nodes that was removed from a topology and should be removed from zones data nodes.
      * @param revision Revision that triggered that event.
+     * @return Future that represents the pending completion of the operation.
+     *         For the immediate timers it will be completed when data nodes will be updated in Meta Storage.
      */
-    private void scheduleTimers(
+    private CompletableFuture<Void> scheduleTimers(
             CatalogZoneDescriptor zone,
             Set<Node> addedNodes,
             Set<Node> removedNodes,
             long revision
     ) {
-        scheduleTimers(
+        return scheduleTimers(
                 zone,
                 addedNodes,
                 removedNodes,
@@ -841,8 +890,10 @@ public class DistributionZoneManager implements IgniteComponent {
      * @param revision Revision that triggered that event.
      * @param saveDataNodesOnScaleUp Function that saves nodes to a zone's data nodes in case of scale up was triggered.
      * @param saveDataNodesOnScaleDown Function that saves nodes to a zone's data nodes in case of scale down was triggered.
+     * @return Future that represents the pending completion of the operation.
+     *         For the immediate timers it will be completed when data nodes will be updated in Meta Storage.
      */
-    private void scheduleTimers(
+    private CompletableFuture<Void> scheduleTimers(
             CatalogZoneDescriptor zone,
             Set<Node> addedNodes,
             Set<Node> removedNodes,
@@ -856,12 +907,16 @@ public class DistributionZoneManager implements IgniteComponent {
 
         int zoneId = zone.id();
 
+        List<CompletableFuture<Void>> futures = new ArrayList<>();
+
         if ((!addedNodes.isEmpty() || !removedNodes.isEmpty()) && autoAdjust != INFINITE_TIMER_VALUE) {
             //TODO: IGNITE-18134 Create scheduler with dataNodesAutoAdjust timer.
             throw new UnsupportedOperationException("Data nodes auto adjust is not supported.");
         } else {
             if (!addedNodes.isEmpty()) {
-                zonesState.get(zoneId).nodesToAddToDataNodes(addedNodes, revision);
+                if (autoAdjustScaleUp == IMMEDIATE_TIMER_VALUE) {
+                    futures.add(saveDataNodesToMetaStorageOnScaleUp(zoneId, revision));
+                }
 
                 if (autoAdjustScaleUp != INFINITE_TIMER_VALUE) {
                     zonesState.get(zoneId).rescheduleScaleUp(
@@ -873,7 +928,9 @@ public class DistributionZoneManager implements IgniteComponent {
             }
 
             if (!removedNodes.isEmpty()) {
-                zonesState.get(zoneId).nodesToRemoveFromDataNodes(removedNodes, revision);
+                if (zone.dataNodesAutoAdjustScaleDown() == IMMEDIATE_TIMER_VALUE) {
+                    futures.add(saveDataNodesToMetaStorageOnScaleDown(zoneId, revision));
+                }
 
                 if (autoAdjustScaleDown != INFINITE_TIMER_VALUE) {
                     zonesState.get(zoneId).rescheduleScaleDown(
@@ -884,6 +941,8 @@ public class DistributionZoneManager implements IgniteComponent {
                 }
             }
         }
+
+        return allOf(futures.toArray(CompletableFuture[]::new));
     }
 
     /**
@@ -1394,17 +1453,12 @@ public class DistributionZoneManager implements IgniteComponent {
         catalogManager.listen(ZONE_ALTER, new ManagerCatalogAlterZoneEventListener());
     }
 
-    private void startZonesOnStartManagerBusy() {
-        CompletableFuture<Long> recoveryFinishedFuture = metaStorageManager.recoveryFinishedFuture();
-
-        assert recoveryFinishedFuture.isDone();
-
+    private void startZonesOnStartManagerBusy(long revision) {
         int catalogVersion = catalogManager.latestCatalogVersion();
-        long causalityToken = recoveryFinishedFuture.join();
 
         // TODO: IGNITE-20287 Clean up abandoned resources for dropped zones from volt and metastore
         for (CatalogZoneDescriptor zone : catalogManager.zones(catalogVersion)) {
-            createOrRestoreZoneStateBusy(zone, causalityToken);
+            createOrRestoreZoneStateBusy(zone, revision);
         }
     }
 

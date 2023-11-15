@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.client;
 
+import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
+
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import org.apache.ignite.client.ClientOperationType;
@@ -44,10 +46,9 @@ public class ClientUtils {
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt(); // Restore interrupt flag.
 
-            throw ExceptionUtils.wrap(e);
+            throw sneakyThrow(ExceptionUtils.unwrapToPublicException(e));
         } catch (ExecutionException e) {
-            //TODO: https://issues.apache.org/jira/browse/IGNITE-20436
-            throw ExceptionUtils.wrap(e);
+            throw sneakyThrow(ExceptionUtils.unwrapToPublicException(e));
         }
     }
 

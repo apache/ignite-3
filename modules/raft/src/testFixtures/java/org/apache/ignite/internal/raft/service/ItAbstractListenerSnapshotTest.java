@@ -44,6 +44,7 @@ import org.apache.ignite.internal.configuration.testframework.InjectConfiguratio
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.Loza;
+import org.apache.ignite.internal.raft.Marshaller;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftGroupServiceImpl;
 import org.apache.ignite.internal.raft.RaftNodeId;
@@ -433,7 +434,7 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
                 new RaftNodeId(raftGroupId(), initialMemberConf.peer(service.topologyService().localMember().name())),
                 initialMemberConf,
                 createListener(service, listenerPersistencePath, idx),
-                defaults()
+                defaults().commandsMarshaller(commandsMarshaller(service))
         );
 
         return server;
@@ -454,14 +455,7 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
         return startClient(testInfo, raftGroupId(), new NetworkAddress(getLocalAddress(), PORT));
     }
 
-    /**
-     * Returns a client service.
-     *
-     * @return The client service.
-     */
-    protected ClusterService clientService() {
-        return cluster.get(initialMemberConf.peers().size());
-    }
+    protected abstract Marshaller commandsMarshaller(ClusterService clusterService);
 
     /**
      * Starts a client with a specific address.
@@ -471,8 +465,10 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
     private RaftGroupService startClient(TestInfo testInfo, TestReplicationGroupId groupId, NetworkAddress addr) {
         ClusterService clientNode = clusterService(testInfo, CLIENT_PORT + clients.size(), addr);
 
+        Marshaller commandsMarshaller = commandsMarshaller(clientNode);
+
         CompletableFuture<RaftGroupService> clientFuture = RaftGroupServiceImpl
-                .start(groupId, clientNode, FACTORY, raftConfiguration, initialMemberConf, true, executor);
+                .start(groupId, clientNode, FACTORY, raftConfiguration, initialMemberConf, true, executor, commandsMarshaller);
 
         assertThat(clientFuture, willCompleteSuccessfully());
 

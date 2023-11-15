@@ -433,7 +433,9 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
 
         assertDataNodesForZone(zoneId, Set.of(), keyValueStorage);
 
-        assertZoneScaleUpChangeTriggerKey(2L, zoneId, keyValueStorage);
+        assertTrue(waitForCondition(() -> keyValueStorage.get(zoneScaleUpChangeTriggerKey(zoneId).bytes()).value() != null, 5000));
+
+        long revisionOfScaleUp = bytesToLong(keyValueStorage.get(zoneScaleUpChangeTriggerKey(zoneId).bytes()).value());
 
         doAnswer(invocation -> {
             If iif = invocation.getArgument(0);
@@ -446,7 +448,7 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
             if (Arrays.stream(iif.cond().keys()).anyMatch(k -> Arrays.equals(keyScaleUp, k))) {
                 keyValueStorage.putAll(
                         List.of(keyScaleUp, keyDataNodes),
-                        List.of(longToBytes(100), keyValueStorage.get(zoneDataNodesKey(zoneId).bytes()).value()),
+                        List.of(longToBytes(revisionOfScaleUp + 100L), keyValueStorage.get(zoneDataNodesKey(zoneId).bytes()).value()),
                         HybridTimestamp.MIN_VALUE
                 );
             }
@@ -458,7 +460,7 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
 
         assertLogicalTopology(Set.of(NODE_1), keyValueStorage);
 
-        assertZoneScaleUpChangeTriggerKey(100L, zoneId, keyValueStorage);
+        assertZoneScaleUpChangeTriggerKey(revisionOfScaleUp + 100L, zoneId, keyValueStorage);
 
         assertDataNodesForZone(zoneId, Set.of(), keyValueStorage);
     }
@@ -481,7 +483,9 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
 
         assertDataNodesForZone(zoneId, Set.of(NODE_1), keyValueStorage);
 
-        assertZoneScaleDownChangeTriggerKey(4L, zoneId, keyValueStorage);
+        assertTrue(waitForCondition(() -> keyValueStorage.get(zoneScaleDownChangeTriggerKey(zoneId).bytes()).value() != null, 5000));
+
+        long revisionOfScaleDown = bytesToLong(keyValueStorage.get(zoneScaleDownChangeTriggerKey(zoneId).bytes()).value());
 
         doAnswer(invocation -> {
             If iif = invocation.getArgument(0);
@@ -494,7 +498,7 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
             if (Arrays.stream(iif.cond().keys()).anyMatch(k -> Arrays.equals(keyScaleDown, k))) {
                 keyValueStorage.putAll(
                         List.of(keyScaleDown, keyDataNodes),
-                        List.of(longToBytes(100), keyValueStorage.get(zoneDataNodesKey(zoneId).bytes()).value()),
+                        List.of(longToBytes(revisionOfScaleDown + 100), keyValueStorage.get(zoneDataNodesKey(zoneId).bytes()).value()),
                         HybridTimestamp.MIN_VALUE
                 );
             }
@@ -506,7 +510,7 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
 
         assertDataNodesForZone(zoneId, Set.of(NODE_1), keyValueStorage);
 
-        assertZoneScaleDownChangeTriggerKey(100L, zoneId, keyValueStorage);
+        assertZoneScaleDownChangeTriggerKey(revisionOfScaleDown + 100L, zoneId, keyValueStorage);
     }
 
     @Test

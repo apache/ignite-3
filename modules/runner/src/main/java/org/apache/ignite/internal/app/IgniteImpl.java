@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.app;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
+
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import java.io.IOException;
@@ -669,7 +671,7 @@ public class IgniteImpl implements Ignite {
     }
 
     private static LongSupplier partitionIdleSafeTimePropagationPeriodMsSupplier() {
-        // TODO: Replace with an immutable dynamic property set on cluster init after IGNITE-20499 is fixed.
+        // TODO: Replace with an immutable dynamic property set on cluster init after IGNITE-20854 is fixed.
         return ReplicaManager::idleSafeTimePropagationPeriodMs;
     }
 
@@ -778,7 +780,7 @@ public class IgniteImpl implements Ignite {
                     cmgMgr
             );
 
-            clusterSvc.updateMetadata(new NodeMetadata(restComponent.host(), restComponent.httpPort(), restComponent.httpsPort()));
+            clusterSvc.updateMetadata(new NodeMetadata(restComponent.hostName(), restComponent.httpPort(), restComponent.httpsPort()));
 
             restAddressReporter.writeReport(restHttpAddress(), restHttpsAddress());
 
@@ -796,14 +798,7 @@ public class IgniteImpl implements Ignite {
 
                         return metaStorageMgr.recoveryFinishedFuture();
                     }, startupExecutor)
-                    .thenComposeAsync(revision -> {
-                        // If the revision is greater than 0, then the configuration has already been initialized.
-                        if (revision > 0) {
-                            return CompletableFuture.completedFuture(null);
-                        } else {
-                            return initializeClusterConfiguration(startupExecutor);
-                        }
-                    }, startupExecutor)
+                    .thenComposeAsync(unused -> initializeClusterConfiguration(startupExecutor), startupExecutor)
                     .thenRunAsync(() -> {
                         LOG.info("MetaStorage started, starting the remaining components");
 
@@ -954,7 +949,7 @@ public class IgniteImpl implements Ignite {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Collection<ClusterNode>> clusterNodesAsync() {
-        return CompletableFuture.completedFuture(clusterNodes());
+        return completedFuture(clusterNodes());
     }
 
     /**
@@ -988,7 +983,7 @@ public class IgniteImpl implements Ignite {
     // TODO: should be encapsulated in local properties, see https://issues.apache.org/jira/browse/IGNITE-15131
     @Nullable
     public NetworkAddress restHttpAddress() {
-        String host = restComponent.host();
+        String host = restComponent.hostName();
         int port = restComponent.httpPort();
         if (port != -1) {
             return new NetworkAddress(host, port);
@@ -1005,7 +1000,7 @@ public class IgniteImpl implements Ignite {
      */
     // TODO: should be encapsulated in local properties, see https://issues.apache.org/jira/browse/IGNITE-15131
     public NetworkAddress restHttpsAddress() {
-        String host = restComponent.host();
+        String host = restComponent.hostName();
         int port = restComponent.httpsPort();
         if (port != -1) {
             return new NetworkAddress(host, port);
@@ -1043,18 +1038,27 @@ public class IgniteImpl implements Ignite {
     }
 
     /**
-     * Initializes the cluster configuration with the specified user-provided configuration upon cluster initialization.
+     * Checks if the local revision is {@code 0} and initializes the cluster configuration with the specified user-provided configuration
+     * upon cluster initialization. If the local revision is not {@code 0}, does nothing.
      */
     private CompletableFuture<Void> initializeClusterConfiguration(ExecutorService startupExecutor) {
-        return cmgMgr.initialClusterConfigurationFuture().thenAcceptAsync(cfg -> {
-            if (cfg == null) {
-                return;
-            }
+        return cfgStorage.localRevision()
+                .thenComposeAsync(appliedRevision -> {
+                    if (appliedRevision != 0) {
+                        return completedFuture(null);
+                    } else {
+                        return cmgMgr.initialClusterConfigurationFuture()
+                                .thenAcceptAsync(initialConfigHocon -> {
+                                    if (initialConfigHocon == null) {
+                                        return;
+                                    }
 
-            Config config = ConfigFactory.parseString(cfg);
-            ConfigurationSource hoconSource = HoconConverter.hoconSource(config.root());
-            clusterCfgMgr.configurationRegistry().initializeConfigurationWith(hoconSource);
-        }, startupExecutor);
+                                    Config config = ConfigFactory.parseString(initialConfigHocon);
+                                    ConfigurationSource hoconSource = HoconConverter.hoconSource(config.root());
+                                    clusterCfgMgr.configurationRegistry().initializeConfigurationWith(hoconSource);
+                                }, startupExecutor);
+                    }
+                }, startupExecutor);
     }
 
     /**

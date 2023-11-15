@@ -14,14 +14,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ignite.raft.jraft.util;
 
-import java.nio.ByteBuffer;
+package org.apache.ignite.network.annotations;
 
-public interface Marshaller {
-    public static Marshaller DEFAULT = new JDKMarshaller();
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
 
-    byte[] marshall(Object o);
+/**
+ * Annotation for methods of {@link Transferable} interface, that makes generated serializer/deserializer ignore the property.
+ */
+@Target(ElementType.METHOD)
+@Retention(RetentionPolicy.SOURCE)
+public @interface Transient {
 
-    <T> T unmarshall(ByteBuffer raw);
 }

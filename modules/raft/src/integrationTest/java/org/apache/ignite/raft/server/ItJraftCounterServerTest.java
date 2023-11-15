@@ -60,6 +60,7 @@ import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
+import org.apache.ignite.internal.raft.util.ThreadLocalOptimizedMarshaller;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TestReplicationGroupId;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -108,11 +109,13 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
 
                 Peer serverPeer = initialMembersConf.peer(localNodeName);
 
+                RaftGroupOptions groupOptions = groupOptions(raftServer);
+
                 raftServer.startRaftNode(
-                        new RaftNodeId(COUNTER_GROUP_0, serverPeer), initialMembersConf, listenerFactory.get(), defaults()
+                        new RaftNodeId(COUNTER_GROUP_0, serverPeer), initialMembersConf, listenerFactory.get(), groupOptions
                 );
                 raftServer.startRaftNode(
-                        new RaftNodeId(COUNTER_GROUP_1, serverPeer), initialMembersConf, listenerFactory.get(), defaults()
+                        new RaftNodeId(COUNTER_GROUP_1, serverPeer), initialMembersConf, listenerFactory.get(), groupOptions
                 );
             }, opts -> {});
         }
@@ -131,7 +134,7 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
 
             var nodeId = new RaftNodeId(new TestReplicationGroupId("test_raft_group"), initialMembersConf.peer(localNodeName));
 
-            raftServer.startRaftNode(nodeId, initialMembersConf, listenerFactory.get(), defaults());
+            raftServer.startRaftNode(nodeId, initialMembersConf, listenerFactory.get(), groupOptions(raftServer));
         }, opts -> {});
 
         Set<Thread> threads = getAllDisruptorCurrentThreads();
@@ -150,7 +153,7 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
             for (int i = 0; i < 10; i++) {
                 var nodeId = new RaftNodeId(new TestReplicationGroupId("test_raft_group_" + i), serverPeer);
 
-                srv.startRaftNode(nodeId, initialMembersConf, listenerFactory.get(), defaults());
+                srv.startRaftNode(nodeId, initialMembersConf, listenerFactory.get(), groupOptions(srv));
             }
         });
 
@@ -535,7 +538,8 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
 
                         Peer serverPeer = initialMembersConf.peer(localNodeName);
 
-                        srv.startRaftNode(new RaftNodeId(groupId, serverPeer), initialMembersConf, listenerFactory.get(), defaults());
+                        RaftGroupOptions groupOptions = groupOptions(srv);
+                        srv.startRaftNode(new RaftNodeId(groupId, serverPeer), initialMembersConf, listenerFactory.get(), groupOptions);
                     }
                 }));
             }
@@ -592,7 +596,8 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
 
                 var listener = new UpdateCountRaftListener(counter, snapshotDataStorage);
 
-                RaftGroupOptions opts = defaults().snapshotStorageFactory(new SnapshotInMemoryStorageFactory(snapshotMetaStorage));
+                RaftGroupOptions opts = groupOptions(raftServer)
+                        .snapshotStorageFactory(new SnapshotInMemoryStorageFactory(snapshotMetaStorage));
 
                 raftServer.startRaftNode(new RaftNodeId(grpId, serverPeer), initialMembersConf, listener, opts);
             }, opts -> {});
@@ -654,7 +659,8 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
 
                 var listener = new UpdateCountRaftListener(counter, snapshotDataStorage);
 
-                RaftGroupOptions opts = defaults().snapshotStorageFactory(new SnapshotInMemoryStorageFactory(snapshotMetaStorage));
+                RaftGroupOptions opts = groupOptions(raftServer)
+                        .snapshotStorageFactory(new SnapshotInMemoryStorageFactory(snapshotMetaStorage));
 
                 raftServer.startRaftNode(new RaftNodeId(grpId, serverPeer), initialMembersConf, listener, opts);
 
@@ -789,8 +795,8 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
 
             Peer serverPeer = initialMembersConf.peer(localNodeName);
 
-            r.startRaftNode(new RaftNodeId(COUNTER_GROUP_0, serverPeer), initialMembersConf, listenerFactory.get(), defaults());
-            r.startRaftNode(new RaftNodeId(COUNTER_GROUP_1, serverPeer), initialMembersConf, listenerFactory.get(), defaults());
+            r.startRaftNode(new RaftNodeId(COUNTER_GROUP_0, serverPeer), initialMembersConf, listenerFactory.get(), groupOptions(r));
+            r.startRaftNode(new RaftNodeId(COUNTER_GROUP_1, serverPeer), initialMembersConf, listenerFactory.get(), groupOptions(r));
         }, opts -> {});
 
         waitForCondition(() -> validateStateMachine(sum(20), svc2, COUNTER_GROUP_0), 5_000);
@@ -808,8 +814,8 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
 
             Peer serverPeer = initialMembersConf.peer(localNodeName);
 
-            r.startRaftNode(new RaftNodeId(COUNTER_GROUP_0, serverPeer), initialMembersConf, listenerFactory.get(), defaults());
-            r.startRaftNode(new RaftNodeId(COUNTER_GROUP_1, serverPeer), initialMembersConf, listenerFactory.get(), defaults());
+            r.startRaftNode(new RaftNodeId(COUNTER_GROUP_0, serverPeer), initialMembersConf, listenerFactory.get(), groupOptions(r));
+            r.startRaftNode(new RaftNodeId(COUNTER_GROUP_1, serverPeer), initialMembersConf, listenerFactory.get(), groupOptions(r));
         }, opts -> {});
 
         waitForCondition(() -> validateStateMachine(sum(20), svc3, COUNTER_GROUP_0), 5_000);
@@ -871,5 +877,9 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
         long index = clients.get(0).readIndex().join();
         clients.get(0).<Long>run(incrementAndGetCommand(1)).get();
         assertEquals(index + 1, clients.get(0).readIndex().join());
+    }
+
+    private static RaftGroupOptions groupOptions(RaftServer raftServer) {
+        return defaults().commandsMarshaller(new ThreadLocalOptimizedMarshaller(raftServer.clusterService().serializationRegistry()));
     }
 }

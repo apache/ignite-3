@@ -17,6 +17,7 @@
 
 package org.apache.ignite.raft.jraft.rpc.impl;
 
+import org.apache.ignite.internal.raft.Marshaller;
 import org.apache.ignite.raft.jraft.rpc.ActionRequest;import org.apache.ignite.raft.jraft.rpc.Message;
 import org.apache.ignite.raft.jraft.rpc.RpcContext;
 import org.jetbrains.annotations.Nullable;
@@ -27,7 +28,7 @@ import org.jetbrains.annotations.Nullable;
  */
 public class NullActionRequestInterceptor implements ActionRequestInterceptor {
     @Override
-    public @Nullable Message intercept(RpcContext rpcCtx, ActionRequest request) {
+    public @Nullable Message intercept(RpcContext rpcCtx, ActionRequest request, Marshaller commandsMarshaller) {
         return null;
     }
 }
