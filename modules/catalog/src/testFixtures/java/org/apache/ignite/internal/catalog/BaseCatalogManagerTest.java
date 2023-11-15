@@ -131,7 +131,7 @@ public abstract class BaseCatalogManagerTest extends BaseIgniteAbstractTest {
             boolean uniq,
             @Nullable List<String> indexColumns
     ) {
-        return createHashIndexCommand(TABLE_NAME, INDEX_NAME, uniq, indexColumns);
+        return createHashIndexCommand(TABLE_NAME, indexName, uniq, indexColumns);
     }
 
     protected static CatalogCommand createHashIndexCommand(
