@@ -115,6 +115,17 @@ public class TracingManager {
      * Call closure in span with given name.
      *
      * @param spanName Name of span to create.
+     * @param parent Parent context.
+     * @param closure Closure.
+     */
+    public static void span(String spanName, @Nullable TraceSpan parent, Consumer<TraceSpan> closure) {
+        SPAN_MANAGER.createSpan(spanName, parent, false, closure);
+    }
+
+    /**
+     * Call closure in span with given name.
+     *
+     * @param spanName Name of span to create.
      * @param closure Closure.
      * @return Closure result.
      */

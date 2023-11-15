@@ -44,7 +44,6 @@ public class StartNode {
     private static final String NODE_BOOTSTRAP_CFG_TEMPLATE = "{\n"
             + "  network: {\n"
             + "    port: {},\n"
-            + "    portRange: 10,\n"
             + "    nodeFinder: {\n"
             + "      netClusterNodes:  [ {} ] \n"
             + "    }\n"

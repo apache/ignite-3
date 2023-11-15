@@ -792,7 +792,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         volatile CompletableFuture<Void> finishInProgressFuture = null;
 
         CompletableFuture<Void> performFinish(boolean commit, Function<Void, CompletableFuture<Void>> finishAction) {
-            waitReadyToFinish(commit)
+            wrap(waitReadyToFinish(commit))
                     .thenCompose(finishAction)
                     .handle((ignored, err) -> {
                         if (err == null) {

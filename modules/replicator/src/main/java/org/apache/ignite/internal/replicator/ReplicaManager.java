@@ -20,10 +20,9 @@ package org.apache.ignite.internal.replicator;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.Kludges.IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS_PROPERTY;
-import static org.apache.ignite.internal.tracing.TracingManager.span;
-import static org.apache.ignite.internal.tracing.TracingManager.spanWithResult;
 import static org.apache.ignite.internal.replicator.LocalReplicaEvent.AFTER_REPLICA_STARTED;
 import static org.apache.ignite.internal.replicator.LocalReplicaEvent.BEFORE_REPLICA_STOPPED;
+import static org.apache.ignite.internal.tracing.TracingManager.span;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
@@ -272,7 +271,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                         return replicaFut;
                     });
 
-                    return null;
+                    return;
                 }
 
                 CompletableFuture<Replica> replicaFut = replicas.get(request.groupId());
@@ -282,7 +281,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 if (replicaFut == null || !replicaFut.isDone() || !replicaFut.join().ready().isDone()) {
                     sendReplicaUnavailableErrorResponse(senderConsistentId, correlationId, request.groupId(), requestTimestamp);
 
-                    return null;
+                    return;
                 }
 
                 if (requestTimestamp != null) {

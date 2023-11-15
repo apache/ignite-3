@@ -35,7 +35,7 @@ import org.apache.ignite.internal.raft.server.impl.JraftServerImpl.DelegatingSta
 import org.apache.ignite.internal.raft.service.BeforeApplyHandler;
 import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
-import org.apache.ignite.internal.tracing.TraceSpan;
+import org.apache.ignite.internal.tracing.NoopSpan;import org.apache.ignite.internal.tracing.TraceSpan;
 import org.apache.ignite.raft.jraft.Closure;
 import org.apache.ignite.raft.jraft.Node;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
