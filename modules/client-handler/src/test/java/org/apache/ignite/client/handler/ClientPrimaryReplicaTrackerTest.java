@@ -17,6 +17,12 @@
 
 package org.apache.ignite.client.handler;
 
+import org.junit.jupiter.api.Test;
+
 class ClientPrimaryReplicaTrackerTest {
     // TODO: Test initial retrieval, update by events, table drop, missing table, null replicas
+    @Test
+    public void testInitialAssignmentIsRetrievedFromPlacementDriver() {
+        var driver = new FakePlacementDriver(1);
+    }
 }

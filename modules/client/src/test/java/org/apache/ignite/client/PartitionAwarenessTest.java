@@ -33,7 +33,7 @@ import org.apache.ignite.client.AbstractClientTableTest.PersonPojo;
 import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.client.fakes.FakeIgniteTables;
 import org.apache.ignite.client.fakes.FakeInternalTable;
-import org.apache.ignite.client.fakes.FakePlacementDriver;
+import org.apache.ignite.client.handler.FakePlacementDriver;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.internal.client.tx.ClientTransaction;
 import org.apache.ignite.internal.table.TableViewInternal;

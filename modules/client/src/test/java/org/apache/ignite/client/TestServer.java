@@ -39,10 +39,11 @@ import java.util.function.Function;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.client.fakes.FakeCompute;
 import org.apache.ignite.client.fakes.FakeIgnite;
-import org.apache.ignite.client.fakes.FakePlacementDriver;
+import org.apache.ignite.client.fakes.FakeInternalTable;
 import org.apache.ignite.client.handler.ClientHandlerMetricSource;
 import org.apache.ignite.client.handler.ClientHandlerModule;
 import org.apache.ignite.client.handler.configuration.ClientConnectorConfiguration;
+import org.apache.ignite.client.handler.FakePlacementDriver;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
@@ -87,7 +88,7 @@ public class TestServer implements AutoCloseable {
 
     private final Ignite ignite;
 
-    private final FakePlacementDriver placementDriver = new FakePlacementDriver();
+    private final FakePlacementDriver placementDriver = new FakePlacementDriver(FakeInternalTable.PARTITIONS);
 
     /**
      * Constructor.

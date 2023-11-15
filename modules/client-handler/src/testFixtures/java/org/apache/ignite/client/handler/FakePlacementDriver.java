@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.client.fakes;
+package org.apache.ignite.client.handler;
 
 import java.util.Collections;
 import java.util.List;
@@ -35,13 +35,20 @@ import org.apache.ignite.internal.replicator.TablePartitionId;
  */
 public class FakePlacementDriver extends AbstractEventProducer<PrimaryReplicaEvent, PrimaryReplicaEventParameters>
         implements PlacementDriver {
-    private volatile List<String> primaryReplicas = Collections.nCopies(FakeInternalTable.PARTITIONS, "s");
+    private final int partitions;
+
+    private volatile List<String> primaryReplicas;
+
+    public FakePlacementDriver(int partitions) {
+        this.partitions = partitions;
+        primaryReplicas = Collections.nCopies(partitions, "s");
+    }
 
     /**
      * Updates primary replicas.
      */
     public void setReplicas(List<String> replicas, int tableId) {
-        assert replicas.size() == FakeInternalTable.PARTITIONS;
+        assert replicas.size() == partitions;
         primaryReplicas = replicas;
 
         for (int partition = 0; partition < replicas.size(); partition++) {
