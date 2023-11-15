@@ -19,7 +19,6 @@ package org.apache.ignite.internal.configuration.storage;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
-import static org.apache.ignite.internal.metastorage.dsl.Conditions.or;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.revision;
 
 import java.io.Serializable;
@@ -258,10 +257,9 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
         //  - First update ever, MASTER_KEY property must be absent from MetaStorage.
         //  - Current node has already performed some updates or received them from MetaStorage watch listener. In this
         //    case "curChangeId" must match the MASTER_KEY revision exactly.
-        Condition condition = or(
-                notExists(MASTER_KEY),
-                revision(MASTER_KEY).eq(curChangeId)
-        );
+        Condition condition = changeId == 0
+                ? notExists(MASTER_KEY)
+                : revision(MASTER_KEY).eq(curChangeId);
 
         return metaStorageMgr.invoke(condition, operations, Set.of(Operations.noop()));
     }
