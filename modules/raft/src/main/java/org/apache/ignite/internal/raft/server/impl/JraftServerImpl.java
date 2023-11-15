@@ -524,14 +524,6 @@ public class JraftServerImpl implements RaftServer {
     }
 
     @Override
-    public CompletableFuture<Long> raftNodeReadyFuture(ReplicationGroupId groupId) {
-        RaftGroupService jraftNode = nodes.entrySet().stream().filter(entry -> entry.getKey().groupId().equals(groupId))
-                .map(Entry::getValue).findAny().get();
-
-        return jraftNode.getApplyCommittedFuture();
-    }
-
-    @Override
     public boolean stopRaftNode(RaftNodeId nodeId) {
         RaftGroupService svc = nodes.remove(nodeId);
 

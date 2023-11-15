@@ -86,14 +86,6 @@ public interface RaftServer extends IgniteComponent {
     boolean isStarted(RaftNodeId nodeId);
 
     /**
-     * Returns a future, which complete when the raft node is ready and committed updates are applied.
-     *
-     * @param groupId Raft group ID.
-     * @return A future to last applied revision on start.
-     */
-    CompletableFuture<Long> raftNodeReadyFuture(ReplicationGroupId groupId);
-
-    /**
      * Stops a given local Raft node if it exists.
      *
      * @param nodeId Raft node ID.

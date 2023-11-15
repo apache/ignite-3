@@ -448,7 +448,7 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
 
                     replicaManager.startReplica(
                             groupId,
-                            allOf(raftManager.raftNodeReadyFuture(groupId)),
+                            completedFuture(null),
                             (request, senderId) -> {
                                 log.info("Handle request [type={}]", request.getClass().getSimpleName());
 
