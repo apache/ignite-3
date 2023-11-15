@@ -82,7 +82,7 @@ class ClientPrimaryReplicaTrackerTest {
         tracker.start();
 
         assertEquals(0, tracker.updateCount());
-        driver.updateReplica("s3", TABLE_ID, 0);
+        driver.updateReplica("s3", TABLE_ID, 0, 2);
 
         assertEquals(1, tracker.updateCount());
 
@@ -94,11 +94,11 @@ class ClientPrimaryReplicaTrackerTest {
 
     @Test
     public void testNullReplicas() {
-        driver.updateReplica(null, TABLE_ID, 0);
+        driver.updateReplica(null, TABLE_ID, 0, 2);
         tracker.start();
 
         assertEquals(0, tracker.updateCount());
-        driver.updateReplica(null, TABLE_ID, 1);
+        driver.updateReplica(null, TABLE_ID, 1, 2);
 
         assertEquals(1, tracker.updateCount());
 
