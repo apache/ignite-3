@@ -539,7 +539,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
 
         return new Catalog(
                 update.version(),
-                // Remove this maxing when https://issues.apache.org/jira/browse/IGNITE-20499 is fixed and DelayDuration is truly constant.
+                // Remove this maxing when https://issues.apache.org/jira/browse/IGNITE-20854 is fixed and DelayDuration is truly constant.
                 Math.max(activationTimestamp, prevVersionActivationTimestamp),
                 catalog.objectIdGenState(),
                 catalog.zones(),

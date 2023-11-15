@@ -188,7 +188,7 @@ public abstract class BaseCatalogManagerTest extends BaseIgniteAbstractTest {
                 .colocationColumns(colocationColumns);
     }
 
-    protected CatalogCommand simpleTable(String name) {
+    protected static CatalogCommand simpleTable(String tableName) {
         List<ColumnParams> cols = List.of(
                 columnParams("ID", INT32),
                 columnParamsBuilder("VAL", INT32, true).defaultValue(constant(null)).build(),
@@ -198,10 +198,14 @@ public abstract class BaseCatalogManagerTest extends BaseIgniteAbstractTest {
                 columnParamsBuilder("DEC_SCALE", DECIMAL).precision(12).scale(3).build()
         );
 
-        return simpleTable(name, cols);
+        return simpleTable(tableName, cols);
     }
 
-    protected CatalogCommand simpleTable(String tableName, List<ColumnParams> cols) {
+    protected static CatalogCommand simpleTable(String tableName, List<ColumnParams> cols) {
         return createTableCommand(tableName, cols, List.of(cols.get(0).name()), List.of(cols.get(0).name()));
+    }
+
+    protected static CatalogCommand simpleIndex(String tableName, String indexName) {
+        return createHashIndexCommand(tableName, indexName, false, List.of("VAL_NOT_NULL"));
     }
 }

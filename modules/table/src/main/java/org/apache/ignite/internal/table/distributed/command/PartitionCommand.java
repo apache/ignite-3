@@ -19,6 +19,8 @@ package org.apache.ignite.internal.table.distributed.command;
 
 import java.util.UUID;
 import org.apache.ignite.internal.replicator.command.SafeTimePropagatingCommand;
+import org.apache.ignite.network.annotations.Transient;
+import org.apache.ignite.network.annotations.WithSetter;
 
 /**
  * Partition transactional command.
@@ -34,9 +36,13 @@ public interface PartitionCommand extends SafeTimePropagatingCommand, CatalogVer
      */
     boolean full();
 
-    /**
-     * Returns version that the Catalog must have locally for the node to be allowed to accept this command via replication.
-     */
     @Override
+    @Transient
+    @WithSetter
     int requiredCatalogVersion();
+
+    @Override
+    default void requiredCatalogVersion(int version) {
+        // No-op.
+    }
 }

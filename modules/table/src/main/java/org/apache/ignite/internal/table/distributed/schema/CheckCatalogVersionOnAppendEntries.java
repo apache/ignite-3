@@ -18,11 +18,13 @@
 package org.apache.ignite.internal.table.distributed.schema;
 
 import static org.apache.ignite.internal.table.distributed.schema.CatalogVersionSufficiency.isMetadataAvailableFor;
+import static org.apache.ignite.internal.table.distributed.schema.PartitionCommandsMarshaller.NO_VERSION_REQUIRED;
 
 import java.nio.ByteBuffer;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.raft.Marshaller;
 import org.apache.ignite.raft.jraft.Node;
 import org.apache.ignite.raft.jraft.entity.EnumOutter.EntryType;
 import org.apache.ignite.raft.jraft.entity.RaftOutter;
@@ -34,7 +36,6 @@ import org.apache.ignite.raft.jraft.rpc.RaftServerService;
 import org.apache.ignite.raft.jraft.rpc.RpcRequestClosure;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.AppendEntriesRequest;
 import org.apache.ignite.raft.jraft.rpc.impl.core.AppendEntriesRequestInterceptor;
-import org.apache.ignite.raft.jraft.util.Marshaller;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -43,8 +44,6 @@ import org.jetbrains.annotations.Nullable;
  */
 public class CheckCatalogVersionOnAppendEntries implements AppendEntriesRequestInterceptor {
     private static final IgniteLogger LOG = Loggers.forClass(CheckCatalogVersionOnAppendEntries.class);
-
-    private static final int NO_VERSION_REQUIREMENT = Integer.MIN_VALUE;
 
     private final CatalogService catalogService;
 
@@ -66,7 +65,7 @@ public class CheckCatalogVersionOnAppendEntries implements AppendEntriesRequestI
         for (RaftOutter.EntryMeta entry : request.entriesList()) {
             int requiredCatalogVersion = readRequiredCatalogVersionForMeta(allData, entry, node.getOptions().getCommandsMarshaller());
 
-            if (requiredCatalogVersion != NO_VERSION_REQUIREMENT && !isMetadataAvailableFor(requiredCatalogVersion, catalogService)) {
+            if (requiredCatalogVersion != NO_VERSION_REQUIRED && !isMetadataAvailableFor(requiredCatalogVersion, catalogService)) {
                 // TODO: IGNITE-20298 - throttle logging.
                 LOG.warn(
                         "Metadata not yet available, rejecting AppendEntriesRequest with EBUSY [group={}, requiredLevel={}].",
@@ -91,11 +90,11 @@ public class CheckCatalogVersionOnAppendEntries implements AppendEntriesRequestI
 
     private static int readRequiredCatalogVersionForMeta(ByteBuffer allData, final EntryMeta entry, Marshaller commandsMarshaller) {
         if (entry.type() != EntryType.ENTRY_TYPE_DATA) {
-            return NO_VERSION_REQUIREMENT;
+            return NO_VERSION_REQUIRED;
         }
 
         if (!(commandsMarshaller instanceof PartitionCommandsMarshaller)) {
-            return NO_VERSION_REQUIREMENT;
+            return NO_VERSION_REQUIRED;
         }
 
         PartitionCommandsMarshaller partitionCommandsMarshaller = (PartitionCommandsMarshaller) commandsMarshaller;
@@ -105,6 +104,6 @@ public class CheckCatalogVersionOnAppendEntries implements AppendEntriesRequestI
             return partitionCommandsMarshaller.readRequiredCatalogVersion(allData);
         }
 
-        return NO_VERSION_REQUIREMENT;
+        return NO_VERSION_REQUIRED;
     }
 }

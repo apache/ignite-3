@@ -38,6 +38,7 @@ import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
+import org.apache.ignite.internal.lang.IgniteExceptionMapperUtil;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.IgniteQuadFunction;
@@ -344,6 +345,16 @@ public final class ExceptionUtils {
         }
 
         return e;
+    }
+
+    /**
+     * Unwraps exception cause from wrappers like CompletionException and ExecutionException and converts it to public exception.
+     *
+     * @param err Exception.
+     * @return Public exception.
+     */
+    public static Throwable unwrapToPublicException(Throwable err) {
+        return IgniteExceptionMapperUtil.mapToPublicException(unwrapCause(err));
     }
 
     /**

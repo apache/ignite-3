@@ -669,7 +669,7 @@ public class IgniteImpl implements Ignite {
     }
 
     private static LongSupplier partitionIdleSafeTimePropagationPeriodMsSupplier() {
-        // TODO: Replace with an immutable dynamic property set on cluster init after IGNITE-20499 is fixed.
+        // TODO: Replace with an immutable dynamic property set on cluster init after IGNITE-20854 is fixed.
         return ReplicaManager::idleSafeTimePropagationPeriodMs;
     }
 
