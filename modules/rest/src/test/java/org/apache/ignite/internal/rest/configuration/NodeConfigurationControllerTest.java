@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.rest.configuration;
 
 import io.micronaut.context.annotation.Bean;
-import io.micronaut.context.annotation.Property;
+import io.micronaut.context.annotation.Factory;
 import io.micronaut.context.annotation.Replaces;
 import io.micronaut.http.client.HttpClient;
 import io.micronaut.http.client.annotation.Client;
@@ -28,12 +28,13 @@ import jakarta.inject.Named;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.presentation.ConfigurationPresentation;
 import org.apache.ignite.internal.configuration.presentation.HoconPresentation;
+import org.apache.ignite.internal.security.authentication.AuthenticationManager;
+import org.apache.ignite.internal.security.authentication.AuthenticationManagerImpl;
 
 /**
  * Functional test for {@link NodeConfigurationController}.
  */
 @MicronautTest
-@Property(name = "micronaut.security.enabled", value = "false")
 class NodeConfigurationControllerTest extends ConfigurationControllerBaseTest {
 
     @Inject
@@ -53,5 +54,11 @@ class NodeConfigurationControllerTest extends ConfigurationControllerBaseTest {
     @Replaces(factory = PresentationsFactory.class)
     public ConfigurationPresentation<String> cfgPresentation(ConfigurationRegistry configurationRegistry) {
         return new HoconPresentation(configurationRegistry);
+    }
+
+    @Bean
+    @Factory
+    AuthenticationManager authenticationManager() {
+        return new AuthenticationManagerImpl();
     }
 }

@@ -56,6 +56,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Function;
 import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.lang.SafeTimeReorderException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
@@ -113,6 +114,8 @@ public class RaftGroupServiceImpl implements RaftGroupService {
     /** Executor for scheduling retries of {@link RaftGroupServiceImpl#sendWithRetry} invocations. */
     private final ScheduledExecutorService executor;
 
+    private final Marshaller commandsMarshaller;
+
     /** Busy lock. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
@@ -126,6 +129,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
      * @param membersConfiguration Raft members configuration.
      * @param leader Group leader.
      * @param executor Executor for retrying requests.
+     * @param commandsMarshaller Marshaller that should be used to serialize/deserialize commands.
      */
     private RaftGroupServiceImpl(
             ReplicationGroupId groupId,
@@ -134,7 +138,8 @@ public class RaftGroupServiceImpl implements RaftGroupService {
             RaftConfiguration configuration,
             PeersAndLearners membersConfiguration,
             @Nullable Peer leader,
-            ScheduledExecutorService executor
+            ScheduledExecutorService executor,
+            Marshaller commandsMarshaller
     ) {
         this.cluster = cluster;
         this.configuration = configuration;
@@ -145,6 +150,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
         this.realGroupId = groupId;
         this.leader = leader;
         this.executor = executor;
+        this.commandsMarshaller = commandsMarshaller;
     }
 
     /**
@@ -166,7 +172,8 @@ public class RaftGroupServiceImpl implements RaftGroupService {
             RaftConfiguration configuration,
             PeersAndLearners membersConfiguration,
             boolean getLeader,
-            ScheduledExecutorService executor
+            ScheduledExecutorService executor,
+            Marshaller commandsMarshaller
     ) {
         var service = new RaftGroupServiceImpl(
                 groupId,
@@ -175,7 +182,8 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                 configuration,
                 membersConfiguration,
                 null,
-                executor
+                executor,
+                commandsMarshaller
         );
 
         if (!getLeader) {
@@ -455,11 +463,23 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                 return refreshLeader().thenCompose(res -> run(cmd));
             }
 
-            Function<Peer, ActionRequest> requestFactory = targetPeer -> factory.actionRequest()
-                    .command(cmd)
+            Function<Peer, ActionRequest> requestFactory;
+
+        if (cmd instanceof WriteCommand) {
+            byte[] commandBytes = commandsMarshaller.marshall(cmd);
+
+            requestFactory = targetPeer -> factory.writeActionRequest()
                     .groupId(groupId)
-                    .readOnlySafe(true)
+                    .command(commandBytes)
+                    // Having prepared deserialized command makes its handling more efficient in the state machine.
+                    // This saves us from extra-deserialization on a local machine, which would take precious time to do.
+                    .deserializedCommand((WriteCommand) cmd)
                     .build();
+        } else {
+            requestFactory = targetPeer -> factory.readActionRequest()
+                    .groupId(groupId).command((ReadCommand) cmd)
+                    .readOnlySafe(true)
+                    .build();}
 
             return this.<ActionResponse>sendWithRetry(leader, requestFactory)
                     .thenApply(resp -> (R) resp.result());
@@ -579,8 +599,11 @@ public class RaftGroupServiceImpl implements RaftGroupService {
     ) {
         if (recoverable(err)) {
             LOG.warn(
-                    "Recoverable error during the request type={} occurred (will be retried on the randomly selected node): ",
-                    err, sentRequest.getClass().getSimpleName()
+                    "Recoverable error during the request occurred (will be retried on the randomly selected node) "
+                            + "[request={}, peer={}].",
+                    err,
+                    sentRequest,
+                    peer
             );
 
             scheduleRetry(() -> sendWithRetry(randomNode(peer), requestFactory, stopTime, fut));
@@ -637,6 +660,10 @@ public class RaftGroupServiceImpl implements RaftGroupService {
 
                     scheduleRetry(() -> sendWithRetry(leader, requestFactory, stopTime, fut));
                 }
+
+                break;
+            case EREORDER:
+                fut.completeExceptionally(new SafeTimeReorderException());
 
                 break;
 

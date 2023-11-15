@@ -172,7 +172,7 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
 
             assertEquals(0, updCnts.length, "Invalid update counts size");
 
-            assertThat(e.getMessage(), containsString("Invalid SQL statement type. Expected [DML, DDL] but got QUERY"));
+            assertThat(e.getMessage(), containsString("Invalid SQL statement type"));
 
             assertEquals(SqlStateCode.INTERNAL_ERROR, e.getSQLState(), "Invalid SQL state.");
             assertEquals(IgniteQueryErrorCode.UNKNOWN, e.getErrorCode(), "Invalid error code.");
@@ -219,7 +219,7 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
 
         BatchUpdateException e = assertThrowsSqlException(
                 BatchUpdateException.class,
-                "Invalid SQL statement type. Expected [DML, DDL] but got QUERY",
+                "Invalid SQL statement type",
                 stmt::executeBatch);
 
         int[] updCnts = e.getUpdateCounts();

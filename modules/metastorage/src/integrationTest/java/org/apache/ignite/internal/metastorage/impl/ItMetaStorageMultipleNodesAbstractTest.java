@@ -97,6 +97,8 @@ import org.junit.jupiter.params.provider.ValueSource;
  */
 @ExtendWith(ConfigurationExtension.class)
 public abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstractTest {
+    private static final long AWAIT_TIMEOUT = TimeUnit.SECONDS.toMillis(10);
+
     @InjectConfiguration
     private static RaftConfiguration raftConfiguration;
 
@@ -263,7 +265,7 @@ public abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstr
 
     @AfterEach
     void tearDown() throws Exception {
-        IgniteUtils.closeAll(nodes.stream().map(node -> node::stop));
+        IgniteUtils.closeAll(nodes.parallelStream().map(node -> node::stop));
     }
 
     /**
@@ -346,14 +348,14 @@ public abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstr
         assertThat(secondNode.metaStorageManager.get(new ByteArray("test")).thenApply(Entry::value), willBe(nullValue()));
 
         // Check that the second node has been registered as a learner.
-        assertTrue(waitForCondition(() -> firstNode.getMetaStorageLearners().join().equals(Set.of(secondNode.name())), 10_000));
+        assertTrue(waitForCondition(() -> firstNode.getMetaStorageLearners().join().equals(Set.of(secondNode.name())), AWAIT_TIMEOUT));
 
         // Stop the second node.
         secondNode.stop();
 
         nodes.remove(1);
 
-        assertTrue(waitForCondition(() -> firstNode.getMetaStorageLearners().join().isEmpty(), 10_000));
+        assertTrue(waitForCondition(() -> firstNode.getMetaStorageLearners().join().isEmpty(), AWAIT_TIMEOUT));
     }
 
     /**
@@ -381,14 +383,14 @@ public abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstr
         assertThat(secondNode.metaStorageManager.get(new ByteArray("test")).thenApply(Entry::value), willBe(nullValue()));
 
         // Check that the second node has been registered as a learner.
-        assertTrue(waitForCondition(() -> firstNode.getMetaStorageLearners().join().equals(Set.of(secondNode.name())), 10_000));
+        assertTrue(waitForCondition(() -> firstNode.getMetaStorageLearners().join().equals(Set.of(secondNode.name())), AWAIT_TIMEOUT));
 
         // Stop the second node.
         secondNode.stop();
 
         nodes.remove(1);
 
-        assertTrue(waitForCondition(() -> firstNode.getMetaStorageLearners().join().isEmpty(), 10_000));
+        assertTrue(waitForCondition(() -> firstNode.getMetaStorageLearners().join().isEmpty(), AWAIT_TIMEOUT));
     }
 
     /**
@@ -447,12 +449,10 @@ public abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstr
         );
 
         // Ensure watch listener is called.
-        assertTrue(watchCalledLatch.await(1, TimeUnit.SECONDS));
+        assertTrue(watchCalledLatch.await(AWAIT_TIMEOUT, TimeUnit.MILLISECONDS));
 
         // Wait until leader's safe time is propagated.
-        assertTrue(waitForCondition(() -> {
-            return firstNodeTime.currentSafeTime().compareTo(timeBeforeOp) > 0;
-        }, TimeUnit.SECONDS.toMillis(1)));
+        assertTrue(waitForCondition(() -> firstNodeTime.currentSafeTime().compareTo(timeBeforeOp) > 0, AWAIT_TIMEOUT));
 
         // Safe time must not be propagated to the second node at this moment.
         assertThat(firstNodeTime.currentSafeTime(), greaterThan(secondNodeTime.currentSafeTime()));
@@ -466,7 +466,7 @@ public abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstr
             HybridTimestamp sf2 = secondNodeTime.currentSafeTime();
 
             return sf1.equals(sf2);
-        }, TimeUnit.SECONDS.toMillis(1)));
+        }, AWAIT_TIMEOUT));
 
         assertThat(
                 secondNode.metaStorageManager.put(ByteArray.fromString("test-key-2"), new byte[]{0, 1, 2, 3}),
@@ -478,7 +478,7 @@ public abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstr
             HybridTimestamp sf2 = secondNodeTime.currentSafeTime();
 
             return sf1.equals(sf2);
-        }, TimeUnit.SECONDS.toMillis(1)));
+        }, AWAIT_TIMEOUT));
     }
 
     /**
@@ -511,7 +511,7 @@ public abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstr
             HybridTimestamp sf2 = secondNodeTime.currentSafeTime();
 
             return sf1.equals(sf2);
-        }, TimeUnit.SECONDS.toMillis(1)));
+        }, AWAIT_TIMEOUT));
 
         // Change leader and check if propagation still works.
         Node prevLeader = transferLeadership(firstNode, secondNode);
@@ -526,7 +526,7 @@ public abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstr
             HybridTimestamp sf2 = secondNodeTime.currentSafeTime();
 
             return sf1.equals(sf2);
-        }, TimeUnit.SECONDS.toMillis(1)));
+        }, AWAIT_TIMEOUT));
     }
 
     /**

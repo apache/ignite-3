@@ -29,7 +29,6 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
-import org.apache.ignite.internal.sql.engine.session.SessionId;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.sql.IgniteSql;
@@ -53,7 +52,7 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
 
     private final AtomicBoolean closed = new AtomicBoolean(false);
 
-    private final QueryProcessor qryProc;
+    private final QueryProcessor queryProcessor;
 
     private final IgniteTransactions transactions;
 
@@ -65,15 +64,15 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
     /**
      * Constructor.
      *
-     * @param qryProc Query processor.
+     * @param queryProcessor Query processor.
      * @param transactions Transactions facade.
      */
     public IgniteSqlImpl(
             String nodeName,
-            QueryProcessor qryProc,
+            QueryProcessor queryProcessor,
             IgniteTransactions transactions
     ) {
-        this.qryProc = qryProc;
+        this.queryProcessor = queryProcessor;
         this.transactions = transactions;
 
         executor = Executors.newSingleThreadScheduledExecutor(
@@ -91,7 +90,7 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
     @Override
     public SessionBuilder sessionBuilder() {
         return new SessionBuilderImpl(
-                busyLock, sessions, qryProc, transactions, System::currentTimeMillis, new HashMap<>()
+                busyLock, sessions, queryProcessor, transactions, System::currentTimeMillis, new HashMap<>()
         );
     }
 

@@ -20,9 +20,9 @@ package org.apache.ignite.internal.sql.engine.util;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.util.QueryChecker.QueryTemplate;
+import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.tx.IgniteTransactions;
-import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -31,7 +31,7 @@ import org.jetbrains.annotations.Nullable;
 public interface QueryCheckerFactory {
     /** Creates query checker instance. */
     QueryChecker create(QueryProcessor queryProcessor, IgniteTransactions transactions,
-            @Nullable Transaction tx, String query);
+            @Nullable InternalTransaction tx, String query);
 
     /** Creates query checker with custom metadata validator. */
     QueryChecker create(

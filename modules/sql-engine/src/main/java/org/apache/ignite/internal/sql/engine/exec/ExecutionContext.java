@@ -239,10 +239,12 @@ public class ExecutionContext<RowT> implements DataContext {
         }
 
         if (name.startsWith("?")) {
-            return TypeUtils.toInternal(params.get(name));
+            Object val = params.get(name);
+            return val != null ? TypeUtils.toInternal(val, val.getClass()) : null;
+        } else {
+            return params.get(name);
         }
 
-        return params.get(name);
     }
 
     /** Gets dynamic parameters by name. */

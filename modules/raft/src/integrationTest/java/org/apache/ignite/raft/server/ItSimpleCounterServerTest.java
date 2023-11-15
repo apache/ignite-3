@@ -39,9 +39,11 @@ import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftGroupServiceImpl;
 import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
+import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
+import org.apache.ignite.internal.raft.util.ThreadLocalOptimizedMarshaller;
 import org.apache.ignite.internal.replicator.TestReplicationGroupId;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -115,11 +117,16 @@ class ItSimpleCounterServerTest extends RaftServerAbstractTest {
 
         Peer serverPeer = memberConfiguration.peer(serverNodeName);
 
+        // Short name for long lines later in code.
+        var cmdMarshaller = new ThreadLocalOptimizedMarshaller(service.serializationRegistry());
+
+        RaftGroupOptions grpOptions = defaults().commandsMarshaller(cmdMarshaller);
+
         assertTrue(
-                server.startRaftNode(new RaftNodeId(COUNTER_GROUP_ID_0, serverPeer), memberConfiguration, new CounterListener(), defaults())
+                server.startRaftNode(new RaftNodeId(COUNTER_GROUP_ID_0, serverPeer), memberConfiguration, new CounterListener(), grpOptions)
         );
         assertTrue(
-                server.startRaftNode(new RaftNodeId(COUNTER_GROUP_ID_1, serverPeer), memberConfiguration, new CounterListener(), defaults())
+                server.startRaftNode(new RaftNodeId(COUNTER_GROUP_ID_1, serverPeer), memberConfiguration, new CounterListener(), grpOptions)
         );
 
         ClusterService clientNode1 = clusterService(PORT + 1, List.of(addr), true);
@@ -127,13 +134,13 @@ class ItSimpleCounterServerTest extends RaftServerAbstractTest {
         executor = new ScheduledThreadPoolExecutor(20, new NamedThreadFactory(Loza.CLIENT_POOL_NAME, logger()));
 
         client1 = RaftGroupServiceImpl
-                .start(COUNTER_GROUP_ID_0, clientNode1, FACTORY, raftConfiguration, memberConfiguration, false, executor)
+                .start(COUNTER_GROUP_ID_0, clientNode1, FACTORY, raftConfiguration, memberConfiguration, false, executor, cmdMarshaller)
                 .get(3, TimeUnit.SECONDS);
 
         ClusterService clientNode2 = clusterService(PORT + 2, List.of(addr), true);
 
         client2 = RaftGroupServiceImpl
-                .start(COUNTER_GROUP_ID_1, clientNode2, FACTORY, raftConfiguration, memberConfiguration, false, executor)
+                .start(COUNTER_GROUP_ID_1, clientNode2, FACTORY, raftConfiguration, memberConfiguration, false, executor, cmdMarshaller)
                 .get(3, TimeUnit.SECONDS);
 
         assertTrue(waitForTopology(service, 3, 10_000));

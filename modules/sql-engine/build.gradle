@@ -104,6 +104,7 @@ dependencies {
     testFixturesImplementation project(':ignite-core')
     testFixturesImplementation project(':ignite-api')
     testFixturesImplementation project(':ignite-schema')
+    testFixturesImplementation project(':ignite-transactions')
     testFixturesImplementation testFixtures(project(':ignite-core'))
     testFixturesImplementation libs.jetbrains.annotations
     testFixturesImplementation libs.hamcrest.core

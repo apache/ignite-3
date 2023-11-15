@@ -19,12 +19,12 @@ package org.apache.ignite.internal.table.distributed.schema;
 
 import static org.apache.ignite.internal.table.distributed.schema.CatalogVersionSufficiency.isMetadataAvailableFor;
 
+import java.nio.ByteBuffer;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.Loza;
-import org.apache.ignite.internal.table.distributed.command.CatalogVersionAware;
+import org.apache.ignite.internal.raft.Marshaller;
 import org.apache.ignite.raft.jraft.Node;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.core.NodeImpl;
@@ -35,6 +35,7 @@ import org.apache.ignite.raft.jraft.rpc.ActionRequest;
 import org.apache.ignite.raft.jraft.rpc.Message;
 import org.apache.ignite.raft.jraft.rpc.RaftRpcFactory;
 import org.apache.ignite.raft.jraft.rpc.RpcContext;
+import org.apache.ignite.raft.jraft.rpc.WriteActionRequest;
 import org.apache.ignite.raft.jraft.rpc.impl.ActionRequestInterceptor;
 import org.jetbrains.annotations.Nullable;
 
@@ -52,7 +53,7 @@ public class CheckCatalogVersionOnActionRequest implements ActionRequestIntercep
     }
 
     @Override
-    public @Nullable Message intercept(RpcContext rpcCtx, ActionRequest request) {
+    public @Nullable Message intercept(RpcContext rpcCtx, ActionRequest request, Marshaller commandsMarshaller) {
         Node node = rpcCtx.getNodeManager().get(request.groupId(), new PeerId(rpcCtx.getLocalConsistentId()));
 
         if (node == null) {
@@ -64,11 +65,21 @@ public class CheckCatalogVersionOnActionRequest implements ActionRequestIntercep
             return errorIfNotLeader;
         }
 
-        Command command = request.command();
+        if (!(commandsMarshaller instanceof PartitionCommandsMarshaller)) {
+            return null;
+        }
 
-        if (command instanceof CatalogVersionAware) {
-            int requiredCatalogVersion = ((CatalogVersionAware) command).requiredCatalogVersion();
+        if (!(request instanceof WriteActionRequest)) {
+            return null;
+        }
 
+        byte[] command = ((WriteActionRequest) request).command();
+
+        var partitionCommandsMarshaller = (PartitionCommandsMarshaller) commandsMarshaller;
+
+        int requiredCatalogVersion = partitionCommandsMarshaller.readRequiredCatalogVersion(ByteBuffer.wrap(command));
+
+        if (requiredCatalogVersion >= 0) {
             if (!isMetadataAvailableFor(requiredCatalogVersion, catalogService)) {
                 // TODO: IGNITE-20298 - throttle logging.
                 LOG.warn(

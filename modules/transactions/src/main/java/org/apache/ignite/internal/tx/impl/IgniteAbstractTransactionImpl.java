@@ -64,9 +64,8 @@ public abstract class IgniteAbstractTransactionImpl implements InternalTransacti
     }
 
     /** {@inheritDoc} */
-    @Nullable
     @Override
-    public TxState state() {
+    public @Nullable TxState state() {
         TxStateMeta meta = txManager.stateMeta(id);
 
         return meta == null ? null : meta.txState();

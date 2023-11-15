@@ -20,9 +20,9 @@ package org.apache.ignite.internal.sql.engine.util;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.util.QueryChecker.QueryTemplate;
+import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.tx.IgniteTransactions;
-import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -46,7 +46,7 @@ class QueryCheckerFactoryImpl implements QueryCheckerFactory {
     }
 
     @Override
-    public QueryChecker create(QueryProcessor queryProcessor, IgniteTransactions transactions, Transaction tx, String query) {
+    public QueryChecker create(QueryProcessor queryProcessor, IgniteTransactions transactions, InternalTransaction tx, String query) {
         return create(queryProcessor, transactions, (ignore) -> {}, tx, returnOriginalQuery(query));
     }
 
@@ -64,7 +64,7 @@ class QueryCheckerFactoryImpl implements QueryCheckerFactory {
             QueryProcessor queryProcessor,
             IgniteTransactions transactions,
             Consumer<ResultSetMetadata> metadataValidator,
-            @Nullable Transaction tx,
+            @Nullable InternalTransaction tx,
             QueryTemplate queryTemplate
     ) {
         QueryCheckerImpl queryChecker = new QueryCheckerImpl(tx, queryTemplate) {

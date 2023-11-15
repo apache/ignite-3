@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.app;
 
+import com.typesafe.config.Config;
+import com.typesafe.config.ConfigFactory;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -39,6 +41,7 @@ import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.client.handler.ClientHandlerMetricSource;
 import org.apache.ignite.client.handler.ClientHandlerModule;
 import org.apache.ignite.compute.IgniteCompute;
+import org.apache.ignite.configuration.ConfigurationDynamicDefaultsPatcher;
 import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
@@ -69,13 +72,13 @@ import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.ConfigurationModules;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
-import org.apache.ignite.internal.configuration.DistributedConfigurationUpdater;
 import org.apache.ignite.internal.configuration.JdbcPortProviderImpl;
 import org.apache.ignite.internal.configuration.ServiceLoaderModulesProvider;
-import org.apache.ignite.internal.configuration.presentation.HoconPresentation;
+import org.apache.ignite.internal.configuration.hocon.HoconConverter;
 import org.apache.ignite.internal.configuration.storage.ConfigurationStorage;
 import org.apache.ignite.internal.configuration.storage.DistributedConfigurationStorage;
 import org.apache.ignite.internal.configuration.storage.LocalFileConfigurationStorage;
+import org.apache.ignite.internal.configuration.tree.ConfigurationSource;
 import org.apache.ignite.internal.configuration.validation.ConfigurationValidator;
 import org.apache.ignite.internal.configuration.validation.ConfigurationValidatorImpl;
 import org.apache.ignite.internal.deployunit.DeploymentManagerImpl;
@@ -232,14 +235,8 @@ public class IgniteImpl implements Ignite {
     /** Placement driver manager. */
     private final PlacementDriverManager placementDriverMgr;
 
-    /** Distributed configuration validator. */
-    private final ConfigurationValidator distributedConfigurationValidator;
-
     /** Configuration manager that handles cluster (distributed) configuration. */
     private final ConfigurationManager clusterCfgMgr;
-
-    /** Cluster configuration defaults setter. */
-    private final ConfigurationDynamicDefaultsPatcherImpl clusterConfigurationDefaultsSetter;
 
     /** Cluster initializer. */
     private final ClusterInitializer clusterInitializer;
@@ -300,8 +297,6 @@ public class IgniteImpl implements Ignite {
     private final OutgoingSnapshotsManager outgoingSnapshotsManager;
 
     private final RestAddressReporter restAddressReporter;
-
-    private final DistributedConfigurationUpdater distributedConfigurationUpdater;
 
     private final CatalogManager catalogManager;
 
@@ -407,24 +402,27 @@ public class IgniteImpl implements Ignite {
                 modules.distributed().polymorphicSchemaExtensions()
         );
 
-        distributedConfigurationValidator =
-                ConfigurationValidatorImpl.withDefaultValidators(distributedConfigurationGenerator, modules.distributed().validators());
+        ConfigurationValidator distributedCfgValidator = ConfigurationValidatorImpl.withDefaultValidators(
+                distributedConfigurationGenerator,
+                modules.distributed().validators()
+        );
+
+        ConfigurationDynamicDefaultsPatcher clusterCfgDynamicDefaultsPatcher = new ConfigurationDynamicDefaultsPatcherImpl(
+                modules.distributed(),
+                distributedConfigurationGenerator
+        );
+
+        clusterInitializer = new ClusterInitializer(
+                clusterSvc,
+                clusterCfgDynamicDefaultsPatcher,
+                distributedCfgValidator
+        );
 
         NodeAttributesCollector nodeAttributesCollector =
                 new NodeAttributesCollector(
                         nodeConfigRegistry.getConfiguration(NodeAttributesConfiguration.KEY),
                         nodeConfigRegistry.getConfiguration(StorageProfilesConfiguration.KEY)
                 );
-
-
-        clusterConfigurationDefaultsSetter =
-                new ConfigurationDynamicDefaultsPatcherImpl(modules.distributed(), distributedConfigurationGenerator);
-
-        clusterInitializer = new ClusterInitializer(
-                clusterSvc,
-                clusterConfigurationDefaultsSetter,
-                distributedConfigurationValidator
-        );
 
         cmgMgr = new ClusterManagementGroupManager(
                 vaultMgr,
@@ -463,15 +461,10 @@ public class IgniteImpl implements Ignite {
                 modules.distributed().rootKeys(),
                 cfgStorage,
                 distributedConfigurationGenerator,
-                distributedConfigurationValidator
+                distributedCfgValidator
         );
 
         ConfigurationRegistry clusterConfigRegistry = clusterCfgMgr.configurationRegistry();
-
-        distributedConfigurationUpdater = new DistributedConfigurationUpdater(
-                cmgMgr,
-                new HoconPresentation(clusterCfgMgr.configurationRegistry())
-        );
 
         metaStorageMgr.configure(clusterConfigRegistry.getConfiguration(MetaStorageConfiguration.KEY));
 
@@ -676,7 +669,7 @@ public class IgniteImpl implements Ignite {
     }
 
     private static LongSupplier partitionIdleSafeTimePropagationPeriodMsSupplier() {
-        // TODO: Replace with an immutable dynamic property set on cluster init after IGNITE-20499 is fixed.
+        // TODO: Replace with an immutable dynamic property set on cluster init after IGNITE-20854 is fixed.
         return ReplicaManager::idleSafeTimePropagationPeriodMs;
     }
 
@@ -785,7 +778,7 @@ public class IgniteImpl implements Ignite {
                     cmgMgr
             );
 
-            clusterSvc.updateMetadata(new NodeMetadata(restComponent.host(), restComponent.httpPort(), restComponent.httpsPort()));
+            clusterSvc.updateMetadata(new NodeMetadata(restComponent.hostName(), restComponent.httpPort(), restComponent.httpsPort()));
 
             restAddressReporter.writeReport(restHttpAddress(), restHttpsAddress());
 
@@ -802,6 +795,14 @@ public class IgniteImpl implements Ignite {
                         }
 
                         return metaStorageMgr.recoveryFinishedFuture();
+                    }, startupExecutor)
+                    .thenComposeAsync(revision -> {
+                        // If the revision is greater than 0, then the configuration has already been initialized.
+                        if (revision > 0) {
+                            return CompletableFuture.completedFuture(null);
+                        } else {
+                            return initializeClusterConfiguration(startupExecutor);
+                        }
                     }, startupExecutor)
                     .thenRunAsync(() -> {
                         LOG.info("MetaStorage started, starting the remaining components");
@@ -843,13 +844,6 @@ public class IgniteImpl implements Ignite {
                         return recoverComponentsStateOnStart(startupExecutor);
                     }, startupExecutor)
                     .thenComposeAsync(v -> clusterCfgMgr.configurationRegistry().onDefaultsPersisted(), startupExecutor)
-                    .thenRunAsync(() -> {
-                        try {
-                            lifecycleManager.startComponent(distributedConfigurationUpdater);
-                        } catch (NodeStoppingException e) {
-                            throw new CompletionException(e);
-                        }
-                    }, startupExecutor)
                     // Signal that local recovery is complete and the node is ready to join the cluster.
                     .thenComposeAsync(v -> {
                         LOG.info("Recovery complete, finishing join");
@@ -994,7 +988,7 @@ public class IgniteImpl implements Ignite {
     // TODO: should be encapsulated in local properties, see https://issues.apache.org/jira/browse/IGNITE-15131
     @Nullable
     public NetworkAddress restHttpAddress() {
-        String host = restComponent.host();
+        String host = restComponent.hostName();
         int port = restComponent.httpPort();
         if (port != -1) {
             return new NetworkAddress(host, port);
@@ -1011,7 +1005,7 @@ public class IgniteImpl implements Ignite {
      */
     // TODO: should be encapsulated in local properties, see https://issues.apache.org/jira/browse/IGNITE-15131
     public NetworkAddress restHttpsAddress() {
-        String host = restComponent.host();
+        String host = restComponent.hostName();
         int port = restComponent.httpsPort();
         if (port != -1) {
             return new NetworkAddress(host, port);
@@ -1049,8 +1043,23 @@ public class IgniteImpl implements Ignite {
     }
 
     /**
-     * Recovers components state on start by invoking configuration listeners ({@link #notifyConfigurationListeners()}
-     * and deploying watches after that.
+     * Initializes the cluster configuration with the specified user-provided configuration upon cluster initialization.
+     */
+    private CompletableFuture<Void> initializeClusterConfiguration(ExecutorService startupExecutor) {
+        return cmgMgr.initialClusterConfigurationFuture().thenAcceptAsync(cfg -> {
+            if (cfg == null) {
+                return;
+            }
+
+            Config config = ConfigFactory.parseString(cfg);
+            ConfigurationSource hoconSource = HoconConverter.hoconSource(config.root());
+            clusterCfgMgr.configurationRegistry().initializeConfigurationWith(hoconSource);
+        }, startupExecutor);
+    }
+
+    /**
+     * Recovers components state on start by invoking configuration listeners ({@link #notifyConfigurationListeners()} and deploying watches
+     * after that.
      */
     private CompletableFuture<?> recoverComponentsStateOnStart(ExecutorService startupExecutor) {
         CompletableFuture<Void> startupConfigurationUpdate = notifyConfigurationListeners();

@@ -18,8 +18,8 @@
 package org.apache.ignite.internal.raft.util;
 
 import java.nio.ByteBuffer;
+import org.apache.ignite.internal.raft.Marshaller;
 import org.apache.ignite.network.serialization.MessageSerializationRegistry;
-import org.apache.ignite.raft.jraft.util.Marshaller;
 
 /**
  * Thread-safe variant of {@link OptimizedMarshaller}.

@@ -22,7 +22,6 @@ import static org.apache.ignite.internal.tracing.TracingManager.spanWithResult;
 import static org.apache.ignite.internal.tx.TxState.isFinalState;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_FAILED_READ_WRITE_OPERATION_ERR;
 
-import java.util.Collections;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.UUID;
@@ -33,12 +32,9 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.tracing.TraceSpan;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
-import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TransactionIds;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.network.ClusterNode;
@@ -48,9 +44,6 @@ import org.apache.ignite.tx.TransactionException;
  * The read-write implementation of an internal transaction.
  */
 public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
-    /** The logger. */
-    private static final IgniteLogger LOG = Loggers.forClass(InternalTransaction.class);
-
     /** Commit partition updater. */
     private static final AtomicReferenceFieldUpdater<ReadWriteTransactionImpl, TablePartitionId> COMMIT_PART_UPDATER =
             AtomicReferenceFieldUpdater.newUpdater(ReadWriteTransactionImpl.class, TablePartitionId.class, "commitPart");
@@ -106,9 +99,9 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
     public IgniteBiTuple<ClusterNode, Long> enlist(TablePartitionId tablePartitionId, IgniteBiTuple<ClusterNode, Long> nodeAndTerm) {
         checkEnlistReady();
 
-        try {
-            enlistPartitionLock.readLock().lock();
+        enlistPartitionLock.readLock().lock();
 
+        try {
             checkEnlistReady();
 
             return enlisted.computeIfAbsent(tablePartitionId, k -> nodeAndTerm);
@@ -135,9 +128,9 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
             return finishFuture;
         }
 
-        try {
-            enlistPartitionLock.writeLock().lock();
+        enlistPartitionLock.writeLock().lock();
 
+        try {
             if (!isFinalState(state())) {
                 finishFuture = finishInternal(commit);
             }
@@ -155,44 +148,13 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
      * @return The future of transaction completion.
      */
     private CompletableFuture<Void> finishInternal(boolean commit) {
-        if (!enlisted.isEmpty()) {
-            Map<TablePartitionId, Long> enlistedGroups = enlisted.entrySet().stream()
-                    .collect(Collectors.toMap(
-                            Entry::getKey,
-                            entry -> entry.getValue().get2()
-                    ));
+        Map<TablePartitionId, Long> enlistedGroups = enlisted.entrySet().stream()
+                .collect(Collectors.toMap(
+                        Entry::getKey,
+                        entry -> entry.getValue().get2()
+                ));
 
-            IgniteBiTuple<ClusterNode, Long> nodeAndTerm = enlisted.get(commitPart);
-
-            ClusterNode recipientNode = nodeAndTerm.get1();
-            Long term = nodeAndTerm.get2();
-
-            LOG.debug("Finish [recipientNode={}, term={} commit={}, txId={}, groups={}].",
-                    recipientNode, term, commit, id(), enlistedGroups);
-
-            assert recipientNode != null;
-            assert term != null;
-
-            return txManager.finish(
-                    observableTsTracker,
-                    commitPart,
-                    recipientNode,
-                    term,
-                    commit,
-                    enlistedGroups,
-                    id()
-            );
-        } else {
-            return txManager.finish(
-                    observableTsTracker,
-                    null,
-                    null,
-                    null,
-                    commit,
-                    Collections.emptyMap(),
-                    id()
-            );
-        }
+        return txManager.finish(observableTsTracker, commitPart, commit, enlistedGroups, id());
     }
 
     /** {@inheritDoc} */

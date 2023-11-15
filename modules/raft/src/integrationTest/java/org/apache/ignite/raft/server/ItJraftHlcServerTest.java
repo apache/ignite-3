@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.raft.server.RaftGroupOptions.defaults;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.raft.jraft.test.TestUtils.getLocalAddress;
 import static org.apache.ignite.raft.jraft.test.TestUtils.waitForTopology;
+import static org.apache.ignite.utils.ClusterServiceTestUtils.defaultSerializationRegistry;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -39,6 +40,7 @@ import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
+import org.apache.ignite.internal.raft.util.ThreadLocalOptimizedMarshaller;
 import org.apache.ignite.internal.replicator.TestReplicationGroupId;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
@@ -157,6 +159,8 @@ class ItJraftHlcServerTest extends RaftServerAbstractTest {
      */
     @Test
     public void testHlcOneInstancePerIgniteNode() {
+        ThreadLocalOptimizedMarshaller commandsMarshaller = new ThreadLocalOptimizedMarshaller(defaultSerializationRegistry());
+
         startServer(0, raftServer -> {
             String localNodeName = raftServer.clusterService().topologyService().localMember().name();
 
@@ -164,7 +168,7 @@ class ItJraftHlcServerTest extends RaftServerAbstractTest {
 
             var nodeId = new RaftNodeId(new TestReplicationGroupId("test_raft_group"), localNode);
 
-            raftServer.startRaftNode(nodeId, initialConf, listenerFactory.get(), defaults());
+            raftServer.startRaftNode(nodeId, initialConf, listenerFactory.get(), defaults().commandsMarshaller(commandsMarshaller));
         }, opts -> {});
 
         servers.forEach(srv -> {
@@ -175,7 +179,7 @@ class ItJraftHlcServerTest extends RaftServerAbstractTest {
             for (int i = 0; i < 5; i++) {
                 var nodeId = new RaftNodeId(new TestReplicationGroupId("test_raft_group_" + i), localNode);
 
-                srv.startRaftNode(nodeId, initialConf, listenerFactory.get(), defaults());
+                srv.startRaftNode(nodeId, initialConf, listenerFactory.get(), defaults().commandsMarshaller(commandsMarshaller));
             }
         });
 

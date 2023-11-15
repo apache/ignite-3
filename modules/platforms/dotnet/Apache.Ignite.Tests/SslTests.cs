@@ -24,6 +24,7 @@ using System.Linq;
 using System.Net.Security;
 using System.Security.Authentication;
 using System.Security.Cryptography.X509Certificates;
+using System.Threading;
 using System.Threading.Tasks;
 using Log;
 using NUnit.Framework;
@@ -207,12 +208,13 @@ public class SslTests : IgniteTestsBase
 
     private class NullSslStreamFactory : ISslStreamFactory
     {
-        public Task<SslStream?> CreateAsync(Stream stream, string targetHost) => Task.FromResult<SslStream?>(null);
+        public Task<SslStream?> CreateAsync(Stream stream, string targetHost, CancellationToken cancellationToken) =>
+            Task.FromResult<SslStream?>(null);
     }
 
     private class CustomSslStreamFactory : ISslStreamFactory
     {
-        public async Task<SslStream?> CreateAsync(Stream stream, string targetHost)
+        public async Task<SslStream?> CreateAsync(Stream stream, string targetHost, CancellationToken cancellationToken)
         {
             var sslStream = new SslStream(
                 innerStream: stream,

@@ -43,6 +43,7 @@ import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
+import org.apache.ignite.internal.raft.util.ThreadLocalOptimizedMarshaller;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -212,8 +213,10 @@ public abstract class JraftAbstractTest extends RaftServerAbstractTest {
 
         ClusterService clientNode = clusterService(CLIENT_PORT + clients.size(), List.of(addr), true);
 
+        var commandsMarshaller = new ThreadLocalOptimizedMarshaller(clientNode.serializationRegistry());
+
         RaftGroupService client = RaftGroupServiceImpl
-                .start(groupId, clientNode, FACTORY, raftConfiguration, configuration, false, executor)
+                .start(groupId, clientNode, FACTORY, raftConfiguration, configuration, false, executor, commandsMarshaller)
                 .get(3, TimeUnit.SECONDS);
 
         clients.add(client);

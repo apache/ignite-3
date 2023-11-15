@@ -459,13 +459,16 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
             packer.packInt(INTERNAL_ERR);
         }
 
+        // No need to send internal errors to client.
+        Throwable pubErr = ExceptionUtils.unwrapToPublicException(err);
+
         // Class name and message.
-        packer.packString(err.getClass().getName());
-        packer.packString(err.getMessage());
+        packer.packString(pubErr.getClass().getName());
+        packer.packString(pubErr.getMessage());
 
         // Stack trace.
         if (configuration.sendServerExceptionStackTraceToClient()) {
-            packer.packString(ExceptionUtils.getFullStackTrace(err));
+            packer.packString(ExceptionUtils.getFullStackTrace(pubErr));
         } else {
             packer.packNil();
         }
