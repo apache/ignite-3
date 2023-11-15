@@ -40,9 +40,19 @@ public class FakePlacementDriver extends AbstractEventProducer<PrimaryReplicaEve
 
     private final List<String> primaryReplicas;
 
+    private boolean returnError;
+
     public FakePlacementDriver(int partitions) {
         this.partitions = partitions;
         primaryReplicas = new ArrayList<>(Collections.nCopies(partitions, "s"));
+    }
+
+    public boolean returnError() {
+        return returnError;
+    }
+
+    public void returnError(boolean returnError) {
+        this.returnError = returnError;
     }
 
     /**
@@ -75,7 +85,9 @@ public class FakePlacementDriver extends AbstractEventProducer<PrimaryReplicaEve
             TimeUnit unit) {
         var id = (TablePartitionId) groupId;
 
-        return CompletableFuture.completedFuture(getReplicaMeta(primaryReplicas.get(id.partitionId())));
+        return returnError
+                ? CompletableFuture.failedFuture(new RuntimeException("FakePlacementDriver expected error"))
+                : CompletableFuture.completedFuture(getReplicaMeta(primaryReplicas.get(id.partitionId())));
     }
 
     @Override

@@ -19,6 +19,7 @@ package org.apache.ignite.client.handler;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -64,7 +65,6 @@ class ClientPrimaryReplicaTrackerTest {
                 new HybridClockImpl());
     }
 
-    // TODO: table drop, missing table
     @Test
     public void testInitialAssignmentIsRetrievedFromPlacementDriver() {
         tracker.start();
@@ -106,5 +106,25 @@ class ClientPrimaryReplicaTrackerTest {
         assertEquals(PARTITIONS, replicas.size());
         assertNull(replicas.get(0).nodeName());
         assertNull(replicas.get(1).nodeName());
+    }
+
+    @Test
+    public void testFailedInitialFutureIsRetried() {
+        driver.returnError(true);
+        tracker.start();
+
+        CompletableFuture<List<ReplicaHolder>> fut = tracker.primaryReplicasAsync(TABLE_ID);
+        assertTrue(fut.isCompletedExceptionally());
+
+        driver.returnError(false);
+        List<ReplicaHolder> replicas = tracker.primaryReplicasAsync(TABLE_ID).join();
+        assertEquals(PARTITIONS, replicas.size());
+        assertEquals("s1", replicas.get(0).nodeName());
+        assertEquals("s2", replicas.get(1).nodeName());
+    }
+
+    @Test
+    public void testOldEventsAreIgnoredByLeaseStartTime() {
+
     }
 }
