@@ -72,7 +72,7 @@ public class ReconnectTests
     {
         var cfg = new IgniteClientConfiguration
         {
-            Logger = new ConsoleLogger { MinLevel = LogLevel.Trace }
+            Logger = new ConsoleLogger { MinLevel = LogLevel.Debug }
         };
 
         using var server = new FakeServer();
