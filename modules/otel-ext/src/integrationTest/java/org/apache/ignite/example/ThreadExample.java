@@ -9,6 +9,7 @@ import static org.apache.ignite.internal.tracing.TracingManager.wrap;
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.tracing.TraceSpan;
+import org.apache.ignite.internal.tracing.TracingManager;
 
 /**
  * Tests for propagating context between threads.
@@ -48,7 +49,7 @@ public class ThreadExample {
             }
         }
 
-        asyncSpan("ClientTupleGetRequest.process", parent, (span) -> completedFuture(10)).join();
+        TracingManager.spanWithResult("ClientTupleGetRequest.process", parent, (span) -> completedFuture(10)).join();
 
         try (var rootSpan = asyncSpan("main", parent)) {
             System.out.println(rootSpan);

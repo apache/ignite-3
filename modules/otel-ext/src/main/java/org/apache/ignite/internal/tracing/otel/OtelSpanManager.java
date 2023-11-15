@@ -29,6 +29,7 @@ import io.opentelemetry.sdk.autoconfigure.AutoConfiguredOpenTelemetrySdk;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.Callable;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Consumer;
@@ -140,6 +141,15 @@ public class OtelSpanManager implements SpanManager {
     @Override
     public <T> Callable<T> wrap(Callable<T> callable) {
         return Context.current().wrap(callable);
+    }
+
+    @Override
+    public <R> CompletableFuture<R> wrap(CompletableFuture<R> fut) {
+        if (!Span.current().getSpanContext().isValid()) {
+            return fut;
+        }
+
+        return new TracingFuture<>(fut);
     }
 
     private static class MapGetter implements TextMapGetter<Map<String, String>> {

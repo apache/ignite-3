@@ -21,6 +21,7 @@ import java.util.Map;
 import java.util.ServiceLoader;
 import java.util.ServiceLoader.Provider;
 import java.util.concurrent.Callable;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Consumer;
@@ -67,18 +68,6 @@ public class TracingManager {
      */
     public static TraceSpan asyncSpan(String spanName, TraceSpan parent) {
         return SPAN_MANAGER.createSpan(spanName, parent, false, false);
-    }
-
-    /**
-     * Call closure in span with given name.
-     *
-     * @param spanName Name of span to create.
-     * @param parent Parent context.
-     * @param closure Closure.
-     * @return Created span.
-     */
-    public static <R> R asyncSpan(String spanName, TraceSpan parent, Function<TraceSpan, R> closure) {
-        return SPAN_MANAGER.createSpan(spanName, parent, true, closure);
     }
 
     /**
@@ -133,6 +122,18 @@ public class TracingManager {
         return SPAN_MANAGER.createSpan(spanName, null, false, closure);
     }
 
+    /**
+     * Call closure in span with given name.
+     *
+     * @param spanName Name of span to create.
+     * @param parent Parent context.
+     * @param closure Closure.
+     * @return Created span.
+     */
+    public static <R> R spanWithResult(String spanName, TraceSpan parent, Function<TraceSpan, R> closure) {
+        return SPAN_MANAGER.createSpan(spanName, parent, true, closure);
+    }
+
     public static Executor taskWrapping(Executor executor) {
         return SPAN_MANAGER.taskWrapping(executor);
     }
@@ -153,6 +154,10 @@ public class TracingManager {
      */
     public static Runnable wrap(Runnable runnable) {
         return SPAN_MANAGER.wrap(runnable);
+    }
+
+    public static <R> CompletableFuture<R> wrap(CompletableFuture<R> fut) {
+        return SPAN_MANAGER.wrap(fut);
     }
 
     public static @Nullable Map<String, String> serializeSpan() {

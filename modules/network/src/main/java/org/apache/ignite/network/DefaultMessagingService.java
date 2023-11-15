@@ -21,6 +21,7 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.network.serialization.PerSessionSerializationService.createClassDescriptorsMessages;
 import static org.apache.ignite.internal.thread.NamedThreadFactory.create;
 import static org.apache.ignite.internal.tracing.TracingManager.span;
+import static org.apache.ignite.internal.tracing.TracingManager.spanWithResult;
 import static org.apache.ignite.internal.tracing.TracingManager.taskWrapping;
 import static org.apache.ignite.network.NettyBootstrapFactory.isInNetworkThread;
 
@@ -300,24 +301,32 @@ public class DefaultMessagingService extends AbstractMessagingService {
             return failedFuture(new IgniteException("Failed to marshal message: " + e.getMessage(), e));
         }
 
-        OrderingFuture<NettySender> channel = connectionManager.channel(consistentId, type, addr);
-
-        return channel.handle((sender, throwable) -> {
-            if (throwable != null) {
-                if (throwable instanceof CompletionException && throwable.getCause() instanceof ChannelAlreadyExistsException) {
-                    ChannelAlreadyExistsException e = (ChannelAlreadyExistsException) throwable.getCause();
-
-                    OrderingFuture<NettySender> channelFut = connectionManager.channel(e.consistentId(), type, addr);
-
-                    return channelFut.thenComposeToCompletable(nettySender -> {
-                        return nettySender.send(new OutNetworkObject(message, descriptors));
-                    });
-                }
-
-                throw new CompletionException(throwable);
+        return spanWithResult("DefaultMessagingService.sendMessage", (span) -> {
+            if (consistentId != null) {
+                span.addAttribute("consistentId", consistentId::toString);
             }
-            return sender.send(new OutNetworkObject(message, descriptors));
-        }).thenComposeToCompletable(Function.identity());
+
+            span.addAttribute("message", message::toString);
+
+            OrderingFuture<NettySender> channel = connectionManager.channel(consistentId, type, addr);
+
+            return channel.handle((sender, throwable) -> {
+                if (throwable != null) {
+                    if (throwable instanceof CompletionException && throwable.getCause() instanceof ChannelAlreadyExistsException) {
+                        ChannelAlreadyExistsException e = (ChannelAlreadyExistsException) throwable.getCause();
+
+                        OrderingFuture<NettySender> channelFut = connectionManager.channel(e.consistentId(), type, addr);
+
+                        return channelFut.thenComposeToCompletable(nettySender -> {
+                            return nettySender.send(new OutNetworkObject(message, descriptors));
+                        });
+                    }
+
+                    throw new CompletionException(throwable);
+                }
+                return sender.send(new OutNetworkObject(message, descriptors));
+            }).thenComposeToCompletable(Function.identity());
+        });
     }
 
     private List<ClassDescriptorMessage> beforeRead(NetworkMessage msg) throws Exception {
@@ -415,9 +424,13 @@ public class DefaultMessagingService extends AbstractMessagingService {
      * @param correlationId Request's correlation id.
      */
     private void onInvokeResponse(NetworkMessage response, Long correlationId) {
-        CompletableFuture<NetworkMessage> responseFuture = requestsMap.remove(correlationId);
-        if (responseFuture != null) {
-            responseFuture.complete(response);
+        try (var span = span("DefaultMessagingService.onInvokeResponse")) {
+            span.addAttribute("res", response::toString);
+
+            CompletableFuture<NetworkMessage> responseFuture = requestsMap.remove(correlationId);
+            if (responseFuture != null) {
+                responseFuture.complete(response);
+            }
         }
     }
 

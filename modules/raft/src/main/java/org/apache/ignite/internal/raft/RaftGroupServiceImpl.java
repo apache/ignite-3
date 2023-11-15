@@ -521,17 +521,17 @@ public class RaftGroupServiceImpl implements RaftGroupService {
             Peer peer, Function<Peer, ? extends NetworkMessage> requestFactory, long stopTime, CompletableFuture<R> fut
     ) {
         try (TraceSpan span = asyncSpan("RaftGroupServiceImpl.sendWithRetry")) {
-            var fut0 = span.endWhenComplete(fut);
+            span.endWhenComplete(fut);
 
             if (!busyLock.enterBusy()) {
-                fut0.cancel(true);
+                fut.cancel(true);
 
                 return;
             }
 
             try {
                 if (currentTimeMillis() >= stopTime) {
-                    fut0.completeExceptionally(new TimeoutException());
+                    fut.completeExceptionally(new TimeoutException());
 
                     return;
                 }
@@ -552,15 +552,15 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                             }
 
                             if (err != null) {
-                                handleThrowable(err, peer, request, requestFactory, stopTime, fut0);
+                                handleThrowable(err, peer, request, requestFactory, stopTime, fut);
                             } else if (resp instanceof ErrorResponse) {
-                                handleErrorResponse((ErrorResponse) resp, peer, request, requestFactory, stopTime, fut0);
+                                handleErrorResponse((ErrorResponse) resp, peer, request, requestFactory, stopTime, fut);
                             } else if (resp instanceof SMErrorResponse) {
-                                handleSmErrorResponse((SMErrorResponse) resp, fut0);
+                                handleSmErrorResponse((SMErrorResponse) resp, fut);
                             } else {
                                 leader = peer; // The OK response was received from a leader.
 
-                                fut0.complete((R) resp);
+                                fut.complete((R) resp);
                             }
                         });
             } finally {

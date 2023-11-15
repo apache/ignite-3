@@ -26,6 +26,7 @@ import static org.apache.ignite.internal.replicator.ReplicaManager.DEFAULT_IDLE_
 import static org.apache.ignite.internal.tracing.TracingManager.asyncSpan;
 import static org.apache.ignite.internal.tracing.TracingManager.span;
 import static org.apache.ignite.internal.tracing.TracingManager.spanWithResult;
+import static org.apache.ignite.internal.tracing.TracingManager.wrap;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
 import static org.apache.ignite.internal.tx.TxState.COMMITED;
 import static org.apache.ignite.internal.tx.TxState.PENDING;
@@ -429,7 +430,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                 }
 
                 // Wait for commit acks first, then proceed with the finish request.
-                tuple.waitRepFut.thenCompose(clo).handle((ignored, err) -> {
+                wrap(tuple.waitRepFut).thenCompose(clo).handle((ignored, err) -> {
                     if (err == null) {
                         tuple.finishFut.complete(null);
                     } else {
@@ -596,7 +597,11 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         Object result = request.result();
 
         if (result instanceof UUID) {
-            removeInflight((UUID) result);
+            try (var span = span("TxManagerImpl.removeInflight")) {
+                span.addAttribute("req", request::toString);
+
+                removeInflight((UUID) result);
+            }
         }
     }
 

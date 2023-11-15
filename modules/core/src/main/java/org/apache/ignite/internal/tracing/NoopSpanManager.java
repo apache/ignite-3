@@ -19,6 +19,7 @@ package org.apache.ignite.internal.tracing;
 
 import java.util.Map;
 import java.util.concurrent.Callable;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Consumer;
@@ -65,6 +66,11 @@ public class NoopSpanManager implements SpanManager {
     @Override
     public Runnable wrap(Runnable runnable) {
         return runnable;
+    }
+
+    @Override
+    public <R> CompletableFuture<R> wrap(CompletableFuture<R> fut) {
+        return fut;
     }
 
     @Override

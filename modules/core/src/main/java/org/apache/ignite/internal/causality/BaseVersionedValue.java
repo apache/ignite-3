@@ -19,6 +19,7 @@ package org.apache.ignite.internal.causality;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.tracing.TracingManager.wrap;
 import static org.apache.ignite.internal.util.IgniteUtils.copyStateTo;
 
 import java.util.ArrayList;
@@ -35,7 +36,6 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Supplier;
-import org.apache.ignite.internal.future.TracingFuture;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.util.Lazy;
@@ -92,7 +92,7 @@ class BaseVersionedValue<T> implements VersionedValue<T> {
 
         try {
             if (causalityToken > actualToken) {
-                return history.computeIfAbsent(causalityToken, t -> TracingFuture.create());
+                return history.computeIfAbsent(causalityToken, t -> new CompletableFuture<>());
             }
 
             Entry<Long, CompletableFuture<T>> histEntry = history.floorEntry(causalityToken);
@@ -101,7 +101,7 @@ class BaseVersionedValue<T> implements VersionedValue<T> {
                 throw new OutdatedTokenException(causalityToken, actualToken, maxHistorySize);
             }
 
-            return TracingFuture.wrap(histEntry.getValue());
+            return wrap(histEntry.getValue());
         } finally {
             readWriteLock.readLock().unlock();
         }

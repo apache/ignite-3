@@ -28,6 +28,7 @@ import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.TuplePart;
 import org.apache.ignite.internal.tracing.NoopSpan;
+import org.apache.ignite.internal.tracing.TracingManager;
 import org.apache.ignite.table.manager.IgniteTables;
 
 /**
@@ -53,7 +54,7 @@ public class ClientTupleGetRequest {
             var tx = readTx(in, out, resources);
             var parent = tx == null ? NoopSpan.INSTANCE : tx.traceSpan();
 
-            return asyncSpan("ClientTupleGetRequest.process", parent, (span) -> {
+            return TracingManager.spanWithResult("ClientTupleGetRequest.process", parent, (span) -> {
                 return readTuple(in, table, true).thenCompose(keyTuple -> {
                     return table.recordView().getAsync(tx, keyTuple)
                             .thenAccept(t -> ClientTableCommon.writeTupleOrNil(out, t, TuplePart.KEY_AND_VAL, table.schemaView()));

@@ -137,8 +137,7 @@ public class Replica {
                 request.groupId(),
                 replicaGrpId);
 
-        return spanWithResult("Replica.processRequest", (span) -> listener.invoke(request, senderId)
-        );
+        return spanWithResult("Replica.processRequest", (span) -> listener.invoke(request, senderId));
     }
 
     /**

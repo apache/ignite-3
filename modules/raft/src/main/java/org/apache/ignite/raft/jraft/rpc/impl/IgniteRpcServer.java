@@ -26,7 +26,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.server.impl.RaftServiceEventInterceptor;
 import org.apache.ignite.internal.tostring.S;
-import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.internal.tracing.TracingManager;import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NetworkMessage;
@@ -232,12 +232,15 @@ public class IgniteRpcServer implements RpcServer<Void> {
 
         @Override
         public void sendResponse(Object responseObj) {
-            service.messagingService().respond(sender, (NetworkMessage) responseObj, correlationId);
+            TracingManager.spanWithResult(
+                    "IgniteRpcServer.sendResponse",
+                    (ignored) -> service.messagingService().respond(sender, (NetworkMessage) responseObj, correlationId)
+            );
         }
 
         @Override
         public void sendResponseAsync(Object responseObj) {
-            executor.execute(() -> service.messagingService().send(sender, (NetworkMessage) responseObj));
+            executor.execute(() -> sendResponse(responseObj));
         }
 
         @Override

@@ -20,8 +20,8 @@ package org.apache.ignite.internal.replicator;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.Kludges.IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS_PROPERTY;
-import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.internal.tracing.TracingManager.spanWithResult;
+import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 
 import java.io.IOException;
@@ -228,6 +228,8 @@ public class ReplicaManager implements IgniteComponent {
                 throw new IgniteException(new NodeStoppingException());
             }
 
+            span.addAttribute("req", request::toString);
+
             try {
                 // Notify the sender that the Replica is created and ready to process requests.
                 if (request instanceof AwaitReplicaRequest) {
@@ -290,56 +292,58 @@ public class ReplicaManager implements IgniteComponent {
                 CompletableFuture<ReplicaResult> resFut = replica.processRequest(request, senderId);
 
                 return resFut.handle((res, ex) -> {
-                    NetworkMessage msg;
+                    return spanWithResult("ReplicaManager.sendReplicaResponse", span, (ignored) -> {
+                        NetworkMessage msg;
 
-                    if (ex == null) {
-                        msg = prepareReplicaResponse(sendTimestamp, res.result());
-                    } else {
-                        if (indicatesUnexpectedProblem(ex)) {
-                        LOG.warn("Failed to process replica request [request={}]", ex, request);
-                    } else {
-                        LOG.debug("Failed to process replica request [request={}]", ex, request);
-                    }
-
-                        msg = prepareReplicaErrorResponse(sendTimestamp, ex);
-                    }
-
-                    clusterNetSvc.messagingService().respond(senderConsistentId, msg, correlationId);
-
-                    if (request instanceof PrimaryReplicaRequest) {
-                        ClusterNode localNode = clusterNetSvc.topologyService().localMember();
-
-                        if (!localNode.name().equals(replica.proposedPrimary())) {
-                            stopLeaseProlongation(request.groupId(), replica.proposedPrimary());
-                        } else if (isConnectivityRelatedException(ex)) {
-                            stopLeaseProlongation(request.groupId(), null);
-                        }
-                    }
-
-                    if (ex == null && res.replicationFuture() != null) {
-                        assert request instanceof PrimaryReplicaRequest;
-
-                        res.replicationFuture().handle((res0, ex0) -> {
-                            NetworkMessage msg0;
-
-                            LOG.debug("Sending delayed response for replica request [request={}]", request);
-
-                            if (ex == null) {
-                                msg0 = prepareReplicaResponse(sendTimestamp, res0);
+                        if (ex == null) {
+                            msg = prepareReplicaResponse(sendTimestamp, res.result());
+                        } else {
+                            if (indicatesUnexpectedProblem(ex)) {
+                                LOG.warn("Failed to process replica request [request={}]", ex, request);
                             } else {
-                                LOG.warn("Failed to process delayed response [request={}]", ex, request);
-
-                                msg0 = prepareReplicaErrorResponse(sendTimestamp, ex);
+                                LOG.debug("Failed to process replica request [request={}]", ex, request);
                             }
 
-                            // Using strong send here is important to avoid a reordering with a normal response.
-                            clusterNetSvc.messagingService().send(senderConsistentId, ChannelType.DEFAULT, msg0);
+                            msg = prepareReplicaErrorResponse(sendTimestamp, ex);
+                        }
 
-                            return null;
-                        });
-                    }
+                        clusterNetSvc.messagingService().respond(senderConsistentId, msg, correlationId);
 
-                    return null;
+                        if (request instanceof PrimaryReplicaRequest) {
+                            ClusterNode localNode = clusterNetSvc.topologyService().localMember();
+
+                            if (!localNode.name().equals(replica.proposedPrimary())) {
+                                stopLeaseProlongation(request.groupId(), replica.proposedPrimary());
+                            } else if (isConnectivityRelatedException(ex)) {
+                                stopLeaseProlongation(request.groupId(), null);
+                            }
+                        }
+
+                        if (ex == null && res.replicationFuture() != null) {
+                            assert request instanceof PrimaryReplicaRequest;
+
+                            res.replicationFuture().handle((res0, ex0) -> {
+                                NetworkMessage msg0;
+
+                                LOG.debug("Sending delayed response for replica request [request={}]", request);
+
+                                if (ex == null) {
+                                    msg0 = prepareReplicaResponse(sendTimestamp, res0);
+                                } else {
+                                    LOG.warn("Failed to process delayed response [request={}]", ex, request);
+
+                                    msg0 = prepareReplicaErrorResponse(sendTimestamp, ex);
+                                }
+
+                                // Using strong send here is important to avoid a reordering with a normal response.
+                                clusterNetSvc.messagingService().send(senderConsistentId, ChannelType.DEFAULT, msg0);
+
+                                return null;
+                            });
+                        }
+
+                        return null;
+                    });
                 });
             } finally {
                 busyLock.leaveBusy();
