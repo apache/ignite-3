@@ -17,6 +17,12 @@
 
 package org.apache.ignite.client.handler;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.Mockito.mock;
+
+import org.apache.ignite.internal.event.EventProducer;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.junit.jupiter.api.Test;
 
 class ClientPrimaryReplicaTrackerTest {
@@ -24,5 +30,14 @@ class ClientPrimaryReplicaTrackerTest {
     @Test
     public void testInitialAssignmentIsRetrievedFromPlacementDriver() {
         var driver = new FakePlacementDriver(1);
+        var tracker = new ClientPrimaryReplicaTracker(
+                driver,
+                mock(IgniteTablesInternal.class),
+                mock(EventProducer.class),
+                new HybridClockImpl());
+
+        tracker.start();
+
+        assertEquals(0, tracker.updateCount());
     }
 }
