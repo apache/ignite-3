@@ -1044,7 +1044,7 @@ public class IgniteImpl implements Ignite {
     private CompletableFuture<Void> initializeClusterConfiguration(ExecutorService startupExecutor) {
         return cfgStorage.localRevision()
                 .thenComposeAsync(appliedRevision -> {
-                    if (appliedRevision == 0) {
+                    if (appliedRevision != 0) {
                         return completedFuture(null);
                     } else {
                         return cmgMgr.initialClusterConfigurationFuture()
