@@ -496,7 +496,7 @@ namespace Apache.Ignite.Internal
                 {
                     // Disconnected.
                     throw new IgniteClientConnectionException(
-                        ErrorGroups.Client.Protocol,
+                        ErrorGroups.Client.Connection,
                         "Connection lost (failed to read data from socket)",
                         new SocketException((int) SocketError.ConnectionAborted));
                 }
@@ -673,7 +673,7 @@ namespace Apache.Ignite.Internal
                 var message = "Exception while writing to socket, connection closed: " + e.Message;
 
                 _logger?.Error(e, message);
-                var connEx = new IgniteClientConnectionException(ErrorGroups.Client.Connection, message, e);
+                var connEx = new IgniteClientConnectionException(ErrorGroups.Client.Connection, message, new SocketException());
 
                 Dispose(connEx);
                 throw connEx;
