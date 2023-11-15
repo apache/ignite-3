@@ -125,6 +125,19 @@ class ClientPrimaryReplicaTrackerTest {
 
     @Test
     public void testOldEventsAreIgnoredByLeaseStartTime() {
+        tracker.start();
+        tracker.primaryReplicasAsync(TABLE_ID).join(); // Start tracking the table.
 
+        driver.updateReplica("update-1", TABLE_ID, 0, 10);
+        driver.updateReplica("old-update-2", TABLE_ID, 0, 5);
+        driver.updateReplica("update-3", TABLE_ID, 0, 15);
+        driver.updateReplica("old-update-4", TABLE_ID, 0, 14);
+
+        assertEquals(4, tracker.updateCount());
+
+        List<ReplicaHolder> replicas = tracker.primaryReplicasAsync(TABLE_ID).join();
+        assertEquals(PARTITIONS, replicas.size());
+        assertEquals("update-3", replicas.get(0).nodeName());
+        assertEquals("s2", replicas.get(1).nodeName());
     }
 }
