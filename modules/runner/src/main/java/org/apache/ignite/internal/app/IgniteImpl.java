@@ -1038,8 +1038,8 @@ public class IgniteImpl implements Ignite {
     }
 
     /**
-     * Checks if the local revision is 0 and initializes the cluster configuration with the specified user-provided configuration upon
-     * cluster initialization. If the local revision is not 0, does nothing.
+     * Checks if the local revision is {@code 0} and initializes the cluster configuration with the specified user-provided configuration
+     * upon cluster initialization. If the local revision is not {@code 0}, does nothing.
      */
     private CompletableFuture<Void> initializeClusterConfiguration(ExecutorService startupExecutor) {
         return cfgStorage.localRevision()
@@ -1048,12 +1048,12 @@ public class IgniteImpl implements Ignite {
                         return completedFuture(null);
                     } else {
                         return cmgMgr.initialClusterConfigurationFuture()
-                                .thenAcceptAsync(cfg -> {
-                                    if (cfg == null) {
+                                .thenAcceptAsync(initialConfigHocon -> {
+                                    if (initialConfigHocon == null) {
                                         return;
                                     }
 
-                                    Config config = ConfigFactory.parseString(cfg);
+                                    Config config = ConfigFactory.parseString(initialConfigHocon);
                                     ConfigurationSource hoconSource = HoconConverter.hoconSource(config.root());
                                     clusterCfgMgr.configurationRegistry().initializeConfigurationWith(hoconSource);
                                 }, startupExecutor);

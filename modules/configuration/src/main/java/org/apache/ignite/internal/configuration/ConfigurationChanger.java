@@ -97,8 +97,8 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
     private volatile StorageRoots storageRoots;
 
     /**
-     * Initial configuration. This configuration will be used to initialize the configuration if the revision of the storage is 0. If the
-     * revision of the storage is non-zero, this configuration will be ignored.
+     * Initial configuration. This configuration will be used to initialize the configuration if the revision of the storage is {@code 0}.
+     * If the revision of the storage is non-zero, this configuration will be ignored.
      */
     private volatile ConfigurationSource initialConfiguration = ConfigurationUtil.EMPTY_CFG_SRC;
 
@@ -323,8 +323,8 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
 
     /**
      * Sets {@link #initialConfiguration}. This configuration will be used to initialize the configuration if the revision of the storage is
-     * 0. If the revision of the storage is non-zero, this configuration will be ignored. his method must be called before {@link #start()}.
-     * If the method is not called, the initial configuration will be empty.
+     * {@code 0}. If the revision of the storage is non-zero, this configuration will be ignored. his method must be called before
+     * {@link #start()}. If the method is not called, the initial configuration will be empty.
      *
      * @param configurationSource the configuration source to initialize with.
      */

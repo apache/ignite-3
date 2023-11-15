@@ -79,9 +79,7 @@ public interface ConfigurationStorage extends ManuallyCloseable {
      */
     CompletableFuture<Long> lastRevision();
 
-    /**
-     * Returns a future that will be completed with the latest revision of the storage.
-     */
+    /** Returns a future that will be completed with the latest revision of the configuration storage. */
     CompletableFuture<Long> localRevision();
 
     /**

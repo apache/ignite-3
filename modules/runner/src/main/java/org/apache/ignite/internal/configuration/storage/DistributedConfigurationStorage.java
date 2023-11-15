@@ -255,9 +255,8 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
 
         // Condition for a valid MetaStorage data update. Several possibilities here:
         //  - First update ever, MASTER_KEY property must be absent from MetaStorage.
-        //  - Current node has already performed some updates or received them from MetaStorage watch listener. In this
-        //    case "curChangeId" must match the MASTER_KEY revision exactly.
-        Condition condition = changeId == 0
+        //  - Otherwise, MASTER_KEY property must be present in MetaStorage and its revision must match "curChangeId".
+        Condition condition = curChangeId == 0
                 ? notExists(MASTER_KEY)
                 : revision(MASTER_KEY).eq(curChangeId);
 
