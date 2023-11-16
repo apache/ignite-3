@@ -110,8 +110,14 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<NullableValue<V>> getNullableAsync(@Nullable Transaction tx, K key) {
-        // TODO IGNITE-20807
-        throw new UnsupportedOperationException("Not implemented yet.");
+        Objects.requireNonNull(key);
+
+        return tbl.doSchemaOutInOpAsync(
+                ClientOp.TUPLE_GET,
+                (s, w) -> keySer.writeRec(tx, key, s, w, TuplePart.KEY),
+                (s, r) -> valSer.readRecNullable(s, r, TuplePart.VAL),
+                null,
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, keySer.mapper(), key));
     }
 
     /** {@inheritDoc} */
