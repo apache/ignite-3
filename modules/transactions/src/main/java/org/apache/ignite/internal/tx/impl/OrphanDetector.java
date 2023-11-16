@@ -23,18 +23,20 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Function;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
+import org.apache.ignite.internal.replicator.ReplicaService;
+import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
 import org.apache.ignite.internal.tx.message.TxRecoveryMessage;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.network.ClusterService;
+import org.apache.ignite.network.TopologyService;
 
 /**
  * The class detects transactions that are left without a coordinator but still hold locks. For that orphan transaction, the recovery
@@ -52,37 +54,53 @@ public class OrphanDetector {
     /** Busy lock to stop synchronously. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
-    /** Cluster service. */
-    private final ClusterService clusterService;
+    /** Topology service. */
+    private final TopologyService topologyService;
 
+    /** Replica service. */
+    private final ReplicaService replicaService;
+
+    /** Placement driver. */
     private final PlacementDriver placementDriver;
 
+    /** Lock manager. */
+    private final LockManager lockManager;
+
+    /** Hybrid clock. */
     private final HybridClock clock;
 
-    /** The local map for tx states. */
-    private ConcurrentHashMap<UUID, TxStateMeta> txStateMap;
+    /** Local transaction state storage. */
+    private Function<UUID, TxStateMeta> txLocalStateStorage;
 
     /**
      * The constructor.
      *
-     * @param clusterService Cluster service.
+     * @param topologyService Topology service.
+     * @param replicaService Replica service.
      * @param placementDriver Placement driver.
+     * @param lockManager Lock manager.
      * @param clock Clock.
      */
-    public OrphanDetector(ClusterService clusterService, PlacementDriver placementDriver, HybridClock clock) {
-        this.clusterService = clusterService;
+    public OrphanDetector(
+            TopologyService topologyService,
+            ReplicaService replicaService,
+            PlacementDriver placementDriver,
+            LockManager lockManager,
+            HybridClock clock) {
+        this.topologyService = topologyService;
+        this.replicaService = replicaService;
         this.placementDriver = placementDriver;
+        this.lockManager = lockManager;
         this.clock = clock;
     }
-
 
     /**
      * Starts the detector.
      *
-     * @param txStateMap Transaction state map.
+     * @param txLocalStateStorage Local transaction state storage.
      */
-    public void start(ConcurrentHashMap<UUID, TxStateMeta> txStateMap) {
-        this.txStateMap = txStateMap;
+    public void start(Function<UUID, TxStateMeta> txLocalStateStorage) {
+        this.txLocalStateStorage = txLocalStateStorage;
         // Subscribe to lock conflicts here.
     }
 
@@ -119,11 +137,11 @@ public class OrphanDetector {
      * @return Future to complete.
      */
     private CompletableFuture<Void> handleLockHolderInternal(UUID txId) {
-        TxStateMeta txState = txStateMap.get(txId);
+        TxStateMeta txState = txLocalStateStorage.apply(txId);
 
         assert txState != null : "The transaction is undefined in the local node [txId=" + txId + "].";
 
-        if (clusterService.topologyService().getById(txState.txCoordinatorId()) == null) {
+        if (topologyService.getById(txState.txCoordinatorId()) == null) {
             LOG.info(
                     "Conflict was found, and the coordinator of the transaction that holds a lock is not available "
                             + "[txId={}, txCrd={}].",
@@ -136,14 +154,19 @@ public class OrphanDetector {
                     clock.now(),
                     AWAIT_PRIMARY_REPLICA_TIMEOUT_SEC,
                     SECONDS
-            ).thenApply(replicaMeta -> {
-                ClusterNode commitPartNode = clusterService.topologyService().getByConsistentId(replicaMeta.getLeaseholder());
+            ).thenCompose(replicaMeta -> {
+                ClusterNode commitPartPrimaryNode = topologyService.getByConsistentId(replicaMeta.getLeaseholder());
 
-                clusterService.messagingService().weakSend(commitPartNode, FACTORY.txRecoveryMessage()
-                        .txId(txId)
-                        .build());
-
-                return null;
+                return replicaService.<Boolean>invoke(commitPartPrimaryNode, FACTORY.txRecoveryMessage()
+                                .groupId(txState.commitPartitionId())
+                                .enlistmentConsistencyToken(replicaMeta.getStartTime().longValue())
+                                .txId(txId)
+                                .build())
+                        .thenAccept(txFinished -> {
+                            if (txFinished) {
+                                lockManager.locks(txId).forEachRemaining(lockManager::release);
+                            }
+                        });
             });
         }
 

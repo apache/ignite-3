@@ -18,18 +18,27 @@
 package org.apache.ignite.internal.tx.message;
 
 import java.util.UUID;
-import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.internal.replicator.message.PrimaryReplicaRequest;
+import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.network.annotations.Transferable;
 
 /**
  * Transaction recovery message.
  */
 @Transferable(TxMessageGroup.TX_RECOVERY_MSG)
-public interface TxRecoveryMessage extends NetworkMessage {
+public interface TxRecoveryMessage extends PrimaryReplicaRequest, ReplicaRequest {
     /**
      * Gets a transaction id to resolve.
      *
      * @return Transaction id.
      */
     UUID txId();
+
+    /**
+     * Gets an enlistment consistency token.
+     * The token is used to check that the lease is still actual while the message goes to the replica.
+     *
+     * @return Enlistment consistency token.
+     */
+    long enlistmentConsistencyToken();
 }

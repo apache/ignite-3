@@ -45,7 +45,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 
 /**
- * Abundant transactions integration tests.
+ * Abandoned transactions integration tests.
  */
 public class ItTransactionConflictTest extends ClusterPerTestIntegrationTest {
     /** Table name. */
@@ -96,7 +96,6 @@ public class ItTransactionConflictTest extends ClusterPerTestIntegrationTest {
         UUID orphanTxId = startTransactionAndStopNode(txCrdNode);
 
         CompletableFuture<UUID> recoveryTxMsgCaptureFut = new CompletableFuture<>();
-
 
         commitPartNode.dropMessages((nodeName, msg) -> {
             if (msg instanceof TxRecoveryMessage) {

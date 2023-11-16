@@ -19,7 +19,7 @@ package org.apache.ignite.internal.tx;
 
 import java.util.Objects;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.Nullable;
 
@@ -34,7 +34,7 @@ public class TxStateMeta implements TransactionMeta {
     private final String txCoordinatorId;
 
     /** Identifier of the replication group that manages a transaction state. */
-    private ReplicationGroupId commitPartitionId;
+    private final TablePartitionId commitPartitionId;
 
     private final HybridTimestamp commitTimestamp;
 
@@ -49,7 +49,7 @@ public class TxStateMeta implements TransactionMeta {
     public TxStateMeta(
             TxState txState,
             String txCoordinatorId,
-            ReplicationGroupId commitPartitionId,
+            @Nullable TablePartitionId commitPartitionId,
             @Nullable HybridTimestamp commitTimestamp
     ) {
         this.txState = txState;
@@ -67,7 +67,7 @@ public class TxStateMeta implements TransactionMeta {
         return txCoordinatorId;
     }
 
-    public ReplicationGroupId commitPartitionId() {
+    public TablePartitionId commitPartitionId() {
         return commitPartitionId;
     }
 

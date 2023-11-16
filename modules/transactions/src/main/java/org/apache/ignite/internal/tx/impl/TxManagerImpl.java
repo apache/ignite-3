@@ -158,9 +158,6 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     /** Cluster service. */
     private final ClusterService clusterService;
 
-    /** Transaction recovery manager. */
-    private final TxRecoveryProcessor txRecoveryManager;
-
     /** Detector of transactions that lost the coordinator. */
     private final OrphanDetector orphanDetector;
 
@@ -205,8 +202,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                 new LinkedBlockingQueue<>(),
                 new NamedThreadFactory("tx-async-cleanup", LOG));
 
-        txRecoveryManager = new TxRecoveryProcessor(clusterService);
-        orphanDetector = new OrphanDetector(clusterService, placementDriver, clock);
+        orphanDetector = new OrphanDetector(clusterService.topologyService(), replicaService, placementDriver, lockManager, clock);
     }
 
     @Override
@@ -587,14 +583,12 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     public void start() {
         localNodeId = clusterService.topologyService().localMember().id();
         clusterService.messagingService().addMessageHandler(ReplicaMessageGroup.class, this);
-        txRecoveryManager.start(txStateMap);
-        orphanDetector.start(txStateMap);
+        orphanDetector.start(txStateMap::get);
     }
 
     @Override
     public void beforeNodeStop() {
         orphanDetector.stop();
-        txRecoveryManager.stop();
     }
 
     @Override
@@ -728,7 +722,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
      */
     private TxStateMeta coordinatorFinalTxStateMeta(
             boolean commit,
-            ReplicationGroupId commitPartitionId,
+            TablePartitionId commitPartitionId,
             @Nullable HybridTimestamp commitTimestamp
     ) {
         return new TxStateMeta(commit ? COMMITED : ABORTED, localNodeId, commitPartitionId, commitTimestamp);

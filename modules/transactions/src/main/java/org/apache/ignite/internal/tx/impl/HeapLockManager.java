@@ -149,7 +149,7 @@ public class HeapLockManager implements LockManager {
      * @param key The key.
      */
     private LockState lockState(LockKey key) {
-        return locks.computeIfAbsent(key, k -> new LockState(deadlockPreventionPolicy, delayedExecutor, key));
+        return locks.computeIfAbsent(key, k -> new LockState(deadlockPreventionPolicy, delayedExecutor));
     }
 
     /** {@inheritDoc} */
@@ -167,7 +167,7 @@ public class HeapLockManager implements LockManager {
     /**
      * A lock state.
      */
-    private class LockState {
+    private static class LockState {
         /** Waiters. */
         private final TreeMap<UUID, WaiterImpl> waiters;
 
@@ -179,16 +179,13 @@ public class HeapLockManager implements LockManager {
         /** Marked for removal flag. */
         private boolean markedForRemove = false;
 
-        private final LockKey lockKey;
-
-        public LockState(DeadlockPreventionPolicy deadlockPreventionPolicy, Executor delayedExecutor, LockKey lockKey) {
+        public LockState(DeadlockPreventionPolicy deadlockPreventionPolicy, Executor delayedExecutor) {
             Comparator<UUID> txComparator =
                     deadlockPreventionPolicy.txIdComparator() != null ? deadlockPreventionPolicy.txIdComparator() : UUID::compareTo;
 
             this.waiters = new TreeMap<>(txComparator);
             this.deadlockPreventionPolicy = deadlockPreventionPolicy;
             this.delayedExecutor = delayedExecutor;
-            this.lockKey = lockKey;
         }
 
         /**

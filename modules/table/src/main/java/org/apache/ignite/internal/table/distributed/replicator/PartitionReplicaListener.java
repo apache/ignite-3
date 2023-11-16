@@ -158,6 +158,7 @@ import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.message.TxCleanupReplicaRequest;
 import org.apache.ignite.internal.tx.message.TxFinishReplicaRequest;
+import org.apache.ignite.internal.tx.message.TxRecoveryMessage;
 import org.apache.ignite.internal.tx.message.TxStateCommitPartitionRequest;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.util.Cursor;
@@ -487,12 +488,45 @@ public class PartitionReplicaListener implements ReplicaListener {
             }
         }
 
+        if (request instanceof TxRecoveryMessage) {
+            processTxRecoveryAction((TxRecoveryMessage) request);
+        }
+
         HybridTimestamp opTsIfDirectRo = (request instanceof ReadOnlyDirectReplicaRequest) ? hybridClock.now() : null;
 
         return validateTableExistence(request, opTsIfDirectRo)
                 .thenCompose(unused -> validateSchemaMatch(request, opTsIfDirectRo))
                 .thenCompose(unused -> waitForSchemasBeforeReading(request, opTsIfDirectRo))
                 .thenCompose(opStartTimestamp -> processOperationRequest(request, isPrimary, senderId, opTsIfDirectRo));
+    }
+
+    /**
+     * Processes transaction recovery request.
+     *
+     * @param request Tx recovery request.
+     * @return The future is true when the transaction is in its final state.
+     */
+    private CompletableFuture<Boolean> processTxRecoveryAction(TxRecoveryMessage request) {
+        UUID txId = request.txId();
+
+        TxMeta txMeta = txStateStorage.get(txId);
+
+        // Check whether a transaction has already been finished.
+        boolean transactionAlreadyFinished = txMeta != null && isFinalState(txMeta.txState());
+
+        if (transactionAlreadyFinished) {
+            return completedFuture(true);
+        }
+
+        LOG.info("Orphan transactions have to be aborted [tx={}].", txId);
+
+        return txManager.finish(
+                null,
+                replicationGroupId,
+                false,
+                Map.of(replicationGroupId, request.enlistmentConsistencyToken()),
+                txId
+        ).thenApply(unused -> true);
     }
 
     /**
@@ -3337,6 +3371,8 @@ public class PartitionReplicaListener implements ReplicaListener {
             assert expectedTerm != null;
         } else if (request instanceof BuildIndexReplicaRequest) {
             expectedTerm = ((BuildIndexReplicaRequest) request).enlistmentConsistencyToken();
+        } else if (request instanceof TxRecoveryMessage) {
+            expectedTerm = ((TxRecoveryMessage) request).enlistmentConsistencyToken();
         } else {
             expectedTerm = null;
         }
