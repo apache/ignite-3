@@ -47,7 +47,9 @@ import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.command.BuildIndexCommand;
+import org.apache.ignite.internal.table.distributed.schema.PartitionCommandsMarshallerImpl;
 import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.raft.jraft.rpc.WriteActionRequest;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
@@ -236,13 +238,17 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
      *         the command was sent.
      * @param dropBuildIndexCommand {@code True} to drop {@link BuildIndexCommand}.
      */
-    private static BiPredicate<String, NetworkMessage> waitSendBuildIndexCommand(
+    private BiPredicate<String, NetworkMessage> waitSendBuildIndexCommand(
             CompletableFuture<Integer> sendBuildIndexCommandFuture,
             boolean dropBuildIndexCommand
     ) {
+        IgniteImpl node = CLUSTER.node(0);
+        MessageSerializationRegistry serializationRegistry = node.raftManager().service().serializationRegistry();
+        var commandsMarshaller = new PartitionCommandsMarshallerImpl(serializationRegistry);
+
         return (nodeConsistentId, networkMessage) -> {
             if (networkMessage instanceof WriteActionRequest) {
-                Command command = ((WriteActionRequest) networkMessage).command();
+                Command command = commandsMarshaller.unmarshall(((WriteActionRequest) networkMessage).command());
 
                 if (command instanceof BuildIndexCommand) {
                     sendBuildIndexCommandFuture.complete(((BuildIndexCommand) command).indexId());

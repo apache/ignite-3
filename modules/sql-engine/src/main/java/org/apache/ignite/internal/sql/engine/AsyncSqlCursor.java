@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine;
 
+import java.util.NoSuchElementException;
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.util.AsyncCursor;
 import org.apache.ignite.sql.ResultSetMetadata;
 
@@ -35,4 +37,18 @@ public interface AsyncSqlCursor<T> extends AsyncCursor<T> {
      * Returns column metadata.
      */
     ResultSetMetadata metadata();
+
+    /**
+     * Returns {@code true} if the current cursor is the result of a multi-statement query
+     * and this statement is not the last one, {@code false} otherwise.
+     */
+    boolean hasNextResult();
+
+    /**
+     * Returns the future for the next statement of the query.
+     *
+     * @return Future that completes when the next statement completes.
+     * @throws NoSuchElementException if the query has no more statements to execute.
+     */
+    CompletableFuture<AsyncSqlCursor<T>> nextResult();
 }

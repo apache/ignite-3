@@ -84,7 +84,7 @@ public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstract
     private final List<IgniteComponent> components = new ArrayList<>();
 
     @BeforeEach
-    void setUp() {
+    void setUp() throws InterruptedException {
         String nodeName = "test";
 
         vaultMgr = new VaultManager(new InMemoryVaultService());

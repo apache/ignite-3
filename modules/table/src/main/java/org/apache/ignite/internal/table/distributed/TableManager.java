@@ -105,6 +105,7 @@ import org.apache.ignite.internal.metastorage.dsl.Conditions;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.raft.Loza;
+import org.apache.ignite.internal.raft.Marshaller;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftGroupEventsListener;
@@ -173,7 +174,6 @@ import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.TopologyService;
 import org.apache.ignite.raft.jraft.storage.impl.VolatileRaftMetaStorage;
-import org.apache.ignite.raft.jraft.util.Marshaller;
 import org.apache.ignite.table.Table;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -751,7 +751,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                         .thenComposeAsync(v -> inBusyLock(busyLock, () -> {
                             try {
                                 //TODO IGNITE-19614 This procedure takes 10 seconds if there's no majority online.
-                                return raftMgr.startRaftGroupService(replicaGrpId, newConfiguration, raftGroupServiceFactory);
+                                return raftMgr.startRaftGroupService(
+                                        replicaGrpId, newConfiguration, raftGroupServiceFactory, raftCommandsMarshaller
+                                );
                             } catch (NodeStoppingException ex) {
                                 return failedFuture(ex);
                             }

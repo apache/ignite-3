@@ -14,14 +14,27 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ignite.raft.jraft.util;
 
-import java.nio.ByteBuffer;
+package org.apache.ignite.internal.replicator.configuration;
 
-public interface Marshaller {
-    public static Marshaller DEFAULT = new JDKMarshaller();
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.is;
 
-    byte[] marshall(Object o);
+import org.apache.ignite.configuration.ConfigurationModule;
+import org.apache.ignite.configuration.annotation.ConfigurationType;
+import org.junit.jupiter.api.Test;
 
-    <T> T unmarshall(ByteBuffer raw);
+class ReplicationConfigurationModuleTest {
+    private final ConfigurationModule module = new ReplicationConfigurationModule();
+
+    @Test
+    void typeIsDistributed() {
+        assertThat(module.type(), is(ConfigurationType.DISTRIBUTED));
+    }
+
+    @Test
+    void rootKeysAreAsExpected() {
+        assertThat(module.rootKeys(), contains(ReplicationConfiguration.KEY));
+    }
 }

@@ -69,4 +69,14 @@ public class FakeCursor implements AsyncSqlCursor<List<Object>> {
     public ResultSetMetadata metadata() {
         return null;
     }
+
+    @Override
+    public boolean hasNextResult() {
+        return false;
+    }
+
+    @Override
+    public CompletableFuture<AsyncSqlCursor<List<Object>>> nextResult() {
+        throw new UnsupportedOperationException();
+    }
 }

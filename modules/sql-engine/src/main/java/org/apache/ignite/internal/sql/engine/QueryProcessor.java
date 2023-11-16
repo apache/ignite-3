@@ -53,4 +53,26 @@ public interface QueryProcessor extends IgniteComponent {
             String qry,
             Object... params
     );
+
+    /**
+     * Execute the multi-statement query with given schema name and parameters.
+     *
+     * @param properties User query properties. See {@link QueryProperty} for available properties.
+     * @param transactions Transactions facade.
+     * @param transaction A transaction to use for query execution. If null, an implicit transaction
+     *      will be started by provided transactions facade.
+     * @param qry Multi statement SQL query.
+     * @param params Query parameters.
+     * @return Sql cursor.
+     *
+     * @throws IgniteException in case of an error.
+     * @see QueryProperty
+     */
+    CompletableFuture<AsyncSqlCursor<List<Object>>> queryScriptAsync(
+            SqlProperties properties,
+            IgniteTransactions transactions,
+            @Nullable InternalTransaction transaction,
+            String qry,
+            Object... params
+    );
 }

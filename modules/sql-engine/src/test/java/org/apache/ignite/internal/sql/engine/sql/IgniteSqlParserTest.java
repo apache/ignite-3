@@ -94,6 +94,21 @@ public class IgniteSqlParserTest {
     }
 
     @Test
+    public void testEmptyStatements() {
+        assertThrowsSqlException(Sql.STMT_PARSE_ERR,
+                "Failed to parse query: Encountered \";\" at line 1, column 1",
+                () -> IgniteSqlParser.parse(";", ScriptParseResult.MODE));
+
+        assertThrowsSqlException(Sql.STMT_PARSE_ERR,
+                "Failed to parse query: Encountered \";\" at line 2, column 1",
+                () -> IgniteSqlParser.parse("--- comment\n;", ScriptParseResult.MODE));
+
+        assertThrowsSqlException(Sql.STMT_PARSE_ERR,
+                "Failed to parse query: Encountered \"<EOF>\" at line 1, column 11",
+                () -> IgniteSqlParser.parse("--- comment", ScriptParseResult.MODE));
+    }
+
+    @Test
     public void testCommentedQuery() {
         assertThrowsSqlException(
                 Sql.STMT_PARSE_ERR,

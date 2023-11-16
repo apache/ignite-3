@@ -111,6 +111,8 @@ public class RaftGroupServiceImpl implements RaftGroupService {
     /** Executor for scheduling retries of {@link RaftGroupServiceImpl#sendWithRetry} invocations. */
     private final ScheduledExecutorService executor;
 
+    private final Marshaller commandsMarshaller;
+
     /** Busy lock. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
@@ -124,6 +126,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
      * @param membersConfiguration Raft members configuration.
      * @param leader Group leader.
      * @param executor Executor for retrying requests.
+     * @param commandsMarshaller Marshaller that should be used to serialize/deserialize commands.
      */
     private RaftGroupServiceImpl(
             ReplicationGroupId groupId,
@@ -132,7 +135,8 @@ public class RaftGroupServiceImpl implements RaftGroupService {
             RaftConfiguration configuration,
             PeersAndLearners membersConfiguration,
             @Nullable Peer leader,
-            ScheduledExecutorService executor
+            ScheduledExecutorService executor,
+            Marshaller commandsMarshaller
     ) {
         this.cluster = cluster;
         this.configuration = configuration;
@@ -143,6 +147,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
         this.realGroupId = groupId;
         this.leader = leader;
         this.executor = executor;
+        this.commandsMarshaller = commandsMarshaller;
     }
 
     /**
@@ -164,7 +169,8 @@ public class RaftGroupServiceImpl implements RaftGroupService {
             RaftConfiguration configuration,
             PeersAndLearners membersConfiguration,
             boolean getLeader,
-            ScheduledExecutorService executor
+            ScheduledExecutorService executor,
+            Marshaller commandsMarshaller
     ) {
         var service = new RaftGroupServiceImpl(
                 groupId,
@@ -173,7 +179,8 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                 configuration,
                 membersConfiguration,
                 null,
-                executor
+                executor,
+                commandsMarshaller
         );
 
         if (!getLeader) {
@@ -453,9 +460,14 @@ public class RaftGroupServiceImpl implements RaftGroupService {
         Function<Peer, ActionRequest> requestFactory;
 
         if (cmd instanceof WriteCommand) {
+            byte[] commandBytes = commandsMarshaller.marshall(cmd);
+
             requestFactory = targetPeer -> factory.writeActionRequest()
                     .groupId(groupId)
-                    .command((WriteCommand) cmd)
+                    .command(commandBytes)
+                    // Having prepared deserialized command makes its handling more efficient in the state machine.
+                    // This saves us from extra-deserialization on a local machine, which would take precious time to do.
+                    .deserializedCommand((WriteCommand) cmd)
                     .build();
         } else {
             requestFactory = targetPeer -> factory.readActionRequest()

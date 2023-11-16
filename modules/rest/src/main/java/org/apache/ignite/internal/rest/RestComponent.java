@@ -279,18 +279,18 @@ public class RestComponent implements IgniteComponent {
     }
 
     /**
-     * Returns server host.
+     * Returns server host name.
      *
      * @return host.
      * @throws IgniteInternalException if the component has not been started yet.
      */
-    public String host() {
+    public String hostName() {
         if (context == null) {
             throw new IgniteInternalException("RestComponent has not been started");
         }
 
         try {
-            return InetAddress.getLocalHost().getHostAddress();
+            return InetAddress.getLocalHost().getHostName();
         } catch (UnknownHostException e) {
             return LOCALHOST;
         }

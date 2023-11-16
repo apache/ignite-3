@@ -15,13 +15,27 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal;
+package org.apache.ignite.internal.replicator.configuration;
+
+import com.google.auto.service.AutoService;
+import java.util.Collection;
+import java.util.Set;
+import org.apache.ignite.configuration.ConfigurationModule;
+import org.apache.ignite.configuration.RootKey;
+import org.apache.ignite.configuration.annotation.ConfigurationType;
 
 /**
- * Contains kludges needed for the whole codebase. Should be removed as quickly as possible.
+ * {@link ConfigurationModule} for distributed (cluster-wide) configuration of Replication.
  */
-public class Kludges {
-    // TODO: Remove after IGNITE-20499 is fixed.
-    /** Name of the property overriding idle safe time propagation period (in milliseconds). */
-    public static final String IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS_PROPERTY = "IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS";
+@AutoService(ConfigurationModule.class)
+public class ReplicationConfigurationModule implements ConfigurationModule {
+    @Override
+    public ConfigurationType type() {
+        return ConfigurationType.DISTRIBUTED;
+    }
+
+    @Override
+    public Collection<RootKey<?, ?>> rootKeys() {
+        return Set.of(ReplicationConfiguration.KEY);
+    }
 }

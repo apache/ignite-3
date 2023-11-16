@@ -22,7 +22,7 @@ import static org.apache.ignite.internal.cluster.management.topology.LogicalTopo
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertDataNodesForZone;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertLogicalTopology;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertLogicalTopologyVersion;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.mockVaultZonesLogicalTopologyKey;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.mockZonesLogicalTopologyAndAttributes;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyVersionKey;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
@@ -217,7 +217,7 @@ public class DistributionZoneManagerLogicalTopologyEventsTest extends BaseDistri
                 new LogicalNode(new ClusterNodeImpl("node2", "node2", NetworkAddress.from("127.0.0.1:127")), Collections.emptyMap())
         );
 
-        mockVaultZonesLogicalTopologyKey(nodes, vaultMgr, metaStorageManager.appliedRevision());
+        mockZonesLogicalTopologyAndAttributes(nodes, metaStorageManager);
 
         startDistributionZoneManager();
 
