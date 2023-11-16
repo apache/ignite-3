@@ -797,6 +797,7 @@ public class ItJoinTest extends BaseSqlIntegrationTest {
 
             if (indexScan) {
                 sql("CREATE INDEX t11_idx ON t11(i1)");
+                waitForIndexToBecomeAvailable("T11_IDX");
             }
 
             sql("INSERT INTO t11 VALUES (1, null), (2, 2), (null, 3), (3, null), (5, null)");
@@ -805,6 +806,7 @@ public class ItJoinTest extends BaseSqlIntegrationTest {
 
             if (indexScan) {
                 sql("CREATE INDEX t22_idx ON t22(i3)");
+                waitForIndexToBecomeAvailable("T22_IDX");
             }
 
             sql("INSERT INTO t22 VALUES (1, 1), (2, 2), (null, 3), (4, null), (5, null)");
