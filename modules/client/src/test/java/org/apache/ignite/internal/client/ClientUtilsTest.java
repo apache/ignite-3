@@ -29,7 +29,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import java.util.Arrays;
 import org.apache.ignite.lang.IgniteCheckedException;
 import org.apache.ignite.lang.IgniteException;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 
@@ -93,7 +92,6 @@ public class ClientUtilsTest {
     /**
      * Method that should present in resulting stack trace.
      */
-    @NotNull
     private static IgniteException checkableTestMethod(Throwable ex) {
         return ClientUtils.ensurePublicException(ex);
     }
