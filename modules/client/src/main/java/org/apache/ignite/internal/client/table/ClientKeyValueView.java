@@ -45,6 +45,7 @@ import org.apache.ignite.internal.marshaller.MarshallerException;
 import org.apache.ignite.internal.streamer.StreamerBatchSender;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.NullableValue;
+import org.apache.ignite.lang.UnexpectedNullValueException;
 import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.mapper.Mapper;
@@ -93,13 +94,10 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
     public CompletableFuture<V> getAsync(@Nullable Transaction tx, K key) {
         Objects.requireNonNull(key);
 
-        // TODO: throw UnexpectedNullValueException in case 2
-        // 1. If default value is returned, then the row does not exist. This is ok?
-        // 2. If null is returned from readRec, then the row exists, but the value column is not null
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET,
                 (s, w) -> keySer.writeRec(tx, key, s, w, TuplePart.KEY),
-                (s, r) -> valSer.readRec(s, r, TuplePart.VAL),
+                (s, r) -> throwIfNull(valSer.readRec(s, r, TuplePart.VAL)),
                 null,
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, keySer.mapper(), key));
     }
@@ -516,5 +514,13 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
                 new RetryLimitPolicy().retryLimit(opts.retryLimit()));
 
         return ClientDataStreamer.streamData(publisher, opts, batchSender, provider, tbl);
+    }
+
+    private static <T> T throwIfNull(T obj) {
+        if (obj == null) {
+            throw new UnexpectedNullValueException("Got unexpected null value: use `getNullable` sibling method instead.");
+        }
+
+        return obj;
     }
 }
