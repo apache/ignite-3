@@ -56,7 +56,7 @@ public class ClientUtils {
             if (copy != null)
                 return copy;
 
-            throw new IgniteException(INTERNAL_ERR, "IgniteException-derived class does not have required constructor: "
+            return new IgniteException(INTERNAL_ERR, "IgniteException-derived class does not have required constructor: "
                     + e.getClass().getName(), iex);
         }
 
