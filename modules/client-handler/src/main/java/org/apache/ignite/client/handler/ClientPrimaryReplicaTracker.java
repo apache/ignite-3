@@ -130,17 +130,18 @@ public class ClientPrimaryReplicaTracker implements EventListener<EventParameter
                 return CompletableFuture.failedFuture(tableNotFoundException(tableId));
             }
 
-            return primaryReplicasAsyncInternal(tableId, zoneDesc.partitions());
+            return primaryReplicasAsyncInternal(tableId, zoneDesc.partitions(), timestamp);
         } catch (Throwable t) {
             return CompletableFuture.failedFuture(t);
         }
     }
 
-    private CompletableFuture<List<ReplicaHolder>> primaryReplicasAsyncInternal(int tableId, int partitions) {
+    private CompletableFuture<List<ReplicaHolder>> primaryReplicasAsyncInternal(int tableId, int partitions, long timestamp) {
         CompletableFuture<ReplicaMeta>[] futs = (CompletableFuture<ReplicaMeta>[]) new CompletableFuture[partitions];
 
         for (int partition = 0; partition < partitions; partition++) {
-            futs[partition] = placementDriver.getPrimaryReplica(new TablePartitionId(tableId, partition), clock.now());
+            futs[partition] = placementDriver.getPrimaryReplica(
+                    new TablePartitionId(tableId, partition), HybridTimestamp.hybridTimestamp(timestamp));
         }
 
         CompletableFuture<Void> all = CompletableFuture.allOf(futs);
