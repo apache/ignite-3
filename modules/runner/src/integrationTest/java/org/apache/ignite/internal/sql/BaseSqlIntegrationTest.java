@@ -369,8 +369,8 @@ public class BaseSqlIntegrationTest extends ClusterPerClassIntegrationTest {
                 return availableNum == indexNames.length;
             }, 10_000);
 
-            // We need to wait additional time for readonly transactions, because they use a timestamp that is
-            // less the node's current time. See TxManagerImpl::currentReadTimestamp.
+            // We need to wait for some additional time to pass in case of readonly transactions,
+            // because they use a timestamp that is less the node's current time. See TxManagerImpl::currentReadTimestamp.
             long delay = HybridTimestamp.CLOCK_SKEW + TestIgnitionManager.DEFAULT_PARTITION_IDLE_SYNC_TIME_INTERVAL_MS;
             TimeUnit.MILLISECONDS.sleep(delay);
 
