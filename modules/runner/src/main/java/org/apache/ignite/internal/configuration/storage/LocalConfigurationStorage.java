@@ -224,6 +224,11 @@ public class LocalConfigurationStorage implements ConfigurationStorage {
                 .thenApply(entry -> entry == null ? 0 : (Long) fromBytes(entry.value()));
     }
 
+    @Override
+    public CompletableFuture<Long> localRevision() {
+        return lastRevision();
+    }
+
     private <T> CompletableFuture<T> registerFuture(CompletableFuture<T> future) {
         futureTracker.registerFuture(future);
 

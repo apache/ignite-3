@@ -37,9 +37,13 @@ public class TestIgnitionManager {
     /** Default name of configuration file. */
     public static final String DEFAULT_CONFIG_NAME = "ignite-config.conf";
 
-    private static final int DEFAULT_DELAY_DURATION_MS = 100;
+    /** Default DelayDuration in ms used for tests that is set on node init. */
+    public static final int DEFAULT_DELAY_DURATION_MS = 100;
 
     private static final int DEFAULT_METASTORAGE_IDLE_SYNC_TIME_INTERVAL_MS = 10;
+
+    /** Default partition idle SafeTime interval in ms used for tests that is set on node init. */
+    public static final int DEFAULT_PARTITION_IDLE_SYNC_TIME_INTERVAL_MS = 100;
 
     /**
      * Starts an Ignite node with an optional bootstrap configuration from an input stream with HOCON configs.
@@ -121,6 +125,11 @@ public class TestIgnitionManager {
                 configDocument,
                 "metaStorage.idleSyncTimeInterval",
                 Integer.toString(DEFAULT_METASTORAGE_IDLE_SYNC_TIME_INTERVAL_MS)
+        );
+        configDocument = applyTestDefault(
+                configDocument,
+                "replication.idleSafeTimePropagationDuration",
+                Integer.toString(DEFAULT_PARTITION_IDLE_SYNC_TIME_INTERVAL_MS)
         );
 
         builder.clusterConfiguration(configDocument.render());

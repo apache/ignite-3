@@ -17,14 +17,12 @@
 
 package org.apache.ignite.internal.readonly;
 
-import static org.apache.ignite.internal.Kludges.IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS_PROPERTY;
 import static org.apache.ignite.internal.SessionUtils.executeUpdate;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
-import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.tx.TransactionOptions;
@@ -35,8 +33,6 @@ import org.junit.jupiter.api.Test;
  * Tests about read-only transactions in the past.
  */
 @SuppressWarnings("resource")
-// Setting this to 1 second so that an RO tx has a potential to look before a table was created.
-@WithSystemProperty(key = IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS_PROPERTY, value = "1000")
 class ItReadOnlyTxInPastTest extends ClusterPerTestIntegrationTest {
     private static final String TABLE_NAME = "test";
 
@@ -47,7 +43,8 @@ class ItReadOnlyTxInPastTest extends ClusterPerTestIntegrationTest {
 
     @BeforeEach
     void prepareCluster() {
-        cluster.startAndInit(1);
+        // Setting idleSafeTimePropagationDuration to 1 second so that an RO tx has a potential to look before a table was created.
+        cluster.startAndInit(1, builder -> builder.clusterConfiguration("replication.idleSafeTimePropagationDuration: 1000"));
 
         cluster.doInSession(0, session -> {
             executeUpdate("CREATE TABLE " + TABLE_NAME + " (id int PRIMARY KEY, val varchar)", session);
