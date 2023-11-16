@@ -634,6 +634,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
         CompletableFuture<AsyncSqlCursor<List<Object>>> processNext() {
             if (statements == null) {
+                // TODO https://issues.apache.org/jira/browse/IGNITE-20463 Each tx control statement must return an empty cursor.
                 return CompletableFuture.completedFuture(null);
             }
 
