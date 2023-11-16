@@ -26,6 +26,7 @@ import static org.mockito.Mockito.when;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.ClientPrimaryReplicaTracker.ReplicaHolder;
+import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.event.EventProducer;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
@@ -61,8 +62,7 @@ class ClientPrimaryReplicaTrackerTest extends BaseIgniteAbstractTest {
 
         tracker = new ClientPrimaryReplicaTracker(
                 driver,
-                tables,
-                mock(EventProducer.class),
+                mock(CatalogService.class),
                 new HybridClockImpl());
     }
 

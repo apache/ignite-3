@@ -40,7 +40,6 @@ import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.lang.TableNotFoundException;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -128,7 +127,7 @@ public class ClientPrimaryReplicaTracker implements EventListener<EventParameter
             CatalogZoneDescriptor zoneDesc = catalogService.zone(tableDesc.zoneId(), timestamp);
 
             if (zoneDesc == null) {
-                return CompletableFuture.completedFuture(null);
+                return CompletableFuture.failedFuture(tableNotFoundException(tableId));
             }
 
             return primaryReplicasAsyncInternal(tableId, zoneDesc.partitions());

@@ -219,8 +219,7 @@ public class TestClientHandlerModule implements IgniteComponent {
                                         new AlwaysSyncedSchemaSyncService(),
                                         catalogService,
                                         connectionIdGen.incrementAndGet(),
-                                        new ClientPrimaryReplicaTracker(
-                                                placementDriver, (IgniteTablesInternal) ignite.tables(), catalogService, clock)
+                                        new ClientPrimaryReplicaTracker(placementDriver, catalogService, clock)
                                 )
                         );
                     }
