@@ -66,6 +66,7 @@ public class ClientPrimaryReplicaTracker implements EventListener<EventParameter
      *
      * @param placementDriver Placement driver.
      * @param igniteTables Ignite tables.
+     * @param catalogEventProducer Catalog.
      * @param clock Hybrid clock.
      */
     public ClientPrimaryReplicaTracker(
