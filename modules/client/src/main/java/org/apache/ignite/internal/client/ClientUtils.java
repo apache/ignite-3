@@ -19,20 +19,58 @@ package org.apache.ignite.internal.client;
 
 import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
 
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import org.apache.ignite.client.ClientOperationType;
 import org.apache.ignite.client.IgniteClientConfiguration;
 import org.apache.ignite.internal.client.proto.ClientOp;
+import org.apache.ignite.internal.lang.IgniteExceptionMapperUtil;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.util.ExceptionUtils;
+import org.apache.ignite.lang.IgniteCheckedException;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.LoggerFactory;
 
 /**
  * Client utilities.
  */
 public class ClientUtils {
+    /**
+     * Wraps an exception in an IgniteException, extracting trace identifier and error code when the specified exception or one of its
+     * causes is an IgniteException itself.
+     *
+     * @param e Internal exception.
+     * @return Public exception.
+     */
+    public static IgniteException ensurePublicException(Throwable e) {
+        Objects.requireNonNull(e);
+
+        e = ExceptionUtils.unwrapCause(e);
+
+        if (e instanceof IgniteException) {
+            IgniteException iex = (IgniteException) e;
+
+            try {
+                return ExceptionUtils.copyExceptionWithCause(e.getClass(), iex.traceId(), iex.code(), e.getMessage(), e);
+            } catch (Exception ex) {
+                throw new RuntimeException("IgniteException-derived class does not have required constructor: "
+                        + e.getClass().getName(), ex);
+            }
+        }
+
+        e = IgniteExceptionMapperUtil.mapToPublicException(e);
+
+        if (e instanceof IgniteCheckedException) {
+            IgniteCheckedException iex = (IgniteCheckedException) e;
+
+            return new IgniteException(iex.traceId(), iex.code(), e.getMessage(), e);
+        }
+
+        return (IgniteException) e;
+    }
+
     /**
      * Waits for async operation completion.
      *
@@ -46,9 +84,9 @@ public class ClientUtils {
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt(); // Restore interrupt flag.
 
-            throw sneakyThrow(ExceptionUtils.unwrapToPublicException(e));
+            throw ensurePublicException(e);
         } catch (ExecutionException e) {
-            throw sneakyThrow(ExceptionUtils.unwrapToPublicException(e));
+            throw ensurePublicException(e);
         }
     }
 

@@ -348,16 +348,6 @@ public final class ExceptionUtils {
     }
 
     /**
-     * Unwraps exception cause from wrappers like CompletionException and ExecutionException and converts it to public exception.
-     *
-     * @param err Exception.
-     * @return Public exception.
-     */
-    public static Throwable unwrapToPublicException(Throwable err) {
-        return IgniteExceptionMapperUtil.mapToPublicException(unwrapCause(err));
-    }
-
-    /**
      * Creates a new exception, which type is defined by the provided {@code supplier}, with the specified {@code t} as a cause.
      * In the case when the provided cause {@code t} is an instance of {@link TraceableException},
      * the original trace identifier and full error code are preserved.
