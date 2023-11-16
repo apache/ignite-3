@@ -33,7 +33,7 @@ import java.util.EnumMap;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 import javax.net.ssl.SSLException;
 import org.apache.ignite.client.handler.configuration.ClientConnectorView;
 import org.apache.ignite.client.handler.requests.cluster.ClientClusterGetNodesRequest;
@@ -172,7 +172,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
     private ChannelHandlerContext channelHandlerContext;
 
     /** Primary replicas update counter. */
-    private final AtomicLong primaryReplicaUpdateCount = new AtomicLong(-1);
+    private final AtomicReference<Long> primaryReplicaMaxStartTime;
 
     private final ClientPrimaryReplicaTracker primaryReplicaTracker;
 
@@ -253,7 +253,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         schemaVersions = new SchemaVersionsImpl(schemaSyncService, catalogService, clock);
         this.connectionId = connectionId;
 
-        primaryReplicaUpdateCount.set(primaryReplicaTracker.updateCount());
+        this.primaryReplicaMaxStartTime = new AtomicReference<>(clock.nowLong());
     }
 
     @Override
@@ -695,17 +695,18 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         // Notify the client about primary replica change that happened for ANY table since the last request.
         // We can't assume that the client only uses uses a particular table (e.g. the one present in the replica tracker), because
         // the client can be connected to multiple nodes.
-        long localUpdateCount = primaryReplicaUpdateCount.get();
-        long updateCount = primaryReplicaTracker.updateCount();
-        boolean primaryReplicasChanged = localUpdateCount < updateCount
-                && primaryReplicaUpdateCount.compareAndSet(localUpdateCount, updateCount);
+        long lastSentMaxStartTime = primaryReplicaMaxStartTime.get();
+        long currentMaxStartTime = primaryReplicaTracker.maxStartTime();
+        boolean primaryReplicasUpdated = currentMaxStartTime > lastSentMaxStartTime
+                && primaryReplicaMaxStartTime.compareAndSet(lastSentMaxStartTime, currentMaxStartTime);
 
-        if (primaryReplicasChanged && LOG.isInfoEnabled()) {
+        if (primaryReplicasUpdated && LOG.isInfoEnabled()) {
             LOG.info("Partition primary replica changed, notifying client [connectionId=" + connectionId + ", remoteAddress="
                     + ctx.channel().remoteAddress() + ']');
         }
 
-        var flags = ResponseFlags.getFlags(primaryReplicasChanged);
+        // TODO: Send currentMaxStartTime to the client.
+        var flags = ResponseFlags.getFlags(primaryReplicasUpdated);
         out.packInt(flags);
     }
 

@@ -25,6 +25,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
@@ -52,7 +53,7 @@ public class ClientPrimaryReplicaTracker implements EventListener<EventParameter
 
     private final ConcurrentHashMap<Integer, Holder> primaryReplicas = new ConcurrentHashMap<>();
 
-    private final AtomicLong updateCount = new AtomicLong();
+    private final AtomicReference<Long> maxStartTime = new AtomicReference<>();
 
     private final PlacementDriver placementDriver;
 
@@ -95,12 +96,15 @@ public class ClientPrimaryReplicaTracker implements EventListener<EventParameter
         }).replicas;
     }
 
-    long updateCount() {
-        return updateCount.get();
+    long maxStartTime() {
+        return maxStartTime.get();
     }
 
     @SuppressWarnings({"rawtypes", "unchecked"})
     void start() {
+        // This could be newer than the actual max start time, but we are on the safe side here.
+        maxStartTime.set(clock.nowLong());
+
         placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, (EventListener) this);
         catalogService.listen(CatalogEvent.TABLE_DROP, (EventListener) this);
     }
@@ -191,14 +195,16 @@ public class ClientPrimaryReplicaTracker implements EventListener<EventParameter
         TablePartitionId tablePartitionId = (TablePartitionId) primaryReplicaEvent.groupId();
         var hld = primaryReplicas.get(tablePartitionId.tableId());
 
+        // TODO: Race condition. Use a single map with TablePartitionId as a key to simplify and fix.
         if (hld != null) {
             hld.replicas.thenAccept(replicas ->
                     replicas.get(tablePartitionId.partitionId())
                             .update(primaryReplicaEvent.leaseholder(), primaryReplicaEvent.startTime()));
         }
 
-        // Increment counter always, even if the table is not tracked. Client could retrieve the table from another node.
-        updateCount.incrementAndGet();
+        // Update always, even if the table is not tracked. Client could retrieve the table from another node.
+        // TODO: Update when calling getPrimaryReplica too.
+        updateMaxStartTime(primaryReplicaEvent);
 
         // LRU check: remove entries that were not accessed for a long time to reduce memory usage.
         // Check on every event, but not more often than LRU_CHECK_FREQ.
@@ -209,6 +215,22 @@ public class ClientPrimaryReplicaTracker implements EventListener<EventParameter
         }
 
         return CompletableFuture.completedFuture(false); // false: don't remove listener.
+    }
+
+    private void updateMaxStartTime(PrimaryReplicaEventParameters primaryReplicaEvent) {
+        long startTime = primaryReplicaEvent.startTime().longValue();
+
+        while (true) {
+            long maxStartTime0 = maxStartTime.get();
+
+            if (startTime <= maxStartTime0) {
+                break;
+            }
+
+            if (maxStartTime.compareAndSet(maxStartTime0, startTime)) {
+                break;
+            }
+        }
     }
 
     @SuppressWarnings("DataFlowIssue")
