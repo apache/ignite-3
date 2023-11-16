@@ -83,7 +83,7 @@ public class ClientUtilsTest {
 
         IgniteException resEx = checkableTestMethod(ex);
 
-        assertThat(resEx.getMessage(),containsString("IgniteException-derived class does not have required constructor"));
+        assertThat(resEx.getMessage(), containsString("IgniteException-derived class does not have required constructor"));
         assertThat(Arrays.asList(ex.getStackTrace()), anyOf(hasToString(containsString("throwInvalidIgniteException"))));
         assertThat(Arrays.asList(resEx.getStackTrace()), anyOf(hasToString(containsString("checkableTestMethod"))));
         assertSame(InvalidIgniteException.class, resEx.getCause().getClass());
