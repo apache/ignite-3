@@ -39,7 +39,6 @@ import java.util.Collection;
 import java.util.List;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogManager;
-import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.CatalogTestUtils;
 import org.apache.ignite.internal.catalog.commands.CreateHashIndexCommand;
 import org.apache.ignite.internal.catalog.commands.DropIndexCommand;
@@ -56,7 +55,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /**
- * For {@link IndexManagementUtils#collectIndexesForUpdateOperation(CatalogService, int, int, int)} testing.
+ * For {@link IndexCollectorForUpdateOperation} testing.
  *
  * <p>In the description of the tests below catalog versions and index IDs are not correct and are presented for simplicity.</p>
  *
@@ -346,7 +345,7 @@ public class IndexCollectorForUpdateOperationTest extends BaseIgniteAbstractTest
     }
 
     private List<CatalogIndexDescriptor> collectIndexes(int catalogVersionFrom, int catalogVersionTo) {
-        return IndexManagementUtils.collectIndexesForUpdateOperation(catalogManager, catalogVersionFrom, catalogVersionTo, tableId);
+        return new IndexCollectorForUpdateOperation(catalogManager).collect(tableId, catalogVersionFrom, catalogVersionTo);
     }
 
     private void createIndexes(String... indexNames) {
