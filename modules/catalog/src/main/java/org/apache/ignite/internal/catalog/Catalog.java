@@ -18,12 +18,14 @@
 package org.apache.ignite.internal.catalog;
 
 import static it.unimi.dsi.fastutil.ints.Int2ObjectMaps.unmodifiable;
+import static java.util.Collections.unmodifiableList;
 import static java.util.Comparator.comparingInt;
-import static java.util.stream.Collectors.toUnmodifiableList;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap.Entry;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
@@ -177,16 +179,17 @@ public class Catalog {
         Int2ObjectMap<List<CatalogIndexDescriptor>> indexesByTableId = new Int2ObjectOpenHashMap<>();
 
         for (CatalogSchemaDescriptor schema : schemas) {
-            for (CatalogTableDescriptor table : schema.tables()) {
-                int tableId = table.id();
-
-                List<CatalogIndexDescriptor> tableIndexes = Arrays.stream(schema.indexes())
-                        .filter(index -> tableId == index.tableId())
-                        .sorted(comparingInt(CatalogIndexDescriptor::id))
-                        .collect(toUnmodifiableList());
-
-                indexesByTableId.put(tableId, tableIndexes);
+            for (CatalogIndexDescriptor index : schema.indexes()) {
+                indexesByTableId.computeIfAbsent(index.tableId(), indexes -> new ArrayList<>()).add(index);
             }
+        }
+
+        for (List<CatalogIndexDescriptor> indexes : indexesByTableId.values()) {
+            indexes.sort(comparingInt(CatalogIndexDescriptor::id));
+        }
+
+        for (Entry<List<CatalogIndexDescriptor>> entry : indexesByTableId.int2ObjectEntrySet()) {
+            entry.setValue(unmodifiableList(entry.getValue()));
         }
 
         return indexesByTableId;
