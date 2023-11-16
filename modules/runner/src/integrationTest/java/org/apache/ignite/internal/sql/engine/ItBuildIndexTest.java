@@ -86,6 +86,8 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
 
         checkIndexBuild(partitions, replicas, INDEX_NAME);
 
+        waitForIndexToBecomeAvailable(INDEX_NAME);
+
         assertQuery(IgniteStringFormatter.format("SELECT * FROM {} WHERE i1 > 0", TABLE_NAME))
                 .matches(containsIndexScan("PUBLIC", TABLE_NAME, INDEX_NAME))
                 .returns(1, 1)

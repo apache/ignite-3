@@ -347,7 +347,7 @@ public class BaseSqlIntegrationTest extends ClusterPerClassIntegrationTest {
     /**
      * Waits for the given indexes to become available in SQL schema.
      *
-     * @param indexNames Index names to wait for.
+     * @param indexNames Indexes to wait for.
      */
     protected static void waitForIndexToBecomeAvailable(String... indexNames) {
         List<IgniteImpl> nodes = CLUSTER.runningNodes().collect(Collectors.toList());
