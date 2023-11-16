@@ -486,4 +486,19 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
 
         assertTrue(ex.getMessage().contains("null was passed, but column is not nullable"), ex.getMessage());
     }
+
+    @Test
+    public void testGetNull() {
+        // TODO: "no row" and "row with null VAL column" are different cases
+        Table table = defaultTable();
+        KeyValueView<Long, String> primitiveView = table.keyValueView(Mapper.of(Long.class), Mapper.of(String.class));
+
+        primitiveView.put(null, DEFAULT_ID, null);
+
+        String nullVal = primitiveView.get(null, DEFAULT_ID);
+        String missingVal = primitiveView.get(null, -1L);
+
+        assertNull(nullVal);
+        assertNull(missingVal);
+    }
 }
