@@ -15,13 +15,26 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal;
+package org.apache.ignite.internal.replicator.configuration;
 
-/**
- * Contains kludges needed for the whole codebase. Should be removed as quickly as possible.
- */
-public class Kludges {
-    // TODO: Remove after IGNITE-20854 is fixed.
-    /** Name of the property overriding idle safe time propagation period (in milliseconds). */
-    public static final String IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS_PROPERTY = "IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS";
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.is;
+
+import org.apache.ignite.configuration.ConfigurationModule;
+import org.apache.ignite.configuration.annotation.ConfigurationType;
+import org.junit.jupiter.api.Test;
+
+class ReplicationConfigurationModuleTest {
+    private final ConfigurationModule module = new ReplicationConfigurationModule();
+
+    @Test
+    void typeIsDistributed() {
+        assertThat(module.type(), is(ConfigurationType.DISTRIBUTED));
+    }
+
+    @Test
+    void rootKeysAreAsExpected() {
+        assertThat(module.rootKeys(), contains(ReplicationConfiguration.KEY));
+    }
 }
