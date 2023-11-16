@@ -321,7 +321,7 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
         pojoView.put(null, DEFAULT_ID, DEFAULT_NAME);
         pojoView.put(null, DEFAULT_ID, null);
 
-        assertNull(pojoView.get(null, DEFAULT_ID));
+        assertNull(pojoView.getNullable(null, DEFAULT_ID).get());
     }
 
     @Test
@@ -489,7 +489,7 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
 
     @Test
     public void testGetNull() {
-        // TODO: "no row" and "row with null VAL column" are different cases
+        // TODO: Stack trace sucks for UnexpectedNullValueException - why?
         Table table = defaultTable();
         KeyValueView<Long, String> primitiveView = table.keyValueView(Mapper.of(Long.class), Mapper.of(String.class));
 
