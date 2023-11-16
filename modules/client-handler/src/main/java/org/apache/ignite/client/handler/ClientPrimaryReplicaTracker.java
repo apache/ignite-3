@@ -116,11 +116,13 @@ public class ClientPrimaryReplicaTracker implements EventListener<EventParameter
         try {
             // Initially, request all primary replicas for the table.
             // Then keep them updated via PRIMARY_REPLICA_ELECTED events.
+
+            // TODO: Use observable timestamp from client
+            // TODO: Use SchemaSyncService to wait for tables using client timestamp.
             long timestamp = clock.nowLong();
             CatalogTableDescriptor tableDesc = catalogService.table(tableId, timestamp);
 
             if (tableDesc == null) {
-                // TODO: Should we wait for table sync?
                 return CompletableFuture.failedFuture(tableNotFoundException(tableId));
             }
 
