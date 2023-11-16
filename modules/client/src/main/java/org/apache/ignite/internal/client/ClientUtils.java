@@ -48,7 +48,7 @@ public class ClientUtils {
 
             throw sneakyThrow(ExceptionUtils.unwrapToPublicException(e));
         } catch (ExecutionException e) {
-            throw sneakyThrow(ExceptionUtils.unwrapToPublicException(e));
+            throw sneakyThrow(ExceptionUtils.copyExceptionWithCause(e));
         }
     }
 
