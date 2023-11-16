@@ -3357,6 +3357,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     private CompletableFuture<Boolean> ensureReplicaIsPrimary(ReplicaRequest request) {
         Long expectedTerm;
 
+        // TODO: IGNITE-20875 Add enlistment consistency token to PrimaryReplicaTestRequest interface.
         if (request instanceof ReadWriteReplicaRequest) {
             expectedTerm = ((ReadWriteReplicaRequest) request).term();
 

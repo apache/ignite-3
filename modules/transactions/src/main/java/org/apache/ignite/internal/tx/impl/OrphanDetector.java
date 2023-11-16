@@ -163,6 +163,7 @@ public class OrphanDetector {
                                 .txId(txId)
                                 .build())
                         .thenAccept(txFinished -> {
+                            // TODO: IGNITE-20874 Replace the handling of the response to node wide cleanup procedure.
                             if (txFinished) {
                                 lockManager.locks(txId).forEachRemaining(lockManager::release);
                             }
