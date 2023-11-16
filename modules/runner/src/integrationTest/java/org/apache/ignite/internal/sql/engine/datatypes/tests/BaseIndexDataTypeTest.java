@@ -212,6 +212,8 @@ public abstract class BaseIndexDataTypeTest<T extends Comparable<T>> extends Bas
         sql("drop index if exists t_test_key_pk_idx");
         sql("create index if not exists t_test_key_pk_idx on t (id, test_key)");
 
+        waitForIndexToBecomeAvailable("T_TEST_KEY_PK_IDX");
+
         runSql("insert into t values(100, $0)");
 
         String query = format("select id, test_key from t where test_key = {} and id = 100", arguments.valueExpr(0));
