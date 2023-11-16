@@ -63,8 +63,7 @@ public interface QueryProcessor extends IgniteComponent {
      *      will be started by provided transactions facade.
      * @param qry Multi statement SQL query.
      * @param params Query parameters.
-     * @return Sql cursor or {@code null} if specified SQL query does not create cursors
-     *         (for example, if it contains only commands for managing a transaction).
+     * @return Sql cursor.
      *
      * @throws IgniteException in case of an error.
      * @see QueryProperty
