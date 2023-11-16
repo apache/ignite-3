@@ -39,6 +39,7 @@ public abstract class BaseIndexDataTypeTest<T extends Comparable<T>> extends Bas
     @BeforeAll
     public void addIndexSimpleIndex() {
         runSql("create index t_test_key_idx on t (test_key)");
+        waitForIndexToBecomeAvailable("T_TEST_KEY_IDX");
     }
 
     @BeforeEach

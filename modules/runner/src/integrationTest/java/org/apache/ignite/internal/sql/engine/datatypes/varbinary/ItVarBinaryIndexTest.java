@@ -48,6 +48,8 @@ public class ItVarBinaryIndexTest extends BaseIndexDataTypeTest<VarBinary> {
         runSql("CREATE TABLE binary_fixed_length(id INTEGER PRIMARY KEY, test_key BINARY(10))");
         runSql("CREATE INDEX binary_fixed_length_test_key_idx on binary_fixed_length (test_key)");
 
+        waitForIndexToBecomeAvailable("BINARY_FIXED_LENGTH_TEST_KEY_IDX");
+
         runSql("INSERT INTO binary_fixed_length VALUES(1, $0)");
         runSql("INSERT INTO binary_fixed_length VALUES(2, $1)");
         runSql("INSERT INTO binary_fixed_length VALUES(3, $2)");

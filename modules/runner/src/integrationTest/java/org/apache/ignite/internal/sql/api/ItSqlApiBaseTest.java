@@ -333,6 +333,8 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
         sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
         sql("CREATE INDEX TEST_IDX ON TEST(VAL0)");
 
+        waitForIndexToBecomeAvailable("TEST_IDX");
+
         Matcher<String> planMatcher = containsIndexScan("PUBLIC", "TEST", "TEST_IDX");
 
         checkMixedTransactions(planMatcher);

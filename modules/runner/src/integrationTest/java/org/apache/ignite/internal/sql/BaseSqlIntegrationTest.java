@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql;
 
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -28,17 +29,20 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
@@ -52,6 +56,7 @@ import org.apache.ignite.internal.systemview.SystemViewManagerImpl;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.table.TableViewInternal;
+import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.sql.ColumnMetadata;
@@ -256,7 +261,7 @@ public class BaseSqlIntegrationTest extends ClusterPerClassIntegrationTest {
      * @return Nodes on which the partition index was built.
      * @throws Exception If failed.
      */
-    protected static Map<Integer, List<Ignite>> waitForIndexBuild(String tableName, String indexName) throws Exception {
+    protected static Map<Integer, List<Ignite>> waitForIndexBuild(String tableName, String indexName) {
         Map<Integer, List<Ignite>> partitionIdToNodes = new HashMap<>();
 
         CLUSTER.runningNodes().forEach(clusterNode -> {
@@ -338,5 +343,41 @@ public class BaseSqlIntegrationTest extends ClusterPerClassIntegrationTest {
         IgniteImpl nodeImpl = (IgniteImpl) node;
 
         return nodeImpl.catalogManager().index(indexName, nodeImpl.clock().nowLong());
+    }
+
+    /**
+     * Waits for the given indexes to become available in SQL schema.
+     *
+     * @param indexNames Index names to wait for.
+     */
+    protected static void waitForIndexToBecomeAvailable(String... indexNames) {
+        List<IgniteImpl> nodes = CLUSTER.runningNodes().collect(Collectors.toList());
+        Collections.shuffle(nodes);
+
+        try {
+            waitForCondition(() -> {
+                IgniteImpl nodeImpl = nodes.get(0);
+                long ts = nodeImpl.clock().nowLong();
+                int availableNum = 0;
+
+                for (String indexName : indexNames) {
+                    CatalogIndexDescriptor index = nodeImpl.catalogManager().index(indexName, ts);
+                    if (index != null && index.available()) {
+                        availableNum ++;
+                    }
+                }
+
+                return availableNum == indexNames.length;
+            }, 10_000);
+
+            // See TxManagerImpl::currentReadTimestamp
+            long delay = HybridTimestamp.CLOCK_SKEW + TestIgnitionManager.DEFAULT_PARTITION_IDLE_SYNC_TIME_INTERVAL_MS;
+            TimeUnit.MILLISECONDS.sleep(delay);
+
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+
+            throw new IllegalStateException(e);
+        }
     }
 }
