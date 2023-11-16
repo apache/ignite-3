@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.sql;
 
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -363,7 +362,7 @@ public class BaseSqlIntegrationTest extends ClusterPerClassIntegrationTest {
                 for (String indexName : indexNames) {
                     CatalogIndexDescriptor index = nodeImpl.catalogManager().index(indexName, ts);
                     if (index != null && index.available()) {
-                        availableNum ++;
+                        availableNum++;
                     }
                 }
 
