@@ -492,8 +492,7 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
 
     @Test
     public void testGetNullable() {
-        Table table = defaultTable();
-        KeyValueView<Long, String> primitiveView = table.keyValueView(Mapper.of(Long.class), Mapper.of(String.class));
+        KeyValueView<Long, String> primitiveView = defaultTable().keyValueView(Mapper.of(Long.class), Mapper.of(String.class));
 
         primitiveView.put(null, DEFAULT_ID, null);
         primitiveView.remove(null, -1L);
@@ -507,8 +506,7 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
 
     @Test
     public void testGetNullValueThrows() {
-        Table table = defaultTable();
-        KeyValueView<Long, String> primitiveView = table.keyValueView(Mapper.of(Long.class), Mapper.of(String.class));
+        KeyValueView<Long, String> primitiveView = defaultTable().keyValueView(Mapper.of(Long.class), Mapper.of(String.class));
 
         primitiveView.put(null, DEFAULT_ID, null);
 
@@ -516,5 +514,18 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
         assertEquals(
                 "Failed to deserialize server response: Got unexpected null value: use `getNullable` sibling method instead.",
                 ex.getMessage());
+    }
+
+    @Test
+    public void testGetOrDefault() {
+        KeyValueView<Long, String> primitiveView = defaultTable().keyValueView(Mapper.of(Long.class), Mapper.of(String.class));
+
+        primitiveView.put(null, DEFAULT_ID, DEFAULT_NAME);
+        primitiveView.put(null, -1L, null);
+        primitiveView.remove(null, -2L);
+
+        assertNull(primitiveView.getOrDefault(null, -1L, "default"));
+        assertEquals(DEFAULT_NAME, primitiveView.getOrDefault(null, DEFAULT_ID, "default"));
+        assertEquals("default", primitiveView.getOrDefault(null, -2L, "default"));
     }
 }

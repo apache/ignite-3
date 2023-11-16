@@ -131,8 +131,14 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<V> getOrDefaultAsync(@Nullable Transaction tx, K key, V defaultValue) {
-        // TODO IGNITE-20807
-        throw new UnsupportedOperationException("Not implemented yet.");
+        Objects.requireNonNull(key);
+
+        return tbl.doSchemaOutInOpAsync(
+                ClientOp.TUPLE_GET,
+                (s, w) -> keySer.writeRec(tx, key, s, w, TuplePart.KEY),
+                (s, r) -> valSer.readRec(s, r, TuplePart.VAL),
+                defaultValue,
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, keySer.mapper(), key));
     }
 
     /** {@inheritDoc} */
