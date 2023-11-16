@@ -17,8 +17,11 @@
 
 package org.apache.ignite.client.handler;
 
+import static org.apache.ignite.lang.ErrorGroups.Table.TABLE_NOT_FOUND_ERR;
+
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
@@ -36,6 +39,8 @@ import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.lang.TableNotFoundException;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -109,22 +114,27 @@ public class ClientPrimaryReplicaTracker implements EventListener<EventParameter
     }
 
     private CompletableFuture<List<ReplicaHolder>> initReplicasForTableAsync(Integer tableId) {
-        // Initially, request all primary replicas for the table.
-        // Then keep them updated via PRIMARY_REPLICA_ELECTED events.
-        long timestamp = clock.nowLong();
-        CatalogTableDescriptor tableDesc = catalogService.table(tableId, timestamp);
+        try {
+            // Initially, request all primary replicas for the table.
+            // Then keep them updated via PRIMARY_REPLICA_ELECTED events.
+            long timestamp = clock.nowLong();
+            CatalogTableDescriptor tableDesc = catalogService.table(tableId, timestamp);
 
-        if (tableDesc == null) {
-            return CompletableFuture.completedFuture(null);
+            if (tableDesc == null) {
+                // TODO: Should we wait for table sync?
+                return CompletableFuture.failedFuture(tableNotFoundException(tableId));
+            }
+
+            CatalogZoneDescriptor zoneDesc = catalogService.zone(tableDesc.zoneId(), timestamp);
+
+            if (zoneDesc == null) {
+                return CompletableFuture.completedFuture(null);
+            }
+
+            return primaryReplicasAsyncInternal(tableId, zoneDesc.partitions());
+        } catch (Throwable t) {
+            return CompletableFuture.failedFuture(t);
         }
-
-        CatalogZoneDescriptor zoneDesc = catalogService.zone(tableDesc.zoneId(), timestamp);
-
-        if (zoneDesc == null) {
-            return CompletableFuture.completedFuture(null);
-        }
-
-        return primaryReplicasAsyncInternal(tableId, zoneDesc.partitions());
     }
 
     private CompletableFuture<List<ReplicaHolder>> primaryReplicasAsyncInternal(int tableId, int partitions) {
@@ -197,6 +207,11 @@ public class ClientPrimaryReplicaTracker implements EventListener<EventParameter
         }
 
         return CompletableFuture.completedFuture(false); // false: don't remove listener.
+    }
+
+    @SuppressWarnings("DataFlowIssue")
+    private static TableNotFoundException tableNotFoundException(Integer tableId) {
+        return new TableNotFoundException(UUID.randomUUID(), TABLE_NOT_FOUND_ERR, "Table not found: " + tableId, null);
     }
 
     private static class Holder {
