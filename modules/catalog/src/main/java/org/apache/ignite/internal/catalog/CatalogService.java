@@ -17,9 +17,14 @@
 
 package org.apache.ignite.internal.catalog;
 
+import static java.util.Comparator.comparingInt;
+import static java.util.stream.Collectors.toList;
+
 import java.util.Collection;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
@@ -66,6 +71,15 @@ public interface CatalogService extends EventProducer<CatalogEvent, CatalogEvent
     @Nullable CatalogIndexDescriptor index(int indexId, int catalogVersion);
 
     Collection<CatalogIndexDescriptor> indexes(int catalogVersion);
+
+    /** No-doc. */
+    // TODO: IGNITE-20857 Implementation and documentation should appear
+    default List<CatalogIndexDescriptor> indexes(int catalogVersion, int tableId) {
+        return indexes(catalogVersion).stream()
+                .filter(index -> tableId == index.tableId())
+                .sorted(comparingInt(CatalogObjectDescriptor::id))
+                .collect(toList());
+    }
 
     @Nullable CatalogSchemaDescriptor schema(int version);
 

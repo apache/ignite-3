@@ -28,6 +28,7 @@ import static org.apache.ignite.internal.util.ArrayUtils.BYTE_EMPTY_ARRAY;
 import static org.apache.ignite.internal.util.CollectionUtils.concat;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
@@ -52,7 +53,7 @@ import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.network.ClusterNode;
 
 /** Helper class for index management. */
-class IndexManagementUtils {
+public class IndexManagementUtils {
     /** Metastore key prefix for the "index in the process of building" in the format: {@code "indexBuild.inProgress.<indexId>"}. */
     static final String IN_PROGRESS_BUILD_INDEX_KEY_PREFIX = "indexBuild.inProgress.";
 
@@ -262,5 +263,54 @@ class IndexManagementUtils {
     static boolean isPrimaryReplica(ReplicaMeta primaryReplicaMeta, ClusterNode localNode, HybridTimestamp timestamp) {
         return localNode.id().equals(primaryReplicaMeta.getLeaseholderId())
                 && timestamp.compareTo(primaryReplicaMeta.getExpirationTime()) < 0;
+    }
+
+    /**
+     * Returns table indexes for which will need to insert data on update operations for the partition.
+     *
+     * @param catalogService Catalog service.
+     * @param catalogVersionFrom Catalog version from which index selection begins (including).
+     * @param catalogVersionTo Catalog version on which the index selection ends (including).
+     * @param tableId Table ID for which indexes will be selected.
+     * @return Table indexes for which will need to insert data on update operations for the partition.
+     */
+    // TODO: IGNITE-20863 описать алгоритм выбора индекса
+    public static List<CatalogIndexDescriptor> collectIndexesForUpdateOperation(
+            CatalogService catalogService,
+            int catalogVersionFrom,
+            int catalogVersionTo,
+            int tableId
+    ) {
+        assert catalogVersionFrom <= catalogVersionTo : "from=" + catalogVersionFrom + ", to=" + catalogVersionTo;
+
+        if (catalogVersionFrom == catalogVersionTo) {
+            return getNotEmptyTableIndexes(catalogService, catalogVersionFrom, tableId);
+        }
+
+        TableIndexes tableIndexes = new TableIndexes(catalogService, catalogVersionFrom, catalogVersionTo, tableId);
+
+        List<CatalogIndexDescriptor> res = new ArrayList<>();
+
+        for (int versionIndex = 0; versionIndex < tableIndexes.versionCount(); versionIndex++) {
+            for (int i = tableIndexes.handledIndexCount(versionIndex); i < tableIndexes.indexCount(versionIndex); i++) {
+                CatalogIndexDescriptor index = tableIndexes.advanceNextIndex(versionIndex);
+
+                CatalogIndexDescriptor latestVersion = tableIndexes.findLatestVersion(index, versionIndex + 1);
+
+                if (latestVersion != null) {
+                    res.add(latestVersion);
+                }
+            }
+        }
+
+        return res;
+    }
+
+    static List<CatalogIndexDescriptor> getNotEmptyTableIndexes(CatalogService catalogService, int catalogVersion, int tableId) {
+        List<CatalogIndexDescriptor> indexes = catalogService.indexes(catalogVersion, tableId);
+
+        assert !indexes.isEmpty() : "catalogVersion=" + catalogVersion + ", tableId=" + tableId;
+
+        return indexes;
     }
 }
