@@ -22,9 +22,8 @@ import java.util.stream.Collectors;
 import javax.annotation.concurrent.NotThreadSafe;
 import org.apache.calcite.sql.SqlDynamicParam;
 import org.apache.calcite.sql.SqlNode;
-import org.apache.calcite.sql.util.SqlBasicVisitor;
+import org.apache.calcite.sql.util.SqlShuttle;
 import org.apache.ignite.internal.tostring.S;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Result of parsing SQL string that multiple statements.
@@ -41,9 +40,22 @@ public final class ScriptParseResult extends ParseResult {
                 return new ScriptParseResult(List.of(new StatementParseResult(list.get(0), dynamicParamsCount)), dynamicParamsCount);
             }
 
-            SqlDynamicParamsCounter paramsCounter = dynamicParamsCount == 0 ? null : new SqlDynamicParamsCounter();
+            SqlDynamicParamsAdjuster dynamicParamsAdjuster = new SqlDynamicParamsAdjuster();
+
             List<StatementParseResult> results = list.stream()
-                    .map(node -> new StatementParseResult(node, paramsCounter == null ? 0 : paramsCounter.forNode(node)))
+                    .map(node -> {
+                        if (dynamicParamsCount == 0) {
+                            return new StatementParseResult(node, 0);
+                        }
+
+                        dynamicParamsAdjuster.reset();
+
+                        SqlNode newTree = dynamicParamsAdjuster.visitNode(node);
+
+                        assert newTree != null;
+
+                        return new StatementParseResult(newTree, dynamicParamsAdjuster.paramsCount());
+                    })
                     .collect(Collectors.toList());
 
             return new ScriptParseResult(results, dynamicParamsCount);
@@ -69,25 +81,25 @@ public final class ScriptParseResult extends ParseResult {
     }
 
     /**
-     * Counts the number of {@link SqlDynamicParam} nodes in the tree.
+     * Adjusts the dynamic parameter indexes to match the single statement parameter indexes.
      */
     @NotThreadSafe
-    static class SqlDynamicParamsCounter extends SqlBasicVisitor<Object> {
-        int count;
+    private static final class SqlDynamicParamsAdjuster extends SqlShuttle {
+        private int counter;
 
         @Override
-        public @Nullable Object visit(SqlDynamicParam param) {
-            count++;
-
-            return null;
+        public SqlNode visit(SqlDynamicParam param) {
+            return new SqlDynamicParam(counter++, param.getParserPosition());
         }
 
-        int forNode(SqlNode node) {
-            count = 0;
+        /** Resets the dynamic parameters counter. */
+        void reset() {
+            counter = 0;
+        }
 
-            this.visitNode(node);
-
-            return count;
+        /** Returns the number of processed dynamic parameters. */
+        int paramsCount() {
+            return counter;
         }
     }
 
