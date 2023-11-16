@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.client.compute;
 
-import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
 import static org.apache.ignite.lang.ErrorGroups.Client.TABLE_ID_NOT_FOUND_ERR;
 
 import java.util.HashMap;
@@ -41,7 +40,6 @@ import org.apache.ignite.internal.client.table.ClientRecordSerializer;
 import org.apache.ignite.internal.client.table.ClientTable;
 import org.apache.ignite.internal.client.table.ClientTables;
 import org.apache.ignite.internal.client.table.ClientTupleSerializer;
-import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.network.ClusterNode;

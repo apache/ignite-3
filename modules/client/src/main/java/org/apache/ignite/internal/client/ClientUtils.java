@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.client;
 
-import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
-
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
