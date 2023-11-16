@@ -555,14 +555,14 @@ namespace Apache.Ignite.Internal
         {
             var e = exception;
 
-            while (e != null && !(e is SocketException))
+            while (e != null && !IsConnectionError(e))
             {
                 e = e.InnerException;
             }
 
             if (e == null)
             {
-                // Only retry socket exceptions.
+                // Only retry connection errors.
                 return false;
             }
 
@@ -582,6 +582,11 @@ namespace Apache.Ignite.Internal
             var ctx = new RetryPolicyContext(new(Configuration), publicOpType.Value, attempt, exception);
 
             return retryPolicy.ShouldRetry(ctx);
+
+            static bool IsConnectionError(Exception e) =>
+                e is SocketException
+                    or IOException
+                    or IgniteClientConnectionException { Code: ErrorGroups.Client.Connection };
         }
 
         /// <summary>
