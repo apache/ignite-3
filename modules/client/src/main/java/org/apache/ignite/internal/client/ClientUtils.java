@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.client;
 
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
+
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -50,12 +52,12 @@ public class ClientUtils {
         if (e instanceof IgniteException) {
             IgniteException iex = (IgniteException) e;
 
-            try {
-                return ExceptionUtils.copyExceptionWithCause(e.getClass(), iex.traceId(), iex.code(), e.getMessage(), e);
-            } catch (Exception ex) {
-                throw new RuntimeException("IgniteException-derived class does not have required constructor: "
-                        + e.getClass().getName(), ex);
-            }
+            IgniteException copy = ExceptionUtils.copyExceptionWithCause(e.getClass(), iex.traceId(), iex.code(), e.getMessage(), e);
+            if (copy != null)
+                return copy;
+
+            throw new IgniteException(INTERNAL_ERR, "IgniteException-derived class does not have required constructor: "
+                    + e.getClass().getName(), iex);
         }
 
         e = IgniteExceptionMapperUtil.mapToPublicException(e);
@@ -66,7 +68,7 @@ public class ClientUtils {
             return new IgniteException(iex.traceId(), iex.code(), e.getMessage(), e);
         }
 
-        return (IgniteException) e;
+        return new IgniteException(INTERNAL_ERR, e.getMessage(), e);
     }
 
     /**
