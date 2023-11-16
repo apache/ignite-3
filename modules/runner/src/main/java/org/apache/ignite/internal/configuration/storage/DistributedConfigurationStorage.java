@@ -19,7 +19,6 @@ package org.apache.ignite.internal.configuration.storage;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
-import static org.apache.ignite.internal.metastorage.dsl.Conditions.or;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.revision;
 
 import java.io.Serializable;
@@ -46,7 +45,6 @@ import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
-import org.apache.ignite.internal.metastorage.dsl.ConditionType;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.dsl.Operations;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
@@ -85,14 +83,6 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
      * Currently known change id. Either matches or will soon match the Meta Storage revision of the latest configuration update. It is
      * possible that {@code changeId} is already updated but notifications are not yet handled, thus revision is valid but not applied. This
      * is fine.
-     *
-     * <p>Given that {@link #MASTER_KEY} is updated on every configuration change, one could assume that {@code changeId} matches the
-     * revision of {@link #MASTER_KEY}.
-     *
-     * <p>This is true for all cases except for node restart. We use latest values after restart, so MetaStorage's local revision is used
-     * instead. This fact has very important side effect: it's no longer possible to use {@link ConditionType#REV_EQUAL} on
-     * {@link #MASTER_KEY} in {@link DistributedConfigurationStorage#write(Map, long)}. {@link ConditionType#REV_LESS_OR_EQUAL} must be
-     * used instead.
      *
      * @see #MASTER_KEY
      * @see #write(Map, long)
@@ -191,13 +181,14 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
         return registerFuture(future);
     }
 
-    private Data readDataOnRecovery0(long cfgRevision) {
-        var data = new HashMap<String, Serializable>();
+    private Data readDataOnRecovery0(long metaStorageRevision) {
+        Map<String, Serializable> data = new HashMap<>();
+        long cfgRevision = 0;
 
         byte[] masterKey = MASTER_KEY.bytes();
         boolean sawMasterKey = false;
 
-        try (Cursor<Entry> cursor = metaStorageMgr.prefixLocally(DST_KEYS_START_RANGE, cfgRevision)) {
+        try (Cursor<Entry> cursor = metaStorageMgr.prefixLocally(DST_KEYS_START_RANGE, metaStorageRevision)) {
             for (Entry entry : cursor) {
                 if (entry.tombstone()) {
                     continue;
@@ -211,6 +202,7 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
 
                 if (!sawMasterKey && Arrays.equals(masterKey, key)) {
                     sawMasterKey = true;
+                    cfgRevision = entry.revision();
 
                     continue;
                 }
@@ -263,24 +255,10 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
 
         // Condition for a valid MetaStorage data update. Several possibilities here:
         //  - First update ever, MASTER_KEY property must be absent from MetaStorage.
-        //  - Current node has already performed some updates or received them from MetaStorage watch listener. In this
-        //    case "curChangeId" must match the MASTER_KEY revision exactly.
-        //  - Current node has been restarted and received updates from MetaStorage watch listeners after that. Same as
-        //    above, "curChangeId" must match the MASTER_KEY revision exactly.
-        //  - Current node has been restarted and have not received any updates from MetaStorage watch listeners yet.
-        //    In this case "curChangeId" matches MetaStorage's local revision, which may or may not match the MASTER_KEY revision. Two
-        //    options here:
-        //     - MASTER_KEY is missing in local MetaStorage copy. This means that current node have not performed nor
-        //       observed any configuration changes. Valid condition is "MASTER_KEY does not exist".
-        //     - MASTER_KEY is present in local MetaStorage copy. The MASTER_KEY revision is unknown but is less than or
-        //       equal to MetaStorage's local revision. Obviously, there have been no updates from the future yet. It's also guaranteed
-        //       that the next received configuration update will have the MASTER_KEY revision strictly greater than
-        //       current MetaStorage's local revision. This allows to conclude that "MASTER_KEY revision <= curChangeId" is a valid
-        //       condition for update.
-        // Joining all of the above, it's concluded that the following condition must be used:
-        Condition condition = curChangeId == 0L
+        //  - Otherwise, MASTER_KEY property must be present in MetaStorage and its revision must match "curChangeId".
+        Condition condition = curChangeId == 0
                 ? notExists(MASTER_KEY)
-                : or(notExists(MASTER_KEY), revision(MASTER_KEY).le(curChangeId));
+                : revision(MASTER_KEY).eq(curChangeId);
 
         return metaStorageMgr.invoke(condition, operations, Set.of(Operations.noop()));
     }
@@ -343,6 +321,12 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
     @Override
     public CompletableFuture<Long> lastRevision() {
         return metaStorageMgr.get(MASTER_KEY).thenApply(Entry::revision);
+    }
+
+    @Override
+    public CompletableFuture<Long> localRevision() {
+        return metaStorageMgr.recoveryFinishedFuture()
+                .thenApply(rev -> metaStorageMgr.getLocally(MASTER_KEY, rev).revision());
     }
 
     private <T> CompletableFuture<T> registerFuture(CompletableFuture<T> future) {

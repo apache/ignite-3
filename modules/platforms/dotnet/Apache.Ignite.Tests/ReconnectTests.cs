@@ -70,8 +70,13 @@ public class ReconnectTests
     [Test]
     public async Task TestDroppedConnectionIsRestoredOnDemand()
     {
+        var cfg = new IgniteClientConfiguration
+        {
+            Logger = new ConsoleLogger { MinLevel = LogLevel.Debug }
+        };
+
         using var server = new FakeServer();
-        using var client = await server.ConnectClientAsync();
+        using var client = await server.ConnectClientAsync(cfg);
 
         Assert.DoesNotThrowAsync(async () => await client.Tables.GetTablesAsync());
 

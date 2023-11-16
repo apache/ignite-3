@@ -2131,8 +2131,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     }
 
     private int[] collectTableIndexIds(int tableId, int catalogVersion) {
-        return catalogService.indexes(catalogVersion).stream()
-                .filter(indexDescriptor -> indexDescriptor.tableId() == tableId)
+        return catalogService.indexes(catalogVersion, tableId).stream()
                 .mapToInt(CatalogIndexDescriptor::id)
                 .toArray();
     }
