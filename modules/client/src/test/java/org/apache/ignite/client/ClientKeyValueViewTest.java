@@ -18,6 +18,7 @@
 package org.apache.ignite.client;
 
 import static java.time.temporal.ChronoField.NANO_OF_SECOND;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
@@ -36,6 +37,8 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.lang.NullableValue;
+import org.apache.ignite.lang.UnexpectedNullValueException;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
@@ -488,17 +491,30 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
     }
 
     @Test
-    public void testGetNull() {
-        // TODO: Stack trace sucks for UnexpectedNullValueException - why?
+    public void testGetNullable() {
+        Table table = defaultTable();
+        KeyValueView<Long, String> primitiveView = table.keyValueView(Mapper.of(Long.class), Mapper.of(String.class));
+
+        primitiveView.put(null, DEFAULT_ID, null);
+        primitiveView.remove(null, -1L);
+
+        NullableValue<String> nullVal = primitiveView.getNullable(null, DEFAULT_ID);
+        NullableValue<String> missingVal = primitiveView.getNullable(null, -1L);
+
+        assertNull(nullVal.get());
+        assertNull(missingVal);
+    }
+
+    @Test
+    public void testGetNullValueThrows() {
         Table table = defaultTable();
         KeyValueView<Long, String> primitiveView = table.keyValueView(Mapper.of(Long.class), Mapper.of(String.class));
 
         primitiveView.put(null, DEFAULT_ID, null);
 
-        String nullVal = primitiveView.get(null, DEFAULT_ID);
-        String missingVal = primitiveView.get(null, -1L);
-
-        assertNull(nullVal);
-        assertNull(missingVal);
+        var ex = assertThrowsWithCause(() -> primitiveView.get(null, DEFAULT_ID), UnexpectedNullValueException.class);
+        assertEquals(
+                "Failed to deserialize server response: Got unexpected null value: use `getNullable` sibling method instead.",
+                ex.getMessage());
     }
 }
