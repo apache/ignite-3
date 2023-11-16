@@ -22,21 +22,20 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
+import org.apache.ignite.internal.catalog.CatalogService;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
-import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.events.DropTableEventParameters;
 import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.event.EventParameters;
-import org.apache.ignite.internal.event.EventProducer;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
 import org.apache.ignite.internal.replicator.TablePartitionId;
-import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -53,30 +52,25 @@ public class ClientPrimaryReplicaTracker implements EventListener<EventParameter
 
     private final PlacementDriver placementDriver;
 
-    private final IgniteTablesInternal igniteTables;
-
     private final HybridClock clock;
 
     private final AtomicLong lruCheckTime = new AtomicLong(0);
 
-    private final EventProducer<CatalogEvent, CatalogEventParameters> catalogEventProducer;
+    private final CatalogService catalogService;
 
     /**
      * Constructor.
      *
      * @param placementDriver Placement driver.
-     * @param igniteTables Ignite tables.
-     * @param catalogEventProducer Catalog.
+     * @param catalogService Catalog.
      * @param clock Hybrid clock.
      */
     public ClientPrimaryReplicaTracker(
             PlacementDriver placementDriver,
-            IgniteTablesInternal igniteTables,
-            EventProducer<CatalogEvent, CatalogEventParameters> catalogEventProducer,
+            CatalogService catalogService,
             HybridClock clock) {
         this.placementDriver = placementDriver;
-        this.igniteTables = igniteTables;
-        this.catalogEventProducer = catalogEventProducer;
+        this.catalogService = catalogService;
         this.clock = clock;
     }
 
@@ -104,28 +98,33 @@ public class ClientPrimaryReplicaTracker implements EventListener<EventParameter
     @SuppressWarnings({"rawtypes", "unchecked"})
     void start() {
         placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, (EventListener) this);
-        catalogEventProducer.listen(CatalogEvent.TABLE_DROP, (EventListener) this);
+        catalogService.listen(CatalogEvent.TABLE_DROP, (EventListener) this);
     }
 
     @SuppressWarnings({"rawtypes", "unchecked"})
     void stop() {
-        catalogEventProducer.removeListener(CatalogEvent.TABLE_DROP, (EventListener) this);
+        catalogService.removeListener(CatalogEvent.TABLE_DROP, (EventListener) this);
         placementDriver.removeListener(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, (EventListener) this);
         primaryReplicas.clear();
     }
 
     private CompletableFuture<List<ReplicaHolder>> initReplicasForTableAsync(Integer tableId) {
-        try {
-            // Initially, request all primary replicas for the table.
-            // Then keep them updated via PRIMARY_REPLICA_ELECTED events.
-            return igniteTables
-                    .tableAsync(tableId)
-                    .thenCompose(t -> t != null
-                            ? primaryReplicasAsyncInternal(t.tableId(), t.internalTable().partitions())
-                            : CompletableFuture.completedFuture(null));
-        } catch (NodeStoppingException e) {
-            return CompletableFuture.failedFuture(e);
+        // Initially, request all primary replicas for the table.
+        // Then keep them updated via PRIMARY_REPLICA_ELECTED events.
+        long timestamp = clock.nowLong();
+        CatalogTableDescriptor tableDesc = catalogService.table(tableId, timestamp);
+
+        if (tableDesc == null) {
+            return CompletableFuture.completedFuture(null);
         }
+
+        CatalogZoneDescriptor zoneDesc = catalogService.zone(tableDesc.zoneId(), timestamp);
+
+        if (zoneDesc == null) {
+            return CompletableFuture.completedFuture(null);
+        }
+
+        return primaryReplicasAsyncInternal(tableId, zoneDesc.partitions());
     }
 
     private CompletableFuture<List<ReplicaHolder>> primaryReplicasAsyncInternal(int tableId, int partitions) {
