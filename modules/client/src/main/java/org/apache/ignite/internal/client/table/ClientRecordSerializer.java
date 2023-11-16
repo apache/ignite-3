@@ -37,7 +37,6 @@ import org.apache.ignite.internal.marshaller.ClientMarshallerWriter;
 import org.apache.ignite.internal.marshaller.Marshaller;
 import org.apache.ignite.internal.marshaller.MarshallerException;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.lang.NullableValue;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
@@ -206,23 +205,6 @@ public class ClientRecordSerializer<R> {
 
         try {
             return (R) marshaller.readObject(reader, null);
-        } catch (MarshallerException e) {
-            throw new IgniteException(INTERNAL_ERR, e.getMessage(), e);
-        }
-    }
-
-    NullableValue<R> readRecNullable(ClientSchema schema, ClientMessageUnpacker in, TuplePart part) {
-        Marshaller marshaller = schema.getMarshaller(mapper, part);
-
-        int columnCount = part == TuplePart.KEY ? schema.keyColumnCount() : schema.columns().length;
-        var tupleReader = new BinaryTupleReader(columnCount, in.readBinaryUnsafe());
-
-        int startIndex = part == TuplePart.VAL ? schema.keyColumnCount() : 0;
-        ClientMarshallerReader reader = new ClientMarshallerReader(tupleReader, startIndex);
-
-        try {
-            // TODO: How to detect null?
-            return NullableValue.of((R) marshaller.readObject(reader, null));
         } catch (MarshallerException e) {
             throw new IgniteException(INTERNAL_ERR, e.getMessage(), e);
         }

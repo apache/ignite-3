@@ -93,6 +93,9 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
     public CompletableFuture<V> getAsync(@Nullable Transaction tx, K key) {
         Objects.requireNonNull(key);
 
+        // TODO: throw UnexpectedNullValueException in case 2
+        // 1. If default value is returned, then the row does not exist. This is ok?
+        // 2. If null is returned from readRec, then the row exists, but the value column is not null
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET,
                 (s, w) -> keySer.writeRec(tx, key, s, w, TuplePart.KEY),
@@ -115,7 +118,7 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET,
                 (s, w) -> keySer.writeRec(tx, key, s, w, TuplePart.KEY),
-                (s, r) -> valSer.readRecNullable(s, r, TuplePart.VAL),
+                (s, r) -> NullableValue.of(valSer.readRec(s, r, TuplePart.VAL)),
                 null,
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, keySer.mapper(), key));
     }
