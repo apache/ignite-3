@@ -139,6 +139,8 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
         sql("CREATE INDEX test_val_asc_idx ON test (val ASC)");
         sql("INSERT INTO test VALUES (1, 1, 1), (2, 1, 2), (3, 1, 3)");
 
+        waitForIndexToBecomeAvailable("TEST_VAL_ASC_IDX");
+
         log.info("Data was loaded.");
 
         Transaction tx = CLUSTER.aliveNode().transactions().begin();

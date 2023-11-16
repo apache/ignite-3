@@ -42,6 +42,8 @@ public class ItJoinTest extends BaseSqlIntegrationTest {
         sql("create index t1_idx on t1 (c3, c2, c1)");
         sql("create index t2_idx on t2 (c3, c2, c1)");
 
+        waitForIndexToBecomeAvailable("T1_IDX", "T2_IDX");
+
         insertData("t1", List.of("ID", "C1", "C2", "C3"),
                 new Object[] {0, 1, 1, 1},
                 new Object[] {1, 2, null, 2},

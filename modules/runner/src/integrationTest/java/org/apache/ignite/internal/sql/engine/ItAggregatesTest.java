@@ -65,9 +65,6 @@ public class ItAggregatesTest extends BaseSqlIntegrationTest {
         sql("CREATE TABLE test (id INT PRIMARY KEY, grp0 INT, grp1 INT, val0 INT, val1 INT) WITH PRIMARY_ZONE='TEST_ZONE'");
         sql("CREATE TABLE test_one_col_idx (pk INT PRIMARY KEY, col0 INT)");
 
-        sql("CREATE INDEX test_idx ON test(grp0, grp1)");
-        sql("CREATE INDEX test_one_col_idx_idx ON test_one_col_idx(col0)");
-
         for (int i = 0; i < ROWS; i++) {
             sql("INSERT INTO test (id, grp0, grp1, val0, val1) VALUES (?, ?, ?, ?, ?)", i, i / 10, i / 100, 1, 2);
             sql("INSERT INTO test_one_col_idx (pk, col0) VALUES (?, ?)", i, i);
