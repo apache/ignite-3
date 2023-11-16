@@ -115,6 +115,7 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
     public CompletableFuture<NullableValue<V>> getNullableAsync(@Nullable Transaction tx, K key) {
         Objects.requireNonNull(key);
 
+        // Null means row does not exist, NullableValue.NULL means row exists, but mapped value column is null.
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET,
                 (s, w) -> keySer.writeRec(tx, key, s, w, TuplePart.KEY),
