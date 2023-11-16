@@ -237,24 +237,16 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
                 connectionId
         );
 
-        while (!descriptor.acquire(ctx)) {
-            if (shouldCloseChannel(remoteLaunchId, launchId)) {
-                Channel holderChannel = descriptor.holderChannel();
-
-                if (holderChannel == null) {
-                    continue;
-                }
-
-                holderChannel.close().awaitUninterruptibly();
-            } else {
-                if (LOG.isInfoEnabled()) {
-                    LOG.info("Failed to acquire recovery descriptor during handshake, it is held by: {}", descriptor.holderDescription());
-                }
-
-                handshakeCompleteFuture.completeExceptionally(new ChannelAlreadyExistsException(remoteConsistentId));
-
-                return;
+        if (!descriptor.acquire(ctx)) {
+            // Don't use the tie-braking logic as this handshake attempt is late: the competitor has already acquired
+            // recovery descriptors at both sides, so this handshake attempt must fail regardless of the Tie Breaker's opinion.
+            if (LOG.isInfoEnabled()) {
+                LOG.info("Failed to acquire recovery descriptor during handshake, it is held by: {}", descriptor.holderDescription());
             }
+
+            handshakeCompleteFuture.completeExceptionally(new ChannelAlreadyExistsException(remoteConsistentId));
+
+            return;
         }
 
         this.recoveryDescriptor = descriptor;
