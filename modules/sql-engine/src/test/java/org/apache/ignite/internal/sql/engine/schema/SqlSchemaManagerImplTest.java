@@ -418,7 +418,7 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
             SchemaPlus schemaPlus = rootSchema.getSubSchema(PUBLIC_SCHEMA_NAME);
             assertNotNull(schemaPlus);
 
-            IgniteIndex index = getIndex(unwrapSchema(schemaPlus), "T1", "VAL1_IDX");
+            IgniteIndex index = findIndex(unwrapSchema(schemaPlus), "T1", "VAL1_IDX");
             assertNull(index, "Index should not be available");
         }
 
@@ -434,7 +434,7 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
             SchemaPlus schemaPlus = rootSchema.getSubSchema(PUBLIC_SCHEMA_NAME);
             assertNotNull(schemaPlus);
 
-            IgniteIndex index = getIndex(unwrapSchema(schemaPlus), "T1", "VAL1_IDX");
+            IgniteIndex index = findIndex(unwrapSchema(schemaPlus), "T1", "VAL1_IDX");
             assertNotNull(index);
 
             assertThat(index.name(), equalTo("VAL1_IDX"));
@@ -466,10 +466,10 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
             SchemaPlus schemaPlus = rootSchema.getSubSchema(PUBLIC_SCHEMA_NAME);
             assertNotNull(schemaPlus);
 
-            IgniteIndex index1 = getIndex(unwrapSchema(schemaPlus), "T1", "IDX1");
+            IgniteIndex index1 = findIndex(unwrapSchema(schemaPlus), "T1", "IDX1");
             assertNull(index1);
 
-            IgniteIndex index2 = getIndex(unwrapSchema(schemaPlus), "T1", "IDX2");
+            IgniteIndex index2 = findIndex(unwrapSchema(schemaPlus), "T1", "IDX2");
             assertNull(index2);
         }
 
@@ -485,7 +485,7 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
             SchemaPlus schemaPlus = rootSchema.getSubSchema(PUBLIC_SCHEMA_NAME);
             assertNotNull(schemaPlus);
 
-            IgniteIndex index = getIndex(unwrapSchema(schemaPlus), "T1", "IDX1");
+            IgniteIndex index = findIndex(unwrapSchema(schemaPlus), "T1", "IDX1");
             assertNotNull(index);
 
             assertThat(index.name(), equalTo("IDX1"));
@@ -508,7 +508,7 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
             SchemaPlus schemaPlus = rootSchema.getSubSchema(PUBLIC_SCHEMA_NAME);
             assertNotNull(schemaPlus);
 
-            IgniteIndex index = getIndex(unwrapSchema(schemaPlus), "T1", "IDX2");
+            IgniteIndex index = findIndex(unwrapSchema(schemaPlus), "T1", "IDX2");
             assertNotNull(index);
 
             assertThat(index.name(), equalTo("IDX2"));
@@ -660,7 +660,7 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
         return table;
     }
 
-    private static @Nullable IgniteIndex getIndex(IgniteSchema schema, String tableName, String indexName) {
+    private static @Nullable IgniteIndex findIndex(IgniteSchema schema, String tableName, String indexName) {
         IgniteTable table = (IgniteTable) schema.getTable(tableName);
         assertNotNull(table);
         return table.indexes().get(indexName);
