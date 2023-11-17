@@ -30,7 +30,6 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.replicator.ReplicaService;
-import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
 import org.apache.ignite.internal.tx.message.TxRecoveryMessage;
@@ -63,8 +62,8 @@ public class OrphanDetector {
     /** Placement driver. */
     private final PlacementDriver placementDriver;
 
-    /** Lock manager. */
-    private final LockManager lockManager;
+    ///** Lock manager. */
+    //private final LockManager lockManager;
 
     /** Hybrid clock. */
     private final HybridClock clock;
@@ -78,19 +77,18 @@ public class OrphanDetector {
      * @param topologyService Topology service.
      * @param replicaService Replica service.
      * @param placementDriver Placement driver.
-     * @param lockManager Lock manager.
      * @param clock Clock.
      */
     public OrphanDetector(
             TopologyService topologyService,
             ReplicaService replicaService,
             PlacementDriver placementDriver,
-            LockManager lockManager,
+            //LockManager lockManager,
             HybridClock clock) {
         this.topologyService = topologyService;
         this.replicaService = replicaService;
         this.placementDriver = placementDriver;
-        this.lockManager = lockManager;
+        //this.lockManager = lockManager;
         this.clock = clock;
     }
 

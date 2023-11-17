@@ -202,7 +202,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                 new LinkedBlockingQueue<>(),
                 new NamedThreadFactory("tx-async-cleanup", LOG));
 
-        orphanDetector = new OrphanDetector(clusterService.topologyService(), replicaService, placementDriver, lockManager, clock);
+        orphanDetector = new OrphanDetector(clusterService.topologyService(), replicaService, placementDriver, /*lockManager,*/ clock);
     }
 
     @Override
