@@ -21,6 +21,7 @@ import java.util.Collection;
 import java.util.Iterator;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
 /** Lock manager allows to acquire locks and release locks and supports deadlock prevention by transaction id ordering. */
@@ -94,4 +95,11 @@ public interface LockManager {
      */
     @TestOnly
     boolean isEmpty();
+
+    /**
+     * Get parent lock manager.
+     * @return Parent lock manager in lock hierarchy.
+     */
+    @Nullable
+    LockManager parentLockManager();
 }

@@ -24,7 +24,6 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.IgnitionManager;
@@ -71,13 +70,13 @@ public class AbstractOneNodeBenchmark {
 
         @Language("HOCON")
         String config = "network: {\n"
-                        + "  nodeFinder:{\n"
-                        + "    netClusterNodes: [ \"localhost:" + PORT + "\"] \n"
-                        + "  }\n"
-                        + "},"
-                        + "raft.fsync = " + fsync;
+                + "  nodeFinder:{\n"
+                + "    netClusterNodes: [ \"localhost:" + PORT + "\"] \n"
+                + "  }\n"
+                + "},"
+                + "raft.fsync = " + fsync;
 
-        var fut =  TestIgnitionManager.start(NODE_NAME, config, workDir.resolve(NODE_NAME));
+        var fut = TestIgnitionManager.start(NODE_NAME, config, workDir.resolve(NODE_NAME));
 
         TestIgnitionManager.init(new InitParametersBuilder()
                 .clusterName("cluster")

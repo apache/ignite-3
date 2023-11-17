@@ -20,6 +20,7 @@ import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.tx.DeadlockPreventionPolicy;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
+import org.apache.ignite.internal.tx.impl.HeapUnboundedLockManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager.LockState;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
@@ -96,8 +97,11 @@ public class ItLockTableTest extends IgniteAbstractTest {
                     ClusterNode node, PlacementDriver placementDriver) {
                 return new TxManagerImpl(
                         replicaSvc,
-                        new HeapLockManager(new DeadlockPreventionPolicy() {
-                        }, HeapLockManager.SLOTS, CACHE_SIZE),
+                        new HeapLockManager(
+                                DeadlockPreventionPolicy.NO_OP,
+                                HeapLockManager.SLOTS,
+                                CACHE_SIZE,
+                                new HeapUnboundedLockManager()),
                         clock,
                         generator,
                         node::id,
@@ -122,7 +126,7 @@ public class ItLockTableTest extends IgniteAbstractTest {
         RecordView<Tuple> view = testTable.recordView();
 
         int i = 0;
-        final int count = 10_00;
+        final int count = 1000;
         List<Transaction> txns = new ArrayList<>();
         while (i++ < count) {
             Transaction tx = txTestCluster.igniteTransactions().begin();
