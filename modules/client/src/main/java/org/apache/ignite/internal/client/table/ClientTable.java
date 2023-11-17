@@ -545,6 +545,9 @@ public class ClientTable implements Table {
                         w.out().packLong(timestamp);
                     },
                     r -> {
+                        // TODO: Update partitionAssignmentTimestamp if newer
+                        long timestamp0 = r.in().unpackLong();
+
                         int cnt = r.in().unpackInt();
                         List<String> res = new ArrayList<>(cnt);
 

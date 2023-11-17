@@ -83,12 +83,15 @@ public class ClientPrimaryReplicaTracker implements EventListener<EventParameter
      * Gets primary replicas by partition for the table.
      *
      * @param tableId Table ID.
-     * @param timestamp Timestamp.
+     * @param maxStartTime Timestamp.
      * @return Primary replicas for the table, or null when not yet known.
      */
-    public CompletableFuture<PrimaryReplicasResult> primaryReplicasAsync(int tableId, HybridTimestamp timestamp) {
+    public CompletableFuture<PrimaryReplicasResult> primaryReplicasAsync(int tableId, @Nullable HybridTimestamp maxStartTime) {
+        HybridTimestamp timestamp = maxStartTime == null ? clock.now() : maxStartTime;
+        HybridTimestamp maxStartTime0 = maxStartTime == null ? HybridTimestamp.MIN_VALUE : maxStartTime;
+
         // 0. Check happy path: if we already have all replicas, and maxStartTime > timestamp, return synchronously.
-        var fastRes = primaryReplicasNoWait(tableId, timestamp);
+        var fastRes = primaryReplicasNoWait(tableId, maxStartTime0, timestamp);
         if (fastRes != null) {
             return CompletableFuture.completedFuture(fastRes);
         }
@@ -128,7 +131,7 @@ public class ClientPrimaryReplicaTracker implements EventListener<EventParameter
 
         // 2. Wait for all futures to complete, check if replicas are now new enough.
         return initPartitionsFut.thenCompose(v -> {
-            var res = primaryReplicasNoWait(tableId, timestamp);
+            var res = primaryReplicasNoWait(tableId, maxStartTime0, timestamp);
             if (res != null) {
                 return CompletableFuture.completedFuture(res);
             }
@@ -140,19 +143,19 @@ public class ClientPrimaryReplicaTracker implements EventListener<EventParameter
     }
 
     @Nullable
-    private PrimaryReplicasResult primaryReplicasNoWait(int tableId, HybridTimestamp timestamp) {
+    private PrimaryReplicasResult primaryReplicasNoWait(int tableId, HybridTimestamp maxStartTime, HybridTimestamp timestamp) {
         int partitions;
 
         try {
             partitions = partitionsNoWait(tableId, timestamp);
         }
-        catch (IllegalStateException e) {
-            // No valid schema found for given timestamp (because we did not wait).
+        catch (IllegalStateException | TableNotFoundException e) {
+            // Table or schema not found for because we did not wait.
             return null;
         }
 
         List<String> res = new ArrayList<>(partitions);
-        long maxStartTime = 0;
+        long maxStartTime0 = HybridTimestamp.MIN_VALUE.longValue();
 
         for (int partition = 0; partition < partitions; partition++) {
             TablePartitionId tablePartitionId = new TablePartitionId(tableId, partition);
@@ -164,10 +167,17 @@ public class ClientPrimaryReplicaTracker implements EventListener<EventParameter
             }
 
             res.add(holder.nodeName());
-            maxStartTime = Math.max(maxStartTime, holder.leaseStartTime().longValue());
+
+            if (holder.leaseStartTime() != null) {
+                maxStartTime0 = Math.max(maxStartTime0, holder.leaseStartTime().longValue());
+            }
         }
 
-        return maxStartTime >= timestamp.longValue() ? new PrimaryReplicasResult(res, maxStartTime) : null;
+        return maxStartTime0 >= maxStartTime.longValue() ? new PrimaryReplicasResult(res, maxStartTime0) : null;
+    }
+
+    private CompletableFuture<Integer> partitionsAsync(int tableId, HybridTimestamp timestamp) {
+        return schemaSyncService.waitForMetadataCompleteness(timestamp).thenApply(v -> partitionsNoWait(tableId, timestamp));
     }
 
     private int partitionsNoWait(int tableId, HybridTimestamp timestamp) {
@@ -204,10 +214,6 @@ public class ClientPrimaryReplicaTracker implements EventListener<EventParameter
         catalogService.removeListener(CatalogEvent.TABLE_DROP, (EventListener) this);
         placementDriver.removeListener(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, (EventListener) this);
         primaryReplicas.clear();
-    }
-
-    private CompletableFuture<Integer> partitionsAsync(int tableId, HybridTimestamp timestamp) {
-        return schemaSyncService.waitForMetadataCompleteness(timestamp).thenApply(v -> partitionsNoWait(tableId, timestamp));
     }
 
     @Override
