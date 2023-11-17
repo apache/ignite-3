@@ -152,6 +152,11 @@ public class ClientPrimaryReplicaTracker implements EventListener<EventParameter
 
     @Nullable
     private PrimaryReplicasResult primaryReplicasNoWait(int tableId, HybridTimestamp maxStartTime, HybridTimestamp timestamp) {
+        long currentMaxStartTime = this.maxStartTime.get();
+        if (currentMaxStartTime < maxStartTime.longValue()) {
+            return null;
+        }
+
         int partitions;
 
         try {
@@ -163,25 +168,19 @@ public class ClientPrimaryReplicaTracker implements EventListener<EventParameter
         }
 
         List<String> res = new ArrayList<>(partitions);
-        long maxStartTime0 = HybridTimestamp.MIN_VALUE.longValue();
 
         for (int partition = 0; partition < partitions; partition++) {
             TablePartitionId tablePartitionId = new TablePartitionId(tableId, partition);
-
             ReplicaHolder holder = primaryReplicas.get(tablePartitionId);
 
-            if (holder == null) {
+            if (holder == null || holder.nodeName() == null || holder.leaseStartTime() == null) {
                 return null;
             }
 
             res.add(holder.nodeName());
-
-            if (holder.leaseStartTime() != null) {
-                maxStartTime0 = Math.max(maxStartTime0, holder.leaseStartTime().longValue());
-            }
         }
 
-        return maxStartTime0 >= maxStartTime.longValue() ? new PrimaryReplicasResult(res, maxStartTime0) : null;
+        return new PrimaryReplicasResult(res, currentMaxStartTime);
     }
 
     private CompletableFuture<Integer> partitionsAsync(int tableId, HybridTimestamp timestamp) {
