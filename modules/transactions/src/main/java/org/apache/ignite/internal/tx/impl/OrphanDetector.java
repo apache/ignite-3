@@ -165,7 +165,7 @@ public class OrphanDetector {
                             txId
                     );
 
-                    return completedFuture(null) ;
+                    return completedFuture(null);
                 }
 
                 return replicaService.invoke(commitPartPrimaryNode, FACTORY.txRecoveryMessage()
