@@ -272,8 +272,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     }
 
     @Override
-    public void updateTxMeta(UUID txId, Function<TxStateMeta, TxStateMeta> updater) {
-        txStateMap.compute(txId, (k, oldMeta) -> {
+    public TxStateMeta updateTxMeta(UUID txId, Function<TxStateMeta, TxStateMeta> updater) {
+        return txStateMap.compute(txId, (k, oldMeta) -> {
             TxStateMeta newMeta = updater.apply(oldMeta);
 
             if (newMeta == null) {
@@ -328,17 +328,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         // than all the read timestamps processed before.
         // Every concurrent operation will now use a finish future from the finishing state meta and get only final transaction
         // state after the transaction is finished.
-        AtomicReference<TxStateMetaFinishing> finishingStateMetaRef = new AtomicReference<>();
-
-        updateTxMeta(txId, old -> {
-            var finishingState = new TxStateMetaFinishing(localNodeId, old == null ? null : old.commitPartitionId());
-
-            finishingStateMetaRef.set(finishingState);
-
-            return finishingState;
-        });
-
-        TxStateMetaFinishing finishingStateMeta = finishingStateMetaRef.get();
+        TxStateMetaFinishing finishingStateMeta = (TxStateMetaFinishing) updateTxMeta(txId, old ->
+                new TxStateMetaFinishing(localNodeId, old == null ? null : old.commitPartitionId()));
 
         AtomicBoolean performingFinish = new AtomicBoolean();
         TxContext tuple = txCtxMap.compute(txId, (uuid, tuple0) -> {

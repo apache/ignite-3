@@ -501,7 +501,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     }
 
     /**
-     * Processes transaction recovery request.
+     * Processes transaction recovery request on a commit partition.
      *
      * @param request Tx recovery request.
      * @return The future is complete when the transaction state is finalized.
@@ -518,7 +518,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             return completedFuture(null);
         }
 
-        LOG.info("Orphan transactions have to be aborted [tx={}].", txId);
+        LOG.info("Orphan transaction has to be aborted [tx={}].", txId);
 
         // TODO: IGNITE-20735 Implement initiate recovery handling logic.
         return completedFuture(null);

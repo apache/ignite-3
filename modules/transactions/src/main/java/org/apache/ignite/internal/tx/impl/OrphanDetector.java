@@ -20,6 +20,7 @@ package org.apache.ignite.internal.tx.impl;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.apache.ignite.internal.tx.TxState.isFinalState;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -30,6 +31,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.replicator.ReplicaService;
+import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
 import org.apache.ignite.internal.tx.message.TxRecoveryMessage;
@@ -62,6 +64,7 @@ public class OrphanDetector {
     /** Placement driver. */
     private final PlacementDriver placementDriver;
 
+    // TODO: IGNITE-20773 Uncomment this during implementation.
     ///** Lock manager. */
     //private final LockManager lockManager;
 
@@ -140,40 +143,42 @@ public class OrphanDetector {
 
         assert txState != null : "The transaction is undefined in the local node [txId=" + txId + "].";
 
-        if (topologyService.getById(txState.txCoordinatorId()) == null) {
-            LOG.info(
-                    "Conflict was found, and the coordinator of the transaction that holds a lock is not available "
-                            + "[txId={}, txCrd={}].",
-                    txId,
-                    txState.txCoordinatorId()
-            );
-
-            return placementDriver.awaitPrimaryReplica(
-                    txState.commitPartitionId(),
-                    clock.now(),
-                    AWAIT_PRIMARY_REPLICA_TIMEOUT_SEC,
-                    SECONDS
-            ).thenCompose(replicaMeta -> {
-                ClusterNode commitPartPrimaryNode = topologyService.getByConsistentId(replicaMeta.getLeaseholder());
-
-                if (commitPartPrimaryNode == null) {
-                    LOG.warn(
-                            "The primary replica of the commit partition is not available [commitPartGrp={}, tx={}]",
-                            txState.commitPartitionId(),
-                            txId
-                    );
-
-                    return completedFuture(null);
-                }
-
-                return replicaService.invoke(commitPartPrimaryNode, FACTORY.txRecoveryMessage()
-                                .groupId(txState.commitPartitionId())
-                                .enlistmentConsistencyToken(replicaMeta.getStartTime().longValue())
-                                .txId(txId)
-                                .build());
-            });
+        if (txState.txState() == TxState.ABANDONED
+                || isFinalState(txState.txState())
+                || topologyService.getById(txState.txCoordinatorId()) != null) {
+            return completedFuture(null);
         }
 
-        return completedFuture(null);
+        LOG.info(
+                "Conflict was found, and the coordinator of the transaction that holds a lock is not available "
+                        + "[txId={}, txCrd={}].",
+                txId,
+                txState.txCoordinatorId()
+        );
+
+        return placementDriver.awaitPrimaryReplica(
+                txState.commitPartitionId(),
+                clock.now(),
+                AWAIT_PRIMARY_REPLICA_TIMEOUT_SEC,
+                SECONDS
+        ).thenCompose(replicaMeta -> {
+            ClusterNode commitPartPrimaryNode = topologyService.getByConsistentId(replicaMeta.getLeaseholder());
+
+            if (commitPartPrimaryNode == null) {
+                LOG.warn(
+                        "The primary replica of the commit partition is not available [commitPartGrp={}, tx={}]",
+                        txState.commitPartitionId(),
+                        txId
+                );
+
+                return completedFuture(null);
+            }
+
+            return replicaService.invoke(commitPartPrimaryNode, FACTORY.txRecoveryMessage()
+                    .groupId(txState.commitPartitionId())
+                    .enlistmentConsistencyToken(replicaMeta.getStartTime().longValue())
+                    .txId(txId)
+                    .build());
+        });
     }
 }
