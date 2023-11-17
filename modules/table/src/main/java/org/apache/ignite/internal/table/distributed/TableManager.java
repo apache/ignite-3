@@ -123,7 +123,6 @@ import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.SchemaManager;
-import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
@@ -194,9 +193,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     /** Transaction storage flush delay. */
     private static final int TX_STATE_STORAGE_FLUSH_DELAY = 1000;
     private static final IntSupplier TX_STATE_STORAGE_FLUSH_DELAY_SUPPLIER = () -> TX_STATE_STORAGE_FLUSH_DELAY;
-
-    /** Garbage collector configuration. */
-    private final GcConfiguration gcConfig;
 
     private final ClusterService clusterService;
 
@@ -355,7 +351,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      *
      * @param nodeName Node name.
      * @param registry Registry for versioned values.
-     * @param gcConfig Garbage collector configuration.
      * @param raftMgr Raft manager.
      * @param replicaMgr Replica manager.
      * @param lockMgr Lock manager.
@@ -372,7 +367,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     public TableManager(
             String nodeName,
             Consumer<LongFunction<CompletableFuture<?>>> registry,
-            GcConfiguration gcConfig,
             ClusterService clusterService,
             RaftManager raftMgr,
             ReplicaManager replicaMgr,
@@ -394,7 +388,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             HybridTimestampTracker observableTimestampTracker,
             PlacementDriver placementDriver
     ) {
-        this.gcConfig = gcConfig;
         this.clusterService = clusterService;
         this.raftMgr = raftMgr;
         this.replicaMgr = replicaMgr;

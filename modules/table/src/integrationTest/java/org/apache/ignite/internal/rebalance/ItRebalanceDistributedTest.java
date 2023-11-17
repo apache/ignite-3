@@ -961,8 +961,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
             Consumer<LongFunction<CompletableFuture<?>>> registry = (LongFunction<CompletableFuture<?>> function) ->
                     metaStorageManager.registerRevisionUpdateListener(function::apply);
 
-            GcConfiguration gcConfig = clusterConfigRegistry.getConfiguration(GcConfiguration.KEY);
-
             DataStorageModules dataStorageModules = new DataStorageModules(List.of(
                     new PersistentPageMemoryDataStorageModule(),
                     new VolatilePageMemoryDataStorageModule(),
@@ -1007,7 +1005,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
             tableManager = new TableManager(
                     name,
                     registry,
-                    gcConfig,
                     clusterService,
                     raftManager,
                     replicaManager,

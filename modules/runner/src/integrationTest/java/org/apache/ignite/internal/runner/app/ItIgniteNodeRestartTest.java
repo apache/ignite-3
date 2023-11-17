@@ -362,8 +362,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 )
         );
 
-        GcConfiguration gcConfig = clusterConfigRegistry.getConfiguration(GcConfiguration.KEY);
-
         var clockWaiter = new ClockWaiter(name, hybridClock);
 
         LongSupplier delayDurationMsSupplier = () -> 100L;
@@ -391,7 +389,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         TableManager tableManager = new TableManager(
                 name,
                 registry,
-                gcConfig,
                 clusterSvc,
                 raftMgr,
                 replicaMgr,
