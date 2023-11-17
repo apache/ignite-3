@@ -44,6 +44,9 @@ import org.openjdk.jmh.runner.RunnerException;
 import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 
+/**
+ * Benchmark lock manager.
+ */
 @State(Scope.Benchmark)
 @OutputTimeUnit(TimeUnit.MICROSECONDS)
 public class LockManagerBenchmark {
@@ -77,6 +80,9 @@ public class LockManagerBenchmark {
     @Param({"200"})
     private int concTxns;
 
+    /**
+     * Take and release some locks.
+     */
     @Benchmark
     @Warmup(iterations = 1, time = 3)
     @Measurement(iterations = 1, time = 10)

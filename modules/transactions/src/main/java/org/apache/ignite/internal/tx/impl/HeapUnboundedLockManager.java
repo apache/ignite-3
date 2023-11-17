@@ -184,7 +184,7 @@ public class HeapUnboundedLockManager implements LockManager {
         private final Executor delayedExecutor;
 
         /** Marked for removal flag. */
-        private boolean markedForRemove = false;
+        private volatile boolean markedForRemove = false;
 
         public LockState(DeadlockPreventionPolicy deadlockPreventionPolicy, Executor delayedExecutor) {
             Comparator<UUID> txComparator =
@@ -267,7 +267,7 @@ public class HeapUnboundedLockManager implements LockManager {
 
                 if (mode != null && !mode.isCompatible(waiter.intendedLockMode())) {
                     if (!deadlockPreventionPolicy.usePriority() && deadlockPreventionPolicy.waitTimeout() == 0) {
-                        waiter.fail(lockException(waiter.txId(), tmp));
+                        waiter.fail(lockException(waiter, tmp));
 
                         return true;
                     }
@@ -284,7 +284,7 @@ public class HeapUnboundedLockManager implements LockManager {
                     if (skipFail) {
                         return false;
                     } else if (deadlockPreventionPolicy.waitTimeout() == 0) {
-                        waiter.fail(lockException(waiter.txId(), tmp));
+                        waiter.fail(lockException(waiter, tmp));
 
                         return true;
                     } else {
@@ -301,13 +301,13 @@ public class HeapUnboundedLockManager implements LockManager {
         /**
          * Create lock exception with given parameters.
          *
-         * @param txId Transaction id.
-         * @param conflictingWaiter Conflicting waiter.
+         * @param locker Locker.
+         * @param holder Lock holder.
          * @return Lock exception.
          */
-        private LockException lockException(UUID txId, WaiterImpl conflictingWaiter) {
-            return new LockException(ACQUIRE_LOCK_ERR, "Failed to acquire a lock due to a conflict [txId="
-                    + txId + ", conflictingWaiter=" + conflictingWaiter + ']');
+        private LockException lockException(Waiter locker, Waiter holder) {
+            return new LockException(ACQUIRE_LOCK_ERR,
+                    "Failed to acquire a lock due to a possible deadlock [locker=" + locker + ", holder=" + holder + ']');
         }
 
         /**

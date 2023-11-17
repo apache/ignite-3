@@ -171,6 +171,7 @@ public class HeapLockManager implements LockManager {
     }
 
     @Override
+    @TestOnly
     public void release(Lock lock) {
         LockState state = lockState(lock.lockKey());
 
@@ -230,6 +231,8 @@ public class HeapLockManager implements LockManager {
                 }
             }
         }
+
+        parentLockManager.releaseAll(txId);
     }
 
     @Override
@@ -460,7 +463,7 @@ public class HeapLockManager implements LockManager {
          */
         private LockException lockException(WaiterImpl locker, WaiterImpl holder) {
             return new LockException(ACQUIRE_LOCK_ERR,
-                    "Failed to acquire a lock due to a conflict [locker=" + locker + ", holder=" + holder + ']');
+                    "Failed to acquire a lock due to a possible deadlock [locker=" + locker + ", holder=" + holder + ']');
         }
 
         /**

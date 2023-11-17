@@ -37,6 +37,9 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
 
+/**
+ * Test lock table.
+ */
 @ExtendWith(ConfigurationExtension.class)
 public class ItLockTableTest extends IgniteAbstractTest {
     private static final IgniteLogger LOG = Loggers.forClass(ItLockTableTest.class);
@@ -121,6 +124,9 @@ public class ItLockTableTest extends IgniteAbstractTest {
         txTestCluster.shutdownCluster();
     }
 
+    /**
+     * Test that a lock table behaves correctly in case of lock cache overflow.
+     */
     @Test
     public void testCollision() {
         RecordView<Tuple> view = testTable.recordView();
