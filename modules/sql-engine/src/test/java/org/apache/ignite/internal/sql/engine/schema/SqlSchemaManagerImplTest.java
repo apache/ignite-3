@@ -71,6 +71,7 @@ import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.util.cache.CaffeineCacheFactory;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.sql.ColumnType;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -659,7 +660,7 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
         return table;
     }
 
-    private static IgniteIndex getIndex(IgniteSchema schema, String tableName, String indexName) {
+    private static @Nullable IgniteIndex getIndex(IgniteSchema schema, String tableName, String indexName) {
         IgniteTable table = (IgniteTable) schema.getTable(tableName);
         assertNotNull(table);
         return table.indexes().get(indexName);
