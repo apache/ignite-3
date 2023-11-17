@@ -111,13 +111,21 @@ public class ClientPrimaryReplicaTracker implements EventListener<EventParameter
                     }
 
                     // Old does not exist, or completed with null.
-                    CompletableFuture<ReplicaMeta> fut = placementDriver.getPrimaryReplica(tablePartitionId, timestamp);
+                    CompletableFuture<ReplicaMeta> fut = new CompletableFuture<>();
                     var newHolder = new ReplicaHolder(null, null, fut);
 
-                    fut.thenAccept(replicaMeta -> {
+                    placementDriver.getPrimaryReplica(tablePartitionId, timestamp).handle((replicaMeta, err) -> {
+                        if (err != null) {
+                            fut.completeExceptionally(err);
+                            return null;
+                        }
+
                         if (replicaMeta != null && replicaMeta.getLeaseholder() != null) {
                             newHolder.update(replicaMeta.getLeaseholder(), replicaMeta.getStartTime());
                         }
+
+                        fut.complete(replicaMeta);
+                        return null;
                     });
 
                     return newHolder;
