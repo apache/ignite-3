@@ -24,7 +24,7 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
@@ -50,7 +50,7 @@ import org.jetbrains.annotations.Nullable;
 public class ClientPrimaryReplicaTracker implements EventListener<EventParameters> {
     private final ConcurrentHashMap<TablePartitionId, ReplicaHolder> primaryReplicas = new ConcurrentHashMap<>();
 
-    private final AtomicReference<Long> maxStartTime = new AtomicReference<>();
+    private final AtomicLong maxStartTime = new AtomicLong();
 
     private final PlacementDriver placementDriver;
 
