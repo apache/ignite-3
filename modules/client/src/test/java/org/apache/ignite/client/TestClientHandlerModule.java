@@ -219,7 +219,7 @@ public class TestClientHandlerModule implements IgniteComponent {
                                         new AlwaysSyncedSchemaSyncService(),
                                         catalogService,
                                         connectionIdGen.incrementAndGet(),
-                                        new ClientPrimaryReplicaTracker(placementDriver, catalogService, clock)
+                                        new ClientPrimaryReplicaTracker(placementDriver, catalogService, clock, schemaSyncService)
                                 )
                         );
                     }

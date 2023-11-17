@@ -22,6 +22,7 @@ import org.apache.ignite.client.handler.ClientPrimaryReplicaTracker;
 import org.apache.ignite.client.handler.ClientPrimaryReplicaTracker.ReplicaHolder;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.lang.IgniteException;
 import org.jetbrains.annotations.Nullable;
@@ -45,8 +46,9 @@ public class ClientTablePartitionPrimaryReplicasGetRequest {
             ClientPrimaryReplicaTracker tracker
     ) throws NodeStoppingException {
         int tableId = in.unpackInt();
+        HybridTimestamp observableTs = HybridTimestamp.nullableHybridTimestamp(in.unpackLong());
 
-        return tracker.primaryReplicasAsync(tableId).thenAccept(primaryReplicas -> {
+        return tracker.primaryReplicasAsync(tableId, observableTs).thenAccept(primaryReplicas -> {
             if (primaryReplicas == null) {
                 out.packInt(0);
             } else {

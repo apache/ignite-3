@@ -24,7 +24,6 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
@@ -40,6 +39,7 @@ import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
 import org.apache.ignite.lang.TableNotFoundException;
 import org.jetbrains.annotations.Nullable;
 
@@ -49,9 +49,7 @@ import org.jetbrains.annotations.Nullable;
  * <p>Keeps up-to-date lists of primary replicas by partition for every table, avoiding expensive placement driver calls in most cases.
  */
 public class ClientPrimaryReplicaTracker implements EventListener<EventParameters> {
-    private static final int LRU_CHECK_FREQ_MILLIS = 60 * 60 * 1000;
-
-    private final ConcurrentHashMap<Integer, Holder> primaryReplicas = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<TablePartitionId, ReplicaHolder> primaryReplicas = new ConcurrentHashMap<>();
 
     private final AtomicReference<Long> maxStartTime = new AtomicReference<>();
 
@@ -59,9 +57,9 @@ public class ClientPrimaryReplicaTracker implements EventListener<EventParameter
 
     private final HybridClock clock;
 
-    private final AtomicLong lruCheckTime = new AtomicLong(0);
-
     private final CatalogService catalogService;
+
+    private final SchemaSyncService schemaSyncService;
 
     /**
      * Constructor.
@@ -69,31 +67,47 @@ public class ClientPrimaryReplicaTracker implements EventListener<EventParameter
      * @param placementDriver Placement driver.
      * @param catalogService Catalog.
      * @param clock Hybrid clock.
+     * @param schemaSyncService Schema synchronization service.
      */
     public ClientPrimaryReplicaTracker(
             PlacementDriver placementDriver,
             CatalogService catalogService,
-            HybridClock clock) {
+            HybridClock clock,
+            SchemaSyncService schemaSyncService) {
         this.placementDriver = placementDriver;
         this.catalogService = catalogService;
         this.clock = clock;
+        this.schemaSyncService = schemaSyncService;
     }
 
     /**
      * Gets primary replicas by partition for the table.
      *
      * @param tableId Table ID.
+     * @param observableTs
      * @return Primary replicas for the table, or null when not yet known.
      */
-    public CompletableFuture<List<ReplicaHolder>> primaryReplicasAsync(int tableId) {
-        return primaryReplicas.compute(tableId, (id, hld) -> {
-            if (hld == null || hld.replicas.isCompletedExceptionally()) {
-                return new Holder(initReplicasForTableAsync(id));
+    public CompletableFuture<List<ReplicaHolder>> primaryReplicasAsync(int tableId, HybridTimestamp observableTs) {
+        schemaSyncService.waitForMetadataCompleteness(observableTs).thenCompose(v -> {
+            CatalogTableDescriptor table = catalogService.table(tableId, observableTs.longValue());
+
+            if (table == null) {
+                return CompletableFuture.failedFuture(tableNotFoundException(tableId));
             }
 
-            hld.lastAccessTime = System.currentTimeMillis();
-            return hld;
-        }).replicas;
+            var zone = catalogService.zone(table.zoneId(), observableTs.longValue());
+
+            if (zone == null) {
+                return CompletableFuture.failedFuture(tableNotFoundException(tableId));
+            }
+
+            List<CompletableFuture<ReplicaHolder>> futs = new ArrayList<>(zone.partitions());
+
+            for (int partition = 0; partition < zone.partitions(); partition++) {
+                TablePartitionId key = new TablePartitionId(tableId, partition);
+                var holder = primaryReplicas.get(key);
+            }
+        };
     }
 
     long maxStartTime() {
@@ -116,27 +130,26 @@ public class ClientPrimaryReplicaTracker implements EventListener<EventParameter
         primaryReplicas.clear();
     }
 
-    private CompletableFuture<List<ReplicaHolder>> initReplicasForTableAsync(Integer tableId) {
+    private CompletableFuture<List<ReplicaHolder>> initReplicasForTableAsync(Integer tableId, HybridTimestamp timestamp) {
         try {
             // Initially, request all primary replicas for the table.
             // Then keep them updated via PRIMARY_REPLICA_ELECTED events.
 
             // TODO: Use observable timestamp from client
             // TODO: Use SchemaSyncService to wait for tables using client timestamp.
-            long timestamp = clock.nowLong();
-            CatalogTableDescriptor tableDesc = catalogService.table(tableId, timestamp);
+            CatalogTableDescriptor tableDesc = catalogService.table(tableId, timestamp.longValue());
 
             if (tableDesc == null) {
                 return CompletableFuture.failedFuture(tableNotFoundException(tableId));
             }
 
-            CatalogZoneDescriptor zoneDesc = catalogService.zone(tableDesc.zoneId(), timestamp);
+            CatalogZoneDescriptor zoneDesc = catalogService.zone(tableDesc.zoneId(), timestamp.longValue());
 
             if (zoneDesc == null) {
                 return CompletableFuture.failedFuture(tableNotFoundException(tableId));
             }
 
-            return primaryReplicasAsyncInternal(tableId, zoneDesc.partitions(), timestamp);
+            return primaryReplicasAsyncInternal(tableId, zoneDesc.partitions(), timestamp.longValue());
         } catch (Throwable t) {
             return CompletableFuture.failedFuture(t);
         }
@@ -236,17 +249,6 @@ public class ClientPrimaryReplicaTracker implements EventListener<EventParameter
     @SuppressWarnings("DataFlowIssue")
     private static TableNotFoundException tableNotFoundException(Integer tableId) {
         return new TableNotFoundException(UUID.randomUUID(), TABLE_NOT_FOUND_ERR, "Table not found: " + tableId, null);
-    }
-
-    private static class Holder {
-        final CompletableFuture<List<ReplicaHolder>> replicas;
-
-        volatile long lastAccessTime;
-
-        private Holder(CompletableFuture<List<ReplicaHolder>> replicas) {
-            this.replicas = replicas;
-            this.lastAccessTime = System.currentTimeMillis();
-        }
     }
 
     /**
