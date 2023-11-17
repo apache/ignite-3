@@ -75,7 +75,7 @@ public class ClientTable implements Table {
 
     private volatile CompletableFuture<List<String>> partitionAssignment = null;
 
-    private volatile long partitionAssignmentVersion = -1;
+    private volatile long primaryReplicaMaxStartTime = -1;
 
     /**
      * Constructor.
@@ -521,24 +521,24 @@ public class ClientTable implements Table {
     }
 
     synchronized CompletableFuture<List<String>> getPartitionAssignment() {
-        long currentVersion = ch.partitionAssignmentVersion();
+        long timestamp = ch.primaryReplicaLastStartTime();
 
-        if (partitionAssignmentVersion == currentVersion
+        if (primaryReplicaMaxStartTime == timestamp
                 && partitionAssignment != null
                 && !partitionAssignment.isCompletedExceptionally()) {
             return partitionAssignment;
         }
 
         synchronized (partitionAssignmentLock) {
-            if (partitionAssignmentVersion == currentVersion
+            if (primaryReplicaMaxStartTime == timestamp
                     && partitionAssignment != null
                     && !partitionAssignment.isCompletedExceptionally()) {
                 return partitionAssignment;
             }
 
-            partitionAssignmentVersion = currentVersion;
+            primaryReplicaMaxStartTime = timestamp;
 
-            // Load currentVersion or newer.
+            // TODO: Pass timestamp back to the server
             partitionAssignment = ch.serviceAsync(ClientOp.PARTITION_ASSIGNMENT_GET,
                     w -> w.out().packInt(id),
                     r -> {
