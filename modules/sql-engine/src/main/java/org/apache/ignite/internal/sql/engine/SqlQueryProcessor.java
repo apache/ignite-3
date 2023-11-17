@@ -42,7 +42,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.function.Consumer;
-import java.util.function.Function;
 import java.util.function.LongFunction;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -190,9 +189,6 @@ public class SqlQueryProcessor implements QueryProcessor {
     /** Placement driver. */
     private final PlacementDriver placementDriver;
 
-    /** Resolver that resolves a node consistent ID to cluster node. */
-    private final Function<String, ClusterNode> clusterNodeResolver;
-
     private final ConcurrentMap<UUID, AsyncSqlCursor<?>> openedCursors = new ConcurrentHashMap<>();
 
     /** Constructor. */
@@ -225,7 +221,6 @@ public class SqlQueryProcessor implements QueryProcessor {
         this.metricManager = metricManager;
         this.systemViewManager = systemViewManager;
         this.placementDriver = placementDriver;
-        this.clusterNodeResolver = clusterSrvc.topologyService()::getByConsistentId;
 
         sqlSchemaManager = new SqlSchemaManagerImpl(
                 catalogManager,
