@@ -123,6 +123,7 @@ dependencies {
     integrationTestImplementation project(':ignite-page-memory')
     integrationTestImplementation project(':ignite-raft-api')
     integrationTestImplementation project(':ignite-replicator')
+    integrationTestImplementation project(':ignite-otel-ext')
     integrationTestImplementation project(':ignite-client')
     integrationTestImplementation project(':ignite-client-handler')
     integrationTestImplementation project(':ignite-storage-api')

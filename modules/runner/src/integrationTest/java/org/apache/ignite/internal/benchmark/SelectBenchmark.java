@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.benchmark;
 
+import static org.apache.ignite.internal.tracing.TracingManager.rootSpan;
+
 import java.io.IOException;
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -56,8 +58,8 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 @State(Scope.Benchmark)
 @Fork(1)
 @Threads(1)
-@Warmup(iterations = 10, time = 2)
-@Measurement(iterations = 20, time = 2)
+@Warmup(iterations = 1, time = 10)
+@Measurement(iterations = 1, time = 20)
 @BenchmarkMode(Mode.AverageTime)
 @OutputTimeUnit(TimeUnit.MICROSECONDS)
 @SuppressWarnings({"WeakerAccess", "unused"})
@@ -128,6 +130,18 @@ public class SelectBenchmark extends AbstractMultiNodeBenchmark {
     @Benchmark
     public void kvGet() {
         keyValueView.get(null, Tuple.create().set("ycsb_key", random.nextInt(TABLE_SIZE)));
+    }                                           
+
+    /**
+     * Benchmark for KV get via embedded client.
+     */
+    @Benchmark
+    public void kvGetWithTracing() {
+        rootSpan("get", (parentSpan) -> {
+            keyValueView.get(null, Tuple.create().set("ycsb_key", random.nextInt(TABLE_SIZE)));
+
+            return null;
+        });
     }
 
     /**
@@ -143,7 +157,8 @@ public class SelectBenchmark extends AbstractMultiNodeBenchmark {
      */
     public static void main(String[] args) throws RunnerException {
         Options opt = new OptionsBuilder()
-                .include(".*" + SelectBenchmark.class.getSimpleName() + ".*")
+                .include(".*" + SelectBenchmark.class.getSimpleName() + ".kvGet*")
+                .param("fsync", "false")
                 .build();
 
         new Runner(opt).run();
