@@ -88,7 +88,7 @@ public abstract class PagesList extends DataStructure {
             Math.max(8, Runtime.getRuntime().availableProcessors())
     );
 
-    private final boolean pagesListCachingDisabled = getBoolean(IGNITE_PAGES_LIST_DISABLE_ONHEAP_CACHING, true);
+    private final boolean pagesListCachingDisabled = getBoolean(IGNITE_PAGES_LIST_DISABLE_ONHEAP_CACHING, false);
 
     /** Logger. */
     protected final IgniteLogger log;

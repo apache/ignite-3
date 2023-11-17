@@ -2153,7 +2153,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         return clusterService.topologyService().localMember();
     }
 
-    private PartitionUpdateHandlers createPartitionUpdateHandlers(
+    private static PartitionUpdateHandlers createPartitionUpdateHandlers(
             int partitionId,
             PartitionDataStorage partitionDataStorage,
             TableImpl table,
@@ -2168,10 +2168,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         StorageUpdateHandler storageUpdateHandler = new StorageUpdateHandler(
                 partitionId,
                 partitionDataStorage,
-                gcConfig,
-                lowWatermark,
-                indexUpdateHandler,
-                gcUpdateHandler
+                indexUpdateHandler
         );
 
         return new PartitionUpdateHandlers(storageUpdateHandler, indexUpdateHandler, gcUpdateHandler);
