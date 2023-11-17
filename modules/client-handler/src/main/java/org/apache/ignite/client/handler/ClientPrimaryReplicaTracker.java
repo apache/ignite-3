@@ -84,30 +84,79 @@ public class ClientPrimaryReplicaTracker implements EventListener<EventParameter
      * Gets primary replicas by partition for the table.
      *
      * @param tableId Table ID.
-     * @param observableTs
+     * @param timestamp Timestamp.
      * @return Primary replicas for the table, or null when not yet known.
      */
-    public CompletableFuture<List<ReplicaHolder>> primaryReplicasAsync(int tableId, HybridTimestamp observableTs) {
-        schemaSyncService.waitForMetadataCompleteness(observableTs).thenCompose(v -> {
-            CatalogTableDescriptor table = catalogService.table(tableId, observableTs.longValue());
+    public CompletableFuture<List<String>> primaryReplicasAsync(int tableId, HybridTimestamp timestamp) {
+        return schemaSyncService.waitForMetadataCompleteness(timestamp).thenCompose(v -> {
+            CatalogTableDescriptor table = catalogService.table(tableId, timestamp.longValue());
 
             if (table == null) {
                 return CompletableFuture.failedFuture(tableNotFoundException(tableId));
             }
 
-            var zone = catalogService.zone(table.zoneId(), observableTs.longValue());
+            var zone = catalogService.zone(table.zoneId(), timestamp.longValue());
 
             if (zone == null) {
                 return CompletableFuture.failedFuture(tableNotFoundException(tableId));
             }
 
-            List<CompletableFuture<ReplicaHolder>> futs = new ArrayList<>(zone.partitions());
+            // TODO: Check if we have an update for the given table with at least the given timestamp.
+            // Otherwise, wait for it.
+            CompletableFuture<String>[] futs = (CompletableFuture<String>[]) new CompletableFuture[zone.partitions()];
 
             for (int partition = 0; partition < zone.partitions(); partition++) {
                 TablePartitionId key = new TablePartitionId(tableId, partition);
-                var holder = primaryReplicas.get(key);
+
+                ReplicaHolder holder = primaryReplicas.compute(key, (ignore, old) -> {
+                    if (old != null && !old.nodeName.isCompletedExceptionally()) {
+                        // The replica is already known to be primary at the given timestamp.
+                        return old;
+                    }
+
+                    CompletableFuture<String> nodeName = placementDriver.getPrimaryReplica(key, timestamp)
+                            .thenApply(meta -> meta == null ? null : meta.getLeaseholder());
+
+                    return new ReplicaHolder(nodeName, timestamp);
+                });
+
+                futs[partition] = holder.nodeName;
             }
-        };
+
+            return CompletableFuture.allOf(futs).thenCompose(v -> {
+                // All futures are completed, now check the max timestamp for the table.
+                long maxStartTime0 = 0;
+
+                for (int partition = 0; partition < zone.partitions(); partition++) {
+                    TablePartitionId key = new TablePartitionId(tableId, partition);
+
+                    ReplicaHolder holder = primaryReplicas.get(key);
+
+                    if (holder == null) {
+                        // Table was dropped concurrently.
+                        return CompletableFuture.failedFuture(tableNotFoundException(tableId));
+                    }
+
+                    maxStartTime0 = Math.max(maxStartTime0, holder.leaseStartTime.longValue());
+                }
+
+                if (maxStartTime0 >= timestamp.longValue()) {
+                    // We are at or ahead of the specified timestamp. Return the results.
+                    List<String> res = new ArrayList<>(zone.partitions());
+
+                    for (int partition = 0; partition < zone.partitions(); partition++) {
+                        res.add(futs[partition].join());
+                    }
+                }
+
+                if (maxStartTime0 < timestamp.longValue()) {
+                    // Wait for the update with the given timestamp.
+                    // TODO
+                    return CompletableFuture.completedFuture(null);
+                }
+
+            });
+        });
     }
 
     long maxStartTime() {
@@ -254,27 +303,14 @@ public class ClientPrimaryReplicaTracker implements EventListener<EventParameter
     /**
      * Replica holder.
      */
-    public static class ReplicaHolder {
-        @Nullable
-        private volatile String nodeName;
+    static class ReplicaHolder {
+        final CompletableFuture<String> nodeName;
 
-        private HybridTimestamp leaseStartTime;
+        final HybridTimestamp leaseStartTime;
 
-        private ReplicaHolder(@Nullable String nodeName, HybridTimestamp leaseStartTime) {
-            this.nodeName = nodeName;
+        ReplicaHolder(CompletableFuture<String> nodeNameFut, HybridTimestamp leaseStartTime) {
+            this.nodeName = nodeNameFut;
             this.leaseStartTime = leaseStartTime;
-        }
-
-        public @Nullable String nodeName() {
-            return nodeName;
-        }
-
-        private synchronized void update(String nodeName, HybridTimestamp leaseStartTime) {
-            // Ignore old updates.
-            if (leaseStartTime.compareTo(this.leaseStartTime) > 0) {
-                this.nodeName = nodeName;
-                this.leaseStartTime = leaseStartTime;
-            }
         }
     }
 }
