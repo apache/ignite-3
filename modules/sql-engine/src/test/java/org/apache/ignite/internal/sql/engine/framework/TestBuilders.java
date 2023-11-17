@@ -38,7 +38,9 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
+import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
 import org.apache.ignite.internal.catalog.CatalogTestUtils;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
@@ -47,7 +49,10 @@ import org.apache.ignite.internal.catalog.commands.CreateHashIndexCommand;
 import org.apache.ignite.internal.catalog.commands.CreateSortedIndexCommand;
 import org.apache.ignite.internal.catalog.commands.CreateTableCommand;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
+import org.apache.ignite.internal.catalog.commands.MakeIndexAvailableCommand;
 import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
@@ -542,11 +547,7 @@ public class TestBuilders {
                 }
             }
 
-            List<CatalogCommand> initialSchema = tableBuilders.stream()
-                    .flatMap(builder -> builder.build().stream())
-                    .collect(Collectors.toList());
-
-            Runnable initClosure = () -> await(catalogManager.execute(initialSchema));
+            Runnable initClosure = () -> initAction(catalogManager);
 
             var ddlHandler = new DdlCommandHandler(catalogManager);
             var schemaManager = new SqlSchemaManagerImpl(catalogManager, CaffeineCacheFactory.INSTANCE, 0);
@@ -623,6 +624,41 @@ public class TestBuilders {
                 throw new AssertionError(format("The table has a dataProvider that is outside the cluster "
                         + "[{}]", problematicTablesString));
             }
+        }
+
+        private void initAction(CatalogManager catalogManager) {
+            List<CatalogCommand> initialSchema = tableBuilders.stream()
+                    .flatMap(builder -> builder.build().stream())
+                    .collect(Collectors.toList());
+
+            // Init schema
+            await(catalogManager.execute(initialSchema));
+
+            // Make indexes available
+            List<CatalogCommand> makeIndexesAvailable = new ArrayList<>();
+
+            Catalog catalog = catalogManager.catalog(catalogManager.latestCatalogVersion());
+
+            for (ClusterTableBuilderImpl tableBuilder : tableBuilders) {
+                String schemaName = tableBuilder.schemaName;
+                CatalogSchemaDescriptor schema = catalog.schema(schemaName);
+                assert schema != null : "SchemaDescriptor does not exist: " + schemaName;
+
+                for (AbstractClusterTableIndexBuilderImpl<?> indexBuilder : tableBuilder.indexBuilders) {
+                    String indexName = indexBuilder.name;
+                    CatalogIndexDescriptor index = Arrays.stream(schema.indexes())
+                            .filter(idx -> idx.name().equals(indexName))
+                            .findAny()
+                            .orElseThrow(() -> new AssertionError("IndexDescriptor does not exist: " + indexName));
+
+                    CatalogCommand command = MakeIndexAvailableCommand.builder()
+                            .indexId(index.id())
+                            .build();
+                    makeIndexesAvailable.add(command);
+                }
+            }
+
+            await(catalogManager.execute(makeIndexesAvailable));
         }
     }
 
@@ -759,6 +795,8 @@ public class TestBuilders {
 
         private final ClusterBuilderImpl parent;
 
+        private final String schemaName = CatalogManager.DEFAULT_SCHEMA_NAME;
+
         private String name;
 
         private ClusterTableBuilderImpl(ClusterBuilderImpl parent) {
@@ -825,7 +863,7 @@ public class TestBuilders {
 
             commands.add(
                     CreateTableCommand.builder()
-                            .schemaName("PUBLIC")
+                            .schemaName(schemaName)
                             .tableName(name)
                             .columns(columns)
                             .primaryKeyColumns(keyColumns)
@@ -833,7 +871,8 @@ public class TestBuilders {
             );
 
             for (AbstractClusterTableIndexBuilderImpl<?> builder : indexBuilders) {
-                commands.add(builder.build("PUBLIC", name));
+                commands.add(builder.build(schemaName, name));
+                // add make available hooks
             }
 
             return commands;
