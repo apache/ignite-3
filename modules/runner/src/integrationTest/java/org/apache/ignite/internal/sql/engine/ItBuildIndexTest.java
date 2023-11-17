@@ -72,6 +72,7 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
 
     @BeforeEach
     void setup() {
+        // Do not wait for indexes to become available.
         setAwaitIndexAvailability(false);
     }
 
@@ -93,10 +94,6 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
         createIndex(INDEX_NAME);
 
         checkIndexBuild(partitions, replicas, INDEX_NAME);
-
-        waitForCondition(() -> isIndexAvailable(INDEX_NAME), 10_000);
-
-        waitForReadTimestampThatObservesDdlChanges();
 
         assertQuery(IgniteStringFormatter.format("SELECT * FROM {} WHERE i1 > 0", TABLE_NAME))
                 .matches(containsIndexScan("PUBLIC", TABLE_NAME, INDEX_NAME))
@@ -287,6 +284,10 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
                     IgniteStringFormatter.format("p={}, nodes={}", entry.getKey(), entry.getValue())
             );
         }
+
+        waitForCondition(() -> isIndexAvailable(INDEX_NAME), 10_000);
+
+        waitForReadTimestampThatObservesDdlChanges();
     }
 
     /**

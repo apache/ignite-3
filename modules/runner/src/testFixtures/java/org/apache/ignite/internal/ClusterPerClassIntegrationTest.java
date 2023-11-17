@@ -70,17 +70,20 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
     /** Cluster nodes. */
     protected static Cluster CLUSTER;
 
+    private static final boolean DEFAULT_WAIT_FOR_INDEX_AVAILABLE = true;
+
     /** Whether to wait for indexes to become available or not. Default is {@code true}. */
-    private static final AtomicBoolean AWAIT_INDEX_AVAILABILITY = new AtomicBoolean(true);
+    private static final AtomicBoolean AWAIT_INDEX_AVAILABILITY = new AtomicBoolean(DEFAULT_WAIT_FOR_INDEX_AVAILABLE);
 
     /** Work directory. */
     @WorkDirectory
     private static Path WORK_DIR;
 
+    /** Reset {@link #AWAIT_INDEX_AVAILABILITY}. */
     @BeforeEach
     @AfterEach
     void resetIndexAvailabilityFlag() {
-        setAwaitIndexAvailability(true);
+        setAwaitIndexAvailability(DEFAULT_WAIT_FOR_INDEX_AVAILABLE);
     }
 
     /**
@@ -264,6 +267,19 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
         }
     }
 
+    /**
+     * Waits some time for read-only transactions to observe all DDL changes.
+     */
+    protected static void waitForReadTimestampThatObservesDdlChanges()  {
+        // See TxManagerImpl::currentReadTimestamp.
+        long delay = HybridTimestamp.CLOCK_SKEW + TestIgnitionManager.DEFAULT_PARTITION_IDLE_SYNC_TIME_INTERVAL_MS;
+        try {
+            TimeUnit.MILLISECONDS.sleep(delay);
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     private static List<List<Object>> executeAwaitingIndexes(IgniteImpl node, Function<IgniteImpl, List<List<Object>>> statement) {
         CatalogManager catalogManager = node.catalogManager();
 
@@ -308,19 +324,6 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
             Thread.currentThread().interrupt();
 
             throw new IllegalStateException(e);
-        }
-    }
-
-    /**
-     * Waits some time for read-only transactions to observe all DDL changes.
-     */
-    protected static void waitForReadTimestampThatObservesDdlChanges()  {
-        // See TxManagerImpl::currentReadTimestamp.
-        long delay = HybridTimestamp.CLOCK_SKEW + TestIgnitionManager.DEFAULT_PARTITION_IDLE_SYNC_TIME_INTERVAL_MS;
-        try {
-            TimeUnit.MILLISECONDS.sleep(delay);
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
         }
     }
 }
