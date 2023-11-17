@@ -367,7 +367,14 @@ public class SqlQueryProcessor implements QueryProcessor {
             );
 
             result.add(f.thenApply(primaryReplica -> {
-                ClusterNode node = clusterNodeResolver.apply(primaryReplica.getLeaseholder());
+                String holder = primaryReplica.getLeaseholder();
+
+                if (holder == null) {
+                    // additional recovery logic is need to be present around here.
+                    throw new IgniteInternalException(Sql.MAPPING_ERR, "Unable to map query, nothing holds the lease");
+                }
+
+                ClusterNode node = clusterSrvc.topologyService().getByConsistentId(holder);
 
                 if (node == null) {
                     // additional recovery logic is need to be present around here.
