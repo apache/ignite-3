@@ -302,6 +302,12 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
         return indexDescriptor == null ? null : indexDescriptor.id();
     }
 
+    /**
+     * Returns {@code true} if index with the given name is available.
+     *
+     * @param indexName Index nane.
+     * @return True if index is available or false if index does not exist or is not available.
+     */
     private static boolean isIndexAvailable(String indexName) {
         IgniteImpl ignite = CLUSTER.runningNodes()
                 .findAny()
