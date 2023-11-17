@@ -872,7 +872,6 @@ public class TestBuilders {
 
             for (AbstractClusterTableIndexBuilderImpl<?> builder : indexBuilders) {
                 commands.add(builder.build(schemaName, name));
-                // add make available hooks
             }
 
             return commands;
