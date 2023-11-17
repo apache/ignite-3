@@ -287,7 +287,7 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
 
         waitForCondition(() -> isIndexAvailable(INDEX_NAME), 10_000);
 
-        waitForReadTimestampThatObservesDdlChanges();
+        waitForReadTimestampThatObservesMostRecentCatalog();
     }
 
     /**

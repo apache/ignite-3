@@ -268,9 +268,9 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
     }
 
     /**
-     * Waits some time for read-only transactions to observe all DDL changes.
+     * Waits some time so that read-only transactions can observe the most recent version of the catalog.
      */
-    protected static void waitForReadTimestampThatObservesDdlChanges()  {
+    protected static void waitForReadTimestampThatObservesMostRecentCatalog()  {
         // See TxManagerImpl::currentReadTimestamp.
         long delay = HybridTimestamp.CLOCK_SKEW + TestIgnitionManager.DEFAULT_PARTITION_IDLE_SYNC_TIME_INTERVAL_MS;
         try {
@@ -317,7 +317,7 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
                 return notAvailable == 0;
             }, 10_000);
 
-            waitForReadTimestampThatObservesDdlChanges();
+            waitForReadTimestampThatObservesMostRecentCatalog();
 
             return result;
         } catch (InterruptedException e) {
