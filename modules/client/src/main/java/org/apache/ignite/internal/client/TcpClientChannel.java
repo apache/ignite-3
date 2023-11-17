@@ -490,7 +490,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
 
     /** {@inheritDoc} */
     @Override
-    public void addTopologyAssignmentChangeListener(Consumer<Long> listener) {
+    public void addPartitionAssignmentChangeListener(Consumer<Long> listener) {
         assignmentChangeListeners.add(listener);
     }
 

@@ -76,7 +76,7 @@ public class ClientTable implements Table {
 
     private volatile CompletableFuture<List<String>> partitionAssignment = null;
 
-    private volatile long primaryReplicaMaxStartTime = HybridTimestamp.NULL_HYBRID_TIMESTAMP;
+    private volatile long partitionAssignmentTimestamp = HybridTimestamp.NULL_HYBRID_TIMESTAMP;
 
     /**
      * Constructor.
@@ -522,22 +522,22 @@ public class ClientTable implements Table {
     }
 
     synchronized CompletableFuture<List<String>> getPartitionAssignment() {
-        long timestamp = ch.primaryReplicaLastStartTime();
+        long timestamp = ch.partitionAssignmentTimestamp();
 
-        if (primaryReplicaMaxStartTime == timestamp
+        if (partitionAssignmentTimestamp == timestamp
                 && partitionAssignment != null
                 && !partitionAssignment.isCompletedExceptionally()) {
             return partitionAssignment;
         }
 
         synchronized (partitionAssignmentLock) {
-            if (primaryReplicaMaxStartTime == timestamp
+            if (partitionAssignmentTimestamp == timestamp
                     && partitionAssignment != null
                     && !partitionAssignment.isCompletedExceptionally()) {
                 return partitionAssignment;
             }
 
-            primaryReplicaMaxStartTime = timestamp;
+            partitionAssignmentTimestamp = timestamp;
 
             partitionAssignment = ch.serviceAsync(ClientOp.PARTITION_ASSIGNMENT_GET,
                     w -> {

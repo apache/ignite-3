@@ -86,7 +86,7 @@ public class ClientPrimaryReplicaTracker implements EventListener<EventParameter
      * @param timestamp Timestamp.
      * @return Primary replicas for the table, or null when not yet known.
      */
-    public CompletableFuture<List<String>> primaryReplicasAsync(int tableId, HybridTimestamp timestamp) {
+    public CompletableFuture<PrimaryReplicasResult> primaryReplicasAsync(int tableId, HybridTimestamp timestamp) {
         // 0. Check happy path: if we already have all replicas, and maxStartTime > timestamp, return synchronously.
         var fastRes = primaryReplicasNoWait(tableId, timestamp);
         if (fastRes != null) {
@@ -140,7 +140,7 @@ public class ClientPrimaryReplicaTracker implements EventListener<EventParameter
     }
 
     @Nullable
-    private List<String> primaryReplicasNoWait(int tableId, HybridTimestamp timestamp) {
+    private PrimaryReplicasResult primaryReplicasNoWait(int tableId, HybridTimestamp timestamp) {
         int partitions;
 
         try {
@@ -167,7 +167,7 @@ public class ClientPrimaryReplicaTracker implements EventListener<EventParameter
             maxStartTime = Math.max(maxStartTime, holder.leaseStartTime().longValue());
         }
 
-        return maxStartTime >= timestamp.longValue() ? res : null;
+        return maxStartTime >= timestamp.longValue() ? new PrimaryReplicasResult(res, maxStartTime) : null;
     }
 
     private int partitionsNoWait(int tableId, HybridTimestamp timestamp) {
@@ -279,7 +279,7 @@ public class ClientPrimaryReplicaTracker implements EventListener<EventParameter
     /**
      * Replica holder.
      */
-    static class ReplicaHolder {
+    private static class ReplicaHolder {
         /** Current future that will populate name and time. */
         private final CompletableFuture<?> fut;
 
@@ -314,6 +314,25 @@ public class ClientPrimaryReplicaTracker implements EventListener<EventParameter
                 this.nodeName = nodeName;
                 this.leaseStartTime = leaseStartTime;
             }
+        }
+    }
+
+    public static class PrimaryReplicasResult {
+        private final List<String> nodeNames;
+
+        private final long timestamp;
+
+        public PrimaryReplicasResult(List<String> nodeNames, long timestamp) {
+            this.nodeNames = nodeNames;
+            this.timestamp = timestamp;
+        }
+
+        public List<String> nodeNames() {
+            return nodeNames;
+        }
+
+        public long timestamp() {
+            return timestamp;
         }
     }
 }

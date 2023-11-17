@@ -102,8 +102,8 @@ public final class ReliableChannel implements AutoCloseable {
     /** Cache addresses returned by {@code ThinClientAddressFinder}. */
     private volatile String[] prevHostAddrs;
 
-    /** Last known primary replica start time (for any table). */
-    private final AtomicLong primaryReplicaMaxStartTime = new AtomicLong();
+    /** Latest known partition assignment timestamp (for any table). */
+    private final AtomicLong partitionAssignmentTimestamp = new AtomicLong();
 
     /** Observable timestamp, or causality token. Sent by the server with every response, and required by some requests. */
     private final AtomicLong observableTimestamp = new AtomicLong();
@@ -670,15 +670,15 @@ public final class ReliableChannel implements AutoCloseable {
         }
     }
 
-    private void onTopologyAssignmentChanged(long maxStartTime) {
+    private void onPartitionAssignmentChanged(long timestamp) {
         while (true) {
-            long curMaxStartTime = primaryReplicaMaxStartTime.get();
+            long curTimestamp = partitionAssignmentTimestamp.get();
 
-            if (curMaxStartTime >= maxStartTime) {
+            if (curTimestamp >= timestamp) {
                 break;
             }
 
-            if (primaryReplicaMaxStartTime.compareAndSet(curMaxStartTime, maxStartTime)) {
+            if (partitionAssignmentTimestamp.compareAndSet(curTimestamp, timestamp)) {
                 break;
             }
         }
@@ -689,8 +689,8 @@ public final class ReliableChannel implements AutoCloseable {
      *
      * @return Primary replica max start time.
      */
-    public long primaryReplicaLastStartTime() {
-        return primaryReplicaMaxStartTime.get();
+    public long partitionAssignmentTimestamp() {
+        return partitionAssignmentTimestamp.get();
     }
 
     @Nullable
@@ -815,7 +815,7 @@ public final class ReliableChannel implements AutoCloseable {
                                 "Cluster ID mismatch: expected=" + oldClusterId + ", actual=" + ch.protocolContext().clusterId());
                     }
 
-                    ch.addTopologyAssignmentChangeListener(ReliableChannel.this::onTopologyAssignmentChanged);
+                    ch.addPartitionAssignmentChangeListener(ReliableChannel.this::onPartitionAssignmentChanged);
                     ch.addObservableTimestampListener(ReliableChannel.this::onObservableTimestampReceived);
 
                     ClusterNode newNode = ch.protocolContext().clusterNode();

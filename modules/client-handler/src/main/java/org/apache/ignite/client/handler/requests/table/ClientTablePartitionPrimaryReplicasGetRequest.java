@@ -19,7 +19,6 @@ package org.apache.ignite.client.handler.requests.table;
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.ClientPrimaryReplicaTracker;
-import org.apache.ignite.client.handler.ClientPrimaryReplicaTracker.ReplicaHolder;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -55,10 +54,11 @@ public class ClientTablePartitionPrimaryReplicasGetRequest {
             if (primaryReplicas == null) {
                 out.packInt(0);
             } else {
-                out.packInt(primaryReplicas.size());
+                out.packLong(primaryReplicas.timestamp());
+                out.packInt(primaryReplicas.nodeNames().size());
 
-                for (ReplicaHolder holder : primaryReplicas) {
-                    out.packString(holder.nodeName());
+                for (String nodeName : primaryReplicas.nodeNames()) {
+                    out.packString(nodeName);
                 }
             }
         });
