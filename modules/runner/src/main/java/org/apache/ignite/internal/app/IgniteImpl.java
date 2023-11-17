@@ -624,7 +624,8 @@ public class IgniteImpl implements Ignite {
                 schemaSyncService,
                 catalogManager,
                 metricManager,
-                systemViewManager
+                systemViewManager,
+                placementDriverMgr.placementDriver()
         );
 
         sql = new IgniteSqlImpl(name, qryEngine, new IgniteTransactionsImpl(txManager, observableTimestampTracker));

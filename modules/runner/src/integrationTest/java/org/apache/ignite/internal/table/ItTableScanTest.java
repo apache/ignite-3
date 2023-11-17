@@ -38,6 +38,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.Flow.Subscription;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
@@ -643,12 +644,10 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
             Publisher<BinaryRow> publisher;
 
             if (readOnly) {
-                List<String> assignments = internalTable.assignments();
-
                 // Any node from assignments will do it.
-                ClusterNode node0 = CLUSTER.aliveNode().clusterNodes().stream().filter(clusterNode -> {
-                    return assignments.contains(clusterNode.name());
-                }).findFirst().orElseThrow();
+                ClusterNode node0 = internalTable.leaderAssignment(ThreadLocalRandom.current().nextInt(internalTable.partitions()));
+
+                assertTrue(CLUSTER.aliveNode().clusterNodes().contains(node0));
 
                 //noinspection DataFlowIssue
                 publisher = internalTable.scan(PART_ID, tx.readTimestamp(), node0, sortedIndexId, null, null, 0, null);
@@ -886,7 +885,7 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
         tx.enlist(
                 tblPartId,
                 new IgniteBiTuple<>(
-                        table.getClusterNodeResolver().apply(primaryReplica.getLeaseholder()),
+                        ignite.clusterNodes().stream().filter(n -> n.name().equals(primaryReplica.getLeaseholder())).findFirst().get(),
                         primaryReplica.getStartTime().longValue()
                 )
         );

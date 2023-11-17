@@ -23,7 +23,6 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
-import java.util.function.Function;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
@@ -430,13 +429,6 @@ public interface InternalTable extends ManuallyCloseable {
     List<String> assignments();
 
     /**
-     * Gets a list of current primary replicas for each partition.
-     *
-     * @return List of current primary replicas for each partition.
-     */
-    CompletableFuture<List<PrimaryReplica>> primaryReplicas();
-
-    /**
      * Returns cluster node that is the leader of the corresponding partition group or throws an exception if
      * it cannot be found.
      *
@@ -482,6 +474,4 @@ public interface InternalTable extends ManuallyCloseable {
      * @param partitionId Partition ID.
      */
     @Nullable PendingComparableValuesTracker<Long, Void> getPartitionStorageIndexTracker(int partitionId);
-
-    Function<String, ClusterNode> getClusterNodeResolver();
 }

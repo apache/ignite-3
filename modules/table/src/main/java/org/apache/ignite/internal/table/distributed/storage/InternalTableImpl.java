@@ -128,7 +128,8 @@ public class InternalTableImpl implements InternalTable {
     /** Number of attempts. */
     private static final int ATTEMPTS_TO_ENLIST_PARTITION = 5;
 
-    private static final int AWAIT_PRIMARY_REPLICA_TIMEOUT = 30;
+    /** Primary replica await timeout. */
+    public static final int AWAIT_PRIMARY_REPLICA_TIMEOUT = 30;
 
     /** Map update guarded by {@link #updatePartitionMapsMux}. */
     protected volatile Int2ObjectMap<RaftGroupService> raftGroupServiceByPartitionId;
@@ -1472,7 +1473,7 @@ public class InternalTableImpl implements InternalTable {
     }
 
     /** {@inheritDoc} */
-    // TODO: https://issues.apache.org/jira/browse/IGNITE-19619 The method should be removed, SQL engine should use placementDriver directly
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-20701 The method should be removed
     @Override
     public List<String> assignments() {
         awaitLeaderInitialization();
@@ -1482,37 +1483,6 @@ public class InternalTableImpl implements InternalTable {
                 .map(Map.Entry::getValue)
                 .map(service -> service.leader().consistentId())
                 .collect(Collectors.toList());
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    // TODO: https://issues.apache.org/jira/browse/IGNITE-19619 The method should be removed, SQL engine should use placementDriver directly
-    public CompletableFuture<List<PrimaryReplica>> primaryReplicas() {
-        List<Entry<RaftGroupService>> entries = new ArrayList<>(raftGroupServiceByPartitionId.int2ObjectEntrySet());
-        List<CompletableFuture<PrimaryReplica>> result = new ArrayList<>();
-
-        entries.sort(Comparator.comparingInt(Entry::getIntKey));
-
-        for (Entry<RaftGroupService> e : entries) {
-            CompletableFuture<ReplicaMeta> f = placementDriver.awaitPrimaryReplica(
-                    e.getValue().groupId(),
-                    clock.now(),
-                    AWAIT_PRIMARY_REPLICA_TIMEOUT,
-                    SECONDS
-            );
-
-            result.add(f.thenApply(primaryReplica -> {
-                ClusterNode node = clusterNodeResolver.apply(primaryReplica.getLeaseholder());
-                return new PrimaryReplica(node, primaryReplica.getStartTime().longValue());
-            }));
-        }
-
-        CompletableFuture<Void> all = CompletableFuture.allOf(result.toArray(new CompletableFuture[0]));
-
-        return all.thenApply(v -> result.stream()
-                .map(CompletableFuture::join)
-                .collect(Collectors.toList())
-        );
     }
 
     @Override
@@ -2025,10 +1995,5 @@ public class InternalTableImpl implements InternalTable {
         assert serializeTablePartitionId(txo.commitPartition()) != null;
 
         return readWriteMultiRowReplicaRequest(RequestType.RW_UPSERT_ALL, keyRows0, txo, groupId, term, full);
-    }
-
-    @Override
-    public Function<String, ClusterNode> getClusterNodeResolver() {
-        return clusterNodeResolver;
     }
 }
