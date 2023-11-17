@@ -19,7 +19,9 @@ package org.apache.ignite.internal.network.recovery;
 
 import static org.apache.ignite.internal.testframework.asserts.CompletableFutureAssert.assertWillThrowFast;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.startsWith;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyShort;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -32,25 +34,31 @@ import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelPromise;
+import io.netty.channel.DefaultChannelProgressivePromise;
+import io.netty.util.concurrent.EventExecutor;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
-import org.apache.ignite.internal.network.handshake.ChannelAlreadyExistsException;
+import org.apache.ignite.internal.network.handshake.HandshakeException;
 import org.apache.ignite.internal.network.netty.ChannelCreationListener;
 import org.apache.ignite.internal.network.netty.NettySender;
-import org.apache.ignite.internal.network.recovery.message.HandshakeStartMessage;
+import org.apache.ignite.internal.network.recovery.message.HandshakeRejectedMessage;
+import org.apache.ignite.internal.network.recovery.message.HandshakeStartResponseMessage;
+import org.apache.ignite.internal.network.recovery.message.HandshakeRejectionReason;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.network.OutNetworkObject;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Captor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
-class RecoveryClientHandshakeManagerTest extends BaseIgniteAbstractTest {
+class RecoveryServerHandshakeManagerTest extends BaseIgniteAbstractTest {
     private static final UUID LOWER_ID = new UUID(1, 1);
     private static final UUID HIGHER_ID = new UUID(2, 2);
 
@@ -73,6 +81,12 @@ class RecoveryClientHandshakeManagerTest extends BaseIgniteAbstractTest {
     @Mock
     private RecoveryDescriptorProvider recoveryDescriptorProvider;
 
+    @Mock
+    private EventExecutor eventExecutor;
+
+    @Captor
+    private ArgumentCaptor<OutNetworkObject> sentMessageCaptor;
+
     private final RecoveryDescriptor recoveryDescriptor = new RecoveryDescriptor(100);
 
     @BeforeEach
@@ -84,42 +98,55 @@ class RecoveryClientHandshakeManagerTest extends BaseIgniteAbstractTest {
         });
         lenient().when(recoveryDescriptorProvider.getRecoveryDescriptor(anyString(), any(), anyShort()))
                 .thenReturn(recoveryDescriptor);
+
+        lenient().when(context.executor()).thenReturn(eventExecutor);
+        lenient().when(eventExecutor.inEventLoop()).thenReturn(true);
+
+        lenient().when(channel.writeAndFlush(any())).then(invocation -> {
+            DefaultChannelProgressivePromise future = new DefaultChannelProgressivePromise(channel, eventExecutor);
+            future.setSuccess();
+            return future;
+        });
     }
 
-    /**
-     * This tests the following scenario: two handshakes in the opposite directions are started,
-     * Handshake 1 is faster and it takes both client-side and server-side locks (using recovery descriptors
-     * as locks), and only then Handshake 2 tries to take the first lock (the one on the client side).
-     * In such a situation, tie-breaking logic should not be applied (as Handshake 1 could have already
-     * established, or almost established, a logical connection); instead, Handshake 2 must stop
-     * itself (regardless of what that the Tie Breaker would prescribe).
-     */
-    @ParameterizedTest
-    @ValueSource(booleans = {false, true})
+    @Test
     @Timeout(10)
-    void terminatesCurrentHandshakeWhenCannotAcquireLockAtClientSide(boolean clientLaunchIdIsLower) {
-        UUID clientLaunchId = clientLaunchIdIsLower ? LOWER_ID : HIGHER_ID;
-        UUID serverLaunchId = clientLaunchIdIsLower ? HIGHER_ID : LOWER_ID;
+    void terminatesCurrentHandshakeInClinchWhenOngoingHandshakeLosesDueToTieBreaking() {
+        UUID clientLaunchId = LOWER_ID;
+        UUID serverLaunchId = HIGHER_ID;
 
-        RecoveryClientHandshakeManager manager = clientHandshakeManager(clientLaunchId);
+        RecoveryServerHandshakeManager manager = serverHandshakeManager(serverLaunchId);
         CompletableFuture<NettySender> handshakeFuture = manager.handshakeFuture();
 
         recoveryDescriptor.acquire(context);
 
-        manager.onMessage(handshakeStartMessageFrom(serverLaunchId));
+        manager.onMessage(handshakeStartResponseMessageFrom(clientLaunchId));
 
         verify(channel, never()).close();
         verify(channel, never()).close(any(ChannelPromise.class));
 
-        ChannelAlreadyExistsException ex = assertWillThrowFast(handshakeFuture, ChannelAlreadyExistsException.class);
-        assertThat(ex.consistentId(), is(SERVER_CONSISTENT_ID));
+        HandshakeException ex = assertWillThrowFast(handshakeFuture, HandshakeException.class);
+        assertThat(ex.getMessage(), startsWith("Failed to acquire recovery descriptor during handshake, it is held by: "));
+
+        verify(channel).writeAndFlush(sentMessageCaptor.capture());
+
+        OutNetworkObject outObject = sentMessageCaptor.getValue();
+        assertThat(outObject.shouldBeSavedForRecovery(), is(false));
+        assertThat(outObject.networkMessage(), is(instanceOf(HandshakeRejectedMessage.class)));
+
+        HandshakeRejectedMessage rejectedMessage = (HandshakeRejectedMessage) outObject.networkMessage();
+        assertThat(rejectedMessage.reason(), is(HandshakeRejectionReason.CLINCH));
+        assertThat(
+                rejectedMessage.message(),
+                startsWith("Handshake clinch detected, this handshake will be terminated, winning channel is ")
+        );
     }
 
-    private RecoveryClientHandshakeManager clientHandshakeManager(UUID launchId) {
-        RecoveryClientHandshakeManager manager = new RecoveryClientHandshakeManager(
+    private RecoveryServerHandshakeManager serverHandshakeManager(UUID launchId) {
+        RecoveryServerHandshakeManager manager = new RecoveryServerHandshakeManager(
                 launchId,
-                CLIENT_CONSISTENT_ID,
-                CONNECTION_INDEX,
+                SERVER_CONSISTENT_ID,
+                MESSAGE_FACTORY,
                 recoveryDescriptorProvider,
                 new AllIdsAreFresh(),
                 channelCreationListener,
@@ -131,10 +158,12 @@ class RecoveryClientHandshakeManagerTest extends BaseIgniteAbstractTest {
         return manager;
     }
 
-    private static HandshakeStartMessage handshakeStartMessageFrom(UUID serverLaunchId) {
-        return MESSAGE_FACTORY.handshakeStartMessage()
-                .launchId(serverLaunchId)
-                .consistentId(SERVER_CONSISTENT_ID)
+    private static HandshakeStartResponseMessage handshakeStartResponseMessageFrom(UUID clientLaunchId) {
+        return MESSAGE_FACTORY.handshakeStartResponseMessage()
+                .launchId(clientLaunchId)
+                .consistentId(CLIENT_CONSISTENT_ID)
+                .connectionId(CONNECTION_INDEX)
+                .receivedCount(0)
                 .build();
     }
 }

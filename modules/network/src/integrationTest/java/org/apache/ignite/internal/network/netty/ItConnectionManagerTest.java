@@ -53,6 +53,7 @@ import org.apache.ignite.internal.future.OrderingFuture;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.network.configuration.NetworkView;
+import org.apache.ignite.internal.network.handshake.ChannelAlreadyExistsException;
 import org.apache.ignite.internal.network.messages.TestMessage;
 import org.apache.ignite.internal.network.messages.TestMessagesFactory;
 import org.apache.ignite.internal.network.recovery.AllIdsAreFresh;
@@ -70,6 +71,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
+import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
@@ -321,6 +323,7 @@ public class ItConnectionManagerTest extends BaseIgniteAbstractTest {
      * @throws Exception If failed.
      */
     @RepeatedTest(100)
+    @Timeout(10)
     public void testOneChannelLeftIfConnectToEachOther() throws Exception {
         try (
                 ConnectionManagerWrapper manager1 = startManager(4000);
@@ -334,13 +337,17 @@ public class ItConnectionManagerTest extends BaseIgniteAbstractTest {
 
             try {
                 sender1 = fut1.get(1, TimeUnit.SECONDS);
-            } catch (Exception ignored) {
-                // No-op.
+            } catch (ExecutionException e) {
+                if (!(e.getCause() instanceof ChannelAlreadyExistsException)) {
+                    throw e;
+                }
             }
             try {
                 sender2 = fut2.get(1, TimeUnit.SECONDS);
-            } catch (Exception ignored) {
-                // No-op.
+            } catch (ExecutionException e) {
+                if (!(e.getCause() instanceof ChannelAlreadyExistsException)) {
+                    throw e;
+                }
             }
 
             NettySender highlander = null;

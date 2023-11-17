@@ -44,8 +44,8 @@ public class RecoveryDescriptor {
     /** Count of received messages. */
     private long receivedCount;
 
-    /** Current owner channel of this descriptor. */
-    private final AtomicReference<Channel> channelHolder = new AtomicReference<>();
+    /** Some context around current owner channel of this descriptor. */
+    private final AtomicReference<DescriptorAcquiry> channelHolder = new AtomicReference<>();
 
     /**
      * Constructor.
@@ -138,7 +138,19 @@ public class RecoveryDescriptor {
      * @param ctx Channel handler context.
      */
     public void release(ChannelHandlerContext ctx) {
-        channelHolder.compareAndSet(ctx.channel(), null);
+        DescriptorAcquiry oldAcquiry = channelHolder.getAndUpdate(acquiry -> {
+            if (acquiry != null && acquiry.channel() == ctx.channel()) {
+                return null;
+            }
+
+            return acquiry;
+        });
+
+        if (oldAcquiry != null && oldAcquiry.channel() == ctx.channel()) {
+            // We have successfully released the descriptor.
+            // Let's mark the clinch resolved just in case.
+            oldAcquiry.markClinchResolved();
+        }
     }
 
     /**
@@ -147,13 +159,13 @@ public class RecoveryDescriptor {
      * @param ctx Channel handler context.
      */
     public boolean acquire(ChannelHandlerContext ctx) {
-        return channelHolder.compareAndSet(null, ctx.channel());
+        return channelHolder.compareAndSet(null, new DescriptorAcquiry(ctx.channel()));
     }
 
     /**
-     * Returns the channel, that holds this descriptor.
+     * Returns context around the channel that holds this descriptor.
      */
-    @Nullable Channel holderChannel() {
+    @Nullable DescriptorAcquiry holder() {
         return channelHolder.get();
     }
 
@@ -161,13 +173,13 @@ public class RecoveryDescriptor {
      * Returns {@code toString()} representation of a {@link Channel}, that holds this descriptor.
      */
     String holderDescription() {
-        Channel channel = channelHolder.get();
+        DescriptorAcquiry acquiry = channelHolder.get();
 
-        if (channel == null) {
+        if (acquiry == null) {
             // This can happen if channel was already closed and it released the descriptor.
             return "No channel";
         }
 
-        return channel.toString();
+        return acquiry.channel().toString();
     }
 }

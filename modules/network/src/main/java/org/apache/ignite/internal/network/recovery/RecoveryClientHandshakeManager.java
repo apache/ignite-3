@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.network.recovery;
 
 import static java.util.Collections.emptyList;
-import static org.apache.ignite.internal.network.recovery.HandshakeTieBreaker.shouldCloseChannel;
 
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
@@ -41,6 +40,7 @@ import org.apache.ignite.internal.network.netty.NettyUtils;
 import org.apache.ignite.internal.network.netty.PipelineUtils;
 import org.apache.ignite.internal.network.recovery.message.HandshakeFinishMessage;
 import org.apache.ignite.internal.network.recovery.message.HandshakeRejectedMessage;
+import org.apache.ignite.internal.network.recovery.message.HandshakeRejectionReason;
 import org.apache.ignite.internal.network.recovery.message.HandshakeStartMessage;
 import org.apache.ignite.internal.network.recovery.message.HandshakeStartResponseMessage;
 import org.apache.ignite.lang.IgniteException;
@@ -159,22 +159,7 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
         }
 
         if (message instanceof HandshakeRejectedMessage) {
-            HandshakeRejectedMessage msg = (HandshakeRejectedMessage) message;
-
-            boolean ignorable = stopping.get() || !msg.critical();
-
-            if (ignorable) {
-                LOG.debug("Handshake rejected by server: {}", msg.reason());
-            } else {
-                LOG.warn("Handshake rejected by server: {}", msg.reason());
-            }
-
-            handshakeCompleteFuture.completeExceptionally(new HandshakeException(msg.reason()));
-
-            if (!ignorable) {
-                // TODO: IGNITE-16899 Perhaps we need to fail the node by FailureHandler
-                failureHandler.handleFailure(new IgniteException("Handshake rejected by server: " + msg.reason()));
-            }
+            onHandshakeRejectedMessage((HandshakeRejectedMessage) message);
 
             return;
         }
@@ -239,7 +224,7 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
 
         if (!descriptor.acquire(ctx)) {
             // Don't use the tie-braking logic as this handshake attempt is late: the competitor has already acquired
-            // recovery descriptors at both sides, so this handshake attempt must fail regardless of the Tie Breaker's opinion.
+            // recovery descriptors on both sides, so this handshake attempt must fail regardless of the Tie Breaker's opinion.
             if (LOG.isInfoEnabled()) {
                 LOG.info("Failed to acquire recovery descriptor during handshake, it is held by: {}", descriptor.holderDescription());
             }
@@ -255,24 +240,65 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
     }
 
     private void handleStaleServerId(HandshakeStartMessage msg) {
-        String reason = msg.consistentId() + ":" + msg.launchId() + " is stale, server should be restarted so that clients can connect";
+        String message = msg.consistentId() + ":" + msg.launchId() + " is stale, server should be restarted so that clients can connect";
         HandshakeRejectedMessage rejectionMessage = MESSAGE_FACTORY.handshakeRejectedMessage()
-                .critical(true)
-                .reason(reason)
+                .reasonString(HandshakeRejectionReason.STALE_LAUNCH_ID.name())
+                .message(message)
                 .build();
 
-        sendHandshakeRejectedMessage(rejectionMessage, reason);
+        sendHandshakeRejectedMessage(rejectionMessage, message);
     }
 
     private void handleRefusalToEstablishConnectionDueToStopping(HandshakeStartMessage msg) {
-        String reason = msg.consistentId() + ":" + msg.launchId() + " tried to establish a connection with " + consistentId
+        String message = msg.consistentId() + ":" + msg.launchId() + " tried to establish a connection with " + consistentId
                 + ", but it's stopping";
         HandshakeRejectedMessage rejectionMessage = MESSAGE_FACTORY.handshakeRejectedMessage()
-                .critical(false)
-                .reason(reason)
+                .reasonString(HandshakeRejectionReason.STOPPING.name())
+                .message(message)
                 .build();
 
-        sendHandshakeRejectedMessage(rejectionMessage, reason);
+        sendHandshakeRejectedMessage(rejectionMessage, message);
+    }
+
+    private void onHandshakeRejectedMessage(HandshakeRejectedMessage msg) {
+        boolean ignorable = stopping.get() || !msg.reason().critical();
+
+        if (ignorable) {
+            LOG.debug("Handshake rejected by server: {}", msg.message());
+        } else {
+            LOG.warn("Handshake rejected by server: {}", msg.message());
+        }
+
+        if (msg.reason() == HandshakeRejectionReason.CLINCH) {
+            giveUpClinch();
+        } else {
+            handshakeCompleteFuture.completeExceptionally(new HandshakeException(msg.message()));
+        }
+
+        if (!ignorable) {
+            // TODO: IGNITE-16899 Perhaps we need to fail the node by FailureHandler
+            failureHandler.handleFailure(new IgniteException("Handshake rejected by server: " + msg.message()));
+        }
+    }
+
+    private void giveUpClinch() {
+        RecoveryDescriptor descriptor = recoveryDescriptorProvider.getRecoveryDescriptor(
+                remoteConsistentId,
+                remoteLaunchId,
+                connectionId
+        );
+
+        DescriptorAcquiry acquiry = descriptor.holder();
+        assert acquiry != null;
+        assert acquiry.channel() == ctx.channel() : "Expected the descriptor to be held by current channel " + ctx.channel()
+                + ", but it's held by another channel " + acquiry.channel();
+
+        descriptor.release(ctx);
+
+        // Complete the future to allow the competitor that should wait on it acquire the descriptor and finish its handshake.
+        acquiry.markClinchResolved();
+
+        handshakeCompleteFuture.completeExceptionally(new ChannelAlreadyExistsException(remoteConsistentId));
     }
 
     private void sendHandshakeRejectedMessage(HandshakeRejectedMessage rejectionMessage, String reason) {

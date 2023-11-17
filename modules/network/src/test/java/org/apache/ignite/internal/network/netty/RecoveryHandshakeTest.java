@@ -244,7 +244,8 @@ public class RecoveryHandshakeTest {
         exchangeClientToServer(channel2Dst, channel2Src);
         exchangeClientToServer(channel1Dst, channel1Src);
 
-        // 2 -> 1 is alive, while 1 -> 2 closes because of the tie-breaking.
+        // 2 -> 1 (Channel 2) is alive, while 1 -> 2 (Channel 1) closes because of the tie-breaking.
+        exchangeServerToClient(channel1Dst, channel1Src);
         exchangeServerToClient(channel2Dst, channel2Src);
         assertFalse(channel1Src.isOpen());
         assertFalse(channel1Dst.isOpen());
