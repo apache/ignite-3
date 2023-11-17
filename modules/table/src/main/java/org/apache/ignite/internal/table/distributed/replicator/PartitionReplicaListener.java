@@ -489,7 +489,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         }
 
         if (request instanceof TxRecoveryMessage) {
-            processTxRecoveryAction((TxRecoveryMessage) request);
+            return processTxRecoveryAction((TxRecoveryMessage) request);
         }
 
         HybridTimestamp opTsIfDirectRo = (request instanceof ReadOnlyDirectReplicaRequest) ? hybridClock.now() : null;
@@ -504,9 +504,9 @@ public class PartitionReplicaListener implements ReplicaListener {
      * Processes transaction recovery request.
      *
      * @param request Tx recovery request.
-     * @return The future is true when the transaction is in its final state.
+     * @return The future is complete when the transaction state is finalized.
      */
-    private CompletableFuture<Boolean> processTxRecoveryAction(TxRecoveryMessage request) {
+    private CompletableFuture<Void> processTxRecoveryAction(TxRecoveryMessage request) {
         UUID txId = request.txId();
 
         TxMeta txMeta = txStateStorage.get(txId);
@@ -515,18 +515,13 @@ public class PartitionReplicaListener implements ReplicaListener {
         boolean transactionAlreadyFinished = txMeta != null && isFinalState(txMeta.txState());
 
         if (transactionAlreadyFinished) {
-            return completedFuture(true);
+            return completedFuture(null);
         }
 
         LOG.info("Orphan transactions have to be aborted [tx={}].", txId);
 
-        return txManager.finish(
-                null,
-                replicationGroupId,
-                false,
-                Map.of(replicationGroupId, request.enlistmentConsistencyToken()),
-                txId
-        ).thenApply(unused -> true);
+        // TODO: IGNITE-20735 Implement initiate recovery handling logic.
+        return completedFuture(null);
     }
 
     /**
@@ -1570,6 +1565,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     ) {
         CompletableFuture<?>[] futures = enlistedPartitions.stream()
                 .map(partitionId -> changeStateFuture.thenCompose(ignored ->
+                        // TODO: IGNITE-20874 Use the node cleanup procedure instead of the replication group cleanup one.
                         cleanupWithRetry(commit, commitTimestamp, txId, partitionId, attemptsToCleanupReplica)))
                 .toArray(size -> new CompletableFuture<?>[size]);
 

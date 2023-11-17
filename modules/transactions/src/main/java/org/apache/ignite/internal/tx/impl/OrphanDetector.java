@@ -101,7 +101,7 @@ public class OrphanDetector {
      */
     public void start(Function<UUID, TxStateMeta> txLocalStateStorage) {
         this.txLocalStateStorage = txLocalStateStorage;
-        // Subscribe to lock conflicts here.
+        // TODO: IGNITE-20773 Subscribe to lock conflicts here.
     }
 
     /**
@@ -109,11 +109,12 @@ public class OrphanDetector {
      */
     public void stop() {
         busyLock.block();
-        // Unsubscribe from lock conflicts here.
+        // TODO: IGNITE-20773 Unsubscribe from lock conflicts here.
     }
 
     /**
      * Sends {@link TxRecoveryMessage} if the transaction is orphaned.
+     * TODO: IGNITE-20773 Invoke the method when the lock conflict is noted.
      *
      * @param txId Transaction id that holds a lock.
      * @return Future to complete.
@@ -157,17 +158,21 @@ public class OrphanDetector {
             ).thenCompose(replicaMeta -> {
                 ClusterNode commitPartPrimaryNode = topologyService.getByConsistentId(replicaMeta.getLeaseholder());
 
-                return replicaService.<Boolean>invoke(commitPartPrimaryNode, FACTORY.txRecoveryMessage()
+                if (commitPartPrimaryNode == null) {
+                    LOG.warn(
+                            "The primary replica of the commit partition is not available [commitPartGrp={}, tx={}]",
+                            txState.commitPartitionId(),
+                            txId
+                    );
+
+                    return completedFuture(null) ;
+                }
+
+                return replicaService.invoke(commitPartPrimaryNode, FACTORY.txRecoveryMessage()
                                 .groupId(txState.commitPartitionId())
                                 .enlistmentConsistencyToken(replicaMeta.getStartTime().longValue())
                                 .txId(txId)
-                                .build())
-                        .thenAccept(txFinished -> {
-                            // TODO: IGNITE-20874 Replace the handling of the response to node wide cleanup procedure.
-                            if (txFinished) {
-                                lockManager.locks(txId).forEachRemaining(lockManager::release);
-                            }
-                        });
+                                .build());
             });
         }
 
