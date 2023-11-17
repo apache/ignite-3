@@ -38,6 +38,7 @@ import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.proto.ColumnTypeConverter;
 import org.apache.ignite.internal.client.tx.ClientTransaction;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.marshaller.UnmappedColumnsException;
@@ -75,7 +76,7 @@ public class ClientTable implements Table {
 
     private volatile CompletableFuture<List<String>> partitionAssignment = null;
 
-    private volatile long primaryReplicaMaxStartTime = -1;
+    private volatile long primaryReplicaMaxStartTime = HybridTimestamp.NULL_HYBRID_TIMESTAMP;
 
     /**
      * Constructor.
@@ -538,9 +539,11 @@ public class ClientTable implements Table {
 
             primaryReplicaMaxStartTime = timestamp;
 
-            // TODO: Pass timestamp back to the server
             partitionAssignment = ch.serviceAsync(ClientOp.PARTITION_ASSIGNMENT_GET,
-                    w -> w.out().packInt(id),
+                    w -> {
+                        w.out().packInt(id);
+                        w.out().packLong(timestamp);
+                    },
                     r -> {
                         int cnt = r.in().unpackInt();
                         List<String> res = new ArrayList<>(cnt);
