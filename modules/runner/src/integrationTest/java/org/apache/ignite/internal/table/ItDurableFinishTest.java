@@ -27,6 +27,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
@@ -48,7 +50,6 @@ import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -58,6 +59,8 @@ public class ItDurableFinishTest extends ClusterPerTestIntegrationTest {
     private static final int AWAIT_PRIMARY_REPLICA_TIMEOUT = 10;
 
     private static final String TABLE_NAME = "TEST_FINISH";
+
+    private final Collection<CompletableFuture<?>> futures = new ArrayList<>();
 
     private void createTestTableWith3Replicas() {
         String zoneSql = "create zone test_zone with partitions=1, replicas=3";
@@ -178,9 +181,12 @@ public class ItDurableFinishTest extends ClusterPerTestIntegrationTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20825")
     void testCoordinatorMissedResponse() throws ExecutionException, InterruptedException {
         testFinishRow(this::coordinatorMissedResponse, this::commitRow);
+
+        for (CompletableFuture<?> future : futures) {
+            assertThat(future, willCompleteSuccessfully());
+        }
     }
 
     private void coordinatorMissedResponse(
@@ -197,15 +203,17 @@ public class ItDurableFinishTest extends ClusterPerTestIntegrationTest {
             if (networkMessage instanceof TxFinishReplicaRequest && !messageHandled.get()) {
                 messageHandled.set(true);
 
-                logger().info("Pausing message handling: {}.", networkMessage);
+                logger().info("Drop message [msg={}].", networkMessage);
+
+                // Here we act as a man-in-the-middle: the finish request is intercepted and further routed to
+                // the commit partition as normal. The coordinator instead fails with a timeout (see DefaultMessagingService.invoke0)
+                // and has to retry the finish request according to the durable finish logic.
+                // The test checks that the second coordinator attempt to commit succeeds
+                // and the server is able to apply a COMMIT over COMMIT without exceptions.
 
                 CompletableFuture<NetworkMessage> finish = coordinatorMessaging.invoke(s, networkMessage, 3000);
 
-                assertThat(finish, willCompleteSuccessfully());
-
-                finish.join();
-
-                logger().info("Continue message handling: {}.", networkMessage);
+                futures.add(finish);
 
                 return true;
             }
