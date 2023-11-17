@@ -94,17 +94,19 @@ public class ClientPrimaryReplicaTracker implements EventListener<EventParameter
             for (int partition = 0; partition < partitions; partition++) {
                 TablePartitionId tablePartitionId = new TablePartitionId(tableId, partition);
 
-                primaryReplicas.computeIfAbsent(tablePartitionId, id -> {
-                    CompletableFuture<ReplicaMeta> fut = placementDriver.getPrimaryReplica(tablePartitionId, timestamp)
-                            .thenAccept(meta -> {
-                                if (meta != null) {
-                                    updateMaxStartTime(meta.getStartTime().longValue());
+                ReplicaHolder holder = primaryReplicas.computeIfAbsent(tablePartitionId, id -> {
+                    CompletableFuture<ReplicaMeta> fut = placementDriver.getPrimaryReplica(tablePartitionId, timestamp);
 
-                                    return new ReplicaHolder(meta.nodeName(), meta.leaseStartTime(),
-                                            CompletableFuture.completedFuture(null));
-                                }
-                            });
+                    // Happy path.
+                    if (fut.isDone() && !fut.isCompletedExceptionally()) {
+                        ReplicaMeta replicaMeta = fut.join();
 
+                        updateMaxStartTime(replicaMeta.getStartTime().longValue());
+
+                        return new ReplicaHolder(replicaMeta.getLeaseholder(), replicaMeta.getStartTime(), null);
+                    }
+
+                    futures.add(fut);
                     return new ReplicaHolder(null, null, fut);
                 });
             }
