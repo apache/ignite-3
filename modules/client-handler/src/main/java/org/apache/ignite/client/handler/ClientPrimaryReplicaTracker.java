@@ -27,7 +27,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.DropTableEventParameters;
 import org.apache.ignite.internal.event.EventListener;
@@ -102,8 +101,9 @@ public class ClientPrimaryReplicaTracker implements EventListener<EventParameter
             }
 
             // TODO: Check if we have an update for the given table with at least the given timestamp.
-            // Otherwise, wait for it.
+            // Otherwise, wait for it and retry recursively.
             CompletableFuture<String>[] futs = (CompletableFuture<String>[]) new CompletableFuture[zone.partitions()];
+            long maxStartTime0 = 0;
 
             for (int partition = 0; partition < zone.partitions(); partition++) {
                 TablePartitionId key = new TablePartitionId(tableId, partition);
@@ -121,11 +121,11 @@ public class ClientPrimaryReplicaTracker implements EventListener<EventParameter
                 });
 
                 futs[partition] = holder.nodeName;
+                maxStartTime0 = Math.max(maxStartTime0, holder.leaseStartTime.longValue());
             }
 
             return CompletableFuture.allOf(futs).thenCompose(v -> {
                 // All futures are completed, now check the max timestamp for the table.
-                long maxStartTime0 = 0;
 
                 for (int partition = 0; partition < zone.partitions(); partition++) {
                     TablePartitionId key = new TablePartitionId(tableId, partition);
@@ -136,8 +136,6 @@ public class ClientPrimaryReplicaTracker implements EventListener<EventParameter
                         // Table was dropped concurrently.
                         return CompletableFuture.failedFuture(tableNotFoundException(tableId));
                     }
-
-                    maxStartTime0 = Math.max(maxStartTime0, holder.leaseStartTime.longValue());
                 }
 
                 if (maxStartTime0 >= timestamp.longValue()) {
@@ -186,22 +184,30 @@ public class ClientPrimaryReplicaTracker implements EventListener<EventParameter
 
             // TODO: Use observable timestamp from client
             // TODO: Use SchemaSyncService to wait for tables using client timestamp.
-            CatalogTableDescriptor tableDesc = catalogService.table(tableId, timestamp.longValue());
 
-            if (tableDesc == null) {
-                return CompletableFuture.failedFuture(tableNotFoundException(tableId));
-            }
-
-            CatalogZoneDescriptor zoneDesc = catalogService.zone(tableDesc.zoneId(), timestamp.longValue());
-
-            if (zoneDesc == null) {
-                return CompletableFuture.failedFuture(tableNotFoundException(tableId));
-            }
-
-            return primaryReplicasAsyncInternal(tableId, zoneDesc.partitions(), timestamp.longValue());
+            int partitions = zoneDesc.partitions();
+            return primaryReplicasAsyncInternal(tableId, partitions, timestamp.longValue());
         } catch (Throwable t) {
             return CompletableFuture.failedFuture(t);
         }
+    }
+
+    private CompletableFuture<Integer> partitionsAsync(int tableId, HybridTimestamp timestamp) {
+        return schemaSyncService.waitForMetadataCompleteness(timestamp).thenApply(v -> {
+            CatalogTableDescriptor table = catalogService.table(tableId, timestamp.longValue());
+
+            if (table == null) {
+                throw tableNotFoundException(tableId);
+            }
+
+            var zone = catalogService.zone(table.zoneId(), timestamp.longValue());
+
+            if (zone == null) {
+                throw tableNotFoundException(tableId);
+            }
+
+            return zone.partitions();
+        });
     }
 
     private CompletableFuture<List<ReplicaHolder>> primaryReplicasAsyncInternal(int tableId, int partitions, long timestamp) {
@@ -238,7 +244,10 @@ public class ClientPrimaryReplicaTracker implements EventListener<EventParameter
 
         if (parameters instanceof DropTableEventParameters) {
             DropTableEventParameters dropTableEvent = (DropTableEventParameters) parameters;
+
+            // TODO: Remove one by one.
             primaryReplicas.remove(dropTableEvent.tableId());
+            primaryReplicas.
 
             return CompletableFuture.completedFuture(false);
         }
@@ -255,26 +264,11 @@ public class ClientPrimaryReplicaTracker implements EventListener<EventParameter
         }
 
         TablePartitionId tablePartitionId = (TablePartitionId) primaryReplicaEvent.groupId();
-        var hld = primaryReplicas.get(tablePartitionId.tableId());
 
-        // TODO: Race condition. Use a single map with TablePartitionId as a key to simplify and fix.
-        if (hld != null) {
-            hld.replicas.thenAccept(replicas ->
-                    replicas.get(tablePartitionId.partitionId())
-                            .update(primaryReplicaEvent.leaseholder(), primaryReplicaEvent.startTime()));
-        }
 
         // Update always, even if the table is not tracked. Client could retrieve the table from another node.
         // TODO: Update when calling getPrimaryReplica too.
         updateMaxStartTime(primaryReplicaEvent);
-
-        // LRU check: remove entries that were not accessed for a long time to reduce memory usage.
-        // Check on every event, but not more often than LRU_CHECK_FREQ.
-        long lruCheckTime0 = lruCheckTime.get();
-        long time = System.currentTimeMillis();
-        if (time - lruCheckTime0 > LRU_CHECK_FREQ_MILLIS && lruCheckTime.compareAndSet(lruCheckTime0, time)) {
-            primaryReplicas.entrySet().removeIf(e -> time - e.getValue().lastAccessTime > LRU_CHECK_FREQ_MILLIS * 2);
-        }
 
         return CompletableFuture.completedFuture(false); // false: don't remove listener.
     }
@@ -304,13 +298,21 @@ public class ClientPrimaryReplicaTracker implements EventListener<EventParameter
      * Replica holder.
      */
     static class ReplicaHolder {
-        final CompletableFuture<String> nodeName;
+        /** Current future that will populate name and time. */
+        final CompletableFuture<Void> fut;
 
+        /** Node name. */
+        @Nullable
+        final String nodeName;
+
+        /** Lease start time. */
+        @Nullable
         final HybridTimestamp leaseStartTime;
 
-        ReplicaHolder(CompletableFuture<String> nodeNameFut, HybridTimestamp leaseStartTime) {
-            this.nodeName = nodeNameFut;
+        ReplicaHolder(String nodeName, HybridTimestamp leaseStartTime, CompletableFuture<Void> fut) {
+            this.nodeName = nodeName;
             this.leaseStartTime = leaseStartTime;
+            this.fut = fut;
         }
     }
 }
