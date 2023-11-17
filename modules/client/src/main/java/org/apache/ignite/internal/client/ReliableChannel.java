@@ -102,9 +102,8 @@ public final class ReliableChannel implements AutoCloseable {
     /** Cache addresses returned by {@code ThinClientAddressFinder}. */
     private volatile String[] prevHostAddrs;
 
-    /** Local topology assignment version. Instead of using event handlers to notify all tables about assignment change,
-     * the table will compare its version with channel version to detect an update. */
-    private final AtomicLong assignmentVersion = new AtomicLong();
+    /** Last known primary replica start time (for any table). */
+    private final AtomicLong primaryReplicaMaxStartTime = new AtomicLong();
 
     /** Observable timestamp, or causality token. Sent by the server with every response, and required by some requests. */
     private final AtomicLong observableTimestamp = new AtomicLong();
@@ -671,25 +670,27 @@ public final class ReliableChannel implements AutoCloseable {
         }
     }
 
-    private void onTopologyAssignmentChanged(ClientChannel clientChannel) {
-        // NOTE: Multiple channels will send the same update to us, resulting in multiple cache invalidations.
-        // This could be solved with a cluster-wide AssignmentVersion, but we don't have that.
-        // So we only react to updates from the default channel. When no user-initiated operations are performed on the default
-        // channel, heartbeat messages will trigger updates.
-        CompletableFuture<ClientChannel> ch = channels.get(defaultChIdx).chFut;
+    private void onTopologyAssignmentChanged(long maxStartTime) {
+        while (true) {
+            long curMaxStartTime = primaryReplicaMaxStartTime.get();
 
-        if (ch != null && clientChannel == ClientFutureUtils.getNowSafe(ch)) {
-            assignmentVersion.incrementAndGet();
+            if (curMaxStartTime >= maxStartTime) {
+                break;
+            }
+
+            if (primaryReplicaMaxStartTime.compareAndSet(curMaxStartTime, maxStartTime)) {
+                break;
+            }
         }
     }
 
     /**
-     * Gets the local partition assignment version.
+     * Gets the last known primary replica start time (for any table).
      *
-     * @return Assignment version.
+     * @return Primary replica max start time.
      */
-    public long partitionAssignmentVersion() {
-        return assignmentVersion.get();
+    public long primaryReplicaLastStartTime() {
+        return primaryReplicaMaxStartTime.get();
     }
 
     @Nullable

@@ -705,9 +705,12 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
                     + ctx.channel().remoteAddress() + ']');
         }
 
-        // TODO: Send currentMaxStartTime to the client.
         var flags = ResponseFlags.getFlags(primaryReplicasUpdated);
         out.packInt(flags);
+
+        if (primaryReplicasUpdated) {
+            out.packLong(currentMaxStartTime);
+        }
     }
 
     /** {@inheritDoc} */

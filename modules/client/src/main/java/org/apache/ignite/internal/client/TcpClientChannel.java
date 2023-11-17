@@ -98,7 +98,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     private final Map<Long, ClientRequestFuture> pendingReqs = new ConcurrentHashMap<>();
 
     /** Topology change listeners. */
-    private final Collection<Consumer<ClientChannel>> assignmentChangeListeners = new CopyOnWriteArrayList<>();
+    private final Collection<Consumer<Long>> assignmentChangeListeners = new CopyOnWriteArrayList<>();
 
     /** Observable timestamp listeners. */
     private final Collection<Consumer<Long>> observableTimestampListeners = new CopyOnWriteArrayList<>();
@@ -397,8 +397,9 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
                 log.info("Partition assignment change notification received [remoteAddress=" + cfg.getAddress() + "]");
             }
 
-            for (Consumer<ClientChannel> listener : assignmentChangeListeners) {
-                listener.accept(this);
+            long maxStartTime = unpacker.unpackLong();
+            for (Consumer<Long> listener : assignmentChangeListeners) {
+                listener.accept(maxStartTime);
             }
         }
 
@@ -489,7 +490,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
 
     /** {@inheritDoc} */
     @Override
-    public void addTopologyAssignmentChangeListener(Consumer<ClientChannel> listener) {
+    public void addTopologyAssignmentChangeListener(Consumer<Long> listener) {
         assignmentChangeListeners.add(listener);
     }
 
