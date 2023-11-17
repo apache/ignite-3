@@ -165,16 +165,16 @@ public class IgniteUtils {
      * @return Total amount of memory in bytes or -1 if any exception happened.
      */
     public static long getTotalMemoryAvailable() {
-        MBeanServer mBeanSrv = ManagementFactory.getPlatformMBeanServer();
+        MBeanServer mbeanServer = ManagementFactory.getPlatformMBeanServer();
 
         Object attr;
 
         try {
-            attr = mBeanSrv.getAttribute(
+            attr = mbeanServer.getAttribute(
                     ObjectName.getInstance("java.lang", "type", "OperatingSystem"),
-                    "TotalPhysicalMemorySize");
-        }
-        catch (Exception e) {
+                    "TotalPhysicalMemorySize"
+            );
+        } catch (Exception e) {
             return -1;
         }
 
