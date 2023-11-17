@@ -61,8 +61,6 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
         sql("CREATE TABLE birthday (id INT PRIMARY KEY, name VARCHAR, birthday DATE)");
         sql("CREATE INDEX " + NAME_DATE_IDX + " ON birthday (name, birthday)");
 
-        waitForIndexToBecomeAvailable(DEPID_IDX, NAME_CITY_IDX, NAME_DEPID_CITY_IDX);
-
         insertData("BIRTHDAY", List.of("ID", "NAME", "BIRTHDAY"), new Object[][]{
                 {1, "Mozart", LocalDate.parse("1756-01-27")},
                 {2, "Beethoven", LocalDate.parse("1756-01-27")},
@@ -103,8 +101,6 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
         sql("CREATE TABLE unwrap_pk(f1 VARCHAR, f2 BIGINT, f3 BIGINT, f4 BIGINT, primary key(f2, f1))");
         sql("CREATE INDEX " + PK_SORTED_IDX + " ON unwrap_pk(f2, f1)");
 
-        waitForIndexToBecomeAvailable(PK_SORTED_IDX);
-
         insertData("UNWRAP_PK", List.of("F1", "F2", "F3", "F4"), new Object[][]{
                 {"Petr", 1L, 2L, 3L},
                 {"Ivan", 2L, 2L, 4L},
@@ -117,8 +113,6 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
 
         sql("CREATE TABLE t1 (id INT PRIMARY KEY, val INT)");
         sql("CREATE INDEX t1_idx on t1(val DESC)");
-
-        waitForIndexToBecomeAvailable("T1_IDX");
 
         insertData("T1", List.of("ID", "VAL"), new Object[][]{
                 {1, null},
@@ -926,8 +920,6 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
             sql("CREATE INDEX t_idx ON t(i1)");
             sql("INSERT INTO t VALUES (1, 0, null), (2, 1, null), (3, 2, 2), (4, 3, null), (5, 4, null), (6, null, 5)");
 
-            waitForIndexToBecomeAvailable("T_IDX");
-
             String sql = "SELECT t1.i1, t2.i1 FROM t t1 LEFT JOIN t t2 ON t1.i2 = t2.i1";
 
             assertQuery(sql)
@@ -952,8 +944,6 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
             sql("CREATE TABLE t(i0 INTEGER PRIMARY KEY, i1 INTEGER, i2 INTEGER)");
             sql("CREATE INDEX t_idx ON t(i1, i2)");
             sql("INSERT INTO t VALUES (1, null, 0), (2, 1, null), (3, 2, 2), (4, 3, null)");
-
-            waitForIndexToBecomeAvailable("T_IDX");
 
             assertQuery("SELECT * FROM t WHERE i1 = ?")
                     .withParams(null)
@@ -988,8 +978,6 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
         sql("CREATE TABLE t100 (ID INTEGER PRIMARY KEY, VAL TINYINT)");
         sql("CREATE INDEX t100_idx ON t100 (VAL)");
 
-        waitForIndexToBecomeAvailable("T100_IDX");
-
         sql("INSERT INTO t100 VALUES (1, 127)");
 
         assertQuery("SELECT * FROM t100 WHERE val = 1024").returnNothing().check();
@@ -1003,8 +991,6 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
         sql("CREATE TABLE t200 (ID INTEGER PRIMARY KEY, VAL TINYINT)");
         sql("CREATE INDEX t200_idx ON t200 USING HASH (VAL)");
 
-        waitForIndexToBecomeAvailable("T200_IDX");
-
         sql("INSERT INTO t200 VALUES (1, 127)");
 
         assertQuery("SELECT * FROM t200 WHERE val = 1024").returnNothing().check();
@@ -1016,8 +1002,6 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
             sql("CREATE TABLE t(i INTEGER PRIMARY KEY, b BOOLEAN)");
             sql("CREATE INDEX t_idx ON t(b)");
             sql("INSERT INTO t VALUES (0, TRUE), (1, TRUE), (2, FALSE), (3, FALSE), (4, null)");
-
-            waitForIndexToBecomeAvailable("T_IDX");
 
             assertQuery("SELECT i FROM t WHERE b = TRUE")
                     .matches(containsIndexScan("PUBLIC", "T", "T_IDX"))
@@ -1060,8 +1044,6 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
             sql("INSERT INTO t_true VALUES (0, TRUE), (1, TRUE), (2, TRUE), (3, TRUE), (4, FALSE)");
             sql("CREATE INDEX t_true_idx ON t_true(b)");
 
-            waitForIndexToBecomeAvailable("T_TRUE_IDX");
-
             assertQuery("SELECT i FROM t_true WHERE b IS NOT TRUE")
                     .matches(containsIndexScan("PUBLIC", "T_TRUE", "T_TRUE_IDX"))
                     .returns(4)
@@ -1099,8 +1081,6 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
             sql("CREATE TABLE t_false(i INTEGER PRIMARY KEY, b BOOLEAN)");
             sql("INSERT INTO t_false VALUES (0, FALSE), (1, FALSE), (2, FALSE), (3, FALSE), (4, TRUE)");
             sql("CREATE INDEX t_false_idx ON t_false(b)");
-
-            waitForIndexToBecomeAvailable("T_FALSE_IDX");
 
             assertQuery("SELECT i FROM t_false WHERE b IS NOT FALSE")
                     .matches(containsIndexScan("PUBLIC", "T_FALSE", "T_FALSE_IDX"))

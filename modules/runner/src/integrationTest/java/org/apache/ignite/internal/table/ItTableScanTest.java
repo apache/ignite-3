@@ -805,8 +805,6 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
 
         sql("CREATE INDEX IF NOT EXISTS " + SORTED_IDX + " ON " + TABLE_NAME + " USING TREE (valInt)");
 
-        waitForIndexToBecomeAvailable(SORTED_IDX);
-
         return (TableViewInternal) CLUSTER.aliveNode().tables().table(TABLE_NAME);
     }
 

@@ -101,8 +101,6 @@ public class ItIndexSpoolTest extends BaseSqlIntegrationTest {
 
             sql("CREATE INDEX " + name + "_jid_idx ON " + name + "(jid)");
 
-            waitForIndexToBecomeAvailable((name + "_jid_idx").toUpperCase());
-
             insertData(name, List.of("ID", "JID", "VAL"), dataRows);
         }
     }

@@ -42,8 +42,6 @@ public class ItJoinTest extends BaseSqlIntegrationTest {
         sql("create index t1_idx on t1 (c3, c2, c1)");
         sql("create index t2_idx on t2 (c3, c2, c1)");
 
-        waitForIndexToBecomeAvailable("T1_IDX", "T2_IDX");
-
         insertData("t1", List.of("ID", "C1", "C2", "C3"),
                 new Object[] {0, 1, 1, 1},
                 new Object[] {1, 2, null, 2},
@@ -793,13 +791,12 @@ public class ItJoinTest extends BaseSqlIntegrationTest {
     @ParameterizedTest(name = "join algo : {0}, index present: {1}")
     @MethodSource("joinTypes")
     @WithSystemProperty(key = "IMPLICIT_PK_ENABLED", value = "true")
-    public void testIsNotDistinctFrom(JoinType joinType, boolean indexScan) throws InterruptedException {
+    public void testIsNotDistinctFrom(JoinType joinType, boolean indexScan) {
         try {
             sql("CREATE TABLE t11(i1 INTEGER, i2 INTEGER)");
 
             if (indexScan) {
                 sql("CREATE INDEX t11_idx ON t11(i1)");
-                waitForIndexToBecomeAvailable("T11_IDX");
             }
 
             sql("INSERT INTO t11 VALUES (1, null), (2, 2), (null, 3), (3, null), (5, null)");
@@ -808,7 +805,6 @@ public class ItJoinTest extends BaseSqlIntegrationTest {
 
             if (indexScan) {
                 sql("CREATE INDEX t22_idx ON t22(i3)");
-                waitForIndexToBecomeAvailable("T22_IDX");
             }
 
             sql("INSERT INTO t22 VALUES (1, 1), (2, 2), (null, 3), (4, null), (5, null)");

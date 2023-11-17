@@ -290,8 +290,6 @@ public class ItMixedQueriesTest extends BaseSqlIntegrationTest {
 
         sql("insert into test_tbl values (1, 1), (2, 2), (3, 3), (4, null)");
 
-        waitForIndexToBecomeAvailable("IDX_ASC", "IDX_DESC");
-
         assertQuery("select c1 from test_tbl ORDER BY c1")
                 .matches(containsIndexScan("PUBLIC", "TEST_TBL", "IDX_ASC"))
                 .matches(not(containsSubPlan("IgniteSort")))

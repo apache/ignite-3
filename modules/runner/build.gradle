@@ -194,6 +194,7 @@ dependencies {
     testFixturesImplementation testFixtures(project(':ignite-core'))
     testFixturesImplementation testFixtures(project(':ignite-sql-engine'))
     testFixturesImplementation testFixtures(project(':ignite-network'))
+    testFixturesImplementation testFixtures(project(':ignite-catalog'))
     testFixturesImplementation libs.jetbrains.annotations
     testFixturesImplementation libs.hamcrest.core
     testFixturesImplementation libs.auto.service.annotations

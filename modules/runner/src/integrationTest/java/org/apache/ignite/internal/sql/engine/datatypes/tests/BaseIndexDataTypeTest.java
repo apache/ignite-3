@@ -39,7 +39,6 @@ public abstract class BaseIndexDataTypeTest<T extends Comparable<T>> extends Bas
     @BeforeAll
     public void addIndexSimpleIndex() {
         runSql("create index t_test_key_idx on t (test_key)");
-        waitForIndexToBecomeAvailable("T_TEST_KEY_IDX");
     }
 
     @BeforeEach
@@ -211,8 +210,6 @@ public abstract class BaseIndexDataTypeTest<T extends Comparable<T>> extends Bas
     public void testCompoundIndex(TestTypeArguments<T> arguments) throws InterruptedException {
         sql("drop index if exists t_test_key_pk_idx");
         sql("create index if not exists t_test_key_pk_idx on t (id, test_key)");
-
-        waitForIndexToBecomeAvailable("T_TEST_KEY_PK_IDX");
 
         runSql("insert into t values(100, $0)");
 

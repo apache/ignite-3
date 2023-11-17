@@ -39,7 +39,9 @@ import java.util.function.BiPredicate;
 import java.util.stream.Stream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.Peer;
@@ -54,6 +56,7 @@ import org.apache.ignite.raft.jraft.rpc.WriteActionRequest;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -66,6 +69,11 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
     private static final String TABLE_NAME = "TEST_TABLE";
 
     private static final String INDEX_NAME = "TEST_INDEX";
+
+    @BeforeEach
+    void setup() {
+        setAwaitIndexAvailability(false);
+    }
 
     @AfterEach
     void tearDown() {
@@ -86,7 +94,9 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
 
         checkIndexBuild(partitions, replicas, INDEX_NAME);
 
-        waitForIndexToBecomeAvailable(INDEX_NAME);
+        waitForCondition(() -> isIndexAvailable(INDEX_NAME), 10_000);
+
+        waitForReadTimestampThatObservesDdlChanges();
 
         assertQuery(IgniteStringFormatter.format("SELECT * FROM {} WHERE i1 > 0", TABLE_NAME))
                 .matches(containsIndexScan("PUBLIC", TABLE_NAME, INDEX_NAME))
@@ -289,5 +299,18 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
         CatalogIndexDescriptor indexDescriptor = getIndexDescriptor(node, indexName);
 
         return indexDescriptor == null ? null : indexDescriptor.id();
+    }
+
+    private static boolean isIndexAvailable(String indexName) {
+        IgniteImpl ignite = CLUSTER.runningNodes()
+                .findAny()
+                .orElseThrow(() -> new IllegalStateException("No running nodes"));
+
+        CatalogManager catalogManager = ignite.catalogManager();
+        HybridClock clock = ignite.clock();
+
+        CatalogIndexDescriptor indexDescriptor = catalogManager.index(indexName, clock.nowLong());
+
+        return indexDescriptor != null && indexDescriptor.available();
     }
 }

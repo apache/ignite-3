@@ -60,8 +60,6 @@ public class ItOrToUnionRuleTest extends BaseSqlIntegrationTest {
         sql("CREATE INDEX " + IDX_SUBCATEGORY + " ON products (subcategory)");
         sql("CREATE INDEX " + IDX_SUBCAT_ID + " ON products (subcat_id)");
 
-        waitForIndexToBecomeAvailable(IDX_CATEGORY, IDX_CAT_ID, IDX_SUBCATEGORY, IDX_SUBCAT_ID);
-
         insertData("products", List.of("ID", "CATEGORY", "CAT_ID", "SUBCATEGORY", "SUBCAT_ID", "NAME"), new Object[][]{
                 {1, "Photo", 1, "Camera Media", 11, "Media 1"},
                 {2, "Photo", 1, "Camera Media", 11, "Media 2"},
