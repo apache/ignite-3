@@ -221,6 +221,7 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         }
 
         // if BIGINT is present we need to preserve CAST from BIGINT to BIGINT for further overflow check possibility
+        // TODO: need to be removed after https://issues.apache.org/jira/browse/IGNITE-20889
         if (config().typeCoercionEnabled()) {
             if (SqlTypeUtil.equalAsStructSansNullability(typeFactory,
                     sourceRowType, targetRowType, null)) {

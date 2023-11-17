@@ -273,6 +273,7 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
             }
 
             // we need this check for further possibility to validate BIGINT overflow
+            // TODO: need to be removed after https://issues.apache.org/jira/browse/IGNITE-20889
             if (fromType.getSqlTypeName() == SqlTypeName.BIGINT && toType.getSqlTypeName() == SqlTypeName.BIGINT) {
                 if (node.getKind() == SqlKind.LITERAL) {
                     return true;
