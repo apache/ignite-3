@@ -20,7 +20,6 @@ package org.apache.ignite.internal.index;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.INDEX_CREATE;
-import static org.apache.ignite.internal.catalog.events.CatalogEvent.INDEX_DROP;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 
@@ -135,14 +134,6 @@ public class IndexManager implements IgniteComponent {
             return onIndexCreate((CreateIndexEventParameters) parameters);
         });
 
-        catalogService.listen(INDEX_DROP, (parameters, exception) -> {
-            if (exception != null) {
-                return failedFuture(exception);
-            }
-
-            return onIndexDrop((DropIndexEventParameters) parameters);
-        });
-
         LOG.info("Index manager started");
     }
 
@@ -179,6 +170,7 @@ public class IndexManager implements IgniteComponent {
         return mvTableStoragesByIdVv.get(causalityToken).thenApply(mvTableStoragesById -> mvTableStoragesById.get(tableId));
     }
 
+    // TODO: IGNITE-20121 Unregister index only before we physically start deleting the index before truncate catalog
     private CompletableFuture<Boolean> onIndexDrop(DropIndexEventParameters parameters) {
         int indexId = parameters.indexId();
         int tableId = parameters.tableId();
