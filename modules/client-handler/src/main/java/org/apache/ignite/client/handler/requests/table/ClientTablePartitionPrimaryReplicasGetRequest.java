@@ -51,8 +51,8 @@ public class ClientTablePartitionPrimaryReplicasGetRequest {
             if (primaryReplicas == null) {
                 out.packInt(0);
             } else {
-                out.packLong(primaryReplicas.timestamp());
                 out.packInt(primaryReplicas.nodeNames().size());
+                out.packLong(primaryReplicas.timestamp());
 
                 for (String nodeName : primaryReplicas.nodeNames()) {
                     out.packString(nodeName);
