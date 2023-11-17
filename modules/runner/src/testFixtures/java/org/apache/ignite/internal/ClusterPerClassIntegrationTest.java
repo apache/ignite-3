@@ -268,7 +268,7 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
     }
 
     /**
-     * Waits some time so that read-only transactions can observe the most recent version of the catalog.
+     * Waits for some amount of time so that read-only transactions can observe the most recent version of the catalog.
      */
     protected static void waitForReadTimestampThatObservesMostRecentCatalog()  {
         // See TxManagerImpl::currentReadTimestamp.
