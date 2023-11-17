@@ -247,7 +247,6 @@ public class ClientPrimaryReplicaTracker implements EventListener<EventParameter
 
             // TODO: Remove one by one.
             primaryReplicas.remove(dropTableEvent.tableId());
-            primaryReplicas.
 
             return CompletableFuture.completedFuture(false);
         }
@@ -264,10 +263,21 @@ public class ClientPrimaryReplicaTracker implements EventListener<EventParameter
         }
 
         TablePartitionId tablePartitionId = (TablePartitionId) primaryReplicaEvent.groupId();
+        primaryReplicas.compute(tablePartitionId, (ignore, old) -> {
+            if (old != null && old.leaseStartTime != null && old.leaseStartTime.longValue() >= primaryReplicaEvent.startTime().longValue()) {
+                // We already have a newer replica.
+                return old;
+            }
+
+            // The event is newer.
+            return new ReplicaHolder(
+                    primaryReplicaEvent.leaseholder(),
+                    primaryReplicaEvent.startTime(),
+                    CompletableFuture.completedFuture(null));
+        });
 
 
         // Update always, even if the table is not tracked. Client could retrieve the table from another node.
-        // TODO: Update when calling getPrimaryReplica too.
         updateMaxStartTime(primaryReplicaEvent);
 
         return CompletableFuture.completedFuture(false); // false: don't remove listener.
