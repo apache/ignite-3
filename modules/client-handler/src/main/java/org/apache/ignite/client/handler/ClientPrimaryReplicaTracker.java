@@ -86,8 +86,18 @@ public class ClientPrimaryReplicaTracker implements EventListener<EventParameter
      * @return Primary replicas for the table, or null when not yet known.
      */
     public CompletableFuture<PrimaryReplicasResult> primaryReplicasAsync(int tableId, @Nullable HybridTimestamp maxStartTime) {
-        HybridTimestamp timestamp = maxStartTime == null ? clock.now() : maxStartTime;
-        HybridTimestamp maxStartTime0 = maxStartTime == null ? HybridTimestamp.MIN_VALUE : maxStartTime;
+        HybridTimestamp timestamp; // TODO: Should this be different?
+        HybridTimestamp maxStartTime0;
+
+        if (maxStartTime == null) {
+            maxStartTime0 = HybridTimestamp.hybridTimestamp(this.maxStartTime.get());
+            timestamp = clock.now();
+        }
+        else {
+            // If the client provides an old maxStartTime, ignore it and use the current one.
+            maxStartTime0 = HybridTimestamp.hybridTimestamp(Math.max(maxStartTime.longValue(), this.maxStartTime.get()));
+            timestamp = maxStartTime0;
+        }
 
         // Check happy path: if we already have all replicas, and maxStartTime > timestamp, return synchronously.
         var fastRes = primaryReplicasNoWait(tableId, maxStartTime0, timestamp);
