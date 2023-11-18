@@ -28,7 +28,9 @@ import static org.mockito.Mockito.lenient;
 
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandlerContext;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
+import org.apache.ignite.internal.network.netty.NettySender;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -50,6 +52,9 @@ class RecoveryDescriptorTest extends BaseIgniteAbstractTest {
     @Mock
     private ChannelHandlerContext context2;
 
+    private final CompletableFuture<NettySender> handshakeCompleteFuture1 = new CompletableFuture<>();
+    private final CompletableFuture<NettySender> handshakeCompleteFuture2 = new CompletableFuture<>();
+
     @BeforeEach
     void setupMocks() {
         lenient().when(context1.channel()).thenReturn(channel1);
@@ -58,7 +63,7 @@ class RecoveryDescriptorTest extends BaseIgniteAbstractTest {
 
     @Test
     void acquiresNonAcquiredDescriptor() {
-        assertTrue(descriptor.acquire(context1));
+        assertTrue(descriptor.acquire(context1, handshakeCompleteFuture1));
     }
 
     @Test
@@ -68,7 +73,7 @@ class RecoveryDescriptorTest extends BaseIgniteAbstractTest {
 
     @Test
     void acquiryInformationIsAvailabeAfterAcquiring() {
-        descriptor.acquire(context1);
+        descriptor.acquire(context1, handshakeCompleteFuture1);
 
         DescriptorAcquiry acquiry = descriptor.holder();
         assertThat(acquiry, is(notNullValue()));
@@ -78,19 +83,19 @@ class RecoveryDescriptorTest extends BaseIgniteAbstractTest {
 
     @Test
     void cannotAcquireAcquiredDescriptor() {
-        descriptor.acquire(context1);
+        descriptor.acquire(context1, handshakeCompleteFuture1);
 
-        assertFalse(descriptor.acquire(context2));
+        assertFalse(descriptor.acquire(context2, handshakeCompleteFuture2));
         assertThat(descriptor.holder().channel(), is(channel1));
     }
 
     @Test
     void releaseMakesDescriptorAvailable() {
-        descriptor.acquire(context1);
+        descriptor.acquire(context1, handshakeCompleteFuture1);
 
         descriptor.release(context1);
 
-        assertTrue(descriptor.acquire(context1));
+        assertTrue(descriptor.acquire(context1, handshakeCompleteFuture1));
         DescriptorAcquiry acquiry = descriptor.holder();
         assertThat(acquiry, is(notNullValue()));
         assertThat(acquiry.channel(), is(channel1));
@@ -98,7 +103,7 @@ class RecoveryDescriptorTest extends BaseIgniteAbstractTest {
 
     @Test
     void releaseRemovesAcquiryInformation() {
-        descriptor.acquire(context1);
+        descriptor.acquire(context1, handshakeCompleteFuture1);
 
         descriptor.release(context1);
 
@@ -107,7 +112,7 @@ class RecoveryDescriptorTest extends BaseIgniteAbstractTest {
 
     @Test
     void releaseWithAnotherContextHasNoEffect() {
-        descriptor.acquire(context1);
+        descriptor.acquire(context1, handshakeCompleteFuture1);
 
         descriptor.release(context2);
 
@@ -116,7 +121,7 @@ class RecoveryDescriptorTest extends BaseIgniteAbstractTest {
         assertThat(acquiry.channel(), is(channel1));
         assertThat(acquiry.clinchResolved().toCompletableFuture().isDone(), is(false));
 
-        assertFalse(descriptor.acquire(context2));
+        assertFalse(descriptor.acquire(context2, handshakeCompleteFuture2));
 
         acquiry = descriptor.holder();
         assertThat(acquiry, is(notNullValue()));
@@ -126,7 +131,7 @@ class RecoveryDescriptorTest extends BaseIgniteAbstractTest {
 
     @Test
     void releaseCompletesClinchReleasedStage() {
-        descriptor.acquire(context1);
+        descriptor.acquire(context1, handshakeCompleteFuture1);
         CompletionStage<Void> clinchResolved = descriptor.holder().clinchResolved();
 
         descriptor.release(context1);

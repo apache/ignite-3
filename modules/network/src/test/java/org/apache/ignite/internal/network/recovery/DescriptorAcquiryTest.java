@@ -23,6 +23,8 @@ import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.not;
 
 import io.netty.channel.Channel;
+import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.network.netty.NettySender;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -34,16 +36,18 @@ class DescriptorAcquiryTest extends BaseIgniteAbstractTest {
     @Mock
     private Channel channel;
 
+    private final CompletableFuture<NettySender> handshakeCompleteFuture = new CompletableFuture<>();
+
     @Test
     void clinchResolvedStagedIsInitiallyIncomplete() {
-        DescriptorAcquiry acquiry = new DescriptorAcquiry(channel);
+        DescriptorAcquiry acquiry = new DescriptorAcquiry(channel, handshakeCompleteFuture);
 
         assertThat(acquiry.clinchResolved().toCompletableFuture(), is(not(completedFuture())));
     }
 
     @Test
     void clinchGetsResolved() {
-        DescriptorAcquiry acquiry = new DescriptorAcquiry(channel);
+        DescriptorAcquiry acquiry = new DescriptorAcquiry(channel, handshakeCompleteFuture);
 
         acquiry.markClinchResolved();
 

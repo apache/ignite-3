@@ -26,6 +26,7 @@ import io.netty.channel.ChannelHandlerContext;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -260,18 +261,18 @@ public class RecoveryServerHandshakeManager implements HandshakeManager {
                 this.remoteChannelId
         );
 
-        while (!descriptor.acquire(ctx)) {
+        while (!descriptor.acquire(ctx, handshakeCompleteFuture)) {
             if (shouldCloseChannel(launchId, remoteLaunchId)) {
                 // A competitor is holding the descriptor and we win the clinch; so we need to wait on the 'clinch resolved' future till
                 // the competitor realises it should terminate (this realization will happen on the other side of the channel), send
                 // the corresponding message to this node, terminate its handshake and complete the 'clinch resolved' future.
-                DescriptorAcquiry acquiry = descriptor.holder();
+                DescriptorAcquiry competitorAcquiry = descriptor.holder();
 
-                if (acquiry == null) {
+                if (competitorAcquiry == null) {
                     continue;
                 }
 
-                acquiry.clinchResolved().whenComplete((res, ex) -> {
+                competitorAcquiry.clinchResolved().whenComplete((res, ex) -> {
                     // The competitor has finished terminating its handshake, it must've already released the descriptor,
                     // so let's try again.
                     if (ctx.executor().inEventLoop()) {
@@ -394,7 +395,12 @@ public class RecoveryServerHandshakeManager implements HandshakeManager {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<NettySender> handshakeFuture() {
+    public CompletableFuture<NettySender> localHandshakeFuture() {
+        return handshakeCompleteFuture;
+    }
+
+    @Override
+    public CompletionStage<NettySender> finalHandshakeFuture() {
         return handshakeCompleteFuture;
     }
 

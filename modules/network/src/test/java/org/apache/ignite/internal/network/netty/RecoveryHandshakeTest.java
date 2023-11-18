@@ -524,25 +524,41 @@ public class RecoveryHandshakeTest {
     }
 
     private void checkHandshakeNotCompleted(HandshakeManager manager) {
-        CompletableFuture<NettySender> handshakeFuture = manager.handshakeFuture();
-        assertFalse(handshakeFuture.isDone());
-        assertFalse(handshakeFuture.isCompletedExceptionally());
-        assertFalse(handshakeFuture.isCancelled());
+        CompletableFuture<NettySender> localHandshakeFuture = manager.localHandshakeFuture();
+        assertFalse(localHandshakeFuture.isDone());
+        assertFalse(localHandshakeFuture.isCompletedExceptionally());
+        assertFalse(localHandshakeFuture.isCancelled());
+
+        CompletableFuture<NettySender> finalHandshakeFuture = manager.finalHandshakeFuture().toCompletableFuture();
+        assertFalse(finalHandshakeFuture.isDone());
+        assertFalse(finalHandshakeFuture.isCompletedExceptionally());
+        assertFalse(finalHandshakeFuture.isCancelled());
     }
 
     private void checkHandshakeCompleted(HandshakeManager manager) {
-        CompletableFuture<NettySender> handshakeFuture = manager.handshakeFuture();
-        assertTrue(handshakeFuture.isDone());
-        assertFalse(handshakeFuture.isCompletedExceptionally());
-        assertFalse(handshakeFuture.isCancelled());
+        CompletableFuture<NettySender> localHandshakeFuture = manager.localHandshakeFuture();
+        assertTrue(localHandshakeFuture.isDone());
+        assertFalse(localHandshakeFuture.isCompletedExceptionally());
+        assertFalse(localHandshakeFuture.isCancelled());
+
+        CompletableFuture<NettySender> finalHandshakeFuture = manager.finalHandshakeFuture().toCompletableFuture();
+        assertTrue(finalHandshakeFuture.isDone());
+        assertFalse(finalHandshakeFuture.isCompletedExceptionally());
+        assertFalse(finalHandshakeFuture.isCancelled());
     }
 
     private void checkHandshakeCompletedExceptionally(HandshakeManager manager) {
-        CompletableFuture<NettySender> handshakeFuture = manager.handshakeFuture();
+        CompletableFuture<NettySender> handshakeFuture = manager.localHandshakeFuture();
 
         assertTrue(handshakeFuture.isDone());
         assertTrue(handshakeFuture.isCompletedExceptionally());
         assertFalse(handshakeFuture.isCancelled());
+
+        CompletableFuture<NettySender> finalHandshakeFuture = manager.finalHandshakeFuture().toCompletableFuture();
+
+        assertTrue(finalHandshakeFuture.isDone());
+        assertTrue(finalHandshakeFuture.isCompletedExceptionally());
+        assertFalse(finalHandshakeFuture.isCancelled());
     }
 
     private void addUnacknowledgedMessages(RecoveryDescriptor recoveryDescriptor) {

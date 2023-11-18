@@ -23,7 +23,9 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Queue;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
+import org.apache.ignite.internal.network.netty.NettySender;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.network.OutNetworkObject;
 import org.jetbrains.annotations.Nullable;
@@ -157,9 +159,10 @@ public class RecoveryDescriptor {
      * Acquire this descriptor.
      *
      * @param ctx Channel handler context.
+     * @param handshakeCompleteFuture Future that gets completed when the corresponding handshake completes.
      */
-    public boolean acquire(ChannelHandlerContext ctx) {
-        return channelHolder.compareAndSet(null, new DescriptorAcquiry(ctx.channel()));
+    public boolean acquire(ChannelHandlerContext ctx, CompletableFuture<NettySender> handshakeCompleteFuture) {
+        return channelHolder.compareAndSet(null, new DescriptorAcquiry(ctx.channel(), handshakeCompleteFuture));
     }
 
     /**

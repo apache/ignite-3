@@ -20,16 +20,20 @@ package org.apache.ignite.internal.network.recovery;
 import io.netty.channel.Channel;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
+import org.apache.ignite.internal.network.netty.NettySender;
 
 /**
  * Context around a fact that a {@link RecoveryDescriptor} is acquired by some channel.
  */
 class DescriptorAcquiry {
     private final Channel channel;
+    private final CompletableFuture<NettySender> handshakeCompleteFuture;
+
     private final CompletableFuture<Void> clinchResolved = new CompletableFuture<>();
 
-    DescriptorAcquiry(Channel channel) {
+    DescriptorAcquiry(Channel channel, CompletableFuture<NettySender> handshakeCompleteFuture) {
         this.channel = channel;
+        this.handshakeCompleteFuture = handshakeCompleteFuture;
     }
 
     /**
@@ -52,5 +56,9 @@ class DescriptorAcquiry {
      */
     void markClinchResolved() {
         clinchResolved.complete(null);
+    }
+
+    CompletableFuture<NettySender> handshakeCompleteFuture() {
+        return handshakeCompleteFuture;
     }
 }

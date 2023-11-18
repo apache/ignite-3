@@ -116,9 +116,9 @@ class RecoveryServerHandshakeManagerTest extends BaseIgniteAbstractTest {
         UUID serverLaunchId = HIGHER_ID;
 
         RecoveryServerHandshakeManager manager = serverHandshakeManager(serverLaunchId);
-        CompletableFuture<NettySender> handshakeFuture = manager.handshakeFuture();
+        CompletableFuture<NettySender> handshakeFuture = manager.localHandshakeFuture();
 
-        recoveryDescriptor.acquire(context);
+        recoveryDescriptor.acquire(context, new CompletableFuture<>());
 
         manager.onMessage(handshakeStartResponseMessageFrom(clientLaunchId));
 

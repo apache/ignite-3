@@ -53,7 +53,6 @@ import org.apache.ignite.internal.future.OrderingFuture;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.network.configuration.NetworkView;
-import org.apache.ignite.internal.network.handshake.ChannelAlreadyExistsException;
 import org.apache.ignite.internal.network.messages.TestMessage;
 import org.apache.ignite.internal.network.messages.TestMessagesFactory;
 import org.apache.ignite.internal.network.recovery.AllIdsAreFresh;
@@ -332,46 +331,11 @@ public class ItConnectionManagerTest extends BaseIgniteAbstractTest {
             CompletableFuture<NettySender> fut1 = manager1.openChannelTo(manager2).toCompletableFuture();
             CompletableFuture<NettySender> fut2 = manager2.openChannelTo(manager1).toCompletableFuture();
 
-            NettySender sender1 = null;
-            NettySender sender2 = null;
+            NettySender sender1 = fut1.get(1, TimeUnit.SECONDS);
+            NettySender sender2 = fut2.get(1, TimeUnit.SECONDS);
 
-            try {
-                sender1 = fut1.get(1, TimeUnit.SECONDS);
-            } catch (ExecutionException e) {
-                if (!(e.getCause() instanceof ChannelAlreadyExistsException)) {
-                    throw e;
-                }
-            }
-            try {
-                sender2 = fut2.get(1, TimeUnit.SECONDS);
-            } catch (ExecutionException e) {
-                if (!(e.getCause() instanceof ChannelAlreadyExistsException)) {
-                    throw e;
-                }
-            }
-
-            NettySender highlander = null;
-
-            assertTrue(sender1 != null || sender2 != null);
-
-            if (sender1 != null && sender1.isOpen()) {
-                highlander = sender1;
-
-                boolean sender2NullOrClosed = sender2 == null || !sender2.isOpen();
-
-                assertTrue(sender2NullOrClosed);
-            }
-
-            if (sender2 != null && sender2.isOpen()) {
-                highlander = sender2;
-
-                boolean sender1NullOrClosed = sender1 == null || !sender1.isOpen();
-
-                assertTrue(sender1NullOrClosed);
-            }
-
-            assertNotNull(highlander);
-            assertTrue(highlander.isOpen());
+            assertTrue(sender1.isOpen());
+            assertTrue(sender2.isOpen());
 
             assertTrue(
                     waitForCondition(
