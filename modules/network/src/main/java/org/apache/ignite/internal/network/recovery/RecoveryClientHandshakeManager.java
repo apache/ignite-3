@@ -82,7 +82,7 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
      * Master future used to complete the handshake either with the results of this handshake of the competing one
      * (in the opposite direction), if it wins.
      */
-    private final CompletableFuture<CompletableFuture<NettySender>> masterHandshakeCompleteFuture = new CompletableFuture<>();
+    private final CompletableFuture<CompletionStage<NettySender>> masterHandshakeCompleteFuture = new CompletableFuture<>();
 
     /** Remote node's launch id. */
     private UUID remoteLaunchId;

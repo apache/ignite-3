@@ -61,7 +61,7 @@ class DescriptorAcquiry {
     /**
      * Returns the future that gets completed when the handshake performed by the owner of the descriptor completes.
      */
-    CompletableFuture<NettySender> handshakeCompleteFuture() {
+    CompletionStage<NettySender> handshakeCompleteFuture() {
         return handshakeCompleteFuture;
     }
 }
