@@ -208,6 +208,8 @@ public class ClientPrimaryReplicaTracker implements EventListener<EventParameter
             DropTableEventParameters dropTableEvent = (DropTableEventParameters) parameters;
 
             // TODO: Remove one by one.
+            // TODO: This won't guarantee that some other thread won't add a replica back.
+            // TODO: How is tableId computed? Can we have a new table come back with the same ID?
             primaryReplicas.remove(dropTableEvent.tableId());
 
             return CompletableFuture.completedFuture(false);
