@@ -58,6 +58,9 @@ class DescriptorAcquiry {
         clinchResolved.complete(null);
     }
 
+    /**
+     * Returns the future that gets completed when the handshake performed by the owner of the descriptor completes.
+     */
     CompletableFuture<NettySender> handshakeCompleteFuture() {
         return handshakeCompleteFuture;
     }
