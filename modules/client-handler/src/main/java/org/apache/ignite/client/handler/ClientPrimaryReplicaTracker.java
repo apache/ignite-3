@@ -85,22 +85,19 @@ public class ClientPrimaryReplicaTracker implements EventListener<EventParameter
      * @param maxStartTime Timestamp.
      * @return Primary replicas for the table, or null when not yet known.
      */
-    public CompletableFuture<PrimaryReplicasResult> primaryReplicasAsync(int tableId, @Nullable HybridTimestamp maxStartTime) {
-        HybridTimestamp timestamp; // TODO: Should this be different?
-        HybridTimestamp maxStartTime0;
+    public CompletableFuture<PrimaryReplicasResult> primaryReplicasAsync(int tableId, @Nullable Long maxStartTime) {
+        HybridTimestamp timestamp = clock.now();
 
         if (maxStartTime == null) {
-            maxStartTime0 = HybridTimestamp.hybridTimestamp(this.maxStartTime.get());
-            timestamp = clock.now();
+            maxStartTime = this.maxStartTime.get();
         }
         else {
             // If the client provides an old maxStartTime, ignore it and use the current one.
-            maxStartTime0 = HybridTimestamp.hybridTimestamp(Math.max(maxStartTime.longValue(), this.maxStartTime.get()));
-            timestamp = maxStartTime0;
+            maxStartTime = Math.max(maxStartTime, this.maxStartTime.get());
         }
 
         // Check happy path: if we already have all replicas, and maxStartTime > timestamp, return synchronously.
-        var fastRes = primaryReplicasNoWait(tableId, maxStartTime0, timestamp);
+        var fastRes = primaryReplicasNoWait(tableId, maxStartTime, timestamp);
         if (fastRes != null) {
             return CompletableFuture.completedFuture(fastRes);
         }
@@ -124,13 +121,14 @@ public class ClientPrimaryReplicaTracker implements EventListener<EventParameter
 
         // Wait for all futures, check condition again.
         // Give up (return null) if we don't have replicas with specified maxStartTime - the client will retry later.
+        long maxStartTime0 = maxStartTime;
         return partitionsFut.thenApply(v -> primaryReplicasNoWait(tableId, maxStartTime0, timestamp));
     }
 
     @Nullable
-    private PrimaryReplicasResult primaryReplicasNoWait(int tableId, HybridTimestamp maxStartTime, HybridTimestamp timestamp) {
+    private PrimaryReplicasResult primaryReplicasNoWait(int tableId, long maxStartTime, HybridTimestamp timestamp) {
         long currentMaxStartTime = this.maxStartTime.get();
-        if (currentMaxStartTime < maxStartTime.longValue()) {
+        if (currentMaxStartTime < maxStartTime) {
             return null;
         }
 

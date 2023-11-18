@@ -45,7 +45,7 @@ public class ClientTablePartitionPrimaryReplicasGetRequest {
             ClientPrimaryReplicaTracker tracker
     ) throws NodeStoppingException {
         int tableId = in.unpackInt();
-        HybridTimestamp timestamp = HybridTimestamp.nullableHybridTimestamp(in.unpackLong());
+        long timestamp = in.unpackLong();
 
         return tracker.primaryReplicasAsync(tableId, timestamp).thenAccept(primaryReplicas -> {
             if (primaryReplicas == null) {
