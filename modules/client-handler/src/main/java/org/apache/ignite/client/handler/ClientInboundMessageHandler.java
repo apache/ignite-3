@@ -253,7 +253,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         schemaVersions = new SchemaVersionsImpl(schemaSyncService, catalogService, clock);
         this.connectionId = connectionId;
 
-        this.primaryReplicaMaxStartTime = new AtomicReference<>(clock.nowLong());
+        this.primaryReplicaMaxStartTime = new AtomicReference<>(HybridTimestamp.MIN_VALUE.longValue());
     }
 
     @Override
