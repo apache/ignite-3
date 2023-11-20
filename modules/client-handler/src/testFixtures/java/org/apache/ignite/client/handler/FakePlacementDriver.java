@@ -47,10 +47,6 @@ public class FakePlacementDriver extends AbstractEventProducer<PrimaryReplicaEve
         primaryReplicas = new ArrayList<>(Collections.nCopies(partitions, "s"));
     }
 
-    public boolean returnError() {
-        return returnError;
-    }
-
     public void returnError(boolean returnError) {
         this.returnError = returnError;
     }
@@ -63,7 +59,7 @@ public class FakePlacementDriver extends AbstractEventProducer<PrimaryReplicaEve
 
         for (int partition = 0; partition < replicas.size(); partition++) {
             String replica = replicas.get(partition);
-            updateReplica(replica, tableId, partition, 1);
+            updateReplica(replica, tableId, partition, System.currentTimeMillis());
         }
     }
 
