@@ -20,7 +20,8 @@ package org.apache.ignite.internal.compute.queue;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.concurrent.PriorityBlockingQueue;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Supplier;
 
 /**
@@ -29,6 +30,7 @@ import java.util.function.Supplier;
  * @param <E> The type of elements held in this queue.
  */
 public class LimitedPriorityBlockingQueue<E> extends PriorityBlockingQueue<E> {
+    private final Lock lock = new ReentrantLock();
     private final Supplier<Integer> maxSize;
 
     /**
@@ -67,27 +69,14 @@ public class LimitedPriorityBlockingQueue<E> extends PriorityBlockingQueue<E> {
     }
 
     @Override
-    public boolean add(E o) {
-        checkInsert(1);
-        return super.add(o);
-    }
-
-    @Override
     public boolean offer(E o) {
-        checkInsert(1);
-        return super.offer(o);
-    }
-
-    @Override
-    public boolean offer(E e, long timeout, TimeUnit unit) {
-        checkInsert(1);
-        return super.offer(e, timeout, unit);
-    }
-
-    @Override
-    public void put(E o) {
-        checkInsert(1);
-        super.put(o);
+        lock.lock();
+        try {
+            checkInsert(1);
+            return super.offer(o);
+        } finally {
+            lock.unlock();
+        }
     }
 
     @Override
@@ -97,8 +86,13 @@ public class LimitedPriorityBlockingQueue<E> extends PriorityBlockingQueue<E> {
 
     @Override
     public boolean addAll(Collection<? extends E> c) {
-        checkInsert(c.size());
-        return super.addAll(c);
+        lock.lock();
+        try {
+            checkInsert(c.size());
+            return super.addAll(c);
+        } finally {
+            lock.unlock();
+        }
     }
 
     private void checkInsert(int size) {
