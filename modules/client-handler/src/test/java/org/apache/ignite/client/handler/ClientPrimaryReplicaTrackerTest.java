@@ -31,6 +31,7 @@ import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableViewInternal;
+import org.apache.ignite.internal.table.distributed.schema.AlwaysSyncedSchemaSyncService;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -62,7 +63,8 @@ class ClientPrimaryReplicaTrackerTest extends BaseIgniteAbstractTest {
         tracker = new ClientPrimaryReplicaTracker(
                 driver,
                 mock(CatalogService.class),
-                new HybridClockImpl(), schemaSyncService);
+                new HybridClockImpl(),
+                new AlwaysSyncedSchemaSyncService());
     }
 
     @Test
