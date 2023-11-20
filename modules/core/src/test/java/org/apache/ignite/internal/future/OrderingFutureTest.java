@@ -447,6 +447,155 @@ class OrderingFutureTest {
     }
 
     @Test
+    void composePropagatesResultFromAlreadyCompletedFuture() {
+        OrderingFuture<Integer> orderingFuture = OrderingFuture.completedFuture(3);
+
+        OrderingFuture<Integer> composition = orderingFuture.thenCompose(
+                x -> OrderingFuture.completedFuture(x * 5)
+        );
+
+        assertThat(composition.getNow(999), is(15));
+    }
+
+    @Test
+    void composePropagatesExceptionFromAlreadyFailedFuture() {
+        OrderingFuture<Integer> orderingFuture = OrderingFuture.failedFuture(cause);
+
+        OrderingFuture<Integer> composition = orderingFuture.thenCompose(OrderingFuture::completedFuture);
+
+        assertThatFutureIsCompletedWithOurException(composition);
+    }
+
+    @Test
+    void composeDoesNotInvokeActionOnAlreadyFailedFuture() {
+        AtomicBoolean called = new AtomicBoolean(false);
+        OrderingFuture<Integer> orderingFuture = OrderingFuture.failedFuture(cause);
+
+        OrderingFuture<Integer> composition = orderingFuture.thenCompose(value -> {
+            called.set(true);
+            return OrderingFuture.completedFuture(value);
+        });
+
+        assertFalse(called.get());
+        assertThatFutureIsCompletedWithOurException(composition);
+    }
+
+    @Test
+    void composePropagatesResultFromFutureCompletion() {
+        OrderingFuture<Integer> orderingFuture = new OrderingFuture<>();
+
+        OrderingFuture<Integer> composition = orderingFuture.thenCompose(
+                x -> OrderingFuture.completedFuture(x * 5)
+        );
+
+        orderingFuture.complete(3);
+
+        assertThat(composition.getNow(999), is(15));
+    }
+
+    @Test
+    void composePropagatesExceptionFromFutureCompletion() {
+        OrderingFuture<Integer> orderingFuture = new OrderingFuture<>();
+
+        OrderingFuture<Integer> composition = orderingFuture.thenCompose(OrderingFuture::completedFuture);
+
+        orderingFuture.completeExceptionally(cause);
+
+        assertThatFutureIsCompletedWithOurException(composition);
+    }
+
+    @Test
+    void composeDoesNotInvokeActionOnExceptionalCompletion() {
+        AtomicBoolean called = new AtomicBoolean(false);
+        OrderingFuture<Integer> orderingFuture = new OrderingFuture<>();
+
+        OrderingFuture<Integer> composition = orderingFuture.thenCompose(value -> {
+            called.set(true);
+            return OrderingFuture.completedFuture(value);
+        });
+        orderingFuture.completeExceptionally(cause);
+
+        assertFalse(called.get());
+        assertThatFutureIsCompletedWithOurException(composition);
+    }
+
+    @Test
+    void composePropagatesExceptionFromActionOnCompletedFuture() {
+        OrderingFuture<Integer> orderingFuture = OrderingFuture.completedFuture(1);
+
+        OrderingFuture<Integer> composition = orderingFuture.thenCompose(x -> {
+            throw cause;
+        });
+
+        assertThatFutureIsCompletedWithOurException(composition);
+    }
+
+    @Test
+    void composePropagatesExceptionFromActionOnNormalCompletion() {
+        OrderingFuture<Integer> orderingFuture = new OrderingFuture<>();
+
+        OrderingFuture<Integer> composition = orderingFuture.thenCompose(x -> {
+            throw cause;
+        });
+
+        orderingFuture.complete(1);
+
+        assertThatFutureIsCompletedWithOurException(composition);
+    }
+
+    @Test
+    void composeWrapsCancellationExceptionInCompletionException() {
+        AtomicReference<Throwable> causeRef = new AtomicReference<>();
+
+        OrderingFuture<Integer> future = new OrderingFuture<>();
+        future.thenCompose(x -> OrderingFuture.completedFuture(null)).whenComplete((res, ex) -> causeRef.set(ex));
+
+        CancellationException cancellationException = new CancellationException("Oops");
+        future.completeExceptionally(cancellationException);
+
+        assertThat(causeRef.get(), is(instanceOf(CompletionException.class)));
+        assertThat(causeRef.get().getCause(), is(cancellationException));
+    }
+
+
+    @Test
+    void composeSeesCompletionEffectsImmediatelyWithGetNow() {
+        OrderingFuture<Integer> future = new OrderingFuture<>();
+        AtomicInteger intHolder = new AtomicInteger();
+
+        future.thenCompose(x -> {
+            intHolder.set(future.getNow(999));
+            return OrderingFuture.completedFuture(null);
+        });
+
+        future.complete(1);
+
+        assertThat(intHolder.get(), is(1));
+    }
+
+    @Test
+    void composeSeesCompletionEffectsImmediatelyWithGetWithTimeout() {
+        OrderingFuture<Integer> future = new OrderingFuture<>();
+        AtomicInteger intHolder = new AtomicInteger();
+
+        future.thenCompose(x -> {
+            try {
+                intHolder.set(future.get(0, TimeUnit.MILLISECONDS));
+            } catch (TimeoutException e) {
+                intHolder.set(999);
+            } catch (InterruptedException | ExecutionException e) {
+                fail("Unexpected exception", e);
+            }
+
+            return OrderingFuture.completedFuture(null);
+        });
+
+        future.complete(1);
+
+        assertThat(intHolder.get(), is(1));
+    }
+
+    @Test
     void getNowReturnsCompletionValueFromCompletedFuture() {
         OrderingFuture<Integer> future = OrderingFuture.completedFuture(1);
 
