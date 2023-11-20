@@ -858,10 +858,10 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                     tx.assignCommitPartition(new TablePartitionId(tableId, ThreadLocalRandom.current().nextInt(partsCnt)));
 
                     for (int p = 0; p < partsCnt; p++) {
-                        NodeWithTerm leaderWithTerm = assignments.get(p);
+                        NodeWithTerm enlistmentToken = assignments.get(p);
 
                         tx.enlist(new TablePartitionId(tableId, p),
-                                new IgniteBiTuple<>(topSrvc.getByConsistentId(leaderWithTerm.name()), leaderWithTerm.term()));
+                                new IgniteBiTuple<>(topSrvc.getByConsistentId(enlistmentToken.name()), enlistmentToken.term()));
                     }
                 }
 

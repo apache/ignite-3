@@ -364,10 +364,7 @@ public class SqlQueryProcessor implements QueryProcessor {
             result.add(f.thenApply(primaryReplica -> {
                 String holder = primaryReplica.getLeaseholder();
 
-                if (holder == null) {
-                    // additional recovery logic is need to be present around here.
-                    throw new IgniteInternalException(Sql.MAPPING_ERR, "Unable to map query, nothing holds the lease");
-                }
+                assert holder != null : "Unable to map query, nothing holds the lease";
 
                 ClusterNode node = clusterSrvc.topologyService().getByConsistentId(holder);
 
