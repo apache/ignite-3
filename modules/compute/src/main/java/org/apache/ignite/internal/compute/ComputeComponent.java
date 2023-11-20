@@ -31,8 +31,8 @@ public interface ComputeComponent extends IgniteComponent {
      * Executes a job of the given class on the current node.
      *
      * @param options Job execution options.
-     * @param jobClassName Name of the job class.
      * @param units Deployment units which will be loaded for execution.
+     * @param jobClassName Name of the job class.
      * @param args Job args.
      * @param <R> Job result type.
      * @return Future execution result.
@@ -47,8 +47,8 @@ public interface ComputeComponent extends IgniteComponent {
     /**
      * Executes a job of the given class on the current node with default execution options {@link ExecutionOptions.DEFAULT}.
      *
-     * @param jobClassName Name of the job class.
      * @param units Deployment units which will be loaded for execution.
+     * @param jobClassName Name of the job class.
      * @param args Job args.
      * @param <R> Job result type.
      * @return Future execution result.
@@ -65,9 +65,9 @@ public interface ComputeComponent extends IgniteComponent {
      * Executes a job of the given class on a remote node.
      *
      * @param options Job execution options.
-     * @param remoteNode name of the job class
+     * @param remoteNode Name of the job class.
      * @param units Deployment units which will be loaded for execution.
-     * @param jobClassName name of the job class
+     * @param jobClassName Name of the job class.
      * @param args Job args.
      * @param <R> Job result type.
      * @return Future execution result.
@@ -83,9 +83,9 @@ public interface ComputeComponent extends IgniteComponent {
     /**
      * Executes a job of the given class on a remote node with default execution options {@link ExecutionOptions.DEFAULT}.
      *
-     * @param remoteNode name of the job class
+     * @param remoteNode Name of the job class.
      * @param units Deployment units which will be loaded for execution.
-     * @param jobClassName name of the job class
+     * @param jobClassName Name of the job class.
      * @param args Job args.
      * @param <R> Job result type.
      * @return Future execution result.

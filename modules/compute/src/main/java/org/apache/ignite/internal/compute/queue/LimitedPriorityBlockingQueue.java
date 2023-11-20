@@ -104,7 +104,7 @@ public class LimitedPriorityBlockingQueue<E> extends PriorityBlockingQueue<E> {
     private void checkInsert(int size) {
         Integer maxSize = this.maxSize.get();
         int currentSize = size();
-        if (currentSize + size > maxSize) {
+        if (currentSize > maxSize - size) {
             throw new QueueOverflowException("Compute queue overflow when tried to insert " + size + " element(s) to queue. "
                     + "Current queue size " + currentSize + ". "
                     + "Max queue size is " + maxSize + ".");
