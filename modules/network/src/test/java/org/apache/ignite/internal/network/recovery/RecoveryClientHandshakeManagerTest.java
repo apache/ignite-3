@@ -17,34 +17,39 @@
 
 package org.apache.ignite.internal.network.recovery;
 
+import static java.util.UUID.randomUUID;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.testframework.asserts.CompletableFutureAssert.assertWillThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.notNullValue;
+import static org.hamcrest.Matchers.startsWith;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyShort;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.lenient;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 import io.netty.channel.Channel;
-import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelPromise;
+import io.netty.util.concurrent.EventExecutor;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
+import org.apache.ignite.internal.network.handshake.ChannelAlreadyExistsException;
 import org.apache.ignite.internal.network.handshake.HandshakeException;
 import org.apache.ignite.internal.network.netty.ChannelCreationListener;
 import org.apache.ignite.internal.network.netty.NettySender;
+import org.apache.ignite.internal.network.recovery.message.HandshakeRejectedMessage;
+import org.apache.ignite.internal.network.recovery.message.HandshakeRejectionReason;
 import org.apache.ignite.internal.network.recovery.message.HandshakeStartMessage;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -53,6 +58,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
+@Timeout(10)
 class RecoveryClientHandshakeManagerTest extends BaseIgniteAbstractTest {
     private static final UUID LOWER_ID = new UUID(1, 1);
     private static final UUID HIGHER_ID = new UUID(2, 2);
@@ -65,10 +71,14 @@ class RecoveryClientHandshakeManagerTest extends BaseIgniteAbstractTest {
     private static final NetworkMessagesFactory MESSAGE_FACTORY = new NetworkMessagesFactory();
 
     @Mock
-    private Channel channel;
+    private Channel thisChannel;
+    @Mock
+    private Channel competitorChannel;
 
     @Mock
-    private ChannelHandlerContext context;
+    private ChannelHandlerContext thisContext;
+    @Mock
+    private ChannelHandlerContext competitorContext;
 
     @Mock
     private ChannelCreationListener channelCreationListener;
@@ -77,18 +87,22 @@ class RecoveryClientHandshakeManagerTest extends BaseIgniteAbstractTest {
     private RecoveryDescriptorProvider recoveryDescriptorProvider;
 
     @Mock
-    private NettySender nettySender;
+    private EventExecutor eventExecutor;
+
+    @Mock
+    private NettySender competitorNettySender;
 
     private final RecoveryDescriptor recoveryDescriptor = new RecoveryDescriptor(100);
 
     @BeforeEach
     void initMocks() {
-        lenient().when(context.channel()).thenReturn(channel);
-        lenient().when(channel.close()).thenAnswer(invocation -> {
-            recoveryDescriptor.release(context);
-            return mock(ChannelFuture.class);
-        });
-        lenient().when(recoveryDescriptorProvider.getRecoveryDescriptor(anyString(), any(), anyShort()))
+        lenient().when(thisContext.channel()).thenReturn(thisChannel);
+        lenient().when(competitorContext.channel()).thenReturn(competitorChannel);
+
+        lenient().when(thisContext.executor()).thenReturn(eventExecutor);
+        lenient().when(eventExecutor.inEventLoop()).thenReturn(true);
+
+        lenient().when(recoveryDescriptorProvider.getRecoveryDescriptor(any(), any(), anyShort()))
                 .thenReturn(recoveryDescriptor);
     }
 
@@ -102,7 +116,6 @@ class RecoveryClientHandshakeManagerTest extends BaseIgniteAbstractTest {
      */
     @ParameterizedTest
     @ValueSource(booleans = {false, true})
-    @Timeout(10)
     void terminatesCurrentHandshakeWhenCannotAcquireLockAtClientSide(boolean clientLaunchIdIsLower) {
         UUID clientLaunchId = clientLaunchIdIsLower ? LOWER_ID : HIGHER_ID;
         UUID serverLaunchId = clientLaunchIdIsLower ? HIGHER_ID : LOWER_ID;
@@ -111,18 +124,18 @@ class RecoveryClientHandshakeManagerTest extends BaseIgniteAbstractTest {
         CompletableFuture<NettySender> localHandshakeFuture = manager.localHandshakeFuture();
         CompletionStage<NettySender> finalHandshakeFuture = manager.finalHandshakeFuture();
 
-        recoveryDescriptor.acquire(context, completedFuture(nettySender));
+        recoveryDescriptor.acquire(thisContext, completedFuture(competitorNettySender));
 
         manager.onMessage(handshakeStartMessageFrom(serverLaunchId));
 
-        verify(channel, never()).close();
-        verify(channel, never()).close(any(ChannelPromise.class));
+        verify(thisChannel, never()).close();
+        verify(thisChannel, never()).close(any(ChannelPromise.class));
 
         HandshakeException ex = assertWillThrowFast(localHandshakeFuture, HandshakeException.class);
         assertThat(ex.getMessage(), is("Stepping aside to allow an incoming handshake from server finish."));
 
         assertThat(finalHandshakeFuture.toCompletableFuture(), willCompleteSuccessfully());
-        assertThat(finalHandshakeFuture.toCompletableFuture().join(), is(nettySender));
+        assertThat(finalHandshakeFuture.toCompletableFuture().join(), is(competitorNettySender));
     }
 
     private RecoveryClientHandshakeManager clientHandshakeManager(UUID launchId) {
@@ -136,7 +149,7 @@ class RecoveryClientHandshakeManagerTest extends BaseIgniteAbstractTest {
                 new AtomicBoolean(false)
         );
 
-        manager.onInit(context);
+        manager.onInit(thisContext);
 
         return manager;
     }
@@ -145,6 +158,50 @@ class RecoveryClientHandshakeManagerTest extends BaseIgniteAbstractTest {
         return MESSAGE_FACTORY.handshakeStartMessage()
                 .launchId(serverLaunchId)
                 .consistentId(SERVER_CONSISTENT_ID)
+                .build();
+    }
+
+    @Test
+    void switchesToCompetitorFutureWhenRejectedDueToClinchAndCompetitorIsHere() {
+        RecoveryClientHandshakeManager manager = clientHandshakeManager(randomUUID());
+        CompletableFuture<NettySender> localHandshakeFuture = manager.localHandshakeFuture();
+        CompletionStage<NettySender> finalHandshakeFuture = manager.finalHandshakeFuture();
+
+        recoveryDescriptor.acquire(thisContext, new CompletableFuture<>());
+
+        DescriptorAcquiry thisAcquiry = recoveryDescriptor.holder();
+        assertThat(thisAcquiry, notNullValue());
+        thisAcquiry.clinchResolved().whenComplete(((unused, ex) -> {
+            assertThat(recoveryDescriptor.acquire(competitorContext, completedFuture(competitorNettySender)), is(true));
+        }));
+
+        manager.onMessage(handshakeRejectedMessageDueToClinchFrom());
+
+        HandshakeException ex = assertWillThrowFast(localHandshakeFuture, HandshakeException.class);
+        assertThat(ex.getMessage(), startsWith("Stepping aside to allow an incoming handshake from "));
+
+        assertThat(finalHandshakeFuture.toCompletableFuture(), willCompleteSuccessfully());
+        assertThat(finalHandshakeFuture.toCompletableFuture().join(), is(competitorNettySender));
+    }
+
+    @Test
+    void finishesWithChannelAlreadyExistsExceptionWhenRejectedDueToClinchAndCompetitorIsNotHere() {
+        RecoveryClientHandshakeManager manager = clientHandshakeManager(randomUUID());
+        CompletableFuture<NettySender> localHandshakeFuture = manager.localHandshakeFuture();
+        CompletionStage<NettySender> finalHandshakeFuture = manager.finalHandshakeFuture();
+
+        recoveryDescriptor.acquire(thisContext, new CompletableFuture<>());
+
+        manager.onMessage(handshakeRejectedMessageDueToClinchFrom());
+
+        assertWillThrowFast(localHandshakeFuture, ChannelAlreadyExistsException.class);
+        assertWillThrowFast(finalHandshakeFuture.toCompletableFuture(), ChannelAlreadyExistsException.class);
+    }
+
+    private static HandshakeRejectedMessage handshakeRejectedMessageDueToClinchFrom() {
+        return MESSAGE_FACTORY.handshakeRejectedMessage()
+                .reasonString(HandshakeRejectionReason.CLINCH.name())
+                .message("Rejected")
                 .build();
     }
 }

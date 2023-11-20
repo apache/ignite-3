@@ -133,7 +133,7 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
                 releaseResources();
 
                 // Complete the master future if it has not yet been completed by the competitor.
-                masterHandshakeCompleteFuture.complete(localHandshakeFuture());
+                masterHandshakeCompleteFuture.complete(localHandshakeCompleteFuture);
 
                 return;
             }
