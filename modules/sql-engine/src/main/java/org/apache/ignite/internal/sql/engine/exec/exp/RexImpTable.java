@@ -2911,7 +2911,7 @@ public class RexImpTable {
             argValueList);
       }
 
-      return Expressions.makeBinary(expressionType,
+      return IgniteExpressions.makeBinary(expressionType,
           argValueList.get(0), argValueList.get(1));
     }
 
@@ -2969,7 +2969,7 @@ public class RexImpTable {
           && null != backupMethodName) {
         e = Expressions.call(argValue, backupMethodName);
       } else {
-        e = Expressions.makeUnary(expressionType, argValue);
+        e = IgniteExpressions.makeUnary(expressionType, argValue);
       }
 
       if (e.type.equals(argValue.type)) {
@@ -3517,7 +3517,7 @@ public class RexImpTable {
         case TIMESTAMP:
           trop0 =
               Expressions.convert_(
-                  Expressions.multiply(trop0,
+                  IgniteExpressions.multiplyExact(trop0,
                       Expressions.constant(DateTimeUtils.MILLIS_PER_DAY)),
                   long.class);
           break;
@@ -3535,7 +3535,7 @@ public class RexImpTable {
           case INTERVAL_SECOND:
             trop1 =
                 Expressions.convert_(
-                    Expressions.divide(trop1,
+                        IgniteExpressions.divideExact(trop1,
                         Expressions.constant(DateTimeUtils.MILLIS_PER_DAY)),
                     int.class);
             break;
@@ -3556,7 +3556,7 @@ public class RexImpTable {
       case INTERVAL_MONTH:
         switch (call.getKind()) {
         case MINUS:
-          trop1 = Expressions.negate(trop1);
+          trop1 = IgniteExpressions.makeUnary(Negate, trop1);
           break;
         default:
           break;
@@ -3584,9 +3584,9 @@ public class RexImpTable {
       case INTERVAL_SECOND:
         switch (call.getKind()) {
         case MINUS:
-          return normalize(typeName, Expressions.subtract(trop0, trop1));
+          return normalize(typeName, IgniteExpressions.subtractExact(trop0, trop1));
         default:
-          return normalize(typeName, Expressions.add(trop0, trop1));
+          return normalize(typeName, IgniteExpressions.addExact(trop0, trop1));
         }
 
       default:
@@ -3605,7 +3605,7 @@ public class RexImpTable {
               typeName1 == SqlTypeName.DATE ? TimeUnit.DAY : TimeUnit.MILLISECOND;
           TimeUnit toUnit = TimeUnit.MILLISECOND;
           return multiplyDivide(
-              Expressions.convert_(Expressions.subtract(trop0, trop1),
+              Expressions.convert_(IgniteExpressions.subtractExact(trop0, trop1),
                   long.class),
               fromUnit.multiplier, toUnit.multiplier);
         default:

@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.table.impl;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.replicator.ReplicaManager.DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -94,7 +95,10 @@ import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.util.PendingIndependentComparableValuesTracker;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterNodeImpl;
+import org.apache.ignite.network.ClusterService;
+import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.network.NetworkAddress;
+import org.apache.ignite.network.TopologyService;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
 
@@ -421,14 +425,26 @@ public class DummyInternalTableImpl extends InternalTableImpl {
      * @param replicaSvc Replica service to use.
      */
     public static TxManagerImpl txManager(ReplicaService replicaSvc) {
-        return new TxManagerImpl(
+        TopologyService topologyService = mock(TopologyService.class);
+        when(topologyService.localMember()).thenReturn(LOCAL_NODE);
+
+        ClusterService clusterService = mock(ClusterService.class);
+        when(clusterService.messagingService()).thenReturn(mock(MessagingService.class));
+        when(clusterService.topologyService()).thenReturn(topologyService);
+
+        var txManager = new TxManagerImpl(
+                clusterService,
                 replicaSvc,
                 new HeapLockManager(),
                 CLOCK,
                 new TransactionIdGenerator(0xdeadbeef),
-                LOCAL_NODE::id,
-                TEST_PLACEMENT_DRIVER
+                TEST_PLACEMENT_DRIVER,
+                () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS
         );
+
+        txManager.start();
+
+        return txManager;
     }
 
     /** {@inheritDoc} */

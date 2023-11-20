@@ -17,12 +17,14 @@
 
 package org.apache.ignite.internal.sql.engine;
 
+import java.util.NoSuchElementException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import org.apache.ignite.internal.lang.SqlExceptionMapperUtil;
 import org.apache.ignite.internal.util.AsyncCursor;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.sql.ResultSetMetadata;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Sql query cursor.
@@ -35,12 +37,14 @@ public class AsyncSqlCursorImpl<T> implements AsyncSqlCursor<T> {
     private final QueryTransactionWrapper txWrapper;
     private final AsyncCursor<T> dataCursor;
     private final Runnable onClose;
+    private final CompletableFuture<AsyncSqlCursor<T>> nextStatement;
 
     /**
      * Constructor.
      *
      * @param queryType Type of the query.
      * @param meta The meta of the result set.
+     * @param txWrapper Transaction wrapper.
      * @param dataCursor The result set.
      * @param onClose Callback to invoke when cursor is closed.
      */
@@ -51,11 +55,34 @@ public class AsyncSqlCursorImpl<T> implements AsyncSqlCursor<T> {
             AsyncCursor<T> dataCursor,
             Runnable onClose
     ) {
+        this(queryType, meta, txWrapper, dataCursor, onClose, null);
+    }
+
+    /**
+     * Constructor.
+     *
+     * @param queryType Type of the query.
+     * @param meta The meta of the result set.
+     * @param txWrapper Transaction wrapper.
+     * @param dataCursor The result set.
+     * @param onClose Callback to invoke when cursor is closed.
+     * @param nextStatement Next statement future, non-null in the case of a
+     *         multi-statement query and if current statement is not the last.
+     */
+    AsyncSqlCursorImpl(
+            SqlQueryType queryType,
+            ResultSetMetadata meta,
+            QueryTransactionWrapper txWrapper,
+            AsyncCursor<T> dataCursor,
+            Runnable onClose,
+            @Nullable CompletableFuture<AsyncSqlCursor<T>> nextStatement
+    ) {
         this.queryType = queryType;
         this.meta = meta;
         this.txWrapper = txWrapper;
         this.dataCursor = dataCursor;
         this.onClose = onClose;
+        this.nextStatement = nextStatement;
     }
 
     /** {@inheritDoc} */
@@ -87,6 +114,22 @@ public class AsyncSqlCursorImpl<T> implements AsyncSqlCursor<T> {
 
             return batch;
         });
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public boolean hasNextResult() {
+        return nextStatement != null;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<AsyncSqlCursor<T>> nextResult() {
+        if (nextStatement == null) {
+            throw new NoSuchElementException("Query has no more results");
+        }
+
+        return nextStatement;
     }
 
     /** {@inheritDoc} */

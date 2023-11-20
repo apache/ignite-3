@@ -214,6 +214,8 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
     private static final int TABLE_ID = 1;
 
+    private static final TablePartitionId commitPartitionId = new TablePartitionId(TABLE_ID, PART_ID);
+
     private static final int ANOTHER_TABLE_ID = 2;
 
     private final Map<UUID, Set<RowId>> pendingRows = new ConcurrentHashMap<>();
@@ -640,7 +642,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
         pkStorage().put(testBinaryRow, rowId);
         testMvPartitionStorage.addWrite(rowId, testBinaryRow, txId, TABLE_ID, PART_ID);
-        txManager.updateTxMeta(txId, old -> new TxStateMeta(TxState.COMMITED, localNode.id(), clock.now()));
+        txManager.updateTxMeta(txId, old -> new TxStateMeta(TxState.COMMITED, localNode.id(), commitPartitionId, clock.now()));
 
         CompletableFuture<ReplicaResult> fut = doReadOnlySingleGet(testBinaryKey);
 
@@ -658,7 +660,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
         pkStorage().put(testBinaryRow, rowId);
         testMvPartitionStorage.addWrite(rowId, testBinaryRow, txId, TABLE_ID, PART_ID);
-        txManager.updateTxMeta(txId, old -> new TxStateMeta(TxState.PENDING, localNode.id(), null));
+        txManager.updateTxMeta(txId, old -> new TxStateMeta(TxState.PENDING, localNode.id(), commitPartitionId, null));
 
         CompletableFuture<ReplicaResult> fut = doReadOnlySingleGet(testBinaryKey);
 
@@ -677,7 +679,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
         pkStorage().put(testBinaryRow, rowId);
         testMvPartitionStorage.addWrite(rowId, testBinaryRow, txId, TABLE_ID, PART_ID);
-        txManager.updateTxMeta(txId, old -> new TxStateMeta(TxState.ABORTED, localNode.id(), null));
+        txManager.updateTxMeta(txId, old -> new TxStateMeta(TxState.ABORTED, localNode.id(), commitPartitionId, null));
 
         CompletableFuture<ReplicaResult> fut = doReadOnlySingleGet(testBinaryKey);
 
@@ -717,6 +719,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                         .scanId(1L)
                         .indexToUse(sortedIndexId)
                         .batchSize(4)
+                        .commitPartitionId(commitPartitionId())
                         .build(), localNode.id());
 
         List<BinaryRow> rows = (List<BinaryRow>) fut.get(1, TimeUnit.SECONDS).result();
@@ -733,6 +736,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 .scanId(1L)
                 .indexToUse(sortedIndexId)
                 .batchSize(4)
+                .commitPartitionId(commitPartitionId())
                 .build(), localNode.id());
 
         rows = (List<BinaryRow>) fut.get(1, TimeUnit.SECONDS).result();
@@ -752,6 +756,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 .upperBoundPrefix(toIndexBound(3))
                 .flags(SortedIndexStorage.LESS_OR_EQUAL)
                 .batchSize(5)
+                .commitPartitionId(commitPartitionId())
                 .build(), localNode.id());
 
         rows = (List<BinaryRow>) fut.get(1, TimeUnit.SECONDS).result();
@@ -769,6 +774,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 .indexToUse(sortedIndexId)
                 .lowerBoundPrefix(toIndexBound(5))
                 .batchSize(5)
+                .commitPartitionId(commitPartitionId())
                 .build(), localNode.id());
 
         rows = (List<BinaryRow>) fut.get(1, TimeUnit.SECONDS).result();
@@ -786,6 +792,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 .indexToUse(sortedIndexId)
                 .exactKey(toIndexKey(0))
                 .batchSize(5)
+                .commitPartitionId(commitPartitionId())
                 .build(), localNode.id());
 
         rows = (List<BinaryRow>) fut.get(1, TimeUnit.SECONDS).result();
@@ -1291,7 +1298,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
             // Imitation of tx commit.
             txStateStorage.put(txId, new TxMeta(TxState.COMMITED, new ArrayList<>(), now));
-            txManager.updateTxMeta(txId, old -> new TxStateMeta(TxState.COMMITED, UUID.randomUUID().toString(), now));
+            txManager.updateTxMeta(txId, old -> new TxStateMeta(TxState.COMMITED, UUID.randomUUID().toString(), commitPartitionId, now));
 
             CompletableFuture<?> replicaCleanupFut = partitionReplicaListener.invoke(
                     TX_MESSAGES_FACTORY.txCleanupReplicaRequest()
@@ -1704,6 +1711,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                                 .term(1L)
                                 .scanId(1)
                                 .batchSize(100)
+                                .commitPartitionId(commitPartitionId())
                                 .build(),
                         localNode.id()
                 )
@@ -1721,6 +1729,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                                 .term(1L)
                                 .scanId(1)
                                 .batchSize(100)
+                                .commitPartitionId(commitPartitionId())
                                 .build(),
                         localNode.id()
                 )
@@ -1743,6 +1752,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                         .scanId(1)
                         .batchSize(100)
                         .full(false)
+                        .commitPartitionId(commitPartitionId())
                         .build(),
                 localNode.id()
         );
@@ -2432,7 +2442,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     private void cleanup(UUID txId) {
         HybridTimestamp commitTs = clock.now();
 
-        txManager.updateTxMeta(txId, old -> new TxStateMeta(TxState.COMMITED, UUID.randomUUID().toString(), commitTs));
+        txManager.updateTxMeta(txId, old -> new TxStateMeta(TxState.COMMITED, UUID.randomUUID().toString(), commitPartitionId, commitTs));
 
         partitionReplicaListener.invoke(
                 TX_MESSAGES_FACTORY.txCleanupReplicaRequest()

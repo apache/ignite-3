@@ -496,7 +496,7 @@ namespace Apache.Ignite.Internal
                 {
                     // Disconnected.
                     throw new IgniteClientConnectionException(
-                        ErrorGroups.Client.Protocol,
+                        ErrorGroups.Client.Connection,
                         "Connection lost (failed to read data from socket)",
                         new SocketException((int) SocketError.ConnectionAborted));
                 }
@@ -617,6 +617,10 @@ namespace Apache.Ignite.Internal
                     sslStream.SslProtocol)
                 : null;
 
+        [SuppressMessage(
+            "Microsoft.Design",
+            "CA1031:DoNotCatchGeneralExceptionTypes",
+            Justification = "Any exception during socket write should be handled to close the socket.")]
         private async ValueTask SendRequestAsync(PooledArrayBuffer? request, ClientOp op, long requestId)
         {
             // Reset heartbeat timer - don't sent heartbeats when connection is active anyway.
@@ -663,6 +667,16 @@ namespace Apache.Ignite.Internal
                 }
 
                 Metrics.RequestsSent.Add(1);
+            }
+            catch (Exception e)
+            {
+                var message = "Exception while writing to socket, connection closed: " + e.Message;
+
+                _logger?.Error(e, message);
+                var connEx = new IgniteClientConnectionException(ErrorGroups.Client.Connection, message, new SocketException());
+
+                Dispose(connEx);
+                throw connEx;
             }
             finally
             {

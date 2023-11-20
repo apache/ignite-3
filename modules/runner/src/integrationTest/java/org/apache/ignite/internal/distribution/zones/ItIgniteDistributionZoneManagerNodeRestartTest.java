@@ -28,12 +28,10 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesTest
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.dataNodes;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.toDataNodesMap;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleUpChangeTriggerKey;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesGlobalStateRevision;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyKey;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
-import static org.apache.ignite.internal.util.ByteUtils.bytesToLong;
 import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
 import static org.apache.ignite.internal.util.IgniteUtils.startsWith;
@@ -420,28 +418,6 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         assertThat(metastore.get(new ByteArray(dataNodeKey[0])).thenApply(Entry::tombstone), willBe(true));
     }
 
-    @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20559")
-    public void testGlobalStateRevisionUpdatedCorrectly() throws Exception {
-        PartialNode node = startPartialNode(0);
-
-        node.logicalTopology().putNode(A);
-        node.logicalTopology().putNode(B);
-        node.logicalTopology().putNode(C);
-
-        int zoneId = getZoneId(node, DEFAULT_ZONE_NAME);
-
-        assertDataNodesFromManager(getDistributionZoneManager(node), metastore::appliedRevision, zoneId, Set.of(A, B, C), TIMEOUT_MILLIS);
-
-        long scaleUpChangeTriggerRevision = bytesToLong(metastore.get(zoneScaleUpChangeTriggerKey(zoneId)).join().value());
-
-        VaultManager vaultManager = getStartedComponent(node, VaultManager.class);
-
-        long globalStateRevision = bytesToLong(vaultManager.get(zonesGlobalStateRevision()).join().value());
-
-        assertEquals(scaleUpChangeTriggerRevision, globalStateRevision);
-    }
-
     @ParameterizedTest
     @MethodSource("provideArgumentsRestartTests")
     public void testLocalDataNodesAreRestoredAfterRestart(String zoneName) throws Exception {
@@ -476,13 +452,22 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
     @ParameterizedTest
     @MethodSource("provideArgumentsRestartTests")
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20604")
     public void testScaleUpTimerIsRestoredAfterRestart(String zoneName) throws Exception {
         PartialNode node = startPartialNode(0);
 
-        createZoneOrAlterDefaultZone(node, zoneName, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE);
+        createZoneOrAlterDefaultZone(node, zoneName, 1, 1);
 
         node.logicalTopology().putNode(A);
         node.logicalTopology().putNode(B);
+
+        assertValueInStorage(
+                metastore,
+                zonesLogicalTopologyKey(),
+                (v) -> ((Set<NodeWithAttributes>) fromBytes(v)).stream().map(NodeWithAttributes::nodeName).collect(toSet()),
+                Set.of(A.name(), B.name()),
+                10_000L
+        );
 
         int zoneId = getZoneId(node, zoneName);
 
@@ -533,10 +518,11 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
     @ParameterizedTest
     @MethodSource("provideArgumentsRestartTests")
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20604")
     public void testScaleUpTriggeredByFilterUpdateIsRestoredAfterRestart(String zoneName) throws Exception {
         PartialNode node = startPartialNode(0);
 
-        createZoneOrAlterDefaultZone(node, zoneName, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE);
+        createZoneOrAlterDefaultZone(node, zoneName, 1, 1);
 
         int zoneId = getZoneId(node, zoneName);
 
@@ -652,10 +638,11 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
     @ParameterizedTest
     @MethodSource("provideArgumentsRestartTests")
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20604")
     public void testScaleDownTimerIsRestoredAfterRestart(String zoneName) throws Exception {
         PartialNode node = startPartialNode(0);
 
-        createZoneOrAlterDefaultZone(node, zoneName, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE);
+        createZoneOrAlterDefaultZone(node, zoneName, 1, 1);
 
         int zoneId = getZoneId(node, zoneName);
 

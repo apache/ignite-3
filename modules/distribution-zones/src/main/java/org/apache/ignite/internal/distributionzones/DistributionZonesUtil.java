@@ -25,6 +25,7 @@ import static org.apache.ignite.internal.metastorage.dsl.Conditions.and;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.exists;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notTombstone;
+import static org.apache.ignite.internal.metastorage.dsl.Conditions.or;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.value;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
@@ -78,19 +79,16 @@ public class DistributionZonesUtil {
     private static final String DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_PREFIX = "distributionZones.logicalTopology.";
 
     /** Key value for zones' nodes' attributes in vault. */
-    private static final String DISTRIBUTION_ZONES_NODES_ATTRIBUTES_VAULT = "vault.distributionZones.nodesAttributes";
+    private static final String DISTRIBUTION_ZONES_NODES_ATTRIBUTES = "distributionZones.nodesAttributes";
 
-    /** Key value for zones' global state revision in vault. */
-    private static final String DISTRIBUTION_ZONES_GLOBAL_STATE_REVISION_VAULT = "vault.distributionZones.globalState.revision";
+    /** Key value for zones' global state revision. */
+    private static final String DISTRIBUTION_ZONES_GLOBAL_STATE_REVISION = "distributionZones.globalState.revision";
 
     /** Key value for zones' filter update revision in vault. */
     private static final String DISTRIBUTION_ZONES_FILTER_UPDATE_REVISION_VAULT = "vault.distributionZones.filterUpdate.revision";
 
     /** Key prefix for zones' logical topology nodes. */
     private static final String DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY = DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_PREFIX + "nodes";
-
-    /** Key prefix for zones' logical topology nodes in vault. */
-    private static final String DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_VAULT = "vault." + DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY;
 
     /** Key prefix for zones' configurations in vault. */
     private static final String DISTRIBUTION_ZONES_VERSIONED_CONFIGURATION_VAULT = "vault." + DISTRIBUTION_ZONE_PREFIX
@@ -99,21 +97,18 @@ public class DistributionZonesUtil {
     /** Key prefix for zones' logical topology version. */
     private static final String DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_VERSION = DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_PREFIX + "version";
 
-    /** Key prefix that represents {@link ZoneState#topologyAugmentationMap()} in the Vault.*/
-    private static final String DISTRIBUTION_ZONES_TOPOLOGY_AUGMENTATION_VAULT_PREFIX = "vault.distributionZones.topologyAugmentation.";
+    /** Key prefix that represents {@link ZoneState#topologyAugmentationMap()}.*/
+    private static final String DISTRIBUTION_ZONES_TOPOLOGY_AUGMENTATION_PREFIX = "distributionZones.topologyAugmentation.";
 
     /** ByteArray representation of {@link DistributionZonesUtil#DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY}. */
     private static final ByteArray DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_KEY = new ByteArray(DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY);
 
-    /** ByteArray representation of {@link DistributionZonesUtil#DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_VAULT}. */
-    private static final ByteArray DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_VAULT_KEY = new ByteArray(DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_VAULT);
+    /** ByteArray representation of {@link DistributionZonesUtil#DISTRIBUTION_ZONES_NODES_ATTRIBUTES}. */
+    private static final ByteArray DISTRIBUTION_ZONES_NODES_ATTRIBUTES_KEY = new ByteArray(DISTRIBUTION_ZONES_NODES_ATTRIBUTES);
 
-    /** ByteArray representation of {@link DistributionZonesUtil#DISTRIBUTION_ZONES_NODES_ATTRIBUTES_VAULT}. */
-    private static final ByteArray DISTRIBUTION_ZONES_NODES_ATTRIBUTES_VAULT_KEY = new ByteArray(DISTRIBUTION_ZONES_NODES_ATTRIBUTES_VAULT);
-
-    /** ByteArray representation of {@link DistributionZonesUtil#DISTRIBUTION_ZONES_GLOBAL_STATE_REVISION_VAULT}. */
-    private static final ByteArray DISTRIBUTION_ZONES_GLOBAL_STATE_REVISION_VAULT_KEY =
-            new ByteArray(DISTRIBUTION_ZONES_GLOBAL_STATE_REVISION_VAULT);
+    /** ByteArray representation of {@link DistributionZonesUtil#DISTRIBUTION_ZONES_GLOBAL_STATE_REVISION}. */
+    private static final ByteArray DISTRIBUTION_ZONES_GLOBAL_STATE_REVISION_KEY =
+            new ByteArray(DISTRIBUTION_ZONES_GLOBAL_STATE_REVISION);
 
     /** ByteArray representation of {@link DistributionZonesUtil#DISTRIBUTION_ZONES_FILTER_UPDATE_REVISION_VAULT}. */
     private static final ByteArray DISTRIBUTION_ZONES_FILTER_UPDATE_REVISION_VAULT_KEY =
@@ -225,25 +220,18 @@ public class DistributionZonesUtil {
     }
 
     /**
-     * The key that represents logical topology nodes in vault.
+     * The key that represents nodes' attributes in Meta Storage.
      */
-    public static ByteArray zonesLogicalTopologyVault() {
-        return DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_VAULT_KEY;
+    public static ByteArray zonesNodesAttributes() {
+        return DISTRIBUTION_ZONES_NODES_ATTRIBUTES_KEY;
     }
 
     /**
-     * The key that represents nodes' attributes in vault.
-     */
-    public static ByteArray zonesNodesAttributesVault() {
-        return DISTRIBUTION_ZONES_NODES_ATTRIBUTES_VAULT_KEY;
-    }
-
-    /**
-     * The key represents zones' global state revision in vault. This is the revision of the event that triggered saving the global state
-     * of Distribution Zone Manager to Vault.
+     * The key represents zones' global state revision. This is the revision of the event that triggered saving the global state
+     * of Distribution Zone Manager in Meta Storage.
      */
     public static ByteArray zonesGlobalStateRevision() {
-        return DISTRIBUTION_ZONES_GLOBAL_STATE_REVISION_VAULT_KEY;
+        return DISTRIBUTION_ZONES_GLOBAL_STATE_REVISION_KEY;
     }
 
     /**
@@ -254,10 +242,10 @@ public class DistributionZonesUtil {
     }
 
     /**
-     * The key that represents {@link ZoneState#topologyAugmentationMap()} in the Vault.
+     * The key that represents {@link ZoneState#topologyAugmentationMap()} in the Meta Storage.
      */
-    static ByteArray zoneTopologyAugmentationVault(int zoneId) {
-        return new ByteArray(DISTRIBUTION_ZONES_TOPOLOGY_AUGMENTATION_VAULT_PREFIX + zoneId);
+    static ByteArray zoneTopologyAugmentation(int zoneId) {
+        return new ByteArray(DISTRIBUTION_ZONES_TOPOLOGY_AUGMENTATION_PREFIX + zoneId);
     }
 
     /**
@@ -271,6 +259,20 @@ public class DistributionZonesUtil {
         return and(
                 notExists(zoneDataNodesKey(zoneId)),
                 notTombstone(zoneDataNodesKey(zoneId))
+        );
+    }
+
+    /**
+     * Condition fot updating global states of Distribution zone manager.
+     * Update only if the revision of the event is newer than value in that trigger key.
+     *
+     * @param revision Event revision.
+     * @return Update condition.
+     */
+    static CompoundCondition conditionForGlobalStatesChanges(long revision) {
+        return or(
+                notExists(zonesGlobalStateRevision()),
+                value(zonesGlobalStateRevision()).lt(ByteUtils.longToBytes(revision))
         );
     }
 

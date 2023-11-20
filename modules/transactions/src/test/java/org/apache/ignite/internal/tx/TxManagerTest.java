@@ -19,10 +19,9 @@ package org.apache.ignite.internal.tx;
 
 
 import static java.lang.Math.abs;
-import static org.apache.ignite.internal.Kludges.IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS_PROPERTY;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.CLOCK_SKEW;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
-import static org.apache.ignite.internal.replicator.ReplicaManager.idleSafeTimePropagationPeriodMs;
+import static org.apache.ignite.internal.replicator.ReplicaManager.DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_COMMIT_ERR;
@@ -44,6 +43,7 @@ import static org.mockito.Mockito.when;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.LongSupplier;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -54,7 +54,6 @@ import org.apache.ignite.internal.placementdriver.TestReplicaMetaImpl;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
-import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.PrimaryReplicaExpiredException;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
@@ -86,6 +85,8 @@ public class TxManagerTest extends IgniteAbstractTest {
     /** Timestamp tracker. */
     private HybridTimestampTracker hybridTimestampTracker = new HybridTimestampTracker();
 
+    private final LongSupplier idleSafeTimePropagationPeriodMsSupplier = () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS;
+
     private TxManager txManager;
 
     @Mock
@@ -113,12 +114,13 @@ public class TxManagerTest extends IgniteAbstractTest {
         when(replicaService.invoke(anyString(), any())).thenReturn(CompletableFuture.completedFuture(null));
 
         txManager = new TxManagerImpl(
+                clusterService,
                 replicaService,
                 new HeapLockManager(),
                 clock,
                 new TransactionIdGenerator(0xdeadbeef),
-                LOCAL_NODE::id,
-                placementDriver
+                placementDriver,
+                idleSafeTimePropagationPeriodMsSupplier
         );
 
         txManager.start();
@@ -276,11 +278,10 @@ public class TxManagerTest extends IgniteAbstractTest {
     }
 
     @Test
-    @WithSystemProperty(key = IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS_PROPERTY, value = "1000")
     public void testObservableTimestamp() {
         long compareThreshold = 50;
         // Check that idle safe time propagation period is significantly greater than compareThreshold.
-        assertTrue(idleSafeTimePropagationPeriodMs() + CLOCK_SKEW > compareThreshold * 5);
+        assertTrue(idleSafeTimePropagationPeriodMsSupplier.getAsLong() + CLOCK_SKEW > compareThreshold * 5);
 
         HybridTimestamp now = clock.now();
 
@@ -297,7 +298,7 @@ public class TxManagerTest extends IgniteAbstractTest {
         tx.commit();
 
         HybridTimestamp timestampInPast = new HybridTimestamp(
-                now.getPhysical() - idleSafeTimePropagationPeriodMs() * 2,
+                now.getPhysical() - idleSafeTimePropagationPeriodMsSupplier.getAsLong() * 2,
                 now.getLogical()
         );
 
@@ -307,7 +308,7 @@ public class TxManagerTest extends IgniteAbstractTest {
 
         tx = txManager.begin(hybridTimestampTracker, true);
 
-        long readTime = now.getPhysical() - idleSafeTimePropagationPeriodMs() - CLOCK_SKEW;
+        long readTime = now.getPhysical() - idleSafeTimePropagationPeriodMsSupplier.getAsLong() - CLOCK_SKEW;
 
         assertThat(abs(readTime - tx.readTimestamp().getPhysical()), Matchers.lessThan(compareThreshold));
 
@@ -315,11 +316,10 @@ public class TxManagerTest extends IgniteAbstractTest {
     }
 
     @Test
-    @WithSystemProperty(key = IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS_PROPERTY, value = "1000")
     public void testObservableTimestampLocally() {
         long compareThreshold = 50;
         // Check that idle safe time propagation period is significantly greater than compareThreshold.
-        assertTrue(idleSafeTimePropagationPeriodMs() + CLOCK_SKEW > compareThreshold * 5);
+        assertTrue(idleSafeTimePropagationPeriodMsSupplier.getAsLong() + CLOCK_SKEW > compareThreshold * 5);
 
         HybridTimestamp now = clock.now();
 
@@ -330,7 +330,7 @@ public class TxManagerTest extends IgniteAbstractTest {
         assertTrue(firstReadTs.compareTo(now) < 0);
 
         assertTrue(now.getPhysical() - firstReadTs.getPhysical() < compareThreshold
-                + idleSafeTimePropagationPeriodMs() + CLOCK_SKEW);
+                + idleSafeTimePropagationPeriodMsSupplier.getAsLong() + CLOCK_SKEW);
         tx.commit();
 
         tx = txManager.begin(hybridTimestampTracker, true);
@@ -338,7 +338,7 @@ public class TxManagerTest extends IgniteAbstractTest {
         assertTrue(firstReadTs.compareTo(tx.readTimestamp()) <= 0);
 
         assertTrue(abs(now.getPhysical() - tx.readTimestamp().getPhysical()) < compareThreshold
-                + idleSafeTimePropagationPeriodMs() + CLOCK_SKEW);
+                + idleSafeTimePropagationPeriodMsSupplier.getAsLong() + CLOCK_SKEW);
         tx.commit();
     }
 
