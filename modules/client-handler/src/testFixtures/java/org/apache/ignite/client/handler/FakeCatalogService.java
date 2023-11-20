@@ -55,7 +55,8 @@ public class FakeCatalogService implements CatalogService {
 
     @Override
     public CatalogTableDescriptor table(int tableId, long timestamp) {
-        return new CatalogTableDescriptor(tableId, 0, 0, "table", 0, 0, List.of(mock(CatalogTableColumnDescriptor.class)), List.of(), null, 0);
+        return new CatalogTableDescriptor(
+                tableId, 0, 0, "table", 0, 0, List.of(mock(CatalogTableColumnDescriptor.class)), List.of(), null, 0);
     }
 
     @Override
@@ -99,8 +100,7 @@ public class FakeCatalogService implements CatalogService {
     }
 
     @Override
-    public CatalogSchemaDescriptor schema( String schemaName,
-            int version) {
+    public CatalogSchemaDescriptor schema(String schemaName, int version) {
         return null;
     }
 
@@ -130,8 +130,7 @@ public class FakeCatalogService implements CatalogService {
     }
 
     @Override
-    public CatalogSchemaDescriptor activeSchema( String schemaName,
-            long timestamp) {
+    public CatalogSchemaDescriptor activeSchema(String schemaName, long timestamp) {
         return null;
     }
 
