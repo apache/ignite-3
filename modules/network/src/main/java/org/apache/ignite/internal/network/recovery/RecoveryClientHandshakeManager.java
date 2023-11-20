@@ -245,12 +245,9 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
                 continue;
             }
 
-            // Complete out master future with the competitor's future. After this our local future has no effect on the final result
+            // Complete our master future with the competitor's future. After this our local future has no effect on the final result
             // of this handshake.
-            masterHandshakeCompleteFuture.complete(competitorAcquiry.handshakeCompleteFuture());
-            localHandshakeCompleteFuture.completeExceptionally(
-                    new HandshakeException("Stepping aside to allow an incoming handshake from " + remoteConsistentId + " finish.")
-            );
+            completeMasterFutureWithCompetitorHandshakeFuture(competitorAcquiry);
 
             return;
         }
@@ -258,6 +255,13 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
         this.recoveryDescriptor = descriptor;
 
         handshake(this.recoveryDescriptor);
+    }
+
+    private void completeMasterFutureWithCompetitorHandshakeFuture(DescriptorAcquiry competitorAcquiry) {
+        masterHandshakeCompleteFuture.complete(competitorAcquiry.handshakeCompleteFuture());
+        localHandshakeCompleteFuture.completeExceptionally(
+                new HandshakeException("Stepping aside to allow an incoming handshake from " + remoteConsistentId + " finish.")
+        );
     }
 
     private void handleStaleServerId(HandshakeStartMessage msg) {
@@ -319,7 +323,15 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
         // Complete the future to allow the competitor that should wait on it acquire the descriptor and finish its handshake.
         myAcquiry.markClinchResolved();
 
-        localHandshakeCompleteFuture.completeExceptionally(new ChannelAlreadyExistsException(remoteConsistentId));
+        DescriptorAcquiry competitorAcquiry = descriptor.holder();
+        if (competitorAcquiry != null) {
+            // The competitor is available, so just complete our master future with the competitor future.
+            completeMasterFutureWithCompetitorHandshakeFuture(competitorAcquiry);
+        } else {
+            // The competitor is not at the lock yet. Maybe it will arrive soon, maybe it will never arrive.
+            // The safest thing is to just retry the whole handshake procedure.
+            localHandshakeCompleteFuture.completeExceptionally(new ChannelAlreadyExistsException(remoteConsistentId));
+        }
     }
 
     private void sendHandshakeRejectedMessage(HandshakeRejectedMessage rejectionMessage, String reason) {
