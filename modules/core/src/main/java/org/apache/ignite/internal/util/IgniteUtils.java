@@ -162,7 +162,7 @@ public class IgniteUtils {
     /**
      * Returns the amount of RAM memory available on this machine.
      *
-     * @return Total amount of memory in bytes or -1 if any exception happened.
+     * @return Total amount of memory in bytes or {@code -1} if any exception happened.
      */
     public static long getTotalMemoryAvailable() {
         MBeanServer mbeanServer = ManagementFactory.getPlatformMBeanServer();

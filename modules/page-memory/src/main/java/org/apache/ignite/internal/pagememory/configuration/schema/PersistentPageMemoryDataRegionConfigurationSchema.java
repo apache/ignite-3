@@ -29,7 +29,7 @@ import org.apache.ignite.configuration.validation.OneOf;
  */
 @Config
 public class PersistentPageMemoryDataRegionConfigurationSchema extends BasePageMemoryDataRegionConfigurationSchema {
-    /** Default size. */
+    /** Default size, maximum between 256 MB and 20% of the total physical memory. */
     @SuppressWarnings("NumericCastThatLosesPrecision")
     public static final long DFLT_DATA_REGION_SIZE = Math.max(256 * MiB, (long) (0.2 * getTotalMemoryAvailable()));
 

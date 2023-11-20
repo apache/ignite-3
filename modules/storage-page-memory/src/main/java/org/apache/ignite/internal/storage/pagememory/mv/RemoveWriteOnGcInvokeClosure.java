@@ -79,7 +79,8 @@ public class RemoveWriteOnGcInvokeClosure implements InvokeClosure<VersionChain>
 
         result = nextRowVersion;
 
-        assert result.nextLink() == NULL_LINK;
+        assert result.nextLink() == NULL_LINK : "GC queue is broken, nextLink must be null [nextLink=" + rowVersion.nextLink()
+                + ", storage=" + storage.createStorageInfo() + ']';
 
         // If the found version is a tombstone, then we must remove it as well.
         if (rowVersion.isTombstone()) {
