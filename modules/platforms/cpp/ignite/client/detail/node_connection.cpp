@@ -22,24 +22,6 @@
 
 namespace ignite::detail {
 
-
-enum class response_flag : std::int32_t
-{
-    PARTITION_ASSIGNMENT_CHANGED = 1,
-};
-
-/**
- * Test whether flag is set.
- *
- * @param flags Flags.
- * @param to_test A specific flag to test.
- * @return @c true if the flag is set.
- */
-inline bool test_flag(std::int32_t flags, response_flag to_test)
-{
-    return (flags & std::int32_t(to_test)) != 0;
-}
-
 node_connection::node_connection(uint64_t id, std::shared_ptr<network::async_client_pool> pool,
     std::weak_ptr<connection_event_handler> event_handler, std::shared_ptr<ignite_logger> logger,
     const ignite_client_configuration &cfg)
@@ -89,7 +71,7 @@ void node_connection::process_message(bytes_view msg) {
 
     auto req_id = reader.read_int64();
     auto flags = reader.read_int32();
-    if (test_flag(flags, response_flag::PARTITION_ASSIGNMENT_CHANGED))
+    if (test_flag(flags, protocol::response_flag::PARTITION_ASSIGNMENT_CHANGED))
     {
         auto assignment_ts = reader.read_int64();
 
