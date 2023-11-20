@@ -70,8 +70,9 @@ public interface TxManager extends IgniteComponent {
      *
      * @param txId Transaction id.
      * @param updater Transaction meta updater.
+     * @return Updated transaction state.
      */
-    void updateTxMeta(UUID txId, Function<TxStateMeta, TxStateMeta> updater);
+    TxStateMeta updateTxMeta(UUID txId, Function<TxStateMeta, TxStateMeta> updater);
 
     /**
      * Returns lock manager.

@@ -18,6 +18,7 @@
 package org.apache.ignite.distributed;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.replicator.ReplicaManager.DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS;
 import static org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfigurationSchema.DEFAULT_DATA_REGION_NAME;
 import static org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener.tablePartitionId;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -209,12 +210,13 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
         for (int i = 0; i < nodes(); i++) {
             if (!txManagers.containsKey(i)) {
                 TxManager txManager = new TxManagerImpl(
+                        service.clusterService(),
                         replicaService,
                         new HeapLockManager(),
                         hybridClock,
                         new TransactionIdGenerator(i),
-                        () -> NODE_ID,
-                        TEST_PLACEMENT_DRIVER
+                        TEST_PLACEMENT_DRIVER,
+                        () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS
                 );
 
                 txManager.start();
@@ -225,12 +227,13 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
         }
 
         TxManager txManager = new TxManagerImpl(
+                service.clusterService(),
                 replicaService,
                 new HeapLockManager(),
                 hybridClock,
                 new TransactionIdGenerator(-1),
-                () -> NODE_ID,
-                TEST_PLACEMENT_DRIVER
+                TEST_PLACEMENT_DRIVER,
+                () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS
         );
 
         txManager.start();
@@ -480,12 +483,13 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
 
                     TxManager txManager = txManagers.computeIfAbsent(index, k -> {
                         TxManager txMgr = new TxManagerImpl(
+                                service,
                                 replicaService,
                                 new HeapLockManager(),
                                 hybridClock,
                                 new TransactionIdGenerator(index),
-                                () -> NODE_ID,
-                                TEST_PLACEMENT_DRIVER
+                                TEST_PLACEMENT_DRIVER,
+                                () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS
                         );
                         txMgr.start();
                         closeables.add(txMgr::stop);

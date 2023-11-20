@@ -18,6 +18,7 @@
 package org.apache.ignite.distributed;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.replicator.ReplicaManager.DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -58,6 +59,7 @@ import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.TransactionException;
 import org.junit.jupiter.api.BeforeEach;
@@ -95,19 +97,21 @@ public class ItTxDistributedTestSingleNodeNoCleanupMessage extends ItTxDistribut
         ) {
             @Override
             protected TxManagerImpl newTxManager(
+                    ClusterService clusterService,
                     ReplicaService replicaSvc,
                     HybridClock clock,
                     TransactionIdGenerator generator,
                     ClusterNode node,
                     PlacementDriver placementDriver
             ) {
-                return new TxManagerImpl(
+                return new  TxManagerImpl(
+                        clusterService,
                         replicaSvc,
                         new HeapLockManager(),
                         clock,
                         generator,
-                        node::id,
-                        placementDriver
+                        placementDriver,
+                        () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS
                 ) {
                     @Override
                     public CompletableFuture<Void> executeCleanupAsync(Runnable runnable) {

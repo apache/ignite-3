@@ -158,6 +158,7 @@ import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.message.TxCleanupReplicaRequest;
 import org.apache.ignite.internal.tx.message.TxFinishReplicaRequest;
+import org.apache.ignite.internal.tx.message.TxRecoveryMessage;
 import org.apache.ignite.internal.tx.message.TxStateCommitPartitionRequest;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.util.Cursor;
@@ -478,8 +479,17 @@ public class PartitionReplicaListener implements ReplicaListener {
 
             // Saving state is not needed for full transactions.
             if (!req.full()) {
-                txManager.updateTxMeta(req.transactionId(), old -> new TxStateMeta(PENDING, senderId, null));
+                txManager.updateTxMeta(req.transactionId(), old -> new TxStateMeta(
+                        PENDING,
+                        senderId,
+                        req.commitPartitionId().asTablePartitionId(),
+                        null
+                ));
             }
+        }
+
+        if (request instanceof TxRecoveryMessage) {
+            return processTxRecoveryAction((TxRecoveryMessage) request);
         }
 
         HybridTimestamp opTsIfDirectRo = (request instanceof ReadOnlyDirectReplicaRequest) ? hybridClock.now() : null;
@@ -488,6 +498,30 @@ public class PartitionReplicaListener implements ReplicaListener {
                 .thenCompose(unused -> validateSchemaMatch(request, opTsIfDirectRo))
                 .thenCompose(unused -> waitForSchemasBeforeReading(request, opTsIfDirectRo))
                 .thenCompose(opStartTimestamp -> processOperationRequest(request, isPrimary, senderId, opTsIfDirectRo));
+    }
+
+    /**
+     * Processes transaction recovery request on a commit partition.
+     *
+     * @param request Tx recovery request.
+     * @return The future is complete when the transaction state is finalized.
+     */
+    private CompletableFuture<Void> processTxRecoveryAction(TxRecoveryMessage request) {
+        UUID txId = request.txId();
+
+        TxMeta txMeta = txStateStorage.get(txId);
+
+        // Check whether a transaction has already been finished.
+        boolean transactionAlreadyFinished = txMeta != null && isFinalState(txMeta.txState());
+
+        if (transactionAlreadyFinished) {
+            return completedFuture(null);
+        }
+
+        LOG.info("Orphan transaction has to be aborted [tx={}].", txId);
+
+        // TODO: IGNITE-20735 Implement initiate recovery handling logic.
+        return completedFuture(null);
     }
 
     /**
@@ -635,7 +669,12 @@ public class PartitionReplicaListener implements ReplicaListener {
             // We treat SCAN as 2pc and only switch to a 1pc mode if all table rows fit in the bucket and the transaction is implicit.
             // See `req.full() && (err != null || rows.size() < req.batchSize())` condition.
             // If they don't fit the bucket, the transaction is treated as 2pc.
-            txManager.updateTxMeta(req.transactionId(), old -> new TxStateMeta(PENDING, senderId, null));
+            txManager.updateTxMeta(req.transactionId(), old -> new TxStateMeta(
+                    PENDING,
+                    senderId,
+                    req.commitPartitionId().asTablePartitionId(),
+                    null
+            ));
 
             // Implicit RW scan can be committed locally on a last batch or error.
             return appendTxCommand(req.transactionId(), RequestType.RW_SCAN, false, () -> processScanRetrieveBatchAction(req, senderId))
@@ -1531,6 +1570,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         // Avoid invoking async chain in raft threads.
         CompletableFuture<?>[] futures = enlistedPartitions.stream()
                 .map(partitionId -> changeStateFuture.thenCompose(ignored ->
+                        // TODO: IGNITE-20874 Use the node cleanup procedure instead of the replication group cleanup one.
                         cleanupWithRetry(commit, commitTimestamp, txId, partitionId, attemptsToCleanupReplica)))
                 .toArray(size -> new CompletableFuture<?>[size]);
 
@@ -3318,6 +3358,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     private CompletableFuture<Boolean> ensureReplicaIsPrimary(ReplicaRequest request) {
         Long expectedTerm;
 
+        // TODO: IGNITE-20875 Add enlistment consistency token to PrimaryReplicaTestRequest interface.
         if (request instanceof ReadWriteReplicaRequest) {
             expectedTerm = ((ReadWriteReplicaRequest) request).term();
 
@@ -3332,6 +3373,8 @@ public class PartitionReplicaListener implements ReplicaListener {
             assert expectedTerm != null;
         } else if (request instanceof BuildIndexReplicaRequest) {
             expectedTerm = ((BuildIndexReplicaRequest) request).enlistmentConsistencyToken();
+        } else if (request instanceof TxRecoveryMessage) {
+            expectedTerm = ((TxRecoveryMessage) request).enlistmentConsistencyToken();
         } else {
             expectedTerm = null;
         }
@@ -3692,7 +3735,12 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         txManager.updateTxMeta(txId, old -> old == null
                 ? null
-                : new TxStateMeta(txState, old.txCoordinatorId(), txState == COMMITED ? commitTimestamp : null));
+                : new TxStateMeta(
+                        txState,
+                        old.txCoordinatorId(),
+                        old.commitPartitionId(),
+                        txState == COMMITED ? commitTimestamp : null
+                ));
     }
 
     // TODO: https://issues.apache.org/jira/browse/IGNITE-20124 Temporary code below

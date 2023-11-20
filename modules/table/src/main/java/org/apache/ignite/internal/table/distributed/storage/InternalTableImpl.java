@@ -98,7 +98,6 @@ import org.apache.ignite.internal.table.distributed.replication.request.ReadOnly
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteMultiRowPkReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteMultiRowReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteScanRetrieveBatchReplicaRequest;
-import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteScanRetrieveBatchReplicaRequestBuilder;
 import org.apache.ignite.internal.table.distributed.replication.request.SingleRowPkReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.SingleRowReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.SwapRowReplicaRequest;
@@ -413,7 +412,7 @@ public class InternalTableImpl implements InternalTable {
 
         CompletableFuture<Collection<BinaryRow>> fut;
 
-        ReadWriteScanRetrieveBatchReplicaRequestBuilder requestBuilder = tableMessagesFactory.readWriteScanRetrieveBatchReplicaRequest()
+        Function<Long, ReplicaRequest> mapFunc = (term) -> tableMessagesFactory.readWriteScanRetrieveBatchReplicaRequest()
                 .groupId(partGroupId)
                 .timestampLong(clock.nowLong())
                 .transactionId(tx.id())
@@ -425,13 +424,15 @@ public class InternalTableImpl implements InternalTable {
                 .flags(flags)
                 .columnsToInclude(columnsToInclude)
                 .full(implicit) // Intent for one phase commit.
-                .batchSize(batchSize);
+                .batchSize(batchSize)
+                .term(term)
+                .commitPartitionId(serializeTablePartitionId(tx.commitPartition()))
+                .build();
 
         if (primaryReplicaAndTerm != null) {
-            ReadWriteScanRetrieveBatchReplicaRequest request = requestBuilder.term(primaryReplicaAndTerm.get2()).build();
-            fut = replicaSvc.invoke(primaryReplicaAndTerm.get1(), request);
+            fut = replicaSvc.invoke(primaryReplicaAndTerm.get1(), mapFunc.apply(primaryReplicaAndTerm.get2()));
         } else {
-            fut = enlistWithRetry(tx, partId, term -> requestBuilder.term(term).build(), ATTEMPTS_TO_ENLIST_PARTITION, false, null, false);
+            fut = enlistWithRetry(tx, partId, mapFunc, ATTEMPTS_TO_ENLIST_PARTITION, false, null, false);
         }
 
         return postEnlist(fut, false, tx, false);
@@ -845,9 +846,7 @@ public class InternalTableImpl implements InternalTable {
         return enlistInTx(
                 keyRows,
                 tx,
-                (keyRows0, txo, groupId, term, full) -> {
-                    return readWriteMultiRowPkReplicaRequest(RW_GET_ALL, keyRows0, txo, groupId, term, full);
-                },
+                (keyRows0, txo, groupId, term, full) -> readWriteMultiRowPkReplicaRequest(RW_GET_ALL, keyRows0, txo, groupId, term, full),
                 InternalTableImpl::collectMultiRowsResponsesWithRestoreOrder,
                 (res, req) -> false,
                 false
@@ -1298,12 +1297,13 @@ public class InternalTableImpl implements InternalTable {
     public Publisher<BinaryRow> lookup(
             int partId,
             UUID txId,
+            TablePartitionId commitPartition,
             PrimaryReplica recipient,
             int indexId,
             BinaryTuple key,
             @Nullable BitSet columnsToInclude
     ) {
-        return scan(partId, txId, recipient, indexId, key, null, null, 0, columnsToInclude);
+        return scan(partId, txId, commitPartition, recipient, indexId, key, null, null, 0, columnsToInclude);
     }
 
     @Override
@@ -1421,6 +1421,7 @@ public class InternalTableImpl implements InternalTable {
     public Publisher<BinaryRow> scan(
             int partId,
             UUID txId,
+            TablePartitionId commitPartition,
             PrimaryReplica recipient,
             @Nullable Integer indexId,
             @Nullable BinaryTuplePrefix lowerBound,
@@ -1428,12 +1429,13 @@ public class InternalTableImpl implements InternalTable {
             int flags,
             @Nullable BitSet columnsToInclude
     ) {
-        return scan(partId, txId, recipient, indexId, null, lowerBound, upperBound, flags, columnsToInclude);
+        return scan(partId, txId, commitPartition, recipient, indexId, null, lowerBound, upperBound, flags, columnsToInclude);
     }
 
     private Publisher<BinaryRow> scan(
             int partId,
             UUID txId,
+            TablePartitionId commitPartition,
             PrimaryReplica recipient,
             @Nullable Integer indexId,
             @Nullable BinaryTuple exactKey,
@@ -1460,6 +1462,7 @@ public class InternalTableImpl implements InternalTable {
                             .batchSize(batchSize)
                             .term(recipient.term())
                             .full(false) // Set explicitly.
+                            .commitPartitionId(serializeTablePartitionId(commitPartition))
                             .build();
 
                     return replicaSvc.invoke(recipient.node(), request);

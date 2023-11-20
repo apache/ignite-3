@@ -53,4 +53,9 @@ public class TxMessageGroup {
      * Message type for {@link TxStateResponse}.
      */
     public static final short TX_STATE_RESPONSE = 5;
+
+    /**
+     * Message type for {@link TxRecoveryMessage}.
+     */
+    public static final short TX_RECOVERY_MSG = 6;
 }

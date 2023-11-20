@@ -297,11 +297,11 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         ReplicaService replicaSvc = new ReplicaService(clusterSvc.messagingService(), hybridClock);
 
         var txManager = new TxManagerImpl(
+                clusterSvc,
                 replicaService,
                 lockManager,
                 hybridClock,
                 new TransactionIdGenerator(idx),
-                () -> clusterSvc.topologyService().localMember().id(),
                 placementDriver,
                 partitionIdleSafeTimePropagationPeriodMsSupplier
         );
