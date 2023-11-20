@@ -325,7 +325,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
 
             metrics.requestsActiveDecrement();
 
-            throw ClientUtils.ensurePublicException(t);
+            throw sneakyThrow(ClientUtils.ensurePublicException(t));
         }
     }
 

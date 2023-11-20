@@ -25,6 +25,7 @@ import static org.hamcrest.Matchers.hasToString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Arrays;
 import org.apache.ignite.lang.IgniteCheckedException;
@@ -40,8 +41,9 @@ public class ClientUtilsTest {
     public void testEnsurePublicExceptionIgniteException() {
         IgniteException ex = assertThrows(IgniteException.class, ClientUtilsTest::throwIgniteException);
 
-        IgniteException resEx = checkableTestMethod(ex);
+        Throwable resEx = checkableTestMethod(ex);
 
+        assertTrue(resEx instanceof IgniteException);
         assertEquals("Test ignite exception", resEx.getMessage());
         assertEquals(ex.getMessage(), resEx.getMessage());
         assertThat(Arrays.asList(ex.getStackTrace()), anyOf(hasToString(containsString("throwIgniteException"))));
@@ -53,8 +55,9 @@ public class ClientUtilsTest {
     public void testEnsurePublicExceptionIgniteCheckedException() {
         IgniteCheckedException ex = assertThrows(IgniteCheckedException.class, ClientUtilsTest::throwIgniteCheckedException);
 
-        IgniteException resEx = checkableTestMethod(ex);
+        Throwable resEx = checkableTestMethod(ex);
 
+        assertTrue(resEx instanceof IgniteCheckedException);
         assertEquals("Test checked exception", resEx.getMessage());
         assertEquals(ex.getMessage(), resEx.getMessage());
         assertThat(Arrays.asList(ex.getStackTrace()), anyOf(hasToString(containsString("throwIgniteCheckedException"))));
@@ -66,8 +69,9 @@ public class ClientUtilsTest {
     public void testEnsurePublicExceptionRuntimeException() {
         RuntimeException ex = assertThrows(RuntimeException.class, ClientUtilsTest::throwRuntimeException);
 
-        IgniteException resEx = checkableTestMethod(ex);
+        Throwable resEx = checkableTestMethod(ex);
 
+        assertTrue(resEx instanceof IgniteException);
         assertEquals("Test runtime exception", resEx.getMessage());
         assertEquals(ex.getMessage(), resEx.getMessage());
         assertThat(Arrays.asList(ex.getStackTrace()), anyOf(hasToString(containsString("throwRuntimeException"))));
@@ -80,9 +84,10 @@ public class ClientUtilsTest {
     public void testEnsurePublicExceptionInvalidIgniteException() {
         InvalidIgniteException ex = assertThrows(InvalidIgniteException.class, ClientUtilsTest::throwInvalidIgniteException);
 
-        IgniteException resEx = checkableTestMethod(ex);
+        Throwable resEx = checkableTestMethod(ex);
 
-        assertThat(resEx.getMessage(), containsString("IgniteException-derived class does not have required constructor"));
+        assertTrue(resEx instanceof IgniteException);
+        assertThat(resEx.getMessage(), containsString("Public Ignite exception-derived class does not have required constructor"));
         assertThat(Arrays.asList(ex.getStackTrace()), anyOf(hasToString(containsString("throwInvalidIgniteException"))));
         assertThat(Arrays.asList(resEx.getStackTrace()), anyOf(hasToString(containsString("checkableTestMethod"))));
         assertSame(InvalidIgniteException.class, resEx.getCause().getClass());
@@ -92,7 +97,7 @@ public class ClientUtilsTest {
     /**
      * Method that should present in resulting stack trace.
      */
-    private static IgniteException checkableTestMethod(Throwable ex) {
+    private static Throwable checkableTestMethod(Throwable ex) {
         return ClientUtils.ensurePublicException(ex);
     }
 

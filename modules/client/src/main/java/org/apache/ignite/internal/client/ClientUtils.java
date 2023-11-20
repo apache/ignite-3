@@ -20,6 +20,7 @@ package org.apache.ignite.internal.client;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import java.util.Objects;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import org.apache.ignite.client.ClientOperationType;
@@ -44,32 +45,62 @@ public class ClientUtils {
      * @param e Internal exception.
      * @return Public exception.
      */
-    public static IgniteException ensurePublicException(Throwable e) {
+    public static Throwable ensurePublicException(Throwable e) {
         Objects.requireNonNull(e);
 
         e = ExceptionUtils.unwrapCause(e);
 
         if (e instanceof IgniteException) {
-            IgniteException iex = (IgniteException) e;
+            return copyExceptionWithCauseIfPossible((IgniteException) e);
+        }
 
-            IgniteException copy = ExceptionUtils.copyExceptionWithCause(e.getClass(), iex.traceId(), iex.code(), e.getMessage(), e);
-            if (copy != null) {
-                return copy;
-            }
-
-            return new IgniteException(INTERNAL_ERR, "IgniteException-derived class does not have required constructor: "
-                    + e.getClass().getName(), iex);
+        if (e instanceof IgniteCheckedException) {
+            return copyExceptionWithCauseIfPossible((IgniteCheckedException) e);
         }
 
         e = IgniteExceptionMapperUtil.mapToPublicException(e);
 
-        if (e instanceof IgniteCheckedException) {
-            IgniteCheckedException iex = (IgniteCheckedException) e;
+        return new IgniteException(INTERNAL_ERR, e.getMessage(), e);
+    }
 
-            return new IgniteException(iex.traceId(), iex.code(), e.getMessage(), e);
+    /**
+     * Try to copy exception using ExceptionUtils.copyExceptionWithCause and return new exception if it was not possible.
+     *
+     * @param e Exception.
+     * @return Properly copied exception or a new error, if exception can not be copied.
+     */
+    private static Throwable copyExceptionWithCauseIfPossible(IgniteException e) {
+        return copyExceptionWithCauseIfPossible(e, e.traceId(), e.code());
+    }
+
+    /**
+     * Try to copy exception using ExceptionUtils.copyExceptionWithCause and return new exception if it was not possible.
+     *
+     * @param e Exception.
+     * @return Properly copied exception or a new error, if exception can not be copied.
+     */
+    private static Throwable copyExceptionWithCauseIfPossible(IgniteCheckedException e) {
+        return copyExceptionWithCauseIfPossible(e, e.traceId(), e.code());
+    }
+
+    /**
+     * Try to copy exception using ExceptionUtils.copyExceptionWithCause and return new exception if it was not possible.
+     *
+     * @param e Exception.
+     * @param traceId Trace ID.
+     * @param code Code.
+     * @return Properly copied exception or a new error, if exception can not be copied.
+     */
+    private static Throwable copyExceptionWithCauseIfPossible(Throwable e, UUID traceId, int code) {
+        assert e instanceof IgniteException || e instanceof IgniteCheckedException;
+
+        Throwable copy = ExceptionUtils.copyExceptionWithCause(e.getClass(), traceId, code, e.getMessage(), e);
+        if (copy != null) {
+            return copy;
         }
 
-        return new IgniteException(INTERNAL_ERR, e.getMessage(), e);
+        return new IgniteException(INTERNAL_ERR, "Public Ignite exception-derived class does not have required constructor: "
+                + e.getClass().getName(), e);
     }
 
     /**
@@ -85,9 +116,9 @@ public class ClientUtils {
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt(); // Restore interrupt flag.
 
-            throw ensurePublicException(e);
+            throw ExceptionUtils.sneakyThrow(ensurePublicException(e));
         } catch (ExecutionException e) {
-            throw ensurePublicException(e);
+            throw ExceptionUtils.sneakyThrow(ensurePublicException(e));
         }
     }
 
