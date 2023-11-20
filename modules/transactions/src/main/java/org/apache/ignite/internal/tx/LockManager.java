@@ -98,6 +98,7 @@ public interface LockManager {
 
     /**
      * Get parent lock manager.
+     *
      * @return Parent lock manager in lock hierarchy.
      */
     @Nullable

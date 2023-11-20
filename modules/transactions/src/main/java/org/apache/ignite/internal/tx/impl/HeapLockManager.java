@@ -63,8 +63,8 @@ import org.jetbrains.annotations.TestOnly;
  *
  * <p>Read lock can be upgraded to write lock (only available for the lowest read-locked entry of
  * the queue).
- * <p>
- * Additionally limits the lock map size.
+ *
+ * <p>Additionally limits the lock map size.
  */
 public class HeapLockManager implements LockManager {
     /**
@@ -329,9 +329,10 @@ public class HeapLockManager implements LockManager {
         /** Marked for removal flag. */
         private volatile boolean markedForRemove = false;
 
+        /** Lock key. */
         private volatile LockKey key;
 
-        public LockState() {
+        LockState() {
             Comparator<UUID> txComparator =
                     deadlockPreventionPolicy.txIdComparator() != null ? deadlockPreventionPolicy.txIdComparator() : UUID::compareTo;
 
@@ -345,7 +346,7 @@ public class HeapLockManager implements LockManager {
          * @param lockMode Lock mode.
          * @return The future or null if state is marked for removal and acquired lock mode.
          */
-        public @Nullable IgniteBiTuple<CompletableFuture<Void>, LockMode> tryAcquire(UUID txId, LockMode lockMode) {
+        @Nullable IgniteBiTuple<CompletableFuture<Void>, LockMode> tryAcquire(UUID txId, LockMode lockMode) {
             WaiterImpl waiter = new WaiterImpl(txId, lockMode);
 
             synchronized (waiters) {

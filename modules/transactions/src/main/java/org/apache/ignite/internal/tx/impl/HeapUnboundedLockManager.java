@@ -50,9 +50,7 @@ import org.apache.ignite.internal.tx.Waiter;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * A {@link LockManager} which uses unbounded hashtable implementation.
- *
- * Suitable for holding coarse-grained locks.
+ * A {@link LockManager} which uses unbounded hashtable implementation. Suitable for holding coarse-grained locks.
  */
 public class HeapUnboundedLockManager implements LockManager {
     /** Locks. */
