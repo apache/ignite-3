@@ -179,9 +179,9 @@ public class RemoveWriteOnGcInvokeClosure implements InvokeClosure<VersionChain>
         toRemove.forEach(storage::removeRowVersion);
 
         if (toDropFromQueue != null) {
-            boolean remove = storage.gcQueue.remove(rowId, toDropFromQueue.timestamp(), toDropFromQueue.link());
+            boolean removed = storage.gcQueue.remove(rowId, toDropFromQueue.timestamp(), toDropFromQueue.link());
 
-            assert remove : "Tombstone removal from GC queue should never happen in parallel";
+            assert removed : "Tombstone removal from GC queue should never happen in parallel";
         }
     }
 

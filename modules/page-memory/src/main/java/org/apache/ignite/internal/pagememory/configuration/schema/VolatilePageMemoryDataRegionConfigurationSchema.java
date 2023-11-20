@@ -29,7 +29,10 @@ import org.apache.ignite.configuration.validation.OneOf;
  */
 @Config
 public class VolatilePageMemoryDataRegionConfigurationSchema extends BasePageMemoryDataRegionConfigurationSchema {
-    /** Default initial size, maximum between 256 MB and 20% of the total physical memory. */
+    /**
+     * Default initial size, maximum between 256 MiB and 20% of the total physical memory.
+     * 256 MiB, is system was unable to retrieve physical memory size.
+     */
     @SuppressWarnings("NumericCastThatLosesPrecision")
     public static final long DFLT_DATA_REGION_INITIAL_SIZE = Math.max(256 * MiB, (long) (0.2 * getTotalMemoryAvailable()));
 
