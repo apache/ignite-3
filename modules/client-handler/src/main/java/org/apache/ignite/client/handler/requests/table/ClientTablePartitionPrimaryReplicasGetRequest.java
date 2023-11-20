@@ -21,7 +21,6 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.ClientPrimaryReplicaTracker;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.lang.IgniteException;
 import org.jetbrains.annotations.Nullable;

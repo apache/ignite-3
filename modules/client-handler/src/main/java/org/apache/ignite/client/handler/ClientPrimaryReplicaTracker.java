@@ -90,8 +90,7 @@ public class ClientPrimaryReplicaTracker implements EventListener<EventParameter
 
         if (maxStartTime == null) {
             maxStartTime = this.maxStartTime.get();
-        }
-        else {
+        } else {
             // If the client provides an old maxStartTime, ignore it and use the current one.
             maxStartTime = Math.max(maxStartTime, this.maxStartTime.get());
         }
@@ -136,8 +135,7 @@ public class ClientPrimaryReplicaTracker implements EventListener<EventParameter
 
         try {
             partitions = partitionsNoWait(tableId, timestamp);
-        }
-        catch (IllegalStateException | TableNotFoundException e) {
+        } catch (IllegalStateException | TableNotFoundException e) {
             // Table or schema not found for because we did not wait.
             return null;
         }
@@ -281,6 +279,9 @@ public class ClientPrimaryReplicaTracker implements EventListener<EventParameter
         }
     }
 
+    /**
+     * Primary replicas per partition with timestamp.
+     */
     public static class PrimaryReplicasResult {
         private final List<String> nodeNames;
 
