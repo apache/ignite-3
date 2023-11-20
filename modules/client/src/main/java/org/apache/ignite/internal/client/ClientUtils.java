@@ -33,6 +33,7 @@ import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.IgniteCheckedException;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.LoggerFactory;
+import org.apache.ignite.lang.TraceableException;
 
 /**
  * Client utilities.
@@ -69,32 +70,8 @@ public class ClientUtils {
      * @param e Exception.
      * @return Properly copied exception or a new error, if exception can not be copied.
      */
-    private static Throwable copyExceptionWithCauseIfPossible(IgniteException e) {
-        return copyExceptionWithCauseIfPossible(e, e.traceId(), e.code());
-    }
-
-    /**
-     * Try to copy exception using ExceptionUtils.copyExceptionWithCause and return new exception if it was not possible.
-     *
-     * @param e Exception.
-     * @return Properly copied exception or a new error, if exception can not be copied.
-     */
-    private static Throwable copyExceptionWithCauseIfPossible(IgniteCheckedException e) {
-        return copyExceptionWithCauseIfPossible(e, e.traceId(), e.code());
-    }
-
-    /**
-     * Try to copy exception using ExceptionUtils.copyExceptionWithCause and return new exception if it was not possible.
-     *
-     * @param e Exception.
-     * @param traceId Trace ID.
-     * @param code Code.
-     * @return Properly copied exception or a new error, if exception can not be copied.
-     */
-    private static Throwable copyExceptionWithCauseIfPossible(Throwable e, UUID traceId, int code) {
-        assert e instanceof IgniteException || e instanceof IgniteCheckedException;
-
-        Throwable copy = ExceptionUtils.copyExceptionWithCause(e.getClass(), traceId, code, e.getMessage(), e);
+    private static <T extends Throwable & TraceableException> Throwable copyExceptionWithCauseIfPossible(T e) {
+        Throwable copy = ExceptionUtils.copyExceptionWithCause(e.getClass(), e.traceId(), e.code(), e.getMessage(), e);
         if (copy != null) {
             return copy;
         }
