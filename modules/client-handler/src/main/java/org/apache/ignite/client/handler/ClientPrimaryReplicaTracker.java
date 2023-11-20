@@ -205,12 +205,7 @@ public class ClientPrimaryReplicaTracker implements EventListener<EventParameter
         }
 
         if (parameters instanceof DropTableEventParameters) {
-            DropTableEventParameters dropTableEvent = (DropTableEventParameters) parameters;
-
-            // TODO: Remove one by one.
-            // TODO: This won't guarantee that some other thread won't add a replica back.
-            // TODO: Table IDs are sequential; if a table with the given ID was deleted, it won't be created again.
-            primaryReplicas.remove(dropTableEvent.tableId());
+            removeTable((DropTableEventParameters) parameters);
 
             return CompletableFuture.completedFuture(false);
         }
@@ -230,6 +225,19 @@ public class ClientPrimaryReplicaTracker implements EventListener<EventParameter
         updatePrimaryReplica(tablePartitionId, primaryReplicaEvent.startTime(), primaryReplicaEvent.leaseholder());
 
         return CompletableFuture.completedFuture(false); // false: don't remove listener.
+    }
+
+    private void removeTable(DropTableEventParameters dropTableEvent) {
+        CatalogTableDescriptor table = catalogService.table(dropTableEvent.tableId(), dropTableEvent.catalogVersion());
+        assert table != null : "Table from DropTableEventParameters not found: " + dropTableEvent.tableId();
+
+        var zone = catalogService.zone(table.zoneId(), dropTableEvent.catalogVersion());
+        assert zone != null : "Zone from DropTableEventParameters not found: " + table.zoneId();
+
+        for (int partition = 0; partition < zone.partitions(); partition++) {
+            TablePartitionId tablePartitionId = new TablePartitionId(dropTableEvent.tableId(), partition);
+            primaryReplicas.remove(tablePartitionId);
+        }
     }
 
     private void updatePrimaryReplica(TablePartitionId tablePartitionId, HybridTimestamp startTime, String nodeName) {
