@@ -84,6 +84,9 @@ public class DistributionZonesUtil {
     /** Key value for zones' global state revision. */
     private static final String DISTRIBUTION_ZONES_GLOBAL_STATE_REVISION = "distributionZones.globalState.revision";
 
+    /** Key value for the last handled logical topology by Distribution zone manager. */
+    private static final String DISTRIBUTION_ZONES_LAST_HANDLED_TOPOLOGY = "distributionZones.globalState.lastHandledTopology";
+
     /** Key value for zones' filter update revision in vault. */
     private static final String DISTRIBUTION_ZONES_FILTER_UPDATE_REVISION_VAULT = "vault.distributionZones.filterUpdate.revision";
 
@@ -109,6 +112,10 @@ public class DistributionZonesUtil {
     /** ByteArray representation of {@link DistributionZonesUtil#DISTRIBUTION_ZONES_GLOBAL_STATE_REVISION}. */
     private static final ByteArray DISTRIBUTION_ZONES_GLOBAL_STATE_REVISION_KEY =
             new ByteArray(DISTRIBUTION_ZONES_GLOBAL_STATE_REVISION);
+
+    /** ByteArray representation of {@link DistributionZonesUtil#DISTRIBUTION_ZONES_LAST_HANDLED_TOPOLOGY}. */
+    private static final ByteArray DISTRIBUTION_ZONES_LAST_HANDLED_TOPOLOGY_KEY =
+            new ByteArray(DISTRIBUTION_ZONES_LAST_HANDLED_TOPOLOGY);
 
     /** ByteArray representation of {@link DistributionZonesUtil#DISTRIBUTION_ZONES_FILTER_UPDATE_REVISION_VAULT}. */
     private static final ByteArray DISTRIBUTION_ZONES_FILTER_UPDATE_REVISION_VAULT_KEY =
@@ -232,6 +239,13 @@ public class DistributionZonesUtil {
      */
     public static ByteArray zonesGlobalStateRevision() {
         return DISTRIBUTION_ZONES_GLOBAL_STATE_REVISION_KEY;
+    }
+
+    /**
+     * The key represents the last handled logical topology by Distribution zone manager.
+     */
+    public static ByteArray zonesLastHandledTopology() {
+        return DISTRIBUTION_ZONES_LAST_HANDLED_TOPOLOGY_KEY;
     }
 
     /**
