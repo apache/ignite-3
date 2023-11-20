@@ -23,16 +23,14 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCo
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Objects;
-import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.BooleanSupplier;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
@@ -283,39 +281,18 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
     private static List<List<Object>> executeAwaitingIndexes(IgniteImpl node, Function<IgniteImpl, List<List<Object>>> statement) {
         CatalogManager catalogManager = node.catalogManager();
 
-        // Get existing indexes
-        Set<Integer> existing = catalogManager.indexes(catalogManager.latestCatalogVersion())
-                .stream().map(CatalogObjectDescriptor::id)
-                .collect(Collectors.toSet());
-
         List<List<Object>> result = statement.apply(node);
 
-        // Get indexes after a statement and compute the difference
-        Set<Integer> difference = catalogManager.indexes(catalogManager.latestCatalogVersion()).stream()
-                .map(CatalogObjectDescriptor::id)
-                .collect(Collectors.toSet());
+        AllIndexesAreAvailable allIndexesAreAvailable = new AllIndexesAreAvailable(catalogManager);
 
-        difference.removeAll(existing);
-
-        if (difference.isEmpty()) {
+        if (allIndexesAreAvailable.getAsBoolean()) {
             return result;
         }
 
         // If there are new indexes, wait for them to become available.
 
         try {
-            waitForCondition(() -> {
-                int latestVersion = catalogManager.latestCatalogVersion();
-                int notAvailable = 0;
-
-                for (CatalogIndexDescriptor index : catalogManager.indexes(latestVersion)) {
-                    if (!index.available() && difference.contains(index.id())) {
-                        notAvailable++;
-                    }
-                }
-
-                return notAvailable == 0;
-            }, 10_000);
+            waitForCondition(allIndexesAreAvailable, 10_000);
 
             waitForReadTimestampThatObservesMostRecentCatalog();
 
@@ -324,6 +301,29 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
             Thread.currentThread().interrupt();
 
             throw new IllegalStateException(e);
+        }
+    }
+
+    private static final class AllIndexesAreAvailable implements BooleanSupplier {
+
+        private final CatalogManager catalogManager;
+
+        private AllIndexesAreAvailable(CatalogManager catalogManager) {
+            this.catalogManager = catalogManager;
+        }
+
+        @Override
+        public boolean getAsBoolean() {
+            int latestVersion = catalogManager.latestCatalogVersion();
+            int notAvailable = 0;
+
+            for (CatalogIndexDescriptor index : catalogManager.indexes(latestVersion)) {
+                if (!index.available()) {
+                    notAvailable++;
+                }
+            }
+
+            return notAvailable == 0;
         }
     }
 }
