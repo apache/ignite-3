@@ -232,10 +232,13 @@ public class ClientPrimaryReplicaTracker implements EventListener<EventParameter
     }
 
     private void removeTable(DropTableEventParameters dropTableEvent) {
-        CatalogTableDescriptor table = catalogService.table(dropTableEvent.tableId(), dropTableEvent.catalogVersion());
+        // Use previous version of the catalog to get the dropped table.
+        int prevCatalogVersion = dropTableEvent.catalogVersion() - 1;
+
+        CatalogTableDescriptor table = catalogService.table(dropTableEvent.tableId(), prevCatalogVersion);
         assert table != null : "Table from DropTableEventParameters not found: " + dropTableEvent.tableId();
 
-        var zone = catalogService.zone(table.zoneId(), dropTableEvent.catalogVersion());
+        var zone = catalogService.zone(table.zoneId(), prevCatalogVersion);
         assert zone != null : "Zone from DropTableEventParameters not found: " + table.zoneId();
 
         for (int partition = 0; partition < zone.partitions(); partition++) {
