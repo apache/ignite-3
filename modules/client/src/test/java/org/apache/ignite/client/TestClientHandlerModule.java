@@ -35,9 +35,11 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.client.fakes.FakeInternalTable;
 import org.apache.ignite.client.handler.ClientHandlerMetricSource;
 import org.apache.ignite.client.handler.ClientInboundMessageHandler;
 import org.apache.ignite.client.handler.ClientPrimaryReplicaTracker;
+import org.apache.ignite.client.handler.FakeCatalogService;
 import org.apache.ignite.client.handler.configuration.ClientConnectorConfiguration;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.internal.catalog.CatalogService;
@@ -199,7 +201,7 @@ public class TestClientHandlerModule implements IgniteComponent {
         bootstrap.childHandler(new ChannelInitializer<>() {
                     @Override
                     protected void initChannel(Channel ch) {
-                        CatalogService catalogService = TestServer.mockCatalogService();
+                        CatalogService catalogService = new FakeCatalogService(FakeInternalTable.PARTITIONS);
                         ch.pipeline().addLast(
                                 new ClientMessageDecoder(),
                                 new ConnectionDropHandler(requestCounter, shouldDropConnection),

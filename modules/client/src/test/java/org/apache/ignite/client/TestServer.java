@@ -42,6 +42,7 @@ import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.client.fakes.FakeInternalTable;
 import org.apache.ignite.client.handler.ClientHandlerMetricSource;
 import org.apache.ignite.client.handler.ClientHandlerModule;
+import org.apache.ignite.client.handler.FakeCatalogService;
 import org.apache.ignite.client.handler.FakePlacementDriver;
 import org.apache.ignite.client.handler.configuration.ClientConnectorConfiguration;
 import org.apache.ignite.compute.IgniteCompute;
@@ -232,23 +233,11 @@ public class TestServer implements AutoCloseable {
                         authenticationManager(securityConfigurationOnInit),
                         clock,
                         new AlwaysSyncedSchemaSyncService(),
-                        mockCatalogService(),
+                        new FakeCatalogService(FakeInternalTable.PARTITIONS),
                         placementDriver
                 );
 
         module.start();
-    }
-
-    /**
-     * Creates a minimal mock-based {@link CatalogService}.
-     */
-    public static CatalogService mockCatalogService() {
-        CatalogTableDescriptor tableDescriptor = mock(CatalogTableDescriptor.class);
-        when(tableDescriptor.tableVersion()).thenReturn(CatalogTableDescriptor.INITIAL_TABLE_VERSION);
-
-        CatalogService catalogService = mock(CatalogService.class);
-        when(catalogService.table(anyInt(), anyLong())).thenReturn(tableDescriptor);
-        return catalogService;
     }
 
     /**
