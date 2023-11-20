@@ -161,7 +161,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
      * @param schema Schema.
      */
     public DummyInternalTableImpl(ReplicaService replicaSvc, SchemaDescriptor schema) {
-        this(replicaSvc, new TestMvPartitionStorage(0), schema, new TestPlacementDriver(LOCAL_NODE.name()));
+        this(replicaSvc, new TestMvPartitionStorage(0), schema, new TestPlacementDriver(LOCAL_NODE));
     }
 
     /**
@@ -172,7 +172,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
      * @param schema Schema.
      */
     public DummyInternalTableImpl(ReplicaService replicaSvc, MvPartitionStorage mvPartStorage, SchemaDescriptor schema) {
-        this(replicaSvc, mvPartStorage, schema, new TestPlacementDriver(LOCAL_NODE.name()));
+        this(replicaSvc, mvPartStorage, schema, new TestPlacementDriver(LOCAL_NODE));
     }
 
 
@@ -382,7 +382,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 LOCAL_NODE,
                 new AlwaysSyncedSchemaSyncService(),
                 catalogService,
-                new TestPlacementDriver(LOCAL_NODE.name())
+                new TestPlacementDriver(LOCAL_NODE)
         );
 
         partitionListener = new PartitionListener(

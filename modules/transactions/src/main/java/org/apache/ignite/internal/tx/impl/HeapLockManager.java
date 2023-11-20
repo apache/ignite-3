@@ -104,6 +104,7 @@ public class HeapLockManager implements LockManager {
 
     /**
      * Parent lock manager.
+     * TODO asch Needs optimization https://issues.apache.org/jira/browse/IGNITE-20895
      */
     private final LockManager parentLockManager;
 
