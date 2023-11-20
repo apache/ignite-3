@@ -45,6 +45,21 @@ import org.jetbrains.annotations.Nullable;
  * Primary partition replica tracker. Shared by all instances of {@link ClientInboundMessageHandler}.
  *
  * <p>Keeps up-to-date lists of primary replicas by partition for every table, avoiding expensive placement driver calls in most cases.
+ *
+ * <p>Every "assignment" (set of primary replicas per partition) is identified by a maxStartTime - latest known lease start time.
+ *
+ * <p>Assumptions:
+ *     - Primary replicas are not changed often.
+ *     - We do "best effort" partition awareness - it is ok if we don't have the latest primary replicas at some point or don't have them
+ *       at all. What matters is that we have the correct assignment eventually.
+ *     - It is allowed to return incomplete assignment (null for some partitions) - better than nothing.
+ *     - We don't know which tables the client is going to use, so we track a common maxStartTime for all tables.
+ *
+ * <p>Tracking logic:
+ *     - Listen to election events from placement driver, update primary replicas. This is the main source of information.
+ *     - When we have not yet received events for all partitions of a certain table, and the client requests the assignment,
+ *       load it from the placement driver. Wait for a limited amount of time (in getPrimaryReplica) and return what we have.
+ *       Don't block the client for too long, it is better to miss the primary than to delay the request.
  */
 public class ClientPrimaryReplicaTracker implements EventListener<EventParameters> {
     private final ConcurrentHashMap<TablePartitionId, ReplicaHolder> primaryReplicas = new ConcurrentHashMap<>();
