@@ -53,6 +53,7 @@ dependencies {
     testImplementation(testFixtures(project(':ignite-core')))
     testImplementation(testFixtures(project(':ignite-configuration')))
     testImplementation(testFixtures(project(':ignite-table')))
+    testImplementation project(':ignite-catalog')
     testImplementation libs.mockito.junit
     testImplementation libs.hamcrest.core
     testImplementation libs.awaitility
@@ -77,6 +78,8 @@ dependencies {
 
     testFixturesImplementation project(':ignite-core')
     testFixturesImplementation project(':ignite-placement-driver-api')
+    testFixturesImplementation project(':ignite-catalog')
+    testFixturesImplementation libs.mockito.junit
 }
 
 description = 'ignite-client-handler'

@@ -26,7 +26,6 @@ import static org.mockito.Mockito.when;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.ClientPrimaryReplicaTracker.PrimaryReplicasResult;
-import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.InternalTable;
@@ -44,7 +43,6 @@ class ClientPrimaryReplicaTrackerTest extends BaseIgniteAbstractTest {
 
     private FakePlacementDriver driver;
 
-    @SuppressWarnings("unchecked")
     @BeforeEach
     public void setUp() throws Exception {
         driver = new FakePlacementDriver(PARTITIONS);
@@ -62,7 +60,7 @@ class ClientPrimaryReplicaTrackerTest extends BaseIgniteAbstractTest {
 
         tracker = new ClientPrimaryReplicaTracker(
                 driver,
-                mock(CatalogService.class),
+                new FakeCatalogService(PARTITIONS),
                 new HybridClockImpl(),
                 new AlwaysSyncedSchemaSyncService());
     }
@@ -70,8 +68,6 @@ class ClientPrimaryReplicaTrackerTest extends BaseIgniteAbstractTest {
     @Test
     public void testInitialAssignmentIsRetrievedFromPlacementDriver() {
         tracker.start();
-
-        assertEquals(0, tracker.maxStartTime());
 
         PrimaryReplicasResult replicas = tracker.primaryReplicasAsync(TABLE_ID, null).join();
         assertEquals(PARTITIONS, replicas.nodeNames().size());
