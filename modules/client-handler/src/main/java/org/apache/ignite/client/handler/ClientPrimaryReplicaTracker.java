@@ -96,7 +96,7 @@ public class ClientPrimaryReplicaTracker implements EventListener<EventParameter
         }
 
         // Check happy path: if we already have all replicas, and maxStartTime > timestamp, return synchronously.
-        var fastRes = primaryReplicasNoWait(tableId, maxStartTime, timestamp);
+        var fastRes = primaryReplicasNoWait(tableId, maxStartTime, timestamp, false);
         if (fastRes != null) {
             return CompletableFuture.completedFuture(fastRes);
         }
@@ -121,11 +121,12 @@ public class ClientPrimaryReplicaTracker implements EventListener<EventParameter
         // Wait for all futures, check condition again.
         // Give up (return null) if we don't have replicas with specified maxStartTime - the client will retry later.
         long maxStartTime0 = maxStartTime;
-        return partitionsFut.thenApply(v -> primaryReplicasNoWait(tableId, maxStartTime0, timestamp));
+        return partitionsFut.thenApply(v -> primaryReplicasNoWait(tableId, maxStartTime0, timestamp, true));
     }
 
     @Nullable
-    private PrimaryReplicasResult primaryReplicasNoWait(int tableId, long maxStartTime, HybridTimestamp timestamp) {
+    private PrimaryReplicasResult primaryReplicasNoWait(
+            int tableId, long maxStartTime, HybridTimestamp timestamp, boolean allowUnknownReplicas) {
         long currentMaxStartTime = this.maxStartTime.get();
         if (currentMaxStartTime < maxStartTime) {
             return null;
@@ -147,7 +148,12 @@ public class ClientPrimaryReplicaTracker implements EventListener<EventParameter
             ReplicaHolder holder = primaryReplicas.get(tablePartitionId);
 
             if (holder == null || holder.nodeName == null || holder.leaseStartTime == null) {
-                return null;
+                if (allowUnknownReplicas) {
+                    res.add(null);
+                    continue;
+                } else {
+                    return null;
+                }
             }
 
             res.add(holder.nodeName);

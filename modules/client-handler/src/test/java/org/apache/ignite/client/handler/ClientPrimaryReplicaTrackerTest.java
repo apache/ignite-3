@@ -25,8 +25,11 @@ import static org.mockito.Mockito.when;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.client.handler.ClientPrimaryReplicaTracker.PrimaryReplicasResult;
+import org.apache.ignite.internal.TestHybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableViewInternal;
@@ -43,6 +46,8 @@ class ClientPrimaryReplicaTrackerTest extends BaseIgniteAbstractTest {
 
     private FakePlacementDriver driver;
 
+    private final AtomicLong currentTime = new AtomicLong();
+
     @BeforeEach
     public void setUp() throws Exception {
         driver = new FakePlacementDriver(PARTITIONS);
@@ -58,10 +63,12 @@ class ClientPrimaryReplicaTrackerTest extends BaseIgniteAbstractTest {
         IgniteTablesInternal tables = mock(IgniteTablesInternal.class);
         when(tables.tableAsync(TABLE_ID)).thenReturn(CompletableFuture.completedFuture(table));
 
+        currentTime.set(0);
+
         tracker = new ClientPrimaryReplicaTracker(
                 driver,
                 new FakeCatalogService(PARTITIONS),
-                new HybridClockImpl(),
+                new TestHybridClock(() -> currentTime.get()),
                 new AlwaysSyncedSchemaSyncService());
     }
 
@@ -95,10 +102,10 @@ class ClientPrimaryReplicaTrackerTest extends BaseIgniteAbstractTest {
         driver.updateReplica(null, TABLE_ID, 0, 2);
         tracker.start();
 
-        assertEquals(0, tracker.maxStartTime());
+        assertEquals(1, tracker.maxStartTime());
         driver.updateReplica(null, TABLE_ID, 1, 2);
 
-        assertEquals(1, tracker.maxStartTime());
+        assertEquals(new HybridTimestamp(2, 0).longValue(), tracker.maxStartTime());
 
         PrimaryReplicasResult replicas = tracker.primaryReplicasAsync(TABLE_ID, null).join();
         assertEquals(PARTITIONS, replicas.nodeNames().size());
