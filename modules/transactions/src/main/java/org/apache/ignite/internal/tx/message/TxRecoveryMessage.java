@@ -15,20 +15,30 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed.replication.request;
+package org.apache.ignite.internal.tx.message;
 
-import org.apache.ignite.internal.table.distributed.TableMessageGroup;
+import java.util.UUID;
+import org.apache.ignite.internal.replicator.message.PrimaryReplicaRequest;
+import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.network.annotations.Transferable;
 
 /**
- * Read-write multi-row replica request involving table's Primary Keys.
+ * Transaction recovery message.
  */
-@Transferable(TableMessageGroup.RW_MULTI_ROW_PK_REPLICA_REQUEST)
-public interface ReadWriteMultiRowPkReplicaRequest extends MultipleRowPkReplicaRequest, ReadWriteReplicaRequest, CommittableTxRequest {
+@Transferable(TxMessageGroup.TX_RECOVERY_MSG)
+public interface TxRecoveryMessage extends PrimaryReplicaRequest, ReplicaRequest {
     /**
-     * Disable delayed ack optimization.
+     * Gets a transaction id to resolve.
      *
-     * @return {@code True} to disable the delayed ack optimization.
+     * @return Transaction id.
      */
-    boolean skipDelayedAck();
+    UUID txId();
+
+    /**
+     * Gets an enlistment consistency token.
+     * The token is used to check that the lease is still actual while the message goes to the replica.
+     *
+     * @return Enlistment consistency token.
+     */
+    long enlistmentConsistencyToken();
 }

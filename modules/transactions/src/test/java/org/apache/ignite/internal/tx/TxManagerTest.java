@@ -114,11 +114,11 @@ public class TxManagerTest extends IgniteAbstractTest {
         when(replicaService.invoke(anyString(), any())).thenReturn(CompletableFuture.completedFuture(null));
 
         txManager = new TxManagerImpl(
+                clusterService,
                 replicaService,
                 new HeapLockManager(),
                 clock,
                 new TransactionIdGenerator(0xdeadbeef),
-                LOCAL_NODE::id,
                 placementDriver,
                 idleSafeTimePropagationPeriodMsSupplier
         );
