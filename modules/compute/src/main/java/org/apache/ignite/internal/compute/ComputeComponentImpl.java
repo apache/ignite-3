@@ -29,6 +29,7 @@ import java.util.stream.Collectors;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.version.Version;
+import org.apache.ignite.internal.compute.loader.JobContext;
 import org.apache.ignite.internal.compute.loader.JobContextManager;
 import org.apache.ignite.internal.compute.message.DeploymentUnitMsg;
 import org.apache.ignite.internal.compute.message.ExecuteRequest;
@@ -117,7 +118,7 @@ public class ComputeComponentImpl implements ComputeComponent {
         }
 
         try {
-            return mapClassLoaderExceptions(jobContextManager.acquireClassLoader(units), jobClassName)
+            return mapClassLoaderExceptions(jobClassLoader(units), jobClassName)
                     .thenCompose(context ->
                             doExecuteLocally(options, ComputeUtils.<R>jobClass(context.classLoader(), jobClassName), args)
                                     .whenComplete((r, e) -> context.close())
@@ -191,7 +192,7 @@ public class ComputeComponentImpl implements ComputeComponent {
         try {
             List<DeploymentUnit> units = toDeploymentUnit(executeRequest.deploymentUnits());
 
-            mapClassLoaderExceptions(jobContextManager.acquireClassLoader(units), executeRequest.jobClassName())
+            mapClassLoaderExceptions(jobClassLoader(units), executeRequest.jobClassName())
                     .whenComplete((context, err) -> {
                         if (err != null) {
                             if (context != null) {
@@ -223,6 +224,10 @@ public class ComputeComponentImpl implements ComputeComponent {
         messagingService.respond(senderConsistentId, executeResponse, correlationId);
 
         return null;
+    }
+
+    private CompletableFuture<JobContext> jobClassLoader(List<DeploymentUnit> units) {
+        return jobContextManager.acquireClassLoader(units);
     }
 
     private DeploymentUnitMsg toDeploymentUnitMsg(DeploymentUnit unit) {
