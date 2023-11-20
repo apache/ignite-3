@@ -79,6 +79,10 @@ class TestIndexManagementUtils {
         TableTestUtils.createHashIndex(catalogManager, DEFAULT_SCHEMA_NAME, tableName, indexName, List.of(columnName), false);
     }
 
+    static void dropIndex(CatalogManager catalogManager, String indexName) {
+        TableTestUtils.dropIndex(catalogManager, DEFAULT_SCHEMA_NAME, indexName);
+    }
+
     static int indexId(CatalogService catalogService, String indexName, HybridClock clock) {
         return TableTestUtils.getIndexIdStrict(catalogService, indexName, clock.nowLong());
     }
