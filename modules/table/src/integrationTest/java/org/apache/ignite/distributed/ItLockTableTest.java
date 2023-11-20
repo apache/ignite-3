@@ -1,5 +1,6 @@
 package org.apache.ignite.distributed;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
@@ -20,6 +21,7 @@ import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.tx.DeadlockPreventionPolicy;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
+import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.impl.HeapUnboundedLockManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager.LockState;
@@ -124,6 +126,47 @@ public class ItLockTableTest extends IgniteAbstractTest {
         txTestCluster.shutdownCluster();
     }
 
+    @Test
+    public void testDeadlockRecovery() {
+        RecordView<Tuple> view = testTable.recordView();
+        Tuple t1 = tuple(0, "0");
+        assertTrue(view.insert(null, t1));
+
+        Tuple t2 = tuple(1, "1");
+        assertTrue(view.insert(null, t2));
+
+        InternalTransaction tx1 = (InternalTransaction) txTestCluster.igniteTransactions().begin();
+        InternalTransaction tx2 = (InternalTransaction) txTestCluster.igniteTransactions().begin();
+
+        LOG.info("id1={}", tx1.id());
+        LOG.info("id2={}", tx2.id());
+
+        assertTrue(tx2.id().compareTo(tx1.id()) > 0);
+
+        Tuple r1_0 = view.get(tx1, keyTuple(0));
+        Tuple r2_1 = view.get(tx2, keyTuple(1));
+
+        assertEquals(t1.stringValue("name"), r1_0.stringValue("name"));
+        assertEquals(t2.stringValue("name"), r2_1.stringValue("name"));
+
+        view.upsertAsync(tx1, tuple(1, "11"));
+        view.upsertAsync(tx2, tuple(0, "00"));
+
+        assertTrue(TestUtils.waitForCondition(() -> {
+            int total = 0;
+            HeapLockManager lockManager = (HeapLockManager) txTestCluster.txManagers.get(txTestCluster.localNodeName).lockManager();
+            for (int j = 0; j < lockManager.getSlots().length; j++) {
+                LockState slot = lockManager.getSlots()[j];
+
+                total += slot.waitersCount();
+            }
+
+            return total == 8;
+        }, 10_000), "Some lockers are missing");
+
+        tx1.commit();
+    }
+
     /**
      * Test that a lock table behaves correctly in case of lock cache overflow.
      */
@@ -195,5 +238,10 @@ public class ItLockTableTest extends IgniteAbstractTest {
         return Tuple.create()
                 .set("id", id)
                 .set("name", name);
+    }
+
+    private static Tuple keyTuple(int id) {
+        return Tuple.create()
+                .set("id", id);
     }
 }

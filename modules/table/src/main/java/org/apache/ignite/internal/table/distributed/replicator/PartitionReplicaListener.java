@@ -1009,17 +1009,19 @@ public class PartitionReplicaListener implements ReplicaListener {
         BinaryTuple exactKey = request.exactKey().asBinaryTuple();
 
         return lockManager.parentLockManager().acquire(txId, new LockKey(indexId), LockMode.IS).thenCompose(idxLock -> { // Index IS lock
-            return lockManager.parentLockManager().acquire(txId, new LockKey(tableId()), LockMode.IS).thenCompose(tblLock -> { // Table IS lock
-                return lockManager.acquire(txId, new LockKey(indexId, exactKey.byteBuffer()), LockMode.S)
-                        .thenCompose(indRowLock -> { // Hash index bucket S lock
-                            Cursor<RowId> cursor = (Cursor<RowId>) cursors.computeIfAbsent(cursorId, id -> indexStorage.get(exactKey));
+            return lockManager.parentLockManager().acquire(txId, new LockKey(tableId()), LockMode.IS) // Table IS lock
+                    .thenCompose(tblLock -> {
+                        return lockManager.acquire(txId, new LockKey(indexId, exactKey.byteBuffer()), LockMode.S)
+                                .thenCompose(indRowLock -> { // Hash index bucket S lock
+                                    Cursor<RowId> cursor = (Cursor<RowId>) cursors.computeIfAbsent(cursorId,
+                                            id -> indexStorage.get(exactKey));
 
-                            var result = new ArrayList<BinaryRow>(batchCount);
+                                    var result = new ArrayList<BinaryRow>(batchCount);
 
-                            return continueIndexLookup(txId, cursor, batchCount, result)
-                                    .thenApply(ignore -> result);
-                        });
-            });
+                                    return continueIndexLookup(txId, cursor, batchCount, result)
+                                            .thenApply(ignore -> result);
+                                });
+                    });
         });
     }
 
@@ -1052,45 +1054,47 @@ public class PartitionReplicaListener implements ReplicaListener {
         int flags = request.flags();
 
         return lockManager.parentLockManager().acquire(txId, new LockKey(indexId), LockMode.IS).thenCompose(idxLock -> { // Index IS lock
-            return lockManager.parentLockManager().acquire(txId, new LockKey(tableId()), LockMode.IS).thenCompose(tblLock -> { // Table IS lock
-                var comparator = new BinaryTupleComparator(indexStorage.indexDescriptor().columns());
+            return lockManager.parentLockManager().acquire(txId, new LockKey(tableId()), LockMode.IS) // Table IS lock
+                    .thenCompose(tblLock -> {
+                        var comparator = new BinaryTupleComparator(indexStorage.indexDescriptor().columns());
 
-                Predicate<IndexRow> isUpperBoundAchieved = indexRow -> {
-                    if (indexRow == null) {
-                        return true;
-                    }
+                        Predicate<IndexRow> isUpperBoundAchieved = indexRow -> {
+                            if (indexRow == null) {
+                                return true;
+                            }
 
-                    if (upperBound == null) {
-                        return false;
-                    }
+                            if (upperBound == null) {
+                                return false;
+                            }
 
-                    ByteBuffer buffer = upperBound.byteBuffer();
+                            ByteBuffer buffer = upperBound.byteBuffer();
 
-                    if ((flags & SortedIndexStorage.LESS_OR_EQUAL) != 0) {
-                        byte boundFlags = buffer.get(0);
+                            if ((flags & SortedIndexStorage.LESS_OR_EQUAL) != 0) {
+                                byte boundFlags = buffer.get(0);
 
-                        buffer.put(0, (byte) (boundFlags | BinaryTupleCommon.EQUALITY_FLAG));
-                    }
+                                buffer.put(0, (byte) (boundFlags | BinaryTupleCommon.EQUALITY_FLAG));
+                            }
 
-                    return comparator.compare(indexRow.indexColumns().byteBuffer(), buffer) >= 0;
-                };
+                            return comparator.compare(indexRow.indexColumns().byteBuffer(), buffer) >= 0;
+                        };
 
-                Cursor<IndexRow> cursor = (Cursor<IndexRow>) cursors.computeIfAbsent(cursorId,
-                        id -> indexStorage.scan(
-                                lowerBound,
-                                // We have to handle upperBound on a level of replication listener,
-                                // for correctness of taking of a range lock.
-                                null,
-                                flags
-                        ));
+                        Cursor<IndexRow> cursor = (Cursor<IndexRow>) cursors.computeIfAbsent(cursorId,
+                                id -> indexStorage.scan(
+                                        lowerBound,
+                                        // We have to handle upperBound on a level of replication listener,
+                                        // for correctness of taking of a range lock.
+                                        null,
+                                        flags
+                                ));
 
-                SortedIndexLocker indexLocker = (SortedIndexLocker) indexesLockers.get().get(indexId);
+                        SortedIndexLocker indexLocker = (SortedIndexLocker) indexesLockers.get().get(indexId);
 
-                var result = new ArrayList<BinaryRow>(batchCount);
+                        var result = new ArrayList<BinaryRow>(batchCount);
 
-                return continueIndexScan(txId, schemaAwareIndexStorage, indexLocker, cursor, batchCount, result, isUpperBoundAchieved)
-                        .thenApply(ignore -> result);
-            });
+                        return continueIndexScan(txId, schemaAwareIndexStorage, indexLocker, cursor, batchCount, result,
+                                isUpperBoundAchieved)
+                                .thenApply(ignore -> result);
+                    });
         });
     }
 
