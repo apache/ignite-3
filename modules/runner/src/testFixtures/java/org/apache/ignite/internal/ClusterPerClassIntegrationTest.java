@@ -317,6 +317,10 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
                 return notAvailable == 0;
             }, 10_000);
 
+            // We have no knowledge whether the next transaction is readonly or not,
+            // so we have to assume that the next transaction is read only transaction.
+            // otherwise the statements in that transaction may not observe
+            // the latest catalog version.
             waitForReadTimestampThatObservesMostRecentCatalog();
 
             return result;
