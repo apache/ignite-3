@@ -234,6 +234,7 @@ namespace Apache.Ignite.Tests
                         using var arrayBufferWriter = new PooledArrayBuffer();
                         var writer = new MsgPackWriter(arrayBufferWriter);
                         writer.Write(PartitionAssignment.Length);
+                        writer.Write(DateTime.UtcNow.Ticks); // Timestamp
 
                         foreach (var nodeId in PartitionAssignment)
                         {

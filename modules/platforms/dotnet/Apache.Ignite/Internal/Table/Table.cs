@@ -395,10 +395,16 @@ namespace Apache.Ignite.Internal.Table
         private async Task<string?[]?> LoadPartitionAssignmentAsync()
         {
             using var writer = ProtoCommon.GetMessageWriter();
-            writer.MessageWriter.Write(Id);
+            Write(writer.MessageWriter);
 
             using var resBuf = await _socket.DoOutInOpAsync(ClientOp.PartitionAssignmentGet, writer).ConfigureAwait(false);
             return Read();
+
+            void Write(MsgPackWriter w)
+            {
+                w.Write(Id);
+                w.Write(0); // TODO: Timestamp.
+            }
 
             string?[]? Read()
             {
@@ -409,6 +415,9 @@ namespace Apache.Ignite.Internal.Table
                 {
                     return null;
                 }
+
+                // TODO: Handle timestamp.
+                _ = r.ReadInt64();
 
                 var res = new string?[count];
 
