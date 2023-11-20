@@ -403,7 +403,7 @@ namespace Apache.Ignite.Internal.Table
             void Write(MsgPackWriter w)
             {
                 w.Write(Id);
-                w.Write(0); // TODO: Timestamp.
+                w.Write(0); // TODO IGNITE-20900: Send timestamp.
             }
 
             string?[]? Read()
@@ -416,7 +416,7 @@ namespace Apache.Ignite.Internal.Table
                     return null;
                 }
 
-                // TODO: Handle timestamp.
+                // TODO IGNITE-20900: Handle timestamp.
                 _ = r.ReadInt64();
 
                 var res = new string?[count];
