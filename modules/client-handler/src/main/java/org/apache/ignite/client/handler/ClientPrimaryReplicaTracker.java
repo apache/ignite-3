@@ -242,7 +242,8 @@ public class ClientPrimaryReplicaTracker implements EventListener<EventParameter
         long startTimeLong = startTime.longValue();
 
         primaryReplicas.compute(tablePartitionId, (key, existingVal) -> {
-            if (existingVal != null && existingVal.leaseStartTime != null
+            if (existingVal != null
+                    && existingVal.leaseStartTime != null
                     && existingVal.leaseStartTime.longValue() >= startTimeLong) {
                 return existingVal;
             }
@@ -252,7 +253,6 @@ public class ClientPrimaryReplicaTracker implements EventListener<EventParameter
 
         while (true) {
             long maxStartTime0 = maxStartTime.get();
-
             if (startTimeLong <= maxStartTime0) {
                 break;
             }
