@@ -871,21 +871,21 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
      * @return Transaction.
      */
     private InternalTransaction startTxWithEnlistedPartition(int partId, boolean readOnly) {
-        Ignite ignite = CLUSTER.aliveNode();
+        IgniteImpl ignite = CLUSTER.aliveNode();
 
         InternalTransaction tx = (InternalTransaction) ignite.transactions().begin(new TransactionOptions().readOnly(readOnly));
 
         InternalTable table = ((TableViewInternal) ignite.tables().table(TABLE_NAME)).internalTable();
         TablePartitionId tblPartId = new TablePartitionId(table.tableId(), partId);
 
-        PlacementDriver placementDriver = ((IgniteImpl) ignite).placementDriver();
+        PlacementDriver placementDriver = (ignite).placementDriver();
         ReplicaMeta primaryReplica = IgniteTestUtils.await(
-                placementDriver.awaitPrimaryReplica(tblPartId, ((IgniteImpl) ignite).clock().now(), 30, TimeUnit.SECONDS));
+                placementDriver.awaitPrimaryReplica(tblPartId, (ignite).clock().now(), 30, TimeUnit.SECONDS));
 
         tx.enlist(
                 tblPartId,
                 new IgniteBiTuple<>(
-                        ignite.clusterNodes().stream().filter(n -> n.name().equals(primaryReplica.getLeaseholder())).findFirst().get(),
+                        ignite.clusterNodes().stream().filter(n -> n.name().equals(primaryReplica.getLeaseholder())).findFirst().orElseThrow(),
                         primaryReplica.getStartTime().longValue()
                 )
         );
