@@ -28,7 +28,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.client.handler.ClientPrimaryReplicaTracker.PrimaryReplicasResult;
 import org.apache.ignite.internal.TestHybridClock;
-import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.InternalTable;
@@ -40,6 +39,7 @@ import org.junit.jupiter.api.Test;
 
 class ClientPrimaryReplicaTrackerTest extends BaseIgniteAbstractTest {
     private static final int PARTITIONS = 2;
+
     private static final int TABLE_ID = 123;
 
     private ClientPrimaryReplicaTracker tracker;
@@ -68,7 +68,7 @@ class ClientPrimaryReplicaTrackerTest extends BaseIgniteAbstractTest {
         tracker = new ClientPrimaryReplicaTracker(
                 driver,
                 new FakeCatalogService(PARTITIONS),
-                new TestHybridClock(() -> currentTime.get()),
+                new TestHybridClock(currentTime::get),
                 new AlwaysSyncedSchemaSyncService());
     }
 
@@ -86,10 +86,10 @@ class ClientPrimaryReplicaTrackerTest extends BaseIgniteAbstractTest {
     public void testUpdateByEvent() {
         tracker.start();
 
-        assertEquals(0, tracker.maxStartTime());
+        assertEquals(1, tracker.maxStartTime());
         driver.updateReplica("s3", TABLE_ID, 0, 2);
 
-        assertEquals(1, tracker.maxStartTime());
+        assertEquals(new HybridTimestamp(2, 0).longValue(), tracker.maxStartTime());
 
         PrimaryReplicasResult replicas = tracker.primaryReplicasAsync(TABLE_ID, null).join();
         assertEquals(PARTITIONS, replicas.nodeNames().size());
@@ -138,7 +138,7 @@ class ClientPrimaryReplicaTrackerTest extends BaseIgniteAbstractTest {
         driver.updateReplica("update-3", TABLE_ID, 0, 15);
         driver.updateReplica("old-update-4", TABLE_ID, 0, 14);
 
-        assertEquals(4, tracker.maxStartTime());
+        assertEquals(new HybridTimestamp(15, 0).longValue(), tracker.maxStartTime());
 
         PrimaryReplicasResult replicas = tracker.primaryReplicasAsync(TABLE_ID, null).join();
         assertEquals(PARTITIONS, replicas.nodeNames().size());
