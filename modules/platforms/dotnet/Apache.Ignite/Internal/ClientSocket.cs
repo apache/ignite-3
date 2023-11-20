@@ -750,6 +750,8 @@ namespace Apache.Ignite.Internal
                         $"Partition assignment change notification received [remoteAddress={ConnectionContext.ClusterNode.Address}]");
                 }
 
+                // TODO: Read and propagate assignment timestamp - separate ticket.
+                _ = reader.ReadInt64();
                 _listener.OnAssignmentChanged(this);
             }
 
