@@ -33,7 +33,7 @@ import java.util.EnumMap;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.atomic.AtomicLong;
 import javax.net.ssl.SSLException;
 import org.apache.ignite.client.handler.configuration.ClientConnectorView;
 import org.apache.ignite.client.handler.requests.cluster.ClientClusterGetNodesRequest;
@@ -172,7 +172,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
     private ChannelHandlerContext channelHandlerContext;
 
     /** Primary replicas update counter. */
-    private final AtomicReference<Long> primaryReplicaMaxStartTime;
+    private final AtomicLong primaryReplicaMaxStartTime;
 
     private final ClientPrimaryReplicaTracker primaryReplicaTracker;
 
@@ -253,7 +253,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         schemaVersions = new SchemaVersionsImpl(schemaSyncService, catalogService, clock);
         this.connectionId = connectionId;
 
-        this.primaryReplicaMaxStartTime = new AtomicReference<>(HybridTimestamp.MIN_VALUE.longValue());
+        this.primaryReplicaMaxStartTime = new AtomicLong(HybridTimestamp.MIN_VALUE.longValue());
     }
 
     @Override

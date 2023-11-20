@@ -58,6 +58,7 @@ import org.junit.jupiter.params.provider.ValueSource;
  */
 public class PartitionAwarenessTest extends AbstractClientTest {
     private static final String nodeKey0 = "server-2";
+
     private static final String nodeKey1 = "server-2";
 
     private static final String nodeKey2 = "server-1";
