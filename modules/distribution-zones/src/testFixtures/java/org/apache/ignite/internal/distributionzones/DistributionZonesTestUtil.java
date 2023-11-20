@@ -19,19 +19,13 @@ package org.apache.ignite.internal.distributionzones;
 
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_FILTER;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.updateLogicalTopologyAndVersion;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleDownChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleUpChangeTriggerKey;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesGlobalStateRevision;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyKey;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyVault;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyVersionKey;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesNodesAttributesVault;
-import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
-import static org.apache.ignite.internal.metastorage.dsl.Statements.iif;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesNodesAttributes;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
 import static org.apache.ignite.internal.util.ByteUtils.longToBytes;
@@ -44,7 +38,6 @@ import static org.junit.jupiter.api.Assertions.fail;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -61,12 +54,8 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
-import org.apache.ignite.internal.metastorage.dsl.Conditions;
-import org.apache.ignite.internal.metastorage.dsl.Iif;
-import org.apache.ignite.internal.metastorage.dsl.StatementResult;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.util.ByteUtils;
-import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
@@ -321,9 +310,12 @@ public class DistributionZonesTestUtil {
      * Sets logical topology to Vault.
      *
      * @param nodes Logical topology
-     * @param vaultMgr Vault manager
+     * @param metaStorageManager Meta storage manager
      */
-    public static void mockVaultZonesLogicalTopologyKey(Set<LogicalNode> nodes, VaultManager vaultMgr, long appliedRevision) {
+    public static void mockZonesLogicalTopologyAndAttributes(
+            Set<LogicalNode> nodes,
+            MetaStorageManager metaStorageManager
+    ) {
         Set<NodeWithAttributes> nodesWithAttributes = nodes.stream()
                 .map(n -> new NodeWithAttributes(n.name(), n.id(), n.userAttributes()))
                 .collect(toSet());
@@ -332,30 +324,10 @@ public class DistributionZonesTestUtil {
 
         Map<String, Map<String, String>> nodesAttributes = new ConcurrentHashMap<>();
         nodesWithAttributes.forEach(n -> nodesAttributes.put(n.nodeId(), n.nodeAttributes()));
-        assertThat(vaultMgr.put(zonesNodesAttributesVault(), toBytes(nodesAttributes)), willCompleteSuccessfully());
+        assertThat(metaStorageManager.put(zonesNodesAttributes(), toBytes(nodesAttributes)), willCompleteSuccessfully());
 
-        assertThat(vaultMgr.put(zonesLogicalTopologyVault(), newLogicalTopology), willCompleteSuccessfully());
-
-        assertThat(vaultMgr.put(zonesGlobalStateRevision(), longToBytes(appliedRevision)), willCompleteSuccessfully());
-    }
-
-    /**
-     * Sets logical topology to Meta Storage.
-     *
-     * @param nodes Logical topology
-     * @param topVer Topology version
-     * @param metaStorageManager Meta Storage manager.
-     */
-    public static void setLogicalTopologyInMetaStorage(Set<LogicalNode> nodes, long topVer, MetaStorageManager metaStorageManager) {
-        Iif iff = iif(
-                Conditions.exists(zonesLogicalTopologyKey()),
-                updateLogicalTopologyAndVersion(nodes, topVer),
-                ops().yield(false)
-        );
-
-        CompletableFuture<Boolean> invokeFuture = metaStorageManager.invoke(iff).thenApply(StatementResult::getAsBoolean);
-
-        assertThat(invokeFuture, willBe(true));
+        assertThat(metaStorageManager.put(zonesLogicalTopologyKey(), newLogicalTopology), willCompleteSuccessfully());
+        assertThat(metaStorageManager.put(zonesLogicalTopologyVersionKey(), longToBytes(1L)), willCompleteSuccessfully());
     }
 
     /**

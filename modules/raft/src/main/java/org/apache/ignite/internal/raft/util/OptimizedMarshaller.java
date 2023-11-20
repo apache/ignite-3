@@ -24,11 +24,11 @@ import org.apache.ignite.internal.network.direct.DirectMessageReader;
 import org.apache.ignite.internal.network.direct.DirectMessageWriter;
 import org.apache.ignite.internal.network.direct.stream.DirectByteBufferStream;
 import org.apache.ignite.internal.network.direct.stream.DirectByteBufferStreamImplV1;
+import org.apache.ignite.internal.raft.Marshaller;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.serialization.MessageReader;
 import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.network.serialization.MessageWriter;
-import org.apache.ignite.raft.jraft.util.Marshaller;
 
 /**
  * Marshaller implementation that uses a {@link DirectByteBufferStream} variant to serialize/deserialize data.

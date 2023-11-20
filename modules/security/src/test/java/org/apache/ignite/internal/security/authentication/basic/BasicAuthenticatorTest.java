@@ -23,13 +23,12 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import org.apache.ignite.internal.security.authentication.AnonymousRequest;
 import org.apache.ignite.internal.security.authentication.UserDetails;
 import org.apache.ignite.internal.security.authentication.UsernamePasswordRequest;
-import org.apache.ignite.internal.security.authentication.basic.BasicAuthenticator;
 import org.apache.ignite.security.exception.InvalidCredentialsException;
 import org.apache.ignite.security.exception.UnsupportedAuthenticationTypeException;
 import org.junit.jupiter.api.Test;
 
 class BasicAuthenticatorTest {
-    private final BasicAuthenticator authenticator = new BasicAuthenticator("admin", "password");
+    private final BasicAuthenticator authenticator = new BasicAuthenticator("basic", "admin", "password");
 
     @Test
     void authenticate() {

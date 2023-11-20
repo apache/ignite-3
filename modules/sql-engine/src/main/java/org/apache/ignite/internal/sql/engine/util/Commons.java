@@ -20,6 +20,8 @@ package org.apache.ignite.internal.sql.engine.util;
 import static org.apache.ignite.internal.sql.engine.util.BaseQueryContext.CLUSTER;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
+import static org.apache.ignite.sql.ColumnMetadata.UNDEFINED_PRECISION;
+import static org.apache.ignite.sql.ColumnMetadata.UNDEFINED_SCALE;
 
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
@@ -44,8 +46,8 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
-import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import org.apache.calcite.DataContexts;
 import org.apache.calcite.config.CalciteSystemProperty;
@@ -84,6 +86,8 @@ import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactoryImpl;
 import org.apache.ignite.internal.sql.engine.exec.exp.RexExecutorImpl;
 import org.apache.ignite.internal.sql.engine.hint.IgniteHint;
+import org.apache.ignite.internal.sql.engine.metadata.IgniteMetadata;
+import org.apache.ignite.internal.sql.engine.metadata.RelMetadataQueryEx;
 import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCostFactory;
 import org.apache.ignite.internal.sql.engine.prepare.IgniteConvertletTable;
 import org.apache.ignite.internal.sql.engine.prepare.IgniteTypeCoercion;
@@ -103,6 +107,7 @@ import org.apache.ignite.internal.type.NumberNativeType;
 import org.apache.ignite.internal.type.TemporalNativeType;
 import org.apache.ignite.internal.type.VarlenNativeType;
 import org.apache.ignite.internal.util.ArrayUtils;
+import org.apache.ignite.sql.ColumnMetadata;
 import org.codehaus.commons.compiler.CompilerFactoryFactory;
 import org.codehaus.commons.compiler.IClassBodyEvaluator;
 import org.codehaus.commons.compiler.ICompilerFactory;
@@ -112,6 +117,8 @@ import org.jetbrains.annotations.Nullable;
  * Utility methods.
  */
 public final class Commons {
+    private static final CompletableFuture<Void> COMPLETED_FUTURE = CompletableFuture.completedFuture(null);
+
     public static final String IMPLICIT_PK_COL_NAME = "__p_key";
 
     public static final int IN_BUFFER_SIZE = 512;
@@ -172,6 +179,10 @@ public final class Commons {
     private Commons() {
     }
 
+    public static CompletableFuture<Void> completedFuture() {
+        return COMPLETED_FUTURE;
+    }
+
     private static SqlTypeCoercionRule standardCompatibleCoercionRules() {
         return SqlTypeCoercionRule.instance(IgniteCustomAssigmentsRules.instance().getTypeMapping());
     }
@@ -185,7 +196,7 @@ public final class Commons {
      * @param row2 row2.
      * @return Returns field by offset.
      */
-    public static <RowT> Object getFieldFromBiRows(RowHandler<RowT> hnd, int offset, RowT row1, RowT row2) {
+    public static @Nullable <RowT> Object getFieldFromBiRows(RowHandler<RowT> hnd, int offset, RowT row1, RowT row2) {
         return offset < hnd.columnCount(row1) ? hnd.get(offset, row1) :
             hnd.get(offset - hnd.columnCount(row1), row2);
     }
@@ -273,12 +284,12 @@ public final class Commons {
      * Standalone type factory.
      */
     public static IgniteTypeFactory typeFactory() {
-        return typeFactory(cluster());
+        return typeFactory(emptyCluster());
     }
 
     /** Row-expression builder. **/
     public static RexBuilder rexBuilder() {
-        return cluster().getRexBuilder();
+        return emptyCluster().getRexBuilder();
     }
 
     /**
@@ -441,14 +452,6 @@ public final class Commons {
         }
 
         return 1 << (32 - Integer.numberOfLeadingZeros(v - 1));
-    }
-
-    /**
-     * Negate.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     */
-    public static <T> Predicate<T> negate(Predicate<T> p) {
-        return p.negate();
     }
 
     /**
@@ -647,8 +650,10 @@ public final class Commons {
     }
 
     /**
-     * NativeTypePrecision.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Gets the precision of this type. Returns {@link ColumnMetadata#UNDEFINED_PRECISION} if
+     * precision is not applicable for this type.
+     *
+     * @return Precision for current type.
      */
     public static int nativeTypePrecision(NativeType type) {
         assert type != null;
@@ -679,7 +684,7 @@ public final class Commons {
             case BOOLEAN:
             case UUID:
             case DATE:
-                return -1;
+                return UNDEFINED_PRECISION;
 
             case TIME:
             case DATETIME:
@@ -699,8 +704,10 @@ public final class Commons {
     }
 
     /**
-     * NativeTypeScale.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Gets the scale of this type. Returns {@link ColumnMetadata#UNDEFINED_SCALE} if
+     * scale is not valid for this type.
+     *
+     * @return number of digits of scale
      */
     public static int nativeTypeScale(NativeType type) {
         switch (type.spec()) {
@@ -722,7 +729,7 @@ public final class Commons {
             case BYTES:
             case STRING:
             case BITMASK:
-                return Integer.MIN_VALUE;
+                return UNDEFINED_SCALE;
 
             case DECIMAL:
                 return ((DecimalNativeType) type).scale();
@@ -750,8 +757,33 @@ public final class Commons {
         };
     }
 
-    public static RelOptCluster cluster() {
+    /**
+     * Returns cluster that can be used only as a stub to keep query tree in the cache.
+     *
+     * <p>Any attempt to invoke operation involving cluster on a tree attached to this cluster
+     * will result in an error.
+     *
+     * @return A stub of a cluster.
+     */
+    public static RelOptCluster emptyCluster() {
         return CLUSTER;
+    }
+
+    /**
+     * Returns cluster that may be used to acquire metadata from a relation tree, but should not
+     * be used for planning.
+     *
+     * @return A new cluster.
+     */
+    public static RelOptCluster cluster() {
+        RelOptCluster emptyCluster = emptyCluster();
+
+        RelOptCluster cluster = RelOptCluster.create(emptyCluster.getPlanner(), emptyCluster.getRexBuilder());
+
+        cluster.setMetadataProvider(IgniteMetadata.METADATA_PROVIDER);
+        cluster.setMetadataQuerySupplier(RelMetadataQueryEx::create);
+
+        return cluster;
     }
 
     /**

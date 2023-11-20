@@ -37,7 +37,7 @@ public class ConnectCallInput implements CallInput {
         this.password = password;
     }
 
-    String url() {
+    public String url() {
         return url;
     }
 
@@ -47,7 +47,7 @@ public class ConnectCallInput implements CallInput {
      * @return username
      */
     @Nullable
-    String username() {
+    public String username() {
         return username;
     }
 
@@ -57,7 +57,7 @@ public class ConnectCallInput implements CallInput {
      * @return password
      */
     @Nullable
-    String password() {
+    public String password() {
         return password;
     }
 

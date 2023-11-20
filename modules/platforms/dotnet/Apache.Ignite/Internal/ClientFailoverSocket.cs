@@ -331,29 +331,49 @@ namespace Apache.Ignite.Internal
 
             while (!_disposed)
             {
-                try
-                {
-                    tasks.Clear();
+                tasks.Clear();
 
-                    foreach (var endpoint in _endpoints)
+                foreach (var endpoint in _endpoints)
+                {
+                    try
                     {
-                        if (endpoint.Socket?.IsDisposed == false)
+                        var connectTask = ConnectAsync(endpoint);
+                        if (connectTask.IsCompleted)
                         {
                             continue;
                         }
 
-                        tasks.Add(ConnectAsync(endpoint).AsTask());
+                        tasks.Add(connectTask.AsTask());
                     }
-
-                    _logger?.Debug("Trying to establish secondary connections - awaiting {0} tasks...", tasks.Count);
-
-                    await Task.WhenAll(tasks).ConfigureAwait(false);
-
-                    _logger?.Debug("All secondary connections established.");
+                    catch (Exception e)
+                    {
+                        _logger?.Warn(e, "Error while trying to establish secondary connections: " + e.Message);
+                    }
                 }
-                catch (Exception e)
+
+                if (_logger?.IsEnabled(LogLevel.Debug) == true)
                 {
-                    _logger?.Warn(e, "Error while trying to establish secondary connections: " + e.Message);
+                    _logger.Debug("Trying to establish secondary connections - awaiting {0} tasks...", tasks.Count);
+                }
+
+                // Await every task separately instead of using WhenAll to capture exceptions and avoid extra allocations.
+                int failed = 0;
+                foreach (var task in tasks)
+                {
+                    try
+                    {
+                        await task.ConfigureAwait(false);
+                    }
+                    catch (Exception e)
+                    {
+                        _logger?.Warn(e, "Error while trying to establish secondary connections: " + e.Message);
+                        failed++;
+                    }
+                }
+
+                if (_logger?.IsEnabled(LogLevel.Debug) == true)
+                {
+                    _logger.Debug($"{tasks.Count - failed} secondary connections established, {failed} failed.");
                 }
 
                 if (Configuration.ReconnectInterval <= TimeSpan.Zero)
@@ -445,13 +465,13 @@ namespace Apache.Ignite.Internal
 
             await _socketLock.WaitAsync().ConfigureAwait(false);
 
-            if (endpoint.Socket?.IsDisposed == false)
-            {
-                return endpoint.Socket;
-            }
-
             try
             {
+                if (endpoint.Socket?.IsDisposed == false)
+                {
+                    return endpoint.Socket;
+                }
+
                 var socket = await ClientSocket.ConnectAsync(endpoint, Configuration, this).ConfigureAwait(false);
 
                 if (_clusterId == null)
@@ -535,14 +555,14 @@ namespace Apache.Ignite.Internal
         {
             var e = exception;
 
-            while (e != null && !(e is SocketException))
+            while (e != null && !IsConnectionError(e))
             {
                 e = e.InnerException;
             }
 
             if (e == null)
             {
-                // Only retry socket exceptions.
+                // Only retry connection errors.
                 return false;
             }
 
@@ -562,6 +582,11 @@ namespace Apache.Ignite.Internal
             var ctx = new RetryPolicyContext(new(Configuration), publicOpType.Value, attempt, exception);
 
             return retryPolicy.ShouldRetry(ctx);
+
+            static bool IsConnectionError(Exception e) =>
+                e is SocketException
+                    or IOException
+                    or IgniteClientConnectionException { Code: ErrorGroups.Client.Connection };
         }
 
         /// <summary>

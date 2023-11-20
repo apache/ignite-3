@@ -23,19 +23,18 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
-import org.apache.ignite.internal.table.TableImpl;
+import org.apache.ignite.internal.table.NodeUtils;
+import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.table.Tuple;
@@ -70,7 +69,7 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
 
     @Test
     public void testPrimaryChangeSubscription() throws Exception {
-        TableImpl tbl = (TableImpl) node(0).tables().table(TABLE_NAME);
+        TableViewInternal tbl = (TableViewInternal) node(0).tables().table(TABLE_NAME);
 
         var tblReplicationGrp = new TablePartitionId(tbl.tableId(), 0);
 
@@ -95,14 +94,14 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
             return CompletableFuture.completedFuture(false);
         });
 
-        transferPrimary(tbl, null);
+        NodeUtils.transferPrimary(tbl, null, this::node);
 
         assertTrue(primaryChanged.get());
     }
 
     @Test
     public void testPrimaryChangeLongHandling() throws Exception {
-        TableImpl tbl = (TableImpl) node(0).tables().table(TABLE_NAME);
+        TableViewInternal tbl = (TableViewInternal) node(0).tables().table(TABLE_NAME);
 
         var tblReplicationGrp = new TablePartitionId(tbl.tableId(), 0);
 
@@ -125,9 +124,9 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
 
         log.info("Primary replica is: " + primary);
 
-        transferPrimary(tbl, null);
+        NodeUtils.transferPrimary(tbl, null, this::node);
 
-        CompletableFuture<String> primaryChangeTask = IgniteTestUtils.runAsync(() -> transferPrimary(tbl, primary));
+        CompletableFuture<String> primaryChangeTask = IgniteTestUtils.runAsync(() -> NodeUtils.transferPrimary(tbl, primary, this::node));
 
         waitingForLeaderCache(tbl, primary);
 
@@ -142,7 +141,7 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
 
     @Test
     public void testLockReleaseWhenPrimaryChange() throws Exception {
-        TableImpl tbl = (TableImpl) node(0).tables().table(TABLE_NAME);
+        TableViewInternal tbl = (TableViewInternal) node(0).tables().table(TABLE_NAME);
 
         var tblReplicationGrp = new TablePartitionId(tbl.tableId(), 0);
 
@@ -165,7 +164,7 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
 
         assertTrue(ignite.txManager().lockManager().locks(rwTx.id()).hasNext());
 
-        transferPrimary(tbl, null);
+        NodeUtils.transferPrimary(tbl, null, this::node);
 
         assertFalse(ignite.txManager().lockManager().locks(rwTx.id()).hasNext());
     }
@@ -177,7 +176,7 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
      * @param primary Current primary replica name.
      * @throws InterruptedException If fail.
      */
-    private static void waitingForLeaderCache(TableImpl tbl, String primary) throws InterruptedException {
+    private static void waitingForLeaderCache(TableViewInternal tbl, String primary) throws InterruptedException {
         RaftGroupService raftSrvc = tbl.internalTable().partitionRaftGroupService(0);
 
         assertTrue(IgniteTestUtils.waitForCondition(() -> {
@@ -187,99 +186,6 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
 
             return leader != null && !leader.consistentId().equals(primary);
         }, 10_000));
-    }
-
-    /**
-     * Transfers the primary rights to another node.
-     *
-     * @param tbl Table.
-     * @param preferablePrimary Primary replica name which is preferred for being primary or {@code null}.
-     * @return Future which points to a new primary replica name.
-     * @throws InterruptedException If failed.
-     */
-    private String transferPrimary(TableImpl tbl, @Nullable String preferablePrimary) throws InterruptedException {
-        var tblReplicationGrp = new TablePartitionId(tbl.tableId(), 0);
-
-        CompletableFuture<ReplicaMeta> primaryReplicaFut = node(0).placementDriver().awaitPrimaryReplica(
-                tblReplicationGrp,
-                node(0).clock().now(),
-                AWAIT_PRIMARY_REPLICA_TIMEOUT,
-                SECONDS
-        );
-
-        assertThat(primaryReplicaFut, willCompleteSuccessfully());
-
-        String primary = primaryReplicaFut.join().getLeaseholder();
-
-        if (preferablePrimary != null && preferablePrimary.equals(primary)) {
-            return primary;
-        }
-
-        // Change leader for the replication group.
-
-        RaftGroupService raftSrvc = tbl.internalTable().partitionRaftGroupService(0);
-
-        raftSrvc.refreshLeader();
-
-        Peer leader = raftSrvc.leader();
-
-        Peer newLeader = null;
-
-        if (preferablePrimary != null) {
-            for (Peer peer : raftSrvc.peers()) {
-                if (peer.consistentId().equals(preferablePrimary)) {
-                    newLeader = peer;
-                }
-            }
-        }
-
-        if (newLeader == null) {
-            for (Peer peer : raftSrvc.peers()) {
-                if (!leader.equals(peer)) {
-                    newLeader = peer;
-                }
-            }
-        }
-
-        assertNotNull(newLeader);
-
-        assertThat(raftSrvc.transferLeadership(newLeader), willCompleteSuccessfully());
-
-        log.info("Leader moved [from={}, to={}]", leader, newLeader);
-
-        // Leader changed.
-
-        AtomicReference<String> newLeaseholder = new AtomicReference<>();
-
-        assertTrue(IgniteTestUtils.waitForCondition(() -> {
-            CompletableFuture<ReplicaMeta> newPrimaryReplicaFut = node(0).placementDriver().awaitPrimaryReplica(
-                    tblReplicationGrp,
-                    node(0).clock().now(),
-                    AWAIT_PRIMARY_REPLICA_TIMEOUT,
-                    SECONDS
-            );
-
-            assertThat(newPrimaryReplicaFut, willCompleteSuccessfully());
-
-            if (!primary.equals(newPrimaryReplicaFut.join().getLeaseholder())) {
-                newLeaseholder.set(newPrimaryReplicaFut.join().getLeaseholder());
-
-                return true;
-            } else {
-                // Insert is needed to notify the placement driver about a leader for the group was changed.
-                try {
-                    tbl.recordView().upsert(null, Tuple.create().set("key", 1).set("val", "val 1"));
-                } catch (Exception e) {
-                    log.error("Failed to perform insert", e);
-                }
-
-                return false;
-            }
-        }, 60_000));
-
-        log.info("Primary replica moved [from={}, to={}]", primary, newLeaseholder.get());
-
-        return newLeaseholder.get();
     }
 
     /**

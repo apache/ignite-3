@@ -129,7 +129,7 @@ public final class PlanningContext implements Context {
 
     /** Get type factory. */
     public IgniteTypeFactory typeFactory() {
-        return unwrap(BaseQueryContext.class).typeFactory();
+        return IgniteTypeFactory.INSTANCE;
     }
 
     /** Get new catalog reader. */

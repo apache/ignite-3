@@ -45,11 +45,12 @@ import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutorImpl;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
+import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowBuilder;
+import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.TxAttributes;
 import org.apache.ignite.internal.sql.engine.exec.mapping.FragmentDescription;
 import org.apache.ignite.internal.sql.engine.framework.ArrayRowHandler;
 import org.apache.ignite.internal.sql.engine.framework.NoOpTransaction;
-import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.thread.LogUncaughtExceptionHandler;
@@ -112,9 +113,6 @@ public abstract class AbstractExecutionTest<T> extends IgniteAbstractTest {
         FragmentDescription fragmentDesc = new FragmentDescription(0, true, Long2ObjectMaps.emptyMap(), null, null);
 
         return new ExecutionContext<>(
-                BaseQueryContext.builder()
-                        .logger(log)
-                        .build(),
                 taskExecutor,
                 UUID.randomUUID(),
                 new ClusterNodeImpl("1", "fake-test-node", NetworkAddress.from("127.0.0.1:1111")),
@@ -341,6 +339,11 @@ public abstract class AbstractExecutionTest<T> extends IgniteAbstractTest {
             @Override
             public RowHandler<Object[]> handler() {
                 return ArrayRowHandler.INSTANCE;
+            }
+
+            @Override
+            public RowBuilder<Object[]> rowBuilder() {
+                throw new UnsupportedOperationException();
             }
 
             @Override

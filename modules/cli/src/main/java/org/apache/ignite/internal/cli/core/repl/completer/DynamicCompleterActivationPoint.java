@@ -105,12 +105,6 @@ public class DynamicCompleterActivationPoint {
         );
         registry.register(
                 CompleterConf.builder()
-                        .command("connect")
-                        .singlePositionalParameter().build(),
-                nodeNameDynamicCompleterFactory
-        );
-        registry.register(
-                CompleterConf.builder()
                         .command("cluster", "init")
                         .enableOptions(Options.META_STORAGE_NODE_NAME, Options.CMG_NODE_NAME)
                         .build(),

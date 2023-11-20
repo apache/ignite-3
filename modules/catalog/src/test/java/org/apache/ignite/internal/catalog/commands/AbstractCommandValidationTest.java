@@ -67,15 +67,7 @@ abstract class AbstractCommandValidationTest extends BaseIgniteAbstractTest {
 
     static Catalog catalogWithTable(String name) {
         return catalog(
-                CreateTableCommand.builder()
-                        .schemaName(SCHEMA_NAME)
-                        .tableName(name)
-                        .columns(List.of(
-                                ColumnParams.builder().name("ID").type(INT32).build(),
-                                ColumnParams.builder().name("VAL").type(INT32).build()
-                        ))
-                        .primaryKeyColumns(List.of("ID"))
-                        .build()
+                createTableCommand(name)
         );
     }
 
@@ -89,22 +81,30 @@ abstract class AbstractCommandValidationTest extends BaseIgniteAbstractTest {
 
     static Catalog catalogWithIndex(String name) {
         return catalog(List.of(
-                CreateTableCommand.builder()
-                        .schemaName(SCHEMA_NAME)
-                        .tableName(TABLE_NAME)
-                        .columns(List.of(
-                                ColumnParams.builder().name("ID").type(INT32).build(),
-                                ColumnParams.builder().name("VAL").type(INT32).build()
-                        ))
-                        .primaryKeyColumns(List.of("ID"))
-                        .build(),
-                CreateHashIndexCommand.builder()
-                        .schemaName(SCHEMA_NAME)
-                        .indexName(name)
-                        .tableName(TABLE_NAME)
-                        .columns(List.of("VAL"))
-                        .build()
+                createTableCommand(TABLE_NAME),
+                createIndexCommand(TABLE_NAME, name)
         ));
+    }
+
+    protected static CatalogCommand createIndexCommand(String tableName, String indexName) {
+        return CreateHashIndexCommand.builder()
+                .schemaName(SCHEMA_NAME)
+                .indexName(indexName)
+                .tableName(tableName)
+                .columns(List.of("VAL"))
+                .build();
+    }
+
+    protected static CatalogCommand createTableCommand(String tableName) {
+        return CreateTableCommand.builder()
+                .schemaName(SCHEMA_NAME)
+                .tableName(tableName)
+                .columns(List.of(
+                        ColumnParams.builder().name("ID").type(INT32).build(),
+                        ColumnParams.builder().name("VAL").type(INT32).build()
+                ))
+                .primaryKeyColumns(List.of("ID"))
+                .build();
     }
 
     static Catalog catalog(CatalogCommand commandToApply) {

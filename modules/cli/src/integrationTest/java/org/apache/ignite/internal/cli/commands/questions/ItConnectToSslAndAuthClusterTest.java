@@ -59,9 +59,10 @@ class ItConnectToSslAndAuthClusterTest extends ItConnectToClusterTestBase {
         stateConfigProvider.config = TestStateConfigHelper.createLastConnectedSslDefault();
 
         // And answer to the reconnect question is "y", to the SSL configuration question is "y",
-        // trust store path and password are provided and key store is not configured
+        // trust store path and password are provided and answer to key store configuration is "n",
+        // answer to auth configuration is "y", username and password is provided and answer to save authentication is "y"
         //ToDo: check question as well IGNITE-20324
-        bindAnswers("y", "y", NodeConfig.resolvedTruststorePath, NodeConfig.trustStorePassword, "n", "y", "admin", "password");
+        bindAnswers("y", "y", NodeConfig.resolvedTruststorePath, NodeConfig.trustStorePassword, "n", "y", "admin", "password", "y");
 
         // When asked the question
         question.askQuestionOnReplStart();
@@ -74,14 +75,15 @@ class ItConnectToSslAndAuthClusterTest extends ItConnectToClusterTestBase {
         // And prompt is changed to connect
         assertThat(getPrompt()).isEqualTo("[admin:" + nodeName() + "]> ");
 
-        assertAll(() -> assertThat(configManagerProvider.get().getCurrentProperty(CliConfigKeys.REST_TRUST_STORE_PATH.value()))
+        assertAll(
+                () -> assertThat(getConfigProperty(CliConfigKeys.REST_TRUST_STORE_PATH))
                         .isEqualTo(escapeWindowsPath(NodeConfig.resolvedTruststorePath)),
-                () -> assertThat(configManagerProvider.get().getCurrentProperty(CliConfigKeys.REST_TRUST_STORE_PASSWORD.value()))
+                () -> assertThat(getConfigProperty(CliConfigKeys.REST_TRUST_STORE_PASSWORD))
                         .isEqualTo(escapeWindowsPath(NodeConfig.trustStorePassword)),
 
-                () -> assertThat(configManagerProvider.get().getCurrentProperty(CliConfigKeys.BASIC_AUTHENTICATION_USERNAME.value()))
+                () -> assertThat(getConfigProperty(CliConfigKeys.BASIC_AUTHENTICATION_USERNAME))
                         .isEqualTo("admin"),
-                () -> assertThat(configManagerProvider.get().getCurrentProperty(CliConfigKeys.BASIC_AUTHENTICATION_PASSWORD.value()))
+                () -> assertThat(getConfigProperty(CliConfigKeys.BASIC_AUTHENTICATION_PASSWORD))
                         .isEqualTo("password")
         );
     }
@@ -116,10 +118,11 @@ class ItConnectToSslAndAuthClusterTest extends ItConnectToClusterTestBase {
         // And prompt is disconnected
         assertThat(getPrompt()).isEqualTo("[disconnected]> ");
 
-        assertAll(() -> assertNull(configManagerProvider.get().getCurrentProperty(CliConfigKeys.REST_TRUST_STORE_PATH.value())),
-                () -> assertNull(configManagerProvider.get().getCurrentProperty(CliConfigKeys.REST_TRUST_STORE_PASSWORD.value())),
-                () -> assertNull(configManagerProvider.get().getCurrentProperty(CliConfigKeys.BASIC_AUTHENTICATION_USERNAME.value())),
-                () -> assertNull(configManagerProvider.get().getCurrentProperty(CliConfigKeys.BASIC_AUTHENTICATION_PASSWORD.value()))
+        assertAll(
+                () -> assertNull(getConfigProperty(CliConfigKeys.REST_TRUST_STORE_PATH)),
+                () -> assertNull(getConfigProperty(CliConfigKeys.REST_TRUST_STORE_PASSWORD)),
+                () -> assertNull(getConfigProperty(CliConfigKeys.BASIC_AUTHENTICATION_USERNAME)),
+                () -> assertNull(getConfigProperty(CliConfigKeys.BASIC_AUTHENTICATION_PASSWORD))
         );
     }
 
@@ -154,10 +157,11 @@ class ItConnectToSslAndAuthClusterTest extends ItConnectToClusterTestBase {
         // And prompt is disconnected
         assertThat(getPrompt()).isEqualTo("[disconnected]> ");
 
-        assertAll(() -> assertNull(configManagerProvider.get().getCurrentProperty(CliConfigKeys.REST_TRUST_STORE_PATH.value())),
-                () -> assertNull(configManagerProvider.get().getCurrentProperty(CliConfigKeys.REST_TRUST_STORE_PASSWORD.value())),
-                () -> assertNull(configManagerProvider.get().getCurrentProperty(CliConfigKeys.BASIC_AUTHENTICATION_USERNAME.value())),
-                () -> assertNull(configManagerProvider.get().getCurrentProperty(CliConfigKeys.BASIC_AUTHENTICATION_PASSWORD.value()))
+        assertAll(
+                () -> assertNull(getConfigProperty(CliConfigKeys.REST_TRUST_STORE_PATH)),
+                () -> assertNull(getConfigProperty(CliConfigKeys.REST_TRUST_STORE_PASSWORD)),
+                () -> assertNull(getConfigProperty(CliConfigKeys.BASIC_AUTHENTICATION_USERNAME)),
+                () -> assertNull(getConfigProperty(CliConfigKeys.BASIC_AUTHENTICATION_PASSWORD))
         );
     }
 
@@ -192,13 +196,14 @@ class ItConnectToSslAndAuthClusterTest extends ItConnectToClusterTestBase {
         // And prompt is disconnected
         assertThat(getPrompt()).isEqualTo("[disconnected]> ");
 
-        assertAll(() -> assertThat(configManagerProvider.get().getCurrentProperty(CliConfigKeys.REST_TRUST_STORE_PATH.value()))
+        assertAll(
+                () -> assertThat(getConfigProperty(CliConfigKeys.REST_TRUST_STORE_PATH))
                         .isEqualTo(escapeWindowsPath(NodeConfig.resolvedTruststorePath)),
-                () -> assertThat(configManagerProvider.get().getCurrentProperty(CliConfigKeys.REST_TRUST_STORE_PASSWORD.value()))
+                () -> assertThat(getConfigProperty(CliConfigKeys.REST_TRUST_STORE_PASSWORD))
                         .isEqualTo(escapeWindowsPath(NodeConfig.trustStorePassword)),
 
-                () -> assertNull(configManagerProvider.get().getCurrentProperty(CliConfigKeys.BASIC_AUTHENTICATION_USERNAME.value())),
-                () -> assertNull(configManagerProvider.get().getCurrentProperty(CliConfigKeys.BASIC_AUTHENTICATION_PASSWORD.value()))
+                () -> assertNull(getConfigProperty(CliConfigKeys.BASIC_AUTHENTICATION_USERNAME)),
+                () -> assertNull(getConfigProperty(CliConfigKeys.BASIC_AUTHENTICATION_PASSWORD))
         );
     }
 
@@ -231,14 +236,15 @@ class ItConnectToSslAndAuthClusterTest extends ItConnectToClusterTestBase {
         // And prompt is changed to connect
         assertThat(getPrompt()).isEqualTo("[admin:" + nodeName() + "]> ");
 
-        assertAll(() -> assertThat(configManagerProvider.get().getCurrentProperty(CliConfigKeys.REST_TRUST_STORE_PATH.value()))
+        assertAll(
+                () -> assertThat(getConfigProperty(CliConfigKeys.REST_TRUST_STORE_PATH))
                         .isEqualTo(escapeWindowsPath(NodeConfig.resolvedTruststorePath)),
-                () -> assertThat(configManagerProvider.get().getCurrentProperty(CliConfigKeys.REST_TRUST_STORE_PASSWORD.value()))
+                () -> assertThat(getConfigProperty(CliConfigKeys.REST_TRUST_STORE_PASSWORD))
                         .isEqualTo(escapeWindowsPath(NodeConfig.trustStorePassword)),
 
-                () -> assertThat(configManagerProvider.get().getCurrentProperty(CliConfigKeys.BASIC_AUTHENTICATION_USERNAME.value()))
+                () -> assertThat(getConfigProperty(CliConfigKeys.BASIC_AUTHENTICATION_USERNAME))
                         .isEqualTo("admin"),
-                () -> assertThat(configManagerProvider.get().getCurrentProperty(CliConfigKeys.BASIC_AUTHENTICATION_PASSWORD.value()))
+                () -> assertThat(getConfigProperty(CliConfigKeys.BASIC_AUTHENTICATION_PASSWORD))
                         .isEqualTo("password")
         );
     }
@@ -257,9 +263,10 @@ class ItConnectToSslAndAuthClusterTest extends ItConnectToClusterTestBase {
         // And last connected URL is equal to the default URL
         stateConfigProvider.config = TestStateConfigHelper.createLastConnectedSslDefault();
 
-        // And answer to the reconnect question is "y", to the SSL configuration question is "y",
-        // trust store path and password are provided and key store is not configured
-        bindAnswers("y", NodeConfig.resolvedTruststorePath, NodeConfig.trustStorePassword, "n", "y", "admin", "password");
+        // And answer to the SSL configuration question is "y", trust store path and password are provided
+        // and answer to key store configuration is "n", answer to auth configuration is "y", username and password is provided
+        // and answer to save authentication is "y"
+        bindAnswers("y", NodeConfig.resolvedTruststorePath, NodeConfig.trustStorePassword, "n", "y", "admin", "password", "y");
 
         // When connect with auth parameters
         execute("connect", "--username", "admin", "--password", "wrong-password");
@@ -272,14 +279,15 @@ class ItConnectToSslAndAuthClusterTest extends ItConnectToClusterTestBase {
         // And prompt is changed to connect
         assertThat(getPrompt()).isEqualTo("[admin:" + nodeName() + "]> ");
 
-        assertAll(() -> assertThat(configManagerProvider.get().getCurrentProperty(CliConfigKeys.REST_TRUST_STORE_PATH.value()))
+        assertAll(
+                () -> assertThat(getConfigProperty(CliConfigKeys.REST_TRUST_STORE_PATH))
                         .isEqualTo(escapeWindowsPath(NodeConfig.resolvedTruststorePath)),
-                () -> assertThat(configManagerProvider.get().getCurrentProperty(CliConfigKeys.REST_TRUST_STORE_PASSWORD.value()))
+                () -> assertThat(getConfigProperty(CliConfigKeys.REST_TRUST_STORE_PASSWORD))
                         .isEqualTo(escapeWindowsPath(NodeConfig.trustStorePassword)),
 
-                () -> assertThat(configManagerProvider.get().getCurrentProperty(CliConfigKeys.BASIC_AUTHENTICATION_USERNAME.value()))
+                () -> assertThat(getConfigProperty(CliConfigKeys.BASIC_AUTHENTICATION_USERNAME))
                         .isEqualTo("admin"),
-                () -> assertThat(configManagerProvider.get().getCurrentProperty(CliConfigKeys.BASIC_AUTHENTICATION_PASSWORD.value()))
+                () -> assertThat(getConfigProperty(CliConfigKeys.BASIC_AUTHENTICATION_PASSWORD))
                         .isEqualTo("password")
         );
     }
@@ -298,10 +306,11 @@ class ItConnectToSslAndAuthClusterTest extends ItConnectToClusterTestBase {
         // And last connected URL is equal to the default URL
         stateConfigProvider.config = TestStateConfigHelper.createLastConnectedSslDefault();
 
-        // And answer to the reconnect question is "y", to the SSL configuration question is "y",
-        // trust store path and password are provided and key store is not configured
+        // And answer to the SSL configuration question is "y", trust store path and password are provided
+        // and answer to key store configuration is "n", answer to auth configuration is "y", username and password is provided
+        // and answer to save authentication is "y"
         //ToDo: check question as well IGNITE-20324
-        bindAnswers("y", NodeConfig.resolvedTruststorePath, NodeConfig.trustStorePassword, "n", "y", "admin", "password");
+        bindAnswers("y", NodeConfig.resolvedTruststorePath, NodeConfig.trustStorePassword, "n", "y", "admin", "password", "y");
 
         // When connect with auth parameters
         execute("connect");
@@ -314,14 +323,15 @@ class ItConnectToSslAndAuthClusterTest extends ItConnectToClusterTestBase {
         // And prompt is changed to connect
         assertThat(getPrompt()).isEqualTo("[admin:" + nodeName() + "]> ");
 
-        assertAll(() -> assertThat(configManagerProvider.get().getCurrentProperty(CliConfigKeys.REST_TRUST_STORE_PATH.value()))
+        assertAll(
+                () -> assertThat(getConfigProperty(CliConfigKeys.REST_TRUST_STORE_PATH))
                         .isEqualTo(escapeWindowsPath(NodeConfig.resolvedTruststorePath)),
-                () -> assertThat(configManagerProvider.get().getCurrentProperty(CliConfigKeys.REST_TRUST_STORE_PASSWORD.value()))
+                () -> assertThat(getConfigProperty(CliConfigKeys.REST_TRUST_STORE_PASSWORD))
                         .isEqualTo(escapeWindowsPath(NodeConfig.trustStorePassword)),
 
-                () -> assertThat(configManagerProvider.get().getCurrentProperty(CliConfigKeys.BASIC_AUTHENTICATION_USERNAME.value()))
+                () -> assertThat(getConfigProperty(CliConfigKeys.BASIC_AUTHENTICATION_USERNAME))
                         .isEqualTo("admin"),
-                () -> assertThat(configManagerProvider.get().getCurrentProperty(CliConfigKeys.BASIC_AUTHENTICATION_PASSWORD.value()))
+                () -> assertThat(getConfigProperty(CliConfigKeys.BASIC_AUTHENTICATION_PASSWORD))
                         .isEqualTo("password")
         );
     }

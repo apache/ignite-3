@@ -17,11 +17,11 @@
 
 package org.apache.ignite.internal.raft.server;
 
+import org.apache.ignite.internal.raft.Marshaller;
 import org.apache.ignite.internal.raft.RaftNodeDisruptorConfiguration;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.raft.storage.RaftMetaStorageFactory;
 import org.apache.ignite.internal.raft.storage.SnapshotStorageFactory;
-import org.apache.ignite.raft.jraft.util.Marshaller;
 import org.jetbrains.annotations.Nullable;
 
 /**

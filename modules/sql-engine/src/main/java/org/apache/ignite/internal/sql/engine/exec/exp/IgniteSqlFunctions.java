@@ -20,7 +20,7 @@ package org.apache.ignite.internal.sql.engine.exec.exp;
 import static java.time.format.DateTimeFormatter.ISO_LOCAL_DATE;
 import static java.time.format.DateTimeFormatter.ISO_LOCAL_TIME;
 import static org.apache.calcite.runtime.SqlFunctions.charLength;
-import static org.apache.calcite.runtime.SqlFunctions.octetLength;
+import static org.apache.ignite.internal.sql.engine.prepare.IgniteSqlValidator.NUMERIC_FIELD_OVERFLOW_ERROR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.RUNTIME_ERR;
 
 import java.math.BigDecimal;
@@ -44,6 +44,7 @@ import org.apache.calcite.linq4j.Linq4j;
 import org.apache.calcite.linq4j.function.NonDeterministic;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
+import org.apache.calcite.runtime.SqlFunctions;
 import org.apache.calcite.schema.ScannableTable;
 import org.apache.calcite.schema.Schema;
 import org.apache.calcite.schema.Statistic;
@@ -61,7 +62,6 @@ import org.jetbrains.annotations.Nullable;
  */
 public class IgniteSqlFunctions {
     private static final DateTimeFormatter ISO_LOCAL_DATE_TIME_EX;
-    private static final String NUMERIC_FIELD_OVERFLOW_ERROR = "Numeric field overflow";
     private static final RoundingMode roundingMode = RoundingMode.HALF_UP;
 
     static {
@@ -125,7 +125,17 @@ public class IgniteSqlFunctions {
 
     /** LENGTH(VARBINARY|VARCHAR). */
     public static int length(Object b) {
-        return b instanceof ByteString ? octetLength((ByteString) b) : charLength((String) b);
+        return b instanceof ByteString ? SqlFunctions.octetLength((ByteString) b) : charLength((String) b);
+    }
+
+    /** OCTET_LENGTH(VARBINARY). */
+    public static int octetLength(ByteString s) {
+        return s.length();
+    }
+
+    /** OCTET_LENGTH(VARCHAR). */
+    public static int octetLength(String s) {
+        return s.getBytes().length;
     }
 
     // SQL ROUND function

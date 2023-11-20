@@ -71,6 +71,7 @@ import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
+import org.apache.ignite.internal.raft.util.ThreadLocalOptimizedMarshaller;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
@@ -465,10 +466,12 @@ public class ActiveActorTest extends IgniteAbstractTest {
 
                 var dataPath = workDir.resolve("raft_" + localPeer.consistentId());
 
+                NodeOptions nodeOptions = new NodeOptions();
+                nodeOptions.setCommandsMarshaller(new ThreadLocalOptimizedMarshaller(cluster.serializationRegistry()));
                 var raftServer = new JraftServerImpl(
                         cluster,
                         dataPath,
-                        new NodeOptions(),
+                        nodeOptions,
                         eventsClientListener
                 );
                 raftServer.start();
@@ -527,7 +530,8 @@ public class ActiveActorTest extends IgniteAbstractTest {
                 executor,
                 new LogicalTopologyServiceTestImpl(localClusterService),
                 eventsClientListener,
-                notifyOnSubscription
+                notifyOnSubscription,
+                new ThreadLocalOptimizedMarshaller(localClusterService.serializationRegistry())
         ).join();
     }
 

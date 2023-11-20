@@ -58,6 +58,32 @@ class OrderingFutureCallbackInterferenceTest {
     }
 
     @Test
+    void composeDoesNotInterfereWithEachOther() {
+        OrderingFuture<Integer> future = new OrderingFuture<>();
+
+        List<Integer> order = new CopyOnWriteArrayList<>();
+
+        future.thenCompose(x -> {
+            throw cause;
+        });
+        future.thenCompose(x -> {
+            order.add(1);
+            return OrderingFuture.completedFuture(null);
+        });
+        future.thenCompose(x -> {
+            throw cause;
+        });
+        future.thenCompose(x -> {
+            order.add(2);
+            return OrderingFuture.completedFuture(null);
+        });
+
+        future.complete(1);
+
+        assertThat(order, contains(1, 2));
+    }
+
+    @Test
     void whenCompleteDoesNotInterfereWithEachOther() {
         OrderingFuture<Integer> future = new OrderingFuture<>();
 

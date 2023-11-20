@@ -29,7 +29,6 @@ import org.apache.ignite.internal.security.authentication.AuthenticationManager;
  */
 @Factory
 public class AuthenticationProviderFactory implements RestFactory {
-
     private AuthenticationManager authenticationManager;
 
     public AuthenticationProviderFactory(AuthenticationManager authenticationManager) {
@@ -39,12 +38,12 @@ public class AuthenticationProviderFactory implements RestFactory {
     /**
      * Create a bean of {@link AuthenticationProvider}.
      *
-     * @return {@link DelegatingAuthenticationProvider}
+     * @return {@link IgniteAuthenticationProvider}
      */
     @Bean
     @Singleton
-    public DelegatingAuthenticationProvider authenticationProvider() {
-        return new DelegatingAuthenticationProvider(authenticationManager);
+    public IgniteAuthenticationProvider authenticationProvider() {
+        return new IgniteAuthenticationProvider(authenticationManager);
     }
 
     @Override

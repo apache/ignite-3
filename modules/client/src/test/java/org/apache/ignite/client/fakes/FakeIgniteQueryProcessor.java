@@ -17,42 +17,39 @@
 
 package org.apache.ignite.client.fakes;
 
-import java.util.Collections;
 import java.util.List;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
-import org.apache.ignite.internal.sql.engine.QueryContext;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
-import org.apache.ignite.internal.sql.engine.property.PropertiesHolder;
-import org.apache.ignite.internal.sql.engine.session.SessionId;
-import org.apache.ignite.internal.sql.engine.session.SessionInfo;
+import org.apache.ignite.internal.sql.engine.property.SqlProperties;
+import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.tx.IgniteTransactions;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Fake {@link QueryProcessor}.
  */
 public class FakeIgniteQueryProcessor implements QueryProcessor {
     @Override
-    public SessionId createSession(PropertiesHolder properties) {
-        return new SessionId(UUID.randomUUID());
-    }
-
-    @Override
-    public CompletableFuture<Void> closeSession(SessionId sessionId) {
-        return CompletableFuture.completedFuture(null);
-    }
-
-    @Override
-    public List<SessionInfo> liveSessions() {
-        return Collections.emptyList();
-    }
-
-    @Override
     public CompletableFuture<AsyncSqlCursor<List<Object>>> querySingleAsync(
-            SessionId sessionid, QueryContext context, IgniteTransactions transactions, String qry,
-            Object... params) {
+            SqlProperties properties,
+            IgniteTransactions transactions,
+            @Nullable InternalTransaction transaction,
+            String qry,
+            Object... params
+    ) {
         return CompletableFuture.completedFuture(new FakeCursor());
+    }
+
+    @Override
+    public CompletableFuture<AsyncSqlCursor<List<Object>>> queryScriptAsync(
+            SqlProperties properties,
+            IgniteTransactions transactions,
+            @Nullable InternalTransaction transaction,
+            String qry,
+            Object... params
+    ) {
+        throw new UnsupportedOperationException();
     }
 
     @Override
@@ -61,7 +58,7 @@ public class FakeIgniteQueryProcessor implements QueryProcessor {
     }
 
     @Override
-    public void stop() throws Exception {
+    public void stop() {
 
     }
 }

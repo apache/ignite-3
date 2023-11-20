@@ -74,17 +74,17 @@ import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.calcite.util.Util;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.lang.IgniteStringBuilder;
+import org.apache.ignite.internal.sql.engine.exec.mapping.IdGenerator;
+import org.apache.ignite.internal.sql.engine.exec.mapping.QuerySplitter;
 import org.apache.ignite.internal.sql.engine.externalize.RelJsonReader;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders.HashIndexBuilder;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders.SortedIndexBuilder;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders.TableBuilder;
-import org.apache.ignite.internal.sql.engine.prepare.Cloner;
 import org.apache.ignite.internal.sql.engine.prepare.Fragment;
 import org.apache.ignite.internal.sql.engine.prepare.IgnitePlanner;
 import org.apache.ignite.internal.sql.engine.prepare.PlannerHelper;
 import org.apache.ignite.internal.sql.engine.prepare.PlanningContext;
-import org.apache.ignite.internal.sql.engine.prepare.QuerySplitter;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.SearchBounds;
 import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
@@ -269,13 +269,13 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
         }
 
         return BaseQueryContext.builder()
+                .queryId(UUID.randomUUID())
                 .frameworkConfig(
                         newConfigBuilder(FRAMEWORK_CONFIG)
                                 .defaultSchema(dfltSchema)
                                 .sqlToRelConverterConfig(relConvCfg)
                                 .build()
                 )
-                .logger(log)
                 .parameters(params)
                 .build();
     }
@@ -644,9 +644,7 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
         assertNotNull(rel);
         assertFalse(schemas.isEmpty());
 
-        rel = Cloner.clone(rel);
-
-        List<Fragment> fragments = new QuerySplitter().go(rel);
+        List<Fragment> fragments = new QuerySplitter(new IdGenerator(0), rel.getCluster()).split(rel);
         List<String> serialized = new ArrayList<>(fragments.size());
 
         for (Fragment fragment : fragments) {

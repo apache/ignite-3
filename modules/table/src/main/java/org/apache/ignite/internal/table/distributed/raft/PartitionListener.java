@@ -40,11 +40,13 @@ import java.util.function.Consumer;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.lang.SafeTimeReorderException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.ReadCommand;
 import org.apache.ignite.internal.raft.WriteCommand;
+import org.apache.ignite.internal.raft.service.BeforeApplyHandler;
 import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.raft.service.CommittedConfiguration;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
@@ -77,7 +79,7 @@ import org.jetbrains.annotations.TestOnly;
 /**
  * Partition command handler.
  */
-public class PartitionListener implements RaftGroupListener {
+public class PartitionListener implements RaftGroupListener, BeforeApplyHandler {
     /** Transaction manager. */
     private final TxManager txManager;
 
@@ -98,6 +100,15 @@ public class PartitionListener implements RaftGroupListener {
 
     /** Storage index tracker. */
     private final PendingComparableValuesTracker<Long, Void> storageIndexTracker;
+
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-20826 Restore on restart
+    /** Is used in order to detect and retry safe time reordering within onBeforeApply. */
+    private long maxObservableSafeTime = -1;
+
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-20826 Restore on restart
+    /** Is used in order to assert safe time reordering within onWrite. */
+    private long maxObservableSafeTimeVerifier = -1;
+
 
     /**
      * The constructor.
@@ -147,6 +158,16 @@ public class PartitionListener implements RaftGroupListener {
     public void onWrite(Iterator<CommandClosure<WriteCommand>> iterator) {
         iterator.forEachRemaining((CommandClosure<? extends WriteCommand> clo) -> {
             Command command = clo.command();
+
+            if (command instanceof SafeTimePropagatingCommand) {
+                SafeTimePropagatingCommand cmd = (SafeTimePropagatingCommand) command;
+                long proposedSafeTime = cmd.safeTime().longValue();
+
+                assert proposedSafeTime > maxObservableSafeTimeVerifier : "Safe time reordering detected [current="
+                        + maxObservableSafeTimeVerifier + ", proposed=" + proposedSafeTime + "]";
+
+                maxObservableSafeTimeVerifier = proposedSafeTime;
+            }
 
             long commandIndex = clo.index();
             long commandTerm = clo.term();
@@ -210,7 +231,9 @@ public class PartitionListener implements RaftGroupListener {
 
                 assert safeTimePropagatingCommand.safeTime() != null;
 
-                updateTrackerIgnoringTrackerClosedException(safeTime, safeTimePropagatingCommand.safeTime());
+                synchronized (safeTime) {
+                    updateTrackerIgnoringTrackerClosedException(safeTime, safeTimePropagatingCommand.safeTime());
+                }
             }
 
             updateTrackerIgnoringTrackerClosedException(storageIndexTracker, commandIndex);
@@ -233,7 +256,11 @@ public class PartitionListener implements RaftGroupListener {
         // TODO: https://issues.apache.org/jira/browse/IGNITE-20124 Proper storage/raft index handling is required.
         synchronized (safeTime) {
             if (cmd.safeTime().compareTo(safeTime.current()) > 0) {
-                storageUpdateHandler.handleUpdate(cmd.txId(), cmd.rowUuid(), cmd.tablePartitionId().asTablePartitionId(), cmd.row(),
+                storageUpdateHandler.handleUpdate(
+                        cmd.txId(),
+                        cmd.rowUuid(),
+                        cmd.tablePartitionId().asTablePartitionId(),
+                        cmd.rowToUpdate(),
                         !cmd.full(),
                         () -> storage.lastApplied(commandIndex, commandTerm),
                         cmd.full() ? cmd.safeTime() : null,
@@ -262,11 +289,13 @@ public class PartitionListener implements RaftGroupListener {
         // TODO: https://issues.apache.org/jira/browse/IGNITE-20124 Proper storage/raft index handling is required.
         synchronized (safeTime) {
             if (cmd.safeTime().compareTo(safeTime.current()) > 0) {
-                storageUpdateHandler.handleUpdateAll(cmd.txId(), cmd.rowsToUpdate(), cmd.tablePartitionId().asTablePartitionId(),
+                storageUpdateHandler.handleUpdateAll(
+                        cmd.txId(),
+                        cmd.rowsToUpdate(),
+                        cmd.tablePartitionId().asTablePartitionId(),
                         !cmd.full(),
                         () -> storage.lastApplied(commandIndex, commandTerm),
-                        cmd.full() ? cmd.safeTime() : null,
-                        cmd.lastCommitTimestamps()
+                        cmd.full() ? cmd.safeTime() : null
                 );
 
                 updateTrackerIgnoringTrackerClosedException(safeTime, cmd.safeTime());
@@ -445,6 +474,23 @@ public class PartitionListener implements RaftGroupListener {
     @Override
     public void onShutdown() {
         storage.close();
+    }
+
+    @Override
+    public boolean onBeforeApply(Command command) {
+        // This method is synchronized by replication group specific monitor, see ActionRequestProcessor#handleRequest.
+        if (command instanceof SafeTimePropagatingCommand) {
+            SafeTimePropagatingCommand cmd = (SafeTimePropagatingCommand) command;
+            long proposedSafeTime = cmd.safeTime().longValue();
+
+            if (proposedSafeTime > maxObservableSafeTime) {
+                maxObservableSafeTime = proposedSafeTime;
+            } else {
+                throw new SafeTimeReorderException();
+            }
+        }
+
+        return false;
     }
 
     /**

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.network.netty;
 
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureCompletedMatcher.completedFuture;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.defaultSerializationRegistry;
@@ -65,8 +66,10 @@ import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.OutNetworkObject;
 import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
@@ -83,6 +86,13 @@ public class ItConnectionManagerTest extends BaseIgniteAbstractTest {
     /** Reusable network configuration object. */
     @InjectConfiguration
     private NetworkConfiguration networkConfiguration;
+
+    private TestInfo testInfo;
+
+    @BeforeEach
+    void setTestInfo(TestInfo testInfo) {
+        this.testInfo = testInfo;
+    }
 
     /**
      * After each.
@@ -103,7 +113,6 @@ public class ItConnectionManagerTest extends BaseIgniteAbstractTest {
 
         int port1 = 4000;
         int port2 = 4001;
-
 
         try (ConnectionManagerWrapper manager1 = startManager(port1);
                 ConnectionManagerWrapper manager2 = startManager(port2)) {
@@ -187,6 +196,10 @@ public class ItConnectionManagerTest extends BaseIgniteAbstractTest {
         ConnectionManagerWrapper manager2 = startManager(port2);
 
         NettySender sender1 = manager1.openChannelTo(manager2).get(3, TimeUnit.SECONDS);
+
+        // Wait for the channel to appear on the recipient side.
+        waitForCondition(() -> !manager2.channels().isEmpty(), 10_000);
+
         NettySender sender2 = manager2.openChannelTo(manager1).get(3, TimeUnit.SECONDS);
 
         assertNotNull(sender1);
@@ -428,7 +441,7 @@ public class ItConnectionManagerTest extends BaseIgniteAbstractTest {
      */
     private ConnectionManagerWrapper startManager(int port, MessageSerializationRegistry registry) throws Exception {
         UUID launchId = UUID.randomUUID();
-        String consistentId = UUID.randomUUID().toString();
+        String consistentId = testNodeName(testInfo, port);
 
         networkConfiguration.port().update(port).join();
 
@@ -485,7 +498,7 @@ public class ItConnectionManagerTest extends BaseIgniteAbstractTest {
             );
         }
 
-        public Map<ConnectorKey<String>, NettySender> channels() {
+        Map<ConnectorKey<String>, NettySender> channels() {
             return connectionManager.channels();
         }
     }

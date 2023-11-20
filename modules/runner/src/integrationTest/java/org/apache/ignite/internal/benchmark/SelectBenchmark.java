@@ -38,6 +38,7 @@ import org.openjdk.jmh.annotations.Fork;
 import org.openjdk.jmh.annotations.Measurement;
 import org.openjdk.jmh.annotations.Mode;
 import org.openjdk.jmh.annotations.OutputTimeUnit;
+import org.openjdk.jmh.annotations.Param;
 import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
@@ -55,16 +56,21 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 @State(Scope.Benchmark)
 @Fork(1)
 @Threads(1)
+@Warmup(iterations = 10, time = 2)
+@Measurement(iterations = 20, time = 2)
 @BenchmarkMode(Mode.AverageTime)
 @OutputTimeUnit(TimeUnit.MICROSECONDS)
 @SuppressWarnings({"WeakerAccess", "unused"})
-public class SelectBenchmark extends AbstractOneNodeBenchmark {
+public class SelectBenchmark extends AbstractMultiNodeBenchmark {
     private static final int TABLE_SIZE = 30_000;
     private static final String SELECT_ALL_FROM_USERTABLE = "select * from usertable where ycsb_key = ?";
 
     private final Random random = new Random();
 
     private KeyValueView<Tuple, Tuple> keyValueView;
+
+    @Param({"1", "2", "3"})
+    private int clusterSize;
 
     /**
      * Fills the table with data.
@@ -89,8 +95,6 @@ public class SelectBenchmark extends AbstractOneNodeBenchmark {
      * Benchmark for SQL select via embedded client.
      */
     @Benchmark
-    @Warmup(iterations = 1, time = 10)
-    @Measurement(iterations = 1, time = 20)
     public void sqlGet(SqlState sqlState) {
         try (var rs = sqlState.sql(SELECT_ALL_FROM_USERTABLE, random.nextInt(TABLE_SIZE))) {
             rs.next();
@@ -101,8 +105,6 @@ public class SelectBenchmark extends AbstractOneNodeBenchmark {
      * Benchmark for SQL select via thin client.
      */
     @Benchmark
-    @Warmup(iterations = 1, time = 10)
-    @Measurement(iterations = 1, time = 20)
     public void sqlThinGet(SqlThinState sqlState) {
         try (var rs = sqlState.sql(SELECT_ALL_FROM_USERTABLE, random.nextInt(TABLE_SIZE))) {
             rs.next();
@@ -113,8 +115,6 @@ public class SelectBenchmark extends AbstractOneNodeBenchmark {
      * Benchmark for JDBC get.
      */
     @Benchmark
-    @Warmup(iterations = 1, time = 10)
-    @Measurement(iterations = 1, time = 20)
     public void jdbcGet(JdbcState state) throws SQLException {
         state.stmt.setInt(1, random.nextInt(TABLE_SIZE));
         try (ResultSet r = state.stmt.executeQuery()) {
@@ -126,8 +126,6 @@ public class SelectBenchmark extends AbstractOneNodeBenchmark {
      * Benchmark for KV get via embedded client.
      */
     @Benchmark
-    @Warmup(iterations = 1, time = 10)
-    @Measurement(iterations = 1, time = 20)
     public void kvGet() {
         keyValueView.get(null, Tuple.create().set("ycsb_key", random.nextInt(TABLE_SIZE)));
     }
@@ -136,8 +134,6 @@ public class SelectBenchmark extends AbstractOneNodeBenchmark {
      * Benchmark for KV get via thin client.
      */
     @Benchmark
-    @Warmup(iterations = 1, time = 10)
-    @Measurement(iterations = 1, time = 20)
     public void kvThinGet(KvThinState kvState) {
         kvState.kvView().get(null, Tuple.create().set("ycsb_key", random.nextInt(TABLE_SIZE)));
     }
@@ -269,6 +265,11 @@ public class SelectBenchmark extends AbstractOneNodeBenchmark {
         KeyValueView<Tuple, Tuple> kvView() {
             return kvView;
         }
+    }
+
+    @Override
+    protected int nodes() {
+        return clusterSize;
     }
 }
 

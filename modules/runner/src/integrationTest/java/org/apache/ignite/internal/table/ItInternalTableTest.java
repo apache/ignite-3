@@ -155,7 +155,7 @@ public class ItInternalTableTest extends BaseIgniteAbstractTest {
     public void testRoGet() throws Exception {
         IgniteImpl node = node();
 
-        InternalTable internalTable = ((TableImpl) table).internalTable();
+        InternalTable internalTable = ((TableViewInternal) table).internalTable();
 
         Row keyValueRow = createKeyValueRow(1, 1, "some string row" + 1);
         Row keyRow = createKeyRow(1);
@@ -177,7 +177,7 @@ public class ItInternalTableTest extends BaseIgniteAbstractTest {
     public void testRoGetWithSeveralInserts() throws Exception {
         IgniteImpl node = node();
 
-        InternalTable internalTable = ((TableImpl) table).internalTable();
+        InternalTable internalTable = ((TableViewInternal) table).internalTable();
 
         Row keyValueRow = createKeyValueRow(1, 1, "some string row" + 1);
 
@@ -209,7 +209,7 @@ public class ItInternalTableTest extends BaseIgniteAbstractTest {
     public void testRoScanWithSeveralInserts() throws Exception {
         IgniteImpl node = node();
 
-        InternalTable internalTable = ((TableImpl) table).internalTable();
+        InternalTable internalTable = ((TableViewInternal) table).internalTable();
 
         Row keyValueRow = createKeyValueRow(1, 1, "some string row" + 1);
 
@@ -241,7 +241,7 @@ public class ItInternalTableTest extends BaseIgniteAbstractTest {
     public void testRoGetOngoingCommitIsNotVisible() throws Exception {
         IgniteImpl node = node();
 
-        InternalTable internalTable = ((TableImpl) table).internalTable();
+        InternalTable internalTable = ((TableViewInternal) table).internalTable();
 
         Row keyRow = createKeyRow(1);
 
@@ -276,7 +276,7 @@ public class ItInternalTableTest extends BaseIgniteAbstractTest {
     public void testRoGetAll() throws Exception {
         IgniteImpl node = node();
 
-        InternalTable internalTable = ((TableImpl) table).internalTable();
+        InternalTable internalTable = ((TableViewInternal) table).internalTable();
 
         var keyRows = new ArrayList<BinaryRowEx>();
         var keyValueRows = new ArrayList<BinaryRowEx>();
@@ -307,7 +307,7 @@ public class ItInternalTableTest extends BaseIgniteAbstractTest {
     public void testRoGetAllWithSeveralInserts() throws Exception {
         IgniteImpl node = node();
 
-        InternalTable internalTable = ((TableImpl) table).internalTable();
+        InternalTable internalTable = ((TableViewInternal) table).internalTable();
 
         var keyRows = new ArrayList<BinaryRowEx>();
         var keyValueRows = new ArrayList<BinaryRowEx>();
@@ -358,8 +358,8 @@ public class ItInternalTableTest extends BaseIgniteAbstractTest {
     public void getAllOrderTest() {
         List<BinaryRowEx> keyRows = populateEvenKeysAndPrepareEntriesToLookup(true);
 
-        InternalTable internalTable = ((TableImpl) table).internalTable();
-        SchemaDescriptor schemaDescriptor = ((TableImpl) table).schemaView().lastKnownSchema();
+        InternalTable internalTable = ((TableViewInternal) table).internalTable();
+        SchemaDescriptor schemaDescriptor = ((TableViewInternal) table).schemaView().lastKnownSchema();
 
         CompletableFuture<List<BinaryRow>> getAllFut = internalTable.getAll(keyRows, null);
 
@@ -394,8 +394,8 @@ public class ItInternalTableTest extends BaseIgniteAbstractTest {
     public void deleteAllOrderTest() {
         List<BinaryRowEx> keyRows = populateEvenKeysAndPrepareEntriesToLookup(true);
 
-        InternalTable internalTable = ((TableImpl) table).internalTable();
-        SchemaDescriptor schemaDescriptor = ((TableImpl) table).schemaView().lastKnownSchema();
+        InternalTable internalTable = ((TableViewInternal) table).internalTable();
+        SchemaDescriptor schemaDescriptor = ((TableViewInternal) table).schemaView().lastKnownSchema();
 
         CompletableFuture<List<BinaryRow>> deleteAllFut = internalTable.deleteAll(keyRows, null);
 
@@ -420,8 +420,8 @@ public class ItInternalTableTest extends BaseIgniteAbstractTest {
     public void deleteAllExactOrderTest() {
         List<BinaryRowEx> rowsToLookup = populateEvenKeysAndPrepareEntriesToLookup(false);
 
-        InternalTable internalTable = ((TableImpl) table).internalTable();
-        SchemaDescriptor schemaDescriptor = ((TableImpl) table).schemaView().lastKnownSchema();
+        InternalTable internalTable = ((TableViewInternal) table).internalTable();
+        SchemaDescriptor schemaDescriptor = ((TableViewInternal) table).schemaView().lastKnownSchema();
 
         CompletableFuture<List<BinaryRow>> deleteAllExactFut = internalTable.deleteAllExact(rowsToLookup, null);
 
@@ -448,8 +448,8 @@ public class ItInternalTableTest extends BaseIgniteAbstractTest {
     public void insertAllOrderTest() {
         List<BinaryRowEx> rowsToLookup = populateEvenKeysAndPrepareEntriesToLookup(false);
 
-        InternalTable internalTable = ((TableImpl) table).internalTable();
-        SchemaDescriptor schemaDescriptor = ((TableImpl) table).schemaView().lastKnownSchema();
+        InternalTable internalTable = ((TableViewInternal) table).internalTable();
+        SchemaDescriptor schemaDescriptor = ((TableViewInternal) table).schemaView().lastKnownSchema();
 
         CompletableFuture<List<BinaryRow>> insertAllFut = internalTable.insertAll(rowsToLookup, null);
 
@@ -515,7 +515,7 @@ public class ItInternalTableTest extends BaseIgniteAbstractTest {
      * @throws InterruptedException If fail.
      */
     private static List<BinaryRow> scanAllPartitions(IgniteImpl node) throws InterruptedException {
-        InternalTable internalTable = ((TableImpl) node.tables().table(TABLE_NAME)).internalTable();
+        InternalTable internalTable = ((TableViewInternal) node.tables().table(TABLE_NAME)).internalTable();
 
         List<BinaryRow> retrievedItems = new CopyOnWriteArrayList<>();
 

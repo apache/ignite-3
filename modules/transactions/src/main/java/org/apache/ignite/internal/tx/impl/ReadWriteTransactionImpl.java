@@ -21,7 +21,6 @@ import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.tx.TxState.isFinalState;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_FAILED_READ_WRITE_OPERATION_ERR;
 
-import java.util.Collections;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.UUID;
@@ -98,9 +97,9 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
     public IgniteBiTuple<ClusterNode, Long> enlist(TablePartitionId tablePartitionId, IgniteBiTuple<ClusterNode, Long> nodeAndTerm) {
         checkEnlistReady();
 
-        try {
-            enlistPartitionLock.readLock().lock();
+        enlistPartitionLock.readLock().lock();
 
+        try {
             checkEnlistReady();
 
             return enlisted.computeIfAbsent(tablePartitionId, k -> nodeAndTerm);
@@ -127,9 +126,9 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
             return finishFuture;
         }
 
-        try {
-            enlistPartitionLock.writeLock().lock();
+        enlistPartitionLock.writeLock().lock();
 
+        try {
             if (!isFinalState(state())) {
                 finishFuture = finishInternal(commit);
             }
@@ -147,41 +146,13 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
      * @return The future of transaction completion.
      */
     private CompletableFuture<Void> finishInternal(boolean commit) {
-        if (!enlisted.isEmpty()) {
-            Map<TablePartitionId, Long> enlistedGroups = enlisted.entrySet().stream()
-                    .collect(Collectors.toMap(
-                            Entry::getKey,
-                            entry -> entry.getValue().get2()
-                    ));
+        Map<TablePartitionId, Long> enlistedGroups = enlisted.entrySet().stream()
+                .collect(Collectors.toMap(
+                        Entry::getKey,
+                        entry -> entry.getValue().get2()
+                ));
 
-            IgniteBiTuple<ClusterNode, Long> nodeAndTerm = enlisted.get(commitPart);
-
-            ClusterNode recipientNode = nodeAndTerm.get1();
-            Long term = nodeAndTerm.get2();
-
-            assert recipientNode != null;
-            assert term != null;
-
-            return txManager.finish(
-                    observableTsTracker,
-                    commitPart,
-                    recipientNode,
-                    term,
-                    commit,
-                    enlistedGroups,
-                    id()
-            );
-        } else {
-            return txManager.finish(
-                    observableTsTracker,
-                    null,
-                    null,
-                    null,
-                    commit,
-                    Collections.emptyMap(),
-                    id()
-            );
-        }
+        return txManager.finish(observableTsTracker, commitPart, commit, enlistedGroups, id());
     }
 
     /** {@inheritDoc} */

@@ -29,7 +29,7 @@ import org.apache.calcite.rel.RelWriter;
 import org.apache.calcite.rel.core.Values;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rex.RexLiteral;
-import org.apache.ignite.internal.sql.engine.prepare.QuerySplitter;
+import org.apache.ignite.internal.sql.engine.exec.mapping.QuerySplitter;
 
 /**
  * IgniteValues.

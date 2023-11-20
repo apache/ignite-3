@@ -40,6 +40,7 @@ public interface RaftServer extends IgniteComponent {
     /**
      * Returns cluster service.
      */
+    @TestOnly
     ClusterService clusterService();
 
     /**

@@ -349,7 +349,7 @@ public class LeaseUpdater {
                     if (isLeaseOutdated(lease)) {
                         // New lease is granting.
                         writeNewLease(grpId, lease, candidate, renewedLeases, toBeNegotiated);
-                    } else if (lease.isProlongable() && candidate.name().equals(lease.getLeaseholder())) {
+                    } else if (lease.isProlongable() && candidate.id().equals(lease.getLeaseholderId())) {
                         // Old lease is renewing.
                         prolongLease(grpId, lease, renewedLeases);
                     }
@@ -391,7 +391,7 @@ public class LeaseUpdater {
 
             var expirationTs = new HybridTimestamp(startTs.getPhysical() + longLeaseInterval, 0);
 
-            Lease renewedLease = new Lease(candidate.name(), startTs, expirationTs, grpId);
+            Lease renewedLease = new Lease(candidate.name(), candidate.id(), startTs, expirationTs, grpId);
 
             renewedLeases.put(grpId, renewedLease);
 

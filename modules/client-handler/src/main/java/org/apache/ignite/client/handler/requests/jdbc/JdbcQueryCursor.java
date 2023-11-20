@@ -18,6 +18,7 @@
 package org.apache.ignite.client.handler.requests.jdbc;
 
 import java.util.List;
+import java.util.NoSuchElementException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
@@ -86,5 +87,23 @@ public class JdbcQueryCursor<T> implements AsyncSqlCursor<T> {
     @Override
     public ResultSetMetadata metadata() {
         return cur.metadata();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public boolean hasNextResult() {
+        // TODO https://issues.apache.org/jira/browse/IGNITE-20661
+        return false;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<AsyncSqlCursor<T>> nextResult() {
+        if (!hasNextResult()) {
+            throw new NoSuchElementException("Query has no more results");
+        }
+
+        // TODO https://issues.apache.org/jira/browse/IGNITE-20661
+        return null;
     }
 }

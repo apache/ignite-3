@@ -65,7 +65,7 @@ public class DefaultsGenerator {
             changer.onDefaultsPersisted().get(5, TimeUnit.SECONDS);
         } catch (Exception e) {
             throw new IllegalStateException("Failed to generate defaults file."
-                    + "Please make sure that the classloader for loading services is correct.");
+                    + "Please make sure that the classloader for loading services is correct.", e);
         } finally {
             if (changer != null) {
                 changer.stop();

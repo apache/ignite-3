@@ -21,13 +21,18 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_DATA_REGION;
+import static org.apache.ignite.internal.index.TestIndexManagementUtils.COLUMN_NAME;
+import static org.apache.ignite.internal.index.TestIndexManagementUtils.INDEX_NAME;
+import static org.apache.ignite.internal.index.TestIndexManagementUtils.NODE_NAME;
+import static org.apache.ignite.internal.index.TestIndexManagementUtils.TABLE_NAME;
+import static org.apache.ignite.internal.index.TestIndexManagementUtils.createIndex;
+import static org.apache.ignite.internal.index.TestIndexManagementUtils.createTable;
+import static org.apache.ignite.internal.index.TestIndexManagementUtils.dropIndex;
 import static org.apache.ignite.internal.table.TableTestUtils.createHashIndex;
-import static org.apache.ignite.internal.table.TableTestUtils.createTable;
 import static org.apache.ignite.internal.table.TableTestUtils.dropTable;
 import static org.apache.ignite.internal.table.TableTestUtils.getTableIdStrict;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
-import static org.apache.ignite.sql.ColumnType.STRING;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
@@ -36,15 +41,19 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.LongFunction;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
 import org.apache.ignite.internal.catalog.ClockWaiter;
-import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
@@ -59,6 +68,7 @@ import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableImpl;
+import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.PartitionSet;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.schema.ConstantSchemaVersions;
@@ -71,14 +81,8 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-/**
- * Test class to verify {@link IndexManager}.
- */
+/** Test class to verify {@link IndexManager}. */
 public class IndexManagerTest extends BaseIgniteAbstractTest {
-    private static final String TABLE_NAME = "tName";
-
-    private static final String COLUMN_NAME = "c";
-
     private final HybridClock clock = new HybridClockImpl();
 
     private VaultManager vaultManager;
@@ -90,6 +94,8 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
     private CatalogManager catalogManager;
 
     private IndexManager indexManager;
+
+    private final Map<Integer, TableViewInternal> tableViewInternalByTableId = new ConcurrentHashMap<>();
 
     @BeforeEach
     public void setUp() {
@@ -105,13 +111,11 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
 
         when(schManager.schemaRegistry(anyLong(), anyInt())).thenReturn(completedFuture(null));
 
-        String nodeName = "test";
-
         vaultManager = new VaultManager(new InMemoryVaultService());
 
-        metaStorageManager = StandaloneMetaStorageManager.create(vaultManager, new SimpleInMemoryKeyValueStorage(nodeName));
+        metaStorageManager = StandaloneMetaStorageManager.create(vaultManager, new SimpleInMemoryKeyValueStorage(NODE_NAME));
 
-        clockWaiter = new ClockWaiter(nodeName, clock);
+        clockWaiter = new ClockWaiter(NODE_NAME, clock);
 
         catalogManager = new CatalogManagerImpl(new UpdateLogImpl(metaStorageManager), clockWaiter);
 
@@ -129,14 +133,7 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
         assertThat(metaStorageManager.notifyRevisionUpdateListenerOnStart(), willCompleteSuccessfully());
         assertThat(metaStorageManager.deployWatches(), willCompleteSuccessfully());
 
-        createTable(
-                catalogManager,
-                DEFAULT_SCHEMA_NAME,
-                DEFAULT_ZONE_NAME,
-                TABLE_NAME,
-                List.of(ColumnParams.builder().name(COLUMN_NAME).length(100).type(STRING).build()),
-                List.of(COLUMN_NAME)
-        );
+        createTable(catalogManager, TABLE_NAME, COLUMN_NAME);
     }
 
     @AfterEach
@@ -201,7 +198,21 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
         assertThat(getMvTableStorageInCatalogListenerFuture, willBe(notNullValue()));
     }
 
-    private TableImpl mockTable(int tableId) {
+    @Test
+    void testDontUnregisterIndexOnCatalogEventIndexDrop() throws Exception {
+        createIndex(catalogManager, TABLE_NAME, INDEX_NAME, COLUMN_NAME);
+        dropIndex(catalogManager, INDEX_NAME);
+
+        TableViewInternal tableViewInternal = tableViewInternalByTableId.get(tableId());
+
+        verify(tableViewInternal, never()).unregisterIndex(anyInt());
+    }
+
+    private TableViewInternal mockTable(int tableId) {
+        return tableViewInternalByTableId.computeIfAbsent(tableId, this::newMockTable);
+    }
+
+    private TableViewInternal newMockTable(int tableId) {
         CatalogZoneDescriptor zone = catalogManager.zone(DEFAULT_ZONE_NAME, clock.nowLong());
 
         assertNotNull(zone);
@@ -217,7 +228,7 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
         when(internalTable.tableId()).thenReturn(tableId);
         when(internalTable.storage()).thenReturn(mvTableStorage);
 
-        return new TableImpl(internalTable, new HeapLockManager(), new ConstantSchemaVersions(1));
+        return spy(new TableImpl(internalTable, new HeapLockManager(), new ConstantSchemaVersions(1)));
     }
 
     private CompletableFuture<MvTableStorage> getMvTableStorageLatestRevision(int tableId) {

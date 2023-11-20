@@ -18,7 +18,11 @@
 package org.apache.ignite.internal.sql.engine.sql;
 
 import java.util.List;
+import java.util.stream.Collectors;
+import javax.annotation.concurrent.NotThreadSafe;
+import org.apache.calcite.sql.SqlDynamicParam;
 import org.apache.calcite.sql.SqlNode;
+import org.apache.calcite.sql.util.SqlShuttle;
 import org.apache.ignite.internal.tostring.S;
 
 /**
@@ -32,27 +36,71 @@ public final class ScriptParseResult extends ParseResult {
     public static final ParseMode<ScriptParseResult> MODE = new ParseMode<>() {
         @Override
         ScriptParseResult createResult(List<SqlNode> list, int dynamicParamsCount) {
-            return new ScriptParseResult(list, dynamicParamsCount);
+            if (list.size() == 1) {
+                return new ScriptParseResult(List.of(new StatementParseResult(list.get(0), dynamicParamsCount)), dynamicParamsCount);
+            }
+
+            SqlDynamicParamsAdjuster dynamicParamsAdjuster = new SqlDynamicParamsAdjuster();
+
+            List<StatementParseResult> results = list.stream()
+                    .map(node -> {
+                        if (dynamicParamsCount == 0) {
+                            return new StatementParseResult(node, 0);
+                        }
+
+                        dynamicParamsAdjuster.reset();
+
+                        SqlNode newTree = dynamicParamsAdjuster.visitNode(node);
+
+                        assert newTree != null;
+
+                        return new StatementParseResult(newTree, dynamicParamsAdjuster.paramsCount());
+                    })
+                    .collect(Collectors.toList());
+
+            return new ScriptParseResult(results, dynamicParamsCount);
         }
     };
 
-    private final List<SqlNode> statements;
+    private final List<StatementParseResult> results;
 
     /**
      * Constructor.
      *
-     * @param statements A list of parsed statements.
+     * @param results A list of parsing results.
      * @param dynamicParamsCount The number of dynamic parameters.
      */
-    public ScriptParseResult(List<SqlNode> statements, int dynamicParamsCount) {
+    private ScriptParseResult(List<StatementParseResult> results, int dynamicParamsCount) {
         super(dynamicParamsCount);
-        this.statements = statements;
+        this.results = results;
     }
 
     /** Returns a list of parsed statements. */
-    @Override
-    public List<SqlNode> statements() {
-        return statements;
+    public List<StatementParseResult> results() {
+        return results;
+    }
+
+    /**
+     * Adjusts the dynamic parameter indexes to match the single statement parameter indexes.
+     */
+    @NotThreadSafe
+    private static final class SqlDynamicParamsAdjuster extends SqlShuttle {
+        private int counter;
+
+        @Override
+        public SqlNode visit(SqlDynamicParam param) {
+            return new SqlDynamicParam(counter++, param.getParserPosition());
+        }
+
+        /** Resets the dynamic parameters counter. */
+        void reset() {
+            counter = 0;
+        }
+
+        /** Returns the number of processed dynamic parameters. */
+        int paramsCount() {
+            return counter;
+        }
     }
 
     /** {@inheritDoc} **/

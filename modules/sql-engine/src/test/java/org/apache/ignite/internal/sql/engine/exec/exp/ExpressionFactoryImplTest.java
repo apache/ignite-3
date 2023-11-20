@@ -17,10 +17,13 @@
 
 package org.apache.ignite.internal.sql.engine.exec.exp;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import it.unimi.dsi.fastutil.longs.Long2ObjectMaps;
 import java.math.BigDecimal;
@@ -29,6 +32,9 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
+import java.util.function.BiPredicate;
+import java.util.function.Function;
+import java.util.function.Predicate;
 import org.apache.calcite.rel.RelCollations;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory.Builder;
@@ -38,6 +44,7 @@ import org.apache.calcite.rel.type.RelDataTypeSystem;
 import org.apache.calcite.rel.type.RelRecordType;
 import org.apache.calcite.rex.RexBuilder;
 import org.apache.calcite.rex.RexDynamicParam;
+import org.apache.calcite.rex.RexInputRef;
 import org.apache.calcite.rex.RexLiteral;
 import org.apache.calcite.rex.RexLocalRef;
 import org.apache.calcite.rex.RexNode;
@@ -93,7 +100,7 @@ public class ExpressionFactoryImplTest extends BaseIgniteAbstractTest {
                 .executor(Mockito.mock(QueryTaskExecutor.class))
                 .build();
 
-        expFactory = new ExpressionFactoryImpl<>(ctx, typeFactory, SqlConformanceEnum.DEFAULT);
+        expFactory = new ExpressionFactoryImpl<>(ctx, SqlConformanceEnum.DEFAULT);
     }
 
     @Test
@@ -197,7 +204,7 @@ public class ExpressionFactoryImplTest extends BaseIgniteAbstractTest {
         RexNode val1 = rexBuilder.makeExactLiteral(new BigDecimal("1"));
         RexNode val2 = rexBuilder.makeExactLiteral(new BigDecimal("2"));
 
-        RelDataTypeSystem typeSystem = Commons.cluster().getTypeFactory().getTypeSystem();
+        RelDataTypeSystem typeSystem = Commons.emptyCluster().getTypeFactory().getTypeSystem();
 
         RexLocalRef ref1 = rexBuilder.makeLocalRef(new BasicSqlType(typeSystem, SqlTypeName.INTEGER), conditionSatisfyIdx ? 1 : 3);
         RexLocalRef ref2 = rexBuilder.makeLocalRef(new BasicSqlType(typeSystem, SqlTypeName.INTEGER), 2);
@@ -215,7 +222,7 @@ public class ExpressionFactoryImplTest extends BaseIgniteAbstractTest {
                 .build();
 
         // build bounds for two sequential columns also belongs to index
-        List<SearchBounds> bounds = RexUtils.buildSortedSearchBounds(Commons.cluster(),
+        List<SearchBounds> bounds = RexUtils.buildSortedSearchBounds(Commons.emptyCluster(),
                 RelCollations.of(ImmutableIntList.of(1, 2)), andCondition, rowType, ImmutableBitSet.of(0, 1, 2));
 
         if (!conditionSatisfyIdx) {
@@ -241,6 +248,133 @@ public class ExpressionFactoryImplTest extends BaseIgniteAbstractTest {
         ranges = expFactory.ranges(boundsList, rowType, null);
         assertEquals(1, ranges.iterator().next().lower().length);
         assertEquals(1, ranges.iterator().next().upper().length);
+    }
+
+    @Test
+    public void testProject() {
+        RexBuilder rexBuilder = Commons.rexBuilder();
+        IgniteTypeFactory tf = Commons.typeFactory();
+
+        RelDataType intType = tf.createSqlType(SqlTypeName.INTEGER);
+        RelDataType bigIntType = tf.createSqlType(SqlTypeName.BIGINT);
+
+        RexNode val1 = rexBuilder.makeExactLiteral(new BigDecimal("1"), intType);
+        RexNode val2 = rexBuilder.makeExactLiteral(new BigDecimal("2"), bigIntType);
+
+        RelDataType rowType = new Builder(tf)
+                .add("c1", intType)
+                .add("c2", bigIntType)
+                .build();
+
+        Function<Object[], Object[]> project = expFactory.project(List.of(val1, val2), rowType);
+        Object[] result = project.apply(new Object[]{null, null});
+
+        assertArrayEquals(new Object[]{1, 2L}, result);
+    }
+
+    @Test
+    public void testPredicate() {
+        RexBuilder rexBuilder = Commons.rexBuilder();
+        IgniteTypeFactory tf = Commons.typeFactory();
+
+        RelDataType intType = tf.createSqlType(SqlTypeName.INTEGER);
+        RelDataType rowType = new Builder(tf)
+                .add("c1", intType)
+                .build();
+
+        RexInputRef ref = rexBuilder.makeInputRef(rowType, 0);
+        RexNode filter = rexBuilder.makeCall(SqlStdOperatorTable.IS_NULL, List.of(ref));
+
+        Predicate<Object[]> predicate = expFactory.predicate(filter, rowType);
+        assertFalse(predicate.test(new Object[]{1}));
+    }
+
+    @Test
+    public void testBiPredicate() {
+        RexBuilder rexBuilder = Commons.rexBuilder();
+        IgniteTypeFactory tf = Commons.typeFactory();
+
+        RelDataType intType = tf.createSqlType(SqlTypeName.INTEGER);
+        RelDataType rowType = new Builder(tf)
+                .add("c1", intType)
+                .add("c2", intType)
+                .build();
+
+        RexInputRef ref1 = rexBuilder.makeInputRef(rowType, 0);
+        RexInputRef ref2 = rexBuilder.makeInputRef(rowType, 1);
+        RexNode filter = rexBuilder.makeCall(SqlStdOperatorTable.EQUALS, List.of(ref1, ref2));
+
+        BiPredicate<Object[], Object[]> predicate = expFactory.biPredicate(filter, rowType);
+        assertFalse(predicate.test(new Object[]{0, 1}, new Object[]{1, 0}));
+        assertTrue(predicate.test(new Object[]{0, 0}, new Object[]{0, 0}));
+    }
+
+    @Test
+    public void testValues() {
+        RexBuilder rexBuilder = Commons.rexBuilder();
+        IgniteTypeFactory tf = Commons.typeFactory();
+
+        RelDataType intType = tf.createSqlType(SqlTypeName.INTEGER);
+        RelDataType bigIntType = tf.createSqlType(SqlTypeName.BIGINT);
+
+        RexLiteral val10 = rexBuilder.makeExactLiteral(new BigDecimal("1"), intType);
+        RexLiteral val11 = rexBuilder.makeExactLiteral(new BigDecimal("2"), bigIntType);
+        RexLiteral val20 = rexBuilder.makeExactLiteral(new BigDecimal("3"), intType);
+        RexLiteral val21 = rexBuilder.makeExactLiteral(new BigDecimal("4"), bigIntType);
+
+        RelDataType rowType = new Builder(tf)
+                .add("c1", intType)
+                .add("c2", bigIntType)
+                .build();
+
+        List<List<Object>> actual = new ArrayList<>();
+        expFactory.values(List.of(val10, val11, val20, val21), rowType).forEach(v -> actual.add(Arrays.asList(v)));
+
+        assertEquals(List.of(List.of(1, 2L), List.of(3, 4L)), actual);
+    }
+
+    @Test
+    public void testValuesEmpty() {
+        IgniteTypeFactory tf = Commons.typeFactory();
+
+        RelDataType intType = tf.createSqlType(SqlTypeName.INTEGER);
+        RelDataType bigIntType = tf.createSqlType(SqlTypeName.BIGINT);
+
+        RelDataType rowType = new Builder(tf)
+                .add("c1", intType)
+                .add("c2", bigIntType)
+                .build();
+
+        List<List<Object>> actual = new ArrayList<>();
+        expFactory.values(List.of(), rowType).forEach(v -> actual.add(Arrays.asList(v)));
+
+        assertEquals(List.of(), actual);
+    }
+
+    @Test
+    public void testRowSource() {
+        RexBuilder rexBuilder = Commons.rexBuilder();
+        IgniteTypeFactory tf = Commons.typeFactory();
+
+        RelDataType intType = tf.createSqlType(SqlTypeName.INTEGER);
+        RelDataType bigIntType = tf.createSqlType(SqlTypeName.BIGINT);
+
+        RexNode val10 = rexBuilder.makeExactLiteral(new BigDecimal("1"), intType);
+        RexNode val11 = rexBuilder.makeExactLiteral(new BigDecimal("2"), bigIntType);
+
+        Object[] actual = expFactory.rowSource(List.of(val10, val11)).get();
+        assertEquals(List.of(1, 2L), Arrays.asList(actual));
+    }
+
+    @Test
+    public void testExpression() {
+        RexBuilder rexBuilder = Commons.rexBuilder();
+        IgniteTypeFactory tf = Commons.typeFactory();
+
+        RelDataType varcharType = tf.createSqlType(SqlTypeName.VARCHAR);
+        Object actual = expFactory.execute(rexBuilder.makeLiteral("42", varcharType)).get();
+
+        assertEquals("42", actual);
     }
 
     static final class TestRange {

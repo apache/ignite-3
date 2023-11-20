@@ -18,24 +18,5 @@
 package org.apache.ignite.internal.event;
 
 /** Event parameters. This type is passed to the {@link EventListener#notify(EventParameters, Throwable)}. */
-public abstract class EventParameters {
-    private final long causalityToken;
-
-    /**
-     * Constructor.
-     *
-     * @param causalityToken Causality token.
-     */
-    public EventParameters(long causalityToken) {
-        this.causalityToken = causalityToken;
-    }
-
-    /**
-     * Returns a causality token.
-     * The token is required for represent a causality dependency between several events.
-     * The earlier the event occurred, the lower the value of the token.
-     */
-    public long causalityToken() {
-        return causalityToken;
-    }
+public interface EventParameters {
 }

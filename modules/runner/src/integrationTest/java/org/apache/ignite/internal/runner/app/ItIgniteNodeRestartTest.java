@@ -19,7 +19,6 @@ package org.apache.ignite.internal.runner.app;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
-import static org.apache.ignite.internal.Kludges.IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS_PROPERTY;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
@@ -118,13 +117,13 @@ import org.apache.ignite.internal.storage.DataStorageModule;
 import org.apache.ignite.internal.storage.DataStorageModules;
 import org.apache.ignite.internal.systemview.SystemViewManagerImpl;
 import org.apache.ignite.internal.table.TableImpl;
+import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncServiceImpl;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
-import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
@@ -157,7 +156,6 @@ import org.junit.jupiter.params.provider.ValueSource;
  */
 @ExtendWith(ConfigurationExtension.class)
 @Timeout(120)
-@WithSystemProperty(key = IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS_PROPERTY, value = "200")
 public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
     /** Value producer for table data, is used to create data and check it later. */
     private static final IntFunction<String> VALUE_PRODUCER = i -> "val " + i;
@@ -260,7 +258,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
 
-        var placementDriver = new TestPlacementDriver(name);
+        var placementDriver = new TestPlacementDriver(() -> clusterSvc.topologyService().localMember());
 
         var clusterInitializer = new ClusterInitializer(
                 clusterSvc,
@@ -279,7 +277,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 new NodeAttributesCollector(nodeAttributes, storageProfilesConfiguration)
         );
 
-        LongSupplier partitionIdleSafeTimePropagationPeriodMsSupplier = () -> 10L;
+        LongSupplier partitionIdleSafeTimePropagationPeriodMsSupplier
+                = () -> TestIgnitionManager.DEFAULT_PARTITION_IDLE_SYNC_TIME_INTERVAL_MS;
 
         ReplicaManager replicaMgr = new ReplicaManager(
                 name,
@@ -347,7 +346,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         Consumer<LongFunction<CompletableFuture<?>>> registry = (c) -> metaStorageMgr.registerRevisionUpdateListener(c::apply);
 
-
         DataStorageModules dataStorageModules = new DataStorageModules(ServiceLoader.load(DataStorageModule.class));
 
         Path storagePath = getPartitionsStorePath(dir);
@@ -365,7 +363,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         var clockWaiter = new ClockWaiter(name, hybridClock);
 
-        LongSupplier delayDurationMsSupplier = () -> 100L;
+        LongSupplier delayDurationMsSupplier = () -> TestIgnitionManager.DEFAULT_DELAY_DURATION_MS;
 
         var catalogManager = new CatalogManagerImpl(
                 new UpdateLogImpl(metaStorageMgr),
@@ -396,7 +394,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 replicaMgr,
                 lockManager,
                 replicaService,
-                clusterSvc.topologyService(),
                 txManager,
                 dataStorageManager,
                 storagePath,
@@ -861,7 +858,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         createTableWithData(List.of(ignite), TABLE_NAME, 1, partitions);
 
-        TableImpl table = (TableImpl) ignite.tables().table(TABLE_NAME);
+        TableViewInternal table = (TableViewInternal) ignite.tables().table(TABLE_NAME);
 
         InternalTableImpl internalTable = (InternalTableImpl) table.internalTable();
 
@@ -888,7 +885,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         checkTableWithData(ignite, TABLE_NAME);
 
-        table = (TableImpl) ignite.tables().table(TABLE_NAME);
+        table = (TableViewInternal) ignite.tables().table(TABLE_NAME);
 
         // Check data that was added after flush.
         for (int i = 0; i < 100; i++) {

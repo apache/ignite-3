@@ -42,8 +42,8 @@ class ItConnectToBasicAuthClusterTest extends ItConnectToClusterTestBase {
         assertThat(getPrompt()).isEqualTo("[disconnected]> ");
 
         // And answer to the reconnect question is "y", to the auth configuration question is "y",
-        // username and password are provided
-        bindAnswers("y", "y", "admin", "password");
+        // username and password are provided and answer to save authentication is "y"
+        bindAnswers("y", "y", "admin", "password", "y");
 
         // When asked the question
         question.askQuestionOnReplStart();
@@ -57,9 +57,7 @@ class ItConnectToBasicAuthClusterTest extends ItConnectToClusterTestBase {
         // And prompt shows user name and node name
         assertThat(getPrompt()).isEqualTo("[admin:" + nodeName() + "]> ");
 
-        assertThat(configManagerProvider.get().getCurrentProperty(CliConfigKeys.BASIC_AUTHENTICATION_USERNAME.value()))
-                .isEqualTo("admin");
-        assertThat(configManagerProvider.get().getCurrentProperty(CliConfigKeys.BASIC_AUTHENTICATION_PASSWORD.value()))
-                .isEqualTo("password");
+        assertThat(getConfigProperty(CliConfigKeys.BASIC_AUTHENTICATION_USERNAME)).isEqualTo("admin");
+        assertThat(getConfigProperty(CliConfigKeys.BASIC_AUTHENTICATION_PASSWORD)).isEqualTo("password");
     }
 }
