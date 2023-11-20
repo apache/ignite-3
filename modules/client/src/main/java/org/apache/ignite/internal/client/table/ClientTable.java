@@ -74,9 +74,7 @@ public class ClientTable implements Table {
 
     private final Object partitionAssignmentLock = new Object();
 
-    private volatile CompletableFuture<List<String>> partitionAssignment = null;
-
-    private volatile long partitionAssignmentTimestamp = HybridTimestamp.NULL_HYBRID_TIMESTAMP;
+    private volatile PartitionAssignment partitionAssignment = null;
 
     /**
      * Constructor.
@@ -521,39 +519,41 @@ public class ClientTable implements Table {
         }
     }
 
+    private boolean isPartitionAssignmentValid(long timestamp) {
+        return partitionAssignment != null
+                && partitionAssignment.timestamp >= timestamp
+                && !partitionAssignment.partitionsFut.isCompletedExceptionally();
+    }
+
     synchronized CompletableFuture<List<String>> getPartitionAssignment() {
         long timestamp = ch.partitionAssignmentTimestamp();
 
-        if (partitionAssignmentTimestamp == timestamp
-                && partitionAssignment != null
-                && !partitionAssignment.isCompletedExceptionally()) {
-            return partitionAssignment;
+        if (isPartitionAssignmentValid(timestamp)) {
+            return partitionAssignment.partitionsFut;
         }
 
         synchronized (partitionAssignmentLock) {
-            if (partitionAssignmentTimestamp == timestamp
-                    && partitionAssignment != null
-                    && !partitionAssignment.isCompletedExceptionally()) {
-                return partitionAssignment;
+            if (isPartitionAssignmentValid(timestamp)) {
+                return partitionAssignment.partitionsFut;
             }
 
-            partitionAssignmentTimestamp = timestamp;
-
-            partitionAssignment = ch.serviceAsync(ClientOp.PARTITION_ASSIGNMENT_GET,
+            partitionAssignment = new PartitionAssignment();
+            partitionAssignment.timestamp = timestamp;
+            partitionAssignment.partitionsFut = ch.serviceAsync(ClientOp.PARTITION_ASSIGNMENT_GET,
                     w -> {
                         w.out().packInt(id);
                         w.out().packLong(timestamp);
                     },
                     r -> {
-                        // TODO: Update partitionAssignmentTimestamp if newer
                         int cnt = r.in().unpackInt();
                         if (cnt == 0) {
                             return List.of();
                         }
 
-                        long timestamp0 = r.in().unpackLong();
-                        List<String> res = new ArrayList<>(cnt);
+                        // Returned timestamp can be newer than requested.
+                        partitionAssignment.timestamp = r.in().unpackLong();
 
+                        List<String> res = new ArrayList<>(cnt);
                         for (int i = 0; i < cnt; i++) {
                             res.add(r.in().tryUnpackNil() ? null : r.in().unpackString());
                         }
@@ -561,7 +561,7 @@ public class ClientTable implements Table {
                         return res;
                     });
 
-            return partitionAssignment;
+            return partitionAssignment.partitionsFut;
         }
     }
 
@@ -591,5 +591,11 @@ public class ClientTable implements Table {
         }
 
         return partitions.get(Math.abs(hash % partitions.size()));
+    }
+
+    private static class PartitionAssignment {
+        volatile long timestamp = HybridTimestamp.NULL_HYBRID_TIMESTAMP;
+
+        CompletableFuture<List<String>> partitionsFut;
     }
 }
