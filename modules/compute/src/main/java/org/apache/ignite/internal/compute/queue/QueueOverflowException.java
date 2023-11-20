@@ -17,17 +17,18 @@
 
 package org.apache.ignite.internal.compute.queue;
 
-import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.compute.ComputeJob;
-import org.apache.ignite.internal.compute.ExecutionOptions;
-
 /**
- * Executor of Compute jobs.
+ * Throws when compute jobs queue overflows.
  */
-public interface ComputeExecutor {
-    <R> CompletableFuture<R> executeJob(ExecutionOptions options, Class<ComputeJob<R>> jobClass, Object[] args);
+public class QueueOverflowException extends RuntimeException {
+    private static final long serialVersionUID = 2673965424194085849L;
 
-    void start();
-
-    void stop();
+    /**
+     * Constructor.
+     *
+     * @param message Exception message.
+     */
+    public QueueOverflowException(String message) {
+        super(message);
+    }
 }

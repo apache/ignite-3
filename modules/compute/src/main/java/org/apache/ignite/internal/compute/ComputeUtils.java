@@ -31,13 +31,11 @@ public class ComputeUtils {
     /**
      * Instantiate compute job via provided class loader by provided job class name.
      *
-     * @param jobClassLoader Class loader.
-     * @param jobClassName Job class name.
+     * @param computeJobClass Compute job class.
      * @param <R> Compute job return type.
      * @return Compute job instance.
      */
-    public static <R> ComputeJob<R> instantiateJob(ClassLoader jobClassLoader, String jobClassName) {
-        Class<ComputeJob<R>> computeJobClass = jobClass(jobClassLoader, jobClassName);
+    public static <R> ComputeJob<R> instantiateJob(Class<ComputeJob<R>> computeJobClass) {
         if (!(ComputeJob.class.isAssignableFrom(computeJobClass))) {
             throw new IgniteException(
                     CLASS_INITIALIZATION_ERR,
@@ -62,9 +60,17 @@ public class ComputeUtils {
         }
     }
 
-    private static <R, J extends ComputeJob<R>> Class<J> jobClass(ClassLoader jobClassLoader, String jobClassName) {
+    /**
+     * Resolve compute job class name to compute job class reference.
+     *
+     * @param jobClassLoader Class loader.
+     * @param jobClassName Job class name.
+     * @param <R> Compute job return type.
+     * @return Compute job class.
+     */
+    public static <R> Class<ComputeJob<R>> jobClass(ClassLoader jobClassLoader, String jobClassName) {
         try {
-            return (Class<J>) Class.forName(jobClassName, true, jobClassLoader);
+            return (Class<ComputeJob<R>>) Class.forName(jobClassName, true, jobClassLoader);
         } catch (ClassNotFoundException e) {
             throw new IgniteInternalException(
                     CLASS_INITIALIZATION_ERR,

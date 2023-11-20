@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.compute.queue;
 
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willTimeoutIn;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -32,6 +33,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.lang.IgniteException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -47,13 +49,19 @@ public class PriorityQueueExecutorTest extends BaseIgniteAbstractTest {
 
     private PriorityQueueExecutor priorityQueueExecutor;
 
-
     private void initExecutor(int threads) {
+        initExecutor(threads, Integer.MAX_VALUE);
+    }
+
+    private void initExecutor(int threads, int maxQueueSize) {
         if (priorityQueueExecutor != null) {
             priorityQueueExecutor.shutdown();
         }
 
-        assertThat(configuration.change(computeChange -> computeChange.changeThreadPoolSize(threads)), willCompleteSuccessfully());
+        assertThat(
+                configuration.change(computeChange -> computeChange.changeThreadPoolSize(threads).changeQueueMaxSize(maxQueueSize)),
+                willCompleteSuccessfully()
+        );
 
         priorityQueueExecutor = new PriorityQueueExecutor(
                 configuration,
@@ -168,7 +176,7 @@ public class PriorityQueueExecutorTest extends BaseIgniteAbstractTest {
         assertThat(task2.isDone(), is(false));
         assertThat(task3.isDone(), is(false));
 
-        //Current executing task is 3 because it was first.
+        //Current executing task is 2 because it was first.
         latch3.countDown();
         assertThat(task2, willTimeoutIn(100, TimeUnit.MILLISECONDS));
         assertThat(task3, willTimeoutIn(100, TimeUnit.MILLISECONDS));
@@ -176,5 +184,28 @@ public class PriorityQueueExecutorTest extends BaseIgniteAbstractTest {
         latch2.countDown();
         assertThat(task2, willCompleteSuccessfully());
         assertThat(task3, willCompleteSuccessfully());
+    }
+
+    @Test
+    public void testQueueOverflow() {
+        initExecutor(1, 1);
+
+        CountDownLatch latch1 = new CountDownLatch(1);
+        CountDownLatch latch2 = new CountDownLatch(1);
+
+        priorityQueueExecutor.submit(() -> {
+            latch1.await();
+            return 0;
+        }, 1);
+
+        priorityQueueExecutor.submit(() -> {
+            latch2.await();
+            return 1;
+        }, 1);
+
+        assertThat(
+                priorityQueueExecutor.submit(() -> null),
+                willThrow(IgniteException.class, "Compute queue overflow")
+        );
     }
 }

@@ -40,6 +40,9 @@ public class ComputeConfigurationSchema {
     @Value(hasDefault = true)
     public final long threadPoolStopTimeoutMillis = 10_000;
 
+    /**
+     * Job queue max size.
+     */
     @Range(min = 1)
     @Value(hasDefault = true)
     public final int queueMaxSize = Integer.MAX_VALUE;

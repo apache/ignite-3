@@ -31,6 +31,11 @@ import org.jetbrains.annotations.Nullable;
  */
 @Transferable(value = ComputeMessageTypes.EXECUTE_REQUEST)
 public interface ExecuteRequest extends NetworkMessage {
+    /**
+     * Returns job execution options.
+     *
+     * @return Job execution options.
+     */
     @Marshallable
     ExecutionOptions executeOptions();
 

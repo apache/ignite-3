@@ -20,7 +20,7 @@ package org.apache.ignite.internal.compute;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.compute.ClassLoaderExceptionsMapper.mapClassLoaderExceptions;
-import static org.apache.ignite.internal.compute.ComputeUtils.instantiateJob;
+import static org.apache.ignite.internal.compute.ComputeUtils.jobClass;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -29,7 +29,6 @@ import java.util.stream.Collectors;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.version.Version;
-import org.apache.ignite.internal.compute.loader.JobContext;
 import org.apache.ignite.internal.compute.loader.JobContextManager;
 import org.apache.ignite.internal.compute.message.DeploymentUnitMsg;
 import org.apache.ignite.internal.compute.message.ExecuteRequest;
@@ -118,11 +117,9 @@ public class ComputeComponentImpl implements ComputeComponent {
         }
 
         try {
-            CompletableFuture<JobContext> jobContextCompletableFuture = mapClassLoaderExceptions(
-                    jobContextManager.acquireClassLoader(units), jobClassName);
-            return jobContextCompletableFuture
+            return mapClassLoaderExceptions(jobContextManager.acquireClassLoader(units), jobClassName)
                     .thenCompose(context ->
-                            doExecuteLocally(options, ComputeUtils.<R>instantiateJob(context.classLoader(), jobClassName), args)
+                            doExecuteLocally(options, ComputeUtils.<R>jobClass(context.classLoader(), jobClassName), args)
                                     .whenComplete((r, e) -> context.close())
                     );
         } finally {
@@ -130,8 +127,12 @@ public class ComputeComponentImpl implements ComputeComponent {
         }
     }
 
-    private <R> CompletableFuture<R> doExecuteLocally(ExecutionOptions options, ComputeJob<R> jobInstance, Object[] args) {
-        CompletableFuture<R> future = executor.executeJob(options, jobInstance, args);
+    private <R> CompletableFuture<R> doExecuteLocally(
+            ExecutionOptions options,
+            Class<ComputeJob<R>> jobClass,
+            Object[] args
+    ) {
+        CompletableFuture<R> future = executor.executeJob(options, jobClass, args);
         inFlightFutures.registerFuture(future);
 
         return future;
@@ -202,7 +203,7 @@ public class ComputeComponentImpl implements ComputeComponent {
 
                         doExecuteLocally(
                                 executeRequest.executeOptions(),
-                                instantiateJob(context.classLoader(), executeRequest.jobClassName()),
+                                jobClass(context.classLoader(), executeRequest.jobClassName()),
                                 executeRequest.args()
                         ).whenComplete((r, e) -> context.close())
                                 .handle((result, ex) -> sendExecuteResponse(result, ex, senderConsistentId, correlationId));

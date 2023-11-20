@@ -21,6 +21,7 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.JobExecutionContext;
+import org.apache.ignite.internal.compute.ComputeUtils;
 import org.apache.ignite.internal.compute.ExecutionOptions;
 import org.apache.ignite.internal.compute.JobExecutionContextImpl;
 import org.apache.ignite.internal.compute.configuration.ComputeConfiguration;
@@ -46,10 +47,12 @@ public class ComputeExecutorImpl implements ComputeExecutor {
     }
 
     @Override
-    public <R> CompletableFuture<R> executeJob(ExecutionOptions options, ComputeJob<R> job, Object[] args) {
+    public <R> CompletableFuture<R> executeJob(ExecutionOptions options, Class<ComputeJob<R>> jobClass, Object[] args) {
+        assert executorService != null;
+
         JobExecutionContext context = new JobExecutionContextImpl(ignite);
 
-        return executorService.submit(() -> job.execute(context, args), options.priority());
+        return executorService.submit(() -> ComputeUtils.instantiateJob(jobClass).execute(context, args), options.priority());
     }
 
     @Override
@@ -63,9 +66,5 @@ public class ComputeExecutorImpl implements ComputeExecutor {
     @Override
     public void stop() {
         executorService.shutdown();
-    }
-
-    long stopTimeoutMillis() {
-        return configuration.threadPoolStopTimeoutMillis().value();
     }
 }
