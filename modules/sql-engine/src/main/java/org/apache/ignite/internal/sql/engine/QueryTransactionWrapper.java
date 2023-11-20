@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine;
 
+import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.tx.InternalTransaction;
 
 /**
@@ -42,16 +44,18 @@ public class QueryTransactionWrapper {
     /**
      * Commits an implicit transaction, if one has been started.
      */
-    void commitImplicit() {
+    CompletableFuture<Void> commitImplicit() {
         if (implicit) {
-            transaction.commit();
+            return transaction.commitAsync();
         }
+
+        return Commons.completedFuture();
     }
 
     /**
      * Rolls back a transaction.
      */
-    void rollback() {
-        transaction.rollback();
+    CompletableFuture<Void> rollback() {
+        return transaction.rollbackAsync();
     }
 }
