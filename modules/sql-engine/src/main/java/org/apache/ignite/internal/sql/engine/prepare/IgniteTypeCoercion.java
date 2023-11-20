@@ -271,6 +271,14 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
             if (fromType == null) {
                 return false;
             }
+
+            // we need this check for further possibility to validate BIGINT overflow
+            // TODO: need to be removed after https://issues.apache.org/jira/browse/IGNITE-20889
+            if (fromType.getSqlTypeName() == SqlTypeName.BIGINT && toType.getSqlTypeName() == SqlTypeName.BIGINT) {
+                if (node.getKind() == SqlKind.LITERAL) {
+                    return true;
+                }
+            }
             // The following checks ensure that there no ClassCastException when casting from one
             // integer type to another (e.g. int to smallint, int to bigint)
             if (SqlTypeUtil.isIntType(fromType) && fromType.getSqlTypeName() != toType.getSqlTypeName()) {

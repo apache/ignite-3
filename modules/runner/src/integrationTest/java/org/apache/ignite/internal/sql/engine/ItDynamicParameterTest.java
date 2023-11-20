@@ -82,6 +82,7 @@ public class ItDynamicParameterTest extends BaseSqlIntegrationTest {
         assertQuery("SELECT ? % ?").withParams(11, 10).returns(1).check();
         assertQuery("SELECT ? + ?, LOWER(?) ").withParams(2, 2, "TeSt").returns(4, "test").check();
         assertQuery("SELECT LOWER(?), ? + ? ").withParams("TeSt", 2, 2).returns("test", 4).check();
+        assertQuery("SELECT (? + 1)::INTEGER").withParams(1).returns(2).check();
 
         createAndPopulateTable();
         assertQuery("SELECT name LIKE '%' || ? || '%' FROM person where name is not null").withParams("go").returns(true).returns(false)

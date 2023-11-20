@@ -32,7 +32,7 @@ public partial class LinqTests
         var query = PocoIntView.AsQueryable()
             .Select(x => new
             {
-                Byte = (sbyte)x.Val,
+                Byte = (sbyte)(x.Val / 10),
                 Short = (short)x.Val,
                 Long = (long)x.Val,
                 Float = (float)x.Val / 1000,
@@ -42,14 +42,14 @@ public partial class LinqTests
 
         var res = query.ToList();
 
-        Assert.AreEqual(-124, res[0].Byte);
+        Assert.AreEqual(90, res[0].Byte);
         Assert.AreEqual(900, res[0].Short);
         Assert.AreEqual(900, res[0].Long);
         Assert.AreEqual(900f / 1000, res[0].Float);
         Assert.AreEqual(900d / 2000, res[0].Double);
 
         StringAssert.Contains(
-            "select cast(_T0.VAL as tinyint) as BYTE, cast(_T0.VAL as smallint) as SHORT, cast(_T0.VAL as bigint) as LONG, " +
+            "select cast((_T0.VAL / ?) as tinyint) as BYTE, cast(_T0.VAL as smallint) as SHORT, cast(_T0.VAL as bigint) as LONG, " +
             "(cast(_T0.VAL as real) / ?) as FLOAT, (cast(_T0.VAL as double) / ?) as DOUBLE " +
             "from PUBLIC.TBL_INT32 as _T0 " +
             "order by cast(_T0.VAL as bigint) desc",
