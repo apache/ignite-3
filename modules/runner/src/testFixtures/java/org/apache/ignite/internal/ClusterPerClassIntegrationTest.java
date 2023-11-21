@@ -19,6 +19,7 @@ package org.apache.ignite.internal;
 
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Path;
 import java.util.List;
@@ -304,7 +305,7 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
         // If there are new indexes, wait for them to become available.
 
         try {
-            waitForCondition(() -> {
+            assertTrue(waitForCondition(() -> {
                 int latestVersion = catalogManager.latestCatalogVersion();
                 int notAvailable = 0;
 
@@ -315,7 +316,7 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
                 }
 
                 return notAvailable == 0;
-            }, 10_000);
+            }, 10_000));
 
             // We have no knowledge whether the next transaction is readonly or not,
             // so we have to assume that the next transaction is read only transaction.
