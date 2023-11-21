@@ -535,4 +535,10 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
         assertEquals(DEFAULT_NAME, primitiveView.getOrDefault(null, DEFAULT_ID, "default"));
         assertEquals("default", primitiveView.getOrDefault(null, -2L, "default"));
     }
+
+    @Test
+    public void testGetAllWithNullValue() {
+        // TODO: getAll returns a map, which allows us to distinguish between null value and missing value.
+        assert false;
+    }
 }

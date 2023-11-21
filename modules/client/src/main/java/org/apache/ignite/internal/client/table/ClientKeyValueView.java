@@ -243,7 +243,7 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_AND_UPSERT,
                 (s, w) -> writeKeyValue(s, w, tx, key, val),
-                (s, r) -> valSer.readRec(s, r, TuplePart.VAL),
+                (s, r) -> throwIfNull(valSer.readRec(s, r, TuplePart.VAL)),
                 null,
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, keySer.mapper(), key));
     }
@@ -352,7 +352,7 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_AND_DELETE,
                 (s, w) -> keySer.writeRec(tx, key, s, w, TuplePart.KEY),
-                (s, r) -> valSer.readRec(s, r, TuplePart.VAL),
+                (s, r) -> throwIfNull(valSer.readRec(s, r, TuplePart.VAL)),
                 null,
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, keySer.mapper(), key));
     }
@@ -427,7 +427,7 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_AND_REPLACE,
                 (s, w) -> writeKeyValue(s, w, tx, key, val),
-                (s, r) -> valSer.readRec(s, r, TuplePart.VAL),
+                (s, r) -> throwIfNull(valSer.readRec(s, r, TuplePart.VAL)),
                 null,
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, keySer.mapper(), key));
     }
