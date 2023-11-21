@@ -364,14 +364,24 @@ public class LeaseUpdater {
                     or(notExists(key), value(key).eq(leasesCurrent.leasesBytes())),
                     put(key, renewedValue),
                     noop()
-            ).thenAccept(success -> {
-                if (success) {
-                    for (Map.Entry<ReplicationGroupId, Boolean> e : toBeNegotiated.entrySet()) {
-                        Lease lease = renewedLeases.get(e.getKey());
-                        boolean force = e.getValue();
+            ).whenComplete((success, e) -> {
+                if (e != null) {
+                    LOG.error("Lease update invocation failed", e);
 
-                        leaseNegotiator.negotiate(lease, force);
-                    }
+                    return;
+                }
+
+                if (!success) {
+                    LOG.debug("Lease update invocation failed");
+
+                    return;
+                }
+
+                for (Map.Entry<ReplicationGroupId, Boolean> entry : toBeNegotiated.entrySet()) {
+                    Lease lease = renewedLeases.get(entry.getKey());
+                    boolean force = entry.getValue();
+
+                    leaseNegotiator.negotiate(lease, force);
                 }
             });
         }
@@ -429,7 +439,7 @@ public class LeaseUpdater {
 
         /**
          * Checks that the lease is outdated.
-         * {@link Lease#EMPTY_LEASE} is always outdated.
+         * {@link Lease#emptyLease} is always outdated.
          *
          * @param lease Lease.
          * @return True when the candidate can be a leaseholder, otherwise false.
