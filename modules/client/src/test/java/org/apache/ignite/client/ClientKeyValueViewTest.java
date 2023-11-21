@@ -40,7 +40,6 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
-import org.apache.ignite.internal.testframework.IgniteTestUtils.RunnableX;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.NullableValue;
 import org.apache.ignite.lang.UnexpectedNullValueException;
@@ -519,25 +518,25 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
 
     @Test
     public void testGetNullValueThrows() {
-        testGetNullValueThrows(view -> view.get(null, DEFAULT_ID));
+        testNullValueThrows(view -> view.get(null, DEFAULT_ID));
     }
 
     @Test
     public void testGetAndPutNullValueThrows() {
-        testGetNullValueThrows(view -> view.getAndPut(null, DEFAULT_ID, DEFAULT_NAME));
+        testNullValueThrows(view -> view.getAndPut(null, DEFAULT_ID, DEFAULT_NAME));
     }
 
     @Test
     public void testGetAndRemoveNullValueThrows() {
-        testGetNullValueThrows(view -> view.getAndRemove(null, DEFAULT_ID));
+        testNullValueThrows(view -> view.getAndRemove(null, DEFAULT_ID));
     }
 
     @Test
     public void testGetAndReplaceNullValueThrows() {
-        testGetNullValueThrows(view -> view.getAndReplace(null, DEFAULT_ID, DEFAULT_NAME));
+        testNullValueThrows(view -> view.getAndReplace(null, DEFAULT_ID, DEFAULT_NAME));
     }
 
-    private void testGetNullValueThrows(Consumer<KeyValueView<Long, String>> run) {
+    private void testNullValueThrows(Consumer<KeyValueView<Long, String>> run) {
         KeyValueView<Long, String> primitiveView = defaultTable().keyValueView(Mapper.of(Long.class), Mapper.of(String.class));
         primitiveView.put(null, DEFAULT_ID, null);
 
