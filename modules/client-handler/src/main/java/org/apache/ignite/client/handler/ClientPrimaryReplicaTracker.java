@@ -110,7 +110,7 @@ public class ClientPrimaryReplicaTracker implements EventListener<EventParameter
             maxStartTime = Math.max(maxStartTime, this.maxStartTime.get());
         }
 
-        // Check happy path: if we already have all replicas, and maxStartTime > timestamp, return synchronously.
+        // Check happy path: if we already have all replicas, and this.maxStartTime >= maxStartTime, return synchronously.
         var fastRes = primaryReplicasNoWait(tableId, maxStartTime, timestamp, false);
         if (fastRes != null) {
             return CompletableFuture.completedFuture(fastRes);
