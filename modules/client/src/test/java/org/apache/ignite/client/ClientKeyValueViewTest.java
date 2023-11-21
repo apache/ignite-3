@@ -39,6 +39,8 @@ import java.util.BitSet;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
+import org.apache.ignite.internal.testframework.IgniteTestUtils.RunnableX;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.NullableValue;
 import org.apache.ignite.lang.UnexpectedNullValueException;
@@ -498,6 +500,36 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
     }
 
     @Test
+    public void testGetNullValueThrows() {
+        testGetNullValueThrows(view -> view.get(null, DEFAULT_ID));
+    }
+
+    @Test
+    public void testGetAndPutNullValueThrows() {
+        testGetNullValueThrows(view -> view.getAndPut(null, DEFAULT_ID, DEFAULT_NAME));
+    }
+
+    @Test
+    public void testGetAndRemoveNullValueThrows() {
+        testGetNullValueThrows(view -> view.getAndRemove(null, DEFAULT_ID));
+    }
+
+    @Test
+    public void testGetAndReplaceNullValueThrows() {
+        testGetNullValueThrows(view -> view.getAndReplace(null, DEFAULT_ID, DEFAULT_NAME));
+    }
+
+    private void testGetNullValueThrows(Consumer<KeyValueView<Long, String>> run) {
+        KeyValueView<Long, String> primitiveView = defaultTable().keyValueView(Mapper.of(Long.class), Mapper.of(String.class));
+        primitiveView.put(null, DEFAULT_ID, null);
+
+        var ex = assertThrowsWithCause(() -> run.accept(primitiveView), UnexpectedNullValueException.class);
+        assertEquals(
+                "Failed to deserialize server response: Got unexpected null value: use `getNullable` sibling method instead.",
+                ex.getMessage());
+    }
+
+    @Test
     public void testGetNullable() {
         KeyValueView<Long, String> primitiveView = defaultTable().keyValueView(Mapper.of(Long.class), Mapper.of(String.class));
 
@@ -512,15 +544,17 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
     }
 
     @Test
-    public void testGetNullValueThrows() {
+    public void testGetNullableAndPut() {
         KeyValueView<Long, String> primitiveView = defaultTable().keyValueView(Mapper.of(Long.class), Mapper.of(String.class));
 
         primitiveView.put(null, DEFAULT_ID, null);
+        primitiveView.remove(null, -1L);
 
-        var ex = assertThrowsWithCause(() -> primitiveView.get(null, DEFAULT_ID), UnexpectedNullValueException.class);
-        assertEquals(
-                "Failed to deserialize server response: Got unexpected null value: use `getNullable` sibling method instead.",
-                ex.getMessage());
+        NullableValue<String> nullVal = primitiveView.getNullableAndPut(null, DEFAULT_ID, DEFAULT_NAME);
+        NullableValue<String> missingVal = primitiveView.getNullableAndPut(null, -1L, DEFAULT_NAME);
+
+        assertNull(nullVal.get());
+        assertNull(missingVal);
     }
 
     @Test
