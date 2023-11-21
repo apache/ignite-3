@@ -20,7 +20,9 @@ package org.apache.ignite.client;
 import static java.time.temporal.ChronoField.NANO_OF_SECOND;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.anyOf;
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.hasToString;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -32,6 +34,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.time.temporal.ChronoUnit;
+import java.util.Arrays;
 import java.util.BitSet;
 import java.util.Collection;
 import java.util.List;
@@ -103,6 +106,8 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
 
         IgniteException e = assertThrows(IgniteException.class, () -> pojoView.get(null, key));
         assertEquals("Failed to deserialize server response: No mapped object field found for column 'ZBOOLEAN'", e.getMessage());
+        assertThat(Arrays.asList(e.getStackTrace()), anyOf(hasToString(containsString("ClientKeyValueView"))));
+
     }
 
     @Test
@@ -203,6 +208,7 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
         IgniteException e = assertThrows(IgniteException.class, () -> kvView.get(null, new NamePojo()));
 
         assertThat(e.getMessage(), containsString("No mapped object field found for column 'ID'"));
+        assertThat(Arrays.asList(e.getStackTrace()), anyOf(hasToString(containsString("ClientKeyValueView"))));
     }
 
     @Test
@@ -488,6 +494,7 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
         var ex = assertThrows(IgniteException.class, () -> pojoView.put(null, 1, pojo));
 
         assertTrue(ex.getMessage().contains("null was passed, but column is not nullable"), ex.getMessage());
+        assertThat(Arrays.asList(ex.getStackTrace()), anyOf(hasToString(containsString("ClientKeyValueView"))));
     }
 
     @Test
