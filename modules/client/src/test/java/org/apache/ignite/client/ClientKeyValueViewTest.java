@@ -294,6 +294,24 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
     }
 
     @Test
+    public void testGetAllNullAndMissingValue() {
+        KeyValueView<Long, String> primitiveView = defaultTable().keyValueView(Mapper.of(Long.class), Mapper.of(String.class));
+
+        primitiveView.put(null, DEFAULT_ID, DEFAULT_NAME);
+        primitiveView.put(null, -1L, null);
+        primitiveView.remove(null, -2L);
+
+        var res = primitiveView.getAll(null, List.of(DEFAULT_ID, -1L, -2L));
+
+        assertEquals(2, res.size());
+        assertEquals(DEFAULT_NAME, res.get(DEFAULT_ID));
+        assertNull(res.get(-1L));
+
+        assertTrue(res.containsKey(-1L));
+        assertFalse(res.containsKey(-2L));
+    }
+
+    @Test
     public void testPutAll() {
         KeyValueView<Long, String> pojoView = defaultTable().keyValueView(Mapper.of(Long.class), Mapper.of(String.class));
 
@@ -596,11 +614,5 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
         assertNull(primitiveView.getOrDefault(null, -1L, "default"));
         assertEquals(DEFAULT_NAME, primitiveView.getOrDefault(null, DEFAULT_ID, "default"));
         assertEquals("default", primitiveView.getOrDefault(null, -2L, "default"));
-    }
-
-    @Test
-    public void testGetAllWithNullValue() {
-        // TODO: getAll returns a map, which allows us to distinguish between null value and missing value.
-        assert false;
     }
 }
