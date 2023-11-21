@@ -2004,7 +2004,12 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         UUID txId = ((ReadWriteTransactionImpl) tx).id();
 
         for (TxManager txManager : txManagers()) {
-            txManager.updateTxMeta(txId, old -> old == null ? null : new TxStateMeta(old.txState(), "restarted", old.commitTimestamp()));
+            txManager.updateTxMeta(txId, old -> old == null ? null : new TxStateMeta(
+                    old.txState(),
+                    "restarted",
+                    old.commitPartitionId(),
+                    old.commitTimestamp()
+            ));
         }
 
         // Read-only.

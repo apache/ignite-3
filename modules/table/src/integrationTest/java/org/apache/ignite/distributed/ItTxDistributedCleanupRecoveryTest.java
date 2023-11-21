@@ -82,7 +82,6 @@ public class ItTxDistributedCleanupRecoveryTest extends ItTxDistributedTestSingl
         txTestCluster = new ItTxTestCluster(
                 testInfo,
                 raftConfiguration,
-                gcConfig,
                 workDir,
                 nodes(),
                 replicas(),

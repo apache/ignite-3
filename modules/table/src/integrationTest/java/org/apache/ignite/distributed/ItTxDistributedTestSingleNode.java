@@ -38,7 +38,6 @@ import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
-import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableViewInternal;
@@ -76,9 +75,6 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
     //TODO fsync can be turned on again after https://issues.apache.org/jira/browse/IGNITE-20195
     @InjectConfiguration("mock: { fsync: false }")
     protected static RaftConfiguration raftConfiguration;
-
-    @InjectConfiguration
-    protected static GcConfiguration gcConfig;
 
     /**
      * Returns a count of nodes.
@@ -128,7 +124,6 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
         txTestCluster = new ItTxTestCluster(
                 testInfo,
                 raftConfiguration,
-                gcConfig,
                 workDir,
                 nodes(),
                 replicas(),

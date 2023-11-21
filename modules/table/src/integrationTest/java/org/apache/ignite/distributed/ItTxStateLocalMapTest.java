@@ -35,7 +35,6 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
@@ -63,9 +62,6 @@ public class ItTxStateLocalMapTest extends IgniteAbstractTest {
     @InjectConfiguration("mock: { fsync: false }")
     private static RaftConfiguration raftConfig;
 
-    @InjectConfiguration
-    private static GcConfiguration gcConfig;
-
     private final TestInfo testInfo;
 
     private ItTxTestCluster testCluster;
@@ -92,7 +88,6 @@ public class ItTxStateLocalMapTest extends IgniteAbstractTest {
         testCluster = new ItTxTestCluster(
                 testInfo,
                 raftConfig,
-                gcConfig,
                 workDir,
                 NODES,
                 NODES,
@@ -134,13 +129,13 @@ public class ItTxStateLocalMapTest extends IgniteAbstractTest {
 
         ReadWriteTransactionImpl tx = (ReadWriteTransactionImpl) testCluster.igniteTransactions().begin();
 
-        checkLocalTxStateOnNodes(tx.id(), new TxStateMeta(PENDING, coordinatorId, null), List.of(0));
+        checkLocalTxStateOnNodes(tx.id(), new TxStateMeta(PENDING, coordinatorId, tx.commitPartition(), null), List.of(0));
         checkLocalTxStateOnNodes(tx.id(), null, IntStream.range(1, NODES).boxed().collect(toList()));
 
         touchOp.accept(tx);
 
         if (checkAfterTouch) {
-            checkLocalTxStateOnNodes(tx.id(), new TxStateMeta(PENDING, coordinatorId, null));
+            checkLocalTxStateOnNodes(tx.id(), new TxStateMeta(PENDING, coordinatorId, tx.commitPartition(), null));
         }
 
         if (commit) {
@@ -154,6 +149,7 @@ public class ItTxStateLocalMapTest extends IgniteAbstractTest {
                 new TxStateMeta(
                         commit ? COMMITED : ABORTED,
                         coordinatorId,
+                        tx.commitPartition(),
                         commit ? testCluster.clocks.get(coord.name()).now() : null
                 )
         );

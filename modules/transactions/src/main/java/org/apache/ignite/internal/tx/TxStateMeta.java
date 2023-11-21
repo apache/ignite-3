@@ -17,7 +17,10 @@
 
 package org.apache.ignite.internal.tx;
 
+import java.util.Objects;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -30,6 +33,9 @@ public class TxStateMeta implements TransactionMeta {
 
     private final String txCoordinatorId;
 
+    /** Identifier of the replication group that manages a transaction state. */
+    private final TablePartitionId commitPartitionId;
+
     private final HybridTimestamp commitTimestamp;
 
     /**
@@ -37,15 +43,18 @@ public class TxStateMeta implements TransactionMeta {
      *
      * @param txState Transaction state.
      * @param txCoordinatorId Transaction coordinator id.
+     * @param commitPartitionId Commit partition replication group id.
      * @param commitTimestamp Commit timestamp.
      */
     public TxStateMeta(
             TxState txState,
             String txCoordinatorId,
+            @Nullable TablePartitionId commitPartitionId,
             @Nullable HybridTimestamp commitTimestamp
     ) {
         this.txState = txState;
         this.txCoordinatorId = txCoordinatorId;
+        this.commitPartitionId = commitPartitionId;
         this.commitTimestamp = commitTimestamp;
     }
 
@@ -56,6 +65,10 @@ public class TxStateMeta implements TransactionMeta {
 
     public String txCoordinatorId() {
         return txCoordinatorId;
+    }
+
+    public TablePartitionId commitPartitionId() {
+        return commitPartitionId;
     }
 
     @Override
@@ -80,19 +93,21 @@ public class TxStateMeta implements TransactionMeta {
         if (txCoordinatorId != null ? !txCoordinatorId.equals(that.txCoordinatorId) : that.txCoordinatorId != null) {
             return false;
         }
+
+        if (commitPartitionId != null ? !commitPartitionId.equals(that.commitPartitionId) : that.commitPartitionId != null) {
+            return false;
+        }
+
         return commitTimestamp != null ? commitTimestamp.equals(that.commitTimestamp) : that.commitTimestamp == null;
     }
 
     @Override
     public int hashCode() {
-        int result = txState != null ? txState.hashCode() : 0;
-        result = 31 * result + (txCoordinatorId != null ? txCoordinatorId.hashCode() : 0);
-        result = 31 * result + (commitTimestamp != null ? commitTimestamp.hashCode() : 0);
-        return result;
+        return Objects.hash(txState, txCoordinatorId, commitPartitionId, commitTimestamp);
     }
 
     @Override
     public String toString() {
-        return "[txState=" + txState + ", txCoordinatorId=" + txCoordinatorId + ", commitTimestamp=" + commitTimestamp + ']';
+        return S.toString(TxStateMeta.class, this);
     }
 }
