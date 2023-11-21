@@ -1176,8 +1176,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         GcConfiguration gcConfiguration = ignite.clusterConfiguration()
                 .getConfiguration(GcConfiguration.KEY);
-        int defaultValue = gcConfiguration.onUpdateBatchSize().value();
-        CompletableFuture<Void> update = gcConfiguration.onUpdateBatchSize().update(defaultValue);
+        int defaultValue = gcConfiguration.batchSize().value();
+        CompletableFuture<Void> update = gcConfiguration.batchSize().update(defaultValue);
         assertThat(update, willCompleteSuccessfully());
 
         stopNode(0);

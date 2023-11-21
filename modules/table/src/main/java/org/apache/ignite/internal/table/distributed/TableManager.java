@@ -195,9 +195,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     private static final int TX_STATE_STORAGE_FLUSH_DELAY = 1000;
     private static final IntSupplier TX_STATE_STORAGE_FLUSH_DELAY_SUPPLIER = () -> TX_STATE_STORAGE_FLUSH_DELAY;
 
-    /** Garbage collector configuration. */
-    private final GcConfiguration gcConfig;
-
     private final ClusterService clusterService;
 
     /** Raft manager. */
@@ -394,7 +391,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             HybridTimestampTracker observableTimestampTracker,
             PlacementDriver placementDriver
     ) {
-        this.gcConfig = gcConfig;
         this.clusterService = clusterService;
         this.raftMgr = raftMgr;
         this.replicaMgr = replicaMgr;
@@ -2152,7 +2148,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         return clusterService.topologyService().localMember();
     }
 
-    private PartitionUpdateHandlers createPartitionUpdateHandlers(
+    private static PartitionUpdateHandlers createPartitionUpdateHandlers(
             int partitionId,
             PartitionDataStorage partitionDataStorage,
             TableImpl table,
@@ -2167,10 +2163,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         StorageUpdateHandler storageUpdateHandler = new StorageUpdateHandler(
                 partitionId,
                 partitionDataStorage,
-                gcConfig,
-                lowWatermark,
-                indexUpdateHandler,
-                gcUpdateHandler
+                indexUpdateHandler
         );
 
         return new PartitionUpdateHandlers(storageUpdateHandler, indexUpdateHandler, gcUpdateHandler);

@@ -41,7 +41,7 @@ public class LowWatermarkConfigurationSchema {
     // TODO https://issues.apache.org/jira/browse/IGNITE-18977 Make these values configurable and create dynamic validator after that.
     @Range(min = DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS + CLOCK_SKEW)
     @Value(hasDefault = true)
-    public long dataAvailabilityTime = TimeUnit.MINUTES.toMillis(45);
+    public long dataAvailabilityTime = TimeUnit.MINUTES.toMillis(10);
 
     /** Low watermark update frequency (in milliseconds). */
     @Range(min = 0)
