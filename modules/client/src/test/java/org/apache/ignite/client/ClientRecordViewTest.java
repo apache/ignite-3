@@ -19,7 +19,9 @@ package org.apache.ignite.client;
 
 import static java.time.temporal.ChronoField.NANO_OF_SECOND;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.anyOf;
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.hasToString;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -31,6 +33,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.time.temporal.ChronoUnit;
+import java.util.Arrays;
 import java.util.BitSet;
 import java.util.Collection;
 import java.util.List;
@@ -104,6 +107,7 @@ public class ClientRecordViewTest extends AbstractClientTableTest {
         // This POJO does not have fields for all table columns, which is not allowed (to avoid unexpected data loss).
         IgniteException ex = assertThrows(IgniteException.class, () -> pojoView.get(null, key));
         assertEquals("Failed to deserialize server response: No mapped object field found for column 'ZBOOLEAN'", ex.getMessage());
+        assertThat(Arrays.asList(ex.getStackTrace()), anyOf(hasToString(containsString("ClientRecordView"))));
     }
 
     @Test
@@ -195,6 +199,7 @@ public class ClientRecordViewTest extends AbstractClientTableTest {
         IgniteException e = assertThrows(IgniteException.class, () -> recordView.get(null, new NamePojo()));
 
         assertThat(e.getMessage(), containsString("No mapped object field found for column 'ID'"));
+        assertThat(Arrays.asList(e.getStackTrace()), anyOf(hasToString(containsString("ClientRecordView"))));
     }
 
     @Test
@@ -511,5 +516,6 @@ public class ClientRecordViewTest extends AbstractClientTableTest {
         var ex = assertThrows(IgniteException.class, () -> pojoView.upsert(null, pojo));
 
         assertTrue(ex.getMessage().contains("null was passed, but column is not nullable"), ex.getMessage());
+        assertThat(Arrays.asList(ex.getStackTrace()), anyOf(hasToString(containsString("ClientRecordView"))));
     }
 }
