@@ -558,6 +558,34 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
     }
 
     @Test
+    public void testGetNullableAndRemove() {
+        KeyValueView<Long, String> primitiveView = defaultTable().keyValueView(Mapper.of(Long.class), Mapper.of(String.class));
+
+        primitiveView.put(null, DEFAULT_ID, null);
+        primitiveView.remove(null, -1L);
+
+        NullableValue<String> nullVal = primitiveView.getNullableAndRemove(null, DEFAULT_ID);
+        NullableValue<String> missingVal = primitiveView.getNullableAndRemove(null, -1L);
+
+        assertNull(nullVal.get());
+        assertNull(missingVal);
+    }
+
+    @Test
+    public void testGetNullableAndReplace() {
+        KeyValueView<Long, String> primitiveView = defaultTable().keyValueView(Mapper.of(Long.class), Mapper.of(String.class));
+
+        primitiveView.put(null, DEFAULT_ID, null);
+        primitiveView.remove(null, -1L);
+
+        NullableValue<String> nullVal = primitiveView.getNullableAndReplace(null, DEFAULT_ID, DEFAULT_NAME);
+        NullableValue<String> missingVal = primitiveView.getNullableAndReplace(null, -1L, DEFAULT_NAME);
+
+        assertNull(nullVal.get());
+        assertNull(missingVal);
+    }
+
+    @Test
     public void testGetOrDefault() {
         KeyValueView<Long, String> primitiveView = defaultTable().keyValueView(Mapper.of(Long.class), Mapper.of(String.class));
 
