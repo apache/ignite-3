@@ -20,8 +20,11 @@ package org.apache.ignite.internal.compute.queue;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.concurrent.PriorityBlockingQueue;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.Consumer;
+import java.util.function.Predicate;
 import java.util.function.Supplier;
 
 /**
@@ -90,6 +93,158 @@ public class LimitedPriorityBlockingQueue<E> extends PriorityBlockingQueue<E> {
         try {
             checkInsert(c.size());
             return super.addAll(c);
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    @Override
+    public E poll() {
+        lock.lock();
+        try {
+            return super.poll();
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    @Override
+    public E poll(long timeout, TimeUnit unit) throws InterruptedException {
+        lock.lock();
+        try {
+            return super.poll(timeout, unit);
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    @Override
+    public E take() throws InterruptedException {
+        lock.lock();
+        try {
+            return super.take();
+        } finally {
+            lock.unlock();
+        }
+    }
+
+
+
+    @Override
+    public E peek() {
+        lock.lock();
+        try {
+            return super.peek();
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    @Override
+    public int size() {
+        lock.lock();
+        try {
+            return super.size();
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    @Override
+    public boolean remove(Object o) {
+        lock.lock();
+        try {
+            return super.remove(o);
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    @Override
+    public boolean contains(Object o) {
+        lock.lock();
+        try {
+            return super.contains(o);
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    @Override
+    public int drainTo(Collection<? super E> c, int maxElements) {
+        lock.lock();
+        try {
+            return super.drainTo(c, maxElements);
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    @Override
+    public void clear() {
+        lock.lock();
+        try {
+            super.clear();
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    @Override
+    public Object[] toArray() {
+        lock.lock();
+        try {
+            return super.toArray();
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    @Override
+    public <T> T[] toArray(T[] a) {
+        lock.lock();
+        try {
+            return super.toArray(a);
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    @Override
+    public boolean removeIf(Predicate<? super E> filter) {
+        lock.lock();
+        try {
+            return super.removeIf(filter);
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    @Override
+    public boolean removeAll(Collection<?> c) {
+        lock.lock();
+        try {
+            return super.removeAll(c);
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    @Override
+    public boolean retainAll(Collection<?> c) {
+        lock.lock();
+        try {
+            return super.retainAll(c);
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    @Override
+    public void forEach(Consumer<? super E> action) {
+        lock.lock();
+        try {
+            super.forEach(action);
         } finally {
             lock.unlock();
         }
