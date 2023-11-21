@@ -18,6 +18,7 @@
 package org.apache.ignite.distributed;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.replicator.ReplicaManager.DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS;
 import static org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfigurationSchema.DEFAULT_DATA_REGION_NAME;
 import static org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener.tablePartitionId;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -49,6 +50,7 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
+import org.apache.ignite.internal.raft.Marshaller;
 import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.raft.service.ItAbstractListenerSnapshotTest;
@@ -63,7 +65,6 @@ import org.apache.ignite.internal.schema.BinaryRowConverter;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.ColumnsExtractor;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
@@ -75,13 +76,11 @@ import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfiguration;
 import org.apache.ignite.internal.table.InternalTable;
-import org.apache.ignite.internal.table.distributed.LowWatermark;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
 import org.apache.ignite.internal.table.distributed.command.FinishTxCommand;
 import org.apache.ignite.internal.table.distributed.command.TxCleanupCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateCommand;
-import org.apache.ignite.internal.table.distributed.gc.GcUpdateHandler;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
@@ -91,6 +90,7 @@ import org.apache.ignite.internal.table.distributed.replication.request.ReadWrit
 import org.apache.ignite.internal.table.distributed.replication.request.SingleRowPkReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
 import org.apache.ignite.internal.table.distributed.replicator.action.RequestType;
+import org.apache.ignite.internal.table.distributed.schema.ThreadLocalPartitionCommandsMarshaller;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -126,9 +126,6 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
 
     /** Factory to create RAFT command messages. */
     private final TableMessagesFactory msgFactory = new TableMessagesFactory();
-
-    @InjectConfiguration
-    private GcConfiguration gcConfig;
 
     @InjectConfiguration("mock {flushDelayMillis = 0, defaultRegion {size = 16777216, writeBufferSize = 16777216}}")
     private RocksDbStorageEngineConfiguration engineConfig;
@@ -207,12 +204,13 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
         for (int i = 0; i < nodes(); i++) {
             if (!txManagers.containsKey(i)) {
                 TxManager txManager = new TxManagerImpl(
+                        service.clusterService(),
                         replicaService,
                         new HeapLockManager(),
                         hybridClock,
                         new TransactionIdGenerator(i),
-                        () -> NODE_ID,
-                        TEST_PLACEMENT_DRIVER
+                        TEST_PLACEMENT_DRIVER,
+                        () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS
                 );
 
                 txManager.start();
@@ -223,12 +221,13 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
         }
 
         TxManager txManager = new TxManagerImpl(
+                service.clusterService(),
                 replicaService,
                 new HeapLockManager(),
                 hybridClock,
                 new TransactionIdGenerator(-1),
-                () -> NODE_ID,
-                TEST_PLACEMENT_DRIVER
+                TEST_PLACEMENT_DRIVER,
+                () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS
         );
 
         txManager.start();
@@ -470,20 +469,18 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                     StorageUpdateHandler storageUpdateHandler = new StorageUpdateHandler(
                             partitionId,
                             partitionDataStorage,
-                            gcConfig,
-                            mock(LowWatermark.class),
-                            indexUpdateHandler,
-                            new GcUpdateHandler(partitionDataStorage, safeTime, indexUpdateHandler)
+                            indexUpdateHandler
                     );
 
                     TxManager txManager = txManagers.computeIfAbsent(index, k -> {
                         TxManager txMgr = new TxManagerImpl(
+                                service,
                                 replicaService,
                                 new HeapLockManager(),
                                 hybridClock,
                                 new TransactionIdGenerator(index),
-                                () -> NODE_ID,
-                                TEST_PLACEMENT_DRIVER
+                                TEST_PLACEMENT_DRIVER,
+                                () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS
                         );
                         txMgr.start();
                         closeables.add(txMgr::stop);
@@ -521,6 +518,11 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
     @Override
     public TestReplicationGroupId raftGroupId() {
         return new TestReplicationGroupId("partitions");
+    }
+
+    @Override
+    protected Marshaller commandsMarshaller(ClusterService clusterService) {
+        return new ThreadLocalPartitionCommandsMarshaller(clusterService.serializationRegistry());
     }
 
     /**

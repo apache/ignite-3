@@ -45,6 +45,7 @@ import org.apache.ignite.internal.raft.TestRaftGroupListener;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
+import org.apache.ignite.internal.raft.util.ThreadLocalOptimizedMarshaller;
 import org.apache.ignite.internal.replicator.TestReplicationGroupId;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
@@ -348,10 +349,15 @@ public class TopologyAwareRaftGroupServiceTest extends IgniteAbstractTest {
 
                 var dataPath = workDir.resolve("raft_" + localPeer.consistentId());
 
+                var commandsMarshaller = new ThreadLocalOptimizedMarshaller(cluster.serializationRegistry());
+
+                NodeOptions nodeOptions = new NodeOptions();
+                nodeOptions.setCommandsMarshaller(commandsMarshaller);
+
                 var raftServer = new JraftServerImpl(
                         cluster,
                         dataPath,
-                        new NodeOptions(),
+                        nodeOptions,
                         eventsClientListener
                 );
                 raftServer.start();
@@ -360,7 +366,7 @@ public class TopologyAwareRaftGroupServiceTest extends IgniteAbstractTest {
                         new RaftNodeId(GROUP_ID, localPeer),
                         peersAndLearners,
                         new TestRaftGroupListener(),
-                        RaftGroupOptions.defaults()
+                        RaftGroupOptions.defaults().commandsMarshaller(commandsMarshaller)
                 );
 
                 raftServers.put(addr, raftServer);
@@ -398,6 +404,8 @@ public class TopologyAwareRaftGroupServiceTest extends IgniteAbstractTest {
             });
         }
 
+        var commandsMarshaller = new ThreadLocalOptimizedMarshaller(localClusterService.serializationRegistry());
+
         return TopologyAwareRaftGroupService.start(
                 GROUP_ID,
                 localClusterService,
@@ -408,7 +416,8 @@ public class TopologyAwareRaftGroupServiceTest extends IgniteAbstractTest {
                 executor,
                 new LogicalTopologyServiceTestImpl(localClusterService),
                 eventsClientListener,
-                notifyOnSubscription
+                notifyOnSubscription,
+                commandsMarshaller
         ).join();
     }
 

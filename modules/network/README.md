@@ -18,6 +18,9 @@ Supported types:
  + `java.util.Map<K, V>` where `K` and `V` can be any supported type
  + Arrays of all supported types
 
+If one wants to have a property in the message, that shouldn't be serialized, `@Transient` annotation should be used.
+Such properties will still be available in builder, like the rest.
+
 ## Threading
 Every Ignite node has three network thread pool executors and thread naming formats:
 + Client worker - handles channel events on a client (`{consistentId}-client-X`)

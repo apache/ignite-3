@@ -270,6 +270,7 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
 
             updateTrackerIgnoringTrackerClosedException(safeTime, cmd.safeTime());
         }
+
         replicaTouch(cmd.txId(), cmd.txCoordinatorId(), cmd.full() ? cmd.safeTime() : null, cmd.full());
     }
 
@@ -477,7 +478,7 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
     }
 
     @Override
-    public void onBeforeApply(Command command) {
+    public boolean onBeforeApply(Command command) {
         // This method is synchronized by replication group specific monitor, see ActionRequestProcessor#handleRequest.
         if (command instanceof SafeTimePropagatingCommand) {
             SafeTimePropagatingCommand cmd = (SafeTimePropagatingCommand) command;
@@ -489,6 +490,8 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
                 throw new SafeTimeReorderException();
             }
         }
+
+        return false;
     }
 
     /**
@@ -575,6 +578,7 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
         txManager.updateTxMeta(txId, old -> new TxStateMeta(
                 full ? COMMITED : PENDING,
                 txCoordinatorId,
+                old == null ? null : old.commitPartitionId(),
                 full ? commitTimestamp : null
         ));
     }
@@ -583,6 +587,7 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
         txManager.updateTxMeta(txId, old -> new TxStateMeta(
                 commit ? COMMITED : ABORTED,
                 txCoordinatorId,
+                old == null ? null : old.commitPartitionId(),
                 commit ? commitTimestamp : null
         ));
     }

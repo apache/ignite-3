@@ -19,7 +19,6 @@ package org.apache.ignite.internal.replicator;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toSet;
-import static org.apache.ignite.internal.Kludges.IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS_PROPERTY;
 import static org.apache.ignite.internal.replicator.LocalReplicaEvent.AFTER_REPLICA_STARTED;
 import static org.apache.ignite.internal.replicator.LocalReplicaEvent.BEFORE_REPLICA_STOPPED;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
@@ -757,17 +756,5 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     @TestOnly
     public Set<ReplicationGroupId> startedGroups() {
         return replicas.keySet();
-    }
-
-    /**
-     * TODO: to be removed after IGNITE-20499 is fixed. This was introduced in a rush because of a burning release, should be fixe asap.
-     */
-    public static long idleSafeTimePropagationPeriodMs() {
-        return Long.parseLong(
-                System.getProperty(
-                        IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS_PROPERTY,
-                        Integer.toString(DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS)
-                )
-        );
     }
 }

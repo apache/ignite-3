@@ -222,8 +222,8 @@ class IndexBuildController implements ManuallyCloseable {
                 return;
             }
 
-            for (CatalogIndexDescriptor indexDescriptor : catalogService.indexes(catalogVersion)) {
-                if (!indexDescriptor.available() && primaryReplicaId.tableId() == indexDescriptor.tableId()) {
+            for (CatalogIndexDescriptor indexDescriptor : catalogService.indexes(catalogVersion, primaryReplicaId.tableId())) {
+                if (!indexDescriptor.available()) {
                     scheduleBuildIndex(primaryReplicaId, indexDescriptor, mvTableStorage, enlistmentConsistencyToken(replicaMeta));
                 }
             }

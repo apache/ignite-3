@@ -108,7 +108,7 @@ class PartitionCommandsMarshallerImplTest {
 
         byte[] serialized = partitionCommandsMarshaller.marshall(message);
 
-        FinishTxCommand unmarshalled = partitionCommandsMarshaller.unmarshall(ByteBuffer.wrap(serialized));
+        FinishTxCommand unmarshalled = partitionCommandsMarshaller.unmarshall(serialized);
 
         assertThat(unmarshalled.requiredCatalogVersion(), is(42));
 

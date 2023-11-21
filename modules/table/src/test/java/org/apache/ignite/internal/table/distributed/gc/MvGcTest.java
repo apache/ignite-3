@@ -67,8 +67,11 @@ public class MvGcTest extends BaseIgniteAbstractTest {
 
     private final AtomicInteger nextTableId = new AtomicInteger(1001);
 
+    @InjectConfiguration("mock.threads = 1")
+    private GcConfiguration gcConfig;
+
     @BeforeEach
-    void setUp(@InjectConfiguration("mock.threads = 1") GcConfiguration gcConfig) {
+    void setUp() {
         gc = new MvGc("test", gcConfig);
 
         gc.start();
@@ -192,7 +195,7 @@ public class MvGcTest extends BaseIgniteAbstractTest {
 
     @Test
     void testCountInvokeVacuum() throws Exception {
-        CountDownLatch latch = new CountDownLatch(MvGc.GC_BATCH_SIZE + 2);
+        CountDownLatch latch = new CountDownLatch(gcConfig.value().batchSize() + 2);
 
         GcUpdateHandler gcUpdateHandler = createWithCountDownOnVacuum(latch);
 

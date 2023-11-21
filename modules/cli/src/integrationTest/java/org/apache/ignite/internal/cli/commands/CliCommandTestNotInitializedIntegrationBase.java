@@ -27,6 +27,7 @@ import java.io.StringWriter;
 import org.apache.ignite.internal.cli.CliIntegrationTestBase;
 import org.apache.ignite.internal.cli.commands.cliconfig.TestConfigManagerHelper;
 import org.apache.ignite.internal.cli.commands.cliconfig.TestConfigManagerProvider;
+import org.apache.ignite.internal.cli.config.CliConfigKeys;
 import org.apache.ignite.internal.cli.config.ConfigDefaultValueProvider;
 import org.apache.ignite.internal.cli.core.repl.EventListeningActivationPoint;
 import org.apache.ignite.internal.cli.core.repl.context.CommandLineContextProvider;
@@ -184,5 +185,13 @@ public class CliCommandTestNotInitializedIntegrationBase extends CliIntegrationT
         assertThat(serr.toString())
                 .as("Expected command error output to contain: " + expectedErrOutput)
                 .contains(expectedErrOutput);
+    }
+
+    protected void setConfigProperty(CliConfigKeys key, String value) {
+        configManagerProvider.configManager.setProperty(key.value(), value);
+    }
+
+    protected String getConfigProperty(CliConfigKeys key) {
+        return configManagerProvider.get().getCurrentProperty(key.value());
     }
 }

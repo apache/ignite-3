@@ -46,6 +46,7 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.RandomAccess;
 import java.util.Set;
 import java.util.UUID;
@@ -186,7 +187,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
      * @param serializationRegistry Serialization service.       .
      */
     public DirectByteBufferStreamImplV1(MessageSerializationRegistry serializationRegistry) {
-        this.serializationRegistry = serializationRegistry;
+        this.serializationRegistry = Objects.requireNonNull(serializationRegistry, "serializationRegistry");
     }
 
     /** {@inheritDoc} */

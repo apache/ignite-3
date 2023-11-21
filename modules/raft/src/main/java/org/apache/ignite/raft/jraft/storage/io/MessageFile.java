@@ -23,10 +23,9 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.nio.ByteBuffer;
 import org.apache.ignite.raft.jraft.rpc.Message;
 import org.apache.ignite.raft.jraft.util.Bits;
-import org.apache.ignite.raft.jraft.util.Marshaller;
+import org.apache.ignite.raft.jraft.util.JDKMarshaller;
 import org.apache.ignite.raft.jraft.util.Utils;
 
 /**
@@ -60,7 +59,7 @@ public class MessageFile {
             }
             final byte[] nameBytes = new byte[len];
             readBytes(nameBytes, input);
-            return Marshaller.DEFAULT.unmarshall(ByteBuffer.wrap(nameBytes));
+            return JDKMarshaller.INSTANCE.unmarshall(nameBytes);
         }
     }
 
@@ -83,7 +82,7 @@ public class MessageFile {
         final File file = new File(this.path + ".tmp");
         try (final FileOutputStream fOut = new FileOutputStream(file);
              final BufferedOutputStream output = new BufferedOutputStream(fOut)) {
-            byte[] bytes = Marshaller.DEFAULT.marshall(msg);
+            byte[] bytes = JDKMarshaller.INSTANCE.marshall(msg);
 
             final byte[] lenBytes = new byte[4];
             Bits.putInt(lenBytes, 0, bytes.length);

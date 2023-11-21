@@ -22,6 +22,7 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 
 import java.io.IOException;
+import java.lang.management.ManagementFactory;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.nio.ByteBuffer;
@@ -63,6 +64,7 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
+import javax.management.MBeanServer;
 import javax.management.MalformedObjectNameException;
 import javax.management.ObjectName;
 import org.apache.ignite.internal.close.ManuallyCloseable;
@@ -155,6 +157,28 @@ public class IgniteUtils {
         } catch (Exception e) {
             return 0;
         }
+    }
+
+    /**
+     * Returns the amount of RAM memory available on this machine.
+     *
+     * @return Total amount of memory in bytes or {@code -1} if any exception happened.
+     */
+    public static long getTotalMemoryAvailable() {
+        MBeanServer mbeanServer = ManagementFactory.getPlatformMBeanServer();
+
+        Object attr;
+
+        try {
+            attr = mbeanServer.getAttribute(
+                    ObjectName.getInstance("java.lang", "type", "OperatingSystem"),
+                    "TotalPhysicalMemorySize"
+            );
+        } catch (Exception e) {
+            return -1;
+        }
+
+        return (attr instanceof Long) ? (Long) attr : -1;
     }
 
     /**
