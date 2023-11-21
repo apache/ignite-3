@@ -285,7 +285,7 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
             );
         }
 
-        waitForCondition(() -> isIndexAvailable(INDEX_NAME), 10_000);
+        assertTrue(waitForCondition(() -> isIndexAvailable(INDEX_NAME), 10_000));
 
         waitForReadTimestampThatObservesMostRecentCatalog();
     }
