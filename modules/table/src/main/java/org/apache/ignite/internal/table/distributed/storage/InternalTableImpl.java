@@ -607,10 +607,10 @@ public class InternalTableImpl implements InternalTable {
                 tablePartitionId,
                 tx.startTimestamp(),
                 AWAIT_PRIMARY_REPLICA_TIMEOUT,
-                TimeUnit.SECONDS
+                SECONDS
         );
 
-        CompletableFuture<R>  fut = primaryReplicaFuture.thenCompose(primaryReplica -> {
+        CompletableFuture<R> fut = primaryReplicaFuture.thenCompose(primaryReplica -> {
             try {
                 ClusterNode node = clusterNodeResolver.apply(primaryReplica.getLeaseholder());
 
