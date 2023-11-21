@@ -231,6 +231,11 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     }
 
     @Override
+    public List<CatalogIndexDescriptor> indexes(int catalogVersion, int tableId) {
+        return catalog(catalogVersion).indexes(tableId);
+    }
+
+    @Override
     public @Nullable CatalogSchemaDescriptor schema(int version) {
         Catalog catalog = catalog(version);
 
@@ -530,12 +535,14 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
 
     private static Catalog applyUpdateFinal(Catalog catalog, VersionedUpdate update, HybridTimestamp metaStorageUpdateTimestamp) {
         long activationTimestamp = metaStorageUpdateTimestamp.addPhysicalTime(update.delayDurationMs()).longValue();
-        long prevVersionActivationTimestamp = catalog.time() + 1;
+
+        assert activationTimestamp > catalog.time()
+                : "Activation timestamp " + activationTimestamp + " must be greater than previous catalog version activation timestamp "
+                        + catalog.time();
 
         return new Catalog(
                 update.version(),
-                // Remove this maxing when https://issues.apache.org/jira/browse/IGNITE-20854 is fixed and DelayDuration is truly constant.
-                Math.max(activationTimestamp, prevVersionActivationTimestamp),
+                activationTimestamp,
                 catalog.objectIdGenState(),
                 catalog.zones(),
                 catalog.schemas()

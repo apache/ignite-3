@@ -115,7 +115,7 @@ public class GcQueue extends BplusTree<GcRowVersion, GcRowVersion> {
      */
     public boolean remove(RowId rowId, HybridTimestamp timestamp, long link) {
         try {
-            return remove(new GcRowVersion(rowId, timestamp, link)) != null;
+            return removex(new GcRowVersion(rowId, timestamp, link));
         } catch (IgniteInternalCheckedException e) {
             throw new StorageException(
                     "Error occurred while deleting row version form the garbage collection queue: [rowId={}, timestamp={}, {}]",

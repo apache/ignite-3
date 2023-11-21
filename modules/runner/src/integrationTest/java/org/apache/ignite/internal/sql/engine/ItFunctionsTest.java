@@ -22,10 +22,8 @@ import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -314,9 +312,7 @@ public class ItFunctionsTest extends BaseSqlIntegrationTest {
         assertQuery("SELECT TYPEOF('abcd' || COALESCE('efg', ?))").withParams("2").returns("VARCHAR").check();
 
         // An expression that produces an error
-        IgniteException failed = assertThrows(IgniteException.class, () -> assertQuery("SELECT typeof(CAST('NONE' as INTEGER))").check());
-        assertSame(NumberFormatException.class, failed.getCause().getClass(), "cause");
-        assertThat(failed.getCause().getMessage(), containsString("For input string: \"NONE\""));
+        assertThrowsSqlException(Sql.STMT_PARSE_ERR, "", () -> sql("SELECT typeof(CAST('NONE' as INTEGER))"));
 
         assertThrowsWithCause(() -> sql("SELECT TYPEOF()"), SqlValidatorException.class, "Invalid number of arguments");
 

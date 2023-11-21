@@ -907,11 +907,11 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
             );
 
             txManager = new TxManagerImpl(
+                    clusterService,
                     replicaSvc,
                     lockManager,
                     hybridClock,
                     new TransactionIdGenerator(addr.port()),
-                    () -> clusterService.topologyService().localMember().id(),
                     placementDriver,
                     partitionIdleSafeTimePropagationPeriodMsSupplier
             );

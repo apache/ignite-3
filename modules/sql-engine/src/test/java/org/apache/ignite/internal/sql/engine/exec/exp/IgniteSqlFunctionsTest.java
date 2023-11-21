@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.exec.exp;
 
+import static org.apache.ignite.internal.sql.engine.prepare.IgniteSqlValidator.NUMERIC_FIELD_OVERFLOW_ERROR;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -239,7 +240,7 @@ public class IgniteSqlFunctionsTest {
             BigDecimal expected = convert.get();
             assertEquals(new BigDecimal(result), expected);
         } else {
-            assertThrowsSqlException(Sql.RUNTIME_ERR, "Numeric field overflow", convert::get);
+            assertThrowsSqlException(Sql.RUNTIME_ERR, NUMERIC_FIELD_OVERFLOW_ERROR, convert::get);
         }
     }
 

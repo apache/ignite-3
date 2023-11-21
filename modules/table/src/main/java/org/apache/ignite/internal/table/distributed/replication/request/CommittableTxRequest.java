@@ -19,6 +19,7 @@ package org.apache.ignite.internal.table.distributed.replication.request;
 
 import java.util.UUID;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
+import org.apache.ignite.internal.table.distributed.command.TablePartitionIdMessage;
 
 /**
  * Transaction request that can contain full transaction (transaction that contains full set of keys).
@@ -30,4 +31,11 @@ public interface CommittableTxRequest extends ReplicaRequest {
      * Return {@code true} if this is a full transaction.
      */
     boolean full();
+
+    /**
+     * Gets a commit partition id.
+     *
+     * @return Table partition id.
+     */
+    TablePartitionIdMessage commitPartitionId();
 }
