@@ -18,6 +18,7 @@
 package org.apache.ignite.client;
 
 import static java.time.temporal.ChronoField.NANO_OF_SECOND;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.anyOf;
 import static org.hamcrest.Matchers.containsString;
@@ -38,7 +39,10 @@ import java.util.BitSet;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.lang.NullableValue;
+import org.apache.ignite.lang.UnexpectedNullValueException;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
@@ -289,6 +293,24 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
     }
 
     @Test
+    public void testGetAllNullAndMissingValue() {
+        KeyValueView<Long, String> primitiveView = defaultTable().keyValueView(Mapper.of(Long.class), Mapper.of(String.class));
+
+        primitiveView.put(null, DEFAULT_ID, DEFAULT_NAME);
+        primitiveView.put(null, -1L, null);
+        primitiveView.remove(null, -2L);
+
+        var res = primitiveView.getAll(null, List.of(DEFAULT_ID, -1L, -2L));
+
+        assertEquals(2, res.size());
+        assertEquals(DEFAULT_NAME, res.get(DEFAULT_ID));
+        assertNull(res.get(-1L));
+
+        assertTrue(res.containsKey(-1L));
+        assertFalse(res.containsKey(-2L));
+    }
+
+    @Test
     public void testPutAll() {
         KeyValueView<Long, String> pojoView = defaultTable().keyValueView(Mapper.of(Long.class), Mapper.of(String.class));
 
@@ -327,7 +349,7 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
         pojoView.put(null, DEFAULT_ID, DEFAULT_NAME);
         pojoView.put(null, DEFAULT_ID, null);
 
-        assertNull(pojoView.get(null, DEFAULT_ID));
+        assertNull(pojoView.getNullable(null, DEFAULT_ID).get());
     }
 
     @Test
@@ -492,5 +514,104 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
 
         assertTrue(ex.getMessage().contains("null was passed, but column is not nullable"), ex.getMessage());
         assertThat(Arrays.asList(ex.getStackTrace()), anyOf(hasToString(containsString("ClientKeyValueView"))));
+    }
+
+    @Test
+    public void testGetNullValueThrows() {
+        testNullValueThrows(view -> view.get(null, DEFAULT_ID));
+    }
+
+    @Test
+    public void testGetAndPutNullValueThrows() {
+        testNullValueThrows(view -> view.getAndPut(null, DEFAULT_ID, DEFAULT_NAME));
+    }
+
+    @Test
+    public void testGetAndRemoveNullValueThrows() {
+        testNullValueThrows(view -> view.getAndRemove(null, DEFAULT_ID));
+    }
+
+    @Test
+    public void testGetAndReplaceNullValueThrows() {
+        testNullValueThrows(view -> view.getAndReplace(null, DEFAULT_ID, DEFAULT_NAME));
+    }
+
+    private void testNullValueThrows(Consumer<KeyValueView<Long, String>> run) {
+        KeyValueView<Long, String> primitiveView = defaultTable().keyValueView(Mapper.of(Long.class), Mapper.of(String.class));
+        primitiveView.put(null, DEFAULT_ID, null);
+
+        var ex = assertThrowsWithCause(() -> run.accept(primitiveView), UnexpectedNullValueException.class);
+        assertEquals(
+                "Failed to deserialize server response: Got unexpected null value: use `getNullable` sibling method instead.",
+                ex.getMessage());
+    }
+
+    @Test
+    public void testGetNullable() {
+        KeyValueView<Long, String> primitiveView = defaultTable().keyValueView(Mapper.of(Long.class), Mapper.of(String.class));
+
+        primitiveView.put(null, DEFAULT_ID, null);
+        primitiveView.remove(null, -1L);
+
+        NullableValue<String> nullVal = primitiveView.getNullable(null, DEFAULT_ID);
+        NullableValue<String> missingVal = primitiveView.getNullable(null, -1L);
+
+        assertNull(nullVal.get());
+        assertNull(missingVal);
+    }
+
+    @Test
+    public void testGetNullableAndPut() {
+        KeyValueView<Long, String> primitiveView = defaultTable().keyValueView(Mapper.of(Long.class), Mapper.of(String.class));
+
+        primitiveView.put(null, DEFAULT_ID, null);
+        primitiveView.remove(null, -1L);
+
+        NullableValue<String> nullVal = primitiveView.getNullableAndPut(null, DEFAULT_ID, DEFAULT_NAME);
+        NullableValue<String> missingVal = primitiveView.getNullableAndPut(null, -1L, DEFAULT_NAME);
+
+        assertNull(nullVal.get());
+        assertNull(missingVal);
+    }
+
+    @Test
+    public void testGetNullableAndRemove() {
+        KeyValueView<Long, String> primitiveView = defaultTable().keyValueView(Mapper.of(Long.class), Mapper.of(String.class));
+
+        primitiveView.put(null, DEFAULT_ID, null);
+        primitiveView.remove(null, -1L);
+
+        NullableValue<String> nullVal = primitiveView.getNullableAndRemove(null, DEFAULT_ID);
+        NullableValue<String> missingVal = primitiveView.getNullableAndRemove(null, -1L);
+
+        assertNull(nullVal.get());
+        assertNull(missingVal);
+    }
+
+    @Test
+    public void testGetNullableAndReplace() {
+        KeyValueView<Long, String> primitiveView = defaultTable().keyValueView(Mapper.of(Long.class), Mapper.of(String.class));
+
+        primitiveView.put(null, DEFAULT_ID, null);
+        primitiveView.remove(null, -1L);
+
+        NullableValue<String> nullVal = primitiveView.getNullableAndReplace(null, DEFAULT_ID, DEFAULT_NAME);
+        NullableValue<String> missingVal = primitiveView.getNullableAndReplace(null, -1L, DEFAULT_NAME);
+
+        assertNull(nullVal.get());
+        assertNull(missingVal);
+    }
+
+    @Test
+    public void testGetOrDefault() {
+        KeyValueView<Long, String> primitiveView = defaultTable().keyValueView(Mapper.of(Long.class), Mapper.of(String.class));
+
+        primitiveView.put(null, DEFAULT_ID, DEFAULT_NAME);
+        primitiveView.put(null, -1L, null);
+        primitiveView.remove(null, -2L);
+
+        assertNull(primitiveView.getOrDefault(null, -1L, "default"));
+        assertEquals(DEFAULT_NAME, primitiveView.getOrDefault(null, DEFAULT_ID, "default"));
+        assertEquals("default", primitiveView.getOrDefault(null, -2L, "default"));
     }
 }
