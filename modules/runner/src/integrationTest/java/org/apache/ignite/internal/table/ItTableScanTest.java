@@ -880,7 +880,7 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
 
         PlacementDriver placementDriver = (ignite).placementDriver();
         ReplicaMeta primaryReplica = IgniteTestUtils.await(
-                placementDriver.awaitPrimaryReplica(tblPartId, (ignite).clock().now(), 30, TimeUnit.SECONDS));
+                placementDriver.awaitPrimaryReplica(tblPartId, ignite.clock().now(), 30, TimeUnit.SECONDS));
 
         tx.enlist(
                 tblPartId,
