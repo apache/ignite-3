@@ -23,7 +23,9 @@ import static org.apache.ignite.internal.lang.SqlExceptionMapperUtil.mapToPublic
 import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFIG;
 import static org.apache.ignite.internal.table.distributed.storage.InternalTableImpl.AWAIT_PRIMARY_REPLICA_TIMEOUT;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
+import static org.apache.ignite.internal.util.ExceptionUtils.withCause;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_UNAVAILABLE_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.EXECUTION_CANCELLED_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 
@@ -56,6 +58,8 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
@@ -121,6 +125,9 @@ import org.jetbrains.annotations.TestOnly;
  *  TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public class SqlQueryProcessor implements QueryProcessor {
+    /** The logger. */
+    private static final IgniteLogger LOG = Loggers.forClass(SqlQueryProcessor.class);
+
     /** Size of the cache for query plans. */
     private static final int PLAN_CACHE_SIZE = 1024;
 
@@ -351,7 +358,8 @@ public class SqlQueryProcessor implements QueryProcessor {
         HybridTimestamp clockNow = clock.now();
 
         // no need to wait all partitions after pruning was implemented.
-        for (int partitionId = 0; partitionId < partitions; ++partitionId) {
+        for (int partId = 0; partId < partitions; ++partId) {
+            int partitionId = partId;
             ReplicationGroupId partGroupId = new TablePartitionId(tableId, partitionId);
 
             CompletableFuture<ReplicaMeta> f = placementDriver.awaitPrimaryReplica(
@@ -361,20 +369,31 @@ public class SqlQueryProcessor implements QueryProcessor {
                     SECONDS
             );
 
-            result.add(f.thenApply(primaryReplica -> {
-                String holder = primaryReplica.getLeaseholder();
+            result.add(f.handle((primaryReplica, e) -> {
+                if (e != null) {
+                    LOG.error("Failed to retrieve primary replica for partition {}", e, partitionId);
 
-                assert holder != null : "Unable to map query, nothing holds the lease";
-
-                ClusterNode node = clusterSrvc.topologyService().getByConsistentId(holder);
-
-                if (node == null) {
-                    // additional recovery logic is need to be present around here.
-                    throw new IgniteInternalException(Sql.MAPPING_ERR, "Unable to map query, node is lost or offline");
+                    throw withCause(IgniteInternalException::new, REPLICA_UNAVAILABLE_ERR, "Failed to get the primary replica"
+                            + " [tablePartitionId=" + partGroupId + ']', e);
                 }
 
-                return new PrimaryReplica(node, primaryReplica.getStartTime().longValue());
-            }));
+                return primaryReplica;
+            })
+                    .thenApply(primaryReplica -> {
+                        String holder = primaryReplica.getLeaseholder();
+
+                        assert holder != null : "Unable to map query, nothing holds the lease";
+
+                        ClusterNode node = clusterSrvc.topologyService().getByConsistentId(holder);
+
+                        if (node == null) {
+                            // additional recovery logic is need to be present around here.
+                            throw new IgniteInternalException(Sql.MAPPING_ERR, "Unable to map query, node is lost or offline");
+                        }
+
+                        return new PrimaryReplica(node, primaryReplica.getStartTime().longValue());
+                    })
+            );
         }
 
         CompletableFuture<Void> all = CompletableFuture.allOf(result.toArray(new CompletableFuture[0]));
