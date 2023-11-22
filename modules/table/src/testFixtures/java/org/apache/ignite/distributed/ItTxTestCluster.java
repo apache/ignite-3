@@ -87,7 +87,6 @@ import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.BinaryRowConverter;
 import org.apache.ignite.internal.schema.ColumnsExtractor;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
@@ -98,11 +97,9 @@ import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.HashIndexLocker;
 import org.apache.ignite.internal.table.distributed.IndexLocker;
-import org.apache.ignite.internal.table.distributed.LowWatermark;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
-import org.apache.ignite.internal.table.distributed.gc.GcUpdateHandler;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
@@ -153,8 +150,6 @@ public class ItTxTestCluster {
     private final NodeFinder nodeFinder;
 
     private final RaftConfiguration raftConfig;
-
-    private final GcConfiguration gcConfig;
 
     private final Path workDir;
 
@@ -245,7 +240,6 @@ public class ItTxTestCluster {
     public ItTxTestCluster(
             TestInfo testInfo,
             RaftConfiguration raftConfig,
-            GcConfiguration gcConfig,
             Path workDir,
             int nodes,
             int replicas,
@@ -253,7 +247,6 @@ public class ItTxTestCluster {
             HybridTimestampTracker timestampTracker
     ) {
         this.raftConfig = raftConfig;
-        this.gcConfig = gcConfig;
         this.workDir = workDir;
         this.nodes = nodes;
         this.replicas = replicas;
@@ -505,10 +498,7 @@ public class ItTxTestCluster {
                 StorageUpdateHandler storageUpdateHandler = new StorageUpdateHandler(
                         partId,
                         partitionDataStorage,
-                        gcConfig,
-                        mock(LowWatermark.class),
-                        indexUpdateHandler,
-                        new GcUpdateHandler(partitionDataStorage, safeTime, indexUpdateHandler)
+                        indexUpdateHandler
                 );
 
                 TopologyAwareRaftGroupServiceFactory topologyAwareRaftGroupServiceFactory = new TopologyAwareRaftGroupServiceFactory(

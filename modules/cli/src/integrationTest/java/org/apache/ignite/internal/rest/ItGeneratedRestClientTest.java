@@ -201,7 +201,7 @@ public class ItGeneratedRestClientTest {
     @Test
     void getClusterConfigurationByPath() {
         assertDoesNotThrow(() -> {
-            String configuration = clusterConfigurationApi.getClusterConfigurationByPath("gc.onUpdateBatchSize");
+            String configuration = clusterConfigurationApi.getClusterConfigurationByPath("gc.batchSize");
 
             assertNotNull(configuration);
             assertFalse(configuration.isEmpty());
