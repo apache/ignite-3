@@ -23,6 +23,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.internal.catalog.CatalogService;
@@ -39,6 +40,7 @@ import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
+import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.TableNotFoundException;
 import org.jetbrains.annotations.Nullable;
 
@@ -138,7 +140,15 @@ public class ClientPrimaryReplicaTracker implements EventListener<EventParameter
         // Give up (return null) if we don't have replicas with specified maxStartTime - the client will retry later.
         long maxStartTime0 = maxStartTime;
         return partitionsFut.handle((v, err) -> {
-            assert err == null : "Unexpected error: " + err;
+            if (err != null) {
+                var cause = ExceptionUtils.unwrapCause(err);
+
+                if (cause instanceof TableNotFoundException) {
+                    throw new CompletionException(cause);
+                }
+
+                assert false : "Unexpected error: " + err;
+            }
 
             return primaryReplicasNoWait(tableId, maxStartTime0, timestamp, true);
         });
