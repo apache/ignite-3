@@ -19,6 +19,7 @@ namespace Apache.Ignite.Internal;
 
 using System;
 using Microsoft.Extensions.Logging;
+using Proto;
 
 /// <summary>
 /// Source-generated socket log messages.
@@ -39,4 +40,15 @@ internal static partial class SocketLogMessages
 
     [LoggerMessage(Message = "{Established} secondary connections established, {Failed} failed.", Level = LogLevel.Debug)]
     internal static partial void LogSecondaryConnectionsEstablishedDebug(this ILogger logger, int established, int failed);
+
+    [LoggerMessage(Message = "Failed to parse host '{Host}': {Message}", Level = LogLevel.Debug)]
+    internal static partial void LogFailedToParseHostDebug(this ILogger logger, Exception e, string host, string message);
+
+    // _logger.LogDebug($"Not retrying operation [opCode={(int)op}, opType={op}, attempt={attempt}, lastError={exception}]");
+    // _logger.LogDebug($"Retrying operation [opCode={(int)op}, opType={op}, attempt={attempt}, lastError={exception}]");
+    [LoggerMessage(
+        Message = "{Retrying} operation [opCode={Op}, opType={OpType}, attempt={Attempt}, lastError={LastErrorMessage}]",
+        Level = LogLevel.Debug)]
+    internal static partial void LogRetryingOperationDebug(
+        this ILogger logger, string retrying, int op, ClientOp opType, int attempt, string lastErrorMessage);
 }

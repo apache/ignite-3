@@ -531,7 +531,7 @@ namespace Apache.Ignite.Internal
             }
             catch (SocketException e)
             {
-                _logger.LogDebug(e, "Failed to parse host: " + host);
+                _logger.LogFailedToParseHostDebug(e, host, e.Message);
 
                 if (suppressExceptions)
                 {
@@ -611,7 +611,7 @@ namespace Apache.Ignite.Internal
             {
                 if (_logger.IsEnabled(LogLevel.Debug))
                 {
-                    _logger.LogDebug($"Not retrying operation [opCode={(int)op}, opType={op}, attempt={attempt}, lastError={exception}]");
+                    _logger.LogRetryingOperationDebug("Not retrying", (int)op, op, attempt, exception.Message);
                 }
 
                 if (errors == null)
@@ -630,7 +630,7 @@ namespace Apache.Ignite.Internal
 
             if (_logger.IsEnabled(LogLevel.Debug))
             {
-                _logger.LogDebug($"Retrying operation [opCode={(int)op}, opType={op}, attempt={attempt}, lastError={exception}]");
+                _logger.LogRetryingOperationDebug("Retrying", (int)op, op, attempt, exception.Message);
             }
 
             Metrics.RequestsRetried.Add(1);
