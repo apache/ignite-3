@@ -72,6 +72,8 @@ import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.IgnitePentaFunction;
 import org.apache.ignite.internal.lang.IgniteTriFunction;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.raft.Peer;
@@ -121,6 +123,8 @@ import org.jetbrains.annotations.TestOnly;
  * Storage of table rows.
  */
 public class InternalTableImpl implements InternalTable {
+    private static final IgniteLogger LOG = Loggers.forClass(InternalTableImpl.class);
+
     /** Cursor id generator. */
     private static final AtomicLong CURSOR_ID_GENERATOR = new AtomicLong();
 
@@ -462,29 +466,23 @@ public class InternalTableImpl implements InternalTable {
             boolean full,
             @Nullable BiPredicate<R, ReplicaRequest> noWriteChecker
     ) {
-        CompletableFuture<R> result = new CompletableFuture<>();
-
-        enlist(partId, tx).thenCompose(
-                        primaryReplicaAndTerm -> trackingInvoke(tx, partId, mapFunc, full, primaryReplicaAndTerm, noWriteChecker))
-                .handle((res0, e) -> {
-                    if (e != null) {
-                        if (e.getCause() instanceof PrimaryReplicaMissException && attempts > 0) {
-                            return enlistWithRetry(tx, partId, mapFunc, attempts - 1, full, noWriteChecker).handle((r2, e2) -> {
-                                if (e2 != null) {
-                                    return result.completeExceptionally(e2);
-                                } else {
-                                    return result.complete(r2);
-                                }
-                            });
-                        }
-
-                        return result.completeExceptionally(e);
+        return enlist(partId, tx)
+                .thenCompose(primaryReplicaAndTerm -> trackingInvoke(tx, partId, mapFunc, full, primaryReplicaAndTerm, noWriteChecker))
+                .handle((response, e) -> {
+                    if (e == null) {
+                        return completedFuture(response);
                     }
 
-                    return result.complete(res0);
-                });
+                    if (attempts > 0 && e.getCause() instanceof PrimaryReplicaMissException) {
+                        LOG.info("Primary replica for partition {} changed, retrying the request. Remaining attempts: {}",
+                                partId, attempts - 1);
 
-        return result;
+                        return enlistWithRetry(tx, partId, mapFunc, attempts - 1, full, noWriteChecker);
+                    } else {
+                        return CompletableFuture.<R>failedFuture(e);
+                    }
+                })
+                .thenCompose(Function.identity());
     }
 
     /**
