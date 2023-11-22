@@ -655,33 +655,12 @@ public final class ReliableChannel implements AutoCloseable {
         }
     }
 
-    private void onObservableTimestampReceived(Long newTs) {
-        // Atomically update the observable timestamp to max(newTs, curTs).
-        while (true) {
-            long curTs = observableTimestamp.get();
-
-            if (curTs >= newTs) {
-                break;
-            }
-
-            if (observableTimestamp.compareAndSet(curTs, newTs)) {
-                break;
-            }
-        }
+    private void onObservableTimestampReceived(long newTs) {
+        observableTimestamp.updateAndGet(curTs -> Math.max(curTs, newTs));
     }
 
     private void onPartitionAssignmentChanged(long timestamp) {
-        while (true) {
-            long curTimestamp = partitionAssignmentTimestamp.get();
-
-            if (curTimestamp >= timestamp) {
-                break;
-            }
-
-            if (partitionAssignmentTimestamp.compareAndSet(curTimestamp, timestamp)) {
-                break;
-            }
-        }
+        partitionAssignmentTimestamp.updateAndGet(curTs -> Math.max(curTs, timestamp));
     }
 
     /**

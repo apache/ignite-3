@@ -290,16 +290,7 @@ public class ClientPrimaryReplicaTracker implements EventListener<EventParameter
             return new ReplicaHolder(nodeName, startTime);
         });
 
-        while (true) {
-            long maxStartTime0 = maxStartTime.get();
-            if (startTimeLong <= maxStartTime0) {
-                break;
-            }
-
-            if (maxStartTime.compareAndSet(maxStartTime0, startTimeLong)) {
-                break;
-            }
-        }
+        maxStartTime.updateAndGet(value -> Math.max(value, startTimeLong));
     }
 
     @SuppressWarnings("DataFlowIssue")
