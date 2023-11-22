@@ -177,6 +177,10 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
 
         // Assemble indexes as they are required by tables.
         for (CatalogIndexDescriptor indexDescriptor : schemaDescriptor.indexes()) {
+            if (!indexDescriptor.available()) {
+                continue;
+            }
+
             int tableId = indexDescriptor.tableId();
             TableDescriptor tableDescriptor = tableDescriptorMap.get(tableId);
             assert tableDescriptor != null : "Table is not found in schema: " + tableId;
