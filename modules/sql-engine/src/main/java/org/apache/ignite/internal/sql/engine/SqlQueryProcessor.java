@@ -375,25 +375,21 @@ public class SqlQueryProcessor implements QueryProcessor {
 
                     throw withCause(IgniteInternalException::new, REPLICA_UNAVAILABLE_ERR, "Failed to get the primary replica"
                             + " [tablePartitionId=" + partGroupId + ']', e);
+                } else {
+                    String holder = primaryReplica.getLeaseholder();
+
+                    assert holder != null : "Unable to map query, nothing holds the lease";
+
+                    ClusterNode node = clusterSrvc.topologyService().getByConsistentId(holder);
+
+                    if (node == null) {
+                        // additional recovery logic is need to be present around here.
+                        throw new IgniteInternalException(Sql.MAPPING_ERR, "Unable to map query, node is lost or offline");
+                    }
+
+                    return new PrimaryReplica(node, primaryReplica.getStartTime().longValue());
                 }
-
-                return primaryReplica;
-            })
-                    .thenApply(primaryReplica -> {
-                        String holder = primaryReplica.getLeaseholder();
-
-                        assert holder != null : "Unable to map query, nothing holds the lease";
-
-                        ClusterNode node = clusterSrvc.topologyService().getByConsistentId(holder);
-
-                        if (node == null) {
-                            // additional recovery logic is need to be present around here.
-                            throw new IgniteInternalException(Sql.MAPPING_ERR, "Unable to map query, node is lost or offline");
-                        }
-
-                        return new PrimaryReplica(node, primaryReplica.getStartTime().longValue());
-                    })
-            );
+            }));
         }
 
         CompletableFuture<Void> all = CompletableFuture.allOf(result.toArray(new CompletableFuture[0]));
