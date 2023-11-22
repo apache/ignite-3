@@ -22,13 +22,13 @@ namespace Apache.Ignite.Tests
     using System.Diagnostics.CodeAnalysis;
     using System.Linq;
     using Internal.Common;
-    using Log;
+    using Microsoft.Extensions.Logging;
     using NUnit.Framework;
 
     /// <summary>
     /// Stores log entries in a list.
     /// </summary>
-    public class ListLogger : IIgniteLogger
+    public class ListLogger : ILogger
     {
         /** */
         private readonly List<Entry> _entries = new();
@@ -37,12 +37,12 @@ namespace Apache.Ignite.Tests
         private readonly object _lock = new();
 
         /** */
-        private readonly IIgniteLogger? _wrappedLogger;
+        private readonly ILogger? _wrappedLogger;
 
-        public ListLogger(IIgniteLogger? wrappedLogger = null)
+        public ListLogger(ILogger? wrappedLogger = null)
         {
             _wrappedLogger = wrappedLogger;
-            EnabledLevels = new() { LogLevel.Debug, LogLevel.Info, LogLevel.Warn, LogLevel.Error };
+            EnabledLevels = new() { LogLevel.Debug, LogLevel.Information, LogLevel.Warning, LogLevel.Error };
         }
 
         /// <summary>
@@ -87,45 +87,41 @@ namespace Apache.Ignite.Tests
             }
         }
 
-        /** <inheritdoc /> */
-        public void Log(
-            LogLevel level,
-            string message,
-            object?[]? args,
-            IFormatProvider? formatProvider,
-            string? category,
-            string? nativeErrorInfo,
-            Exception? ex)
+        public void Log<TState>(
+            LogLevel logLevel,
+            EventId eventId,
+            TState state,
+            Exception? exception,
+            Func<TState, Exception?, string> formatter)
         {
-            Assert.NotNull(message);
+            Assert.NotNull(state);
+            Assert.NotNull(formatter);
 
-            if (!IsEnabled(level))
+            if (!IsEnabled(logLevel))
             {
                 return;
             }
 
-            _wrappedLogger?.Log(level, message, args, formatProvider, category, nativeErrorInfo, ex);
+            _wrappedLogger?.Log(logLevel, eventId, state, exception, formatter);
 
             lock (_lock)
             {
-                if (args != null)
-                {
-                    message = string.Format(formatProvider, message, args);
-                }
+                var message = formatter(state, exception);
 
-                if (ex != null)
-                {
-                    message += Environment.NewLine + ex;
-                }
-
-                _entries.Add(new Entry(message, level, category, ex));
+                // TODO: Category?
+                _entries.Add(new Entry(message, logLevel, null, exception));
             }
         }
 
         /** <inheritdoc /> */
-        public bool IsEnabled(LogLevel level)
+        public bool IsEnabled(LogLevel logLevel)
         {
-            return EnabledLevels.Contains(level);
+            return EnabledLevels.Contains(logLevel);
+        }
+
+        public IDisposable BeginScope<TState>(TState state)
+        {
+            throw new NotImplementedException();
         }
 
         [SuppressMessage("Microsoft.Design", "CA1034:NestedTypesShouldNotBeVisible", Justification = "Tests.")]

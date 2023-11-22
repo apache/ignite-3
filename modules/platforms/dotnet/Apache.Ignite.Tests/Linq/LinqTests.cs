@@ -24,7 +24,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Ignite.Sql;
 using Ignite.Table;
-using Log;
+using Microsoft.Extensions.Logging;
 using NodaTime;
 using NUnit.Framework;
 using Table;
