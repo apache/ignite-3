@@ -256,7 +256,7 @@ public class BaseSqlIntegrationTest extends ClusterPerClassIntegrationTest {
      * @return Nodes on which the partition index was built.
      * @throws Exception If failed.
      */
-    protected static Map<Integer, List<Ignite>> waitForIndexBuild(String tableName, String indexName) throws Exception {
+    protected static Map<Integer, List<Ignite>> waitForIndexBuild(String tableName, String indexName) {
         Map<Integer, List<Ignite>> partitionIdToNodes = new HashMap<>();
 
         CLUSTER.runningNodes().forEach(clusterNode -> {

@@ -83,6 +83,9 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
 
     @Test
     public void ddl() throws Exception {
+        // Do not wait for indexes to become available.
+        setAwaitIndexAvailability(false);
+
         IgniteSql sql = igniteSql();
         Session ses = sql.createSession();
 
