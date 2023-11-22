@@ -29,7 +29,7 @@ import org.apache.ignite.internal.storage.configurations.StorageEngineConfigurat
  * Basic configuration schema for {@link PageMemory} based storage engines.
  */
 //@AbstractConfiguration
-public class BasePageMemoryStorageEngineConfigurationSchema extends StorageEngineConfigurationSchema {
+public class BasePageMemoryStorageEngineConfigurationSchema {
     /** Name of the default data region. */
     public static final String DEFAULT_DATA_REGION_NAME = "default";
 //

@@ -1,5 +1,6 @@
 package org.apache.ignite.internal.storage.configurations;
 
+import org.apache.ignite.configuration.annotation.NamedConfigValue;
 import org.apache.ignite.configuration.annotation.PolymorphicConfig;
 import org.apache.ignite.configuration.annotation.PolymorphicId;
 
@@ -7,5 +8,5 @@ import org.apache.ignite.configuration.annotation.PolymorphicId;
 public class StorageEngineConfigurationSchema {
 
     @PolymorphicId
-    public String engineName;
+    public String name;
 }

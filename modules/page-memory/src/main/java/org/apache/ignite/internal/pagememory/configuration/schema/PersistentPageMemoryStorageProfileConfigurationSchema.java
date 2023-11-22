@@ -2,6 +2,7 @@ package org.apache.ignite.internal.pagememory.configuration.schema;
 
 import static org.apache.ignite.internal.util.Constants.MiB;
 
+import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.InjectedName;
 import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;

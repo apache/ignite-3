@@ -25,6 +25,7 @@ import java.nio.file.Path;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Supplier;
 import java.util.stream.Stream;
 import jdk.jshell.spi.ExecutionControl;
 import jdk.jshell.spi.ExecutionControl.NotImplementedException;
@@ -61,7 +62,7 @@ public class PersistentPageMemoryStorageEngine implements StorageEngine {
 
     private final String igniteInstanceName;
 
-    private final PersistentPageMemoryStorageEngineConfiguration engineConfig;
+    private final Supplier<PersistentPageMemoryStorageEngineConfiguration> engineConfig;
 
     private final StoragesConfiguration storageProfileConfigurationSchema = null;
 
@@ -94,7 +95,7 @@ public class PersistentPageMemoryStorageEngine implements StorageEngine {
      */
     public PersistentPageMemoryStorageEngine(
             String igniteInstanceName,
-            PersistentPageMemoryStorageEngineConfiguration engineConfig,
+            Supplier<PersistentPageMemoryStorageEngineConfiguration> engineConfig,
             PageIoRegistry ioRegistry,
             Path storagePath,
             @Nullable LongJvmPauseDetector longJvmPauseDetector
@@ -110,7 +111,7 @@ public class PersistentPageMemoryStorageEngine implements StorageEngine {
      * Returns a storage engine configuration.
      */
     public PersistentPageMemoryStorageEngineConfiguration configuration() {
-        return engineConfig;
+        return engineConfig.get();
     }
 
     @Override
@@ -120,10 +121,10 @@ public class PersistentPageMemoryStorageEngine implements StorageEngine {
 
     @Override
     public void start() throws StorageException {
-        int pageSize = engineConfig.pageSize().value();
+        int pageSize = engineConfig.get().pageSize().value();
 
         try {
-            FileIoFactory fileIoFactory = engineConfig.checkpoint().useAsyncFileIoFactory().value()
+            FileIoFactory fileIoFactory = engineConfig.get().checkpoint().useAsyncFileIoFactory().value()
                     ? new AsyncFileIoFactory()
                     : new RandomAccessFileIoFactory();
 
@@ -146,7 +147,7 @@ public class PersistentPageMemoryStorageEngine implements StorageEngine {
                     igniteInstanceName,
                     null,
                     longJvmPauseDetector,
-                    engineConfig.checkpoint(),
+                    engineConfig.get().checkpoint(),
                     filePageStoreManager,
                     partitionMetaManager,
                     regions.values(),

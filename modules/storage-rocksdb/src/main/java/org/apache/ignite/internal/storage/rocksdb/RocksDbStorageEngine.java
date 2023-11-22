@@ -28,6 +28,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Supplier;
 import java.util.stream.Stream;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
@@ -60,7 +61,7 @@ public class RocksDbStorageEngine implements StorageEngine {
         RocksDB.loadLibrary();
     }
 
-    private final RocksDbStorageEngineConfiguration engineConfig;
+    private final Supplier<RocksDbStorageEngineConfiguration> engineConfig;
 
     private final StoragesConfiguration storagesConfiguration = null;
 
@@ -86,7 +87,7 @@ public class RocksDbStorageEngine implements StorageEngine {
      * @param engineConfig RocksDB storage engine configuration.
      * @param storagePath Storage path.
      */
-    public RocksDbStorageEngine(String nodeName, RocksDbStorageEngineConfiguration engineConfig, Path storagePath) {
+    public RocksDbStorageEngine(String nodeName, Supplier<RocksDbStorageEngineConfiguration> engineConfig, Path storagePath) {
         this.engineConfig = engineConfig;
         this.storagePath = storagePath;
 
@@ -104,7 +105,7 @@ public class RocksDbStorageEngine implements StorageEngine {
      * Returns a RocksDB storage engine configuration.
      */
     public RocksDbStorageEngineConfiguration configuration() {
-        return engineConfig;
+        return engineConfig.get();
     }
 
     /**

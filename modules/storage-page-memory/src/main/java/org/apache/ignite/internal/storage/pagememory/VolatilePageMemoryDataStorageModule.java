@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.storage.pagememory.VolatilePageMemorySt
 
 import com.google.auto.service.AutoService;
 import java.nio.file.Path;
+import java.util.function.Supplier;
 import org.apache.ignite.internal.components.LongJvmPauseDetector;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.pagememory.evict.PageEvictionTrackerNoOp;
@@ -52,7 +53,7 @@ public class VolatilePageMemoryDataStorageModule implements DataStorageModule {
             @Nullable LongJvmPauseDetector longJvmPauseDetector
     ) throws StorageException {
 
-        VolatilePageMemoryStorageEngineConfiguration engineConfig =
+        Supplier<VolatilePageMemoryStorageEngineConfiguration> engineConfig = () ->
                 (VolatilePageMemoryStorageEngineConfiguration) configRegistry.getConfiguration(StoragesConfiguration.KEY)
                         .engines().get(ENGINE_NAME);
 

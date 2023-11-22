@@ -27,6 +27,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Supplier;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -60,7 +61,7 @@ public class VolatilePageMemoryStorageEngine implements StorageEngine {
 
     private final String igniteInstanceName;
 
-    private final VolatilePageMemoryStorageEngineConfiguration engineConfig;
+    private final Supplier<VolatilePageMemoryStorageEngineConfiguration> engineConfig;
 
     private final StoragesConfiguration storagesConfiguration = null;
 
@@ -81,7 +82,7 @@ public class VolatilePageMemoryStorageEngine implements StorageEngine {
      */
     public VolatilePageMemoryStorageEngine(
             String igniteInstanceName,
-            VolatilePageMemoryStorageEngineConfiguration engineConfig,
+            Supplier<VolatilePageMemoryStorageEngineConfiguration> engineConfig,
             PageIoRegistry ioRegistry,
             PageEvictionTracker pageEvictionTracker) {
         this.igniteInstanceName = igniteInstanceName;

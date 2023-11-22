@@ -27,6 +27,9 @@ import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.validation.Validator;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDataStorageConfigurationSchema;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfiguration;
+import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfigurationSchema;
+import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageProfileConfiguration;
+import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageProfileConfigurationSchema;
 
 /**
  * {@link ConfigurationModule} for cluster-wide configuration provided by ignite-storage-rocksdb.
@@ -48,7 +51,10 @@ public class RocksDbStorageEngineLocalConfigurationModule implements Configurati
     /** {@inheritDoc} */
     @Override
     public Collection<Class<?>> polymorphicSchemaExtensions() {
-        return List.of(RocksDbDataStorageConfigurationSchema.class);
+        return List.of(
+                RocksDbStorageEngineConfigurationSchema.class,
+                RocksDbStorageProfileConfigurationSchema.class,
+                RocksDbDataStorageConfigurationSchema.class);
     }
 
     /** {@inheritDoc} */
