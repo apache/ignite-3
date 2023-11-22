@@ -35,6 +35,7 @@ public class PrimaryReplicaEventParameters extends CausalEventParameters {
      * @param causalityToken Causality token.
      * @param groupId Replication group ID.
      * @param leaseholder Leaseholder node consistent ID.
+     * @param startTime Lease start timestamp.
      */
     public PrimaryReplicaEventParameters(long causalityToken, ReplicationGroupId groupId, String leaseholder, HybridTimestamp startTime) {
         super(causalityToken);
