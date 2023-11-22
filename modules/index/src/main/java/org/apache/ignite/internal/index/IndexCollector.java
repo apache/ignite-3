@@ -38,6 +38,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.DropIndexEventParameters;
+import org.apache.ignite.internal.catalog.events.DropTableEventParameters;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 
@@ -75,8 +76,7 @@ class IndexCollector implements ManuallyCloseable {
      *     (4, 0) -> [I1(A), I3(A)]
      * </pre>
      *
-     * <p>Updated on {@link #recover() node recovery} and {@link CatalogEvent#INDEX_DROP} {@link #onDropIndex(DropIndexEventParameters)}
-     * using {@link #addDroppedAvailableIndex(CatalogIndexDescriptor, int)}.</p>
+     * <p>Updated on {@link #recover() node recovery} and a catalog events processing.</p>
      */
     private final ConcurrentSkipListMap<TableIdCatalogVersion, List<CatalogIndexDescriptor>> droppedAvailableTableIndexes
             = new ConcurrentSkipListMap<>();
@@ -172,6 +172,14 @@ class IndexCollector implements ManuallyCloseable {
 
             return onDropIndex((DropIndexEventParameters) parameters).thenApply(unused -> false);
         });
+
+        catalogService.listen(CatalogEvent.TABLE_DROP, (parameters, exception) -> {
+            if (exception != null) {
+                return failedFuture(exception);
+            }
+
+            return onTableDrop((DropTableEventParameters) parameters).thenApply(unused -> false);
+        });
     }
 
     private CompletableFuture<?> onDropIndex(DropIndexEventParameters parameters) {
@@ -187,6 +195,14 @@ class IndexCollector implements ManuallyCloseable {
             }
 
             addDroppedAvailableIndex(droppedIndexDescriptor, parameters.catalogVersion());
+
+            return completedFuture(null);
+        });
+    }
+
+    private CompletableFuture<?> onTableDrop(DropTableEventParameters parameters) {
+        return inBusyLockAsync(busyLock, () -> {
+            droppedAvailableTableIndexes.entrySet().removeIf(entry -> parameters.tableId() == entry.getKey().tableId);
 
             return completedFuture(null);
         });
@@ -219,8 +235,8 @@ class IndexCollector implements ManuallyCloseable {
 
         int tableId = droppedIndex.tableId();
 
-        // For now, there is no need to worry about parallel changes to the map, it will change on recovery and in this listener and
-        // won't interfere with each other.
+        // For now, there is no need to worry about parallel changes to the map, it will change on recovery and in catalog event listeners
+        // and won't interfere with each other.
         List<CatalogIndexDescriptor> previousCatalogVersionDroppedIndexes = getDroppedAvailableIndexes(catalogVersion - 1, tableId);
 
         droppedAvailableTableIndexes.compute(
