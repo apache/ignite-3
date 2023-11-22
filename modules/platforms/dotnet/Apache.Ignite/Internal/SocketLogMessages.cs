@@ -17,19 +17,13 @@
 
 namespace Apache.Ignite.Internal;
 
-using System.Reflection;
+using Microsoft.Extensions.Logging;
 
 /// <summary>
-/// Version utils.
+/// Socket log messages.
 /// </summary>
-internal static class VersionUtils
+internal static partial class SocketLogMessages
 {
-    /// <summary>
-    /// Gets the informational version.
-    /// </summary>
-    /// <returns>Version string.</returns>
-    public static readonly string InformationalVersion =
-        typeof(VersionUtils).Assembly
-            .GetCustomAttribute<AssemblyInformationalVersionAttribute>()
-            ?.InformationalVersion!;
+    [LoggerMessage(Message = "Ignite.NET client version {Version} is starting", Level = LogLevel.Information)]
+    internal static partial void LogClientStart(this ILogger logger, string version);
 }

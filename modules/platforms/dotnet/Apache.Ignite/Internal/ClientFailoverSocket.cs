@@ -38,9 +38,6 @@ namespace Apache.Ignite.Internal
     /// <summary>
     /// Client socket wrapper with reconnect/failover functionality.
     /// </summary>
-    [SuppressMessage("Performance", "CA1848:Use the LoggerMessage delegates", Justification = "TODO")]
-    [SuppressMessage("Usage", "CA2254:Template should be a static expression", Justification = "TODO")]
-    [SuppressMessage("Usage", "CA2253:Named placeholders should not be numeric values", Justification = "TODO")]
     internal sealed class ClientFailoverSocket : IDisposable, IClientSocketEventListener
     {
         /** Current global endpoint index for Round-robin. */
@@ -85,7 +82,8 @@ namespace Apache.Ignite.Internal
         /// Initializes a new instance of the <see cref="ClientFailoverSocket"/> class.
         /// </summary>
         /// <param name="configuration">Client configuration.</param>
-        private ClientFailoverSocket(IgniteClientConfiguration configuration)
+        /// <param name="logger">Logger.</param>
+        private ClientFailoverSocket(IgniteClientConfiguration configuration, ILogger logger)
         {
             if (configuration.Endpoints.Count == 0)
             {
@@ -94,7 +92,7 @@ namespace Apache.Ignite.Internal
                     $"Invalid {nameof(IgniteClientConfiguration)}: {nameof(IgniteClientConfiguration.Endpoints)} is empty. Nowhere to connect.");
             }
 
-            _logger = configuration.LoggerFactory.CreateLogger<ClientFailoverSocket>();
+            _logger = logger;
             _endpoints = GetIpEndPoints(configuration).ToList();
 
             Configuration = new(configuration); // Defensive copy.
@@ -122,10 +120,10 @@ namespace Apache.Ignite.Internal
         /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
         public static async Task<ClientFailoverSocket> ConnectAsync(IgniteClientConfiguration configuration)
         {
-            var socket = new ClientFailoverSocket(configuration);
-
             var logger = configuration.LoggerFactory.CreateLogger<ClientFailoverSocket>();
-            logger.LogInformation("Ignite.NET client version " + VersionUtils.GetInformationalVersion() + " is starting");
+            logger.LogClientStart(VersionUtils.InformationalVersion);
+
+            var socket = new ClientFailoverSocket(configuration, logger);
 
             await socket.GetNextSocketAsync().ConfigureAwait(false);
 
