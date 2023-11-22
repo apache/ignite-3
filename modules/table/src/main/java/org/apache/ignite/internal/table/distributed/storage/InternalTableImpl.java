@@ -474,10 +474,8 @@ public class InternalTableImpl implements InternalTable {
                     }
 
                     if (attempts > 0 && e.getCause() instanceof PrimaryReplicaMissException) {
-                        if (LOG.isInfoEnabled()) {
-                            LOG.info("Primary replica for partition {} changed, retrying the request. Remaining attempts: {}",
-                                    partId, attempts - 1);
-                        }
+                        LOG.info("Primary replica for partition {} changed, retrying the request. Remaining attempts: {}",
+                                partId, attempts - 1);
 
                         return enlistWithRetry(tx, partId, mapFunc, attempts - 1, full, noWriteChecker);
                     } else {

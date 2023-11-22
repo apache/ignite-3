@@ -55,7 +55,6 @@ import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessage
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverReplicaMessage;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.replicator.exception.ExpectedReplicationException;
-import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
 import org.apache.ignite.internal.replicator.exception.ReplicaIsAlreadyStartedException;
 import org.apache.ignite.internal.replicator.exception.ReplicaStoppingException;
 import org.apache.ignite.internal.replicator.exception.ReplicaUnavailableException;
@@ -347,9 +346,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     }
 
     private static boolean indicatesUnexpectedProblem(Throwable ex) {
-        ex = unwrapCause(ex);
-
-        return !(ex instanceof ExpectedReplicationException) && !(ex instanceof PrimaryReplicaMissException);
+        return !(unwrapCause(ex) instanceof ExpectedReplicationException);
     }
 
     /**
