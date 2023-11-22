@@ -25,15 +25,20 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.sql.ResultSet;
 import java.sql.SQLFeatureNotSupportedException;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.InitParameters;
+import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -167,5 +172,20 @@ public class AbstractJdbcSelfTest extends BaseIgniteAbstractTest {
      */
     protected void checkNotSupported(Executable ex) {
         assertThrows(SQLFeatureNotSupportedException.class, ex);
+    }
+
+    /** Return a size of stored resources. Reflection based implementation, need to be refactored. */
+    int openCursorsRegistered() throws Exception {
+        // a bit hack, instead of calling stmt.close(), gives a chance to catch potential forgiven cursor.
+        stmt.execute("SELECT 1");
+        ResultSet rs = stmt.getResultSet();
+        rs.close();
+
+        IgniteImpl ignite = (IgniteImpl) clusterNodes.get(0);
+        IgniteComponent cliHnd = IgniteTestUtils.getFieldValue(ignite, "clientHandlerModule");
+        Object clientInboundHandler = IgniteTestUtils.getFieldValue(cliHnd, "handler");
+        Object rsrc = IgniteTestUtils.getFieldValue(clientInboundHandler, "resources");
+        Map resources = IgniteTestUtils.getFieldValue(rsrc, "res");
+        return resources.size();
     }
 }

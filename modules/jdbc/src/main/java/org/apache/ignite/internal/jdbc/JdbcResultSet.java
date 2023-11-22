@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.jdbc;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.apache.ignite.internal.jdbc.JdbcStatement.createTransformer;
 
 import java.io.InputStream;
 import java.io.Reader;
@@ -65,6 +66,8 @@ import org.apache.ignite.internal.jdbc.proto.IgniteQueryErrorCode;
 import org.apache.ignite.internal.jdbc.proto.JdbcQueryCursorHandler;
 import org.apache.ignite.internal.jdbc.proto.SqlStateCode;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcColumnMeta;
+import org.apache.ignite.internal.jdbc.proto.event.JdbcGetMoreResultsRequest;
+import org.apache.ignite.internal.jdbc.proto.event.JdbcGetMoreResultsResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaColumnsResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryCloseRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryCloseResult;
@@ -72,6 +75,8 @@ import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryFetchRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryFetchResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryMetadataRequest;
 import org.apache.ignite.internal.util.TransformingIterator;
+import org.apache.ignite.sql.ColumnType;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Jdbc result set implementation.
@@ -215,6 +220,40 @@ public class JdbcResultSet implements ResultSet {
         initColumnOrder();
     }
 
+    @Nullable JdbcResultSet getNextResultSet() throws SQLException {
+        try {
+            JdbcGetMoreResultsRequest req = new JdbcGetMoreResultsRequest(cursorId, fetchSize);
+            JdbcGetMoreResultsResult res = cursorHandler.getMoreResultsAsync(req).get();
+
+            close0(true);
+
+            if (!res.hasResults()) {
+                return null;
+            }
+
+            long cursorId0 = res.cursorId();
+
+            List<ColumnType> columnTypes = res.columnTypes();
+            int[] decimalScales = res.decimalScales();
+
+            rows = new ArrayList<>(res.items().size());
+            for (ByteBuffer item : res.items()) {
+                rows.add(new BinaryTupleReader(columnTypes.size(), item));
+            }
+
+            Function<BinaryTupleReader, List<Object>> transformer = createTransformer(columnTypes, decimalScales);
+
+            return new JdbcResultSet(cursorHandler, stmt, cursorId0, fetchSize, res.last(), rows,
+                    res.isQuery(), autoClose, res.updateCount(), closeStmt, columnTypes.size(), transformer);
+        } catch (InterruptedException e) {
+            throw new SQLException("Thread was interrupted.", e);
+        } catch (ExecutionException e) {
+            throw new SQLException("Fetch request failed.", e);
+        } catch (CancellationException e) {
+            throw new SQLException("Fetch request canceled.", SqlStateCode.QUERY_CANCELLED);
+        }
+    }
+
     /** {@inheritDoc} */
     @Override
     public boolean next() throws SQLException {
@@ -273,17 +312,26 @@ public class JdbcResultSet implements ResultSet {
     }
 
     /**
-     * Close result set.
+     * Close cursor.
      *
      * @throws SQLException On error.
      */
     void close0() throws SQLException {
+        close0(false);
+    }
+
+    /**
+     * Close result set.
+     *
+     * @throws SQLException On error.
+     */
+    void close0(boolean enforce) throws SQLException {
         if (isClosed() || cursorId == null) {
             return;
         }
 
         try {
-            if (stmt != null && (!finished || (isQuery && !autoClose))) {
+            if (stmt != null && (!finished || (isQuery && !autoClose) || enforce)) {
                 JdbcQueryCloseResult res = cursorHandler.closeAsync(new JdbcQueryCloseRequest(cursorId)).get();
 
                 if (!res.hasResults()) {

@@ -42,13 +42,14 @@ import org.apache.ignite.internal.jdbc.proto.JdbcStatementType;
 import org.apache.ignite.internal.jdbc.proto.SqlStateCode;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcBatchExecuteRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcBatchExecuteResult;
+import org.apache.ignite.internal.jdbc.proto.event.JdbcGetMoreResultsRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryExecuteRequest;
-import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryExecuteResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQuerySingleResult;
 import org.apache.ignite.internal.jdbc.proto.event.Response;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.sql.ColumnType;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Jdbc statement implementation.
@@ -108,7 +109,7 @@ public class JdbcStatement implements Statement {
     /** {@inheritDoc} */
     @Override
     public ResultSet executeQuery(String sql) throws SQLException {
-        execute0(JdbcStatementType.SELECT_STATEMENT_TYPE, Objects.requireNonNull(sql), ArrayUtils.OBJECT_EMPTY_ARRAY);
+        execute0(JdbcStatementType.SELECT_STATEMENT_TYPE, Objects.requireNonNull(sql), false, ArrayUtils.OBJECT_EMPTY_ARRAY);
 
         ResultSet rs = getResultSet();
 
@@ -124,9 +125,10 @@ public class JdbcStatement implements Statement {
      *
      * @param sql  Sql query.
      * @param args Query parameters.
+     * @param multiStatement Multiple statement flag.
      * @throws SQLException Onj error.
      */
-    protected void execute0(JdbcStatementType stmtType, String sql, Object[] args) throws SQLException {
+    void execute0(JdbcStatementType stmtType, String sql, boolean multiStatement, Object[] args) throws SQLException {
         ensureNotClosed();
 
         closeResults();
@@ -135,7 +137,8 @@ public class JdbcStatement implements Statement {
             throw new SQLException("SQL query is empty.");
         }
 
-        JdbcQueryExecuteRequest req = new JdbcQueryExecuteRequest(stmtType, schema, pageSize, maxRows, sql, args, conn.getAutoCommit());
+        JdbcQueryExecuteRequest req = new JdbcQueryExecuteRequest(stmtType, schema, pageSize, maxRows, sql, args,
+                conn.getAutoCommit(), multiStatement);
 
         Response res;
         try {
@@ -154,33 +157,29 @@ public class JdbcStatement implements Statement {
 
         JdbcQueryExecuteResponse result = (JdbcQueryExecuteResponse) res;
 
-        JdbcQueryExecuteResult executeResult = result.result();
+        JdbcQuerySingleResult executeResult = result.result();
 
-        for (JdbcQuerySingleResult jdbcRes : executeResult.results()) {
-            if (!jdbcRes.hasResults()) {
-                throw IgniteQueryErrorCode.createJdbcSqlException(jdbcRes.err(), jdbcRes.status());
-            }
+        if (!executeResult.hasResults()) {
+            throw IgniteQueryErrorCode.createJdbcSqlException(executeResult.err(), executeResult.status());
         }
 
-        resSets = new ArrayList<>(executeResult.results().size());
+        resSets = new ArrayList<>();
 
         JdbcQueryCursorHandler handler = new JdbcClientQueryCursorHandler(result.getChannel());
 
-        for (JdbcQuerySingleResult jdbcRes : executeResult.results()) {
-            List<ColumnType> columnTypes = jdbcRes.columnTypes();
-            int[] decimalScales = jdbcRes.decimalScales();
+        List<ColumnType> columnTypes = executeResult.columnTypes();
+        int[] decimalScales = executeResult.decimalScales();
 
-            Function<BinaryTupleReader, List<Object>> transformer = createTransformer(columnTypes, decimalScales);
+        Function<BinaryTupleReader, List<Object>> transformer = createTransformer(columnTypes, decimalScales);
 
-            resSets.add(new JdbcResultSet(handler, this, jdbcRes.cursorId(), pageSize,
-                    jdbcRes.last(), jdbcRes.items(), jdbcRes.isQuery(), false, jdbcRes.updateCount(),
-                    closeOnCompletion, columnTypes.size(), transformer));
-        }
+        resSets.add(new JdbcResultSet(handler, this, executeResult.cursorId(), pageSize,
+                executeResult.last(), executeResult.items(), executeResult.isQuery(), false, executeResult.updateCount(),
+                closeOnCompletion, columnTypes.size(), transformer));
 
         assert !resSets.isEmpty() : "At least one results set is expected";
     }
 
-    private static Function<BinaryTupleReader, List<Object>> createTransformer(List<ColumnType> columnTypes, int[] decimalScales) {
+    public static Function<BinaryTupleReader, List<Object>> createTransformer(List<ColumnType> columnTypes, int[] decimalScales) {
         return (tuple) -> {
             int columnCount = columnTypes.size();
             List<Object> row = new ArrayList<>(columnCount);
@@ -203,7 +202,7 @@ public class JdbcStatement implements Statement {
     /** {@inheritDoc} */
     @Override
     public int executeUpdate(String sql) throws SQLException {
-        execute0(JdbcStatementType.UPDATE_STATEMENT_TYPE, Objects.requireNonNull(sql), ArrayUtils.OBJECT_EMPTY_ARRAY);
+        execute0(JdbcStatementType.UPDATE_STATEMENT_TYPE, Objects.requireNonNull(sql), false, ArrayUtils.OBJECT_EMPTY_ARRAY);
 
         int res = getUpdateCount();
 
@@ -367,7 +366,7 @@ public class JdbcStatement implements Statement {
     public boolean execute(String sql) throws SQLException {
         ensureNotClosed();
 
-        execute0(JdbcStatementType.ANY_STATEMENT_TYPE, Objects.requireNonNull(sql), ArrayUtils.OBJECT_EMPTY_ARRAY);
+        execute0(JdbcStatementType.ANY_STATEMENT_TYPE, Objects.requireNonNull(sql), true, ArrayUtils.OBJECT_EMPTY_ARRAY);
 
         return isQuery();
     }
@@ -415,6 +414,7 @@ public class JdbcStatement implements Statement {
 
     /** {@inheritDoc} */
     @Override
+    @Nullable
     public ResultSet getResultSet() throws SQLException {
         ensureNotClosed();
 
@@ -424,7 +424,7 @@ public class JdbcStatement implements Statement {
 
         JdbcResultSet rs = resSets.get(curRes);
 
-        if (!rs.isQuery()) {
+        if (rs == null || !rs.isQuery()) {
             return null;
         }
 
@@ -442,7 +442,7 @@ public class JdbcStatement implements Statement {
 
         JdbcResultSet rs = resSets.get(curRes);
 
-        if (rs.isQuery()) {
+        if (rs == null || rs.isQuery()) {
             return -1;
         }
 
@@ -460,9 +460,13 @@ public class JdbcStatement implements Statement {
     public boolean getMoreResults(int curr) throws SQLException {
         ensureNotClosed();
 
-        if (resSets == null || curRes >= resSets.size()) {
+        if (resSets == null || curRes >= resSets.size() || resSets.get(curRes) == null) {
             return false;
         }
+
+        JdbcResultSet nextResultSet = resSets.get(curRes).getNextResultSet();
+
+        resSets.add(nextResultSet);
 
         curRes++;
 
@@ -472,7 +476,7 @@ public class JdbcStatement implements Statement {
             switch (curr) {
                 case CLOSE_CURRENT_RESULT:
                     if (curRes > 0) {
-                        resSets.get(curRes - 1).close0();
+                        resSets.get(curRes - 1).close0(false);
                     }
 
                     break;
@@ -482,11 +486,11 @@ public class JdbcStatement implements Statement {
                     throw new SQLFeatureNotSupportedException("Multiple open results is not supported.");
 
                 default:
-                    throw new SQLException("Invalid 'current' parameter.");
+                    throw new SQLException("Invalid 'curr' parameter.");
             }
         }
 
-        return (resSets != null && curRes < resSets.size());
+        return nextResultSet != null;
     }
 
     /** {@inheritDoc} */
@@ -711,10 +715,12 @@ public class JdbcStatement implements Statement {
      *
      * @throws SQLException On error.
      */
-    protected void closeResults() throws SQLException {
+    void closeResults() throws SQLException {
         if (resSets != null) {
             for (JdbcResultSet rs : resSets) {
-                rs.close0();
+                if (rs != null) {
+                    rs.close0(true);
+                }
             }
 
             resSets = null;

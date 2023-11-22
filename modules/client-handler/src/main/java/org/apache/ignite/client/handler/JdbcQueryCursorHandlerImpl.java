@@ -21,12 +21,15 @@ import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.jdbc.JdbcConverterUtils;
 import org.apache.ignite.internal.jdbc.proto.JdbcQueryCursorHandler;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcColumnMeta;
+import org.apache.ignite.internal.jdbc.proto.event.JdbcGetMoreResultsRequest;
+import org.apache.ignite.internal.jdbc.proto.event.JdbcGetMoreResultsResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaColumnsResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryCloseRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryCloseResult;
@@ -37,7 +40,9 @@ import org.apache.ignite.internal.jdbc.proto.event.Response;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
+import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.sql.ColumnMetadata;
+import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.ResultSetMetadata;
 
 /**
@@ -52,7 +57,7 @@ public class JdbcQueryCursorHandlerImpl implements JdbcQueryCursorHandler {
      *
      * @param resources Client resources.
      */
-    public JdbcQueryCursorHandlerImpl(ClientResourceRegistry resources) {
+    JdbcQueryCursorHandlerImpl(ClientResourceRegistry resources) {
         this.resources = resources;
     }
 
@@ -93,6 +98,71 @@ public class JdbcQueryCursorHandlerImpl implements JdbcQueryCursorHandler {
 
     /** {@inheritDoc} */
     @Override
+    public CompletableFuture<JdbcGetMoreResultsResult> getMoreResultsAsync(JdbcGetMoreResultsRequest req) {
+        AsyncSqlCursor<InternalSqlRow> asyncSqlCursor;
+        try {
+            asyncSqlCursor = resources.get(req.cursorId()).get(AsyncSqlCursor.class);
+        } catch (IgniteInternalCheckedException e) {
+            StringWriter sw = getWriterWithStackTrace(e);
+
+            return CompletableFuture.completedFuture(new JdbcGetMoreResultsResult(Response.STATUS_FAILED,
+                    "Failed to find query cursor [curId=" + req.cursorId() + "]. Error message:" + sw));
+        }
+
+        if (!asyncSqlCursor.hasNextResult()) {
+            return CompletableFuture.completedFuture(new JdbcGetMoreResultsResult(false, req.cursorId()));
+        }
+
+        return asyncSqlCursor.nextResult().thenCompose(cur -> cur.requestNextAsync(req.prefetchSize())
+                .handle((batch, t) -> {
+                    if (t != null) {
+                        StringWriter sw = getWriterWithStackTrace(t);
+
+                        return new JdbcGetMoreResultsResult(Response.STATUS_FAILED,
+                                "Failed to fetch query results [curId=" + req.cursorId() + "]. Error message:" + sw);
+                    }
+
+                    try {
+                        long cursorId = resources.put(new ClientResource(cur, cur::closeAsync));
+
+                        SqlQueryType queryType = cur.queryType();
+
+                        List<ColumnMetadata> columns = cur.metadata().columns();
+
+                        int[] decimalScales = new int[columns.size()];
+                        List<ColumnType> schema = new ArrayList<>(columns.size());
+
+                        int countOfDecimal = 0;
+                        for (ColumnMetadata column : columns) {
+                            schema.add(column.type());
+                            if (column.type() == ColumnType.DECIMAL) {
+                                decimalScales[countOfDecimal++] = column.scale();
+                            }
+                        }
+                        decimalScales = Arrays.copyOf(decimalScales, countOfDecimal);
+
+                        List<ByteBuffer> rows = new ArrayList<>(batch.items().size());
+                        for (InternalSqlRow item : batch.items()) {
+                            rows.add(item.asBinaryTuple().byteBuffer());
+                        }
+
+                        long updCount = 0;
+                        if (queryType == SqlQueryType.DML) {
+                            updCount = (long) batch.items().get(0).get(0);
+                        }
+
+                        boolean isQuery = queryType == SqlQueryType.QUERY || queryType == SqlQueryType.EXPLAIN;
+
+                        return new JdbcGetMoreResultsResult(true, cursorId, updCount, schema, decimalScales, rows, !batch.hasMore(), isQuery);
+                    } catch (IgniteInternalCheckedException e) {
+                        return new JdbcGetMoreResultsResult(Response.STATUS_FAILED,
+                                "Unable to store query cursor.");
+                    }
+                }));
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public CompletableFuture<JdbcQueryCloseResult> closeAsync(JdbcQueryCloseRequest req) {
         AsyncSqlCursor<List<Object>> asyncSqlCursor;
         try {
@@ -119,7 +189,7 @@ public class JdbcQueryCursorHandlerImpl implements JdbcQueryCursorHandler {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<JdbcMetaColumnsResult> queryMetadataAsync(JdbcQueryMetadataRequest req) {
-        AsyncSqlCursor<List<Object>> asyncSqlCursor = null;
+        AsyncSqlCursor<List<Object>> asyncSqlCursor;
         try {
             asyncSqlCursor = resources.get(req.cursorId()).get(AsyncSqlCursor.class);
         } catch (IgniteInternalCheckedException e) {

@@ -21,6 +21,8 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.client.ClientChannel;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.jdbc.proto.JdbcQueryCursorHandler;
+import org.apache.ignite.internal.jdbc.proto.event.JdbcGetMoreResultsRequest;
+import org.apache.ignite.internal.jdbc.proto.event.JdbcGetMoreResultsResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaColumnsResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryCloseRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryCloseResult;
@@ -40,7 +42,7 @@ public class JdbcClientQueryCursorHandler implements JdbcQueryCursorHandler {
      *
      * @param channel Client channel.
      */
-    public JdbcClientQueryCursorHandler(ClientChannel channel) {
+    JdbcClientQueryCursorHandler(ClientChannel channel) {
         this.channel = channel;
     }
 
@@ -49,6 +51,18 @@ public class JdbcClientQueryCursorHandler implements JdbcQueryCursorHandler {
     public CompletableFuture<JdbcQueryFetchResult> fetchAsync(JdbcQueryFetchRequest req) {
         return channel.serviceAsync(ClientOp.JDBC_NEXT, w -> req.writeBinary(w.out()), r -> {
             JdbcQueryFetchResult res = new JdbcQueryFetchResult();
+
+            res.readBinary(r.in());
+
+            return res;
+        });
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<JdbcGetMoreResultsResult> getMoreResultsAsync(JdbcGetMoreResultsRequest req) {
+        return channel.serviceAsync(ClientOp.JDBC_MORE_RESULTS, w -> req.writeBinary(w.out()), r -> {
+            JdbcGetMoreResultsResult res = new JdbcGetMoreResultsResult();
 
             res.readBinary(r.in());
 

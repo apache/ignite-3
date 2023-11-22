@@ -100,7 +100,7 @@ public class JdbcQuerySingleResult extends Response {
      *
      * @param updateCnt Update count for DML queries.
      */
-    public JdbcQuerySingleResult(long updateCnt) {
+    public JdbcQuerySingleResult(long cursorId, long updateCnt) {
         super();
 
         this.last = true;
@@ -109,6 +109,8 @@ public class JdbcQuerySingleResult extends Response {
         this.rowTuples = Collections.emptyList();
         columnTypes = Collections.emptyList();
         this.decimalScales = ArrayUtils.INT_EMPTY_ARRAY;
+        this.cursorId = cursorId;
+
         hasResults = true;
     }
 

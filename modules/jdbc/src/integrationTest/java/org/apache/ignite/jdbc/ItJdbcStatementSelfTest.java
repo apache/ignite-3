@@ -37,7 +37,6 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -46,6 +45,8 @@ import org.junit.jupiter.api.Test;
 public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
     /** SQL query. */
     private static final String SQL = "select * from PERSON where age > 30";
+
+    private int populateStmtCnt = 10;
 
     @BeforeAll
     public static void beforeClass() throws Exception {
@@ -57,9 +58,7 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
     @BeforeEach
     public void beforeEach() throws Exception {
         try (Statement statement = conn.createStatement()) {
-            int stmtCnt = 10;
-
-            for (int i = 0; i < stmtCnt; ++i) {
+            for (int i = 0; i < populateStmtCnt; ++i) {
                 statement.executeUpdate("insert into TEST (ID, NAME) values (" + i + ", 'name_" + i + "'); ");
             }
         }
@@ -347,7 +346,6 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-16960")
     public void testExecuteQueryMultipleOnlyResultSets() throws Exception {
         assertTrue(conn.getMetaData().supportsMultipleResultSets());
 
@@ -381,7 +379,6 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-16276")
     public void testExecuteQueryMultipleOnlyDml() throws Exception {
         Statement stmt0 = conn.createStatement();
 
@@ -416,7 +413,6 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-16276")
     public void testExecuteQueryMultipleMixed() throws Exception {
         int stmtCnt = 10;
 
@@ -782,5 +778,33 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
                 "The data must not be updated. "
                         + "Because update statement is executed via 'executeQuery' method."
                         + " Data [val=" + rs.getString(1) + ']');
+    }
+
+    @Test
+    public void testOpenCursorsPureQuery() throws Exception {
+        int initial = openCursorsRegistered();
+        stmt.execute("SELECT 1; SELECT 2;");
+        ResultSet rs = stmt.getResultSet();
+        stmt.execute("SELECT 3;");
+        assertTrue(rs.isClosed());
+
+        assertTrue(populateStmtCnt < 100);
+        //more than one fetch request
+        for (int i = populateStmtCnt; i < stmt.getMaxRows() + 100; ++i) {
+            stmt.execute(String.format("INSERT INTO TEST VALUES (%d, '1')", i));
+        }
+        assertEquals(0, openCursorsRegistered() - initial);
+    }
+
+    @Test
+    public void testOpenCursorsWithDdl() throws Exception {
+        int initial = openCursorsRegistered();
+        stmt.execute("CREATE TABLE T1(ID INT PRIMARY KEY, AGE INT, NAME VARCHAR)");
+        stmt.getResultSet();
+        stmt.execute("SELECT 3;");
+        stmt.execute("DROP TABLE T1");
+        stmt.getResultSet();
+
+        assertEquals(0, openCursorsRegistered() - initial);
     }
 }
