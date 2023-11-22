@@ -48,13 +48,13 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
-/** For {@link IndexCollector} testing. */
-public class IndexCollectorTest extends BaseIgniteAbstractTest {
+/** For {@link IndexChooser} testing. */
+public class IndexChooserTest extends BaseIgniteAbstractTest {
     private final HybridClock clock = new HybridClockImpl();
 
     private final CatalogManager catalogManager = createTestCatalogManager(NODE_NAME, clock);
 
-    private IndexCollector indexCollector = new IndexCollector(catalogManager);
+    private IndexChooser indexChooser = new IndexChooser(catalogManager);
 
     private int tableId;
 
@@ -73,7 +73,7 @@ public class IndexCollectorTest extends BaseIgniteAbstractTest {
 
     @AfterEach
     void tearDown() throws Exception {
-        IgniteUtils.closeAll(catalogManager::stop, indexCollector::close);
+        IgniteUtils.closeAll(catalogManager::stop, indexChooser::close);
     }
 
     @ParameterizedTest(name = "withRecovery = {0}")
@@ -234,7 +234,7 @@ public class IndexCollectorTest extends BaseIgniteAbstractTest {
     }
 
     private List<CatalogIndexDescriptor> collectForRwTxOperation(int catalogVersion) {
-        return indexCollector.collectForRwTxOperation(catalogVersion, tableId);
+        return indexChooser.collectForRwTxUpdateOperation(catalogVersion, tableId);
     }
 
     private void executeCatalogCommands(CatalogCommand... commands) {
@@ -261,11 +261,11 @@ public class IndexCollectorTest extends BaseIgniteAbstractTest {
     }
 
     private void recoverIndexCollector() {
-        indexCollector.close();
+        indexChooser.close();
 
-        indexCollector = new IndexCollector(catalogManager);
+        indexChooser = new IndexChooser(catalogManager);
 
-        indexCollector.recover();
+        indexChooser.recover();
     }
 
     private static CatalogCommand toCreateHashIndexCommand(String indexName) {
