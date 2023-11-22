@@ -75,6 +75,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.function.LongFunction;
 import java.util.function.LongSupplier;
 import java.util.function.Predicate;
@@ -126,10 +127,9 @@ import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
-import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.pagememory.configuration.schema.UnsafeMemoryAllocatorConfigurationSchema;
-import org.apache.ignite.internal.placementdriver.PlacementDriverManager;
+import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.RaftNodeId;
@@ -176,6 +176,7 @@ import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.ReverseIterator;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
+import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.StaticNodeFinder;
@@ -207,6 +208,10 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
     private static final String ZONE_NAME = "zone1";
 
     private static final int BASE_PORT = 20_000;
+
+    /** Filter to determine a primary node identically on any cluster node. */
+    public static final Function<Collection<ClusterNode>, ClusterNode> PRIMARY_FILTER = nodes -> nodes.stream()
+            .filter(n -> n.address().port() == BASE_PORT).findFirst().get();
 
     private static final String HOST = "localhost";
 
@@ -914,19 +919,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     metaStorageConfiguration
             );
 
-            var placementDriverManager = new PlacementDriverManager(
-                    name,
-                    metaStorageManager,
-                    MetastorageGroupId.INSTANCE,
-                    clusterService,
-                    cmgManager::metaStorageNodes,
-                    logicalTopologyService,
-                    raftManager,
-                    topologyAwareRaftGroupServiceFactory,
-                    hybridClock
-            );
-
-            var placementDriver = placementDriverManager.placementDriver();
+            var placementDriver = new TestPlacementDriver(() -> PRIMARY_FILTER.apply(clusterService.topologyService().allMembers()));
 
             LongSupplier partitionIdleSafeTimePropagationPeriodMsSupplier = () -> 10L;
 
