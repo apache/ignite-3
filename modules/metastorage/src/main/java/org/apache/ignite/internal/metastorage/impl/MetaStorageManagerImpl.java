@@ -882,7 +882,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
     }
 
     @TestOnly
-    CompletableFuture<MetaStorageServiceImpl> metaStorageServiceFuture() {
+    public CompletableFuture<MetaStorageServiceImpl> metaStorageService() {
         return metaStorageSvcFut;
     }
 
@@ -910,16 +910,6 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
         public void subscribe(Subscriber<? super T> subscriber) {
             subscriber.onError(new NodeStoppingException());
         }
-    }
-
-    /**
-     * Gets Meta storage service for test purpose.
-     *
-     * @return Meta storage service.
-     */
-    @TestOnly
-    public MetaStorageServiceImpl getService() {
-        return metaStorageSvcFut.join();
     }
 
     @Override
