@@ -706,7 +706,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
                     + ctx.channel().remoteAddress() + ']');
         }
 
-        var flags = ResponseFlags.getFlags(primaryReplicasUpdated);
+        int flags = ResponseFlags.getFlags(primaryReplicasUpdated);
         out.packInt(flags);
 
         if (primaryReplicasUpdated) {

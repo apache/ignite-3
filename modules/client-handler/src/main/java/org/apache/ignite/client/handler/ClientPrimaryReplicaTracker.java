@@ -27,6 +27,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.DropTableEventParameters;
 import org.apache.ignite.internal.event.EventListener;
@@ -111,13 +112,13 @@ public class ClientPrimaryReplicaTracker implements EventListener<EventParameter
         }
 
         // Check happy path: if we already have all replicas, and this.maxStartTime >= maxStartTime, return synchronously.
-        var fastRes = primaryReplicasNoWait(tableId, maxStartTime, timestamp, false);
+        PrimaryReplicasResult fastRes = primaryReplicasNoWait(tableId, maxStartTime, timestamp, false);
         if (fastRes != null) {
             return CompletableFuture.completedFuture(fastRes);
         }
 
         // Request primary for all partitions.
-        var partitionsFut = partitionsAsync(tableId, timestamp).thenCompose(partitions -> {
+        CompletableFuture<Void> partitionsFut = partitionsAsync(tableId, timestamp).thenCompose(partitions -> {
             CompletableFuture<?>[] futures = new CompletableFuture<?>[partitions];
 
             for (int partition = 0; partition < partitions; partition++) {
@@ -188,7 +189,7 @@ public class ClientPrimaryReplicaTracker implements EventListener<EventParameter
             throw tableNotFoundException(tableId);
         }
 
-        var zone = catalogService.zone(table.zoneId(), timestamp.longValue());
+        CatalogZoneDescriptor zone = catalogService.zone(table.zoneId(), timestamp.longValue());
 
         if (zone == null) {
             throw tableNotFoundException(tableId);
@@ -253,7 +254,7 @@ public class ClientPrimaryReplicaTracker implements EventListener<EventParameter
         CatalogTableDescriptor table = catalogService.table(dropTableEvent.tableId(), prevCatalogVersion);
         assert table != null : "Table from DropTableEventParameters not found: " + dropTableEvent.tableId();
 
-        var zone = catalogService.zone(table.zoneId(), prevCatalogVersion);
+        CatalogZoneDescriptor zone = catalogService.zone(table.zoneId(), prevCatalogVersion);
         assert zone != null : "Zone from DropTableEventParameters not found: " + table.zoneId();
 
         for (int partition = 0; partition < zone.partitions(); partition++) {

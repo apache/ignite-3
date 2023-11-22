@@ -79,7 +79,7 @@ public class FakePlacementDriver extends AbstractEventProducer<PrimaryReplicaEve
     @Override
     public CompletableFuture<ReplicaMeta> awaitPrimaryReplica(ReplicationGroupId groupId, HybridTimestamp timestamp, long timeout,
             TimeUnit unit) {
-        var id = (TablePartitionId) groupId;
+        TablePartitionId id = (TablePartitionId) groupId;
 
         return returnError
                 ? CompletableFuture.failedFuture(new RuntimeException("FakePlacementDriver expected error"))
