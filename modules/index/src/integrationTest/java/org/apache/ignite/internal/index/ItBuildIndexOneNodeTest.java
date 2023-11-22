@@ -17,16 +17,28 @@
 
 package org.apache.ignite.internal.index;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsIndexScan;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.will;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.greaterThan;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.IntStream;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.catalog.events.CatalogEvent;
+import org.apache.ignite.internal.catalog.events.MakeIndexAvailableEventParameters;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.table.distributed.replication.request.BuildIndexReplicaRequest;
@@ -68,7 +80,7 @@ public class ItBuildIndexOneNodeTest extends BaseSqlIntegrationTest {
 
         CompletableFuture<Void> awaitBuildIndexReplicaRequest = new CompletableFuture<>();
 
-        CLUSTER.node(0).dropMessages((s, networkMessage) -> {
+        node().dropMessages((s, networkMessage) -> {
             if (networkMessage instanceof BuildIndexReplicaRequest) {
                 awaitBuildIndexReplicaRequest.complete(null);
 
@@ -82,13 +94,13 @@ public class ItBuildIndexOneNodeTest extends BaseSqlIntegrationTest {
 
         assertThat(awaitBuildIndexReplicaRequest, willCompleteSuccessfully());
 
-        assertFalse(isIndexAvailable(CLUSTER.node(0), INDEX_NAME));
+        assertFalse(isIndexAvailable(node(), INDEX_NAME));
 
         // Let's restart the node.
         CLUSTER.stopNode(0);
         CLUSTER.startNode(0);
 
-        awaitIndexBecomeAvailable(CLUSTER.node(0), INDEX_NAME);
+        awaitIndexBecomeAvailable(node(), INDEX_NAME);
     }
 
     @Test
@@ -99,11 +111,96 @@ public class ItBuildIndexOneNodeTest extends BaseSqlIntegrationTest {
 
         createIndex(TABLE_NAME, INDEX_NAME, "ID");
 
-        awaitIndexBecomeAvailable(CLUSTER.node(0), INDEX_NAME);
+        awaitIndexBecomeAvailable(node(), INDEX_NAME);
+    }
+
+    @Test
+    void testBuildingIndexAndInsertIntoTableInParallel() throws Exception {
+        createZoneAndTable(ZONE_NAME, TABLE_NAME, 1, 1);
+
+        AtomicInteger nextPersonId = new AtomicInteger();
+
+        insertPersons(TABLE_NAME, createPeopleBatch(nextPersonId, 100 * IndexBuilder.BATCH_SIZE));
+
+        CompletableFuture<Void> awaitIndexBecomeAvailableEventAsync = awaitIndexBecomeAvailableEventAsync(node(), INDEX_NAME);
+
+        CompletableFuture<Void> startInsertIntoTableFuture = new CompletableFuture<>();
+
+        CompletableFuture<Integer> insertIntoTableFuture = runAsync(() -> {
+            int insertionsCount = 0;
+
+            while (!awaitIndexBecomeAvailableEventAsync.isDone()) {
+                insertPersons(TABLE_NAME, createPeopleBatch(nextPersonId, 10));
+
+                insertionsCount++;
+
+                startInsertIntoTableFuture.complete(null);
+            }
+
+            return insertionsCount;
+        });
+
+        assertThat(startInsertIntoTableFuture, willCompleteSuccessfully());
+
+        createIndex(TABLE_NAME, INDEX_NAME, "SALARY");
+
+        assertThat(awaitIndexBecomeAvailableEventAsync, willCompleteSuccessfully());
+        assertThat(insertIntoTableFuture, will(greaterThan(0)));
+
+        // Temporary hack so that we can wait for the index to be added to the sql planner.
+        awaitIndexBecomeAvailable(node(), INDEX_NAME);
+        waitForReadTimestampThatObservesMostRecentCatalog();
+
+        // Now let's check the data itself.
+        assertQuery(format("SELECT * FROM {} WHERE salary > 0.0", TABLE_NAME))
+                .matches(containsIndexScan("PUBLIC", TABLE_NAME, INDEX_NAME))
+                .returnRowCount(nextPersonId.get())
+                .check();
+    }
+
+    private static IgniteImpl node() {
+        return CLUSTER.node(0);
     }
 
     private static void awaitIndexBecomeAvailable(IgniteImpl ignite, String indexName) throws Exception {
         assertTrue(waitForCondition(() -> isIndexAvailable(ignite, indexName), 100, 5_000));
+    }
+
+    private static CompletableFuture<Void> awaitIndexBecomeAvailableEventAsync(IgniteImpl ignite, String indexName) {
+        var future = new CompletableFuture<Void>();
+
+        CatalogManager catalogManager = ignite.catalogManager();
+
+        catalogManager.listen(CatalogEvent.INDEX_AVAILABLE, (parameters, exception) -> {
+            if (exception != null) {
+                future.completeExceptionally(exception);
+
+                return failedFuture(exception);
+            }
+
+            try {
+                int indexId = ((MakeIndexAvailableEventParameters) parameters).indexId();
+                int catalogVersion = parameters.catalogVersion();
+
+                CatalogIndexDescriptor index = catalogManager.index(indexId, catalogVersion);
+
+                assertNotNull(index, "indexId=" + indexId + ", catalogVersion=" + catalogVersion);
+
+                if (indexName.equals(index.name())) {
+                    future.complete(null);
+
+                    return completedFuture(true);
+                }
+
+                return completedFuture(false);
+            } catch (Throwable t) {
+                future.completeExceptionally(t);
+
+                return failedFuture(t);
+            }
+        });
+
+        return future;
     }
 
     private static boolean isIndexAvailable(IgniteImpl ignite, String indexName) {
@@ -113,5 +210,12 @@ public class ItBuildIndexOneNodeTest extends BaseSqlIntegrationTest {
         CatalogIndexDescriptor indexDescriptor = catalogManager.index(indexName, clock.nowLong());
 
         return indexDescriptor != null && indexDescriptor.available();
+    }
+
+    private static Person[] createPeopleBatch(AtomicInteger nextPersonId, int batchSize) {
+        return IntStream.range(0, batchSize)
+                .map(i -> nextPersonId.getAndIncrement())
+                .mapToObj(personId -> new Person(personId, "person" + personId, 10.0 + personId))
+                .toArray(Person[]::new);
     }
 }

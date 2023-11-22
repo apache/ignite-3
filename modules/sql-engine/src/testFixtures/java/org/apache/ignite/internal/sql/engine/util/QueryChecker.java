@@ -305,6 +305,8 @@ public interface QueryChecker {
 
     QueryChecker returnSomething();
 
+    QueryChecker returnRowCount(int rowCount);
+
     QueryChecker columnNames(String... columns);
 
     QueryChecker columnTypes(Type... columns);
