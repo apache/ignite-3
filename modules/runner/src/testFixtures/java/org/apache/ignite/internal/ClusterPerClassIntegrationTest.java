@@ -18,19 +18,33 @@
 package org.apache.ignite.internal;
 
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.catalog.CatalogManager;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
+import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.TestInstance;
 
@@ -57,9 +71,21 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
     /** Cluster nodes. */
     protected static Cluster CLUSTER;
 
+    private static final boolean DEFAULT_WAIT_FOR_INDEX_AVAILABLE = true;
+
+    /** Whether to wait for indexes to become available or not. Default is {@code true}. */
+    private static final AtomicBoolean AWAIT_INDEX_AVAILABILITY = new AtomicBoolean(DEFAULT_WAIT_FOR_INDEX_AVAILABLE);
+
     /** Work directory. */
     @WorkDirectory
     private static Path WORK_DIR;
+
+    /** Reset {@link #AWAIT_INDEX_AVAILABILITY}. */
+    @BeforeEach
+    @AfterEach
+    void resetIndexAvailabilityFlag() {
+        setAwaitIndexAvailability(DEFAULT_WAIT_FOR_INDEX_AVAILABLE);
+    }
 
     /**
      * Before all.
@@ -170,6 +196,15 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
         sql(format("CREATE INDEX {} ON {} ({})", indexName, tableName, columnName));
     }
 
+    /**
+     * Sets whether to wait for indexes to become available.
+     *
+     * @param value Whether to wait for indexes to become available.
+     */
+    protected static void setAwaitIndexAvailability(boolean value) {
+        AWAIT_INDEX_AVAILABILITY.set(value);
+    }
+
     protected static void insertData(String tblName, List<String> columnNames, Object[]... tuples) {
         Transaction tx = CLUSTER.node(0).transactions().begin();
 
@@ -192,7 +227,12 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
     }
 
     protected static List<List<Object>> sql(@Nullable Transaction tx, String sql, Object... args) {
-        return SqlTestUtils.sql(CLUSTER.node(0), tx, sql, args);
+        IgniteImpl node = CLUSTER.node(0);
+        if (!AWAIT_INDEX_AVAILABILITY.get()) {
+            return SqlTestUtils.sql(node, tx, sql, args);
+        } else {
+            return executeAwaitingIndexes(node, (n) -> SqlTestUtils.sql(n, tx, sql, args));
+        }
     }
 
     /**
@@ -225,6 +265,70 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
             this.id = id;
             this.name = name;
             this.salary = salary;
+        }
+    }
+
+    /**
+     * Waits for some amount of time so that read-only transactions can observe the most recent version of the catalog.
+     */
+    protected static void waitForReadTimestampThatObservesMostRecentCatalog()  {
+        // See TxManagerImpl::currentReadTimestamp.
+        long delay = HybridTimestamp.CLOCK_SKEW + TestIgnitionManager.DEFAULT_PARTITION_IDLE_SYNC_TIME_INTERVAL_MS;
+        try {
+            TimeUnit.MILLISECONDS.sleep(delay);
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private static List<List<Object>> executeAwaitingIndexes(IgniteImpl node, Function<IgniteImpl, List<List<Object>>> statement) {
+        CatalogManager catalogManager = node.catalogManager();
+
+        // Get existing indexes
+        Set<Integer> existing = catalogManager.indexes(catalogManager.latestCatalogVersion())
+                .stream().map(CatalogObjectDescriptor::id)
+                .collect(Collectors.toSet());
+
+        List<List<Object>> result = statement.apply(node);
+
+        // Get indexes after a statement and compute the difference
+        Set<Integer> difference = catalogManager.indexes(catalogManager.latestCatalogVersion()).stream()
+                .map(CatalogObjectDescriptor::id)
+                .collect(Collectors.toSet());
+
+        difference.removeAll(existing);
+
+        if (difference.isEmpty()) {
+            return result;
+        }
+
+        // If there are new indexes, wait for them to become available.
+
+        try {
+            assertTrue(waitForCondition(() -> {
+                int latestVersion = catalogManager.latestCatalogVersion();
+                int notAvailable = 0;
+
+                for (CatalogIndexDescriptor index : catalogManager.indexes(latestVersion)) {
+                    if (!index.available() && difference.contains(index.id())) {
+                        notAvailable++;
+                    }
+                }
+
+                return notAvailable == 0;
+            }, 10_000));
+
+            // We have no knowledge whether the next transaction is readonly or not,
+            // so we have to assume that the next transaction is read only transaction.
+            // otherwise the statements in that transaction may not observe
+            // the latest catalog version.
+            waitForReadTimestampThatObservesMostRecentCatalog();
+
+            return result;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+
+            throw new IllegalStateException(e);
         }
     }
 }

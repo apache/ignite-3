@@ -791,7 +791,7 @@ public class ItJoinTest extends BaseSqlIntegrationTest {
     @ParameterizedTest(name = "join algo : {0}, index present: {1}")
     @MethodSource("joinTypes")
     @WithSystemProperty(key = "IMPLICIT_PK_ENABLED", value = "true")
-    public void testIsNotDistinctFrom(JoinType joinType, boolean indexScan) throws InterruptedException {
+    public void testIsNotDistinctFrom(JoinType joinType, boolean indexScan) {
         try {
             sql("CREATE TABLE t11(i1 INTEGER, i2 INTEGER)");
 

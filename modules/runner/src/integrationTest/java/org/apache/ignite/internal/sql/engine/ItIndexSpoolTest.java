@@ -26,6 +26,7 @@ import java.util.stream.Stream;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.table.Table;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -35,7 +36,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 /**
  * Index spool test.
  */
-public class ItIndexSpoolTest extends ClusterPerClassIntegrationTest {
+public class ItIndexSpoolTest extends BaseSqlIntegrationTest {
     private static final IgniteLogger LOG = Loggers.forClass(ClusterPerClassIntegrationTest.class);
 
     /**
@@ -86,7 +87,7 @@ public class ItIndexSpoolTest extends ClusterPerClassIntegrationTest {
         res.forEach(r -> assertThat(r.get(0), is(r.get(1))));
     }
 
-    private void prepareDataSet(int rowsCount, int parts) throws InterruptedException {
+    private void prepareDataSet(int rowsCount, int parts) {
         Object[][] dataRows = new Object[rowsCount][];
 
         for (int i = 0; i < rowsCount; i++) {
