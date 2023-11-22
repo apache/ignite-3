@@ -374,7 +374,7 @@ namespace Apache.Ignite.Internal
 
                 if (_logger.IsEnabled(LogLevel.Debug))
                 {
-                    _logger.LogWarning($"{tasks.Count - failed} secondary connections established, {failed} failed.");
+                    _logger.LogSecondaryConnectionsEstablishedDebug(tasks.Count - failed, failed);
                 }
 
                 if (Configuration.ReconnectInterval <= TimeSpan.Zero)

@@ -36,4 +36,7 @@ internal static partial class SocketLogMessages
 
     [LoggerMessage(Message = "Trying to establish secondary connections - awaiting {Tasks} tasks...", Level = LogLevel.Debug)]
     internal static partial void LogTryingToEstablishSecondaryConnectionsDebug(this ILogger logger, int tasks);
+
+    [LoggerMessage(Message = "{Established} secondary connections established, {Failed} failed.", Level = LogLevel.Debug)]
+    internal static partial void LogSecondaryConnectionsEstablishedDebug(this ILogger logger, int established, int failed);
 }
