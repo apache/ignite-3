@@ -137,7 +137,11 @@ public class ClientPrimaryReplicaTracker implements EventListener<EventParameter
         // Wait for all futures, check condition again.
         // Give up (return null) if we don't have replicas with specified maxStartTime - the client will retry later.
         long maxStartTime0 = maxStartTime;
-        return partitionsFut.thenApply(v -> primaryReplicasNoWait(tableId, maxStartTime0, timestamp, true));
+        return partitionsFut.handle((v, err) -> {
+            assert err == null : "Unexpected error: " + err;
+
+            return primaryReplicasNoWait(tableId, maxStartTime0, timestamp, true);
+        });
     }
 
     @Nullable
