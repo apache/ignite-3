@@ -17,6 +17,7 @@
 
 namespace Apache.Ignite.Internal;
 
+using System;
 using Microsoft.Extensions.Logging;
 
 /// <summary>
@@ -25,8 +26,14 @@ using Microsoft.Extensions.Logging;
 internal static partial class SocketLogMessages
 {
     [LoggerMessage(Message = "Ignite.NET client version {Version} is starting", Level = LogLevel.Information)]
-    internal static partial void LogClientStart(this ILogger logger, string version);
+    internal static partial void LogClientStartInfo(this ILogger logger, string version);
 
     [LoggerMessage(Message = "Failed to connect to preferred node [{NodeName}]: {Message}", Level = LogLevel.Debug)]
-    internal static partial void LogFailedToConnectPreferredNode(this ILogger logger, string nodeName, string message);
+    internal static partial void LogFailedToConnectPreferredNodeDebug(this ILogger logger, string nodeName, string message);
+
+    [LoggerMessage(Message = "Error while trying to establish secondary connections: {Message}", Level = LogLevel.Warning)]
+    internal static partial void LogErrorWhileEstablishingSecondaryConnectionsWarn(this ILogger logger, Exception e, string message);
+
+    [LoggerMessage(Message = "Trying to establish secondary connections - awaiting {Tasks} tasks...", Level = LogLevel.Debug)]
+    internal static partial void LogTryingToEstablishSecondaryConnectionsDebug(this ILogger logger, int tasks);
 }

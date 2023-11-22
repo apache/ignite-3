@@ -121,7 +121,7 @@ namespace Apache.Ignite.Internal
         public static async Task<ClientFailoverSocket> ConnectAsync(IgniteClientConfiguration configuration)
         {
             var logger = configuration.LoggerFactory.CreateLogger<ClientFailoverSocket>();
-            logger.LogClientStart(VersionUtils.InformationalVersion);
+            logger.LogClientStartInfo(VersionUtils.InformationalVersion);
 
             var socket = new ClientFailoverSocket(configuration, logger);
 
@@ -308,7 +308,7 @@ namespace Apache.Ignite.Internal
                 }
                 catch (Exception e)
                 {
-                    _logger.LogFailedToConnectPreferredNode(preferredNode.Name, e.Message);
+                    _logger.LogFailedToConnectPreferredNodeDebug(preferredNode.Name, e.Message);
                 }
             }
 
@@ -348,13 +348,13 @@ namespace Apache.Ignite.Internal
                     }
                     catch (Exception e)
                     {
-                        _logger.LogWarning(e, "Error while trying to establish secondary connections: " + e.Message);
+                        _logger.LogErrorWhileEstablishingSecondaryConnectionsWarn(e, e.Message);
                     }
                 }
 
                 if (_logger.IsEnabled(LogLevel.Debug))
                 {
-                    _logger.LogDebug("Trying to establish secondary connections - awaiting {0} tasks...", tasks.Count);
+                    _logger.LogTryingToEstablishSecondaryConnectionsDebug(tasks.Count);
                 }
 
                 // Await every task separately instead of using WhenAll to capture exceptions and avoid extra allocations.
@@ -367,7 +367,7 @@ namespace Apache.Ignite.Internal
                     }
                     catch (Exception e)
                     {
-                        _logger.LogWarning(e, "Error while trying to establish secondary connections: " + e.Message);
+                        _logger.LogErrorWhileEstablishingSecondaryConnectionsWarn(e, e.Message);
                         failed++;
                     }
                 }
