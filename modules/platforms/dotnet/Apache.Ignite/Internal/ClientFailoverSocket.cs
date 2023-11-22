@@ -308,7 +308,7 @@ namespace Apache.Ignite.Internal
                 }
                 catch (Exception e)
                 {
-                    _logger.LogWarning(e, $"Failed to connect to preferred node [{preferredNode}]: {e.Message}");
+                    _logger.LogFailedToConnectPreferredNode(preferredNode.Name, e.Message);
                 }
             }
 

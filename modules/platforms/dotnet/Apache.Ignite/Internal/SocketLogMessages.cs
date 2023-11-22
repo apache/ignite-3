@@ -20,10 +20,13 @@ namespace Apache.Ignite.Internal;
 using Microsoft.Extensions.Logging;
 
 /// <summary>
-/// Socket log messages.
+/// Source-generated socket log messages.
 /// </summary>
 internal static partial class SocketLogMessages
 {
     [LoggerMessage(Message = "Ignite.NET client version {Version} is starting", Level = LogLevel.Information)]
     internal static partial void LogClientStart(this ILogger logger, string version);
+
+    [LoggerMessage(Message = "Failed to connect to preferred node [{NodeName}]: {Message}", Level = LogLevel.Debug)]
+    internal static partial void LogFailedToConnectPreferredNode(this ILogger logger, string nodeName, string message);
 }
