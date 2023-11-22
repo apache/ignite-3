@@ -64,7 +64,7 @@ namespace Apache.Ignite.Internal.Table
             _table = table;
             _ser = ser;
             _sql = sql;
-            _logger = table.Socket.Configuration.Logger.GetLogger(GetType());
+            _logger = table.Socket.Configuration.LoggerFactory.GetLogger(GetType());
         }
 
         /// <summary>

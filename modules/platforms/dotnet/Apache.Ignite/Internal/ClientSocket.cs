@@ -31,7 +31,7 @@ namespace Apache.Ignite.Internal
     using System.Threading.Tasks;
     using Buffers;
     using Ignite.Network;
-    using Log;
+    using Microsoft.Extensions.Logging;
     using Network;
     using Proto;
     using Proto.MsgPack;
@@ -90,7 +90,7 @@ namespace Apache.Ignite.Internal
         private readonly TimeSpan _socketTimeout;
 
         /** Logger. */
-        private readonly IIgniteLogger? _logger;
+        private readonly ILogger _logger;
 
         /** Event listener. */
         private readonly IClientSocketEventListener _listener;
@@ -117,7 +117,7 @@ namespace Apache.Ignite.Internal
             IgniteClientConfiguration configuration,
             ConnectionContext connectionContext,
             IClientSocketEventListener listener,
-            IIgniteLogger? logger)
+            ILogger<ClientSocket> logger)
         {
             _stream = stream;
             ConnectionContext = connectionContext;
@@ -168,7 +168,7 @@ namespace Apache.Ignite.Internal
             IClientSocketEventListener listener)
         {
             using var cts = new CancellationTokenSource();
-            var logger = configuration.Logger.GetLogger(nameof(ClientSocket) + "-" + Interlocked.Increment(ref _socketId));
+            var logger = configuration.LoggerFactory.GetLogger(nameof(ClientSocket) + "-" + Interlocked.Increment(ref _socketId));
 
             bool connected = false;
             Socket? socket = null;
@@ -561,7 +561,7 @@ namespace Apache.Ignite.Internal
 
         private static int ReadMessageSize(Span<byte> responseLenBytes) => BinaryPrimitives.ReadInt32BigEndian(responseLenBytes);
 
-        private static TimeSpan GetHeartbeatInterval(TimeSpan configuredInterval, TimeSpan serverIdleTimeout, IIgniteLogger? logger)
+        private static TimeSpan GetHeartbeatInterval(TimeSpan configuredInterval, TimeSpan serverIdleTimeout, ILogger logger)
         {
             if (configuredInterval <= TimeSpan.Zero)
             {
@@ -572,7 +572,7 @@ namespace Apache.Ignite.Internal
 
             if (serverIdleTimeout <= TimeSpan.Zero)
             {
-                logger?.Info(
+                logger.LogInformation(
                     $"Server-side IdleTimeout is not set, using configured {nameof(IgniteClientConfiguration)}." +
                     $"{nameof(IgniteClientConfiguration.HeartbeatInterval)}: {configuredInterval}");
 

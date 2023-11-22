@@ -81,7 +81,7 @@ namespace Apache.Ignite
         {
             IgniteArgumentCheck.NotNull(other);
 
-            Logger = other.Logger;
+            LoggerFactory = other.LoggerFactory;
             SocketTimeout = other.SocketTimeout;
             Endpoints = other.Endpoints.ToList();
             RetryPolicy = other.RetryPolicy;
@@ -92,9 +92,9 @@ namespace Apache.Ignite
         }
 
         /// <summary>
-        /// Gets or sets the logger. Defaults is <see cref="NullLoggerFactory.Instance"/>.
+        /// Gets or sets the logger factory. Defaults is <see cref="NullLoggerFactory.Instance"/>.
         /// </summary>
-        public ILoggerFactory Logger { get; set; } = NullLoggerFactory.Instance;
+        public ILoggerFactory LoggerFactory { get; set; } = NullLoggerFactory.Instance;
 
         /// <summary>
         /// Gets or sets the socket timeout.

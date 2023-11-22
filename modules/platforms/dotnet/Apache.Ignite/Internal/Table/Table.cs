@@ -94,7 +94,7 @@ namespace Apache.Ignite.Internal.Table
             Name = name;
             Id = id;
 
-            _logger = socket.Configuration.Logger.GetLogger(GetType());
+            _logger = socket.Configuration.LoggerFactory.GetLogger(GetType());
 
             RecordBinaryView = new RecordView<IIgniteTuple>(
                 this,

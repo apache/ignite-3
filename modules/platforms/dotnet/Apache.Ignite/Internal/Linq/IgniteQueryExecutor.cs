@@ -52,7 +52,7 @@ internal sealed class IgniteQueryExecutor : IQueryExecutor
         _sql = sql;
         _transaction = transaction;
         _options = options;
-        _logger = configuration.Logger.GetLogger(GetType());
+        _logger = configuration.LoggerFactory.GetLogger(GetType());
     }
 
     /// <summary>

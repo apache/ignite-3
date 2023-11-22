@@ -30,7 +30,7 @@ namespace Apache.Ignite.Internal
     using System.Threading.Tasks;
     using Buffers;
     using Ignite.Network;
-    using Log;
+    using Microsoft.Extensions.Logging;
     using Network;
     using Proto;
     using Transactions;
@@ -38,13 +38,16 @@ namespace Apache.Ignite.Internal
     /// <summary>
     /// Client socket wrapper with reconnect/failover functionality.
     /// </summary>
+    [SuppressMessage("Performance", "CA1848:Use the LoggerMessage delegates", Justification = "TODO")]
+    [SuppressMessage("Usage", "CA2254:Template should be a static expression", Justification = "TODO")]
+    [SuppressMessage("Usage", "CA2253:Named placeholders should not be numeric values", Justification = "TODO")]
     internal sealed class ClientFailoverSocket : IDisposable, IClientSocketEventListener
     {
         /** Current global endpoint index for Round-robin. */
         private static long _globalEndPointIndex;
 
         /** Logger. */
-        private readonly IIgniteLogger? _logger;
+        private readonly ILogger _logger;
 
         /** Endpoints with corresponding hosts - from configuration. */
         private readonly IReadOnlyList<SocketEndpoint> _endpoints;
@@ -91,7 +94,7 @@ namespace Apache.Ignite.Internal
                     $"Invalid {nameof(IgniteClientConfiguration)}: {nameof(IgniteClientConfiguration.Endpoints)} is empty. Nowhere to connect.");
             }
 
-            _logger = configuration.Logger.GetLogger(GetType());
+            _logger = configuration.LoggerFactory.CreateLogger<ClientFailoverSocket>();
             _endpoints = GetIpEndPoints(configuration).ToList();
 
             Configuration = new(configuration); // Defensive copy.
@@ -121,8 +124,8 @@ namespace Apache.Ignite.Internal
         {
             var socket = new ClientFailoverSocket(configuration);
 
-            var logger = configuration.Logger.GetLogger(typeof(ClientFailoverSocket));
-            logger?.Info("Ignite.NET client version " + VersionUtils.GetInformationalVersion() + " is starting");
+            var logger = configuration.LoggerFactory.CreateLogger<ClientFailoverSocket>();
+            logger.LogInformation("Ignite.NET client version " + VersionUtils.GetInformationalVersion() + " is starting");
 
             await socket.GetNextSocketAsync().ConfigureAwait(false);
 
@@ -307,7 +310,7 @@ namespace Apache.Ignite.Internal
                 }
                 catch (Exception e)
                 {
-                    _logger?.Warn(e, $"Failed to connect to preferred node [{preferredNode}]: {e.Message}");
+                    _logger.LogWarning(e, $"Failed to connect to preferred node [{preferredNode}]: {e.Message}");
                 }
             }
 
@@ -347,13 +350,13 @@ namespace Apache.Ignite.Internal
                     }
                     catch (Exception e)
                     {
-                        _logger?.Warn(e, "Error while trying to establish secondary connections: " + e.Message);
+                        _logger.LogWarning(e, "Error while trying to establish secondary connections: " + e.Message);
                     }
                 }
 
-                if (_logger?.IsEnabled(LogLevel.Debug) == true)
+                if (_logger.IsEnabled(LogLevel.Debug))
                 {
-                    _logger.Debug("Trying to establish secondary connections - awaiting {0} tasks...", tasks.Count);
+                    _logger.LogDebug("Trying to establish secondary connections - awaiting {0} tasks...", tasks.Count);
                 }
 
                 // Await every task separately instead of using WhenAll to capture exceptions and avoid extra allocations.
@@ -366,14 +369,14 @@ namespace Apache.Ignite.Internal
                     }
                     catch (Exception e)
                     {
-                        _logger?.Warn(e, "Error while trying to establish secondary connections: " + e.Message);
+                        _logger.LogWarning(e, "Error while trying to establish secondary connections: " + e.Message);
                         failed++;
                     }
                 }
 
-                if (_logger?.IsEnabled(LogLevel.Debug) == true)
+                if (_logger.IsEnabled(LogLevel.Debug))
                 {
-                    _logger.Debug($"{tasks.Count - failed} secondary connections established, {failed} failed.");
+                    _logger.LogWarning($"{tasks.Count - failed} secondary connections established, {failed} failed.");
                 }
 
                 if (Configuration.ReconnectInterval <= TimeSpan.Zero)
@@ -530,7 +533,7 @@ namespace Apache.Ignite.Internal
             }
             catch (SocketException e)
             {
-                _logger?.Debug(e, "Failed to parse host: " + host);
+                _logger.LogDebug(e, "Failed to parse host: " + host);
 
                 if (suppressExceptions)
                 {
@@ -608,9 +611,9 @@ namespace Apache.Ignite.Internal
         {
             if (!ShouldRetry(exception, op, attempt, retryPolicy))
             {
-                if (_logger?.IsEnabled(LogLevel.Debug) == true)
+                if (_logger.IsEnabled(LogLevel.Debug))
                 {
-                    _logger.Debug($"Not retrying operation [opCode={(int)op}, opType={op}, attempt={attempt}, lastError={exception}]");
+                    _logger.LogDebug($"Not retrying operation [opCode={(int)op}, opType={op}, attempt={attempt}, lastError={exception}]");
                 }
 
                 if (errors == null)
@@ -627,9 +630,9 @@ namespace Apache.Ignite.Internal
                     inner);
             }
 
-            if (_logger?.IsEnabled(LogLevel.Debug) == true)
+            if (_logger.IsEnabled(LogLevel.Debug))
             {
-                _logger.Debug($"Retrying operation [opCode={(int)op}, opType={op}, attempt={attempt}, lastError={exception}]");
+                _logger.LogDebug($"Retrying operation [opCode={(int)op}, opType={op}, attempt={attempt}, lastError={exception}]");
             }
 
             Metrics.RequestsRetried.Add(1);
