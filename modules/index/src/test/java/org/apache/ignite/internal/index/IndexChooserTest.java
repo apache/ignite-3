@@ -78,7 +78,7 @@ public class IndexChooserTest extends BaseIgniteAbstractTest {
 
     @ParameterizedTest(name = "withRecovery = {0}")
     @ValueSource(booleans = {false, true})
-    void testCollectForRwTxOperationAfterCreateTable(boolean withRecovery) {
+    void testChooseForRwTxOperationAfterCreateTable(boolean withRecovery) {
         int catalogVersion = catalogVersionAfterCreateTable;
 
         if (withRecovery) {
@@ -86,14 +86,14 @@ public class IndexChooserTest extends BaseIgniteAbstractTest {
         }
 
         assertThat(
-                collectForRwTxOperation(catalogVersion),
+                chooseForRwTxOperation(catalogVersion),
                 contains(index(catalogVersion, PK_INDEX_NAME))
         );
     }
 
     @ParameterizedTest(name = "withRecovery = {0}")
     @ValueSource(booleans = {false, true})
-    void testCollectForRwTxOperationAfterCreateIndex(boolean withRecovery) {
+    void testChooseForRwTxOperationAfterCreateIndex(boolean withRecovery) {
         createIndex(INDEX_NAME);
 
         int catalogVersion = catalogManager.latestCatalogVersion();
@@ -103,14 +103,14 @@ public class IndexChooserTest extends BaseIgniteAbstractTest {
         }
 
         assertThat(
-                collectForRwTxOperation(catalogVersion),
+                chooseForRwTxOperation(catalogVersion),
                 contains(index(catalogVersion, PK_INDEX_NAME), index(catalogVersion, INDEX_NAME))
         );
     }
 
     @ParameterizedTest(name = "withRecovery = {0}")
     @ValueSource(booleans = {false, true})
-    void testCollectForRwTxOperationAfterMakeIndexAvailable(boolean withRecovery) {
+    void testChooseForRwTxOperationAfterMakeIndexAvailable(boolean withRecovery) {
         createIndex(INDEX_NAME);
         makeIndexAvailable(INDEX_NAME);
 
@@ -121,14 +121,14 @@ public class IndexChooserTest extends BaseIgniteAbstractTest {
         }
 
         assertThat(
-                collectForRwTxOperation(catalogVersion),
+                chooseForRwTxOperation(catalogVersion),
                 contains(index(catalogVersion, PK_INDEX_NAME), index(catalogVersion, INDEX_NAME))
         );
     }
 
     @ParameterizedTest(name = "withRecovery = {0}")
     @ValueSource(booleans = {false, true})
-    void testCollectForRwTxOperationAfterDropRegisteredIndex(boolean withRecovery) {
+    void testChooseForRwTxOperationAfterDropRegisteredIndex(boolean withRecovery) {
         createIndex(INDEX_NAME);
         dropIndex(INDEX_NAME);
 
@@ -139,14 +139,14 @@ public class IndexChooserTest extends BaseIgniteAbstractTest {
         }
 
         assertThat(
-                collectForRwTxOperation(catalogManager.latestCatalogVersion()),
+                chooseForRwTxOperation(catalogManager.latestCatalogVersion()),
                 contains(index(catalogVersion, PK_INDEX_NAME))
         );
     }
 
     @ParameterizedTest(name = "withRecovery = {0}")
     @ValueSource(booleans = {false, true})
-    void testCollectForRwTxOperationAfterDropAvailableIndex(boolean withRecovery) {
+    void testChooseForRwTxOperationAfterDropAvailableIndex(boolean withRecovery) {
         createIndex(INDEX_NAME);
         makeIndexAvailable(INDEX_NAME);
 
@@ -161,14 +161,14 @@ public class IndexChooserTest extends BaseIgniteAbstractTest {
         }
 
         assertThat(
-                collectForRwTxOperation(catalogVersion),
+                chooseForRwTxOperation(catalogVersion),
                 contains(index(catalogVersion, PK_INDEX_NAME), index(catalogVersionAfterMakeIndexAvailable, INDEX_NAME))
         );
     }
 
     @ParameterizedTest(name = "withRecovery = {0}")
     @ValueSource(booleans = {false, true})
-    void testCollectForRwTxOperationComplexCase(boolean withRecovery) {
+    void testChooseForRwTxOperationComplexCase(boolean withRecovery) {
         String indexName1 = INDEX_NAME + 1;
         String indexName2 = INDEX_NAME + 2;
         String indexName3 = INDEX_NAME + 3;
@@ -208,7 +208,7 @@ public class IndexChooserTest extends BaseIgniteAbstractTest {
         }
 
         assertThat(
-                collectForRwTxOperation(catalogVersion),
+                chooseForRwTxOperation(catalogVersion),
                 contains(
                         index(catalogVersion, PK_INDEX_NAME),                   // Alive available index0 (pk)
                         index(catalogVersionBeforeDropIndex1, indexName1),      // Dropped available index1
@@ -233,8 +233,8 @@ public class IndexChooserTest extends BaseIgniteAbstractTest {
         TestIndexManagementUtils.dropIndex(catalogManager, indexName);
     }
 
-    private List<CatalogIndexDescriptor> collectForRwTxOperation(int catalogVersion) {
-        return indexChooser.collectForRwTxUpdateOperation(catalogVersion, tableId);
+    private List<CatalogIndexDescriptor> chooseForRwTxOperation(int catalogVersion) {
+        return indexChooser.chooseForRwTxUpdateOperation(catalogVersion, tableId);
     }
 
     private void executeCatalogCommands(CatalogCommand... commands) {

@@ -156,7 +156,7 @@ class IndexChooser implements ManuallyCloseable {
      * @param catalogVersion Catalog version.
      * @param tableId Table ID.
      */
-    List<CatalogIndexDescriptor> collectForRwTxUpdateOperation(int catalogVersion, int tableId) {
+    List<CatalogIndexDescriptor> chooseForRwTxUpdateOperation(int catalogVersion, int tableId) {
         return inBusyLock(busyLock, () -> {
             List<CatalogIndexDescriptor> tableIndexes = catalogService.indexes(catalogVersion, tableId);
 
