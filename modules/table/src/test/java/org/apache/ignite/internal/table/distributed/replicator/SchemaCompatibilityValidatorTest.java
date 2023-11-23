@@ -73,6 +73,7 @@ import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tx.TransactionIds;
 import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -117,10 +118,10 @@ class SchemaCompatibilityValidatorTest extends BaseIgniteAbstractTest {
     @ParameterizedTest
     @EnumSource(ForwardCompatibleChange.class)
     void forwardCompatibleChangesAllowCommitting(ForwardCompatibleChange change) {
-        testForwardCompatibleChangeAllowsCommitting(change);
+        assertForwardCompatibleChangeAllowsCommitting(change);
     }
 
-    private void testForwardCompatibleChangeAllowsCommitting(SchemaChangeSource changeSource) {
+    private void assertForwardCompatibleChangeAllowsCommitting(SchemaChangeSource changeSource) {
         when(schemasSource.tableSchemaVersionsBetween(TABLE_ID, beginTimestamp, commitTimestamp))
                 .thenReturn(changeSource.schemaVersions());
 
@@ -137,10 +138,10 @@ class SchemaCompatibilityValidatorTest extends BaseIgniteAbstractTest {
     @ParameterizedTest
     @EnumSource(ForwardIncompatibleChange.class)
     void forwardIncompatibleChangesDisallowCommitting(ForwardIncompatibleChange change) {
-        testForwardIncompatibleChangeDisallowsCommitting(change);
+        assertForwardIncompatibleChangeDisallowsCommitting(change);
     }
 
-    private void testForwardIncompatibleChangeDisallowsCommitting(SchemaChangeSource changeSource) {
+    private void assertForwardIncompatibleChangeDisallowsCommitting(SchemaChangeSource changeSource) {
         when(schemasSource.tableSchemaVersionsBetween(TABLE_ID, beginTimestamp, commitTimestamp))
                 .thenReturn(changeSource.schemaVersions());
 
@@ -162,7 +163,7 @@ class SchemaCompatibilityValidatorTest extends BaseIgniteAbstractTest {
     @ParameterizedTest
     @MethodSource("exactColumnTypeChanges")
     void exactColumnTypeChangesAllowCommitting(ColumnTypeChange change) {
-        testForwardCompatibleChangeAllowsCommitting(change);
+        assertForwardCompatibleChangeAllowsCommitting(change);
     }
 
     private static Stream<Arguments> exactColumnTypeChanges() {
@@ -259,7 +260,7 @@ class SchemaCompatibilityValidatorTest extends BaseIgniteAbstractTest {
     @ParameterizedTest
     @MethodSource("nonExactColumnTypeChanges")
     void nonExactColumnTypeChangesDisallowCommitting(ColumnTypeChange change) {
-        testForwardIncompatibleChangeDisallowsCommitting(change);
+        assertForwardIncompatibleChangeDisallowsCommitting(change);
     }
 
     private static Stream<Arguments> nonExactColumnTypeChanges() {
@@ -347,6 +348,36 @@ class SchemaCompatibilityValidatorTest extends BaseIgniteAbstractTest {
                 changes.add(new ColumnTypeChange(type1, type2));
             }
         }
+    }
+
+    @Test
+    void combinationOfForwardCompatibleChangesIsCompatible() {
+        assertForwardCompatibleChangeAllowsCommitting(() -> List.of(
+                tableSchema(1, List.of(column(INT32, false))),
+                // Type is widened, NOT NULL dropped.
+                tableSchema(2, List.of(column(INT64, true)))
+        ));
+    }
+
+    private static CatalogTableColumnDescriptor column(ColumnType type, boolean nullable) {
+        return new CatalogTableColumnDescriptor(
+                "col",
+                type,
+                nullable,
+                DEFAULT_PRECISION,
+                DEFAULT_SCALE,
+                DEFAULT_LENGTH,
+                null
+        );
+    }
+
+    @Test
+    void oneForwardIncompatibleChangeMakesCombinationIncompatible() {
+        assertForwardIncompatibleChangeDisallowsCommitting(() -> List.of(
+                tableSchema(1, List.of(column(INT32, true))),
+                // Type is widened (compatible), but NOT NULL added (incompatible).
+                tableSchema(2, List.of(column(INT64, false)))
+        ));
     }
 
     private static CatalogTableColumnDescriptor intColumn(String columnName) {
