@@ -82,7 +82,7 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
      * Master future used to complete the handshake either with the results of this handshake of the competing one
      * (in the opposite direction), if it wins.
      */
-    private final CompletableFuture<CompletionStage<NettySender>> masterHandshakeCompleteFuture = new CompletableFuture<>();
+    private final CompletableFuture<CompletionStage<NettySender>> resultingHandshakeCompleteFuture = new CompletableFuture<>();
 
     /** Remote node's launch id. */
     private UUID remoteLaunchId;
@@ -132,8 +132,8 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
             if (throwable != null) {
                 releaseResources();
 
-                // Complete the master future if it has not yet been completed by the competitor.
-                masterHandshakeCompleteFuture.complete(outgoingHandshakeCompleteFuture);
+                // Complete the resulting future if it has not yet been completed by the competitor.
+                resultingHandshakeCompleteFuture.complete(outgoingHandshakeCompleteFuture);
 
                 return;
             }
@@ -245,9 +245,9 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
                 continue;
             }
 
-            // Complete our master future with the competitor's future. After this our local future has no effect on the final result
+            // Complete our resulting future with the competitor's future. After this our local future has no effect on the final result
             // of this handshake.
-            completeMasterFutureWithCompetitorHandshakeFuture(competitorAcquiry);
+            completeResultingFutureWithCompetitorHandshakeFuture(competitorAcquiry);
 
             return;
         }
@@ -257,8 +257,8 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
         handshake(this.recoveryDescriptor);
     }
 
-    private void completeMasterFutureWithCompetitorHandshakeFuture(DescriptorAcquiry competitorAcquiry) {
-        masterHandshakeCompleteFuture.complete(competitorAcquiry.handshakeCompleteFuture());
+    private void completeResultingFutureWithCompetitorHandshakeFuture(DescriptorAcquiry competitorAcquiry) {
+        resultingHandshakeCompleteFuture.complete(competitorAcquiry.handshakeCompleteFuture());
         outgoingHandshakeCompleteFuture.completeExceptionally(
                 new HandshakeException("Stepping aside to allow an incoming handshake from " + remoteConsistentId + " to finish.")
         );
@@ -324,8 +324,8 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
 
         DescriptorAcquiry competitorAcquiry = descriptor.holder();
         if (competitorAcquiry != null) {
-            // The competitor is available, so just complete our master future with the competitor future.
-            completeMasterFutureWithCompetitorHandshakeFuture(competitorAcquiry);
+            // The competitor is available, so just complete our resulting future with the competitor future.
+            completeResultingFutureWithCompetitorHandshakeFuture(competitorAcquiry);
         } else {
             // The competitor is not at the lock yet. Maybe it will arrive soon, maybe it will never arrive.
             // The safest thing is to just retry the whole handshake procedure.
@@ -356,7 +356,7 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
     /** {@inheritDoc} */
     @Override
     public CompletionStage<NettySender> finalHandshakeFuture() {
-        return masterHandshakeCompleteFuture.thenCompose(identity());
+        return resultingHandshakeCompleteFuture.thenCompose(identity());
     }
 
     private void handshake(RecoveryDescriptor descriptor) {
@@ -396,8 +396,8 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
         // Removes handshake handler from the pipeline as the handshake is finished
         this.ctx.pipeline().remove(this.handler);
 
-        // Complete the master future with the local future of the current handshake as there was no competitor (or we won the competition).
-        masterHandshakeCompleteFuture.complete(outgoingHandshakeCompleteFuture);
+        // Complete the resulting future with the local future of the current handshake as there was no competitor (or we won the competition).
+        resultingHandshakeCompleteFuture.complete(outgoingHandshakeCompleteFuture);
         outgoingHandshakeCompleteFuture.complete(new NettySender(channel, remoteLaunchId.toString(), remoteConsistentId, connectionId));
     }
 }
