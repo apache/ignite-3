@@ -19,6 +19,7 @@ package org.apache.ignite.internal.compute.queue;
 
 import java.util.AbstractQueue;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.Iterator;
 import java.util.Objects;
 import java.util.PriorityQueue;
@@ -50,6 +51,18 @@ public class BoundedPriorityBlockingQueue<E> extends AbstractQueue<E> implements
      */
     public BoundedPriorityBlockingQueue(Supplier<Integer> maxCapacity) {
         queue = new PriorityQueue<>();
+        this.maxCapacity = maxCapacity;
+    }
+
+    /**
+     *  Creates a {@link BoundedPriorityBlockingQueue} with elements are ordered according to the specified comparator.
+     *
+     * @param maxCapacity Max queue size supplier.
+     * @param comparator The comparator that will be used to order this
+     *     priority queue. If {@code null}, the {@link Comparable} natural ordering of the elements will be used.
+     */
+    public BoundedPriorityBlockingQueue(Supplier<Integer> maxCapacity, Comparator<E> comparator) {
+        queue = new PriorityQueue<>(comparator);
         this.maxCapacity = maxCapacity;
     }
 
@@ -256,7 +269,7 @@ public class BoundedPriorityBlockingQueue<E> extends AbstractQueue<E> implements
         int currentSize = size();
         if (currentSize > maxSize - size) {
             throw new QueueOverflowException("Compute queue overflow when tried to insert " + size + " element(s) to queue. "
-                    + "Current queue size " + currentSize + ". "
+                    + "Current queue size is " + currentSize + ". "
                     + "Max queue size is " + maxSize + ".");
         }
     }
