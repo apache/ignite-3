@@ -439,10 +439,7 @@ namespace Apache.Ignite.Internal.Table
             catch (Exception e) when (e.CausedByUnmappedColumns() &&
                                       schemaVersionOverride == null)
             {
-                if (_logger?.IsEnabled(LogLevel.Debug) == true)
-                {
-                    _logger.Debug($"Retrying unmapped columns error [tableId={_table.Id}, schemaVersion={schema?.Version}]");
-                }
+                _logger.LogRetryingUnmappedColumnsErrorDebug(_table.Id, schema?.Version, e.Message);
 
                 schemaVersionOverride = Table.SchemaVersionForceLatest;
                 return await DoRecordOutOpAsync(op, transaction, record, keyOnly, schemaVersionOverride).ConfigureAwait(false);
