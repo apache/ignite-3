@@ -19,6 +19,7 @@ package org.apache.ignite.internal.placementdriver;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.SessionUtils.executeUpdate;
+import static org.apache.ignite.internal.table.NodeUtils.transferPrimary;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -33,7 +34,6 @@ import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
-import org.apache.ignite.internal.table.NodeUtils;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.InternalTransaction;
@@ -94,7 +94,7 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
             return CompletableFuture.completedFuture(false);
         });
 
-        NodeUtils.transferPrimary(tbl, null, this::node);
+        transferPrimary(tbl, null, this::node);
 
         assertTrue(primaryChanged.get());
     }
@@ -124,9 +124,9 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
 
         log.info("Primary replica is: " + primary);
 
-        NodeUtils.transferPrimary(tbl, null, this::node);
+        transferPrimary(tbl, null, this::node);
 
-        CompletableFuture<String> primaryChangeTask = IgniteTestUtils.runAsync(() -> NodeUtils.transferPrimary(tbl, primary, this::node));
+        CompletableFuture<String> primaryChangeTask = IgniteTestUtils.runAsync(() -> transferPrimary(tbl, primary, this::node));
 
         waitingForLeaderCache(tbl, primary);
 
@@ -164,7 +164,7 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
 
         assertTrue(ignite.txManager().lockManager().locks(rwTx.id()).hasNext());
 
-        NodeUtils.transferPrimary(tbl, null, this::node);
+        transferPrimary(tbl, null, this::node);
 
         assertFalse(ignite.txManager().lockManager().locks(rwTx.id()).hasNext());
     }

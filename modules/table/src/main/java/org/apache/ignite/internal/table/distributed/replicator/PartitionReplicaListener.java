@@ -3386,7 +3386,9 @@ public class PartitionReplicaListener implements ReplicaListener {
                         long currentEnlistmentConsistencyToken = primaryReplicaMeta.getStartTime().longValue();
 
                         // TODO: https://issues.apache.org/jira/browse/IGNITE-20377
-                        if (expectedTerm != currentEnlistmentConsistencyToken || primaryReplicaMeta.getExpirationTime().before(now)) {
+                        if (expectedTerm != currentEnlistmentConsistencyToken ||
+                                primaryReplicaMeta.getExpirationTime().before(now) ||
+                                !primaryReplicaMeta.getLeaseholderId().equals(localNode.id())) {
                             return failedFuture(new PrimaryReplicaMissException(
                                     localNode.name(),
                                     primaryReplicaMeta.getLeaseholder(),
