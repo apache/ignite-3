@@ -71,8 +71,6 @@ class ReadWriteTransactionImplTest extends BaseIgniteAbstractTest {
 
     private final HybridClock clock = new HybridClockImpl();
 
-    private HashSet<UUID> finishedTxs = new HashSet<>();
-
     /** The state is assigned to the transaction after a finalize method (commit or rollback) is called. */
     private TxState txState = null;
 
@@ -93,6 +91,8 @@ class ReadWriteTransactionImplTest extends BaseIgniteAbstractTest {
      * @param commit True for committing the transaction, false for rolling back.
      */
     private void startTxAndTryToEnlist(boolean commit) {
+        HashSet<UUID> finishedTxs = new HashSet<>();
+
         Mockito.when(txManager.finish(any(), any(), anyBoolean(), any(), any())).thenAnswer(invocation -> {
             finishedTxs.add(invocation.getArgument(4));
 
