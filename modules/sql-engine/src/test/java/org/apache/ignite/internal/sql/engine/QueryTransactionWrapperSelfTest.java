@@ -17,11 +17,11 @@
 
 package org.apache.ignite.internal.sql.engine;
 
-import static org.apache.ignite.internal.sql.engine.SqlQueryProcessor.wrapTxOrStartImplicit;
+import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
-import static org.hamcrest.Matchers.instanceOf;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrowsExactly;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -31,12 +31,16 @@ import static org.mockito.Mockito.when;
 
 import java.util.EnumSet;
 import org.apache.ignite.internal.sql.engine.framework.NoOpTransaction;
+import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.lang.ErrorGroups.Sql;
+import org.apache.ignite.sql.ExternalTransactionNotSupportedException;
 import org.apache.ignite.tx.IgniteTransactions;
 import org.apache.ignite.tx.TransactionOptions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
+import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 /**
@@ -57,10 +61,14 @@ public class QueryTransactionWrapperSelfTest extends BaseIgniteAbstractTest {
                 }
         );
 
-        assertThat(wrapTxOrStartImplicit(SqlQueryType.DML, transactions, null).unwrap().isReadOnly(), equalTo(false));
+        QueryTransactionHandler transactionHandler = QueryTransactionHandler.forSingleStatement(transactions, null);
+        QueryTransactionWrapper transactionWrapper = transactionHandler.startTxIfNeeded(mockParsedResult(SqlQueryType.DML));
+
+        assertThat(transactionWrapper.unwrap().isReadOnly(), equalTo(false));
 
         for (SqlQueryType type : EnumSet.complementOf(EnumSet.of(SqlQueryType.DML))) {
-            assertThat(wrapTxOrStartImplicit(type, transactions, null).unwrap().isReadOnly(), equalTo(true));
+            transactionWrapper = transactionHandler.startTxIfNeeded(mockParsedResult(type));
+            assertThat(transactionWrapper.unwrap().isReadOnly(), equalTo(true));
         }
 
         verify(transactions, times(SqlQueryType.values().length)).begin(any());
@@ -68,20 +76,18 @@ public class QueryTransactionWrapperSelfTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void commitAndRollbackNotAffectExternalTransaction() {
+    public void commitImplicitTxNotAffectExternalTransaction() {
         NoOpTransaction externalTx = new NoOpTransaction("test");
 
-        QueryTransactionWrapper wrapper = wrapTxOrStartImplicit(SqlQueryType.QUERY, transactions, externalTx);
+        QueryTransactionWrapper wrapper = new QueryTransactionWrapper(externalTx, false);
         wrapper.commitImplicit();
         assertFalse(externalTx.commitFuture().isDone());
-
-        verifyNoInteractions(transactions);
     }
 
     @Test
     public void testCommitImplicit() {
-        QueryTransactionWrapper wrapper = prepareImplicitTx();
-        NoOpTransaction tx = (NoOpTransaction) wrapper.unwrap();
+        NoOpTransaction tx = new NoOpTransaction("test");
+        QueryTransactionWrapper wrapper = new QueryTransactionWrapper(tx, true);
 
         wrapper.commitImplicit();
 
@@ -91,8 +97,8 @@ public class QueryTransactionWrapperSelfTest extends BaseIgniteAbstractTest {
 
     @Test
     public void testRollbackImplicit() {
-        QueryTransactionWrapper wrapper = prepareImplicitTx();
-        NoOpTransaction tx = (NoOpTransaction) wrapper.unwrap();
+        NoOpTransaction tx = new NoOpTransaction("test");
+        QueryTransactionWrapper wrapper = new QueryTransactionWrapper(tx, true);
 
         wrapper.rollback();
 
@@ -100,18 +106,42 @@ public class QueryTransactionWrapperSelfTest extends BaseIgniteAbstractTest {
         assertThat(tx.commitFuture().isDone(), equalTo(false));
     }
 
-    private QueryTransactionWrapper prepareImplicitTx() {
-        when(transactions.begin(any())).thenReturn(new NoOpTransaction("test"));
+    @Test
+    public void throwsExceptionForDdlWithExternalTransaction() {
+        QueryTransactionHandler txHandler = QueryTransactionHandler.forSingleStatement(transactions, new NoOpTransaction("test"));
 
-        QueryTransactionWrapper wrapper = wrapTxOrStartImplicit(SqlQueryType.QUERY, transactions, null);
+        //noinspection ThrowableNotThrown
+        assertThrowsSqlException(Sql.RUNTIME_ERR, "DDL doesn't support transactions.",
+                () -> txHandler.startTxIfNeeded(mockParsedResult(SqlQueryType.DDL)));
 
-        assertThat(wrapper.unwrap(), instanceOf(NoOpTransaction.class));
-        NoOpTransaction tx = (NoOpTransaction) wrapper.unwrap();
+        verifyNoInteractions(transactions);
+    }
 
-        assertFalse(tx.rollbackFuture().isDone());
-        assertFalse(tx.commitFuture().isDone());
+    @Test
+    public void throwsExceptionForDmlWithReadOnlyExternalTransaction() {
+        QueryTransactionHandler txHandler = QueryTransactionHandler.forSingleStatement(transactions, new NoOpTransaction("test"));
 
-        return wrapper;
+        //noinspection ThrowableNotThrown
+        assertThrowsSqlException(Sql.RUNTIME_ERR, "DML query cannot be started by using read only transactions.",
+                () -> txHandler.startTxIfNeeded(mockParsedResult(SqlQueryType.DML)));
+
+        verifyNoInteractions(transactions);
+    }
+
+    @Test
+    public void throwsExceptionForTxControlStatementInsideExternalTransaction() {
+        QueryTransactionHandler txHandler = QueryTransactionHandler.forMultiStatement(transactions, new NoOpTransaction("test"));
+
+        assertThrowsExactly(ExternalTransactionNotSupportedException.class,
+                () -> txHandler.startTxIfNeeded(mockParsedResult(SqlQueryType.TX_CONTROL)));
+    }
+
+    private static ParsedResult mockParsedResult(SqlQueryType type) {
+        ParsedResult result = Mockito.mock(ParsedResult.class);
+
+        when(result.queryType()).thenReturn(type);
+
+        return result;
     }
 }
 

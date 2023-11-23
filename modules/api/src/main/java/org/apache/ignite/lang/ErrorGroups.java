@@ -264,6 +264,9 @@ public class ErrorGroups {
          * <p>See error message for details.
          */
         public static final int MAPPING_ERR = SQL_ERR_GROUP.registerErrorCode((short) 12);
+
+        /** Execution of transaction control statement inside an external transaction is forbidden. */
+        public static final int TX_CONTROL_INSIDE_EXTERNAL_TX_ERR = SQL_ERR_GROUP.registerErrorCode((short) 13);
     }
 
     /** Meta storage error group. */

@@ -67,6 +67,7 @@ import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.SchemaManager;
+import org.apache.ignite.internal.sql.api.ResultSetMetadataImpl;
 import org.apache.ignite.internal.sql.engine.exec.ExchangeServiceImpl;
 import org.apache.ignite.internal.sql.engine.exec.ExecutableTableRegistryImpl;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionDependencyResolverImpl;
@@ -107,14 +108,15 @@ import org.apache.ignite.internal.systemview.api.SystemViewManager;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.internal.util.AsyncWrapper;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.SchemaNotFoundException;
 import org.apache.ignite.network.ClusterService;
+import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.tx.IgniteTransactions;
-import org.apache.ignite.tx.TransactionOptions;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -150,6 +152,9 @@ public class SqlQueryProcessor implements QueryProcessor {
     private final ParserService parserService = new ParserServiceImpl(
             PARSED_RESULT_CACHE_SIZE, CACHE_FACTORY
     );
+
+    private static final ResultSetMetadata EMPTY_RESULT_SET_METADATA =
+            new ResultSetMetadataImpl(Collections.emptyList());
 
     private final List<LifecycleAware> services = new ArrayList<>();
 
@@ -418,7 +423,7 @@ public class SqlQueryProcessor implements QueryProcessor {
         }
 
         try {
-            return querySingle0(properties, transactions, transaction, qry, params);
+            return querySingle0(properties, QueryTransactionHandler.forSingleStatement(transactions, transaction), qry, params);
         } finally {
             busyLock.leaveBusy();
         }
@@ -438,7 +443,7 @@ public class SqlQueryProcessor implements QueryProcessor {
         }
 
         try {
-            return queryScript0(properties, transactions, transaction, qry, params);
+            return queryScript0(properties, QueryTransactionHandler.forMultiStatement(transactions, transaction), qry, params);
         } finally {
             busyLock.leaveBusy();
         }
@@ -452,8 +457,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     private CompletableFuture<AsyncSqlCursor<List<Object>>> querySingle0(
             SqlProperties properties,
-            IgniteTransactions transactions,
-            @Nullable InternalTransaction explicitTransaction,
+            QueryTransactionHandler txHandler,
             String sql,
             Object... params
     ) {
@@ -469,7 +473,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
             validateParsedStatement(properties0, result, params);
 
-            QueryTransactionWrapper txWrapper = wrapTxOrStartImplicit(result.queryType(), transactions, explicitTransaction);
+            QueryTransactionWrapper txWrapper = txHandler.startTxIfNeeded(result);
 
             return executeParsedStatement(schemaName, result, txWrapper, queryCancel, params, false, null);
         });
@@ -488,8 +492,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     private CompletableFuture<AsyncSqlCursor<List<Object>>> queryScript0(
             SqlProperties properties,
-            IgniteTransactions transactions,
-            @Nullable InternalTransaction explicitTransaction,
+            QueryTransactionHandler transactionHandler,
             String sql,
             Object... params
     ) {
@@ -502,7 +505,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                 .thenApply(ignored -> parserService.parseScript(sql))
                 .thenCompose(parsedResults -> {
                     MultiStatementHandler handler = new MultiStatementHandler(
-                            schemaName, transactions, explicitTransaction, parsedResults, params);
+                            schemaName, transactionHandler, parsedResults, params);
 
                     return handler.processNext();
                 });
@@ -544,7 +547,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                 })
                 .whenComplete((res, ex) -> {
                     if (ex != null) {
-                        txWrapper.rollback();
+                        txWrapper.rollback().join();
                     }
                 });
     }
@@ -600,38 +603,6 @@ public class SqlQueryProcessor implements QueryProcessor {
         }
     }
 
-    /**
-     * Creates a new transaction wrapper using an existing outer transaction or starting a new "implicit" transaction.
-     *
-     * @param queryType Query type.
-     * @param transactions Transactions facade.
-     * @param outerTx Outer transaction.
-     * @return Wrapper for an active transaction.
-     * @throws SqlException If an outer transaction was started for a {@link SqlQueryType#DDL DDL} query.
-     */
-    static QueryTransactionWrapper wrapTxOrStartImplicit(
-            SqlQueryType queryType,
-            IgniteTransactions transactions,
-            @Nullable InternalTransaction outerTx
-    ) {
-        if (outerTx == null) {
-            InternalTransaction tx = (InternalTransaction) transactions.begin(
-                    new TransactionOptions().readOnly(queryType != SqlQueryType.DML));
-
-            return new QueryTransactionWrapper(tx, true);
-        }
-
-        if (SqlQueryType.DDL == queryType) {
-            throw new SqlException(STMT_VALIDATION_ERR, "DDL doesn't support transactions.");
-        }
-
-        if (SqlQueryType.DML == queryType && outerTx.isReadOnly()) {
-            throw new SqlException(STMT_VALIDATION_ERR, "DML query cannot be started by using read only transactions.");
-        }
-
-        return new QueryTransactionWrapper(outerTx, false);
-    }
-
     @TestOnly
     public MetricManager metricManager() {
         return metricManager;
@@ -683,85 +654,28 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     private class MultiStatementHandler {
         private final String schemaName;
-        private final IgniteTransactions transactions;
-        private final @Nullable InternalTransaction explicitTransaction;
+        private final QueryTransactionHandler transactionHandler;
         private final Queue<ScriptStatementParameters> statements;
 
         MultiStatementHandler(
                 String schemaName,
-                IgniteTransactions transactions,
-                @Nullable InternalTransaction explicitTransaction,
+                QueryTransactionHandler transactionHandler,
                 List<ParsedResult> parsedResults,
                 Object[] params
         ) {
             this.schemaName = schemaName;
-            this.transactions = transactions;
-            this.explicitTransaction = explicitTransaction;
+            this.transactionHandler = transactionHandler;
             this.statements = prepareStatementsQueue(parsedResults, params);
-        }
-
-        CompletableFuture<AsyncSqlCursor<List<Object>>> processNext() {
-            if (statements == null) {
-                // TODO https://issues.apache.org/jira/browse/IGNITE-20463 Each tx control statement must return an empty cursor.
-                return CompletableFuture.completedFuture(null);
-            }
-
-            ScriptStatementParameters parameters = statements.poll();
-
-            assert parameters != null;
-
-            ParsedResult parsedResult = parameters.parsedResult;
-            Object[] dynamicParams = parameters.dynamicParams;
-            CompletableFuture<AsyncSqlCursor<List<Object>>> cursorFuture = parameters.cursorFuture;
-            CompletableFuture<AsyncSqlCursor<List<Object>>> nextCursorFuture = parameters.nextStatementFuture;
-
-            try {
-                if (cursorFuture.isDone()) {
-                    return cursorFuture;
-                }
-
-                QueryTransactionWrapper txWrapper = wrapTxOrStartImplicit(parsedResult.queryType(), transactions, explicitTransaction);
-
-                QueryCancel cancel = new QueryCancel();
-
-                executeParsedStatement(schemaName, parsedResult, txWrapper, cancel, dynamicParams, true, nextCursorFuture)
-                        .whenComplete((res, ex) -> {
-                            if (ex != null) {
-                                cursorFuture.completeExceptionally(ex);
-                                cancelAll(ex);
-                            }
-                        })
-                        .thenCompose(res -> txWrapper.commitImplicit()
-                                .thenRun(() -> {
-                                    if (nextCursorFuture != null) {
-                                        taskExecutor.execute(this::processNext);
-                                    }
-
-                                    cursorFuture.complete(res);
-                                })
-                        );
-            } catch (Exception e) {
-                cursorFuture.completeExceptionally(e);
-
-                cancelAll(e);
-            }
-
-            return cursorFuture;
         }
 
         /**
          * Returns a queue. each element of which represents parameters required to execute a single statement of the script.
          */
-        private @Nullable Queue<ScriptStatementParameters> prepareStatementsQueue(List<ParsedResult> parsedResults, Object[] params) {
-            List<ParsedResult> parsedResults0 = parsedResults.stream()
-                    // TODO https://issues.apache.org/jira/browse/IGNITE-20463 Integrate TX-related statements
-                    .filter(res -> res.queryType() != SqlQueryType.TX_CONTROL).collect(Collectors.toList());
-
-            if (parsedResults0.isEmpty()) {
-                return null;
-            }
+        private Queue<ScriptStatementParameters> prepareStatementsQueue(List<ParsedResult> parsedResults0, Object[] params) {
+            assert !parsedResults0.isEmpty();
 
             int paramsCount = parsedResults0.stream().mapToInt(ParsedResult::dynamicParamsCount).sum();
+
             validateDynamicParameters(paramsCount, params);
 
             ScriptStatementParameters[] results = new ScriptStatementParameters[parsedResults0.size()];
@@ -779,6 +693,78 @@ public class SqlQueryProcessor implements QueryProcessor {
             }
 
             return new ArrayBlockingQueue<>(results.length, false, List.of(results));
+        }
+
+        CompletableFuture<AsyncSqlCursor<List<Object>>> processNext() {
+            ScriptStatementParameters parameters = statements.poll();
+
+            assert parameters != null;
+
+            CompletableFuture<AsyncSqlCursor<List<Object>>> cursorFuture = parameters.cursorFuture;
+
+            try {
+                if (cursorFuture.isDone()) {
+                    return cursorFuture;
+                }
+
+                QueryTransactionWrapper txWrapper = transactionHandler.startTxIfNeeded(parameters.parsedResult);
+
+                executeStatement(parameters.parsedResult, txWrapper, parameters.dynamicParams, parameters.nextStatementFuture)
+                        .whenComplete((cursor, ex) -> {
+                            if (ex != null) {
+                                cursorFuture.completeExceptionally(ex);
+                                cancelAll(ex);
+                            }
+                        })
+                        .thenCompose(cursor -> txWrapper.commitImplicit()
+                                .thenApply(ignore -> {
+                                    if (parameters.nextStatementFuture == null) {
+                                        txWrapper.rollback().join();
+                                    } else {
+                                        taskExecutor.execute(this::processNext);
+                                    }
+
+                                    cursorFuture.complete(cursor);
+
+                                    return cursor;
+                                })
+                        );
+            } catch (Throwable e) {
+                cursorFuture.completeExceptionally(e);
+
+                cancelAll(e);
+            }
+
+            return cursorFuture;
+        }
+
+        private CompletableFuture<AsyncSqlCursor<List<Object>>> executeStatement(
+                ParsedResult parsedResult,
+                QueryTransactionWrapper txWrapper,
+                Object[] dynamicParams,
+                CompletableFuture<AsyncSqlCursor<List<Object>>> nextCursorFuture
+        ) {
+            if (parsedResult.queryType() != SqlQueryType.TX_CONTROL) {
+                return executeParsedStatement(
+                        schemaName,
+                        parsedResult,
+                        txWrapper,
+                        new QueryCancel(),
+                        dynamicParams,
+                        true,
+                        nextCursorFuture
+                );
+            }
+
+            // Return an empty cursor.
+            return CompletableFuture.completedFuture(new AsyncSqlCursorImpl<>(
+                    parsedResult.queryType(),
+                    EMPTY_RESULT_SET_METADATA,
+                    txWrapper,
+                    new AsyncWrapper<>(Collections.emptyIterator()),
+                    () -> {},
+                    nextCursorFuture
+            ));
         }
 
         private void cancelAll(Throwable cause) {

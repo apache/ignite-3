@@ -41,9 +41,12 @@ public class QueryTransactionWrapper {
         return transaction;
     }
 
-    /**
-     * Commits an implicit transaction, if one has been started.
-     */
+    /** Action to perform when data cursor is closed. */
+    CompletableFuture<Void> onCursorClose() {
+        return commitImplicit();
+    }
+
+    /** Commits an implicit transaction, if one has been started. */
     CompletableFuture<Void> commitImplicit() {
         if (implicit) {
             return transaction.commitAsync();

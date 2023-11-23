@@ -375,7 +375,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
 
         String queryRw = "UPDATE TEST SET VAL0=VAL0+1";
         if (explicit && readOnly) {
-            assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, "DML query cannot be started by using read only transactions.",
+            assertThrowsSqlException(Sql.RUNTIME_ERR, "DML query cannot be started by using read only transactions.",
                     () -> execute(outerTx, ses, queryRw));
         } else {
             checkDml(ROW_COUNT, outerTx, ses, queryRw);
@@ -783,7 +783,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
             Transaction tx = igniteTx().begin();
             try {
                 assertThrowsSqlException(
-                        Sql.STMT_VALIDATION_ERR,
+                        Sql.RUNTIME_ERR,
                         "DDL doesn't support transactions.",
                         () -> execute(tx, ses, "CREATE TABLE TEST2(ID INT PRIMARY KEY, VAL0 INT)")
                 );
@@ -797,7 +797,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
             assertEquals(1, result.affectedRows());
 
             assertThrowsSqlException(
-                    Sql.STMT_VALIDATION_ERR,
+                    Sql.RUNTIME_ERR,
                     "DDL doesn't support transactions.",
                     () -> ses.execute(tx, "CREATE TABLE TEST2(ID INT PRIMARY KEY, VAL0 INT)")
             );

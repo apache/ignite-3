@@ -153,8 +153,9 @@ public class AsyncSqlCursorImpl<T> implements AsyncSqlCursor<T> {
             return closeResult;
         }
 
-        dataCursor.closeAsync()
-                .thenCompose(ignored -> txWrapper.commitImplicit())
+        // TODO Why we need commit before close cursor
+        txWrapper.onCursorClose()
+                .thenCompose(ignored -> dataCursor.closeAsync())
                 .thenRun(onClose)
                 .whenComplete((r, e) -> {
                     if (e != null) {
