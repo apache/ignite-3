@@ -188,11 +188,7 @@ namespace Apache.Ignite.Internal
                     .ConfigureAwait(false);
 
                 connected = true;
-
-                if (logger?.IsEnabled(LogLevel.Debug) == true)
-                {
-                    logger.LogDebug($"Connection established [remoteAddress={socket.RemoteEndPoint}]");
-                }
+                logger.LogConnectionEstablishedDebug(socket.RemoteEndPoint);
 
                 Metrics.ConnectionsEstablished.Add(1);
                 Metrics.ConnectionsActiveIncrement();
