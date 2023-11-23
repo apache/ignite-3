@@ -226,10 +226,10 @@ namespace Apache.Ignite.Internal
                 }
                 catch (Exception disposeEx)
                 {
-                    logger.LogWarning(disposeEx, "Failed to dispose socket after failed connection attempt: " + disposeEx.Message);
+                    logger.LogFailedToDisposeSocketAfterFailedConnectionAttemptWarn(disposeEx, disposeEx.Message);
                 }
 
-                logger?.LogWarning(ex, $"Connection failed before or during handshake [remoteAddress={endPoint.EndPoint}]: {ex.Message}.");
+                logger.LogConnectionFailedBeforeOrDuringHandshakeWarn(ex, endPoint.EndPoint, ex.Message);
 
                 if (ex.GetBaseException() is TimeoutException)
                 {
