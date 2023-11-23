@@ -109,7 +109,6 @@ import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.internal.utils.PrimaryReplica;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.SchemaNotFoundException;
 import org.apache.ignite.network.ClusterNode;
@@ -285,13 +284,7 @@ public class SqlQueryProcessor implements QueryProcessor {
             @Override
             public CompletableFuture<ExecutionTarget> forTable(ExecutionTargetFactory factory, IgniteTable table) {
                 return primaryReplicas(table.id())
-                        .thenApply(replicas -> {
-                            List<NodeWithTerm> assignments = replicas.stream()
-                                    .map(primaryReplica -> new NodeWithTerm(primaryReplica.node().name(), primaryReplica.term()))
-                                    .collect(Collectors.toList());
-
-                            return factory.partitioned(assignments);
-                        });
+                        .thenApply(replicas -> factory.partitioned(replicas));
             }
 
             @Override
@@ -340,8 +333,9 @@ public class SqlQueryProcessor implements QueryProcessor {
         services.forEach(LifecycleAware::start);
     }
 
+    // need to be refactored after TODO: https://issues.apache.org/jira/browse/IGNITE-20925
     /** Get primary replicas. */
-    private CompletableFuture<List<PrimaryReplica>> primaryReplicas(int tableId) {
+    private CompletableFuture<List<NodeWithTerm>> primaryReplicas(int tableId) {
         int catalogVersion = catalogManager.latestCatalogVersion();
 
         Catalog catalog = catalogManager.catalog(catalogVersion);
@@ -352,7 +346,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
         int partitions = zoneDesc.partitions();
 
-        List<CompletableFuture<PrimaryReplica>> result = new ArrayList<>(partitions);
+        List<CompletableFuture<NodeWithTerm>> result = new ArrayList<>(partitions);
 
         HybridTimestamp clockNow = clock.now();
 
@@ -386,7 +380,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                         throw new IgniteInternalException(Sql.MAPPING_ERR, "Unable to map query, node is lost or offline");
                     }
 
-                    return new PrimaryReplica(node, primaryReplica.getStartTime().longValue());
+                    return new NodeWithTerm(node.name(), primaryReplica.getStartTime().longValue());
                 }
             }));
         }

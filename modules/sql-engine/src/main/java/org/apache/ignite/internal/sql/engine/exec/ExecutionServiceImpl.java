@@ -860,13 +860,10 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                     for (int p = 0; p < partsCnt; p++) {
                         TablePartitionId tablePartId = new TablePartitionId(tableId, p);
 
-                        // remove this check after TODO: https://issues.apache.org/jira/browse/IGNITE-20925
-                        if (tx.enlistedNodeAndTerm(tablePartId) == null) {
-                            NodeWithTerm enlistmentToken = assignments.get(p);
+                        NodeWithTerm enlistmentToken = assignments.get(p);
 
-                            tx.enlist(tablePartId,
-                                    new IgniteBiTuple<>(topSrvc.getByConsistentId(enlistmentToken.name()), enlistmentToken.term()));
-                        }
+                        tx.enlist(tablePartId,
+                                new IgniteBiTuple<>(topSrvc.getByConsistentId(enlistmentToken.name()), enlistmentToken.term()));
                     }
                 }
 
