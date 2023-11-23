@@ -17,6 +17,7 @@
 
 namespace Apache.Ignite.Internal;
 
+using System;
 using System.Net;
 using System.Net.Security;
 using Microsoft.Extensions.Logging;
@@ -32,6 +33,15 @@ public static partial class ClientSocketLogMessages
     [LoggerMessage(Message = "SSL connection established [remoteAddress={Endpoint}, cipherSuite={CipherSuite}]", Level = LogLevel.Debug)]
     internal static partial void LogSslConnectionEstablishedDebug(this ILogger logger, EndPoint? endpoint, TlsCipherSuite cipherSuite);
 
-    [LoggerMessage(Message = "SSL connection established [remoteAddress={Endpoint}, context={Context}]", Level = LogLevel.Debug)]
+    [LoggerMessage(Message = "Handshake succeeded [remoteAddress={Endpoint}, context={Context}]", Level = LogLevel.Debug)]
     internal static partial void LogHandshakeSucceededDebug(this ILogger logger, EndPoint? endpoint, ConnectionContext context);
+
+    [LoggerMessage(Message = "Failed to dispose socket after failed connection attempt: {Message}", Level = LogLevel.Warning)]
+    internal static partial void LogFailedToDisposeSocketAfterFailedConnectionAttemptWarn(
+        this ILogger logger, Exception ex, string message);
+
+    [LoggerMessage(Message = "Connection failed before or during handshake [remoteAddress={Endpoint}]: {Message}",
+        Level = LogLevel.Warning)]
+    internal static partial void LogConnectionFailedBeforeOrDuringHandshakeWarn(
+        this ILogger logger, Exception ex, EndPoint? endpoint, string message);
 }
