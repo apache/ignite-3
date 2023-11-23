@@ -721,14 +721,11 @@ namespace Apache.Ignite.Internal
 
             if (flags.HasFlag(ResponseFlags.PartitionAssignmentChanged))
             {
-                if (_logger.IsEnabled(LogLevel.Information) == true)
-                {
-                    _logger.LogInformation(
-                        $"Partition assignment change notification received [remoteAddress={ConnectionContext.ClusterNode.Address}]");
-                }
+                long timestamp = reader.ReadInt64();
 
-                // TODO IGNITE-20900: Read and propagate assignment timestamp - separate ticket.
-                _ = reader.ReadInt64();
+                _logger.LogPartitionAssignmentChangeNotificationInfo(ConnectionContext.ClusterNode.Address, timestamp);
+
+                // TODO IGNITE-20900: Propagate assignment timestamp.
                 _listener.OnAssignmentChanged(this);
             }
 

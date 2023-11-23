@@ -73,4 +73,10 @@ public static partial class ClientSocketLogMessages
 
     [LoggerMessage(Message = "{Message}", Level = LogLevel.Error)]
     internal static partial void LogErrorMessage(this ILogger logger, Exception? ex, string message);
+
+    [LoggerMessage(
+        Message = "Partition assignment change notification received [remoteAddress={RemoteAddress}, timestamp={Timestamp}",
+        Level = LogLevel.Information)]
+    internal static partial void LogPartitionAssignmentChangeNotificationInfo(
+        this ILogger logger, IPEndPoint remoteAddress, long timestamp);
 }
