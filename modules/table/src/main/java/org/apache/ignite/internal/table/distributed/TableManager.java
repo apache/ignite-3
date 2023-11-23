@@ -19,6 +19,7 @@ package org.apache.ignite.internal.table.distributed;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Collections.emptyMap;
+import static java.util.Collections.emptySet;
 import static java.util.Collections.unmodifiableMap;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.anyOf;
@@ -540,7 +541,11 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                         // 'handleChangePendingAssignmentEvent' accesses some Versioned Values that only store values starting with
                         // tokens equal to Meta Storage recovery revision. In other words, if the entry has a lower revision than the
                         // recovery revision, there will never be a Versioned Value corresponding to its revision.
-                        return handleChangePendingAssignmentEvent(pendingAssignmentEntry, recoveryRevision);
+                        return handleChangePendingAssignmentEvent(
+                                pendingAssignmentEntry,
+                                localPartsByTableIdVv.get(recoveryRevision),
+                                recoveryRevision
+                        );
                     })
                     .toArray(CompletableFuture[]::new);
 
@@ -639,6 +644,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
                 Set<Assignment> newPartAssignment = newAssignments.get(partId);
 
+                // TODO https://issues.apache.org/jira/browse/IGNITE-19170 #handleChangePendingAssignmentEvent should be called on
+                // TODO actual event, the method #createTablePartitionsLocally should be removed.
                 handleChangePendingAssignmentEvent(new TablePartitionId(tableId, partId), table, newPartAssignment, null, causalityToken)
                         .whenComplete((res, ex) -> {
                             if (ex != null) {
@@ -1124,6 +1131,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         // We bring the future outside to avoid OutdatedTokenException.
         CompletableFuture<Map<Integer, TableImpl>> tablesByIdFuture = tablesByIdVv.get(causalityToken);
 
+        // TODO https://issues.apache.org/jira/browse/IGNITE-19170 Partitions should be started only on the assignments change
+        // TODO event triggered by zone create or alter.
         CompletableFuture<?> createPartsFut = assignmentsUpdatedVv.update(causalityToken, (token, e) -> {
             if (e != null) {
                 return failedFuture(e);
@@ -1144,6 +1153,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             pendingTables.remove(tableId);
         }));
 
+        // TODO https://issues.apache.org/jira/browse/IGNITE-20916 fix API future completion.
         tablesById(causalityToken).thenRun(() -> inBusyLock(busyLock, () -> completeApiCreateFuture(table)));
 
         // TODO should be reworked in IGNITE-16763
@@ -1260,6 +1270,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
             CompletableFuture<?>[] stopReplicaFutures = new CompletableFuture<?>[partitions];
 
+            // TODO https://issues.apache.org/jira/browse/IGNITE-19170 Partitions should be stopped on the assignments change
+            // TODO event triggered by zone drop or alter.
             for (int partitionId = 0; partitionId < partitions; partitionId++) {
                 var replicationGroupId = new TablePartitionId(tableId, partitionId);
 
@@ -1355,6 +1367,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      * Returns the latest tables by ID map, for which all assignment updates have been completed.
      */
     private Map<Integer, TableImpl> latestTablesById() {
+        // TODO https://issues.apache.org/jira/browse/IGNITE-20915 fix this.
         if (assignmentsUpdatedVv.latestCausalityToken() < 0L) {
             // No tables at all in case of empty causality token.
             return emptyMap();
@@ -1571,7 +1584,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 try {
                     Entry newEntry = evt.entryEvent().newEntry();
 
-                    return handleChangePendingAssignmentEvent(newEntry, evt.revision());
+                    return handleChangePendingAssignmentEvent(newEntry, localPartsByTableIdVv.get(evt.revision()), evt.revision());
                 } finally {
                     busyLock.leaveBusy();
                 }
@@ -1584,7 +1597,11 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         };
     }
 
-    private CompletableFuture<Void> handleChangePendingAssignmentEvent(Entry pendingAssignmentsEntry, long revision) {
+    private CompletableFuture<Void> handleChangePendingAssignmentEvent(
+            Entry pendingAssignmentsEntry,
+            CompletableFuture<Map<Integer, PartitionSet>> localPartsByTableIdFut,
+            long revision
+    ) {
         if (pendingAssignmentsEntry.value() == null) {
             return completedFuture(null);
         }
@@ -1597,7 +1614,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         // Stable assignments from the meta store, which revision is bounded by the current pending event.
         CompletableFuture<Entry> stableAssignmentsFuture = metaStorageMgr.get(stablePartAssignmentsKey(replicaGrpId), revision);
 
-        return tablesById(revision)
+        return tablesByIdVv.get(revision)
                 .thenCombineAsync(stableAssignmentsFuture, (tables, stableAssignmentsEntry) -> {
                     if (!busyLock.enterBusy()) {
                         return CompletableFuture.<Void>failedFuture(new NodeStoppingException());
@@ -1621,6 +1638,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                                 table,
                                 pendingAssignmentsEntry,
                                 stableAssignmentsEntry,
+                                localPartsByTableIdFut,
                                 revision
                         );
                     } finally {
@@ -1635,6 +1653,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             TableImpl tbl,
             Entry pendingAssignmentsEntry,
             Entry stableAssignmentsEntry,
+            CompletableFuture<Map<Integer, PartitionSet>> localPartsByTableIdFut,
             long revision
     ) {
         ClusterNode localMember = localNode();
@@ -1651,7 +1670,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         Set<Assignment> pendingAssignments = ByteUtils.fromBytes(pendingAssignmentsEntry.value());
 
-        Set<Assignment> stableAssignments = ByteUtils.fromBytes(stableAssignmentsEntry.value());
+        Set<Assignment> stableAssignments =stableAssignmentsEntry.value() == null
+                ? emptySet()
+                : ByteUtils.fromBytes(stableAssignmentsEntry.value());
 
         transactionStateResolver.updateAssignment(
                 replicaGrpId,
@@ -1663,10 +1684,10 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 .filter(assignment -> localMember.name().equals(assignment.consistentId()))
                 .anyMatch(assignment -> !stableAssignments.contains(assignment));
 
-        CompletableFuture<Void> localServicesStartFuture;
+        CompletableFuture<?> localServicesStartFuture;
 
         if (shouldStartLocalServices) {
-            localServicesStartFuture = localPartsByTableIdVv.get(revision)
+            localServicesStartFuture = localPartsByTableIdFut
                     .thenComposeAsync(oldMap -> {
                         int tableId = tbl.tableId();
 
@@ -1680,65 +1701,12 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                             return newMap;
                         });
                     }, ioExecutor)
-                    .thenRunAsync(() -> inBusyLock(busyLock, () -> {
-                        InternalTable internalTable = tbl.internalTable();
-
-                        var safeTimeTracker = new PendingComparableValuesTracker<HybridTimestamp, Void>(HybridTimestamp.MIN_VALUE);
-                        var storageIndexTracker = new PendingComparableValuesTracker<Long, Void>(0L);
-
-                        PartitionStorages partitionStorages = getPartitionStorages(tbl, partId);
-
-                        MvPartitionStorage mvPartitionStorage = partitionStorages.getMvPartitionStorage();
-                        TxStateStorage txStatePartitionStorage = partitionStorages.getTxStateStorage();
-
-                        PartitionDataStorage partitionDataStorage = partitionDataStorage(mvPartitionStorage, internalTable, partId);
-
-                        PartitionUpdateHandlers partitionUpdateHandlers = createPartitionUpdateHandlers(
-                                partId,
-                                partitionDataStorage,
-                                tbl,
-                                safeTimeTracker
-                        );
-
-                        PeersAndLearners pendingConfiguration = configurationFromAssignments(pendingAssignments);
-
-                        try {
-                            Peer serverPeer = pendingConfiguration.peer(localMember.name());
-
-                            RaftNodeId raftNodeId = new RaftNodeId(replicaGrpId, serverPeer);
-
-                            if (!((Loza) raftMgr).isStarted(raftNodeId)) {
-                                PeersAndLearners stableConfiguration = configurationFromAssignments(stableAssignments);
-
-                                startPartitionRaftGroupNode(
-                                        replicaGrpId,
-                                        raftNodeId,
-                                        stableConfiguration,
-                                        safeTimeTracker,
-                                        storageIndexTracker,
-                                        internalTable,
-                                        txStatePartitionStorage,
-                                        partitionDataStorage,
-                                        partitionUpdateHandlers
-                                );
-                            }
-
-                            if (!replicaMgr.isReplicaStarted(replicaGrpId)) {
-                                startReplicaWithNewListener(
-                                        replicaGrpId,
-                                        tbl,
-                                        safeTimeTracker,
-                                        storageIndexTracker,
-                                        mvPartitionStorage,
-                                        txStatePartitionStorage,
-                                        partitionUpdateHandlers,
-                                        (TopologyAwareRaftGroupService) internalTable.partitionRaftGroupService(partId)
-                                );
-                            }
-                        } catch (NodeStoppingException ignored) {
-                            // No-op.
-                        }
-                    }), ioExecutor);
+                    .thenComposeAsync(unused -> inBusyLock(busyLock, () -> startPartition(
+                            tbl,
+                            replicaGrpId.partitionId(),
+                            pendingAssignments,
+                            true
+                    )), ioExecutor);
         } else {
             localServicesStartFuture = completedFuture(null);
         }
@@ -1783,6 +1751,40 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             long revision
     ) {
         return startPartition(tbl, replicaGrpId.partitionId(), pendingAssignments, false);
+    }
+
+    private Entry pendingAssignmentEntry(TablePartitionId tblPartId, Set<Assignment> assignments, long revision) {
+        return new Entry() {
+            @Override
+            public byte[] key() {
+                return pendingPartAssignmentsKey(tblPartId).bytes();
+            }
+
+            @Override
+            public byte @Nullable [] value() {
+                return ByteUtils.toBytes(assignments);
+            }
+
+            @Override
+            public long revision() {
+                return 1;
+            }
+
+            @Override
+            public long updateCounter() {
+                return 1;
+            }
+
+            @Override
+            public boolean empty() {
+                return false;
+            }
+
+            @Override
+            public boolean tombstone() {
+                return false;
+            }
+        };
     }
 
     private void startPartitionRaftGroupNode(
