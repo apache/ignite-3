@@ -372,10 +372,7 @@ namespace Apache.Ignite.Internal.Table
 
             _schemas[schemaVersion] = Task.FromResult(schema);
 
-            if (_logger?.IsEnabled(LogLevel.Debug) == true)
-            {
-                _logger.Debug($"Schema loaded [tableId={Id}, schemaVersion={schema.Version}]");
-            }
+            _logger.LogSchemaLoadedDebug(Id, schema.Version);
 
             lock (_latestSchemaLock)
             {

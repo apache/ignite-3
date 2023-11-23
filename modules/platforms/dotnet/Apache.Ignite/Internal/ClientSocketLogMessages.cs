@@ -26,7 +26,7 @@ using Proto;
 /// <summary>
 /// Source-generated log messages for <see cref="ClientSocket"/>.
 /// </summary>
-public static partial class ClientSocketLogMessages
+internal static partial class ClientSocketLogMessages
 {
     [LoggerMessage(Message = "Connection established [remoteAddress={Endpoint}]", Level = LogLevel.Debug)]
     internal static partial void LogConnectionEstablishedDebug(this ILogger logger, EndPoint? endpoint);
