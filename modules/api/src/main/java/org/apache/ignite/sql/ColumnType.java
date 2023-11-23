@@ -127,4 +127,23 @@ public enum ColumnType {
     public boolean lengthAllowed() {
         return lengthAllowed;
     }
+
+    /**
+     * Whether this type can be converted to STRING automatically without a loss of precision.
+     */
+    public boolean convertsToStringLosslessly() {
+        switch (this) {
+            case INT8:
+            case INT16:
+            case INT32:
+            case INT64:
+            case DECIMAL:
+            case UUID:
+            case STRING:
+            case NUMBER:
+                return true;
+            default:
+                return false;
+        }
+    }
 }

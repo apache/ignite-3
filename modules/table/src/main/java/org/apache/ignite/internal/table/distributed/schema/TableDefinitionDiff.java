@@ -27,9 +27,10 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescript
  */
 public class TableDefinitionDiff {
     private static final TableDefinitionDiff EMPTY = new TableDefinitionDiff(
-            emptyList(), emptyList(), emptyList()
+            "name", "name", emptyList(), emptyList(), emptyList()
     );
 
+    private final boolean nameDiffers;
     private final List<CatalogTableColumnDescriptor> addedColumns;
     private final List<CatalogTableColumnDescriptor> removedColumns;
     private final List<ColumnDefinitionDiff> changedColumns;
@@ -49,10 +50,13 @@ public class TableDefinitionDiff {
      * Constructor.
      */
     public TableDefinitionDiff(
+            String oldName,
+            String newName,
             List<CatalogTableColumnDescriptor> addedColumns,
             List<CatalogTableColumnDescriptor> removedColumns,
             List<ColumnDefinitionDiff> changedColumns
     ) {
+        nameDiffers = !oldName.equals(newName);
         this.addedColumns = List.copyOf(addedColumns);
         this.removedColumns = List.copyOf(removedColumns);
         this.changedColumns = List.copyOf(changedColumns);
@@ -85,7 +89,8 @@ public class TableDefinitionDiff {
      * @return Whether this diff is empty (so no difference at all).
      */
     public boolean isEmpty() {
-        return addedColumns.isEmpty()
+        return !nameDiffers
+                && addedColumns.isEmpty()
                 && removedColumns.isEmpty()
                 && changedColumns.isEmpty();
     }
