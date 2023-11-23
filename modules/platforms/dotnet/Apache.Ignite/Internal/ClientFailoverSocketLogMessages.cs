@@ -24,7 +24,7 @@ using Proto;
 /// <summary>
 /// Source-generated socket log messages.
 /// </summary>
-internal static partial class SocketLogMessages
+internal static partial class ClientFailoverSocketLogMessages
 {
     [LoggerMessage(Message = "Ignite.NET client version {Version} is starting", Level = LogLevel.Information)]
     internal static partial void LogClientStartInfo(this ILogger logger, string version);
