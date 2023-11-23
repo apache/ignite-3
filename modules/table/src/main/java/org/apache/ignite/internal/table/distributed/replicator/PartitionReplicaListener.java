@@ -343,7 +343,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     }
 
     private CompletableFuture<Boolean> onPrimaryElected(PrimaryReplicaEventParameters evt, @Nullable Throwable exception) {
-        if (!localNode.name().equals(evt.leaseholder())) {
+        if (!localNode.name().equals(evt.leaseholder()) || !replicationGroupId.equals(evt.groupId())) {
             return completedFuture(false);
         }
 
@@ -3386,9 +3386,9 @@ public class PartitionReplicaListener implements ReplicaListener {
                         long currentEnlistmentConsistencyToken = primaryReplicaMeta.getStartTime().longValue();
 
                         // TODO: https://issues.apache.org/jira/browse/IGNITE-20377
-                        if (expectedTerm != currentEnlistmentConsistencyToken ||
-                                primaryReplicaMeta.getExpirationTime().before(now) ||
-                                !primaryReplicaMeta.getLeaseholderId().equals(localNode.id())) {
+                        if (expectedTerm != currentEnlistmentConsistencyToken
+                                || primaryReplicaMeta.getExpirationTime().before(now)
+                                || !primaryReplicaMeta.getLeaseholderId().equals(localNode.id())) {
                             return failedFuture(new PrimaryReplicaMissException(
                                     localNode.name(),
                                     primaryReplicaMeta.getLeaseholder(),
