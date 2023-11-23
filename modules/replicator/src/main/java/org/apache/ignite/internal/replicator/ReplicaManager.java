@@ -346,7 +346,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     }
 
     private static boolean indicatesUnexpectedProblem(Throwable ex) {
-        return !(ex instanceof ExpectedReplicationException);
+        return !(unwrapCause(ex) instanceof ExpectedReplicationException);
     }
 
     /**

@@ -195,19 +195,9 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
         assertThat(actualKeysFuture, will(contains(key1.bytes(), key2.bytes(), key3.bytes())));
     }
 
-    private static class NoOpListener implements WatchListener {
-        @Override
-        public CompletableFuture<Void> onUpdate(WatchEvent event) {
-            return completedFuture(null);
-        }
-
-        @Override
-        public void onError(Throwable e) {}
-    }
-
     @Test
     void testMetaStorageStopClosesRaftService() throws Exception {
-        MetaStorageServiceImpl svc = metaStorageManager.metaStorageServiceFuture().join();
+        MetaStorageServiceImpl svc = metaStorageManager.metaStorageService().join();
 
         metaStorageManager.stop();
 
@@ -244,7 +234,7 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
         // stop method.
         cmgFut.complete(msNodes);
 
-        assertThat(metaStorageManager.metaStorageServiceFuture(), willThrowFast(CancellationException.class));
+        assertThat(metaStorageManager.metaStorageService(), willThrowFast(CancellationException.class));
     }
 
     @Test
