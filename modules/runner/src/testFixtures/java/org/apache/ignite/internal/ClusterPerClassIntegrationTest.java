@@ -177,7 +177,7 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
      * @param tableName Table name.
      * @param people People to insert into the table.
      */
-    protected static void insertPersons(String tableName, Person... people) {
+    protected static void insertPeople(String tableName, Person... people) {
         insertData(
                 tableName,
                 List.of("ID", "NAME", "SALARY"),
@@ -191,7 +191,7 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
      * @param tableName Table name.
      * @param people People to update in the table.
      */
-    protected static void updatePersons(String tableName, Person... people) {
+    protected static void updatePeople(String tableName, Person... people) {
         Transaction tx = CLUSTER.node(0).transactions().begin();
 
         String sql = String.format("UPDATE %s SET NAME=?, SALARY=? WHERE ID=?", tableName);
@@ -209,7 +209,7 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
      * @param tableName Table name.
      * @param personIds Person IDs to delete.
      */
-    protected static void deletePersons(String tableName, int... personIds) {
+    protected static void deletePeople(String tableName, int... personIds) {
         Transaction tx = CLUSTER.node(0).transactions().begin();
 
         String sql = String.format("DELETE FROM %s WHERE ID=?", tableName);
@@ -289,7 +289,10 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
         return "ZONE_" + tableName.toUpperCase();
     }
 
-    /** Class for inserting into a table using {@link #insertPersons(String, Person...)}. */
+    /**
+     * Class for updating table in {@link #insertPeople(String, Person...)}, {@link #updatePeople(String, Person...)}. You can use
+     * {@link #deletePeople(String, int...)} to remove people.
+     */
     protected static class Person {
         final int id;
 

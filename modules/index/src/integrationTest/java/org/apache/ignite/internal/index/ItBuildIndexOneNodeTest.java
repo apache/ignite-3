@@ -75,10 +75,10 @@ public class ItBuildIndexOneNodeTest extends BaseSqlIntegrationTest {
     }
 
     @Test
-    void testRecoveryBuildingIndex() throws Exception {
+    void testRecoverBuildingIndex() throws Exception {
         createZoneAndTable(ZONE_NAME, TABLE_NAME, 1, 1);
 
-        insertPersons(TABLE_NAME, new Person(0, "0", 10.0));
+        insertPeople(TABLE_NAME, new Person(0, "0", 10.0));
 
         CompletableFuture<Void> awaitBuildIndexReplicaRequest = new CompletableFuture<>();
 
@@ -109,11 +109,15 @@ public class ItBuildIndexOneNodeTest extends BaseSqlIntegrationTest {
     void testBuildingIndex() throws Exception {
         createZoneAndTable(ZONE_NAME, TABLE_NAME, 1, 1);
 
-        insertPersons(TABLE_NAME, new Person(0, "0", 10.0));
+        insertPeople(TABLE_NAME, new Person(0, "0", 10.0));
 
-        createIndex(TABLE_NAME, INDEX_NAME, "ID");
+        createIndexForSalaryFieldAndWaitBecomeAvailable();
 
-        awaitIndexBecomeAvailable(node(), INDEX_NAME);
+        // Now let's check the data itself.
+        assertQuery(format("SELECT * FROM {} WHERE salary > 0.0", TABLE_NAME))
+                .matches(containsIndexScan("PUBLIC", TABLE_NAME, INDEX_NAME))
+                .returns(0, "0", 10.0)
+                .check();
     }
 
     @Test
@@ -129,7 +133,7 @@ public class ItBuildIndexOneNodeTest extends BaseSqlIntegrationTest {
             int batchSize = 10;
 
             while (!awaitIndexBecomeAvailableEventAsync.isDone()) {
-                insertPersons(TABLE_NAME, createPeopleBatch(nextPersonId, batchSize));
+                insertPeople(TABLE_NAME, createPeopleBatch(nextPersonId, batchSize));
 
                 insertionsCount += batchSize;
             }
@@ -169,7 +173,7 @@ public class ItBuildIndexOneNodeTest extends BaseSqlIntegrationTest {
                         .mapToObj(personId -> new Person(personId, updatePersonName(personId), 100.0 + personId))
                         .toArray(Person[]::new);
 
-                updatePersons(TABLE_NAME, people);
+                updatePeople(TABLE_NAME, people);
 
                 updatedRowCount += batchSize;
             }
@@ -215,7 +219,7 @@ public class ItBuildIndexOneNodeTest extends BaseSqlIntegrationTest {
                         .map(i -> finalDeletedRowCount + i)
                         .toArray();
 
-                deletePersons(TABLE_NAME, personIds);
+                deletePeople(TABLE_NAME, personIds);
 
                 deletedRowCount += batchSize;
             }
@@ -292,7 +296,7 @@ public class ItBuildIndexOneNodeTest extends BaseSqlIntegrationTest {
     private static void createTableAndInsertManyPeople(AtomicInteger nextPersonId) {
         createZoneAndTable(ZONE_NAME, TABLE_NAME, 1, 1);
 
-        insertPersons(TABLE_NAME, createPeopleBatch(nextPersonId, 100 * IndexBuilder.BATCH_SIZE));
+        insertPeople(TABLE_NAME, createPeopleBatch(nextPersonId, 100 * IndexBuilder.BATCH_SIZE));
     }
 
     private static void createIndexForSalaryFieldAndWaitBecomeAvailable() throws Exception {
