@@ -575,16 +575,13 @@ namespace Apache.Ignite.Internal
 
             if (configuredInterval < recommendedHeartbeatInterval)
             {
-                logger.LogServerSizeIdleTimeoutIgnoredInfo(serverIdleTimeout, configuredInterval);
+                logger.LogServerSideIdleTimeoutIgnoredInfo(serverIdleTimeout, configuredInterval);
 
                 return configuredInterval;
             }
 
-            logger.LogWarning(
-                $"Server-side IdleTimeout is {serverIdleTimeout}, configured " +
-                $"{nameof(IgniteClientConfiguration)}.{nameof(IgniteClientConfiguration.HeartbeatInterval)} " +
-                $"is {configuredInterval}, which is longer than recommended IdleTimeout / 3. " +
-                $"Overriding heartbeat interval with max(IdleTimeout / 3, 500ms): {recommendedHeartbeatInterval}");
+            logger.LogServerSideIdleTimeoutOverridesConfiguredHeartbeatInterval(
+                serverIdleTimeout, configuredInterval, recommendedHeartbeatInterval);
 
             return recommendedHeartbeatInterval;
         }

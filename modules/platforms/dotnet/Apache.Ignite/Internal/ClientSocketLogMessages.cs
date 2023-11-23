@@ -55,6 +55,15 @@ public static partial class ClientSocketLogMessages
         Message = "Server-side IdleTimeout is {ServerIdleTimeout}, " +
                   "using configured IgniteClientConfiguration.HeartbeatInterval: {ConfiguredInterval}",
         Level = LogLevel.Information)]
-    internal static partial void LogServerSizeIdleTimeoutIgnoredInfo(
+    internal static partial void LogServerSideIdleTimeoutIgnoredInfo(
         this ILogger logger, TimeSpan serverIdleTimeout, TimeSpan configuredInterval);
+
+    [LoggerMessage(
+        Message = "Server-side IdleTimeout is {ServerIdleTimeout}, " +
+                  "configured IgniteClientConfiguration.HeartbeatInterval is {ConfiguredInterval}, " +
+                  "which is longer than recommended IdleTimeout / 3. " +
+                  "Overriding heartbeat interval with max(IdleTimeout / 3, 500ms): {RecommendedHeartbeatInterval}",
+        Level = LogLevel.Information)]
+    internal static partial void LogServerSideIdleTimeoutOverridesConfiguredHeartbeatInterval(
+        this ILogger logger, TimeSpan serverIdleTimeout, TimeSpan configuredInterval, TimeSpan recommendedHeartbeatInterval);
 }
