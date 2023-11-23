@@ -28,7 +28,7 @@ internal static partial class TableLogMessages
     internal static partial void LogSchemaLoadedDebug(this ILogger logger, int tableId, int schemaVersion);
 
     [LoggerMessage(
-        Message = "Retrying unmapped columns error [tableId={TableId}, schemaVersion={SchemaVersion}, message={Message]",
+        Message = "Retrying unmapped columns error [tableId={TableId}, schemaVersion={SchemaVersion}, message={Message}]",
         Level = LogLevel.Debug)]
     internal static partial void LogRetryingUnmappedColumnsErrorDebug(this ILogger logger, int tableId, int? schemaVersion, string message);
 
