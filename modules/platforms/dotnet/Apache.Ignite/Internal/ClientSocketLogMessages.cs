@@ -79,4 +79,11 @@ public static partial class ClientSocketLogMessages
         Level = LogLevel.Information)]
     internal static partial void LogPartitionAssignmentChangeNotificationInfo(
         this ILogger logger, IPEndPoint remoteAddress, long timestamp);
+
+    [LoggerMessage(Message = "Connection closed with error [remoteAddress={RemoteAddress}]: {Message}", Level = LogLevel.Warning)]
+    internal static partial void LogConnectionClosedWithErrorWarn(
+        this ILogger logger, Exception ex, IPEndPoint remoteAddress, string message);
+
+    [LoggerMessage(Message = "Connection closed gracefully [remoteAddress={RemoteAddress}]", Level = LogLevel.Debug)]
+    internal static partial void LogConnectionClosedGracefullyDebug(this ILogger logger, IPEndPoint remoteAddress);
 }

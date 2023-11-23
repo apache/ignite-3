@@ -29,7 +29,7 @@ namespace Apache.Ignite.Internal.Table
     using Ignite.Table;
     using Ignite.Transactions;
     using Linq;
-    using Log;
+    using Microsoft.Extensions.Logging;
     using Proto;
     using Serialization;
     using Sql;
@@ -51,7 +51,7 @@ namespace Apache.Ignite.Internal.Table
         /** SQL. */
         private readonly Sql _sql;
 
-        private readonly IIgniteLogger? _logger;
+        private readonly ILogger _logger;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="RecordView{T}"/> class.

@@ -791,7 +791,7 @@ namespace Apache.Ignite.Internal
 
                 if (ex != null)
                 {
-                    _logger.LogWarning(ex, $"Connection closed [remoteAddress={ConnectionContext.ClusterNode.Address}]: " + ex.Message);
+                    _logger.LogConnectionClosedWithErrorWarn(ex, ConnectionContext.ClusterNode.Address, ex.Message);
 
                     if (ex.GetBaseException() is TimeoutException)
                     {
@@ -802,9 +802,9 @@ namespace Apache.Ignite.Internal
                         Metrics.ConnectionsLost.Add(1);
                     }
                 }
-                else if (_logger.IsEnabled(LogLevel.Debug) == true)
+                else
                 {
-                    _logger.LogDebug($"Connection closed [remoteAddress={ConnectionContext.ClusterNode.Address}]");
+                    _logger.LogConnectionClosedGracefullyDebug(ConnectionContext.ClusterNode.Address);
                 }
 
                 _heartbeatTimer.Dispose();
