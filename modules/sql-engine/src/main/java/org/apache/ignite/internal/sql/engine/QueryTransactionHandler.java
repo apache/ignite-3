@@ -67,7 +67,7 @@ public interface QueryTransactionHandler {
      * @return Transaction handler.
      */
     static QueryTransactionHandler forMultiStatement(IgniteTransactions transactions, @Nullable InternalTransaction externalTransaction) {
-        return new ControlStatementAwareTransactionHandler(transactions, externalTransaction);
+        return new ScriptTransactionHandler(transactions, externalTransaction);
     }
 
     /**
@@ -112,13 +112,13 @@ public interface QueryTransactionHandler {
      * Starts an implicit transaction if there is no external transaction.
      * Supports script transaction management using {@link SqlQueryType#TX_CONTROL} statements.
      */
-    class ControlStatementAwareTransactionHandler extends QueryTransactionHandlerImpl {
+    class ScriptTransactionHandler extends QueryTransactionHandlerImpl {
         private static final NoopTransactionWrapper noopTxWrapper = new NoopTransactionWrapper();
 
         /** Wrapper over transaction, which is managed by SQL engine. */
-        private volatile ManagedTransactionWrapper managedTxWrapper;
+        private volatile @Nullable ManagedTransactionWrapper managedTxWrapper;
 
-        ControlStatementAwareTransactionHandler(IgniteTransactions transactions, @Nullable InternalTransaction externalTransaction) {
+        ScriptTransactionHandler(IgniteTransactions transactions, @Nullable InternalTransaction externalTransaction) {
             super(transactions, externalTransaction);
         }
 
