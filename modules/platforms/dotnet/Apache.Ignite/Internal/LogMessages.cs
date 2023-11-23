@@ -138,38 +138,64 @@ internal static partial class LogMessages
 
     [LoggerMessage(
         Message = "Partition assignment change notification received [remoteAddress={RemoteAddress}, timestamp={Timestamp}",
-        Level = LogLevel.Information)]
+        Level = LogLevel.Information,
+        EventId = 1017)]
     internal static partial void LogPartitionAssignmentChangeNotificationInfo(
         this ILogger logger, IPEndPoint remoteAddress, long timestamp);
 
-    [LoggerMessage(Message = "Connection closed with error [remoteAddress={RemoteAddress}]: {Message}", Level = LogLevel.Warning)]
+    [LoggerMessage(
+        Message = "Connection closed with error [remoteAddress={RemoteAddress}]: {Message}",
+        Level = LogLevel.Warning,
+        EventId = 1018)]
     internal static partial void LogConnectionClosedWithErrorWarn(
         this ILogger logger, Exception ex, IPEndPoint remoteAddress, string message);
 
-    [LoggerMessage(Message = "Connection closed gracefully [remoteAddress={RemoteAddress}]", Level = LogLevel.Debug)]
+    [LoggerMessage(
+        Message = "Connection closed gracefully [remoteAddress={RemoteAddress}]",
+        Level = LogLevel.Debug,
+        EventId = 1019)]
     internal static partial void LogConnectionClosedGracefullyDebug(this ILogger logger, IPEndPoint remoteAddress);
 
-    [LoggerMessage(Message = "Ignite.NET client version {Version} is starting", Level = LogLevel.Information)]
+    [LoggerMessage(
+        Message = "Ignite.NET client version {Version} is starting",
+        Level = LogLevel.Information,
+        EventId = 1020)]
     internal static partial void LogClientStartInfo(this ILogger logger, string version);
 
-    [LoggerMessage(Message = "Failed to connect to preferred node [{NodeName}]: {Message}", Level = LogLevel.Debug)]
+    [LoggerMessage(
+        Message = "Failed to connect to preferred node [{NodeName}]: {Message}",
+        Level = LogLevel.Debug,
+        EventId = 1021)]
     internal static partial void LogFailedToConnectPreferredNodeDebug(this ILogger logger, string nodeName, string message);
 
-    [LoggerMessage(Message = "Error while trying to establish secondary connections: {Message}", Level = LogLevel.Warning)]
+    [LoggerMessage(
+        Message = "Error while trying to establish secondary connections: {Message}",
+        Level = LogLevel.Warning,
+        EventId = 1022)]
     internal static partial void LogErrorWhileEstablishingSecondaryConnectionsWarn(this ILogger logger, Exception e, string message);
 
-    [LoggerMessage(Message = "Trying to establish secondary connections - awaiting {Tasks} tasks...", Level = LogLevel.Debug)]
+    [LoggerMessage(
+        Message = "Trying to establish secondary connections - awaiting {Tasks} tasks...",
+        Level = LogLevel.Debug,
+        EventId = 1023)]
     internal static partial void LogTryingToEstablishSecondaryConnectionsDebug(this ILogger logger, int tasks);
 
-    [LoggerMessage(Message = "{Established} secondary connections established, {Failed} failed.", Level = LogLevel.Debug)]
+    [LoggerMessage(
+        Message = "{Established} secondary connections established, {Failed} failed.",
+        Level = LogLevel.Debug,
+        EventId = 1024)]
     internal static partial void LogSecondaryConnectionsEstablishedDebug(this ILogger logger, int established, int failed);
 
-    [LoggerMessage(Message = "Failed to parse host '{Host}': {Message}", Level = LogLevel.Debug)]
+    [LoggerMessage(
+        Message = "Failed to parse host '{Host}': {Message}",
+        Level = LogLevel.Debug,
+        EventId = 1025)]
     internal static partial void LogFailedToParseHostDebug(this ILogger logger, Exception e, string host, string message);
 
     [LoggerMessage(
         Message = "{Retrying} operation [opCode={Op}, opType={OpType}, attempt={Attempt}, lastError={LastErrorMessage}]",
-        Level = LogLevel.Debug)]
+        Level = LogLevel.Debug,
+        EventId = 1026)]
     internal static partial void LogRetryingOperationDebug(
         this ILogger logger, string retrying, int op, ClientOp opType, int attempt, string lastErrorMessage);
 }
