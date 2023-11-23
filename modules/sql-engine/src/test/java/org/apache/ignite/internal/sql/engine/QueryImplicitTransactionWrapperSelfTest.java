@@ -44,10 +44,10 @@ import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 /**
- * Tests for class {@link QueryTransactionWrapper}.
+ * Tests for class {@link QueryImplicitTransactionWrapper}.
  */
 @ExtendWith(MockitoExtension.class)
-public class QueryTransactionWrapperSelfTest extends BaseIgniteAbstractTest {
+public class QueryImplicitTransactionWrapperSelfTest extends BaseIgniteAbstractTest {
     @Mock
     private IgniteTransactions transactions;
 
@@ -79,7 +79,7 @@ public class QueryTransactionWrapperSelfTest extends BaseIgniteAbstractTest {
     public void commitImplicitTxNotAffectExternalTransaction() {
         NoOpTransaction externalTx = new NoOpTransaction("test");
 
-        QueryTransactionWrapper wrapper = new QueryTransactionWrapper(externalTx, false);
+        QueryImplicitTransactionWrapper wrapper = new QueryImplicitTransactionWrapper(externalTx, false);
         wrapper.commitImplicit();
         assertFalse(externalTx.commitFuture().isDone());
     }
@@ -87,7 +87,7 @@ public class QueryTransactionWrapperSelfTest extends BaseIgniteAbstractTest {
     @Test
     public void testCommitImplicit() {
         NoOpTransaction tx = new NoOpTransaction("test");
-        QueryTransactionWrapper wrapper = new QueryTransactionWrapper(tx, true);
+        QueryImplicitTransactionWrapper wrapper = new QueryImplicitTransactionWrapper(tx, true);
 
         wrapper.commitImplicit();
 
@@ -98,7 +98,7 @@ public class QueryTransactionWrapperSelfTest extends BaseIgniteAbstractTest {
     @Test
     public void testRollbackImplicit() {
         NoOpTransaction tx = new NoOpTransaction("test");
-        QueryTransactionWrapper wrapper = new QueryTransactionWrapper(tx, true);
+        QueryImplicitTransactionWrapper wrapper = new QueryImplicitTransactionWrapper(tx, true);
 
         wrapper.rollback();
 

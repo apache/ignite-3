@@ -57,7 +57,7 @@ public class AsyncSqlCursorImpl<T> implements AsyncSqlCursor<T> {
     public AsyncSqlCursorImpl(
             SqlQueryType queryType,
             ResultSetMetadata meta,
-            QueryTransactionWrapper txWrapper,
+            QueryImplicitTransactionWrapper txWrapper,
             AsyncCursor<T> dataCursor,
             Runnable onClose
     ) {

@@ -24,36 +24,32 @@ import org.apache.ignite.internal.tx.InternalTransaction;
 /**
  * Wrapper for the transaction that encapsulates the management of an implicit transaction.
  */
-public interface QueryTransactionWrapper {
-    /** Action to perform when data cursor is closed. */
-    default CompletableFuture<Void> onCursorClose() {
-        return commitImplicit();
+public class QueryImplicitTransactionWrapper implements QueryTransactionWrapper {
+    private final boolean implicit;
+
+    private final InternalTransaction transaction;
+
+    public QueryImplicitTransactionWrapper(InternalTransaction transaction, boolean implicit) {
+        this.transaction = transaction;
+        this.implicit = implicit;
     }
 
-    /** Unwrap transaction. */
-    InternalTransaction unwrap();
+    @Override
+    public InternalTransaction unwrap() {
+        return transaction;
+    }
 
-    /** Commits an implicit transaction, if one has been started. */
-    CompletableFuture<Void> commitImplicit();
-
-    /** Rolls back a transaction. */
-    CompletableFuture<Void> rollback();
-
-    /** No-op transaction wrapper. */
-    QueryTransactionWrapper NOOP_TX_WRAPPER = new QueryTransactionWrapper() {
-        @Override
-        public InternalTransaction unwrap() {
-            return null;
+    @Override
+    public CompletableFuture<Void> commitImplicit() {
+        if (implicit) {
+            return transaction.commitAsync();
         }
 
-        @Override
-        public CompletableFuture<Void> commitImplicit() {
-            return Commons.completedFuture();
-        }
+        return Commons.completedFuture();
+    }
 
-        @Override
-        public CompletableFuture<Void> rollback() {
-            return Commons.completedFuture();
-        }
-    };
+    @Override
+    public CompletableFuture<Void> rollback() {
+        return transaction.rollbackAsync();
+    }
 }

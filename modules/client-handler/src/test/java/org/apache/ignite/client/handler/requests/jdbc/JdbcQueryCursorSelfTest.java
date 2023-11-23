@@ -24,7 +24,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursorImpl;
-import org.apache.ignite.internal.sql.engine.QueryTransactionWrapper;
+import org.apache.ignite.internal.sql.engine.QueryImplicitTransactionWrapper;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tx.InternalTransaction;
@@ -40,7 +40,7 @@ import org.junit.jupiter.params.provider.ValueSource;
  * Test class for {@link JdbcQueryCursor}.
  */
 public class JdbcQueryCursorSelfTest extends BaseIgniteAbstractTest {
-    private QueryTransactionWrapper txWrapper;
+    private QueryImplicitTransactionWrapper txWrapper;
 
     private static final List<Integer> ROWS = List.of(1, 2, 3);
 
@@ -48,7 +48,7 @@ public class JdbcQueryCursorSelfTest extends BaseIgniteAbstractTest {
 
     @BeforeEach
     void initTxMock() {
-        txWrapper = new QueryTransactionWrapper(mock(InternalTransaction.class), false);
+        txWrapper = new QueryImplicitTransactionWrapper(mock(InternalTransaction.class), false);
     }
 
     /** Tests corner cases of setting the {@code maxRows} parameter. */

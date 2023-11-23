@@ -92,7 +92,7 @@ public interface QueryTransactionHandler {
             InternalTransaction activeTx = activeTransaction();
 
             if (activeTx == null) {
-                return new QueryTransactionWrapper((InternalTransaction) transactions.begin(
+                return new QueryImplicitTransactionWrapper((InternalTransaction) transactions.begin(
                         new TransactionOptions().readOnly(queryType != SqlQueryType.DML)), true);
             }
 
@@ -104,7 +104,7 @@ public interface QueryTransactionHandler {
                 throw new SqlException(RUNTIME_ERR, "DML query cannot be started by using read only transactions.");
             }
 
-            return new QueryTransactionWrapper(activeTx, false);
+            return new QueryImplicitTransactionWrapper(activeTx, false);
         }
     }
 
@@ -113,8 +113,6 @@ public interface QueryTransactionHandler {
      * Supports script transaction management using {@link SqlQueryType#TX_CONTROL} statements.
      */
     class ScriptTransactionHandler extends QueryTransactionHandlerImpl {
-        private static final NoopTransactionWrapper noopTxWrapper = new NoopTransactionWrapper();
-
         /** Wrapper over transaction, which is managed by SQL engine. */
         private volatile @Nullable ManagedTransactionWrapper managedTxWrapper;
 
@@ -171,7 +169,7 @@ public interface QueryTransactionHandler {
 
             if (node instanceof IgniteSqlCommitTransaction) {
                 if (scriptTxWrapper == null) {
-                    return noopTxWrapper;
+                    return QueryTransactionWrapper.NOOP_TX_WRAPPER;
                 }
 
                 this.managedTxWrapper = null;
@@ -196,23 +194,12 @@ public interface QueryTransactionHandler {
 
             return scriptTxWrapper;
         }
-
-        static class NoopTransactionWrapper extends QueryTransactionWrapper {
-            NoopTransactionWrapper() {
-                super(null, false);
-            }
-
-            @Override
-            CompletableFuture<Void> rollback() {
-                return Commons.completedFuture();
-            }
-        }
     }
 
     /**
      * Wrapper over transaction, which is managed by SQL engine via {@link SqlQueryType#TX_CONTROL} statements.
      */
-    class ManagedTransactionWrapper extends QueryTransactionWrapper {
+    class ManagedTransactionWrapper implements QueryTransactionWrapper {
         private final CompletableFuture<Void> finishTxFuture = new CompletableFuture<>();
         private final AtomicInteger remainingCursors = new AtomicInteger(1);
         private final InternalTransaction transaction;
@@ -222,23 +209,26 @@ public interface QueryTransactionHandler {
         private volatile boolean waitFinishTx;
 
         ManagedTransactionWrapper(InternalTransaction transaction) {
-            super(transaction, false);
-
             this.transaction = transaction;
         }
 
         @Override
-        CompletableFuture<Void> onCursorClose() {
+        public CompletableFuture<Void> onCursorClose() {
             return onCursorCloseInternal(false);
         }
 
         @Override
-        CompletableFuture<Void> commitImplicit() {
+        public InternalTransaction unwrap() {
+            return transaction;
+        }
+
+        @Override
+        public CompletableFuture<Void> commitImplicit() {
             return waitFinishTx ? finishTxFuture : Commons.completedFuture();
         }
 
         @Override
-        CompletableFuture<Void> rollback() {
+        public CompletableFuture<Void> rollback() {
             return onCursorCloseInternal(true);
         }
 

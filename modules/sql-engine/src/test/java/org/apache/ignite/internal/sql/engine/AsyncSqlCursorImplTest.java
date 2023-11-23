@@ -51,7 +51,7 @@ public class AsyncSqlCursorImplTest {
     /** Cursor should trigger commit of implicit transaction (if any) only if data is fully read. */
     @ParameterizedTest(name = "{0}")
     @MethodSource("transactions")
-    public void testTriggerCommitAfterDataIsFullyRead(boolean implicit, QueryTransactionWrapper txWrapper) {
+    public void testTriggerCommitAfterDataIsFullyRead(boolean implicit, QueryImplicitTransactionWrapper txWrapper) {
         List<Integer> list = List.of(1, 2, 3);
 
         AsyncSqlCursorImpl<Integer> cursor = new AsyncSqlCursorImpl<>(SqlQueryType.QUERY, RESULT_SET_METADATA, txWrapper,
@@ -74,7 +74,7 @@ public class AsyncSqlCursorImplTest {
     /** Exception on read should trigger rollback of implicit transaction, if any. */
     @ParameterizedTest(name = "{0}")
     @MethodSource("transactions")
-    public void testExceptionRollbacksImplicitTx(boolean implicit, QueryTransactionWrapper txWrapper) {
+    public void testExceptionRollbacksImplicitTx(boolean implicit, QueryImplicitTransactionWrapper txWrapper) {
         IgniteException err = new IgniteException(Common.INTERNAL_ERR);
 
         AsyncSqlCursorImpl<Integer> cursor = new AsyncSqlCursorImpl<>(SqlQueryType.QUERY, RESULT_SET_METADATA, txWrapper,
@@ -92,7 +92,7 @@ public class AsyncSqlCursorImplTest {
     /** Cursor close should trigger commit of implicit transaction, if any. */
     @ParameterizedTest(name = "{0}")
     @MethodSource("transactions")
-    public void testCloseCommitsImplicitTx(boolean implicit, QueryTransactionWrapper txWrapper) {
+    public void testCloseCommitsImplicitTx(boolean implicit, QueryImplicitTransactionWrapper txWrapper) {
         AsyncCursor<Integer> data = new AsyncWrapper<>(List.of(1, 2, 3, 4).iterator());
         AsyncSqlCursorImpl<Integer> cursor = new AsyncSqlCursorImpl<>(SqlQueryType.QUERY, RESULT_SET_METADATA, txWrapper, data, () -> {});
         cursor.closeAsync().join();
@@ -108,7 +108,7 @@ public class AsyncSqlCursorImplTest {
         );
     }
 
-    private static QueryTransactionWrapper newTxWrapper(boolean implicit) {
-        return new QueryTransactionWrapper(NoOpTransaction.readOnly("TX"), implicit);
+    private static QueryImplicitTransactionWrapper newTxWrapper(boolean implicit) {
+        return new QueryImplicitTransactionWrapper(NoOpTransaction.readOnly("TX"), implicit);
     }
 }
