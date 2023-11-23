@@ -17,10 +17,13 @@
 
 package org.apache.ignite.internal.catalog.commands;
 
+import static java.util.Collections.unmodifiableList;
 import static java.util.Comparator.comparingInt;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.EnumMap;
 import java.util.EnumSet;
@@ -28,7 +31,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.TreeSet;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
@@ -413,6 +415,7 @@ public class CatalogUtils {
      * @param tableId Table ID for which indexes will be collected.
      * @param catalogVersionFrom Catalog version from which indexes will be collected (including).
      * @param catalogVersionTo Catalog version up to which indexes will be collected (including).
+     * @return Table indexes sorted by {@link CatalogIndexDescriptor#id()}.
      */
     public static List<CatalogIndexDescriptor> collectIndexes(
             CatalogService catalogService,
@@ -430,15 +433,21 @@ public class CatalogUtils {
             return indexes;
         }
 
-        Set<CatalogIndexDescriptor> result = new TreeSet<>(comparingInt(CatalogObjectDescriptor::id));
+        var indexByIdMap = new Int2ObjectOpenHashMap<CatalogIndexDescriptor>();
 
         for (int catalogVersion = catalogVersionFrom; catalogVersion <= catalogVersionTo; catalogVersion++) {
-            result.addAll(catalogService.indexes(catalogVersion, tableId));
+            for (CatalogIndexDescriptor index : catalogService.indexes(catalogVersion, tableId)) {
+                indexByIdMap.put(index.id(), index);
+            }
         }
 
-        assert !result.isEmpty()
+        assert !indexByIdMap.isEmpty()
                 : String.format("catalogVersionFrom=%s, catalogVersionTo=%s, tableId=%s", catalogVersionFrom, catalogVersionTo, tableId);
 
-        return List.copyOf(result);
+        var res = new ArrayList<>(indexByIdMap.values());
+
+        res.sort(comparingInt(CatalogObjectDescriptor::id));
+
+        return unmodifiableList(res);
     }
 }
