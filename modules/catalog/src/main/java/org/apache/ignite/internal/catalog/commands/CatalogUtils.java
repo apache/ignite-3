@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.catalog.commands;
 
+import static java.util.Comparator.comparingInt;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
@@ -27,12 +28,15 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.TreeSet;
 import org.apache.ignite.internal.catalog.Catalog;
+import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
 import org.apache.ignite.internal.catalog.IndexNotFoundValidationException;
 import org.apache.ignite.internal.catalog.TableNotFoundValidationException;
 import org.apache.ignite.internal.catalog.descriptors.CatalogDataStorageDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
@@ -398,5 +402,43 @@ public class CatalogUtils {
         }
 
         return index;
+    }
+
+    /**
+     * Collects all table indexes (including dropped) that the table had in the requested catalog version range.
+     *
+     * <p>It is expected that at least one version of the catalog contains table indexes.</p>
+     *
+     * @param catalogService Catalog service.
+     * @param tableId Table ID for which indexes will be collected.
+     * @param catalogVersionFrom Catalog version from which indexes will be collected (including).
+     * @param catalogVersionTo Catalog version up to which indexes will be collected (including).
+     */
+    public static List<CatalogIndexDescriptor> collectIndexes(
+            CatalogService catalogService,
+            int tableId,
+            int catalogVersionFrom,
+            int catalogVersionTo
+    ) {
+        assert catalogVersionFrom <= catalogVersionTo : "from=" + catalogVersionFrom + ", to=" + catalogVersionTo;
+
+        if (catalogVersionFrom == catalogVersionTo) {
+            List<CatalogIndexDescriptor> indexes = catalogService.indexes(catalogVersionFrom, tableId);
+
+            assert !indexes.isEmpty() : "catalogVersion=" + catalogVersionFrom + ", tableId=" + tableId;
+
+            return indexes;
+        }
+
+        Set<CatalogIndexDescriptor> result = new TreeSet<>(comparingInt(CatalogObjectDescriptor::id));
+
+        for (int catalogVersion = catalogVersionFrom; catalogVersion <= catalogVersionTo; catalogVersion++) {
+            result.addAll(catalogService.indexes(catalogVersion, tableId));
+        }
+
+        assert !result.isEmpty()
+                : String.format("catalogVersionFrom=%s, catalogVersionTo=%s, tableId=%s", catalogVersionFrom, catalogVersionTo, tableId);
+
+        return List.copyOf(result);
     }
 }
