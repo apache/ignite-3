@@ -649,7 +649,7 @@ namespace Apache.Ignite.Internal
             {
                 var message = "Exception while writing to socket, connection closed: " + e.Message;
 
-                _logger.LogError(e, message);
+                _logger.LogErrorMessage(e, message);
                 var connEx = new IgniteClientConnectionException(ErrorGroups.Client.Connection, message, new SocketException());
 
                 Dispose(connEx);
@@ -685,7 +685,7 @@ namespace Apache.Ignite.Internal
             {
                 var message = "Exception while reading from socket, connection closed: " + e.Message;
 
-                _logger.LogError(e, message);
+                _logger.LogErrorMessage(e, message);
                 Dispose(new IgniteClientConnectionException(ErrorGroups.Client.Connection, message, e));
             }
         }
@@ -709,7 +709,7 @@ namespace Apache.Ignite.Internal
                 var message = $"Unexpected response ID ({requestId}) received from the server " +
                               $"[remoteAddress={ConnectionContext.ClusterNode.Address}], closing the socket.";
 
-                _logger.LogError(message);
+                _logger.LogErrorMessage(null, message);
                 Dispose(new IgniteClientConnectionException(ErrorGroups.Client.Protocol, message));
 
                 return;
@@ -770,9 +770,10 @@ namespace Apache.Ignite.Internal
             }
             catch (Exception e)
             {
-                _logger.LogError(e, "Heartbeat failed: " + e.Message);
+                var message = "Heartbeat failed: " + e.Message;
+                _logger.LogErrorMessage(e, message);
 
-                Dispose(e);
+                Dispose(new IgniteClientConnectionException(ErrorGroups.Client.Connection, message, e));
             }
         }
 

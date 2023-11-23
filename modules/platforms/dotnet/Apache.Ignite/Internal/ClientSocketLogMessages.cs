@@ -70,4 +70,7 @@ public static partial class ClientSocketLogMessages
 
     [LoggerMessage(Message = "Sending request [op={Op}, remoteAddress={RemoteAddress}, requestId={RequestId}]", Level = LogLevel.Trace)]
     internal static partial void LogSendingRequestTrace(this ILogger logger, ClientOp op, IPEndPoint remoteAddress, long requestId);
+
+    [LoggerMessage(Message = "{Message}", Level = LogLevel.Error)]
+    internal static partial void LogErrorMessage(this ILogger logger, Exception? ex, string message);
 }
