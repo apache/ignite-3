@@ -140,6 +140,8 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
 
         try {
             if (!hasTxFinalizationBegun()) {
+                assert finishFuture == null : "Transaction is already finished [id=" + id() + ", state=" + state() + "].";
+
                 finishFuture = finishInternal(commit);
             }
 
