@@ -132,7 +132,7 @@ class RecoveryClientHandshakeManagerTest extends BaseIgniteAbstractTest {
         verify(thisChannel, never()).close(any(ChannelPromise.class));
 
         HandshakeException ex = assertWillThrowFast(localHandshakeFuture, HandshakeException.class);
-        assertThat(ex.getMessage(), is("Stepping aside to allow an incoming handshake from server finish."));
+        assertThat(ex.getMessage(), is("Stepping aside to allow an incoming handshake from server to finish."));
 
         assertThat(finalHandshakeFuture.toCompletableFuture(), willCompleteSuccessfully());
         assertThat(finalHandshakeFuture.toCompletableFuture().join(), is(competitorNettySender));

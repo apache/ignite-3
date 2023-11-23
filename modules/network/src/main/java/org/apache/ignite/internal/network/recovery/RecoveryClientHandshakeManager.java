@@ -260,7 +260,7 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
     private void completeMasterFutureWithCompetitorHandshakeFuture(DescriptorAcquiry competitorAcquiry) {
         masterHandshakeCompleteFuture.complete(competitorAcquiry.handshakeCompleteFuture());
         localHandshakeCompleteFuture.completeExceptionally(
-                new HandshakeException("Stepping aside to allow an incoming handshake from " + remoteConsistentId + " finish.")
+                new HandshakeException("Stepping aside to allow an incoming handshake from " + remoteConsistentId + " to finish.")
         );
     }
 
