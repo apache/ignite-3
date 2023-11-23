@@ -34,6 +34,7 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.sql.engine.property.SqlPropertiesHelper;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
@@ -59,39 +60,57 @@ public class AbstractMultiNodeBenchmark {
 
     protected static final String FIELD_VAL = "a".repeat(100);
 
-    protected static final String TABLE_NAME = "usertable";
+    protected static final String TABLE_NAME = "USERTABLE";
+
+    protected static final String ZONE_NAME = TABLE_NAME + "_ZONE";
 
     protected static IgniteImpl clusterNode;
 
-    @Param({"true", "false"})
+    @Param({"false", "true"})
     private boolean fsync;
 
     /**
      * Starts ignite node and creates table {@link #TABLE_NAME}.
      */
     @Setup
-    public final void nodeSetUp() throws IOException {
+    public final void nodeSetUp() throws Exception {
         startCluster();
 
-        var queryEngine = clusterNode.queryEngine();
+        try {
+            var queryEngine = clusterNode.queryEngine();
 
-        var sql = "CREATE TABLE " + TABLE_NAME + "(\n"
-                + "    ycsb_key int PRIMARY KEY,\n"
-                + "    field1   varchar(100),\n"
-                + "    field2   varchar(100),\n"
-                + "    field3   varchar(100),\n"
-                + "    field4   varchar(100),\n"
-                + "    field5   varchar(100),\n"
-                + "    field6   varchar(100),\n"
-                + "    field7   varchar(100),\n"
-                + "    field8   varchar(100),\n"
-                + "    field9   varchar(100),\n"
-                + "    field10  varchar(100)\n"
-                + ");";
+            var createZoneStatement = "CREATE ZONE " + ZONE_NAME + " WITH partitions=" + partitionCount();
 
-        getAllFromCursor(
-                await(queryEngine.querySingleAsync(SqlPropertiesHelper.emptyProperties(), clusterNode.transactions(), null, sql))
-        );
+            getAllFromCursor(
+                    await(queryEngine.querySingleAsync(
+                            SqlPropertiesHelper.emptyProperties(), clusterNode.transactions(), null, createZoneStatement
+                    ))
+            );
+
+            var createTableStatement = "CREATE TABLE " + TABLE_NAME + "(\n"
+                    + "    ycsb_key int PRIMARY KEY,\n"
+                    + "    field1   varchar(100),\n"
+                    + "    field2   varchar(100),\n"
+                    + "    field3   varchar(100),\n"
+                    + "    field4   varchar(100),\n"
+                    + "    field5   varchar(100),\n"
+                    + "    field6   varchar(100),\n"
+                    + "    field7   varchar(100),\n"
+                    + "    field8   varchar(100),\n"
+                    + "    field9   varchar(100),\n"
+                    + "    field10  varchar(100)\n"
+                    + ") WITH primary_zone='" + ZONE_NAME + "'";
+
+            getAllFromCursor(
+                    await(queryEngine.querySingleAsync(
+                            SqlPropertiesHelper.emptyProperties(), clusterNode.transactions(), null, createTableStatement
+                    ))
+            );
+        } catch (Throwable th) {
+            nodeTearDown();
+
+            throw th;
+        }
     }
 
     /**
@@ -166,5 +185,9 @@ public class AbstractMultiNodeBenchmark {
 
     protected int nodes() {
         return 3;
+    }
+
+    protected int partitionCount() {
+        return CatalogUtils.DEFAULT_PARTITION_COUNT;
     }
 }
