@@ -561,9 +561,7 @@ namespace Apache.Ignite.Internal
 
             if (serverIdleTimeout <= TimeSpan.Zero)
             {
-                logger.LogInformation(
-                    $"Server-side IdleTimeout is not set, using configured {nameof(IgniteClientConfiguration)}." +
-                    $"{nameof(IgniteClientConfiguration.HeartbeatInterval)}: {configuredInterval}");
+                logger.LogServerSizeIdleTimeoutNotSetInfo(configuredInterval);
 
                 return configuredInterval;
             }

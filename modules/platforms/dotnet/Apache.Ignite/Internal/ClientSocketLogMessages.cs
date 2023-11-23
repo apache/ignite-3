@@ -40,8 +40,14 @@ public static partial class ClientSocketLogMessages
     internal static partial void LogFailedToDisposeSocketAfterFailedConnectionAttemptWarn(
         this ILogger logger, Exception ex, string message);
 
-    [LoggerMessage(Message = "Connection failed before or during handshake [remoteAddress={Endpoint}]: {Message}",
+    [LoggerMessage(
+        Message = "Connection failed before or during handshake [remoteAddress={Endpoint}]: {Message}",
         Level = LogLevel.Warning)]
     internal static partial void LogConnectionFailedBeforeOrDuringHandshakeWarn(
         this ILogger logger, Exception ex, EndPoint? endpoint, string message);
+
+    [LoggerMessage(
+        Message = "Server-side IdleTimeout is not set, using configured IgniteClientConfiguration.HeartbeatInterval: {{Interval}}",
+        Level = LogLevel.Information)]
+    internal static partial void LogServerSizeIdleTimeoutNotSetInfo(this ILogger logger, TimeSpan interval);
 }
