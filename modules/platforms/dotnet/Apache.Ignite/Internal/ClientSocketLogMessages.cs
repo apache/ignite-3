@@ -21,6 +21,7 @@ using System;
 using System.Net;
 using System.Net.Security;
 using Microsoft.Extensions.Logging;
+using Proto;
 
 /// <summary>
 /// Source-generated log messages for <see cref="ClientSocket"/>.
@@ -64,6 +65,9 @@ public static partial class ClientSocketLogMessages
                   "which is longer than recommended IdleTimeout / 3. " +
                   "Overriding heartbeat interval with max(IdleTimeout / 3, 500ms): {RecommendedHeartbeatInterval}",
         Level = LogLevel.Information)]
-    internal static partial void LogServerSideIdleTimeoutOverridesConfiguredHeartbeatInterval(
+    internal static partial void LogServerSideIdleTimeoutOverridesConfiguredHeartbeatIntervalInfo(
         this ILogger logger, TimeSpan serverIdleTimeout, TimeSpan configuredInterval, TimeSpan recommendedHeartbeatInterval);
+
+    [LoggerMessage(Message = "Sending request [op={Op}, remoteAddress={RemoteAddress}, requestId={RequestId}]", Level = LogLevel.Trace)]
+    internal static partial void LogSendingRequestTrace(this ILogger logger, ClientOp op, IPEndPoint remoteAddress, long requestId);
 }
