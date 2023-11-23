@@ -27,9 +27,11 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import org.apache.ignite.internal.catalog.CatalogService;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.table.distributed.schema.ColumnDefinitionDiff;
 import org.apache.ignite.internal.table.distributed.schema.FullTableSchema;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
 import org.apache.ignite.internal.table.distributed.schema.TableDefinitionDiff;
@@ -46,6 +48,12 @@ class SchemaCompatibilityValidator {
 
     // TODO: Remove entries from cache when compacting schemas in SchemaManager https://issues.apache.org/jira/browse/IGNITE-20789
     private final ConcurrentMap<TableDefinitionDiffKey, TableDefinitionDiff> diffCache = new ConcurrentHashMap<>();
+
+    private final List<ForwardCompatibilityValidator> forwardCompatibilityValidators = List.of(
+            new AddColumnsValidator(),
+            // TODO: https://issues.apache.org/jira/browse/IGNITE-20948 - add a validator that says that column rename is compatible.
+            new DropNotNullValidator()
+    );
 
     /** Constructor. */
     SchemaCompatibilityValidator(
@@ -149,8 +157,23 @@ class SchemaCompatibilityValidator {
                 key -> nextSchema.diffFrom(prevSchema)
         );
 
-        // TODO: IGNITE-19229 - more sophisticated logic.
-        return diff.isEmpty();
+        boolean accepted = false;
+        boolean rejected = false;
+
+        for (ForwardCompatibilityValidator validator : forwardCompatibilityValidators) {
+            if (validator.concerns(diff)) {
+                boolean compatible = validator.compatible(diff);
+
+                if (compatible) {
+                    accepted = true;
+                } else {
+                    rejected = true;
+                    break;
+                }
+            }
+        }
+
+        return !rejected && accepted;
     }
 
     /**
@@ -257,6 +280,54 @@ class SchemaCompatibilityValidator {
 
         if (table.tableVersion() != requestSchemaVersion) {
             throw new InternalSchemaVersionMismatchException();
+        }
+    }
+
+    private interface ForwardCompatibilityValidator {
+        boolean concerns(TableDefinitionDiff diff);
+
+        boolean compatible(TableDefinitionDiff diff);
+    }
+
+    private static class AddColumnsValidator implements ForwardCompatibilityValidator {
+        @Override
+        public boolean concerns(TableDefinitionDiff diff) {
+            return !diff.addedColumns().isEmpty();
+        }
+
+        @Override
+        public boolean compatible(TableDefinitionDiff diff) {
+            for (CatalogTableColumnDescriptor column : diff.addedColumns()) {
+                if (!column.nullable() && column.defaultValue() == null) {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+    }
+
+    private static class DropNotNullValidator implements ForwardCompatibilityValidator {
+        @Override
+        public boolean concerns(TableDefinitionDiff diff) {
+            for (ColumnDefinitionDiff columnDiff : diff.changedColumns()) {
+                if (columnDiff.notNullDropped()) {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        @Override
+        public boolean compatible(TableDefinitionDiff diff) {
+            for (ColumnDefinitionDiff columnDiff : diff.changedColumns()) {
+                if (columnDiff.notNullDropped()) {
+                    return true;
+                }
+            }
+
+            return false;
         }
     }
 }

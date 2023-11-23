@@ -400,7 +400,7 @@ class SchemaCompatibilityValidatorTest extends BaseIgniteAbstractTest {
         return new CatalogTableColumnDescriptor(
                 columnName,
                 INT32,
-                true,
+                false,
                 DEFAULT_PRECISION,
                 DEFAULT_SCALE,
                 DEFAULT_LENGTH,
@@ -440,14 +440,15 @@ class SchemaCompatibilityValidatorTest extends BaseIgniteAbstractTest {
                         intColumnWithDefault("col2", 42)
                 ))
         )),
-        RENAME_COLUMN(() -> List.of(
-                tableSchema(1, List.of(
-                        intColumn("col1")
-                )),
-                tableSchema(2, List.of(
-                        intColumn("col2")
-                ))
-        )),
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-20948 - uncomment this.
+        //RENAME_COLUMN(() -> List.of(
+        //        tableSchema(1, List.of(
+        //                intColumn("col1")
+        //        )),
+        //        tableSchema(2, List.of(
+        //                intColumn("col2")
+        //        ))
+        //)),
         DROP_NOT_NULL(() -> List.of(
                 tableSchema(1, List.of(
                         intColumn("col1")

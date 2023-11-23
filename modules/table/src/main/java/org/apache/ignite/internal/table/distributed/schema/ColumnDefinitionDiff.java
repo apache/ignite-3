@@ -23,15 +23,15 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescript
  * Captures a difference between 'old' and 'new' versions of the same column definition.
  */
 public class ColumnDefinitionDiff {
-    @SuppressWarnings("PMD.UnusedPrivateField")
     private final CatalogTableColumnDescriptor oldColumn;
-    @SuppressWarnings("PMD.UnusedPrivateField")
     private final CatalogTableColumnDescriptor newColumn;
-
-    // TODO: IGNITE-19229 - extend
 
     public ColumnDefinitionDiff(CatalogTableColumnDescriptor oldColumn, CatalogTableColumnDescriptor newColumn) {
         this.oldColumn = oldColumn;
         this.newColumn = newColumn;
+    }
+
+    public boolean notNullDropped() {
+        return !oldColumn.nullable() && newColumn.nullable();
     }
 }
