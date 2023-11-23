@@ -186,6 +186,42 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
     }
 
     /**
+     * Updates data in the table created by {@link #createZoneAndTable(String, String, int, int)}.
+     *
+     * @param tableName Table name.
+     * @param people People to update in the table.
+     */
+    protected static void updatePersons(String tableName, Person... people) {
+        Transaction tx = CLUSTER.node(0).transactions().begin();
+
+        String sql = String.format("UPDATE %s SET NAME=?, SALARY=? WHERE ID=?", tableName);
+
+        for (Person person : people) {
+            sql(tx, sql, person.name, person.salary, person.id);
+        }
+
+        tx.commit();
+    }
+
+    /**
+     * Deletes data in the table created by {@link #createZoneAndTable(String, String, int, int)}.
+     *
+     * @param tableName Table name.
+     * @param personIds Person IDs to delete.
+     */
+    protected static void deletePersons(String tableName, int... personIds) {
+        Transaction tx = CLUSTER.node(0).transactions().begin();
+
+        String sql = String.format("DELETE FROM %s WHERE ID=?", tableName);
+
+        for (int personId : personIds) {
+            sql(tx, sql, personId);
+        }
+
+        tx.commit();
+    }
+
+    /**
      * Creates an index for the table created by {@link #createZoneAndTable(String, String, int, int)}..
      *
      * @param tableName Table name.
