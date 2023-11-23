@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Internal;
 
 using System.Net;
+using System.Net.Security;
 using Microsoft.Extensions.Logging;
 
 /// <summary>
@@ -27,4 +28,10 @@ public static partial class ClientSocketLogMessages
 {
     [LoggerMessage(Message = "Connection established [remoteAddress={Endpoint}]", Level = LogLevel.Debug)]
     internal static partial void LogConnectionEstablishedDebug(this ILogger logger, EndPoint? endpoint);
+
+    [LoggerMessage(Message = "SSL connection established [remoteAddress={Endpoint}, cipherSuite={CipherSuite}]", Level = LogLevel.Debug)]
+    internal static partial void LogSslConnectionEstablishedDebug(this ILogger logger, EndPoint? endpoint, TlsCipherSuite cipherSuite);
+
+    [LoggerMessage(Message = "SSL connection established [remoteAddress={Endpoint}, context={Context}]", Level = LogLevel.Debug)]
+    internal static partial void LogHandshakeSucceededDebug(this ILogger logger, EndPoint? endpoint, ConnectionContext context);
 }

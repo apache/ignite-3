@@ -117,7 +117,7 @@ namespace Apache.Ignite.Internal
             IgniteClientConfiguration configuration,
             ConnectionContext connectionContext,
             IClientSocketEventListener listener,
-            ILogger<ClientSocket> logger)
+            ILogger logger)
         {
             _stream = stream;
             ConnectionContext = connectionContext;
@@ -201,22 +201,14 @@ namespace Apache.Ignite.Internal
                         .ConfigureAwait(false) is { } sslStream)
                 {
                     stream = sslStream;
-
-                    if (logger?.IsEnabled(LogLevel.Debug) == true)
-                    {
-                        logger.LogDebug(
-                            $"SSL connection established [remoteAddress={socket.RemoteEndPoint}]: {sslStream.NegotiatedCipherSuite}");
-                    }
+                    logger.LogSslConnectionEstablishedDebug(socket.RemoteEndPoint, sslStream.NegotiatedCipherSuite);
                 }
 
                 var context = await HandshakeAsync(stream, endPoint.EndPoint, configuration, cts.Token)
                     .WaitAsync(configuration.SocketTimeout, cts.Token)
                     .ConfigureAwait(false);
 
-                if (logger?.IsEnabled(LogLevel.Debug) == true)
-                {
-                    logger.LogDebug($"Handshake succeeded [remoteAddress={socket.RemoteEndPoint}]: {context}.");
-                }
+                logger.LogHandshakeSucceededDebug(socket.RemoteEndPoint, context);
 
                 return new ClientSocket(stream, configuration, context, listener, logger);
             }
