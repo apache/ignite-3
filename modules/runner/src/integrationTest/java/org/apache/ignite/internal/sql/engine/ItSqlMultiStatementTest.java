@@ -56,8 +56,6 @@ public class ItSqlMultiStatementTest extends BaseSqlMultiStatementTest {
                 + "SELECT * FROM test";
 
         List<AsyncSqlCursor<List<Object>>> cursors = fetchAllCursors(runScript(sql));
-        assertNotNull(cursors);
-
         Iterator<AsyncSqlCursor<List<Object>>> curItr = cursors.iterator();
 
         validateSingleResult(curItr.next(), true);
@@ -85,13 +83,11 @@ public class ItSqlMultiStatementTest extends BaseSqlMultiStatementTest {
     @Test
     void singleStatementQuery() {
         AsyncSqlCursor<List<Object>> cursor = runScript("CREATE TABLE test (id INT PRIMARY KEY, val INT)");
-        assertNotNull(cursor);
         validateSingleResult(cursor, true);
         assertFalse(cursor.hasNextResult());
         assertThrows(NoSuchElementException.class, cursor::nextResult, "Query has no more results");
 
         AsyncSqlCursor<List<Object>> cursor2 = runScript("INSERT INTO test VALUES (0, 0)");
-        assertNotNull(cursor2);
         validateSingleResult(cursor2, 1L);
         assertFalse(cursor2.hasNextResult());
 
@@ -135,7 +131,6 @@ public class ItSqlMultiStatementTest extends BaseSqlMultiStatementTest {
                             + "SELECT 2/0;" // Runtime error.
                             + "INSERT INTO test VALUES (0)"
             );
-            assertNotNull(cursor);
             assertTrue(cursor.hasNextResult());
 
             CompletableFuture<AsyncSqlCursor<List<Object>>> curFut0 = cursor.nextResult();
@@ -160,8 +155,6 @@ public class ItSqlMultiStatementTest extends BaseSqlMultiStatementTest {
                             + "SELECT (SELECT id FROM test);" // Internal error.
                             + "INSERT INTO test VALUES(2);"
             );
-            assertNotNull(cursor);
-            assertTrue(cursor.hasNextResult());
 
             cursor = await(cursor.nextResult());
             assertNotNull(cursor);

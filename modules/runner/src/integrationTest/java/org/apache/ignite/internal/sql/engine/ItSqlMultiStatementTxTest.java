@@ -155,13 +155,13 @@ public class ItSqlMultiStatementTxTest extends BaseSqlMultiStatementTest {
                 assertFalse(selectCursor.hasNextResult());
 
                 AsyncCursor.BatchedResult<List<Object>> res = await(
-                        selectCursor.requestNextAsync(rowsCount * 2));
+                        selectCursor.requestNextAsync(rowsCount * 2)); // Cursor must close implicitly.
 
                 assertEquals(rowsCount + 1, res.items().size());
 
                 assertEquals(0, txManager().pending());
 
-                assertQuery("select count(*) from big where id=0").returns(0L).check();
+                assertQuery("SELECT COUNT(*) FROM big WHERE id=0").returns(0L).check();
             }
         } finally {
             sql("DROP TABLE big");
