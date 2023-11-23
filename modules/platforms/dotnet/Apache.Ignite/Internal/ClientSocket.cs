@@ -168,7 +168,8 @@ namespace Apache.Ignite.Internal
             IClientSocketEventListener listener)
         {
             using var cts = new CancellationTokenSource();
-            var logger = configuration.LoggerFactory.GetLogger(nameof(ClientSocket) + "-" + Interlocked.Increment(ref _socketId));
+            var logger = configuration.LoggerFactory.CreateLogger(typeof(ClientSocket).FullName! + "-" +
+                                                                  Interlocked.Increment(ref _socketId));
 
             bool connected = false;
             Socket? socket = null;
@@ -190,7 +191,7 @@ namespace Apache.Ignite.Internal
 
                 if (logger?.IsEnabled(LogLevel.Debug) == true)
                 {
-                    logger.Debug($"Connection established [remoteAddress={socket.RemoteEndPoint}]");
+                    logger.LogDebug($"Connection established [remoteAddress={socket.RemoteEndPoint}]");
                 }
 
                 Metrics.ConnectionsEstablished.Add(1);
@@ -207,7 +208,7 @@ namespace Apache.Ignite.Internal
 
                     if (logger?.IsEnabled(LogLevel.Debug) == true)
                     {
-                        logger.Debug(
+                        logger.LogDebug(
                             $"SSL connection established [remoteAddress={socket.RemoteEndPoint}]: {sslStream.NegotiatedCipherSuite}");
                     }
                 }
@@ -218,7 +219,7 @@ namespace Apache.Ignite.Internal
 
                 if (logger?.IsEnabled(LogLevel.Debug) == true)
                 {
-                    logger.Debug($"Handshake succeeded [remoteAddress={socket.RemoteEndPoint}]: {context}.");
+                    logger.LogDebug($"Handshake succeeded [remoteAddress={socket.RemoteEndPoint}]: {context}.");
                 }
 
                 return new ClientSocket(stream, configuration, context, listener, logger);
@@ -237,10 +238,10 @@ namespace Apache.Ignite.Internal
                 }
                 catch (Exception disposeEx)
                 {
-                    logger?.Warn(disposeEx, "Failed to dispose socket after failed connection attempt: " + disposeEx.Message);
+                    logger.LogWarning(disposeEx, "Failed to dispose socket after failed connection attempt: " + disposeEx.Message);
                 }
 
-                logger?.Warn(ex, $"Connection failed before or during handshake [remoteAddress={endPoint.EndPoint}]: {ex.Message}.");
+                logger?.LogWarning(ex, $"Connection failed before or during handshake [remoteAddress={endPoint.EndPoint}]: {ex.Message}.");
 
                 if (ex.GetBaseException() is TimeoutException)
                 {
@@ -588,7 +589,7 @@ namespace Apache.Ignite.Internal
 
             if (configuredInterval < recommendedHeartbeatInterval)
             {
-                logger?.Info(
+                logger.LogInformation(
                     $"Server-side IdleTimeout is {serverIdleTimeout}, " +
                     $"using configured {nameof(IgniteClientConfiguration)}." +
                     $"{nameof(IgniteClientConfiguration.HeartbeatInterval)}: " +
@@ -597,7 +598,7 @@ namespace Apache.Ignite.Internal
                 return configuredInterval;
             }
 
-            logger?.Warn(
+            logger.LogWarning(
                 $"Server-side IdleTimeout is {serverIdleTimeout}, configured " +
                 $"{nameof(IgniteClientConfiguration)}.{nameof(IgniteClientConfiguration.HeartbeatInterval)} " +
                 $"is {configuredInterval}, which is longer than recommended IdleTimeout / 3. " +
@@ -626,7 +627,7 @@ namespace Apache.Ignite.Internal
             // Reset heartbeat timer - don't sent heartbeats when connection is active anyway.
             _heartbeatTimer.Change(dueTime: _heartbeatInterval, period: TimeSpan.FromMilliseconds(-1));
 
-            if (_logger?.IsEnabled(LogLevel.Trace) == true)
+            if (_logger.IsEnabled(LogLevel.Trace) == true)
             {
                 _logger.Trace($"Sending request [op={op}, remoteAddress={ConnectionContext.ClusterNode.Address}, requestId={requestId}]");
             }
@@ -672,7 +673,7 @@ namespace Apache.Ignite.Internal
             {
                 var message = "Exception while writing to socket, connection closed: " + e.Message;
 
-                _logger?.Error(e, message);
+                _logger.LogError(e, message);
                 var connEx = new IgniteClientConnectionException(ErrorGroups.Client.Connection, message, new SocketException());
 
                 Dispose(connEx);
@@ -708,7 +709,7 @@ namespace Apache.Ignite.Internal
             {
                 var message = "Exception while reading from socket, connection closed: " + e.Message;
 
-                _logger?.Error(e, message);
+                _logger.LogError(e, message);
                 Dispose(new IgniteClientConnectionException(ErrorGroups.Client.Connection, message, e));
             }
         }
@@ -732,7 +733,7 @@ namespace Apache.Ignite.Internal
                 var message = $"Unexpected response ID ({requestId}) received from the server " +
                               $"[remoteAddress={ConnectionContext.ClusterNode.Address}], closing the socket.";
 
-                _logger?.Error(message);
+                _logger.LogError(message);
                 Dispose(new IgniteClientConnectionException(ErrorGroups.Client.Protocol, message));
 
                 return;
@@ -744,9 +745,9 @@ namespace Apache.Ignite.Internal
 
             if (flags.HasFlag(ResponseFlags.PartitionAssignmentChanged))
             {
-                if (_logger?.IsEnabled(LogLevel.Info) == true)
+                if (_logger.IsEnabled(LogLevel.Information) == true)
                 {
-                    _logger.Info(
+                    _logger.LogInformation(
                         $"Partition assignment change notification received [remoteAddress={ConnectionContext.ClusterNode.Address}]");
                 }
 
@@ -793,7 +794,7 @@ namespace Apache.Ignite.Internal
             }
             catch (Exception e)
             {
-                _logger?.Error(e, "Heartbeat failed: " + e.Message);
+                _logger.LogError(e, "Heartbeat failed: " + e.Message);
 
                 Dispose(e);
             }
@@ -816,7 +817,7 @@ namespace Apache.Ignite.Internal
 
                 if (ex != null)
                 {
-                    _logger?.Warn(ex, $"Connection closed [remoteAddress={ConnectionContext.ClusterNode.Address}]: " + ex.Message);
+                    _logger.LogWarning(ex, $"Connection closed [remoteAddress={ConnectionContext.ClusterNode.Address}]: " + ex.Message);
 
                     if (ex.GetBaseException() is TimeoutException)
                     {
@@ -827,9 +828,9 @@ namespace Apache.Ignite.Internal
                         Metrics.ConnectionsLost.Add(1);
                     }
                 }
-                else if (_logger?.IsEnabled(LogLevel.Debug) == true)
+                else if (_logger.IsEnabled(LogLevel.Debug) == true)
                 {
-                    _logger.Debug($"Connection closed [remoteAddress={ConnectionContext.ClusterNode.Address}]");
+                    _logger.LogDebug($"Connection closed [remoteAddress={ConnectionContext.ClusterNode.Address}]");
                 }
 
                 _heartbeatTimer.Dispose();
