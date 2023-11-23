@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.table.distributed.schema;
 
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
+import org.apache.ignite.internal.table.distributed.replicator.TypesUtils;
 
 /**
  * Captures a difference between 'old' and 'new' versions of the same column definition.
@@ -31,7 +32,42 @@ public class ColumnDefinitionDiff {
         this.newColumn = newColumn;
     }
 
+    /**
+     * Returns whether nullability has been changed on the column.
+     */
+    public boolean nullabilityChanged() {
+        return oldColumn.nullable() != newColumn.nullable();
+    }
+
+    /**
+     * Returns whether NOT NULL constraint has been dropped from the column.
+     */
     public boolean notNullDropped() {
         return !oldColumn.nullable() && newColumn.nullable();
+    }
+
+    /**
+     * Returns whether NOT NULL constraint has been added to the column.
+     */
+    public boolean notNullAdded() {
+        return oldColumn.nullable() && !newColumn.nullable();
+    }
+
+    /**
+     * Returns whether column type (including precision, scale, length) has been changed.
+     */
+    public boolean typeDiffers() {
+        return oldColumn.type() != newColumn.type()
+                || oldColumn.precision() != newColumn.precision()
+                || oldColumn.scale() != newColumn.scale()
+                || oldColumn.length() != newColumn.length();
+    }
+
+    /**
+     * Returns whether type change is lossless (that is, a value converted from old type to the new type
+     * will not lose any information, and it will be possible to obtain the same value after a reverse conversion).
+     */
+    public boolean typeChangeIsLossless() {
+        return TypesUtils.typeChangeIsLossless(oldColumn, newColumn);
     }
 }

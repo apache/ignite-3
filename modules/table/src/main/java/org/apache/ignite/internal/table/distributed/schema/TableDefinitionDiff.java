@@ -35,8 +35,6 @@ public class TableDefinitionDiff {
     private final List<CatalogTableColumnDescriptor> removedColumns;
     private final List<ColumnDefinitionDiff> changedColumns;
 
-    // TODO: IGNITE-19229 - other change types
-
     /**
      * Returns an empty diff (meaning there is no difference).
      *
@@ -60,6 +58,13 @@ public class TableDefinitionDiff {
         this.addedColumns = List.copyOf(addedColumns);
         this.removedColumns = List.copyOf(removedColumns);
         this.changedColumns = List.copyOf(changedColumns);
+    }
+
+    /**
+     * Returns whether name of the table has been changed.
+     */
+    public boolean nameDiffers() {
+        return nameDiffers;
     }
 
     /**

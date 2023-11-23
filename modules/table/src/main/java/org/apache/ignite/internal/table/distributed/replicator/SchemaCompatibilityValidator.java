@@ -50,9 +50,14 @@ class SchemaCompatibilityValidator {
     private final ConcurrentMap<TableDefinitionDiffKey, TableDefinitionDiff> diffCache = new ConcurrentHashMap<>();
 
     private final List<ForwardCompatibilityValidator> forwardCompatibilityValidators = List.of(
+            new RenameTableValidator(),
             new AddColumnsValidator(),
-            // TODO: https://issues.apache.org/jira/browse/IGNITE-20948 - add a validator that says that column rename is compatible.
-            new DropNotNullValidator()
+            new DropColumnsValidator(),
+            new ChangeColumnsValidator(List.of(
+                    // TODO: https://issues.apache.org/jira/browse/IGNITE-20948 - add validator that says that column rename is compatible.
+                    new ChangeNotNullStatusValidator(),
+                    new ChangeColumnTypeValidator()
+            ))
     );
 
     /** Constructor. */
@@ -158,22 +163,18 @@ class SchemaCompatibilityValidator {
         );
 
         boolean accepted = false;
-        boolean rejected = false;
 
         for (ForwardCompatibilityValidator validator : forwardCompatibilityValidators) {
-            if (validator.concerns(diff)) {
-                boolean compatible = validator.compatible(diff);
-
-                if (compatible) {
+            switch (validator.compatible(diff)) {
+                case COMPATIBLE:
                     accepted = true;
-                } else {
-                    rejected = true;
                     break;
-                }
+                case INCOMPATIBLE:
+                    return false;
             }
         }
 
-        return !rejected && accepted;
+        return accepted;
     }
 
     /**
@@ -283,51 +284,122 @@ class SchemaCompatibilityValidator {
         }
     }
 
-    private interface ForwardCompatibilityValidator {
-        boolean concerns(TableDefinitionDiff diff);
+    private enum ValidatorVerdict {
+        COMPATIBLE, INCOMPATIBLE, DONT_CARE
+    }
 
-        boolean compatible(TableDefinitionDiff diff);
+    @SuppressWarnings("InterfaceMayBeAnnotatedFunctional")
+    private interface ForwardCompatibilityValidator {
+        ValidatorVerdict compatible(TableDefinitionDiff diff);
+    }
+
+    private static class RenameTableValidator implements ForwardCompatibilityValidator {
+        @Override
+        public ValidatorVerdict compatible(TableDefinitionDiff diff) {
+            return diff.nameDiffers() ? ValidatorVerdict.INCOMPATIBLE : ValidatorVerdict.DONT_CARE;
+        }
     }
 
     private static class AddColumnsValidator implements ForwardCompatibilityValidator {
         @Override
-        public boolean concerns(TableDefinitionDiff diff) {
-            return !diff.addedColumns().isEmpty();
-        }
+        public ValidatorVerdict compatible(TableDefinitionDiff diff) {
+            if (diff.addedColumns().isEmpty()) {
+                return ValidatorVerdict.DONT_CARE;
+            }
 
-        @Override
-        public boolean compatible(TableDefinitionDiff diff) {
             for (CatalogTableColumnDescriptor column : diff.addedColumns()) {
                 if (!column.nullable() && column.defaultValue() == null) {
-                    return false;
+                    return ValidatorVerdict.INCOMPATIBLE;
                 }
             }
 
-            return true;
+            return ValidatorVerdict.COMPATIBLE;
         }
     }
 
-    private static class DropNotNullValidator implements ForwardCompatibilityValidator {
+    private static class DropColumnsValidator implements ForwardCompatibilityValidator {
         @Override
-        public boolean concerns(TableDefinitionDiff diff) {
-            for (ColumnDefinitionDiff columnDiff : diff.changedColumns()) {
-                if (columnDiff.notNullDropped()) {
-                    return true;
-                }
-            }
+        public ValidatorVerdict compatible(TableDefinitionDiff diff) {
+            return diff.removedColumns().isEmpty() ? ValidatorVerdict.DONT_CARE : ValidatorVerdict.INCOMPATIBLE;
+        }
+    }
 
-            return false;
+    @SuppressWarnings("InterfaceMayBeAnnotatedFunctional")
+    private interface ColumnChangeCompatibilityValidator {
+        ValidatorVerdict compatible(ColumnDefinitionDiff diff);
+    }
+
+    private static class ChangeColumnsValidator implements ForwardCompatibilityValidator {
+        private final List<ColumnChangeCompatibilityValidator> validators;
+
+        private ChangeColumnsValidator(List<ColumnChangeCompatibilityValidator> validators) {
+            this.validators = List.copyOf(validators);
         }
 
         @Override
-        public boolean compatible(TableDefinitionDiff diff) {
+        public ValidatorVerdict compatible(TableDefinitionDiff diff) {
+            if (diff.changedColumns().isEmpty()) {
+                return ValidatorVerdict.DONT_CARE;
+            }
+
+            boolean accepted = false;
+
             for (ColumnDefinitionDiff columnDiff : diff.changedColumns()) {
-                if (columnDiff.notNullDropped()) {
-                    return true;
+                switch (compatible(columnDiff)) {
+                    case COMPATIBLE:
+                        accepted = true;
+                        break;
+                    case INCOMPATIBLE:
+                        return ValidatorVerdict.INCOMPATIBLE;
                 }
             }
 
-            return false;
+            // If for some column no validator either accepts or refuses the change, then this
+            // is an unknown change, that we consider incompatible by default.
+            return accepted ? ValidatorVerdict.COMPATIBLE : ValidatorVerdict.INCOMPATIBLE;
+        }
+
+        private ValidatorVerdict compatible(ColumnDefinitionDiff columnDiff) {
+            boolean accepted = false;
+
+            for (ColumnChangeCompatibilityValidator validator : validators) {
+                switch (validator.compatible(columnDiff)) {
+                    case COMPATIBLE:
+                        accepted = true;
+                        break;
+                    case INCOMPATIBLE:
+                        return ValidatorVerdict.INCOMPATIBLE;
+                }
+            }
+
+            return accepted ? ValidatorVerdict.COMPATIBLE : ValidatorVerdict.DONT_CARE;
+        }
+    }
+
+    private static class ChangeNotNullStatusValidator implements ColumnChangeCompatibilityValidator {
+        @Override
+        public ValidatorVerdict compatible(ColumnDefinitionDiff diff) {
+            if (diff.notNullAdded()) {
+                return ValidatorVerdict.INCOMPATIBLE;
+            }
+            if (diff.notNullDropped()) {
+                return ValidatorVerdict.COMPATIBLE;
+            }
+
+            assert !diff.nullabilityChanged() : diff;
+
+            return ValidatorVerdict.DONT_CARE;
+        }
+    }
+
+    private static class ChangeColumnTypeValidator implements ColumnChangeCompatibilityValidator {
+        @Override
+        public ValidatorVerdict compatible(ColumnDefinitionDiff diff) {
+            if (!diff.typeDiffers()) {
+                return ValidatorVerdict.DONT_CARE;
+            }
+
+            return diff.typeChangeIsLossless() ? ValidatorVerdict.COMPATIBLE : ValidatorVerdict.INCOMPATIBLE;
         }
     }
 }

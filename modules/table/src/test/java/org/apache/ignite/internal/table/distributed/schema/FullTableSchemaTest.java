@@ -32,18 +32,6 @@ class FullTableSchemaTest {
     private static final String TABLE_NAME1 = "test1";
     private static final String TABLE_NAME2 = "test2";
 
-    @Test
-    void sameSchemasHaveEmptyDiff() {
-        CatalogTableColumnDescriptor column = someColumn("a");
-
-        var schema1 = new FullTableSchema(1, 1, TABLE_NAME1, List.of(column));
-        var schema2 = new FullTableSchema(2, 1, TABLE_NAME1, List.of(column));
-
-        TableDefinitionDiff diff = schema2.diffFrom(schema1);
-
-        assertThat(diff.isEmpty(), is(true));
-    }
-
     private static CatalogTableColumnDescriptor someColumn(String columnName) {
         return new CatalogTableColumnDescriptor(columnName, ColumnType.INT32, true, 0, 0, 0, DefaultValue.constant(null));
     }
@@ -59,7 +47,6 @@ class FullTableSchemaTest {
 
         TableDefinitionDiff diff = schema2.diffFrom(schema1);
 
-        assertThat(diff.isEmpty(), is(false));
         assertThat(diff.addedColumns(), is(List.of(column3)));
         assertThat(diff.removedColumns(), is(List.of(column1)));
         assertThat(diff.changedColumns(), is(empty()));
@@ -76,14 +63,12 @@ class FullTableSchemaTest {
 
         TableDefinitionDiff diff = schema2.diffFrom(schema1);
 
-        assertThat(diff.isEmpty(), is(false));
-
         List<ColumnDefinitionDiff> changedColumns = diff.changedColumns();
         assertThat(changedColumns, is(hasSize(1)));
     }
 
     @Test
-    void changedNameIsReflectedInDiff() {
+    void changedNameIsReflected() {
         CatalogTableColumnDescriptor column = someColumn("a");
 
         var schema1 = new FullTableSchema(1, 1, TABLE_NAME1, List.of(column));
@@ -91,6 +76,6 @@ class FullTableSchemaTest {
 
         TableDefinitionDiff diff = schema2.diffFrom(schema1);
 
-        assertThat(diff.isEmpty(), is(false));
+        assertThat(diff.nameDiffers(), is(true));
     }
 }

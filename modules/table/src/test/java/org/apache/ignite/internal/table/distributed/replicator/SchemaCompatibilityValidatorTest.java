@@ -186,13 +186,21 @@ class SchemaCompatibilityValidatorTest extends BaseIgniteAbstractTest {
         changes.add(new ColumnTypeChange(INT32, decimal(9, 0)));
         changes.add(new ColumnTypeChange(INT64, decimal(17, 0)));
 
+        // NUMBER to DECIMAL with enough precision and non-zero scale.
+        changes.add(new ColumnTypeChange(number(9), decimal(10, 1)));
+        changes.add(new ColumnTypeChange(number(9), decimal(11, 1)));
+
         // NUMBER to DECIMAL with enough precision and zero scale.
         changes.add(new ColumnTypeChange(number(10), decimal(10, 0)));
         changes.add(new ColumnTypeChange(number(10), decimal(11, 0)));
 
+        // DECIMAL (with scale=0) TO NUMBER with enough precision.
+        changes.add(new ColumnTypeChange(decimal(10, 0), number(10)));
+
         // Increasing precision.
         changes.add(new ColumnTypeChange(decimal(10, 5), decimal(15, 5)));
 
+        // Increasing length.
         changes.add(new ColumnTypeChange(string(10), string(20)));
         changes.add(new ColumnTypeChange(byteArray(10), byteArray(20)));
 
@@ -205,7 +213,6 @@ class SchemaCompatibilityValidatorTest extends BaseIgniteAbstractTest {
         changes.add(new ColumnTypeChange(decimal(10, 3), string(11)));
         changes.add(new ColumnTypeChange(number(10), string(10)));
         changes.add(new ColumnTypeChange(ColumnType.UUID, string(36)));
-        changes.add(new ColumnTypeChange(string(10), string(10)));
 
         return changes.stream().map(Arguments::of);
     }
