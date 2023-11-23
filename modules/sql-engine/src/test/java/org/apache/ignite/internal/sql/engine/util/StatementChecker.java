@@ -39,6 +39,7 @@ import org.apache.calcite.sql.SqlExplainLevel;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders.TableBuilder;
 import org.apache.ignite.internal.sql.engine.framework.TestTable;
+import org.apache.ignite.internal.sql.engine.prepare.DynamicParameters;
 import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteProject;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
@@ -110,7 +111,7 @@ public class StatementChecker {
 
     private String sqlStatement;
 
-    private List<Object> dynamicParams;
+    private DynamicParameters dynamicParams;
 
     private final SqlPrepare sqlPrepare;
 
@@ -139,9 +140,9 @@ public class StatementChecker {
          *
          * @param schema A schema.
          * @param sql An SQL statement.
-         * @param params A list of dynamic parameters.
+         * @param params Dynamic parameters.
          */
-        RelNode prepare(IgniteSchema schema, String sql, List<Object> params) throws Exception;
+        RelNode prepare(IgniteSchema schema, String sql, DynamicParameters params) throws Exception;
     }
 
     /** Sets a function that is going to be called prior to test run. */
@@ -222,7 +223,7 @@ public class StatementChecker {
      */
     public StatementChecker sql(Supplier<String> template, Object... params) {
         this.sqlStatement = template.get();
-        this.dynamicParams = Arrays.asList(params);
+        this.dynamicParams = DynamicParameters.of(params);
         return this;
     }
 

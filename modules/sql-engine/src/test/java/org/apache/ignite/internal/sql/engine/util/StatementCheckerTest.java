@@ -36,6 +36,7 @@ import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rex.RexBuilder;
 import org.apache.calcite.rex.RexLiteral;
 import org.apache.calcite.sql.type.SqlTypeName;
+import org.apache.ignite.internal.sql.engine.prepare.DynamicParameters;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteValues;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
@@ -61,7 +62,7 @@ public class StatementCheckerTest extends BaseIgniteAbstractTest {
     /** Validation check should pass. */
     @Test
     public void testOk() throws Throwable {
-        when(sqlPrepare.prepare(any(IgniteSchema.class), any(String.class), any(List.class))).thenReturn(dummyNode);
+        when(sqlPrepare.prepare(any(IgniteSchema.class), any(String.class), any(DynamicParameters.class))).thenReturn(dummyNode);
 
         DynamicTest test = newChecker().sql("SELECT 1").ok();
         assertEquals("OK SELECT 1", test.getDisplayName(), "display name");
@@ -72,7 +73,7 @@ public class StatementCheckerTest extends BaseIgniteAbstractTest {
     /** Validation check should pass - any error is accepted. */
     @Test
     public void testFailAnyError() throws Throwable {
-        when(sqlPrepare.prepare(any(IgniteSchema.class), any(String.class), any(List.class)))
+        when(sqlPrepare.prepare(any(IgniteSchema.class), any(String.class), any(DynamicParameters.class)))
                 .thenThrow(new RuntimeException());
 
         DynamicTest test = newChecker().sql("SELECT").fails();
@@ -85,7 +86,7 @@ public class StatementCheckerTest extends BaseIgniteAbstractTest {
     @Test
     public void testFailErrorMismatch() throws Throwable {
         RuntimeException cause = new RuntimeException("Invalid statement");
-        when(sqlPrepare.prepare(any(IgniteSchema.class), any(String.class), any(List.class)))
+        when(sqlPrepare.prepare(any(IgniteSchema.class), any(String.class), any(DynamicParameters.class)))
                 .thenThrow(cause);
 
         DynamicTest test = newChecker()
@@ -101,7 +102,7 @@ public class StatementCheckerTest extends BaseIgniteAbstractTest {
     /** Validation success check fails - plan does not match. */
     @Test
     public void testOkCheckThrows() throws Exception {
-        when(sqlPrepare.prepare(any(IgniteSchema.class), any(String.class), any(List.class)))
+        when(sqlPrepare.prepare(any(IgniteSchema.class), any(String.class), any(DynamicParameters.class)))
                 .thenReturn(dummyNode);
 
         DynamicTest test = newChecker().sql("SELECT 1").ok(((node) -> {
@@ -117,7 +118,7 @@ public class StatementCheckerTest extends BaseIgniteAbstractTest {
     @Test
     public void testOkPrepareThrows() throws Exception {
         RuntimeException cause = new RuntimeException("Invalid statement");
-        when(sqlPrepare.prepare(any(IgniteSchema.class), any(String.class), any(List.class)))
+        when(sqlPrepare.prepare(any(IgniteSchema.class), any(String.class), any(DynamicParameters.class)))
                 .thenThrow(cause);
 
         DynamicTest test = newChecker().sql("SELECT 1").ok();
@@ -144,7 +145,7 @@ public class StatementCheckerTest extends BaseIgniteAbstractTest {
                 .add(ImmutableList.of(lit))
                 .add(ImmutableList.of(lit)).build(), RelTraitSet.createEmpty());
 
-        when(sqlPrepare.prepare(any(IgniteSchema.class), any(String.class), any(List.class)))
+        when(sqlPrepare.prepare(any(IgniteSchema.class), any(String.class), any(DynamicParameters.class)))
                 .thenReturn(values);
 
         DynamicTest test = newChecker().sql("SELECT 1")

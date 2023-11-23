@@ -70,6 +70,7 @@ import org.apache.ignite.internal.sql.engine.message.QueryStartResponse;
 import org.apache.ignite.internal.sql.engine.message.SqlQueryMessageGroup;
 import org.apache.ignite.internal.sql.engine.message.SqlQueryMessagesFactory;
 import org.apache.ignite.internal.sql.engine.prepare.DdlPlan;
+import org.apache.ignite.internal.sql.engine.prepare.DynamicParameters;
 import org.apache.ignite.internal.sql.engine.prepare.ExplainPlan;
 import org.apache.ignite.internal.sql.engine.prepare.Fragment;
 import org.apache.ignite.internal.sql.engine.prepare.IgniteRelShuttle;
@@ -242,7 +243,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
     private BaseQueryContext createQueryContext(UUID queryId, int schemaVersion, Object[] params) {
         return BaseQueryContext.builder()
                 .queryId(queryId)
-                .parameters(params)
+                .parameters(DynamicParameters.of(params))
                 .frameworkConfig(
                         Frameworks.newConfigBuilder(FRAMEWORK_CONFIG)
                                 .defaultSchema(sqlSchemaManager.schema(schemaVersion))
@@ -521,7 +522,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                     .fragmentId(desc.fragmentId())
                     .root(serialisedFragment)
                     .fragmentDescription(desc)
-                    .parameters(ctx.parameters())
+                    .parameters(ctx.parameters().toArray())
                     .txAttributes(txAttributes)
                     .schemaVersion(ctx.schemaVersion())
                     .build();
@@ -626,7 +627,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                     initiatorNodeName,
                     desc,
                     handler,
-                    Commons.parametersMap(ctx.parameters()),
+                    ctx.parameters().toMap(),
                     txAttributes
             );
         }

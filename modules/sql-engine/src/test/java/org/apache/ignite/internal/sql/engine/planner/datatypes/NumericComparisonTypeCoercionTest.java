@@ -20,7 +20,6 @@ package org.apache.ignite.internal.sql.engine.planner.datatypes;
 import static org.hamcrest.MatcherAssert.assertThat;
 
 import java.util.EnumSet;
-import java.util.List;
 import java.util.stream.Stream;
 import org.apache.calcite.rex.RexNode;
 import org.apache.ignite.internal.sql.engine.planner.datatypes.utils.NumericPair;
@@ -755,8 +754,8 @@ public class NumericComparisonTypeCoercionTest extends BaseTypeCoercionTest {
     ) throws Exception {
         IgniteSchema schema = createSchemaWithTwoColumnTable(typePair.first(), typePair.second());
 
-        assertPlan("SELECT c1 = c2 FROM t", schema, operandMatcher(firstOperandMatcher, secondOperandMatcher)::matches, List.of());
-        assertPlan("SELECT c2 = c1 FROM t", schema, operandMatcher(secondOperandMatcher, firstOperandMatcher)::matches, List.of());
+        assertPlan("SELECT c1 = c2 FROM t", schema, operandMatcher(firstOperandMatcher, secondOperandMatcher)::matches);
+        assertPlan("SELECT c2 = c1 FROM t", schema, operandMatcher(secondOperandMatcher, firstOperandMatcher)::matches);
     }
 
     @ParameterizedTest
@@ -768,8 +767,8 @@ public class NumericComparisonTypeCoercionTest extends BaseTypeCoercionTest {
     ) throws Exception {
         IgniteSchema schema = createSchemaWithTwoColumnTable(typePair.first(), typePair.second());
 
-        assertPlan("SELECT c1 < c2 FROM t", schema, operandMatcher(firstOperandMatcher, secondOperandMatcher)::matches, List.of());
-        assertPlan("SELECT c2 > c1 FROM t", schema, operandMatcher(secondOperandMatcher, firstOperandMatcher)::matches, List.of());
+        assertPlan("SELECT c1 < c2 FROM t", schema, operandMatcher(firstOperandMatcher, secondOperandMatcher)::matches);
+        assertPlan("SELECT c2 > c1 FROM t", schema, operandMatcher(secondOperandMatcher, firstOperandMatcher)::matches);
     }
 
     @ParameterizedTest
@@ -781,8 +780,8 @@ public class NumericComparisonTypeCoercionTest extends BaseTypeCoercionTest {
     ) throws Exception {
         IgniteSchema schema = createSchemaWithTwoColumnTable(typePair.first(), typePair.second());
 
-        assertPlan("SELECT c1 <= c2 FROM t", schema, operandMatcher(firstOperandMatcher, secondOperandMatcher)::matches, List.of());
-        assertPlan("SELECT c2 >= c1 FROM t", schema, operandMatcher(secondOperandMatcher, firstOperandMatcher)::matches, List.of());
+        assertPlan("SELECT c1 <= c2 FROM t", schema, operandMatcher(firstOperandMatcher, secondOperandMatcher)::matches);
+        assertPlan("SELECT c2 >= c1 FROM t", schema, operandMatcher(secondOperandMatcher, firstOperandMatcher)::matches);
     }
 
     @ParameterizedTest
@@ -794,8 +793,8 @@ public class NumericComparisonTypeCoercionTest extends BaseTypeCoercionTest {
     ) throws Exception {
         IgniteSchema schema = createSchemaWithTwoColumnTable(typePair.first(), typePair.second());
 
-        assertPlan("SELECT c1 > c2 FROM t", schema, operandMatcher(firstOperandMatcher, secondOperandMatcher)::matches, List.of());
-        assertPlan("SELECT c2 < c1 FROM t", schema, operandMatcher(secondOperandMatcher, firstOperandMatcher)::matches, List.of());
+        assertPlan("SELECT c1 > c2 FROM t", schema, operandMatcher(firstOperandMatcher, secondOperandMatcher)::matches);
+        assertPlan("SELECT c2 < c1 FROM t", schema, operandMatcher(secondOperandMatcher, firstOperandMatcher)::matches);
     }
 
     @ParameterizedTest
@@ -807,8 +806,8 @@ public class NumericComparisonTypeCoercionTest extends BaseTypeCoercionTest {
     ) throws Exception {
         IgniteSchema schema = createSchemaWithTwoColumnTable(typePair.first(), typePair.second());
 
-        assertPlan("SELECT c1 <= c2 FROM t", schema, operandMatcher(firstOperandMatcher, secondOperandMatcher)::matches, List.of());
-        assertPlan("SELECT c2 >= c1 FROM t", schema, operandMatcher(secondOperandMatcher, firstOperandMatcher)::matches, List.of());
+        assertPlan("SELECT c1 <= c2 FROM t", schema, operandMatcher(firstOperandMatcher, secondOperandMatcher)::matches);
+        assertPlan("SELECT c2 >= c1 FROM t", schema, operandMatcher(secondOperandMatcher, firstOperandMatcher)::matches);
     }
 
     /**

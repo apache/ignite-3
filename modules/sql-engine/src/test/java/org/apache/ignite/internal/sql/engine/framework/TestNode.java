@@ -177,7 +177,7 @@ public class TestNode implements LifecycleAware {
         ParsedResult parsedResult = parserService.parse(query);
         BaseQueryContext ctx = createContext();
 
-        assertEquals(ctx.parameters().length, parsedResult.dynamicParamsCount(), "Invalid number of dynamic parameters");
+        assertEquals(ctx.parameters().size(), parsedResult.dynamicParamsCount(), "Invalid number of dynamic parameters");
 
         return await(prepareService.prepareAsync(parsedResult, ctx));
     }

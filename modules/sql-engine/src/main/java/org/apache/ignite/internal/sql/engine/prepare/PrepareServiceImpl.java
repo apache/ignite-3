@@ -343,9 +343,9 @@ public class PrepareServiceImpl implements PrepareService {
         boolean distributed = distributionPresent(ctx.config().getTraitDefs());
         int catalogVersion = ctx.unwrap(BaseQueryContext.class).schemaVersion();
 
-        Class[] paramTypes = ctx.parameters().length == 0
+        Class[] paramTypes = ctx.parameters().size() == 0
                 ? EMPTY_CLASS_ARRAY :
-                Arrays.stream(ctx.parameters()).map(p -> (p != null) ? p.getClass() : Void.class).toArray(Class[]::new);
+                Arrays.stream(ctx.parameters().toArray()).map(p -> (p != null) ? p.getClass() : Void.class).toArray(Class[]::new);
 
         return new CacheKey(catalogVersion, ctx.schemaName(), parsedResult.normalizedQuery(), distributed, paramTypes);
     }

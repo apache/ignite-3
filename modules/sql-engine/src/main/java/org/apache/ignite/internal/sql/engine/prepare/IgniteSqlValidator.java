@@ -86,6 +86,7 @@ import org.apache.ignite.internal.sql.engine.type.UuidType;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.IgniteResource;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
+import org.apache.ignite.lang.NullableValue;
 import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
 
@@ -120,7 +121,7 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
     }
 
     /** Dynamic parameter values. */
-    private final Object[] dynamicParamValues;
+    private final DynamicParameters dynamicParams;
 
     /** Dynamic parameters SQL AST nodes for invariant checks - see {@link #validateInferredDynamicParameters()}. */
     private final SqlDynamicParam[] dynamicParamNodes;
@@ -138,11 +139,11 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
      * @param parameters    Dynamic parameters
      */
     public IgniteSqlValidator(SqlOperatorTable opTab, CalciteCatalogReader catalogReader,
-            IgniteTypeFactory typeFactory, SqlValidator.Config config, Object[] parameters) {
+            IgniteTypeFactory typeFactory, SqlValidator.Config config, DynamicParameters parameters) {
         super(opTab, catalogReader, typeFactory, config);
 
-        this.dynamicParamValues = parameters;
-        this.dynamicParamNodes = new SqlDynamicParam[parameters.length];
+        this.dynamicParams = parameters;
+        this.dynamicParamNodes = new SqlDynamicParam[parameters.size()];
     }
 
     /** {@inheritDoc} */
@@ -831,17 +832,19 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         return typeFactory.createTypeWithNullability(parameterType, true);
     }
 
+    @Nullable
     private Object getDynamicParamValue(SqlDynamicParam dynamicParam) {
-        Object value = dynamicParamValues[dynamicParam.getIndex()];
+        NullableValue<Object> value = dynamicParams.value(dynamicParam.getIndex());
+        assert value != null : "Unspecified dynamic parameter: " + dynamicParam;
         // save dynamic parameter for later validation.
         dynamicParamNodes[dynamicParam.getIndex()] = dynamicParam;
-        return value;
+        return value.get();
     }
 
     private void validateInferredDynamicParameters() {
         // Derived types of dynamic parameters should not change (current type inference behavior).
 
-        for (int i = 0; i < dynamicParamValues.length; i++) {
+        for (int i = 0; i < dynamicParams.size(); i++) {
             SqlDynamicParam param = dynamicParamNodes[i];
             assert param != null : format("Dynamic parameter#{} has not been checked", i);
 

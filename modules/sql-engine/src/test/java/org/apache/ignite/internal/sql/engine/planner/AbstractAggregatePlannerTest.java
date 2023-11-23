@@ -34,6 +34,7 @@ import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.core.AggregateCall;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders.TableBuilder;
+import org.apache.ignite.internal.sql.engine.prepare.DynamicParameters;
 import org.apache.ignite.internal.sql.engine.rel.IgniteAggregate;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteReduceAggregateBase;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Collation;
@@ -941,7 +942,7 @@ public abstract class AbstractAggregatePlannerTest extends AbstractPlannerTest {
             fail("Testcase was as disabled: " + testCase);
         }
 
-        assertPlan(testCase.query, Collections.singleton(testCase.schema), predicate, List.of(), rulesToDisable);
+        assertPlan(testCase.query, Collections.singleton(testCase.schema), predicate, DynamicParameters.empty(), rulesToDisable);
     }
 
     protected void assumeRun(String methodName, TestCase testCase) {

@@ -81,6 +81,7 @@ import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders.HashIndexBuilder;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders.SortedIndexBuilder;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders.TableBuilder;
+import org.apache.ignite.internal.sql.engine.prepare.DynamicParameters;
 import org.apache.ignite.internal.sql.engine.prepare.Fragment;
 import org.apache.ignite.internal.sql.engine.prepare.IgnitePlanner;
 import org.apache.ignite.internal.sql.engine.prepare.PlannerHelper;
@@ -222,18 +223,18 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
      * Create planner context for specified query.
      */
     protected PlanningContext plannerCtx(String sql, IgniteSchema publicSchema, String... disabledRules) {
-        return plannerCtx(sql, Collections.singleton(publicSchema), null, List.of(), disabledRules);
+        return plannerCtx(sql, Collections.singleton(publicSchema), null, DynamicParameters.empty(), disabledRules);
     }
 
     private PlanningContext plannerCtx(
             String sql,
             Collection<IgniteSchema> schemas,
-            HintStrategyTable hintStrategies,
-            List<Object> params,
+            @Nullable HintStrategyTable hintStrategies,
+            DynamicParameters parameters,
             String... disabledRules
     ) {
         PlanningContext ctx = PlanningContext.builder()
-                .parentContext(baseQueryContext(schemas, hintStrategies, params.toArray()))
+                .parentContext(baseQueryContext(schemas, parameters, hintStrategies))
                 .query(sql)
                 .build();
 
@@ -246,10 +247,20 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
         return ctx;
     }
 
-    protected BaseQueryContext baseQueryContext(
+    protected static BaseQueryContext baseQueryContext(
             Collection<IgniteSchema> schemas,
             @Nullable HintStrategyTable hintStrategies,
             Object... params
+    ) {
+        DynamicParameters.Builder paramsBuilder = DynamicParameters.builder();
+
+        return baseQueryContext(schemas, paramsBuilder.build(), hintStrategies);
+    }
+
+    protected static BaseQueryContext baseQueryContext(
+                Collection<IgniteSchema> schemas,
+                DynamicParameters params,
+                @Nullable HintStrategyTable hintStrategies
     ) {
         SchemaPlus rootSchema = createRootSchema(false);
         SchemaPlus dfltSchema = null;
@@ -328,14 +339,14 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
             IgniteSchema publicSchema,
             @Nullable RelOptListener listener,
             String... disabledRules) throws Exception {
-        return physicalPlan(sql, Collections.singleton(publicSchema), null, List.of(), listener, disabledRules);
+        return physicalPlan(sql, Collections.singleton(publicSchema), null, DynamicParameters.empty(), listener, disabledRules);
     }
 
     protected IgniteRel physicalPlan(
             String sql,
             Collection<IgniteSchema> schemas,
-            HintStrategyTable hintStrategies,
-            List<Object> params,
+            @Nullable HintStrategyTable hintStrategies,
+            DynamicParameters params,
             @Nullable RelOptListener listener,
             String... disabledRules
     ) throws Exception {
@@ -423,7 +434,7 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
             Predicate<T> predicate,
             String... disabledRules
     ) throws Exception {
-        assertPlan(sql, Collections.singleton(schema), predicate, List.of(), disabledRules);
+        assertPlan(sql, Collections.singleton(schema), predicate, DynamicParameters.empty(), disabledRules);
     }
 
     protected <T extends RelNode> void assertPlan(
@@ -432,7 +443,13 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
             Predicate<T> predicate,
             List<Object> params
     ) throws Exception {
-        assertPlan(sql, Collections.singleton(schema), predicate, params);
+        DynamicParameters.Builder builder = DynamicParameters.builder();
+
+        for (int i = 0; i < params.size(); i++) {
+            builder.set(i, params.get(i));
+        }
+
+        assertPlan(sql, Collections.singleton(schema), predicate, null, builder.build());
     }
 
     protected <T extends RelNode> void assertPlan(
@@ -441,14 +458,14 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
             Predicate<T> predicate,
             String... disabledRules
     ) throws Exception {
-        assertPlan(sql, schemas, predicate, null, List.of(), disabledRules);
+        assertPlan(sql, schemas, predicate, null, DynamicParameters.empty(), disabledRules);
     }
 
     protected <T extends RelNode> void assertPlan(
             String sql,
             Collection<IgniteSchema> schemas,
             Predicate<T> predicate,
-            List<Object> params,
+            DynamicParameters params,
             String... disabledRules
     ) throws Exception {
         assertPlan(sql, schemas, predicate, null, params, disabledRules);
@@ -458,8 +475,8 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
             String sql,
             Collection<IgniteSchema> schemas,
             Predicate<T> predicate,
-            HintStrategyTable hintStrategies,
-            List<Object> params,
+            @Nullable HintStrategyTable hintStrategies,
+            DynamicParameters params,
             String... disabledRules
     ) throws Exception {
         IgniteRel plan = physicalPlan(sql, schemas, hintStrategies, params, null, disabledRules);

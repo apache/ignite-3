@@ -524,7 +524,7 @@ public class IndexSearchBoundsPlannerTest extends AbstractPlannerTest {
 
     private void assertBounds(String sql, Predicate<SearchBounds>... predicates) throws Exception {
         assertPlan(sql, publicSchema, nodeOrAnyChild(isInstanceOf(IgniteIndexScan.class)
-                .and(scan -> matchBounds(scan.searchBounds(), predicates))), List.of());
+                .and(scan -> matchBounds(scan.searchBounds(), predicates))));
     }
 
     private void assertBounds(

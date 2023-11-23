@@ -42,6 +42,7 @@ import org.apache.ignite.internal.sql.engine.exec.NodeWithTerm;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders.TableBuilder;
 import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCostFactory;
+import org.apache.ignite.internal.sql.engine.prepare.DynamicParameters;
 import org.apache.ignite.internal.sql.engine.prepare.IgnitePlanner;
 import org.apache.ignite.internal.sql.engine.prepare.PlannerPhase;
 import org.apache.ignite.internal.sql.engine.prepare.PlanningContext;
@@ -281,7 +282,7 @@ public class PlannerTest extends AbstractPlannerTest {
                 .and(t -> "COMPANY".equals(Util.last(t.getTable().getQualifiedName())))
                 .and(t -> t.getHints().size() == 1)));
 
-        assertPlan(sql, Collections.singleton(publicSchema), hintCheck, hintStrategies, List.of());
+        assertPlan(sql, Collections.singleton(publicSchema), hintCheck, hintStrategies, DynamicParameters.empty());
     }
 
     @Test

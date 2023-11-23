@@ -20,7 +20,6 @@ package org.apache.ignite.internal.sql.engine.planner.datatypes;
 import static org.hamcrest.MatcherAssert.assertThat;
 
 import java.util.EnumSet;
-import java.util.List;
 import java.util.stream.Stream;
 import org.apache.calcite.rex.RexNode;
 import org.apache.ignite.internal.sql.engine.planner.datatypes.utils.NumericPair;
@@ -51,8 +50,8 @@ public class NumericBinaryOperationsTypeCoercionTest extends BaseTypeCoercionTes
         Matcher<RexNode> first = ofTypeWithoutCast(pair.first());
         Matcher<RexNode> second = ofTypeWithoutCast(pair.second());
 
-        assertPlan("SELECT c1 + c2 FROM t", schema, operandMatcher(first, second)::matches, List.of());
-        assertPlan("SELECT c2 + c1 FROM t", schema, operandMatcher(second, first)::matches, List.of());
+        assertPlan("SELECT c1 + c2 FROM t", schema, operandMatcher(first, second)::matches);
+        assertPlan("SELECT c2 + c1 FROM t", schema, operandMatcher(second, first)::matches);
     }
 
     // No any type changes for `subtraction` operation from planner perspective.
@@ -64,8 +63,8 @@ public class NumericBinaryOperationsTypeCoercionTest extends BaseTypeCoercionTes
         Matcher<RexNode> first = ofTypeWithoutCast(pair.first());
         Matcher<RexNode> second = ofTypeWithoutCast(pair.second());
 
-        assertPlan("SELECT c1 - c2 FROM t", schema, operandMatcher(first, second)::matches, List.of());
-        assertPlan("SELECT c2 - c1 FROM t", schema, operandMatcher(second, first)::matches, List.of());
+        assertPlan("SELECT c1 - c2 FROM t", schema, operandMatcher(first, second)::matches);
+        assertPlan("SELECT c2 - c1 FROM t", schema, operandMatcher(second, first)::matches);
     }
 
     // No any type changes for `division` operation from planner perspective.
@@ -77,8 +76,8 @@ public class NumericBinaryOperationsTypeCoercionTest extends BaseTypeCoercionTes
         Matcher<RexNode> first = ofTypeWithoutCast(pair.first());
         Matcher<RexNode> second = ofTypeWithoutCast(pair.second());
 
-        assertPlan("SELECT c1 / c2 FROM t", schema, operandMatcher(first, second)::matches, List.of());
-        assertPlan("SELECT c2 / c1 FROM t", schema, operandMatcher(second, first)::matches, List.of());
+        assertPlan("SELECT c1 / c2 FROM t", schema, operandMatcher(first, second)::matches);
+        assertPlan("SELECT c2 / c1 FROM t", schema, operandMatcher(second, first)::matches);
     }
 
     // No any type changes for `multiplication` operation from planner perspective.
@@ -90,8 +89,8 @@ public class NumericBinaryOperationsTypeCoercionTest extends BaseTypeCoercionTes
         Matcher<RexNode> first = ofTypeWithoutCast(pair.first());
         Matcher<RexNode> second = ofTypeWithoutCast(pair.second());
 
-        assertPlan("SELECT c1 * c2 FROM t", schema, operandMatcher(first, second)::matches, List.of());
-        assertPlan("SELECT c2 * c1 FROM t", schema, operandMatcher(second, first)::matches, List.of());
+        assertPlan("SELECT c1 * c2 FROM t", schema, operandMatcher(first, second)::matches);
+        assertPlan("SELECT c2 * c1 FROM t", schema, operandMatcher(second, first)::matches);
     }
 
     //Have the following casts for modulo operation:
@@ -107,8 +106,8 @@ public class NumericBinaryOperationsTypeCoercionTest extends BaseTypeCoercionTes
     ) throws Exception {
         IgniteSchema schema = createSchemaWithTwoColumnTable(typePair.first(), typePair.second());
 
-        assertPlan("SELECT c1 % c2 FROM t", schema, operandMatcher(firstOperandMatcher, secondOperandMatcher)::matches, List.of());
-        assertPlan("SELECT c2 % c1 FROM t", schema, operandMatcher(secondOperandMatcher, firstOperandMatcher)::matches, List.of());
+        assertPlan("SELECT c1 % c2 FROM t", schema, operandMatcher(firstOperandMatcher, secondOperandMatcher)::matches);
+        assertPlan("SELECT c2 % c1 FROM t", schema, operandMatcher(secondOperandMatcher, firstOperandMatcher)::matches);
     }
 
     /**

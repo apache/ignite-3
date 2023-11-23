@@ -39,10 +39,8 @@ import java.util.BitSet;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
@@ -106,7 +104,6 @@ import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NumberNativeType;
 import org.apache.ignite.internal.type.TemporalNativeType;
 import org.apache.ignite.internal.type.VarlenNativeType;
-import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.codehaus.commons.compiler.CompilerFactoryFactory;
 import org.codehaus.commons.compiler.IClassBodyEvaluator;
@@ -311,35 +308,6 @@ public final class Commons {
      */
     public static PlanningContext context(Context ctx) {
         return Objects.requireNonNull(ctx.unwrap(PlanningContext.class));
-    }
-
-    /**
-     * ParametersMap.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     *
-     * @param params Parameters.
-     * @return Parameters map.
-     */
-    public static Map<String, Object> parametersMap(@Nullable Object[] params) {
-        HashMap<String, Object> res = new HashMap<>();
-
-        return params != null ? populateParameters(res, params) : res;
-    }
-
-    /**
-     * Populates a provided map with given parameters.
-     *
-     * @param dst    Map to populate.
-     * @param params Parameters.
-     * @return Parameters map.
-     */
-    public static Map<String, Object> populateParameters(Map<String, Object> dst, @Nullable Object[] params) {
-        if (!ArrayUtils.nullOrEmpty(params)) {
-            for (int i = 0; i < params.length; i++) {
-                dst.put("?" + i, params[i]);
-            }
-        }
-        return dst;
     }
 
     /**

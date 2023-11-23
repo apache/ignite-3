@@ -51,10 +51,10 @@ import org.apache.calcite.tools.Frameworks;
 import org.apache.ignite.internal.sql.engine.QueryCancel;
 import org.apache.ignite.internal.sql.engine.QueryPrefetchCallback;
 import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCostFactory;
+import org.apache.ignite.internal.sql.engine.prepare.DynamicParameters;
 import org.apache.ignite.internal.sql.engine.rex.IgniteRexBuilder;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
-import org.apache.ignite.internal.util.ArrayUtils;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -138,7 +138,7 @@ public final class BaseQueryContext implements Context {
 
     private final UUID queryId;
 
-    private final Object[] parameters;
+    private final DynamicParameters parameters;
 
     private final QueryPrefetchCallback prefetchCallback;
 
@@ -151,7 +151,7 @@ public final class BaseQueryContext implements Context {
             UUID queryId,
             FrameworkConfig cfg,
             QueryCancel cancel,
-            Object[] parameters,
+            DynamicParameters parameters,
             QueryPrefetchCallback prefetchCallback
     ) {
         this.parentCtx = Contexts.chain(cfg.getContext());
@@ -182,7 +182,7 @@ public final class BaseQueryContext implements Context {
         return queryId;
     }
 
-    public Object[] parameters() {
+    public DynamicParameters parameters() {
         return parameters;
     }
 
@@ -244,7 +244,7 @@ public final class BaseQueryContext implements Context {
 
         private UUID queryId;
 
-        private Object[] parameters = ArrayUtils.OBJECT_EMPTY_ARRAY;
+        private DynamicParameters parameters = DynamicParameters.builder().build();
 
         private QueryPrefetchCallback prefetchCallback;
 
@@ -269,6 +269,11 @@ public final class BaseQueryContext implements Context {
         }
 
         public Builder parameters(Object... parameters) {
+            DynamicParameters dynamicParameters = DynamicParameters.of(Objects.requireNonNull(parameters));
+            return parameters(dynamicParameters);
+        }
+
+        public Builder parameters(DynamicParameters parameters) {
             this.parameters = Objects.requireNonNull(parameters);
             return this;
         }
