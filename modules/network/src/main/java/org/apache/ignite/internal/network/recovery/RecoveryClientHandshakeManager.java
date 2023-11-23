@@ -75,8 +75,8 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
     /** Connection id. */
     private final short connectionId;
 
-    /** Handshake completion future. */
-    private final CompletableFuture<NettySender> localHandshakeCompleteFuture = new CompletableFuture<>();
+    /** Handshake completion future corresponding to the current handshake. */
+    private final CompletableFuture<NettySender> outgoingHandshakeCompleteFuture = new CompletableFuture<>();
 
     /**
      * Master future used to complete the handshake either with the results of this handshake of the competing one
@@ -128,12 +128,12 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
         this.staleIdDetector = staleIdDetector;
         this.stopping = stopping;
 
-        localHandshakeCompleteFuture.whenComplete((nettySender, throwable) -> {
+        outgoingHandshakeCompleteFuture.whenComplete((nettySender, throwable) -> {
             if (throwable != null) {
                 releaseResources();
 
                 // Complete the master future if it has not yet been completed by the competitor.
-                masterHandshakeCompleteFuture.complete(localHandshakeCompleteFuture);
+                masterHandshakeCompleteFuture.complete(outgoingHandshakeCompleteFuture);
 
                 return;
             }
@@ -233,7 +233,7 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
                 connectionId
         );
 
-        while (!descriptor.acquire(ctx, localHandshakeCompleteFuture)) {
+        while (!descriptor.acquire(ctx, outgoingHandshakeCompleteFuture)) {
             // Don't use the tie-braking logic as this handshake attempt is late: the competitor has already acquired
             // recovery descriptors on both sides, so this handshake attempt must fail regardless of the Tie Breaker's opinion.
             if (LOG.isDebugEnabled()) {
@@ -259,7 +259,7 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
 
     private void completeMasterFutureWithCompetitorHandshakeFuture(DescriptorAcquiry competitorAcquiry) {
         masterHandshakeCompleteFuture.complete(competitorAcquiry.handshakeCompleteFuture());
-        localHandshakeCompleteFuture.completeExceptionally(
+        outgoingHandshakeCompleteFuture.completeExceptionally(
                 new HandshakeException("Stepping aside to allow an incoming handshake from " + remoteConsistentId + " to finish.")
         );
     }
@@ -297,7 +297,7 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
         if (msg.reason() == HandshakeRejectionReason.CLINCH) {
             giveUpClinch();
         } else {
-            localHandshakeCompleteFuture.completeExceptionally(new HandshakeException(msg.message()));
+            outgoingHandshakeCompleteFuture.completeExceptionally(new HandshakeException(msg.message()));
         }
 
         if (!ignorable) {
@@ -329,7 +329,7 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
         } else {
             // The competitor is not at the lock yet. Maybe it will arrive soon, maybe it will never arrive.
             // The safest thing is to just retry the whole handshake procedure.
-            localHandshakeCompleteFuture.completeExceptionally(new ChannelAlreadyExistsException(remoteConsistentId));
+            outgoingHandshakeCompleteFuture.completeExceptionally(new ChannelAlreadyExistsException(remoteConsistentId));
         }
     }
 
@@ -338,11 +338,11 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
 
         NettyUtils.toCompletableFuture(sendFuture).whenComplete((unused, throwable) -> {
             if (throwable != null) {
-                localHandshakeCompleteFuture.completeExceptionally(
+                outgoingHandshakeCompleteFuture.completeExceptionally(
                         new HandshakeException("Failed to send handshake rejected message: " + throwable.getMessage(), throwable)
                 );
             } else {
-                localHandshakeCompleteFuture.completeExceptionally(new HandshakeException(reason));
+                outgoingHandshakeCompleteFuture.completeExceptionally(new HandshakeException(reason));
             }
         });
     }
@@ -350,7 +350,7 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<NettySender> localHandshakeFuture() {
-        return localHandshakeCompleteFuture;
+        return outgoingHandshakeCompleteFuture;
     }
 
     /** {@inheritDoc} */
@@ -373,7 +373,7 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
 
         NettyUtils.toCompletableFuture(sendFuture).whenComplete((unused, throwable) -> {
             if (throwable != null) {
-                localHandshakeCompleteFuture.completeExceptionally(
+                outgoingHandshakeCompleteFuture.completeExceptionally(
                         new HandshakeException("Failed to send handshake response: " + throwable.getMessage(), throwable)
                 );
             }
@@ -397,7 +397,7 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
         this.ctx.pipeline().remove(this.handler);
 
         // Complete the master future with the local future of the current handshake as there was no competitor (or we won the competition).
-        masterHandshakeCompleteFuture.complete(localHandshakeCompleteFuture);
-        localHandshakeCompleteFuture.complete(new NettySender(channel, remoteLaunchId.toString(), remoteConsistentId, connectionId));
+        masterHandshakeCompleteFuture.complete(outgoingHandshakeCompleteFuture);
+        outgoingHandshakeCompleteFuture.complete(new NettySender(channel, remoteLaunchId.toString(), remoteConsistentId, connectionId));
     }
 }
