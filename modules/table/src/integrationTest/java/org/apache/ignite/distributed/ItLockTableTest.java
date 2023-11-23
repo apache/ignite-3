@@ -1,5 +1,6 @@
 package org.apache.ignite.distributed;
 
+import static org.apache.ignite.internal.replicator.ReplicaManager.DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -29,6 +30,7 @@ import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.raft.jraft.test.TestUtils;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
@@ -99,9 +101,16 @@ public class ItLockTableTest extends IgniteAbstractTest {
                 timestampTracker
         ) {
             @Override
-            protected TxManagerImpl newTxManager(ReplicaService replicaSvc, HybridClock clock, TransactionIdGenerator generator,
-                    ClusterNode node, PlacementDriver placementDriver) {
+            protected TxManagerImpl newTxManager(
+                    ClusterService clusterService,
+                    ReplicaService replicaSvc,
+                    HybridClock clock,
+                    TransactionIdGenerator generator,
+                    ClusterNode node,
+                    PlacementDriver placementDriver
+            ) {
                 return new TxManagerImpl(
+                        clusterService,
                         replicaSvc,
                         new HeapLockManager(
                                 DeadlockPreventionPolicy.NO_OP,
@@ -110,8 +119,8 @@ public class ItLockTableTest extends IgniteAbstractTest {
                                 new HeapUnboundedLockManager()),
                         clock,
                         generator,
-                        node::id,
-                        placementDriver
+                        placementDriver,
+                        () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS
                 );
             }
         };
