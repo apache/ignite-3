@@ -301,7 +301,6 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
         }
 
         if (!ignorable) {
-            // TODO: IGNITE-16899 Perhaps we need to fail the node by FailureHandler
             failureHandler.handleFailure(new IgniteException("Handshake rejected by server: " + msg.message()));
         }
     }
