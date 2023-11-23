@@ -240,7 +240,7 @@ public abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstr
 
         CompletableFuture<Set<String>> getMetaStorageLearners() {
             return metaStorageManager
-                    .metaStorageServiceFuture()
+                    .metaStorageService()
                     .thenApply(MetaStorageServiceImpl::raftGroupService)
                     .thenCompose(service -> service.refreshMembers(false).thenApply(v -> service.learners()))
                     .thenApply(learners -> learners.stream().map(Peer::consistentId).collect(toSet()));
@@ -623,7 +623,7 @@ public abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstr
     }
 
     private RaftGroupService getMetastorageService(Node node) {
-        CompletableFuture<RaftGroupService> future = node.metaStorageManager.metaStorageServiceFuture()
+        CompletableFuture<RaftGroupService> future = node.metaStorageManager.metaStorageService()
                 .thenApply(MetaStorageServiceImpl::raftGroupService);
 
         assertThat(future, willCompleteSuccessfully());
