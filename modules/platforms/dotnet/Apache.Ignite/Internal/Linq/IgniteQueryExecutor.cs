@@ -25,7 +25,7 @@ using System.Threading.Tasks;
 using Common;
 using Ignite.Sql;
 using Ignite.Transactions;
-using Log;
+using Microsoft.Extensions.Logging;
 using Remotion.Linq;
 using Remotion.Linq.Clauses.ResultOperators;
 using Sql;
@@ -38,7 +38,7 @@ internal sealed class IgniteQueryExecutor : IQueryExecutor
     private readonly Sql _sql;
     private readonly ITransaction? _transaction;
     private readonly QueryableOptions? _options;
-    private readonly IIgniteLogger? _logger;
+    private readonly ILogger _logger;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="IgniteQueryExecutor" /> class.
@@ -52,7 +52,7 @@ internal sealed class IgniteQueryExecutor : IQueryExecutor
         _sql = sql;
         _transaction = transaction;
         _options = options;
-        _logger = configuration.LoggerFactory.GetLogger(GetType());
+        _logger = configuration.LoggerFactory.CreateLogger<IgniteQueryExecutor>();
     }
 
     /// <summary>
