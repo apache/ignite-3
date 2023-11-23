@@ -21,12 +21,9 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.Consumer;
 import java.util.function.Function;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRowConverter;
@@ -66,10 +63,6 @@ public class FakeIgniteTables implements IgniteTablesInternal {
     private final ConcurrentHashMap<String, TableViewInternal> tables = new ConcurrentHashMap<>();
 
     private final ConcurrentHashMap<Integer, TableViewInternal> tablesById = new ConcurrentHashMap<>();
-
-    private final CopyOnWriteArrayList<Consumer<IgniteTablesInternal>> assignmentsChangeListeners = new CopyOnWriteArrayList<>();
-
-    private volatile List<String> partitionAssignments = null;
 
     private final AtomicInteger nextTableId = new AtomicInteger(1);
 
@@ -167,41 +160,6 @@ public class FakeIgniteTables implements IgniteTablesInternal {
     @Override
     public CompletableFuture<TableViewInternal> tableViewAsync(String name) {
         return completedFuture(tableView(name));
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public CompletableFuture<List<String>> assignmentsAsync(int tableId) {
-        return completedFuture(partitionAssignments);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void addAssignmentsChangeListener(Consumer<IgniteTablesInternal> listener) {
-        Objects.requireNonNull(listener);
-
-        assignmentsChangeListeners.add(listener);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public boolean removeAssignmentsChangeListener(Consumer<IgniteTablesInternal> listener) {
-        Objects.requireNonNull(listener);
-
-        return assignmentsChangeListeners.remove(listener);
-    }
-
-    /**
-     * Sets partition assignments.
-     *
-     * @param assignments Assignments.
-     */
-    public void setPartitionAssignments(List<String> assignments) {
-        partitionAssignments = assignments;
-
-        for (var listener : assignmentsChangeListeners) {
-            listener.accept(this);
-        }
     }
 
     private TableViewInternal getNewTable(String name, int id) {

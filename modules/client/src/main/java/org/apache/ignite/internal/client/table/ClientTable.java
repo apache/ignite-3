@@ -38,6 +38,7 @@ import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.proto.ColumnTypeConverter;
 import org.apache.ignite.internal.client.tx.ClientTransaction;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.marshaller.UnmappedColumnsException;
@@ -73,9 +74,7 @@ public class ClientTable implements Table {
 
     private final Object partitionAssignmentLock = new Object();
 
-    private volatile CompletableFuture<List<String>> partitionAssignment = null;
-
-    private volatile long partitionAssignmentVersion = -1;
+    private volatile PartitionAssignment partitionAssignment = null;
 
     /**
      * Constructor.
@@ -520,39 +519,49 @@ public class ClientTable implements Table {
         }
     }
 
-    synchronized CompletableFuture<List<String>> getPartitionAssignment() {
-        long currentVersion = ch.partitionAssignmentVersion();
+    private boolean isPartitionAssignmentValid(long timestamp) {
+        return partitionAssignment != null
+                && partitionAssignment.timestamp >= timestamp
+                && !partitionAssignment.partitionsFut.isCompletedExceptionally();
+    }
 
-        if (partitionAssignmentVersion == currentVersion
-                && partitionAssignment != null
-                && !partitionAssignment.isCompletedExceptionally()) {
-            return partitionAssignment;
+    synchronized CompletableFuture<List<String>> getPartitionAssignment() {
+        long timestamp = ch.partitionAssignmentTimestamp();
+
+        if (isPartitionAssignmentValid(timestamp)) {
+            return partitionAssignment.partitionsFut;
         }
 
         synchronized (partitionAssignmentLock) {
-            if (partitionAssignmentVersion == currentVersion
-                    && partitionAssignment != null
-                    && !partitionAssignment.isCompletedExceptionally()) {
-                return partitionAssignment;
+            if (isPartitionAssignmentValid(timestamp)) {
+                return partitionAssignment.partitionsFut;
             }
 
-            partitionAssignmentVersion = currentVersion;
-
-            // Load currentVersion or newer.
-            partitionAssignment = ch.serviceAsync(ClientOp.PARTITION_ASSIGNMENT_GET,
-                    w -> w.out().packInt(id),
+            partitionAssignment = new PartitionAssignment();
+            partitionAssignment.timestamp = timestamp;
+            partitionAssignment.partitionsFut = ch.serviceAsync(ClientOp.PARTITION_ASSIGNMENT_GET,
+                    w -> {
+                        w.out().packInt(id);
+                        w.out().packLong(timestamp);
+                    },
                     r -> {
                         int cnt = r.in().unpackInt();
-                        List<String> res = new ArrayList<>(cnt);
+                        if (cnt == 0) {
+                            return List.of();
+                        }
 
+                        // Returned timestamp can be newer than requested.
+                        partitionAssignment.timestamp = r.in().unpackLong();
+
+                        List<String> res = new ArrayList<>(cnt);
                         for (int i = 0; i < cnt; i++) {
-                            res.add(r.in().unpackString());
+                            res.add(r.in().tryUnpackNil() ? null : r.in().unpackString());
                         }
 
                         return res;
                     });
 
-            return partitionAssignment;
+            return partitionAssignment.partitionsFut;
         }
     }
 
@@ -582,5 +591,11 @@ public class ClientTable implements Table {
         }
 
         return partitions.get(Math.abs(hash % partitions.size()));
+    }
+
+    private static class PartitionAssignment {
+        volatile long timestamp = HybridTimestamp.NULL_HYBRID_TIMESTAMP;
+
+        CompletableFuture<List<String>> partitionsFut;
     }
 }
