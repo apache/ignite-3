@@ -1473,7 +1473,7 @@ public class InternalTableImpl implements InternalTable {
     }
 
     /** {@inheritDoc} */
-    // TODO: https://issues.apache.org/jira/browse/IGNITE-20701 The method should be removed
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-20933 The method should be removed
     @Override
     public List<String> assignments() {
         awaitLeaderInitialization();
