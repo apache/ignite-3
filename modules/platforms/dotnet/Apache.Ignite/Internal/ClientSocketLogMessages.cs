@@ -47,7 +47,14 @@ public static partial class ClientSocketLogMessages
         this ILogger logger, Exception ex, EndPoint? endpoint, string message);
 
     [LoggerMessage(
-        Message = "Server-side IdleTimeout is not set, using configured IgniteClientConfiguration.HeartbeatInterval: {{Interval}}",
+        Message = "Server-side IdleTimeout is not set, using configured IgniteClientConfiguration.HeartbeatInterval: {Interval}",
         Level = LogLevel.Information)]
     internal static partial void LogServerSizeIdleTimeoutNotSetInfo(this ILogger logger, TimeSpan interval);
+
+    [LoggerMessage(
+        Message = "Server-side IdleTimeout is {ServerIdleTimeout}, " +
+                  "using configured IgniteClientConfiguration.HeartbeatInterval: {ConfiguredInterval}",
+        Level = LogLevel.Information)]
+    internal static partial void LogServerSizeIdleTimeoutIgnoredInfo(
+        this ILogger logger, TimeSpan serverIdleTimeout, TimeSpan configuredInterval);
 }
