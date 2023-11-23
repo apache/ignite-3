@@ -38,11 +38,11 @@ import java.util.Objects;
 import java.util.Queue;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.function.LongFunction;
 import java.util.function.Supplier;
@@ -98,6 +98,8 @@ import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
 import org.apache.ignite.internal.sql.engine.sql.ParserService;
 import org.apache.ignite.internal.sql.engine.sql.ParserServiceImpl;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
+import org.apache.ignite.internal.sql.engine.tx.QueryTransactionHandler;
+import org.apache.ignite.internal.sql.engine.tx.QueryTransactionWrapper;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.sql.engine.util.cache.CacheFactory;
@@ -547,7 +549,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                 })
                 .whenComplete((res, ex) -> {
                     if (ex != null) {
-                        txWrapper.rollback();
+                        txWrapper.rollback(ex);
                     }
                 });
     }
@@ -655,7 +657,8 @@ public class SqlQueryProcessor implements QueryProcessor {
     private class MultiStatementHandler {
         private final String schemaName;
         private final QueryTransactionHandler transactionHandler;
-        private final Queue<ScriptStatementParameters> statements;
+        private final ScriptStatementParameters[] statements;
+        private final AtomicInteger statementIndex = new AtomicInteger();
 
         MultiStatementHandler(
                 String schemaName,
@@ -665,13 +668,11 @@ public class SqlQueryProcessor implements QueryProcessor {
         ) {
             this.schemaName = schemaName;
             this.transactionHandler = transactionHandler;
-            this.statements = prepareStatementsQueue(parsedResults, params);
+            this.statements = prepareStatements(parsedResults, params);
         }
 
-        /**
-         * Returns a queue. each element of which represents parameters required to execute a single statement of the script.
-         */
-        private Queue<ScriptStatementParameters> prepareStatementsQueue(List<ParsedResult> parsedResults0, Object[] params) {
+        /** Returns an array. each element of which represents parameters required to execute a single statement of the script. */
+        private ScriptStatementParameters[] prepareStatements(List<ParsedResult> parsedResults0, Object[] params) {
             assert !parsedResults0.isEmpty();
 
             int paramsCount = parsedResults0.stream().mapToInt(ParsedResult::dynamicParamsCount).sum();
@@ -692,13 +693,11 @@ public class SqlQueryProcessor implements QueryProcessor {
                         i < parsedResults0.size() ? results[i].cursorFuture : null);
             }
 
-            return new ArrayBlockingQueue<>(results.length, false, List.of(results));
+            return results;
         }
 
         CompletableFuture<AsyncSqlCursor<List<Object>>> processNext() {
-            ScriptStatementParameters parameters = statements.poll();
-
-            assert parameters != null;
+            ScriptStatementParameters parameters = nextStatementParameters();
 
             CompletableFuture<AsyncSqlCursor<List<Object>>> cursorFuture = parameters.cursorFuture;
 
@@ -719,8 +718,10 @@ public class SqlQueryProcessor implements QueryProcessor {
                         .thenCompose(cursor -> txWrapper.commitImplicit()
                                 .thenApply(ignore -> {
                                     if (parameters.nextStatementFuture == null) {
-                                        // Rollback a pending transaction, if any.
-                                        txWrapper.rollback();
+                                        // Try rollback script managed transaction, if any.
+                                        txWrapper.rollback(
+                                                new SqlException(EXECUTION_CANCELLED_ERR, "Transaction commit statement missing.")
+                                        );
                                     } else {
                                         taskExecutor.execute(this::processNext);
                                     }
@@ -737,6 +738,15 @@ public class SqlQueryProcessor implements QueryProcessor {
             }
 
             return cursorFuture;
+        }
+
+        /** Gets the parameters for the next statement. */
+        private ScriptStatementParameters nextStatementParameters() {
+            int idx = statementIndex.getAndIncrement();
+
+            assert idx < statements.length : "idx=" + idx + ", total=" + statements.length;
+
+            return statements[idx];
         }
 
         private CompletableFuture<AsyncSqlCursor<List<Object>>> executeStatement(
@@ -773,14 +783,28 @@ public class SqlQueryProcessor implements QueryProcessor {
                 CompletableFuture<AsyncSqlCursor<List<Object>>> fut = parameters.cursorFuture;
 
                 if (fut.isDone()) {
+                    tryCloseCursor(fut);
+
                     continue;
                 }
 
-                fut.completeExceptionally(new SqlException(
+                if (!fut.completeExceptionally(new SqlException(
                         EXECUTION_CANCELLED_ERR,
                         "The script execution was canceled due to an error in the previous statement.",
                         cause
-                ));
+                ))) {
+                    tryCloseCursor(fut);
+                }
+            }
+        }
+
+        private void tryCloseCursor(CompletableFuture<AsyncSqlCursor<List<Object>>> fut) {
+            assert fut.isDone();
+
+            try {
+                fut.get().closeAsync();
+            } catch (Exception ignore) {
+                // No-op.
             }
         }
 

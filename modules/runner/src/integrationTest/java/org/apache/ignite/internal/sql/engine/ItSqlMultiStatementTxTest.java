@@ -156,32 +156,6 @@ public class ItSqlMultiStatementTxTest extends BaseSqlMultiStatementTest {
     }
 
     @Test
-    void readMoreRowsThanCanBePrefetchedAndVerifyRollback() {
-        String query = "START TRANSACTION;"
-                + "INSERT INTO big (id) values (0);"
-                + "SELECT id FROM big;";
-
-        AsyncSqlCursor<List<Object>> startTxCursor = runScript(query);
-
-        AsyncSqlCursor<List<Object>> insCursor = await(startTxCursor.nextResult());
-
-        AsyncSqlCursor<List<Object>> selectCursor = await(insCursor.nextResult());
-        assertNotNull(selectCursor);
-        assertFalse(selectCursor.hasNextResult());
-        assertEquals(1, txManager().pending());
-
-        BatchedResult<List<Object>> res = await(
-                selectCursor.requestNextAsync(BIG_TABLE_ROWS_COUNT * 2)); // Cursor must close implicitly.
-
-        assertNotNull(res);
-        assertEquals(BIG_TABLE_ROWS_COUNT + 1, res.items().size());
-
-        verifyFinishedTxCount(1);
-
-        assertQuery("SELECT COUNT(*) FROM big WHERE id=0").returns(0L).check();
-    }
-
-    @Test
     void openedScriptTransactionRollsBackImplicitly() {
         {
             fetchAllCursors(runScript("START TRANSACTION;"));

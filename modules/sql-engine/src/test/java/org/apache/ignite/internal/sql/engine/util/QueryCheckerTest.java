@@ -25,7 +25,6 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursorImpl;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
-import org.apache.ignite.internal.sql.engine.QueryImplicitTransactionWrapper;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.framework.DataProvider;
 import org.apache.ignite.internal.sql.engine.framework.NoOpTransaction;
@@ -34,6 +33,7 @@ import org.apache.ignite.internal.sql.engine.framework.TestCluster;
 import org.apache.ignite.internal.sql.engine.framework.TestNode;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
 import org.apache.ignite.internal.sql.engine.property.SqlProperties;
+import org.apache.ignite.internal.sql.engine.tx.ImplicitTransactionWrapper;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.type.NativeTypes;
@@ -285,7 +285,7 @@ public class QueryCheckerTest extends BaseIgniteAbstractTest {
             AsyncSqlCursor<List<Object>> sqlCursor = new AsyncSqlCursorImpl<>(
                     type,
                     plan.metadata(),
-                    new QueryImplicitTransactionWrapper(new NoOpTransaction("test"), false),
+                    new ImplicitTransactionWrapper(new NoOpTransaction("test"), false),
                     dataCursor,
                     () -> {}
             );

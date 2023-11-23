@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine;
+package org.apache.ignite.internal.sql.engine.tx;
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.sql.engine.util.Commons;
@@ -24,32 +24,36 @@ import org.apache.ignite.internal.tx.InternalTransaction;
 /**
  * Wrapper for the transaction that encapsulates the management of an implicit transaction.
  */
-public class QueryImplicitTransactionWrapper implements QueryTransactionWrapper {
-    private final boolean implicit;
+public interface QueryTransactionWrapper {
+    /** Unwrap transaction. */
+    InternalTransaction unwrap();
 
-    private final InternalTransaction transaction;
+    /** Commits an implicit transaction, if one has been started. */
+    CompletableFuture<Void> commitImplicit();
 
-    public QueryImplicitTransactionWrapper(InternalTransaction transaction, boolean implicit) {
-        this.transaction = transaction;
-        this.implicit = implicit;
+    /** Rolls back a transaction. */
+    CompletableFuture<Void> rollback(Throwable cause);
+
+    /** Action to perform when data cursor is closed. */
+    default CompletableFuture<Void> onCursorClose() {
+        return commitImplicit();
     }
 
-    @Override
-    public InternalTransaction unwrap() {
-        return transaction;
-    }
-
-    @Override
-    public CompletableFuture<Void> commitImplicit() {
-        if (implicit) {
-            return transaction.commitAsync();
+    /** No-op transaction wrapper. */
+    QueryTransactionWrapper NOOP_TX_WRAPPER = new QueryTransactionWrapper() {
+        @Override
+        public InternalTransaction unwrap() {
+            return null;
         }
 
-        return Commons.completedFuture();
-    }
+        @Override
+        public CompletableFuture<Void> commitImplicit() {
+            return Commons.completedFuture();
+        }
 
-    @Override
-    public CompletableFuture<Void> rollback() {
-        return transaction.rollbackAsync();
-    }
+        @Override
+        public CompletableFuture<Void> rollback(Throwable cause) {
+            return Commons.completedFuture();
+        }
+    };
 }

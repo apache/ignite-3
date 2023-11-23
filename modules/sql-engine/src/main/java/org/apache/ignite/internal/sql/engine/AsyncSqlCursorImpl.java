@@ -23,6 +23,8 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 import org.apache.ignite.internal.lang.SqlExceptionMapperUtil;
+import org.apache.ignite.internal.sql.engine.tx.ImplicitTransactionWrapper;
+import org.apache.ignite.internal.sql.engine.tx.QueryTransactionWrapper;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.util.AsyncCursor;
 import org.apache.ignite.internal.util.ExceptionUtils;
@@ -57,7 +59,7 @@ public class AsyncSqlCursorImpl<T> implements AsyncSqlCursor<T> {
     public AsyncSqlCursorImpl(
             SqlQueryType queryType,
             ResultSetMetadata meta,
-            QueryImplicitTransactionWrapper txWrapper,
+            ImplicitTransactionWrapper txWrapper,
             AsyncCursor<T> dataCursor,
             Runnable onClose
     ) {
@@ -116,7 +118,7 @@ public class AsyncSqlCursorImpl<T> implements AsyncSqlCursor<T> {
                 })
                 .exceptionally(rootEx -> {
                     // Always rollback a transaction in case of an error.
-                    return txWrapper.rollback()
+                    return txWrapper.rollback(rootEx)
                             .handle((none, rollbackEx) -> {
                                 Throwable wrapped = wrapIfNecessary(rootEx);
 
