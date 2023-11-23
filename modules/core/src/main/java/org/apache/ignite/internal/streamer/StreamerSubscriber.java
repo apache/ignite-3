@@ -159,6 +159,7 @@ public class StreamerSubscriber<T, P> implements Subscriber<T> {
     private void enlistBatch(P partition, Collection<T> batch) {
         int batchSize = batch.size();
         assert batchSize > 0 : "Batch size must be positive.";
+        assert partition != null : "Partition must not be null.";
 
         inFlightItemCount.addAndGet(batchSize);
         metrics.streamerBatchesActiveAdd(1);

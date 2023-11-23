@@ -18,42 +18,44 @@
 package org.apache.ignite.client.handler.requests.table;
 
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.client.handler.ClientPrimaryReplicaTracker;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.lang.NodeStoppingException;
-import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.lang.IgniteException;
+import org.jetbrains.annotations.Nullable;
 
 /**
- * Client partition assignment retrieval request.
+ * Client partition primary replicas retrieval request.
  */
-public class ClientTablePartitionAssignmentGetRequest {
+public class ClientTablePartitionPrimaryReplicasGetRequest {
     /**
      * Processes the request.
      *
-     * @param in     Unpacker.
-     * @param out    Packer.
-     * @param tables Ignite tables.
+     * @param in      Unpacker.
+     * @param out     Packer.
+     * @param tracker Replica tracker.
      * @return Future.
      * @throws IgniteException When schema registry is no initialized.
      */
-    public static CompletableFuture<Void> process(
+    public static @Nullable CompletableFuture<Void> process(
             ClientMessageUnpacker in,
             ClientMessagePacker out,
-            IgniteTablesInternal tables
+            ClientPrimaryReplicaTracker tracker
     ) throws NodeStoppingException {
         int tableId = in.unpackInt();
+        long timestamp = in.unpackLong();
 
-        return tables.assignmentsAsync(tableId).thenAccept(assignment -> {
-            if (assignment == null) {
+        return tracker.primaryReplicasAsync(tableId, timestamp).thenAccept(primaryReplicas -> {
+            if (primaryReplicas == null) {
                 out.packInt(0);
-                return;
-            }
+            } else {
+                out.packInt(primaryReplicas.nodeNames().size());
+                out.packLong(primaryReplicas.timestamp());
 
-            out.packInt(assignment.size());
-
-            for (String leaderNodeId : assignment) {
-                out.packString(leaderNodeId);
+                for (String nodeName : primaryReplicas.nodeNames()) {
+                    out.packString(nodeName);
+                }
             }
         });
     }

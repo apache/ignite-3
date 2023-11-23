@@ -19,6 +19,7 @@ namespace Apache.Ignite.Tests
 {
     using System;
     using System.Threading.Tasks;
+    using Log;
     using NUnit.Framework;
 
     /// <summary>
@@ -29,7 +30,7 @@ namespace Apache.Ignite.Tests
         [Test]
         public async Task TestServerDoesNotDisconnectIdleClientWithHeartbeats()
         {
-            var logger = new ListLogger();
+            var logger = new ListLogger(enabledLevels: new[] { LogLevel.Error, LogLevel.Warn });
 
             var cfg = new IgniteClientConfiguration
             {

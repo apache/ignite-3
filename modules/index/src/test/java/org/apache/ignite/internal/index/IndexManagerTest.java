@@ -61,6 +61,7 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
+import org.apache.ignite.internal.metastorage.impl.MetaStorageService;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.schema.SchemaManager;
@@ -232,7 +233,9 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
     }
 
     private CompletableFuture<MvTableStorage> getMvTableStorageLatestRevision(int tableId) {
-        return metaStorageManager.getService().currentRevision().thenCompose(latestRevision -> getMvTableStorage(latestRevision, tableId));
+        return metaStorageManager.metaStorageService()
+                .thenCompose(MetaStorageService::currentRevision)
+                .thenCompose(latestRevision -> getMvTableStorage(latestRevision, tableId));
     }
 
     private CompletableFuture<MvTableStorage> getMvTableStorage(long causalityToken, int tableId) {

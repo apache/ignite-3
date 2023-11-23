@@ -19,6 +19,7 @@ package org.apache.ignite.internal.index;
 
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_ZONE_NAME;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.pkIndexName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -42,6 +43,7 @@ import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
+import org.apache.ignite.internal.metastorage.impl.MetaStorageService;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.placementdriver.leases.Lease;
 import org.apache.ignite.internal.replicator.TablePartitionId;
@@ -61,6 +63,8 @@ class TestIndexManagementUtils {
     static final String COLUMN_NAME = "test-column";
 
     static final String INDEX_NAME = "test-index";
+
+    static final String PK_INDEX_NAME = pkIndexName(TABLE_NAME);
 
     static final ClusterNode LOCAL_NODE = new ClusterNodeImpl(NODE_ID, NODE_NAME, mock(NetworkAddress.class));
 
@@ -102,7 +106,8 @@ class TestIndexManagementUtils {
     static void awaitTillGlobalMetastoreRevisionIsApplied(MetaStorageManagerImpl metaStorageManager) throws Exception {
         assertTrue(
                 waitForCondition(() -> {
-                    CompletableFuture<Long> currentRevisionFuture = metaStorageManager.getService().currentRevision();
+                    CompletableFuture<Long> currentRevisionFuture = metaStorageManager.metaStorageService()
+                            .thenCompose(MetaStorageService::currentRevision);
 
                     assertThat(currentRevisionFuture, willCompleteSuccessfully());
 

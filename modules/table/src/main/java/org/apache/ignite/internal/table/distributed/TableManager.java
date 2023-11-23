@@ -52,12 +52,10 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -307,9 +305,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
     /** Partitions storage path. */
     private final Path storagePath;
-
-    /** Assignment change event listeners. */
-    private final CopyOnWriteArrayList<Consumer<IgniteTablesInternal>> assignmentsChangeListeners = new CopyOnWriteArrayList<>();
 
     /** Incoming RAFT snapshots executor. */
     private final ExecutorService incomingSnapshotsExecutor;
@@ -1043,34 +1038,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         }
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public CompletableFuture<List<String>> assignmentsAsync(int tableId) {
-        return tableAsync(tableId).thenApply(table -> {
-            if (table == null) {
-                return null;
-            }
-
-            return table.internalTable().assignments();
-        });
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void addAssignmentsChangeListener(Consumer<IgniteTablesInternal> listener) {
-        Objects.requireNonNull(listener);
-
-        assignmentsChangeListeners.add(listener);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public boolean removeAssignmentsChangeListener(Consumer<IgniteTablesInternal> listener) {
-        Objects.requireNonNull(listener);
-
-        return assignmentsChangeListeners.remove(listener);
-    }
-
     /**
      * Creates local structures for a table.
      *
@@ -1108,13 +1075,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     zoneDescriptor,
                     assignmentsFuture,
                     catalogVersion
-            ).whenComplete((v, e) -> {
-                if (e == null) {
-                    for (var listener : assignmentsChangeListeners) {
-                        listener.accept(this);
-                    }
-                }
-            }).thenCompose(ignored -> writeTableAssignmentsToMetastore(tableId, assignmentsFuture));
+            ).thenCompose(ignored -> writeTableAssignmentsToMetastore(tableId, assignmentsFuture));
         });
     }
 

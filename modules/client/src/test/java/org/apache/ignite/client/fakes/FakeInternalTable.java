@@ -53,6 +53,8 @@ import org.jetbrains.annotations.Nullable;
  * Fake internal table.
  */
 public class FakeInternalTable implements InternalTable {
+    public static final int PARTITIONS = 4;
+
     /** Table name. */
     private final String tableName;
 
@@ -87,7 +89,7 @@ public class FakeInternalTable implements InternalTable {
 
     @Override
     public int partitions() {
-        return 1;
+        return PARTITIONS;
     }
 
     @Override
