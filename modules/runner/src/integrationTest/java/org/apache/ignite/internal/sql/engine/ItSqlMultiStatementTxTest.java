@@ -25,6 +25,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.hasSize;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrowsExactly;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
@@ -33,7 +34,7 @@ import java.util.List;
 import org.apache.ignite.internal.sql.BaseSqlMultiStatementTest;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.tx.InternalTransaction;
-import org.apache.ignite.internal.util.AsyncCursor;
+import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
 import org.apache.ignite.sql.ExternalTransactionNotSupportedException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
@@ -47,12 +48,18 @@ import org.junit.jupiter.api.Test;
  */
 @SuppressWarnings("ThrowableNotThrown")
 public class ItSqlMultiStatementTxTest extends BaseSqlMultiStatementTest {
+    /** Default number of rows in the big table. */
+    private static final int BIG_TABLE_ROWS_COUNT = Commons.IN_BUFFER_SIZE * 6;
+
     /** Number of completed transactions before the test started. */
     private int numberOfFinishedTransactionsOnStart;
 
     @BeforeAll
     void createTable() {
         sql("CREATE TABLE test (id INT PRIMARY KEY)");
+
+        createTable("big", 1, 1);
+        sql("INSERT INTO big (id) SELECT x FROM TABLE(SYSTEM_RANGE(1, " + BIG_TABLE_ROWS_COUNT + "));");
     }
 
     @AfterEach
@@ -101,75 +108,83 @@ public class ItSqlMultiStatementTxTest extends BaseSqlMultiStatementTest {
     }
 
     @Test
-    void transactionIsClosedWhenAllCursorsClosed() throws InterruptedException {
-        int rowsCount = Commons.IN_BUFFER_SIZE * 6;
+    void readMoreRowsThanCanBePrefetchedReadOnlyTx() {
+        String query = "START TRANSACTION READ ONLY;"
+                + "SELECT 1;"
+                + "SELECT id FROM big;"
+                + "COMMIT;";
 
-        createTable("big", 1, 1);
+        List<AsyncSqlCursor<List<Object>>> cursors = fetchAllCursors(runScript(query));
+        assertThat(cursors, hasSize(4));
 
-        try {
-            {
-                String query = "START TRANSACTION;"
-                        + "INSERT INTO big (id) SELECT x FROM TABLE(SYSTEM_RANGE(1, " + rowsCount + "));"
-                        + "SELECT id FROM big;"
-                        + "SELECT id FROM big;"
-                        + "COMMIT;";
+        BatchedResult<List<Object>> res = await(cursors.get(2).requestNextAsync(BIG_TABLE_ROWS_COUNT * 2));
+        assertNotNull(res);
+        assertThat(res.items(), hasSize(BIG_TABLE_ROWS_COUNT));
 
-                AsyncSqlCursor<List<Object>> cursor = runScript(query);
-
-                assertTrue(cursor.hasNextResult());
-
-                AsyncSqlCursor<List<Object>> insCursor = await(cursor.nextResult());
-                validateSingleResult(insCursor, (long) rowsCount);
-                assertTrue(insCursor.hasNextResult());
-
-                AsyncSqlCursor<List<Object>> selectCursor1 = await(insCursor.nextResult());
-                AsyncSqlCursor<List<Object>> selectCursor2 = await(selectCursor1.nextResult());
-
-                // Constant delay - to make sure that the transaction is not closed before all the results are read.
-                assertFalse(waitForCondition(() -> selectCursor2.nextResult().isDone(), 1_000));
-
-                await(selectCursor2.requestNextAsync(rowsCount));
-                await(selectCursor1.requestNextAsync(rowsCount));
-
-                selectCursor1.closeAsync();
-                selectCursor2.closeAsync();
-
-                await(selectCursor2.nextResult());
-
-                assertEquals(0, txManager().pending());
-            }
-
-            {
-                String query = "START TRANSACTION;"
-                        + "INSERT INTO big (id) values (0);"
-                        + "SELECT id FROM big;";
-
-                AsyncSqlCursor<List<Object>> startTxCursor = runScript(query);
-
-                AsyncSqlCursor<List<Object>> insCursor = await(startTxCursor.nextResult());
-
-                AsyncSqlCursor<List<Object>> selectCursor = await(insCursor.nextResult());
-                assertFalse(selectCursor.hasNextResult());
-
-                AsyncCursor.BatchedResult<List<Object>> res = await(
-                        selectCursor.requestNextAsync(rowsCount * 2)); // Cursor must close implicitly.
-
-                assertEquals(rowsCount + 1, res.items().size());
-
-                assertEquals(0, txManager().pending());
-
-                assertQuery("SELECT COUNT(*) FROM big WHERE id=0").returns(0L).check();
-            }
-        } finally {
-            sql("DROP TABLE big");
-        }
+        verifyFinishedTxCount(1);
     }
 
     @Test
-    void scriptTransactionRollsBackImplicitly() {
+    void readMoreRowsThanCanBePrefetchedReadWriteTx() {
+        String query = "START TRANSACTION;"
+                + "UPDATE big SET salary=1 WHERE id=1;"
+                + "SELECT id FROM big;"
+                + "COMMIT;";
+
+        AsyncSqlCursor<List<Object>> cursor = runScript(query);
+
+        assertTrue(cursor.hasNextResult());
+
+        AsyncSqlCursor<List<Object>> updateCursor = await(cursor.nextResult());
+        assertNotNull(updateCursor);
+        validateSingleResult(updateCursor, 1L);
+        assertTrue(updateCursor.hasNextResult());
+
+        AsyncSqlCursor<List<Object>> selectCursor = await(updateCursor.nextResult());
+        assertNotNull(selectCursor);
+
+        BatchedResult<List<Object>> res = await(
+                selectCursor.requestNextAsync(BIG_TABLE_ROWS_COUNT / 2));
+
+        assertNotNull(res);
+        assertThat(res.items(), hasSize(BIG_TABLE_ROWS_COUNT / 2));
+        assertEquals(1, txManager().pending(), "Transaction must not finished until the cursor is closed.");
+        assertFalse(selectCursor.nextResult().isDone());
+
+        await(selectCursor.requestNextAsync(BIG_TABLE_ROWS_COUNT)); // Cursor must close implicitly.
+        verifyFinishedTxCount(1);
+    }
+
+    @Test
+    void readMoreRowsThanCanBePrefetchedAndVerifyRollback() {
+        String query = "START TRANSACTION;"
+                + "INSERT INTO big (id) values (0);"
+                + "SELECT id FROM big;";
+
+        AsyncSqlCursor<List<Object>> startTxCursor = runScript(query);
+
+        AsyncSqlCursor<List<Object>> insCursor = await(startTxCursor.nextResult());
+
+        AsyncSqlCursor<List<Object>> selectCursor = await(insCursor.nextResult());
+        assertNotNull(selectCursor);
+        assertFalse(selectCursor.hasNextResult());
+        assertEquals(1, txManager().pending());
+
+        BatchedResult<List<Object>> res = await(
+                selectCursor.requestNextAsync(BIG_TABLE_ROWS_COUNT * 2)); // Cursor must close implicitly.
+
+        assertNotNull(res);
+        assertEquals(BIG_TABLE_ROWS_COUNT + 1, res.items().size());
+
+        verifyFinishedTxCount(1);
+
+        assertQuery("SELECT COUNT(*) FROM big WHERE id=0").returns(0L).check();
+    }
+
+    @Test
+    void openedScriptTransactionRollsBackImplicitly() {
         {
             fetchAllCursors(runScript("START TRANSACTION;"));
-            checkNoPendingTransactions();
             verifyFinishedTxCount(1);
         }
 
@@ -183,27 +198,25 @@ public class ItSqlMultiStatementTxTest extends BaseSqlMultiStatementTest {
 
             verifyFinishedTxCount(3);
 
-            checkNoPendingTransactions();
-
             assertQuery("select count(id) from test")
                     .returns(2L).check();
         }
     }
 
     @Test
-    void scriptTransactionRollsBackOnError() {
+    void openedScriptTransactionRollsBackOnError() {
         {
             AsyncSqlCursor<List<Object>> cursor = runScript(
-                    "START TRANSACTION;"
+                    "START TRANSACTION READ WRITE;"
                     + "INSERT INTO test VALUES(2);"
                     + "INSERT INTO test VALUES(2/0);"
+                    + "SELECT 1;"
                     + "COMMIT;"
             );
 
             assertThrowsSqlException(RUNTIME_ERR, "/ by zero", () -> fetchAllCursors(cursor));
 
             verifyFinishedTxCount(1);
-            checkNoPendingTransactions();
 
             assertQuery("select count(id) from test")
                     .returns(0L).check();
@@ -294,6 +307,8 @@ public class ItSqlMultiStatementTxTest extends BaseSqlMultiStatementTest {
             if (!success) {
                 assertEquals(expectedTotal, txManager().finished());
             }
+
+            assertEquals(0, txManager().pending());
         } catch (InterruptedException e) {
             fail("Thread has been interrupted", e);
         }
