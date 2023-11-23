@@ -27,9 +27,15 @@ internal static partial class TableLogMessages
     [LoggerMessage(Message = "Schema loaded [tableId={TableId}, schemaVersion={SchemaVersion}]", Level = LogLevel.Debug)]
     internal static partial void LogSchemaLoadedDebug(this ILogger logger, int tableId, int schemaVersion);
 
-    // _logger.Debug($"Retrying unmapped columns error [tableId={_table.Id}, schemaVersion={schema?.Version}]");
     [LoggerMessage(
         Message = "Retrying unmapped columns error [tableId={TableId}, schemaVersion={SchemaVersion}, message={Message]",
         Level = LogLevel.Debug)]
     internal static partial void LogRetryingUnmappedColumnsErrorDebug(this ILogger logger, int tableId, int? schemaVersion, string message);
+
+    [LoggerMessage(
+        Message = "Retrying SchemaVersionMismatch error [tableId={TableId}, " +
+                  "schemaVersion={SchemaVersion}, expectedSchemaVersion={ExpectedSchemaVersion}]",
+        Level = LogLevel.Debug)]
+    internal static partial void LogRetryingSchemaVersionMismatchErrorDebug(
+        this ILogger logger, int tableId, int? schemaVersion, int? expectedSchemaVersion);
 }

@@ -427,13 +427,10 @@ namespace Apache.Ignite.Internal.Table
             catch (IgniteException e) when (e.Code == ErrorGroups.Table.SchemaVersionMismatch &&
                                             schemaVersionOverride != e.GetExpectedSchemaVersion())
             {
-                if (_logger?.IsEnabled(LogLevel.Debug) == true)
-                {
-                    _logger.Debug($"Retrying SchemaVersionMismatch error [tableId={_table.Id}, schemaVersion={schema?.Version}, " +
-                                  $"expectedSchemaVersion={e.GetExpectedSchemaVersion()}]");
-                }
-
                 schemaVersionOverride = e.GetExpectedSchemaVersion();
+
+                _logger.LogRetryingSchemaVersionMismatchErrorDebug(_table.Id, schema?.Version, schemaVersionOverride);
+
                 return await DoRecordOutOpAsync(op, transaction, record, keyOnly, schemaVersionOverride).ConfigureAwait(false);
             }
             catch (Exception e) when (e.CausedByUnmappedColumns() &&
