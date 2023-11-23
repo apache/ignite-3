@@ -118,12 +118,23 @@ internal static partial class LogMessages
         EventId = 1013)]
     internal static partial void LogSendingRequestTrace(this ILogger logger, ClientOp op, IPEndPoint remoteAddress, long requestId);
 
-    // TODO: Separate methods for different errors with different codes.
     [LoggerMessage(
         Message = "{Message}",
         Level = LogLevel.Error,
         EventId = 1014)]
-    internal static partial void LogErrorMessage(this ILogger logger, Exception? ex, string message);
+    internal static partial void LogSocketIoError(this ILogger logger, Exception? ex, string message);
+
+    [LoggerMessage(
+        Message = "{Message}",
+        Level = LogLevel.Error,
+        EventId = 1015)]
+    internal static partial void LogHeartbeatError(this ILogger logger, Exception? ex, string message);
+
+    [LoggerMessage(
+        Message = "{Message}",
+        Level = LogLevel.Error,
+        EventId = 1016)]
+    internal static partial void LogUnexpectedResponseIdError(this ILogger logger, Exception? ex, string message);
 
     [LoggerMessage(
         Message = "Partition assignment change notification received [remoteAddress={RemoteAddress}, timestamp={Timestamp}",
