@@ -396,7 +396,8 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
         // Removes handshake handler from the pipeline as the handshake is finished
         this.ctx.pipeline().remove(this.handler);
 
-        // Complete the resulting future with the local future of the current handshake as there was no competitor (or we won the competition).
+        // Complete the resulting future with the local future of the current handshake as there was no competitor
+        // (or we won the competition).
         resultingHandshakeCompleteFuture.complete(outgoingHandshakeCompleteFuture);
         outgoingHandshakeCompleteFuture.complete(new NettySender(channel, remoteLaunchId.toString(), remoteConsistentId, connectionId));
     }
