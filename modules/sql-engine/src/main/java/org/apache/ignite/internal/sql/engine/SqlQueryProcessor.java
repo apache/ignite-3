@@ -547,7 +547,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                 })
                 .whenComplete((res, ex) -> {
                     if (ex != null) {
-                        txWrapper.rollback().join();
+                        txWrapper.rollback();
                     }
                 });
     }
@@ -719,7 +719,8 @@ public class SqlQueryProcessor implements QueryProcessor {
                         .thenCompose(cursor -> txWrapper.commitImplicit()
                                 .thenApply(ignore -> {
                                     if (parameters.nextStatementFuture == null) {
-                                        txWrapper.rollback().join();
+                                        // Rollback a pending transaction, if any.
+                                        txWrapper.rollback();
                                     } else {
                                         taskExecutor.execute(this::processNext);
                                     }

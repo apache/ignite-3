@@ -27,6 +27,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrowsExactly;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import java.util.List;
 import org.apache.ignite.internal.sql.BaseSqlMultiStatementTest;
@@ -60,12 +61,8 @@ public class ItSqlMultiStatementTxTest extends BaseSqlMultiStatementTest {
     }
 
     @BeforeEach
-    void saveTxCount() {
+    void saveFinishedTxCount() {
         numberOfFinishedTransactionsOnStart = txManager().finished();
-    }
-
-    void checkFinished(int expected) {
-        assertEquals(numberOfFinishedTransactionsOnStart + expected, txManager().finished());
     }
 
     @Test
@@ -78,7 +75,7 @@ public class ItSqlMultiStatementTxTest extends BaseSqlMultiStatementTest {
         validateSingleResult(cursors.get(0));
         validateSingleResult(cursors.get(1));
 
-        checkFinished(1);
+        verifyFinishedTxCount(1);
     }
 
     @Test
@@ -97,7 +94,7 @@ public class ItSqlMultiStatementTxTest extends BaseSqlMultiStatementTest {
                         + "COMMIT;"
         ));
 
-        checkFinished(3);
+        verifyFinishedTxCount(3);
 
         assertQuery("select count(id) from test")
                 .returns(3L).check();
@@ -173,7 +170,7 @@ public class ItSqlMultiStatementTxTest extends BaseSqlMultiStatementTest {
         {
             fetchAllCursors(runScript("START TRANSACTION;"));
             checkNoPendingTransactions();
-            checkFinished(1);
+            verifyFinishedTxCount(1);
         }
 
         {
@@ -184,7 +181,7 @@ public class ItSqlMultiStatementTxTest extends BaseSqlMultiStatementTest {
                     + "START TRANSACTION;"
                     + "INSERT INTO test VALUES(2);"));
 
-            checkFinished(3);
+            verifyFinishedTxCount(3);
 
             checkNoPendingTransactions();
 
@@ -205,8 +202,8 @@ public class ItSqlMultiStatementTxTest extends BaseSqlMultiStatementTest {
 
             assertThrowsSqlException(RUNTIME_ERR, "/ by zero", () -> fetchAllCursors(cursor));
 
+            verifyFinishedTxCount(1);
             checkNoPendingTransactions();
-            checkFinished(1);
 
             assertQuery("select count(id) from test")
                     .returns(0L).check();
@@ -220,7 +217,7 @@ public class ItSqlMultiStatementTxTest extends BaseSqlMultiStatementTest {
 
         assertThat(cursors, hasSize(3));
 
-        checkFinished(0);
+        verifyFinishedTxCount(0);
     }
 
     @Test
@@ -236,14 +233,14 @@ public class ItSqlMultiStatementTxTest extends BaseSqlMultiStatementTest {
             assertEquals(1, txManager().pending());
             tx.rollback();
 
-            checkFinished(1);
+            verifyFinishedTxCount(1);
         }
 
         {
             assertThrowsSqlException(RUNTIME_ERR, "DDL doesn't support transactions.",
                     () -> fetchAllCursors(runScript("START TRANSACTION;" + ddlStatement)));
 
-            checkFinished(2);
+            verifyFinishedTxCount(2);
         }
     }
 
@@ -256,7 +253,7 @@ public class ItSqlMultiStatementTxTest extends BaseSqlMultiStatementTest {
 
         assertThrowsSqlException(RUNTIME_ERR, "Nested transactions are not supported.", () -> await(cursor.nextResult()));
 
-        checkFinished(1);
+        verifyFinishedTxCount(1);
     }
 
     @Test
@@ -268,7 +265,7 @@ public class ItSqlMultiStatementTxTest extends BaseSqlMultiStatementTest {
         assertThrowsSqlException(RUNTIME_ERR, "DML query cannot be started by using read only transactions.",
                 () -> await(cursor.nextResult()));
 
-        checkFinished(1);
+        verifyFinishedTxCount(1);
     }
 
     @Test
@@ -283,6 +280,22 @@ public class ItSqlMultiStatementTxTest extends BaseSqlMultiStatementTest {
         assertEquals(1, txManager().pending());
         tx2.rollback();
 
-        checkFinished(2);
+        verifyFinishedTxCount(2);
+    }
+
+    private void verifyFinishedTxCount(int expected) {
+        int expectedTotal = numberOfFinishedTransactionsOnStart + expected;
+
+        boolean success;
+
+        try {
+            success = waitForCondition(() -> expectedTotal == txManager().finished(), 2_000);
+
+            if (!success) {
+                assertEquals(expectedTotal, txManager().finished());
+            }
+        } catch (InterruptedException e) {
+            fail("Thread has been interrupted", e);
+        }
     }
 }
