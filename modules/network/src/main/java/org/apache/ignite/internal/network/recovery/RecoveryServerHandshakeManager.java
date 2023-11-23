@@ -310,7 +310,7 @@ public class RecoveryServerHandshakeManager implements HandshakeManager {
     }
 
     private void onHandshakeRejectedMessage(HandshakeRejectedMessage msg) {
-        boolean ignorable = stopping.get() || !msg.reason().critical();
+        boolean ignorable = stopping.get() || !msg.reason().restartRequired();
 
         if (ignorable) {
             LOG.debug("Handshake rejected by client: {}", msg.message());

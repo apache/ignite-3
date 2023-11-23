@@ -36,7 +36,7 @@ public enum HandshakeRejectionReason {
      * Returns {@code true} iff the rejection is not expected and should be treated as a critical failure (requiring
      * the rejected node to restart).
      */
-    public boolean critical() {
+    public boolean restartRequired() {
         return this == STALE_LAUNCH_ID;
     }
 }
