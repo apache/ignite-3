@@ -22,7 +22,7 @@ using Microsoft.Extensions.Logging;
 using Proto;
 
 /// <summary>
-/// Source-generated socket log messages.
+/// Source-generated log messages for <see cref="ClientFailoverSocket"/>.
 /// </summary>
 internal static partial class ClientFailoverSocketLogMessages
 {
