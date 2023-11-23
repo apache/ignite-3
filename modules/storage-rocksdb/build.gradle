@@ -24,6 +24,7 @@ dependencies {
     annotationProcessor libs.auto.service
 
     implementation project(':ignite-storage-api')
+    implementation project(':ignite-storage-configuration')
     implementation project(':ignite-rocksdb-common')
     implementation project(':ignite-schema')
     implementation project(':ignite-core')

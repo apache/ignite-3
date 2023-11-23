@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.cluster.management.topology.api;
 
 import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
@@ -43,7 +44,7 @@ public class LogicalNode extends ClusterNodeImpl {
 
     // TODO: add javadoc https://issues.apache.org/jira/browse/IGNITE-20564
     @IgniteToStringInclude
-    private final Map<String, String> storageProfiles;
+    private final List<String> storageProfiles;
 
     /**
      * Constructor.
@@ -61,7 +62,7 @@ public class LogicalNode extends ClusterNodeImpl {
 
         this.userAttributes = Collections.emptyMap();
         this.systemAttributes = Collections.emptyMap();
-        this.storageProfiles = Collections.emptyMap();
+        this.storageProfiles = Collections.emptyList();
     }
 
     /**
@@ -71,7 +72,7 @@ public class LogicalNode extends ClusterNodeImpl {
      * @param userAttributes  Node attributes defined in configuration.
      */
     public LogicalNode(ClusterNode clusterNode, Map<String, String> userAttributes) {
-        this(clusterNode, userAttributes, Collections.emptyMap(), Collections.emptyMap());
+        this(clusterNode, userAttributes, Collections.emptyMap(), Collections.emptyList());
     }
 
     /**
@@ -86,13 +87,13 @@ public class LogicalNode extends ClusterNodeImpl {
             ClusterNode clusterNode,
             Map<String, String> userAttributes,
             Map<String, String> systemAttributes,
-            Map<String, String> storageProfiles
+            List<String> storageProfiles
     ) {
         super(clusterNode.id(), clusterNode.name(), clusterNode.address(), clusterNode.nodeMetadata());
 
         this.userAttributes = userAttributes == null ? Collections.emptyMap() : userAttributes;
         this.systemAttributes = systemAttributes == null ? Collections.emptyMap() : systemAttributes;
-        this.storageProfiles = storageProfiles == null ? Collections.emptyMap() : storageProfiles;
+        this.storageProfiles = storageProfiles == null ? Collections.emptyList() : (List<String>) storageProfiles;
     }
 
     /**
@@ -101,7 +102,7 @@ public class LogicalNode extends ClusterNodeImpl {
      * @param clusterNode    Represents a node in a cluster.
      */
     public LogicalNode(ClusterNode clusterNode) {
-        this(clusterNode, Collections.emptyMap(), Collections.emptyMap(), Collections.emptyMap());
+        this(clusterNode, Collections.emptyMap(), Collections.emptyMap(), Collections.emptyList());
     }
 
     /**
@@ -127,7 +128,7 @@ public class LogicalNode extends ClusterNodeImpl {
      *
      * @return add java doc https://issues.apache.org/jira/browse/IGNITE-20564.
      */
-    public Map<String, String> storageProfiles() {
+    public List<String> storageProfiles() {
         return storageProfiles;
     }
 
