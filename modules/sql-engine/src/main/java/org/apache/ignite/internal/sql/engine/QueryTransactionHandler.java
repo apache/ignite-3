@@ -115,7 +115,8 @@ public interface QueryTransactionHandler {
     class ControlStatementAwareTransactionHandler extends QueryTransactionHandlerImpl {
         private static final NoopTransactionWrapper noopTxWrapper = new NoopTransactionWrapper();
 
-        private volatile ScriptTxWrapper scriptTxWrapper;
+        /** Wrapper over transaction, which is managed by SQL engine. */
+        private volatile ManagedTransactionWrapper managedTxWrapper;
 
         ControlStatementAwareTransactionHandler(IgniteTransactions transactions, @Nullable InternalTransaction externalTransaction) {
             super(transactions, externalTransaction);
@@ -127,7 +128,7 @@ public interface QueryTransactionHandler {
         }
 
         private @Nullable InternalTransaction scriptTransaction() {
-            ScriptTxWrapper wrapper = scriptTxWrapper;
+            ManagedTransactionWrapper wrapper = managedTxWrapper;
 
             return wrapper != null ? wrapper.unwrap() : null;
         }
@@ -145,14 +146,10 @@ public interface QueryTransactionHandler {
                     return processTransactionManagementStatement(parsedResult);
                 }
 
-                ScriptTxWrapper scriptTxWrapper0 = scriptTxWrapper;
+                ManagedTransactionWrapper managedTxWrapper0 = managedTxWrapper;
 
-                if (scriptTxWrapper0 != null) {
-                    if (queryType == SqlQueryType.QUERY) {
-                        scriptTxWrapper0.waitingCursors.incrementAndGet();
-
-                        return scriptTxWrapper0;
-                    }
+                if (managedTxWrapper0 != null && managedTxWrapper0.trackStatementCursor(queryType)) {
+                    return managedTxWrapper0;
                 }
 
                 return super.startTxIfNeeded(parsedResult);
@@ -170,25 +167,21 @@ public interface QueryTransactionHandler {
         private QueryTransactionWrapper processTransactionManagementStatement(ParsedResult parsedResult) {
             SqlNode node = parsedResult.parsedTree();
 
-            ScriptTxWrapper scriptTxWrapper0 = scriptTxWrapper;
+            ManagedTransactionWrapper scriptTxWrapper = this.managedTxWrapper;
 
             if (node instanceof IgniteSqlCommitTransaction) {
-                if (scriptTxWrapper0 == null) {
+                if (scriptTxWrapper == null) {
                     return noopTxWrapper;
                 }
 
-                // TODO Separate wrapper?
-                scriptTxWrapper0.commit = true;
-                scriptTxWrapper0.onCursorClose();
+                this.managedTxWrapper = null;
 
-                scriptTxWrapper = null;
-
-                return scriptTxWrapper0;
+                return scriptTxWrapper.forCommit();
             }
 
             assert node instanceof IgniteSqlStartTransaction : node == null ? "null" : node.getClass().getName();
 
-            if (scriptTxWrapper0 != null) {
+            if (scriptTxWrapper != null) {
                 throw new SqlException(RUNTIME_ERR, "Nested transactions are not supported.");
             }
 
@@ -197,11 +190,11 @@ public interface QueryTransactionHandler {
             TransactionOptions options =
                     new TransactionOptions().readOnly(txStartNode.getMode() == IgniteSqlStartTransactionMode.READ_ONLY);
 
-            scriptTxWrapper0 = new ScriptTxWrapper((InternalTransaction) transactions.begin(options), false);
+            scriptTxWrapper = new ManagedTransactionWrapper((InternalTransaction) transactions.begin(options));
 
-            scriptTxWrapper = scriptTxWrapper0;
+            this.managedTxWrapper = scriptTxWrapper;
 
-            return scriptTxWrapper0;
+            return scriptTxWrapper;
         }
 
         static class NoopTransactionWrapper extends QueryTransactionWrapper {
@@ -216,55 +209,73 @@ public interface QueryTransactionHandler {
         }
     }
 
-    /** TODO blah-blah. */
-    class ScriptTxWrapper extends QueryTransactionWrapper {
-        private final AtomicInteger waitingCursors = new AtomicInteger(1);
+    /**
+     * Wrapper over transaction, which is managed by SQL engine via {@link SqlQueryType#TX_CONTROL} statements.
+     */
+    class ManagedTransactionWrapper extends QueryTransactionWrapper {
+        private final CompletableFuture<Void> finishTxFuture = new CompletableFuture<>();
+        private final AtomicInteger remainingCursors = new AtomicInteger(1);
+        private final InternalTransaction transaction;
 
-        private InternalTransaction transaction;
+        private volatile boolean rollbackManagedTx;
 
-        private CompletableFuture<Void> completeFuture = new CompletableFuture<>();
+        private volatile boolean waitFinishTx;
 
-        private volatile boolean rollback;
-
-        private volatile boolean commit;
-
-        ScriptTxWrapper(InternalTransaction transaction, boolean implicit) {
-            super(transaction, implicit);
+        ManagedTransactionWrapper(InternalTransaction transaction) {
+            super(transaction, false);
 
             this.transaction = transaction;
         }
 
         @Override
         CompletableFuture<Void> onCursorClose() {
-            return checkCommit(false);
+            return onCursorCloseInternal(false);
         }
 
         @Override
         CompletableFuture<Void> commitImplicit() {
-            return commit ? completeFuture : Commons.completedFuture();
+            return waitFinishTx ? finishTxFuture : Commons.completedFuture();
         }
 
         @Override
         CompletableFuture<Void> rollback() {
-            return checkCommit(true);
+            return onCursorCloseInternal(true);
         }
 
-        CompletableFuture<Void> checkCommit(boolean rollback) {
+        ManagedTransactionWrapper forCommit() {
+            onCursorCloseInternal(false);
+
+            waitFinishTx = true;
+
+            return this;
+        }
+
+        CompletableFuture<Void> onCursorCloseInternal(boolean rollback) {
             if (rollback) {
-                this.rollback = true;
+                rollbackManagedTx = true;
             }
 
-            if (waitingCursors.decrementAndGet() == 0) {
-                if (this.rollback) {
-                    transaction.rollback();
-                } else {
-                    transaction.commit();
-                }
+            if (remainingCursors.decrementAndGet() == 0) {
+                CompletableFuture<Void> txFut = rollbackManagedTx
+                        ? transaction.rollbackAsync()
+                        : transaction.commitAsync();
 
-                completeFuture.complete(null);
+                txFut.whenComplete((r, e) -> finishTxFuture.complete(null));
+
+                return txFut;
             }
 
             return Commons.completedFuture();
+        }
+
+        private boolean trackStatementCursor(SqlQueryType queryType) {
+            if (transaction.isReadOnly() || queryType != SqlQueryType.QUERY) {
+                return false;
+            }
+
+            remainingCursors.incrementAndGet();
+
+            return true;
         }
     }
 }
