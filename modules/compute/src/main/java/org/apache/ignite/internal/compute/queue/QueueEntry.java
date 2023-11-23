@@ -23,7 +23,7 @@ import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Class for queue's entries.
- * This class implement comparable mechanism for {@link LimitedPriorityBlockingQueue}
+ * This class implement comparable mechanism for {@link BoundedPriorityBlockingQueue}
  * which used as queue in {@link java.util.concurrent.ThreadPoolExecutor}.
  * Each entry has unique seqNum which is used for comparing entries with identical priority.
  * It means that entries with same priority has FIFO resolving strategy in queue.

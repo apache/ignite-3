@@ -17,14 +17,16 @@
 
 package org.apache.ignite.internal.compute.queue;
 
+import java.util.AbstractQueue;
 import java.util.Collection;
-import java.util.Comparator;
+import java.util.Iterator;
+import java.util.Objects;
+import java.util.PriorityQueue;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.PriorityBlockingQueue;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
-import java.util.function.Consumer;
-import java.util.function.Predicate;
 import java.util.function.Supplier;
 
 /**
@@ -32,109 +34,30 @@ import java.util.function.Supplier;
  *
  * @param <E> The type of elements held in this queue.
  */
-public class LimitedPriorityBlockingQueue<E> extends PriorityBlockingQueue<E> {
-    private final Lock lock = new ReentrantLock();
-    private final Supplier<Integer> maxSize;
+public class BoundedPriorityBlockingQueue<E> extends AbstractQueue<E> implements BlockingQueue<E> {
+    private final PriorityQueue<E> queue;
+
+    private final Supplier<Integer> maxCapacity;
+
+    private final ReentrantLock lock = new ReentrantLock();
+
+    private final Condition notEmpty = lock.newCondition();
 
     /**
      * Constructor.
      *
-     * @param maxSize Max queue size supplier.
+     * @param maxCapacity Max queue size supplier.
      */
-    public LimitedPriorityBlockingQueue(Supplier<Integer> maxSize) {
-        this.maxSize = maxSize;
-    }
-
-    /**
-     * Constructor.
-     *
-     * @param maxSize Max queue size supplier.
-     * @param initialCapacity Initial queue capacity.
-     */
-    public LimitedPriorityBlockingQueue(Supplier<Integer> maxSize, int initialCapacity) {
-        super(initialCapacity);
-        this.maxSize = maxSize;
-        checkInsert(initialCapacity);
-    }
-
-    /**
-     * Constructor.
-     *
-     * @param maxSize Max queue size supplier.
-     * @param initialCapacity Initial queue capacity.
-     * @param comparator the comparator that will be used to order this priority queue.
-     *     If {@code null}, the {@linkplain Comparable natural ordering} of the elements will be used.
-     */
-    public LimitedPriorityBlockingQueue(Supplier<Integer> maxSize, int initialCapacity, Comparator<? super E> comparator) {
-        super(initialCapacity, comparator);
-        this.maxSize = maxSize;
-        checkInsert(initialCapacity);
+    public BoundedPriorityBlockingQueue(Supplier<Integer> maxCapacity) {
+        queue = new PriorityQueue<>();
+        this.maxCapacity = maxCapacity;
     }
 
     @Override
-    public boolean offer(E o) {
+    public Iterator<E> iterator() {
         lock.lock();
         try {
-            checkInsert(1);
-            return super.offer(o);
-        } finally {
-            lock.unlock();
-        }
-    }
-
-    @Override
-    public int remainingCapacity() {
-        return maxSize.get() - size();
-    }
-
-    @Override
-    public boolean addAll(Collection<? extends E> c) {
-        lock.lock();
-        try {
-            checkInsert(c.size());
-            return super.addAll(c);
-        } finally {
-            lock.unlock();
-        }
-    }
-
-    @Override
-    public E poll() {
-        lock.lock();
-        try {
-            return super.poll();
-        } finally {
-            lock.unlock();
-        }
-    }
-
-    @Override
-    public E poll(long timeout, TimeUnit unit) throws InterruptedException {
-        lock.lock();
-        try {
-            return super.poll(timeout, unit);
-        } finally {
-            lock.unlock();
-        }
-    }
-
-    @Override
-    public E take() throws InterruptedException {
-        lock.lock();
-        try {
-            return super.take();
-        } finally {
-            lock.unlock();
-        }
-    }
-
-
-
-    @Override
-    public E peek() {
-        lock.lock();
-        try {
-            return super.peek();
+            return new PriorityQueue<>(queue).iterator();
         } finally {
             lock.unlock();
         }
@@ -144,17 +67,134 @@ public class LimitedPriorityBlockingQueue<E> extends PriorityBlockingQueue<E> {
     public int size() {
         lock.lock();
         try {
-            return super.size();
+            return queue.size();
         } finally {
             lock.unlock();
         }
     }
 
     @Override
-    public boolean remove(Object o) {
+    public void put(E e) throws InterruptedException {
+        offer(e);
+    }
+
+    @Override
+    public boolean offer(E e) {
         lock.lock();
         try {
-            return super.remove(o);
+            checkInsert(1);
+            boolean result = queue.offer(e);
+            if (result) {
+                notEmpty.signalAll();
+            }
+            return result;
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    @Override
+    public boolean offer(E e, long l, TimeUnit timeUnit) {
+        return offer(e);
+    }
+
+    @Override
+    public E take() throws InterruptedException {
+        lock.lockInterruptibly();
+        try {
+            while (queue.isEmpty()) {
+                notEmpty.await();
+            }
+            E x = poll();
+            assert x != null;
+            return x;
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    @Override
+    public E poll() {
+        lock.lock();
+        try {
+            return queue.poll();
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    @Override
+    public E poll(long l, TimeUnit timeUnit) throws InterruptedException {
+        long nanos = timeUnit.toNanos(l);
+        lock.lockInterruptibly();
+        try {
+            E result = poll();
+            while (result == null && nanos > 0) {
+                nanos = notEmpty.awaitNanos(nanos);
+                result = poll();
+            }
+            return result;
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    @Override
+    public int remainingCapacity() {
+        lock.lock();
+        try {
+            return maxCapacity.get() - queue.size();
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    @Override
+    public int drainTo(Collection<? super E> objects) {
+        Objects.requireNonNull(objects);
+
+        if (objects == this) {
+            throw new IllegalArgumentException();
+        }
+
+        lock.lock();
+        try {
+            int j = 0; // num object added
+            while (size() > 0) {
+                objects.add(poll());
+                j++;
+            }
+            return j;
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    @Override
+    public int drainTo(Collection<? super E> objects, int i) {
+        Objects.requireNonNull(objects);
+
+        if (objects == this) {
+            throw new IllegalArgumentException();
+        }
+        lock.lock();
+        try {
+            int j = 0; // num object added
+            while (size() > 0 && j < i) {
+                objects.add(poll());
+                j++;
+            }
+            return j;
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    @Override
+    public E peek() {
+        lock.lock();
+        try {
+            return queue.peek();
         } finally {
             lock.unlock();
         }
@@ -164,17 +204,28 @@ public class LimitedPriorityBlockingQueue<E> extends PriorityBlockingQueue<E> {
     public boolean contains(Object o) {
         lock.lock();
         try {
-            return super.contains(o);
+            return queue.contains(o);
         } finally {
             lock.unlock();
         }
     }
 
     @Override
-    public int drainTo(Collection<? super E> c, int maxElements) {
+    public <T> T[] toArray(T[] ts) {
         lock.lock();
         try {
-            return super.drainTo(c, maxElements);
+            return queue.toArray(ts);
+        } finally {
+            lock.unlock();
+        }
+    }
+
+
+    @Override
+    public String toString() {
+        lock.lock();
+        try {
+            return queue.toString();
         } finally {
             lock.unlock();
         }
@@ -184,74 +235,24 @@ public class LimitedPriorityBlockingQueue<E> extends PriorityBlockingQueue<E> {
     public void clear() {
         lock.lock();
         try {
-            super.clear();
+            queue.clear();
         } finally {
             lock.unlock();
         }
     }
 
     @Override
-    public Object[] toArray() {
+    public boolean remove(Object o) {
         lock.lock();
         try {
-            return super.toArray();
-        } finally {
-            lock.unlock();
-        }
-    }
-
-    @Override
-    public <T> T[] toArray(T[] a) {
-        lock.lock();
-        try {
-            return super.toArray(a);
-        } finally {
-            lock.unlock();
-        }
-    }
-
-    @Override
-    public boolean removeIf(Predicate<? super E> filter) {
-        lock.lock();
-        try {
-            return super.removeIf(filter);
-        } finally {
-            lock.unlock();
-        }
-    }
-
-    @Override
-    public boolean removeAll(Collection<?> c) {
-        lock.lock();
-        try {
-            return super.removeAll(c);
-        } finally {
-            lock.unlock();
-        }
-    }
-
-    @Override
-    public boolean retainAll(Collection<?> c) {
-        lock.lock();
-        try {
-            return super.retainAll(c);
-        } finally {
-            lock.unlock();
-        }
-    }
-
-    @Override
-    public void forEach(Consumer<? super E> action) {
-        lock.lock();
-        try {
-            super.forEach(action);
+            return queue.remove(o);
         } finally {
             lock.unlock();
         }
     }
 
     private void checkInsert(int size) {
-        Integer maxSize = this.maxSize.get();
+        Integer maxSize = this.maxCapacity.get();
         int currentSize = size();
         if (currentSize > maxSize - size) {
             throw new QueueOverflowException("Compute queue overflow when tried to insert " + size + " element(s) to queue. "
@@ -259,5 +260,4 @@ public class LimitedPriorityBlockingQueue<E> extends PriorityBlockingQueue<E> {
                     + "Max queue size is " + maxSize + ".");
         }
     }
-
 }

@@ -56,7 +56,7 @@ public class PriorityQueueExecutor {
                 configuration.threadPoolSize().value(),
                 THREAD_KEEP_ALIVE_SECONDS,
                 TimeUnit.SECONDS,
-                new LimitedPriorityBlockingQueue<>(() -> configuration.queueMaxSize().value()),
+                new BoundedPriorityBlockingQueue<>(() -> configuration.queueMaxSize().value()),
                 threadFactory
         );
     }
