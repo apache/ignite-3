@@ -113,7 +113,7 @@ internal static partial class LogMessages
         this ILogger logger, TimeSpan serverIdleTimeout, TimeSpan configuredInterval, TimeSpan recommendedHeartbeatInterval);
 
     [LoggerMessage(
-        Message = "Sending request [op={Op}, remoteAddress={RemoteAddress}, requestId={RequestId}]",
+        Message = "Sending request [requestId={RequestId}, op={Op}, remoteAddress={RemoteAddress}]",
         Level = LogLevel.Trace,
         EventId = 1013)]
     internal static partial void LogSendingRequestTrace(this ILogger logger, ClientOp op, IPEndPoint remoteAddress, long requestId);
@@ -200,7 +200,7 @@ internal static partial class LogMessages
         this ILogger logger, string retrying, int op, ClientOp opType, int attempt, string lastErrorMessage);
 
     [LoggerMessage(
-        Message = "Received response [remoteAddress={RemoteAddress}, requestId={RequestId}]",
+        Message = "Received response [requestId={RequestId}, remoteAddress={RemoteAddress}]",
         Level = LogLevel.Trace,
         EventId = 1027)]
     internal static partial void LogReceivedResponseTrace(this ILogger logger, IPEndPoint remoteAddress, long requestId);
