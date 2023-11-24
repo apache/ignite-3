@@ -32,9 +32,9 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescript
 import org.apache.ignite.sql.ColumnType;
 
 /**
- * Utility to work with column types.
+ * Utility to determine type convertibility.
  */
-public class TypesUtils {
+public class TypeConvertibility {
     /**
      * Returns whether type change from old to new column version is lossless (that is, no information
      * is lost during conversion).

@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.table.distributed.schema;
 
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
-import org.apache.ignite.internal.table.distributed.replicator.TypesUtils;
+import org.apache.ignite.internal.table.distributed.replicator.TypeConvertibility;
 
 /**
  * Captures a difference between 'old' and 'new' versions of the same column definition.
@@ -68,6 +68,6 @@ public class ColumnDefinitionDiff {
      * will not lose any information, and it will be possible to obtain the same value after a reverse conversion).
      */
     public boolean typeChangeIsLossless() {
-        return TypesUtils.typeChangeIsLossless(oldColumn, newColumn);
+        return TypeConvertibility.typeChangeIsLossless(oldColumn, newColumn);
     }
 }
