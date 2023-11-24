@@ -23,6 +23,7 @@ namespace Apache.Ignite.Tests
     using System.Reflection;
     using System.Runtime.InteropServices;
     using System.Threading.Tasks;
+    using Microsoft.Extensions.Logging;
     using NUnit.Framework;
 
     public static class TestUtils
@@ -75,6 +76,9 @@ namespace Apache.Ignite.Tests
 
             return (T) field!.GetValue(obj)!;
         }
+
+        public static ILoggerFactory GetConsoleLoggerFactory(LogLevel minLevel) =>
+            LoggerFactory.Create(builder => builder.AddConsole().SetMinimumLevel(minLevel));
 
         private static string GetSolutionDir()
         {

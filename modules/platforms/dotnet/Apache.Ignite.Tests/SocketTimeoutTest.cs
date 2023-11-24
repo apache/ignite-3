@@ -20,7 +20,6 @@ namespace Apache.Ignite.Tests;
 using System;
 using System.Linq;
 using System.Threading.Tasks;
-using Log;
 using NUnit.Framework;
 
 /// <summary>
@@ -53,7 +52,7 @@ public class SocketTimeoutTest
             HeartbeatDelay = TimeSpan.FromMilliseconds(100)
         };
 
-        var log = new ListLogger(new ConsoleLogger { MinLevel = LogLevel.Trace });
+        var log = new ListLoggerFactory();
 
         var cfg = new IgniteClientConfiguration
         {
