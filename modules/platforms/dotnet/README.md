@@ -250,6 +250,19 @@ var cfg = new IgniteClientConfiguration
 };
 ```
 
+Or with Serilog (requires `Serilog.Extensions.Logging` and `Serilog.Sinks.Console` packages):
+
+```cs
+var cfg = new IgniteClientConfiguration
+{
+    LoggerFactory = LoggerFactory.Create(builder =>
+        builder.AddSerilog(new LoggerConfiguration()
+            .MinimumLevel.Debug()
+            .WriteTo.Console()
+            .CreateLogger()))
+};
+```
+
 
 ## Metrics
 
