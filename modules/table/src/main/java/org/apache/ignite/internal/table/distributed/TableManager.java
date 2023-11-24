@@ -71,7 +71,6 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.IntSupplier;
 import java.util.function.LongFunction;
-import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -213,9 +212,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
     /** Meta storage manager. */
     private final MetaStorageManager metaStorageMgr;
-
-    /** Vault manager. */
-    private final VaultManager vaultManager;
 
     /** Data storage manager. */
     private final DataStorageManager dataStorageMgr;
@@ -396,7 +392,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         this.dataStorageMgr = dataStorageMgr;
         this.storagePath = storagePath;
         this.metaStorageMgr = metaStorageMgr;
-        this.vaultManager = vaultManager;
         this.schemaManager = schemaManager;
         this.volatileLogStorageFactoryCreator = volatileLogStorageFactoryCreator;
         this.clock = clock;
@@ -652,11 +647,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 // TODO https://issues.apache.org/jira/browse/IGNITE-19170 #handleChangePendingAssignmentEvent should be called on
                 // TODO actual event, the method #createTablePartitionsLocally should be removed.
                 handleChangePendingAssignmentEvent(new TablePartitionId(tableId, partId), table, newPartAssignment, false)
-                /*handleChangePendingAssignmentEvent(
-                        pendingAssignmentEntry(new TablePartitionId(tableId, partId), newPartAssignment, causalityToken),
-                        completedFuture(Map.of(tableId, partitionSet)),
-                        causalityToken
-                )*/
                         .whenComplete((res, ex) -> {
                             if (ex != null) {
                                 LOG.warn("Unable to update raft groups on the node [tableId={}, partitionId={}]", ex, tableId, partId);
@@ -771,7 +761,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 .thenComposeAsync(v -> inBusyLock(busyLock, () -> {
                     try {
                         //TODO IGNITE-19614 This procedure takes 10 seconds if there's no majority online.
-                        return raftMgr.startRaftGroupService(replicaGrpId, newConfiguration, raftGroupServiceFactory, raftCommandsMarshaller);
+                        return raftMgr
+                                .startRaftGroupService(replicaGrpId, newConfiguration, raftGroupServiceFactory, raftCommandsMarshaller);
                     } catch (NodeStoppingException ex) {
                         return failedFuture(ex);
                     }
@@ -1704,6 +1695,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         if (shouldStartLocalServices) {
             localServicesStartFuture = localPartsByTableIdFut
                     .thenComposeAsync(oldMap -> {
+                        // TODO https://issues.apache.org/jira/browse/IGNITE-20957 This is incorrect usage of the value stored in
+                        // TODO versioned value. See ticket for the details.
                         int tableId = tbl.tableId();
 
                         PartitionSet partitionSet = oldMap.get(tableId).copy();
