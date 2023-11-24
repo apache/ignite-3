@@ -20,6 +20,7 @@ package org.apache.ignite.internal.catalog.commands;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.createTestCatalogManager;
+import static org.apache.ignite.internal.catalog.CatalogTestUtils.index;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_DATA_REGION;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_FILTER;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
@@ -479,17 +480,6 @@ public class CatalogUtilsTest extends BaseIgniteAbstractTest {
                 .build();
 
         assertThat(catalogManager.execute(catalogCommand), willCompleteSuccessfully());
-    }
-
-    private static CatalogIndexDescriptor index(CatalogService catalogService, int catalogVersion, String indexName) {
-        CatalogIndexDescriptor indexDescriptor = catalogService.indexes(catalogVersion).stream()
-                .filter(index -> indexName.equals(index.name()))
-                .findFirst()
-                .orElse(null);
-
-        assertNotNull(indexDescriptor, "catalogVersion=" + catalogVersion + ", indexName=" + indexName);
-
-        return indexDescriptor;
     }
 
     private static int tableId(CatalogService catalogService, int catalogVersion, String tableName) {

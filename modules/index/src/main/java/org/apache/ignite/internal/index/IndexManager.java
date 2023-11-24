@@ -19,6 +19,7 @@ package org.apache.ignite.internal.index;
 
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static java.util.stream.Collectors.toMap;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.INDEX_CREATE;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
@@ -27,7 +28,9 @@ import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiFunction;
@@ -443,5 +446,39 @@ public class IndexManager implements IgniteComponent {
 
             return updateFunction.apply(t);
         };
+    }
+
+    /**
+     * Collects indexes (including deleted ones) for tables (tables from the latest version of the catalog) from the earliest to the latest
+     * version of the catalog that need to be started on node recovery.
+     *
+     * @param catalogService Catalog service.
+     */
+    static Map<CatalogTableDescriptor, Collection<CatalogIndexDescriptor>> collectIndexesForRecovery(CatalogService catalogService) {
+        int earliestCatalogVersion = catalogService.earliestCatalogVersion();
+        int latestCatalogVersion = catalogService.latestCatalogVersion();
+
+        var indexesByTableId = new Int2ObjectOpenHashMap<Int2ObjectMap<CatalogIndexDescriptor>>();
+
+        for (CatalogTableDescriptor table : catalogService.tables(latestCatalogVersion)) {
+            indexesByTableId.computeIfAbsent(table.id(), indexById -> new Int2ObjectOpenHashMap<>());
+        }
+
+        for (int catalogVersion = earliestCatalogVersion; catalogVersion <= latestCatalogVersion; catalogVersion++) {
+            for (CatalogIndexDescriptor index : catalogService.indexes(catalogVersion)) {
+                Int2ObjectMap<CatalogIndexDescriptor> indexById = indexesByTableId.get(index.tableId());
+
+                if (indexById != null) {
+                    indexById.put(index.id(), index);
+                }
+            }
+        }
+
+        return indexesByTableId.int2ObjectEntrySet()
+                .stream()
+                .collect(toMap(
+                        entry -> catalogService.table(entry.getIntKey(), latestCatalogVersion),
+                        entry -> entry.getValue().values()
+                ));
     }
 }
