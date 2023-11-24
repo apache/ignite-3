@@ -79,10 +79,7 @@ var cfg = new IgniteClientConfiguration
     },    
         
     // Retry all read operations in case of network issues.
-    RetryPolicy = new RetryReadPolicy { RetryLimit = 32 },
-
-    // Log to console.
-    LoggerFactory = new ConsoleLogger { MinLevel = LogLevel.Debug }
+    RetryPolicy = new RetryReadPolicy { RetryLimit = 32 }
 };
 ```
 
