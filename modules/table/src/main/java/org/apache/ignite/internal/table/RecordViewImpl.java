@@ -533,15 +533,15 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
             @Nullable Criteria criteria,
             CriteriaQueryOptions opts
     ) {
-        var ser = new SqlSerializer.Builder()
+        var sqlSer = new SqlSerializer.Builder()
                 .tableName(tbl.name())
                 .where(criteria)
                 .build();
 
-        var statement = tbl.sql().statementBuilder().query(ser.toString()).pageSize(opts.pageSize()).build();
+        var statement = tbl.sql().statementBuilder().query(sqlSer.toString()).pageSize(opts.pageSize()).build();
         var session = tbl.sql().createSession();
 
-        return session.executeAsync(tx, mapper, statement, ser.getArguments())
+        return session.executeAsync(tx, mapper, statement, sqlSer.getArguments())
                 .thenApply(resultSet -> new ClosableSessionAsyncResultSet<>(session, resultSet));
     }
 

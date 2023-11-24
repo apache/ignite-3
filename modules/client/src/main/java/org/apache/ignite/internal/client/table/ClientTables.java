@@ -25,6 +25,7 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.client.ReliableChannel;
 import org.apache.ignite.internal.client.proto.ClientOp;
+import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.manager.IgniteTables;
 
@@ -34,13 +35,17 @@ import org.apache.ignite.table.manager.IgniteTables;
 public class ClientTables implements IgniteTables {
     private final ReliableChannel ch;
 
+    private final IgniteSql sql;
+
     /**
      * Constructor.
      *
      * @param ch Channel.
+     * @param sql Ignite SQL facade.
      */
-    public ClientTables(ReliableChannel ch) {
+    public ClientTables(ReliableChannel ch, IgniteSql sql) {
         this.ch = ch;
+        this.sql = sql;
     }
 
     /** {@inheritDoc} */
@@ -58,7 +63,7 @@ public class ClientTables implements IgniteTables {
             var res = new ArrayList<Table>(cnt);
 
             for (int i = 0; i < cnt; i++) {
-                res.add(new ClientTable(ch, in.unpackInt(), in.unpackString()));
+                res.add(new ClientTable(ch, in.unpackInt(), in.unpackString(), sql));
             }
 
             return res;
@@ -77,6 +82,6 @@ public class ClientTables implements IgniteTables {
         Objects.requireNonNull(name);
 
         return ch.serviceAsync(ClientOp.TABLE_GET, w -> w.out().packString(name),
-                r -> r.in().tryUnpackNil() ? null : new ClientTable(ch, r.in().unpackInt(), name));
+                r -> r.in().tryUnpackNil() ? null : new ClientTable(ch, r.in().unpackInt(), name, sql));
     }
 }

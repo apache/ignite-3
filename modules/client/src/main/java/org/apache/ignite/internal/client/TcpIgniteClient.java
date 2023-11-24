@@ -62,7 +62,7 @@ public class TcpIgniteClient implements IgniteClient {
     /** Compute. */
     private final ClientCompute compute;
 
-    /** Compute. */
+    /** SQL. */
     private final ClientSql sql;
 
     /** Metric manager. */
@@ -94,10 +94,10 @@ public class TcpIgniteClient implements IgniteClient {
 
         metrics = new ClientMetricSource();
         ch = new ReliableChannel(chFactory, cfg, metrics);
-        tables = new ClientTables(ch);
+        sql = new ClientSql(ch);
+        tables = new ClientTables(ch, sql);
         transactions = new ClientTransactions(ch);
         compute = new ClientCompute(ch, tables);
-        sql = new ClientSql(ch);
         metricManager = initMetricManager(cfg);
     }
 

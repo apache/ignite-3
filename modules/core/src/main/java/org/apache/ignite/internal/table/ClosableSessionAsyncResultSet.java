@@ -26,7 +26,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Wrapper over {@link AsyncResultSet} that close {@link Session} when {@link AsyncResultSet} is closed.
  */
-class ClosableSessionAsyncResultSet<T> implements AsyncResultSet<T> {
+public class ClosableSessionAsyncResultSet<T> implements AsyncResultSet<T> {
     /** Session instance. */
     private final Session session;
 
@@ -39,7 +39,7 @@ class ClosableSessionAsyncResultSet<T> implements AsyncResultSet<T> {
      * @param session Session instance.
      * @param ars Asynchronous result set.
      */
-    ClosableSessionAsyncResultSet(Session session, AsyncResultSet<? extends T> ars) {
+    public ClosableSessionAsyncResultSet(Session session, AsyncResultSet<? extends T> ars) {
         this.session = session;
         this.ars = (AsyncResultSet<T>) ars;
     }

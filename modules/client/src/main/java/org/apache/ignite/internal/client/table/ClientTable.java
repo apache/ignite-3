@@ -44,6 +44,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.marshaller.UnmappedColumnsException;
 import org.apache.ignite.internal.tostring.IgniteToStringBuilder;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
@@ -59,6 +60,8 @@ public class ClientTable implements Table {
     private final int id;
 
     private final String name;
+
+    private final IgniteSql sql;
 
     private final ReliableChannel ch;
 
@@ -82,14 +85,16 @@ public class ClientTable implements Table {
      * @param ch Channel.
      * @param id Table id.
      * @param name Table name.
+     * @param sql Ignite SQL facade.
      */
-    public ClientTable(ReliableChannel ch, int id, String name) {
+    public ClientTable(ReliableChannel ch, int id, String name, IgniteSql sql) {
         assert ch != null;
         assert name != null && !name.isEmpty();
 
         this.ch = ch;
         this.id = id;
         this.name = name;
+        this.sql = sql;
         this.log = ClientUtils.logger(ch.configuration(), ClientTable.class);
     }
 
@@ -597,5 +602,9 @@ public class ClientTable implements Table {
         volatile long timestamp = HybridTimestamp.NULL_HYBRID_TIMESTAMP;
 
         CompletableFuture<List<String>> partitionsFut;
+    }
+
+    IgniteSql sql() {
+        return sql;
     }
 }

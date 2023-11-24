@@ -34,16 +34,10 @@ public class SqlSerializer implements CriteriaVisitor<Void> {
     private final StringBuilder builder = new StringBuilder(128);
     private final List<Object> arguments = new LinkedList<>();
 
-    private SqlSerializer append(String str) {
-        builder.append(str);
-
-        return this;
-    }
-
     /**
-     * ds.
+     * Get query arguments.
      *
-     * @return Query
+     * @return Query arguments.
      */
     public Object[] getArguments() {
         return arguments.toArray(new Object[0]);
@@ -67,6 +61,12 @@ public class SqlSerializer implements CriteriaVisitor<Void> {
     @Override
     public String toString() {
         return builder.toString();
+    }
+
+    private SqlSerializer append(String str) {
+        builder.append(str);
+
+        return this;
     }
 
     /**
