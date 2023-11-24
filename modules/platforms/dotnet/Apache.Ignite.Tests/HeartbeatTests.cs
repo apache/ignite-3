@@ -30,12 +30,12 @@ namespace Apache.Ignite.Tests
         [Test]
         public async Task TestServerDoesNotDisconnectIdleClientWithHeartbeats()
         {
-            var logger = new ListLogger(enabledLevels: new[] { LogLevel.Error, LogLevel.Warning });
+            var logger = new ListLoggerFactory(enabledLevels: new[] { LogLevel.Error, LogLevel.Warning });
 
             var cfg = new IgniteClientConfiguration
             {
                 Endpoints = { "127.0.0.1:" + ServerPort },
-                LoggerFactory = logger.ToLoggerFactory()
+                LoggerFactory = logger
             };
             using var client = await IgniteClient.StartAsync(cfg);
 
@@ -91,11 +91,11 @@ namespace Apache.Ignite.Tests
 
         private static async Task<string> ConnectAndGetLog(TimeSpan heartbeatInterval)
         {
-            var logger = new ListLogger();
+            var logger = new ListLoggerFactory();
 
             var cfg = new IgniteClientConfiguration(GetConfig())
             {
-                LoggerFactory = logger.ToLoggerFactory(),
+                LoggerFactory = logger,
                 HeartbeatInterval = heartbeatInterval
             };
 

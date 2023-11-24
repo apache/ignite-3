@@ -30,18 +30,16 @@ namespace Apache.Ignite.Tests
     /// </summary>
     public class ListLogger : ILogger
     {
-        /** */
-        private readonly List<Entry> _entries = new();
+        private readonly string _categoryName;
+        private readonly Action<Entry> _addEntry;
 
-        /** */
-        private readonly object _lock = new();
-
-        /** */
-        private readonly ILogger? _wrappedLogger;
-
-        public ListLogger(ILogger? wrappedLogger = null, IEnumerable<LogLevel>? enabledLevels = null)
+        public ListLogger(
+            string categoryName,
+            Action<Entry> addEntry,
+            IEnumerable<LogLevel>? enabledLevels = null)
         {
-            _wrappedLogger = wrappedLogger;
+            _categoryName = categoryName;
+            _addEntry = addEntry;
             EnabledLevels = enabledLevels?.ToList() ?? new() { LogLevel.Debug, LogLevel.Information, LogLevel.Warning, LogLevel.Error };
         }
 
@@ -49,43 +47,6 @@ namespace Apache.Ignite.Tests
         /// Gets enabled levels.
         /// </summary>
         public List<LogLevel> EnabledLevels { get; }
-
-        /// <summary>
-        /// Gets the entries.
-        /// </summary>
-        public List<Entry> Entries
-        {
-            get
-            {
-                lock (_lock)
-                {
-                    return _entries.ToList();
-                }
-            }
-        }
-
-        /// <summary>
-        /// Gets the log as a string.
-        /// </summary>
-        /// <returns>Log string.</returns>
-        public string GetLogString()
-        {
-            lock (_lock)
-            {
-                return _entries.Select(e => $"{e.Category} [{e.Level}] {e.Message}").StringJoin();
-            }
-        }
-
-        /// <summary>
-        /// Clears the entries.
-        /// </summary>
-        public void Clear()
-        {
-            lock (_lock)
-            {
-                _entries.Clear();
-            }
-        }
 
         public void Log<TState>(
             LogLevel logLevel,
@@ -102,27 +63,14 @@ namespace Apache.Ignite.Tests
                 return;
             }
 
-            _wrappedLogger?.Log(logLevel, eventId, state, exception, formatter);
-
-            lock (_lock)
-            {
-                var message = formatter(state, exception);
-
-                // TODO: Category?
-                _entries.Add(new Entry(message, logLevel, null, exception));
-            }
+            var message = formatter(state, exception);
+            _addEntry(new Entry(message, logLevel, _categoryName, exception));
         }
 
         /** <inheritdoc /> */
-        public bool IsEnabled(LogLevel logLevel)
-        {
-            return EnabledLevels.Contains(logLevel);
-        }
+        public bool IsEnabled(LogLevel logLevel) => EnabledLevels.Contains(logLevel);
 
-        public IDisposable BeginScope<TState>(TState state)
-        {
-            throw new NotImplementedException();
-        }
+        public IDisposable BeginScope<TState>(TState state) => throw new NotImplementedException();
 
         [SuppressMessage("Microsoft.Design", "CA1034:NestedTypesShouldNotBeVisible", Justification = "Tests.")]
         public record Entry(string Message, LogLevel Level, string? Category, Exception? Exception);
