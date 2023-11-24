@@ -24,7 +24,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.clearInvocations;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
@@ -34,8 +33,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import org.apache.ignite.distributed.TestPartitionDataStorage;
-import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
-import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -44,7 +41,6 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowConverter;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.ColumnsExtractor;
-import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.storage.BaseMvStoragesTest;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
@@ -54,19 +50,15 @@ import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor.StorageSortedIndexColumnDescriptor;
 import org.apache.ignite.internal.storage.index.impl.TestHashIndexStorage;
 import org.apache.ignite.internal.storage.index.impl.TestSortedIndexStorage;
-import org.apache.ignite.internal.table.distributed.gc.GcUpdateHandler;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.type.NativeTypes;
-import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Test write intent cleanups via {@link StorageUpdateHandler}.
  */
-@ExtendWith(ConfigurationExtension.class)
 public class StorageCleanupTest extends BaseMvStoragesTest {
 
     private static final HybridClock CLOCK = new HybridClockImpl();
@@ -94,11 +86,10 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
     private TestMvPartitionStorage storage;
     private StorageUpdateHandler storageUpdateHandler;
 
-    private GcUpdateHandler gcUpdateHandler;
     private IndexUpdateHandler indexUpdateHandler;
 
     @BeforeEach
-    void setUp(@InjectConfiguration GcConfiguration gcConfig) {
+    void setUp() {
         int tableId = 1;
         int pkIndexId = 2;
         int sortedIndexId = 3;
@@ -149,19 +140,10 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
 
         indexUpdateHandler = spy(new IndexUpdateHandler(DummyInternalTableImpl.createTableIndexStoragesSupplier(indexes)));
 
-        gcUpdateHandler = new GcUpdateHandler(
-                partitionDataStorage,
-                new PendingComparableValuesTracker<>(HybridTimestamp.MAX_VALUE),
-                indexUpdateHandler
-        );
-
         storageUpdateHandler = new StorageUpdateHandler(
                 PARTITION_ID,
                 partitionDataStorage,
-                gcConfig,
-                mock(LowWatermark.class),
-                indexUpdateHandler,
-                gcUpdateHandler
+                indexUpdateHandler
         );
     }
 

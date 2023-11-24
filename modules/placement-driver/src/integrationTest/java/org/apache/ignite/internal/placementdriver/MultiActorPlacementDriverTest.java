@@ -49,6 +49,7 @@ import org.apache.ignite.internal.lang.IgniteTriFunction;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
+import org.apache.ignite.internal.metastorage.impl.MetaStorageServiceImpl;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
 import org.apache.ignite.internal.placementdriver.PlacementDriverManagerTest.LogicalTopologyServiceTestImpl;
@@ -331,9 +332,14 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
 
         Lease lease = checkLeaseCreated(grpPart0, true);
 
-        RaftGroupService msRaftClient = metaStorageManager.getService().raftGroupService();
+        CompletableFuture<RaftGroupService> msRaftClientFuture = metaStorageManager.metaStorageService()
+                .thenApply(MetaStorageServiceImpl::raftGroupService);
 
-        msRaftClient.refreshLeader().join();
+        assertThat(msRaftClientFuture, willCompleteSuccessfully());
+
+        RaftGroupService msRaftClient = msRaftClientFuture.join();
+
+        assertThat(msRaftClient.refreshLeader(), willCompleteSuccessfully());
 
         Peer previousLeader = msRaftClient.leader();
 
@@ -341,7 +347,7 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
 
         log.info("The placement driver group active actor is transferring [from={}, to={}]", previousLeader, newLeader);
 
-        msRaftClient.transferLeadership(newLeader).get();
+        assertThat(msRaftClient.transferLeadership(newLeader), willCompleteSuccessfully());
 
         waitForProlong(grpPart0, lease);
 

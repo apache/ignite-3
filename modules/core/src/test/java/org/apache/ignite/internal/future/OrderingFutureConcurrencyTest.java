@@ -59,7 +59,7 @@ class OrderingFutureConcurrencyTest {
         assertThat(counter.get(), is(20_000));
     }
 
-    private void executeInParallel(Runnable task1, Runnable task2) throws InterruptedException {
+    private static void executeInParallel(Runnable task1, Runnable task2) throws InterruptedException {
         Thread thread1 = new Thread(task1);
         Thread thread2 = new Thread(task2);
 
@@ -86,6 +86,28 @@ class OrderingFutureConcurrencyTest {
                 future.thenComposeToCompletable(x -> {
                     counter.incrementAndGet();
                     return CompletableFuture.completedFuture(null);
+                });
+            }
+        };
+
+        executeInParallel(addIncrementerTask, addIncrementerTask);
+
+        future.complete(1);
+
+        assertThat(counter.get(), is(20_000));
+    }
+
+    @Test
+    void concurrentAdditionOfThenComposeCallbacksIsCorrect() throws Exception {
+        OrderingFuture<Integer> future = new OrderingFuture<>();
+
+        AtomicInteger counter = new AtomicInteger();
+
+        Runnable addIncrementerTask = () -> {
+            for (int i = 0; i < 10_000; i++) {
+                future.thenCompose(x -> {
+                    counter.incrementAndGet();
+                    return OrderingFuture.completedFuture(null);
                 });
             }
         };
@@ -192,6 +214,12 @@ class OrderingFutureConcurrencyTest {
             @Override
             void execute(OrderingFuture<?> future) {
                 future.thenComposeToCompletable(x -> CompletableFuture.completedFuture(null));
+            }
+        },
+        THEN_COMPOSE {
+            @Override
+            void execute(OrderingFuture<?> future) {
+                future.thenCompose(x -> OrderingFuture.completedFuture(null));
             }
         },
         GET_NOW {

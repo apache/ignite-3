@@ -131,7 +131,7 @@ public class ItInitializedClusterRestTest extends AbstractRestTestBase {
         // And configuration can be parsed to hocon format
         Config config = ConfigFactory.parseString(response.body());
         // And rocksDb.defaultRegion.cache can be read
-        assertThat(config.getInt("gc.onUpdateBatchSize"), is(equalTo(5)));
+        assertThat(config.getInt("gc.batchSize"), is(equalTo(5)));
     }
 
     @Test
@@ -139,7 +139,7 @@ public class ItInitializedClusterRestTest extends AbstractRestTestBase {
     void clusterConfigurationUpdate() throws IOException, InterruptedException {
         // When PATCH /management/v1/configuration/cluster
         HttpResponse<String> patchRequest = client.send(
-                patch("/management/v1/configuration/cluster", "gc.onUpdateBatchSize=1"),
+                patch("/management/v1/configuration/cluster", "gc.batchSize=1"),
                 BodyHandlers.ofString()
         );
 
@@ -150,7 +150,7 @@ public class ItInitializedClusterRestTest extends AbstractRestTestBase {
         assertThat(getResponse.statusCode(), is(200));
         // And
         Config config = ConfigFactory.parseString(getResponse.body());
-        assertThat(config.getInt("gc.onUpdateBatchSize"), is(equalTo(1)));
+        assertThat(config.getInt("gc.batchSize"), is(equalTo(1)));
     }
 
     @Test
@@ -192,7 +192,7 @@ public class ItInitializedClusterRestTest extends AbstractRestTestBase {
         // And configuration can be parsed to hocon format
         Config config = ConfigFactory.parseString(response.body());
         // And rocksDb.defaultRegion.cache can be read
-        assertThat(config.getInt("onUpdateBatchSize"), is(equalTo(5)));
+        assertThat(config.getInt("batchSize"), is(equalTo(5)));
     }
 
     @Test

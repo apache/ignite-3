@@ -299,11 +299,11 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         ReplicaService replicaSvc = new ReplicaService(clusterSvc.messagingService(), hybridClock);
 
         var txManager = new TxManagerImpl(
+                clusterSvc,
                 replicaService,
                 lockManager,
                 hybridClock,
                 new TransactionIdGenerator(idx),
-                () -> clusterSvc.topologyService().localMember().id(),
                 placementDriver,
                 partitionIdleSafeTimePropagationPeriodMsSupplier
         );
@@ -1179,8 +1179,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         GcConfiguration gcConfiguration = ignite.clusterConfiguration()
                 .getConfiguration(GcConfiguration.KEY);
-        int defaultValue = gcConfiguration.onUpdateBatchSize().value();
-        CompletableFuture<Void> update = gcConfiguration.onUpdateBatchSize().update(defaultValue);
+        int defaultValue = gcConfiguration.batchSize().value();
+        CompletableFuture<Void> update = gcConfiguration.batchSize().update(defaultValue);
         assertThat(update, willCompleteSuccessfully());
 
         stopNode(0);

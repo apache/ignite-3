@@ -34,6 +34,7 @@ import javax.naming.OperationNotSupportedException;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
+import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.BinaryTuple;
@@ -53,6 +54,8 @@ import org.jetbrains.annotations.Nullable;
  * Fake internal table.
  */
 public class FakeInternalTable implements InternalTable {
+    public static final int PARTITIONS = 4;
+
     /** Table name. */
     private final String tableName;
 
@@ -87,7 +90,7 @@ public class FakeInternalTable implements InternalTable {
 
     @Override
     public int partitions() {
-        return 1;
+        return PARTITIONS;
     }
 
     @Override
@@ -359,6 +362,7 @@ public class FakeInternalTable implements InternalTable {
     public Publisher<BinaryRow> scan(
             int partId,
             UUID txId,
+            TablePartitionId commitPartition,
             PrimaryReplica recipient,
             @Nullable Integer indexId,
             @Nullable BinaryTuplePrefix lowerBound,
@@ -395,6 +399,7 @@ public class FakeInternalTable implements InternalTable {
     public Publisher<BinaryRow> lookup(
             int partId,
             UUID txId,
+            TablePartitionId commitPartition,
             PrimaryReplica recipient,
             int indexId,
             BinaryTuple key,

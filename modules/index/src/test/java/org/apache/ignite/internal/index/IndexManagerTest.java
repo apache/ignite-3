@@ -22,9 +22,12 @@ import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_N
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_DATA_REGION;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.COLUMN_NAME;
+import static org.apache.ignite.internal.index.TestIndexManagementUtils.INDEX_NAME;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.NODE_NAME;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.TABLE_NAME;
+import static org.apache.ignite.internal.index.TestIndexManagementUtils.createIndex;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.createTable;
+import static org.apache.ignite.internal.index.TestIndexManagementUtils.dropIndex;
 import static org.apache.ignite.internal.table.TableTestUtils.createHashIndex;
 import static org.apache.ignite.internal.table.TableTestUtils.dropTable;
 import static org.apache.ignite.internal.table.TableTestUtils.getTableIdStrict;
@@ -38,10 +41,15 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.LongFunction;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
@@ -53,6 +61,7 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
+import org.apache.ignite.internal.metastorage.impl.MetaStorageService;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.schema.SchemaManager;
@@ -73,9 +82,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-/**
- * Test class to verify {@link IndexManager}.
- */
+/** Test class to verify {@link IndexManager}. */
 public class IndexManagerTest extends BaseIgniteAbstractTest {
     private final HybridClock clock = new HybridClockImpl();
 
@@ -88,6 +95,8 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
     private CatalogManager catalogManager;
 
     private IndexManager indexManager;
+
+    private final Map<Integer, TableViewInternal> tableViewInternalByTableId = new ConcurrentHashMap<>();
 
     @BeforeEach
     public void setUp() {
@@ -190,7 +199,21 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
         assertThat(getMvTableStorageInCatalogListenerFuture, willBe(notNullValue()));
     }
 
+    @Test
+    void testDontUnregisterIndexOnCatalogEventIndexDrop() throws Exception {
+        createIndex(catalogManager, TABLE_NAME, INDEX_NAME, COLUMN_NAME);
+        dropIndex(catalogManager, INDEX_NAME);
+
+        TableViewInternal tableViewInternal = tableViewInternalByTableId.get(tableId());
+
+        verify(tableViewInternal, never()).unregisterIndex(anyInt());
+    }
+
     private TableViewInternal mockTable(int tableId) {
+        return tableViewInternalByTableId.computeIfAbsent(tableId, this::newMockTable);
+    }
+
+    private TableViewInternal newMockTable(int tableId) {
         CatalogZoneDescriptor zone = catalogManager.zone(DEFAULT_ZONE_NAME, clock.nowLong());
 
         assertNotNull(zone);
@@ -206,11 +229,13 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
         when(internalTable.tableId()).thenReturn(tableId);
         when(internalTable.storage()).thenReturn(mvTableStorage);
 
-        return new TableImpl(internalTable, new HeapLockManager(), new ConstantSchemaVersions(1));
+        return spy(new TableImpl(internalTable, new HeapLockManager(), new ConstantSchemaVersions(1)));
     }
 
     private CompletableFuture<MvTableStorage> getMvTableStorageLatestRevision(int tableId) {
-        return metaStorageManager.getService().currentRevision().thenCompose(latestRevision -> getMvTableStorage(latestRevision, tableId));
+        return metaStorageManager.metaStorageService()
+                .thenCompose(MetaStorageService::currentRevision)
+                .thenCompose(latestRevision -> getMvTableStorage(latestRevision, tableId));
     }
 
     private CompletableFuture<MvTableStorage> getMvTableStorage(long causalityToken, int tableId) {

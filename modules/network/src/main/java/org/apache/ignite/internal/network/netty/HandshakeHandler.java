@@ -75,7 +75,7 @@ public class HandshakeHandler extends ChannelInboundHandlerAdapter {
             throw e;
         }
 
-        manager.handshakeFuture().whenComplete((unused, throwable) -> {
+        manager.localHandshakeFuture().whenComplete((unused, throwable) -> {
             if (throwable != null) {
                 LOG.debug("Error when performing handshake", throwable);
 
@@ -97,7 +97,7 @@ public class HandshakeHandler extends ChannelInboundHandlerAdapter {
     public void channelInactive(ChannelHandlerContext ctx) {
         // If this method is called that means channel has been closed before handshake has finished or handshake
         // has failed.
-        manager.handshakeFuture().completeExceptionally(
+        manager.localHandshakeFuture().completeExceptionally(
                 new HandshakeException("Channel has been closed before handshake has finished or handshake has failed")
         );
 
@@ -107,7 +107,7 @@ public class HandshakeHandler extends ChannelInboundHandlerAdapter {
     /** {@inheritDoc} */
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
-        manager.handshakeFuture().completeExceptionally(cause);
+        manager.localHandshakeFuture().completeExceptionally(cause);
     }
 
     /**
