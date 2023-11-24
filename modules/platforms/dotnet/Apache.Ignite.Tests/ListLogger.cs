@@ -39,10 +39,10 @@ namespace Apache.Ignite.Tests
         /** */
         private readonly IIgniteLogger? _wrappedLogger;
 
-        public ListLogger(IIgniteLogger? wrappedLogger = null)
+        public ListLogger(IIgniteLogger? wrappedLogger = null, IEnumerable<LogLevel>? enabledLevels = null)
         {
             _wrappedLogger = wrappedLogger;
-            EnabledLevels = new() { LogLevel.Debug, LogLevel.Info, LogLevel.Warn, LogLevel.Error };
+            EnabledLevels = enabledLevels?.ToList() ?? new() { LogLevel.Debug, LogLevel.Info, LogLevel.Warn, LogLevel.Error };
         }
 
         /// <summary>

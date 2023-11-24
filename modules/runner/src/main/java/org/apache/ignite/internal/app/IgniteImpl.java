@@ -667,7 +667,8 @@ public class IgniteImpl implements Ignite {
                 authenticationManager,
                 clock,
                 schemaSyncService,
-                catalogManager
+                catalogManager,
+                placementDriverMgr.placementDriver()
         );
 
         restComponent = createRestComponent(name);

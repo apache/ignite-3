@@ -70,6 +70,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
+import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
@@ -321,6 +322,7 @@ public class ItConnectionManagerTest extends BaseIgniteAbstractTest {
      * @throws Exception If failed.
      */
     @RepeatedTest(100)
+    @Timeout(10)
     public void testOneChannelLeftIfConnectToEachOther() throws Exception {
         try (
                 ConnectionManagerWrapper manager1 = startManager(4000);
@@ -329,42 +331,11 @@ public class ItConnectionManagerTest extends BaseIgniteAbstractTest {
             CompletableFuture<NettySender> fut1 = manager1.openChannelTo(manager2).toCompletableFuture();
             CompletableFuture<NettySender> fut2 = manager2.openChannelTo(manager1).toCompletableFuture();
 
-            NettySender sender1 = null;
-            NettySender sender2 = null;
+            NettySender sender1 = fut1.get(1, TimeUnit.SECONDS);
+            NettySender sender2 = fut2.get(1, TimeUnit.SECONDS);
 
-            try {
-                sender1 = fut1.get(1, TimeUnit.SECONDS);
-            } catch (Exception ignored) {
-                // No-op.
-            }
-            try {
-                sender2 = fut2.get(1, TimeUnit.SECONDS);
-            } catch (Exception ignored) {
-                // No-op.
-            }
-
-            NettySender highlander = null;
-
-            assertTrue(sender1 != null || sender2 != null);
-
-            if (sender1 != null && sender1.isOpen()) {
-                highlander = sender1;
-
-                boolean sender2NullOrClosed = sender2 == null || !sender2.isOpen();
-
-                assertTrue(sender2NullOrClosed);
-            }
-
-            if (sender2 != null && sender2.isOpen()) {
-                highlander = sender2;
-
-                boolean sender1NullOrClosed = sender1 == null || !sender1.isOpen();
-
-                assertTrue(sender1NullOrClosed);
-            }
-
-            assertNotNull(highlander);
-            assertTrue(highlander.isOpen());
+            assertTrue(sender1.isOpen());
+            assertTrue(sender2.isOpen());
 
             assertTrue(
                     waitForCondition(
