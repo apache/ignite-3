@@ -716,6 +716,7 @@ namespace Apache.Ignite.Internal
             }
 
             Metrics.RequestsActiveDecrement();
+            _logger.LogReceivedResponseTrace(ConnectionContext.ClusterNode.Address, requestId);
 
             var flags = (ResponseFlags)reader.ReadInt32();
 

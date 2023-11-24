@@ -198,4 +198,10 @@ internal static partial class LogMessages
         EventId = 1026)]
     internal static partial void LogRetryingOperationDebug(
         this ILogger logger, string retrying, int op, ClientOp opType, int attempt, string lastErrorMessage);
+
+    [LoggerMessage(
+        Message = "Received response [remoteAddress={RemoteAddress}, requestId={RequestId}]",
+        Level = LogLevel.Trace,
+        EventId = 1027)]
+    internal static partial void LogReceivedResponseTrace(this ILogger logger, IPEndPoint remoteAddress, long requestId);
 }
