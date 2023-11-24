@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine;
+package org.apache.ignite.internal.index;
 
 import static java.util.stream.Collectors.joining;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsIndexScan;
