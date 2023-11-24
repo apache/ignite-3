@@ -213,26 +213,14 @@ class SchemaCompatibilityValidator {
                 tupleSchemaVersion
         );
 
-        if (tableSchemas.isEmpty()) {
+        if (tableSchemas.size() < 2) {
             // The tuple was not written with a future schema.
             return CompatValidationResult.success();
         }
 
-        for (int i = 0; i < tableSchemas.size() - 1; i++) {
-            FullTableSchema oldSchema = tableSchemas.get(i);
-            FullTableSchema newSchema = tableSchemas.get(i + 1);
-            if (!isBackwardCompatible(oldSchema, newSchema)) {
-                return CompatValidationResult.incompatibleChange(tableId, oldSchema.schemaVersion(), newSchema.schemaVersion());
-            }
-        }
-
-        return CompatValidationResult.success();
-    }
-
-    @SuppressWarnings("unused")
-    private boolean isBackwardCompatible(FullTableSchema oldSchema, FullTableSchema newSchema) {
-        // For now, we always treat changes as backward incompatible.
-        return false;
+        FullTableSchema oldSchema = tableSchemas.get(0);
+        FullTableSchema newSchema = tableSchemas.get(1);
+        return CompatValidationResult.incompatibleChange(tableId, oldSchema.schemaVersion(), newSchema.schemaVersion());
     }
 
     void failIfSchemaChangedAfterTxStart(UUID txId, HybridTimestamp operationTimestamp, int tableId) {
