@@ -28,7 +28,6 @@ import java.net.InetSocketAddress;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
@@ -37,12 +36,10 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiPredicate;
 import java.util.function.Function;
-import org.apache.ignite.internal.future.OrderingFuture;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
-import org.apache.ignite.internal.network.handshake.ChannelAlreadyExistsException;
 import org.apache.ignite.internal.network.message.ClassDescriptorMessage;
 import org.apache.ignite.internal.network.message.InvokeRequest;
 import org.apache.ignite.internal.network.message.InvokeResponse;
@@ -298,24 +295,8 @@ public class DefaultMessagingService extends AbstractMessagingService {
             return failedFuture(new IgniteException("Failed to marshal message: " + e.getMessage(), e));
         }
 
-        OrderingFuture<NettySender> channel = connectionManager.channel(consistentId, type, addr);
-
-        return channel.handle((sender, throwable) -> {
-            if (throwable != null) {
-                if (throwable instanceof CompletionException && throwable.getCause() instanceof ChannelAlreadyExistsException) {
-                    ChannelAlreadyExistsException e = (ChannelAlreadyExistsException) throwable.getCause();
-
-                    OrderingFuture<NettySender> channelFut = connectionManager.channel(e.consistentId(), type, addr);
-
-                    return channelFut.thenComposeToCompletable(nettySender -> {
-                        return nettySender.send(new OutNetworkObject(message, descriptors));
-                    });
-                }
-
-                throw new CompletionException(throwable);
-            }
-            return sender.send(new OutNetworkObject(message, descriptors));
-        }).thenComposeToCompletable(Function.identity());
+        return connectionManager.channel(consistentId, type, addr)
+                .thenComposeToCompletable(sender -> sender.send(new OutNetworkObject(message, descriptors)));
     }
 
     private List<ClassDescriptorMessage> beforeRead(NetworkMessage msg) throws Exception {

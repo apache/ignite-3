@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.network.netty;
 
+import static java.util.function.Function.identity;
 import static org.apache.ignite.network.ChannelType.getChannel;
 
 import io.netty.bootstrap.Bootstrap;
@@ -40,6 +41,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
 import org.apache.ignite.internal.network.configuration.NetworkView;
+import org.apache.ignite.internal.network.handshake.ChannelAlreadyExistsException;
 import org.apache.ignite.internal.network.handshake.HandshakeManager;
 import org.apache.ignite.internal.network.recovery.RecoveryClientHandshakeManager;
 import org.apache.ignite.internal.network.recovery.RecoveryClientHandshakeManagerFactory;
@@ -64,6 +66,8 @@ public class ConnectionManager implements ChannelCreationListener {
 
     /** Latest version of the direct marshalling protocol. */
     public static final byte DIRECT_PROTOCOL_VERSION = 1;
+
+    private static final int MAX_RETRIES_TO_OPEN_CHANNEL = 10;
 
     /** Client bootstrap. */
     private final Bootstrap clientBootstrap;
@@ -223,6 +227,51 @@ public class ConnectionManager implements ChannelCreationListener {
      * @return Sender.
      */
     public OrderingFuture<NettySender> channel(@Nullable String consistentId, ChannelType type, InetSocketAddress address) {
+        return getChannelWithRetry(consistentId, type, address, 0);
+    }
+
+    private OrderingFuture<NettySender> getChannelWithRetry(
+            @Nullable String consistentId,
+            ChannelType type,
+            InetSocketAddress address,
+            int attempt
+    ) {
+        if (attempt > MAX_RETRIES_TO_OPEN_CHANNEL) {
+            return OrderingFuture.failedFuture(new IllegalStateException("Too many attempts to open channel to " + consistentId));
+        }
+
+        return doGetChannel(consistentId, type, address)
+                .handle((res, ex) -> {
+                    if (ex instanceof ChannelAlreadyExistsException) {
+                        return getChannelWithRetry(((ChannelAlreadyExistsException) ex).consistentId(), type, address, attempt + 1);
+                    }
+                    if (ex != null && ex.getCause() instanceof ChannelAlreadyExistsException) {
+                        return getChannelWithRetry(
+                                ((ChannelAlreadyExistsException) ex.getCause()).consistentId(),
+                                type,
+                                address,
+                                attempt + 1
+                        );
+                    }
+                    if (ex != null) {
+                        return OrderingFuture.<NettySender>failedFuture(ex);
+                    }
+
+                    assert res != null;
+                    if (res.isOpen()) {
+                        return OrderingFuture.completedFuture(res);
+                    } else {
+                        return getChannelWithRetry(res.consistentId(), type, address, attempt + 1);
+                    }
+                })
+                .thenCompose(identity());
+    }
+
+    private OrderingFuture<NettySender> doGetChannel(
+            @Nullable String consistentId,
+            ChannelType type,
+            InetSocketAddress address
+    ) {
         // Problem is we can't look up a channel by consistent id because consistent id is not known yet.
         if (consistentId != null) {
             // If consistent id is known, try looking up a channel by consistent id. There can be an outbound connection
