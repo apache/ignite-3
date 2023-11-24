@@ -37,6 +37,7 @@ public class BoundedPriorityBlockingQueueTest {
 
     @BeforeEach
     public void setup() {
+        maxCapacity = 1;
         queue = new BoundedPriorityBlockingQueue<>(() -> maxCapacity);
     }
 
