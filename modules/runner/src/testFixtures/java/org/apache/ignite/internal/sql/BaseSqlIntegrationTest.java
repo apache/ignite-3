@@ -41,6 +41,7 @@ import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
@@ -350,9 +351,11 @@ public class BaseSqlIntegrationTest extends ClusterPerClassIntegrationTest {
      */
     protected static boolean isIndexAvailable(IgniteImpl ignite, String indexName) {
         CatalogManager catalogManager = ignite.catalogManager();
+        HybridClock clock = ignite.clock();
 
-        return catalogManager.indexes(catalogManager.latestCatalogVersion()).stream()
-                .anyMatch(indexDescriptor -> indexName.equals(indexDescriptor.name()));
+        CatalogIndexDescriptor indexDescriptor = catalogManager.index(indexName, clock.nowLong());
+
+        return indexDescriptor != null && indexDescriptor.available();
     }
 
     /**
