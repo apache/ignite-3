@@ -23,7 +23,7 @@ import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsIndexScan;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.will;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.greaterThan;
@@ -144,7 +144,7 @@ public class ItBuildIndexOneNodeTest extends BaseSqlIntegrationTest {
         createIndexForSalaryFieldAndWaitBecomeAvailable();
 
         assertThat(awaitIndexBecomeAvailableEventAsync, willCompleteSuccessfully());
-        assertThat(insertIntoTableFuture, will(greaterThan(0)));
+        assertThat(insertIntoTableFuture, willBe(greaterThan(0)));
 
         // Now let's check the data itself.
         assertQuery(format("SELECT * FROM {} WHERE salary > 0.0", TABLE_NAME))
@@ -184,7 +184,7 @@ public class ItBuildIndexOneNodeTest extends BaseSqlIntegrationTest {
         createIndexForSalaryFieldAndWaitBecomeAvailable();
 
         assertThat(awaitIndexBecomeAvailableEventAsync, willCompleteSuccessfully());
-        assertThat(updateIntoTableFuture, will(greaterThan(0)));
+        assertThat(updateIntoTableFuture, willBe(greaterThan(0)));
 
         // Now let's check the data itself.
         QueryChecker queryChecker = assertQuery(format("SELECT NAME FROM {} WHERE salary > 0.0 ORDER BY ID ASC", TABLE_NAME))
@@ -230,7 +230,7 @@ public class ItBuildIndexOneNodeTest extends BaseSqlIntegrationTest {
         createIndexForSalaryFieldAndWaitBecomeAvailable();
 
         assertThat(awaitIndexBecomeAvailableEventAsync, willCompleteSuccessfully());
-        assertThat(deleteFromTableFuture, will(greaterThan(0)));
+        assertThat(deleteFromTableFuture, willBe(greaterThan(0)));
 
         // Now let's check the data itself.
         assertQuery(format("SELECT NAME FROM {} WHERE salary > 0.0", TABLE_NAME))
