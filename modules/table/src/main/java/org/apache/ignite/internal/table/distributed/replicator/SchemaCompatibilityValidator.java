@@ -227,9 +227,10 @@ class SchemaCompatibilityValidator {
         return CompatValidationResult.success();
     }
 
+    @SuppressWarnings("unused")
     private boolean isBackwardCompatible(FullTableSchema oldSchema, FullTableSchema newSchema) {
-        // TODO: IGNITE-19229 - is backward compatibility always symmetric with the forward compatibility?
-        return isForwardCompatible(newSchema, oldSchema);
+        // For now, we always treat changes as backward incompatible.
+        return false;
     }
 
     void failIfSchemaChangedAfterTxStart(UUID txId, HybridTimestamp operationTimestamp, int tableId) {

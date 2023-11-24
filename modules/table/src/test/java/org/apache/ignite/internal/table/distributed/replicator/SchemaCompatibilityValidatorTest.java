@@ -46,6 +46,8 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -112,7 +114,7 @@ class SchemaCompatibilityValidatorTest extends BaseIgniteAbstractTest {
     @BeforeEach
     void configureMocks() {
         when(schemaSyncService.waitForMetadataCompleteness(any())).thenReturn(completedFuture(null));
-        when(catalogService.table(TABLE_ID, commitTimestamp.longValue())).thenReturn(mock(CatalogTableDescriptor.class));
+        lenient().when(catalogService.table(TABLE_ID, commitTimestamp.longValue())).thenReturn(mock(CatalogTableDescriptor.class));
     }
 
     @ParameterizedTest
@@ -385,6 +387,49 @@ class SchemaCompatibilityValidatorTest extends BaseIgniteAbstractTest {
                 // Type is widened (compatible), but NOT NULL added (incompatible).
                 tableSchema(2, List.of(column(INT64, false)))
         ));
+    }
+
+    @Test
+    void forwardCompatibleChangeIsNotBackwardCompatible() {
+        assertChangeIsNotBackwardCompatible(ForwardCompatibleChange.ADD_NULLABLE_COLUMN);
+    }
+
+    @Test
+    void forwardIncompatibleChangeIsNotBackwardCompatible() {
+        assertChangeIsNotBackwardCompatible(ForwardIncompatibleChange.DROP_COLUMN);
+    }
+
+    @Test
+    void changeOppositeToForwardCompatibleChangeIsNotBackwardCompatible() {
+        assertChangeIsNotBackwardCompatible(() -> List.of(
+                tableSchema(1, List.of(
+                        intColumn("col1"),
+                        intColumnWithDefault("col2", 42)
+                )),
+                tableSchema(2, List.of(
+                        intColumn("col1")
+                ))
+        ));
+    }
+
+    private void assertChangeIsNotBackwardCompatible(SchemaChangeSource changeSource) {
+        when(schemasSource.tableSchemaVersionsBetween(TABLE_ID, beginTimestamp, 2))
+                .thenReturn(changeSource.schemaVersions());
+        when(schemasSource.waitForSchemaAvailability(anyInt(), anyInt())).thenReturn(completedFuture(null));
+
+        CompletableFuture<CompatValidationResult> resultFuture = validator.validateBackwards(2, TABLE_ID, txId);
+
+        assertThat(resultFuture, willCompleteSuccessfully());
+
+        CompatValidationResult result = resultFuture.getNow(null);
+        assertThat(result, is(notNullValue()));
+
+        assertThat("Change is compatible", result.isSuccessful(), is(false));
+        assertThat(result.isTableDropped(), is(false));
+
+        assertThat(result.failedTableId(), is(TABLE_ID));
+        assertThat(result.fromSchemaVersion(), is(1));
+        assertThat(result.toSchemaVersion(), is(2));
     }
 
     private static CatalogTableColumnDescriptor intColumn(String columnName) {
