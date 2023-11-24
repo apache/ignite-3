@@ -21,7 +21,7 @@ using System;
 using System.Diagnostics.CodeAnalysis;
 using System.Threading.Tasks;
 using Internal;
-using Log;
+using Microsoft.Extensions.Logging;
 using NUnit.Framework;
 
 /// <summary>
@@ -33,11 +33,8 @@ public class LoggingTests
     [SuppressMessage("ReSharper", "AccessToDisposedClosure", Justification = "Reviewed.")]
     public async Task TestBasicLogging()
     {
-        var logger = new ListLogger(new ConsoleLogger { MinLevel = LogLevel.Trace });
-        logger.EnabledLevels.Clear();
-        logger.EnabledLevels.AddRange(Enum.GetValues<LogLevel>());
-
-        var cfg = new IgniteClientConfiguration { Logger = logger };
+        var logger = new ListLoggerFactory(Enum.GetValues<LogLevel>());
+        var cfg = new IgniteClientConfiguration { LoggerFactory = logger };
 
         using var servers = FakeServerGroup.Create(3);
         using (var client = await servers.ConnectClientAsync(cfg))
@@ -51,7 +48,7 @@ public class LoggingTests
         var log = logger.GetLogString();
 
         StringAssert.Contains(
-            $"ClientFailoverSocket [Info] Ignite.NET client version {VersionUtils.GetInformationalVersion()} is starting",
+            $"ClientFailoverSocket [Info] Ignite.NET client version {VersionUtils.InformationalVersion} is starting",
             log);
 
         StringAssert.Contains("Connection established", log);
