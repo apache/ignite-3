@@ -21,7 +21,6 @@ namespace Apache.Ignite.Tests
     using System.Collections.Generic;
     using System.Diagnostics.CodeAnalysis;
     using System.Linq;
-    using Internal.Common;
     using Microsoft.Extensions.Logging;
     using NUnit.Framework;
 
