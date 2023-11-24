@@ -48,15 +48,16 @@ public class LoggingTests
         var log = logger.GetLogString();
 
         StringAssert.Contains(
-            $"ClientFailoverSocket [Info] Ignite.NET client version {VersionUtils.InformationalVersion} is starting",
+            $"Apache.Ignite.Internal.ClientFailoverSocket [Information] " +
+            $"Ignite.NET client version {VersionUtils.InformationalVersion} is starting",
             log);
 
-        StringAssert.Contains("Connection established", log);
-        StringAssert.Contains("Handshake succeeded", log);
-        StringAssert.Contains("Trying to establish secondary connections - awaiting 2 tasks", log);
-        StringAssert.Contains("2 secondary connections established, 0 failed", log);
-        StringAssert.Contains("Sending request [op=TablesGet", log);
-        StringAssert.Contains("Sending request [op=SqlExec", log);
-        StringAssert.Contains("Connection closed", log);
+        StringAssert.Contains("[Debug] Connection established", log);
+        StringAssert.Contains("[Debug] Handshake succeeded [remoteAddress=[", log);
+        StringAssert.Contains("ClientFailoverSocket [Debug] Trying to establish secondary connections - awaiting 2 tasks", log);
+        StringAssert.Contains("ClientFailoverSocket [Debug] 2 secondary connections established, 0 failed", log);
+        StringAssert.Contains("[Trace] Sending request [op=TablesGet", log);
+        StringAssert.Contains("[Trace] Sending request [op=SqlExec", log);
+        StringAssert.Contains("[Debug] Connection closed gracefully", log);
     }
 }
