@@ -59,7 +59,7 @@ public class ConsoleLogger : ILogger, ILoggerFactory
             CultureInfo.InvariantCulture,
             "[{0:HH:mm:ss}] [{1}] [{2}] ",
             DateTime.Now,
-            logLevel,
+            GetLogLevelString(logLevel),
             _categoryName);
 
         sb.Append(formatter(state, exception));
@@ -84,4 +84,18 @@ public class ConsoleLogger : ILogger, ILoggerFactory
     public ILogger CreateLogger(string categoryName) => new ConsoleLogger(categoryName, _minLevel);
 
     public void AddProvider(ILoggerProvider provider) => throw new NotSupportedException();
+
+    private static string GetLogLevelString(LogLevel logLevel) =>
+        logLevel switch
+        {
+            LogLevel.Trace => "trce",
+            LogLevel.Debug => "dbug",
+            LogLevel.Information => "info",
+            LogLevel.Warning => "warn",
+            LogLevel.Error => "fail",
+            LogLevel.Critical => "crit",
+
+            // ReSharper disable once PatternIsRedundant
+            LogLevel.None or _ => throw new ArgumentOutOfRangeException(nameof(logLevel))
+        };
 }
