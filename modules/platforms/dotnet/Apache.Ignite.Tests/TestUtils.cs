@@ -77,8 +77,7 @@ namespace Apache.Ignite.Tests
             return (T) field!.GetValue(obj)!;
         }
 
-        public static ILoggerFactory GetConsoleLoggerFactory(LogLevel minLevel) =>
-            LoggerFactory.Create(builder => builder.AddConsole().SetMinimumLevel(minLevel));
+        public static ILoggerFactory GetConsoleLoggerFactory(LogLevel minLevel) => new ConsoleLogger(minLevel);
 
         private static string GetSolutionDir()
         {

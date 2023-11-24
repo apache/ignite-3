@@ -61,4 +61,16 @@ public class LoggingTests
         StringAssert.Contains("op=SqlExec", log);
         StringAssert.Contains("[Debug] Connection closed gracefully", log);
     }
+
+    [Test]
+    public async Task TestMicrosoftConsoleLogger()
+    {
+        var cfg = new IgniteClientConfiguration
+        {
+            LoggerFactory = LoggerFactory.Create(builder => builder.AddConsole().SetMinimumLevel(LogLevel.Trace))
+        };
+
+        using var server = new FakeServer();
+        using var client = await server.ConnectClientAsync(cfg);
+    }
 }
