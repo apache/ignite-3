@@ -116,7 +116,7 @@ internal static partial class LogMessages
         Message = "Sending request [requestId={RequestId}, op={Op}, remoteAddress={RemoteAddress}]",
         Level = LogLevel.Trace,
         EventId = 1013)]
-    internal static partial void LogSendingRequestTrace(this ILogger logger, ClientOp op, IPEndPoint remoteAddress, long requestId);
+    internal static partial void LogSendingRequestTrace(this ILogger logger, long requestId, ClientOp op, IPEndPoint remoteAddress);
 
     [LoggerMessage(
         Message = "{Message}",
@@ -163,7 +163,7 @@ internal static partial class LogMessages
     internal static partial void LogClientStartInfo(this ILogger logger, string version);
 
     [LoggerMessage(
-        Message = "Failed to connect to preferred node [{NodeName}]: {Message}",
+        Message = "Failed to connect to preferred node [name={NodeName}]: {Message}",
         Level = LogLevel.Debug,
         EventId = 1021)]
     internal static partial void LogFailedToConnectPreferredNodeDebug(this ILogger logger, string nodeName, string message);
@@ -203,5 +203,5 @@ internal static partial class LogMessages
         Message = "Received response [requestId={RequestId}, remoteAddress={RemoteAddress}]",
         Level = LogLevel.Trace,
         EventId = 1027)]
-    internal static partial void LogReceivedResponseTrace(this ILogger logger, IPEndPoint remoteAddress, long requestId);
+    internal static partial void LogReceivedResponseTrace(this ILogger logger, long requestId, IPEndPoint remoteAddress);
 }
