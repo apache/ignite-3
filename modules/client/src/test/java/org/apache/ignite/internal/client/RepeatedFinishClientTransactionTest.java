@@ -203,7 +203,7 @@ public class RepeatedFinishClientTransactionTest extends BaseIgniteAbstractTest 
         }
 
         @Override
-        public void addTopologyAssignmentChangeListener(Consumer<ClientChannel> listener) {
+        public void addPartitionAssignmentChangeListener(Consumer<Long> listener) {
             // No-op.
         }
 

@@ -69,6 +69,10 @@ public interface KeyValueView<K, V> extends DataStreamerTarget<Entry<K, V>> {
     /**
      * Gets a nullable value associated with a given key.
      *
+     * <p>Examples:
+     *     {@code getNullable(tx, key)} returns {@code null} after {@code remove(tx, key)}.
+     *     {@code getNullable(tx, key)} returns {@code Nullable.of(null)} after {@code put(tx, key, null)}.
+     *
      * @param tx Transaction or {@code null} to auto commit.
      * @param key Key whose value is to be returned. The key cannot be {@code null}.
      * @return Wrapped nullable value or {@code null} if it does not exist.
@@ -82,6 +86,7 @@ public interface KeyValueView<K, V> extends DataStreamerTarget<Entry<K, V>> {
      * @param tx Transaction or {@code null} to auto-commit.
      * @param key Key whose value is to be returned. The key cannot be {@code null}.
      * @return Future that represents the pending completion of the operation.
+     *     The future returns wrapped nullable value or {@code null} if the row with the given key does not exist.
      * @throws MarshallerException if the key doesn't match the schema.
      * @see #getNullable(Transaction, Object)
      */

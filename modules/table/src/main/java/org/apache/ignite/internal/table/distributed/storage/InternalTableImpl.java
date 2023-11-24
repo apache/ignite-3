@@ -72,6 +72,8 @@ import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.IgnitePentaFunction;
 import org.apache.ignite.internal.lang.IgniteTriFunction;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.raft.Peer;
@@ -122,6 +124,8 @@ import org.jetbrains.annotations.TestOnly;
  * Storage of table rows.
  */
 public class InternalTableImpl implements InternalTable {
+    private static final IgniteLogger LOG = Loggers.forClass(InternalTableImpl.class);
+
     /** Cursor id generator. */
     private static final AtomicLong CURSOR_ID_GENERATOR = new AtomicLong();
 
@@ -470,9 +474,9 @@ public class InternalTableImpl implements InternalTable {
             @Nullable BiPredicate<R, ReplicaRequest> noWriteChecker,
             boolean retryOnLockConflict
     ) {
-        return (CompletableFuture<R>) enlist(partId, tx).thenCompose(
-                        primaryReplicaAndTerm -> trackingInvoke(tx, partId, mapFunc, full, primaryReplicaAndTerm, noWriteChecker,
-                                retryOnLockConflict))
+        return (CompletableFuture<R>) enlist(partId, tx)
+                .thenCompose(primaryReplicaAndTerm -> trackingInvoke(tx, partId, mapFunc, full, primaryReplicaAndTerm, noWriteChecker,
+                        retryOnLockConflict))
                 .handle((res0, e) -> {
                     if (e != null) {
                         // We can safely retry indefinitely on deadlock prevention.
@@ -480,7 +484,10 @@ public class InternalTableImpl implements InternalTable {
                             return enlistWithRetry(tx, partId, mapFunc, attempts, full, noWriteChecker, true);
                         }
 
-                        if (e.getCause() instanceof PrimaryReplicaMissException && attempts > 0) {
+                        if (attempts > 0 && e.getCause() instanceof PrimaryReplicaMissException) {
+                            LOG.info("Primary replica for partition {} changed, retrying the request. Remaining attempts: {}",
+                                    partId, attempts - 1);
+
                             return enlistWithRetry(tx, partId, mapFunc, attempts - 1, full, noWriteChecker, retryOnLockConflict);
                         }
 

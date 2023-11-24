@@ -20,7 +20,10 @@ package org.apache.ignite.internal.sql.engine;
 import java.util.NoSuchElementException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Function;
 import org.apache.ignite.internal.lang.SqlExceptionMapperUtil;
+import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.util.AsyncCursor;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.sql.ResultSetMetadata;
@@ -32,6 +35,9 @@ import org.jetbrains.annotations.Nullable;
  * @param <T> Type of elements.
  */
 public class AsyncSqlCursorImpl<T> implements AsyncSqlCursor<T> {
+    private final AtomicBoolean closed = new AtomicBoolean(false);
+    private final CompletableFuture<Void> closeResult = new CompletableFuture<>();
+
     private final SqlQueryType queryType;
     private final ResultSetMetadata meta;
     private final QueryTransactionWrapper txWrapper;
@@ -100,20 +106,28 @@ public class AsyncSqlCursorImpl<T> implements AsyncSqlCursor<T> {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<BatchedResult<T>> requestNextAsync(int rows) {
-        return dataCursor.requestNextAsync(rows).handle((batch, t) -> {
-            if (t != null) {
-                // Always rollback a transaction in case of an error.
-                txWrapper.rollback();
+        return dataCursor.requestNextAsync(rows)
+                .thenApply(batch -> {
+                    CompletableFuture<Void> fut = batch.hasMore()
+                            ? Commons.completedFuture()
+                            : closeAsync();
 
-                throw new CompletionException(wrapIfNecessary(t));
-            }
+                    return fut.thenApply(none -> batch);
+                })
+                .exceptionally(rootEx -> {
+                    // Always rollback a transaction in case of an error.
+                    return txWrapper.rollback()
+                            .handle((none, rollbackEx) -> {
+                                Throwable wrapped = wrapIfNecessary(rootEx);
 
-            if (!batch.hasMore()) {
-                closeAsync();
-            }
+                                if (rollbackEx != null) {
+                                    wrapped.addSuppressed(rollbackEx);
+                                }
 
-            return batch;
-        });
+                                throw new CompletionException(wrapped);
+                            });
+                })
+                .thenCompose(Function.identity());
     }
 
     /** {@inheritDoc} */
@@ -135,12 +149,22 @@ public class AsyncSqlCursorImpl<T> implements AsyncSqlCursor<T> {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> closeAsync() {
-        // Commit implicit transaction, if any.
-        txWrapper.commitImplicit();
+        if (!closed.compareAndSet(false, true)) {
+            return closeResult;
+        }
 
-        onClose.run();
+        dataCursor.closeAsync()
+                .thenCompose(ignored -> txWrapper.commitImplicit())
+                .thenRun(onClose)
+                .whenComplete((r, e) -> {
+                    if (e != null) {
+                        closeResult.completeExceptionally(e);
+                    } else {
+                        closeResult.complete(null);
+                    }
+                });
 
-        return dataCursor.closeAsync();
+        return closeResult;
     }
 
     private static Throwable wrapIfNecessary(Throwable t) {

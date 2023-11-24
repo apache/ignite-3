@@ -34,6 +34,7 @@ import org.apache.ignite.internal.configuration.validation.TestConfigurationVali
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
+import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.security.authentication.AuthenticationManager;
 import org.apache.ignite.internal.security.authentication.AuthenticationManagerImpl;
 import org.apache.ignite.internal.security.configuration.SecurityConfiguration;
@@ -133,7 +134,8 @@ public class TestServer {
                 authenticationManager(),
                 new HybridClockImpl(),
                 new AlwaysSyncedSchemaSyncService(),
-                mock(CatalogService.class)
+                mock(CatalogService.class),
+                mock(PlacementDriver.class)
         );
 
         module.start();

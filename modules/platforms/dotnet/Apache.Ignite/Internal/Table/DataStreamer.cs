@@ -67,7 +67,7 @@ internal static class DataStreamer
         Func<PooledArrayBuffer, string, IRetryPolicy, Task> sender,
         RecordSerializer<T> writer,
         Func<int?, Task<Schema>> schemaProvider, // Not a ValueTask because Tasks are cached.
-        Func<ValueTask<string[]?>> partitionAssignmentProvider,
+        Func<ValueTask<string?[]?>> partitionAssignmentProvider,
         DataStreamerOptions options,
         CancellationToken cancellationToken)
     {
@@ -189,7 +189,7 @@ internal static class DataStreamer
             var partitionAssignment0 = partitionAssignment;
             var partition = partitionAssignment0 == null
                 ? string.Empty // Default connection.
-                : partitionAssignment0[Math.Abs(tupleBuilder.GetHash() % partitionAssignment0.Length)];
+                : partitionAssignment0[Math.Abs(tupleBuilder.GetHash() % partitionAssignment0.Length)] ?? string.Empty;
 
             var batch = GetOrCreateBatch(partition);
 

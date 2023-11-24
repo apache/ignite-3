@@ -54,8 +54,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.concurrent.locks.ReadWriteLock;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Function;
 import java.util.function.LongSupplier;
 import java.util.function.Supplier;
@@ -142,9 +140,6 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
      */
     private final AtomicReference<HybridTimestamp> lowWatermark = new AtomicReference<>();
 
-    /** Lock to update and read the low watermark. */
-    private final ReadWriteLock lowWatermarkReadWriteLock = new ReentrantReadWriteLock();
-
     private final PlacementDriver placementDriver;
 
     private final LongSupplier idleSafeTimePropagationPeriodMsSupplier;
@@ -226,29 +221,34 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                 ? HybridTimestamp.max(observableTimestamp, currentReadTimestamp())
                 : currentReadTimestamp();
 
-        lowWatermarkReadWriteLock.readLock().lock();
+        TxIdAndTimestamp txIdAndTimestamp = new TxIdAndTimestamp(readTimestamp, txId);
 
-        try {
-            HybridTimestamp lowWatermark1 = this.lowWatermark.get();
+        CompletableFuture<Void> txFuture = new CompletableFuture<>();
 
-            readOnlyTxFutureById.compute(new TxIdAndTimestamp(readTimestamp, txId), (txIdAndTimestamp, readOnlyTxFuture) -> {
-                assert readOnlyTxFuture == null : "previous transaction has not completed yet: " + txIdAndTimestamp;
+        CompletableFuture<Void> oldFuture = readOnlyTxFutureById.put(txIdAndTimestamp, txFuture);
+        assert oldFuture == null : "previous transaction has not completed yet: " + txIdAndTimestamp;
 
-                if (lowWatermark1 != null && readTimestamp.compareTo(lowWatermark1) <= 0) {
-                    throw new IgniteInternalException(
-                            TX_READ_ONLY_TOO_OLD_ERR,
-                            "Timestamp of read-only transaction must be greater than the low watermark: [txTimestamp={}, lowWatermark={}]",
-                            readTimestamp, lowWatermark1
-                    );
-                }
+        HybridTimestamp lowWatermark = this.lowWatermark.get();
 
-                return new CompletableFuture<>();
-            });
+        if (lowWatermark != null && readTimestamp.compareTo(lowWatermark) <= 0) {
+            // "updateLowWatermark" method updates "this.lowWatermark" field, and only then scans "this.readOnlyTxFutureById" for old
+            // transactions to wait. In order for that code to work safely, we have to make sure that no "too old" transactions will be
+            // created here in "begin" method after "this.lowWatermark" is already updated. The simplest way to achieve that is to check
+            // LW after we add transaction to the map (adding transaction to the map before reading LW value, of course).
+            readOnlyTxFutureById.remove(txIdAndTimestamp);
 
-            return new ReadOnlyTransactionImpl(this, timestampTracker, txId, readTimestamp);
-        } finally {
-            lowWatermarkReadWriteLock.readLock().unlock();
+            // Completing the future is necessary, because "updateLowWatermark" method may already wait for it if race condition happened.
+            txFuture.complete(null);
+
+            throw new IgniteInternalException(
+                    TX_READ_ONLY_TOO_OLD_ERR,
+                    "Timestamp of read-only transaction must be greater than the low watermark: [txTimestamp={}, lowWatermark={}]",
+                    readTimestamp,
+                    lowWatermark
+            );
         }
+
+        return new ReadOnlyTransactionImpl(this, timestampTracker, txId, readTimestamp);
     }
 
     /**
@@ -333,37 +333,28 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         TxStateMetaFinishing finishingStateMeta = (TxStateMetaFinishing) updateTxMeta(txId, old ->
                 new TxStateMetaFinishing(localNodeId, old == null ? null : old.commitPartitionId()));
 
-        AtomicBoolean performingFinish = new AtomicBoolean();
         TxContext tuple = txCtxMap.compute(txId, (uuid, tuple0) -> {
             if (tuple0 == null) {
                 tuple0 = new TxContext(); // No writes enlisted.
             }
 
-            if (!tuple0.isTxFinishing()) {
-                tuple0.finishTx();
+            assert !tuple0.isTxFinishing() : "Transaction is already finished [id=" + uuid + "].";
 
-                performingFinish.set(true);
-            }
+            tuple0.finishTx();
 
             return tuple0;
         });
 
-        // This is a finishing thread.
-        if (performingFinish.get()) {
-            // Wait for commit acks first, then proceed with the finish request.
-            return tuple.performFinish(commit, ignored ->
-                    prepareFinish(
-                            observableTimestampTracker,
-                            commitPartition,
-                            commit,
-                            enlistedGroups,
-                            txId,
-                            finishingStateMeta.txFinishFuture()
-                    ));
-        }
-        // The method `performFinish` above has a side effect on `finishInProgressFuture` future,
-        // it kicks off another future that will complete it.
-        return tuple.finishInProgressFuture;
+        // Wait for commit acks first, then proceed with the finish request.
+        return tuple.performFinish(commit, ignored ->
+                prepareFinish(
+                        observableTimestampTracker,
+                        commitPartition,
+                        commit,
+                        enlistedGroups,
+                        txId,
+                        finishingStateMeta.txFinishFuture()
+                ));
     }
 
     private CompletableFuture<Void> prepareFinish(
@@ -622,28 +613,22 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
     @Override
     public CompletableFuture<Void> updateLowWatermark(HybridTimestamp newLowWatermark) {
-        lowWatermarkReadWriteLock.writeLock().lock();
-
-        try {
-            lowWatermark.updateAndGet(previousLowWatermark -> {
-                if (previousLowWatermark == null) {
-                    return newLowWatermark;
-                }
-
-                assert newLowWatermark.compareTo(previousLowWatermark) > 0 :
-                        "lower watermark should be growing: [previous=" + previousLowWatermark + ", new=" + newLowWatermark + ']';
-
+        lowWatermark.updateAndGet(previousLowWatermark -> {
+            if (previousLowWatermark == null) {
                 return newLowWatermark;
-            });
+            }
 
-            TxIdAndTimestamp upperBound = new TxIdAndTimestamp(newLowWatermark, new UUID(Long.MAX_VALUE, Long.MAX_VALUE));
+            assert newLowWatermark.compareTo(previousLowWatermark) > 0 :
+                    "lower watermark should be growing: [previous=" + previousLowWatermark + ", new=" + newLowWatermark + ']';
 
-            List<CompletableFuture<Void>> readOnlyTxFutures = List.copyOf(readOnlyTxFutureById.headMap(upperBound, true).values());
+            return newLowWatermark;
+        });
 
-            return allOf(readOnlyTxFutures.toArray(CompletableFuture[]::new));
-        } finally {
-            lowWatermarkReadWriteLock.writeLock().unlock();
-        }
+        TxIdAndTimestamp upperBound = new TxIdAndTimestamp(newLowWatermark, new UUID(Long.MAX_VALUE, Long.MAX_VALUE));
+
+        List<CompletableFuture<Void>> readOnlyTxFutures = List.copyOf(readOnlyTxFutureById.headMap(upperBound, true).values());
+
+        return allOf(readOnlyTxFutures.toArray(CompletableFuture[]::new));
     }
 
     @Override

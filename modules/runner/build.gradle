@@ -190,10 +190,16 @@ dependencies {
     testFixturesImplementation project(':ignite-table')
     testFixturesImplementation project(':ignite-schema')
     testFixturesImplementation project(':ignite-metastorage')
+    testFixturesImplementation project(':ignite-transactions')
+    testFixturesImplementation project(':ignite-system-view-api')
+    testFixturesImplementation project(':ignite-system-view')
+    testFixturesImplementation project(':ignite-storage-api')
     testFixturesImplementation testFixtures(project(':ignite-api'))
     testFixturesImplementation testFixtures(project(':ignite-core'))
     testFixturesImplementation testFixtures(project(':ignite-sql-engine'))
     testFixturesImplementation testFixtures(project(':ignite-network'))
+    testFixturesImplementation testFixtures(project(':ignite-catalog'))
+    testFixturesImplementation testFixtures(project(':ignite-table'))
     testFixturesImplementation libs.jetbrains.annotations
     testFixturesImplementation libs.hamcrest.core
     testFixturesImplementation libs.auto.service.annotations
