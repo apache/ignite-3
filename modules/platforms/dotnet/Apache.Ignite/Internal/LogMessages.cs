@@ -107,9 +107,9 @@ internal static partial class LogMessages
                   "configured IgniteClientConfiguration.HeartbeatInterval is {ConfiguredInterval}, " +
                   "which is longer than recommended IdleTimeout / 3. " +
                   "Overriding heartbeat interval with max(IdleTimeout / 3, 500ms): {RecommendedHeartbeatInterval}",
-        Level = LogLevel.Information,
+        Level = LogLevel.Warning,
         EventId = 1012)]
-    internal static partial void LogServerSideIdleTimeoutOverridesConfiguredHeartbeatIntervalInfo(
+    internal static partial void LogServerSideIdleTimeoutOverridesConfiguredHeartbeatIntervalWarn(
         this ILogger logger, TimeSpan serverIdleTimeout, TimeSpan configuredInterval, TimeSpan recommendedHeartbeatInterval);
 
     [LoggerMessage(

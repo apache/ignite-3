@@ -580,7 +580,7 @@ namespace Apache.Ignite.Internal
                 return configuredInterval;
             }
 
-            logger.LogServerSideIdleTimeoutOverridesConfiguredHeartbeatIntervalInfo(
+            logger.LogServerSideIdleTimeoutOverridesConfiguredHeartbeatIntervalWarn(
                 serverIdleTimeout, configuredInterval, recommendedHeartbeatInterval);
 
             return recommendedHeartbeatInterval;
