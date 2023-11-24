@@ -31,6 +31,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiFunction;
@@ -312,19 +313,16 @@ public class IndexManager implements IgniteComponent {
 
         assert recoveryFinishedFuture.isDone();
 
-        int catalogVersion = catalogService.latestCatalogVersion();
         long causalityToken = recoveryFinishedFuture.join();
 
         List<CompletableFuture<?>> startIndexFutures = new ArrayList<>();
 
-        for (CatalogIndexDescriptor index : catalogService.indexes(catalogVersion)) {
-            int tableId = index.tableId();
+        for (Entry<CatalogTableDescriptor, Collection<CatalogIndexDescriptor>> e : collectIndexesForRecovery(catalogService).entrySet()) {
+            CatalogTableDescriptor table = e.getKey();
 
-            CatalogTableDescriptor table = catalogService.table(tableId, catalogVersion);
-
-            assert table != null : "tableId=" + tableId + ", indexId=" + index.id();
-
-            startIndexFutures.add(startIndexAsync(table, index, causalityToken));
+            for (CatalogIndexDescriptor index : e.getValue()) {
+                startIndexFutures.add(startIndexAsync(table, index, causalityToken));
+            }
         }
 
         // Forces to wait until recovery is complete before the metastore watches are deployed to avoid races with other components.

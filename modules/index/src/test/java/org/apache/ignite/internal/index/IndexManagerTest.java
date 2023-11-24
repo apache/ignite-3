@@ -313,6 +313,8 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
 
         makeIndexesAvailable(indexName0, indexName2);
 
+        dropIndexes(indexName1, indexName2);
+
         TableViewInternal tableViewInternal = tableViewInternalByTableId.get(tableId());
 
         clearInvocations(tableViewInternal);

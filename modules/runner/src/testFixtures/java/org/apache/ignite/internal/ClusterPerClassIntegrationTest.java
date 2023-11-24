@@ -222,7 +222,7 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
     }
 
     /**
-     * Creates an index for the table created by {@link #createZoneAndTable(String, String, int, int)}..
+     * Creates an index for the table created by {@link #createZoneAndTable(String, String, int, int)}.
      *
      * @param tableName Table name.
      * @param indexName Index name.
@@ -230,6 +230,15 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
      */
     protected static void createIndex(String tableName, String indexName, String columnName) {
         sql(format("CREATE INDEX {} ON {} ({})", indexName, tableName, columnName));
+    }
+
+    /**
+     * Drops an index for the table created by {@link #createZoneAndTable(String, String, int, int)}.
+     *
+     * @param indexName Index name.
+     */
+    protected static void dropIndex(String indexName) {
+        sql(format("DROP INDEX {}", indexName));
     }
 
     /**
