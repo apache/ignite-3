@@ -25,6 +25,7 @@ import static org.apache.ignite.sql.ColumnType.DECIMAL;
 import static org.apache.ignite.sql.ColumnType.INT16;
 import static org.apache.ignite.sql.ColumnType.INT32;
 import static org.apache.ignite.sql.ColumnType.NUMBER;
+import static org.apache.ignite.sql.ColumnType.STRING;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -84,6 +85,24 @@ class TypeConvertibilityTest {
         assertFalse(typeChangeIsLossless(decimal(10, -2), number(9, -3)));
         assertTrue(typeChangeIsLossless(decimal(10, -2), number(11, -1)));
         assertFalse(typeChangeIsLossless(decimal(13, 1), number(10, -2)));
+
+        // INT -> STRING
+        assertTrue(typeChangeIsLossless(simple(INT32), string(10)));
+        assertFalse(typeChangeIsLossless(simple(INT32), string(9)));
+
+        // NUMBER -> STRING
+        assertTrue(typeChangeIsLossless(number(10, 0), string(11)));
+        assertFalse(typeChangeIsLossless(number(10, 0), string(10)));
+        assertTrue(typeChangeIsLossless(number(10, -1), string(12)));
+        assertFalse(typeChangeIsLossless(number(10, -1), string(11)));
+
+        // DECIMAL -> STRING
+        assertTrue(typeChangeIsLossless(decimal(10, 0), string(11)));
+        assertFalse(typeChangeIsLossless(decimal(10, 0), string(10)));
+        assertTrue(typeChangeIsLossless(decimal(10, -1), string(12)));
+        assertFalse(typeChangeIsLossless(decimal(10, -1), string(11)));
+        assertTrue(typeChangeIsLossless(decimal(10, 1), string(12)));
+        assertFalse(typeChangeIsLossless(decimal(10, 1), string(11)));
     }
 
     private CatalogTableColumnDescriptor simple(ColumnType type) {
@@ -96,6 +115,10 @@ class TypeConvertibilityTest {
 
     private CatalogTableColumnDescriptor number(int precision, int scale) {
         return column(NUMBER, precision, scale, DEFAULT_LENGTH);
+    }
+
+    private CatalogTableColumnDescriptor string(int length) {
+        return column(STRING, DEFAULT_PRECISION, DEFAULT_SCALE, length);
     }
 
     private CatalogTableColumnDescriptor column(ColumnType type, int precision, int scale, int length) {

@@ -207,13 +207,13 @@ class SchemaCompatibilityValidatorTest extends BaseIgniteAbstractTest {
         changes.add(new ColumnTypeChange(byteArray(10), byteArray(20)));
 
         // Conversions to STRING with enough length.
-        changes.add(new ColumnTypeChange(INT8, string(3)));
-        changes.add(new ColumnTypeChange(INT16, string(5)));
-        changes.add(new ColumnTypeChange(INT32, string(9)));
-        changes.add(new ColumnTypeChange(INT64, string(17)));
-        changes.add(new ColumnTypeChange(decimal(10, 0), string(10)));
-        changes.add(new ColumnTypeChange(decimal(10, 3), string(11)));
-        changes.add(new ColumnTypeChange(number(10), string(10)));
+        changes.add(new ColumnTypeChange(INT8, string(4)));
+        changes.add(new ColumnTypeChange(INT16, string(6)));
+        changes.add(new ColumnTypeChange(INT32, string(10)));
+        changes.add(new ColumnTypeChange(INT64, string(18)));
+        changes.add(new ColumnTypeChange(decimal(10, 0), string(11)));
+        changes.add(new ColumnTypeChange(decimal(10, 3), string(12)));
+        changes.add(new ColumnTypeChange(number(10), string(11)));
         changes.add(new ColumnTypeChange(ColumnType.UUID, string(36)));
 
         return changes.stream().map(Arguments::of);
@@ -316,13 +316,13 @@ class SchemaCompatibilityValidatorTest extends BaseIgniteAbstractTest {
         changes.add(new ColumnTypeChange(byteArray(10), byteArray(9)));
 
         // Conversions to STRING with NOT enough length.
-        changes.add(new ColumnTypeChange(INT8, string(2)));
-        changes.add(new ColumnTypeChange(INT16, string(4)));
-        changes.add(new ColumnTypeChange(INT32, string(8)));
-        changes.add(new ColumnTypeChange(INT64, string(16)));
-        changes.add(new ColumnTypeChange(decimal(10, 0), string(9)));
-        changes.add(new ColumnTypeChange(decimal(10, 3), string(10)));
-        changes.add(new ColumnTypeChange(number(10), string(9)));
+        changes.add(new ColumnTypeChange(INT8, string(3)));
+        changes.add(new ColumnTypeChange(INT16, string(5)));
+        changes.add(new ColumnTypeChange(INT32, string(9)));
+        changes.add(new ColumnTypeChange(INT64, string(17)));
+        changes.add(new ColumnTypeChange(decimal(10, 0), string(10)));
+        changes.add(new ColumnTypeChange(decimal(10, 3), string(11)));
+        changes.add(new ColumnTypeChange(number(10), string(10)));
         changes.add(new ColumnTypeChange(ColumnType.UUID, string(35)));
         changes.add(new ColumnTypeChange(string(10), string(9)));
 

@@ -144,25 +144,24 @@ public class TypeConvertibility {
 
     private static int maxCharacters(CatalogTableColumnDescriptor column) {
         if (column.type().integral()) {
-            return integralMaxDigits(column.type());
+            // 1 is for sign.
+            return integralMaxDigits(column.type()) + 1;
         }
 
         switch (column.type()) {
             case DECIMAL:
-                if (column.scale() == 0) {
-                    return column.precision();
-                } else if (column.scale() > 0) {
-                    // 1 is for period.
-                    return column.precision() + 1;
+            case NUMBER:
+                if (column.scale() > 0) {
+                    // 1 is for period, and 1 for sign.
+                    return column.precision() + 2;
                 } else {
-                    return column.precision() - column.scale();
+                    // 1 is for sign.
+                    return column.precision() - column.scale() + 1;
                 }
             case UUID:
                 return 36;
             case STRING:
                 return column.length();
-            case NUMBER:
-                return column.precision();
             default:
                 throw new IllegalArgumentException("Unsupported type " + column.type());
         }
