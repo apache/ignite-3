@@ -19,9 +19,11 @@ namespace Apache.Ignite.Tests;
 
 using System;
 using System.Diagnostics.CodeAnalysis;
+using System.IO;
 using System.Threading.Tasks;
 using Internal;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Console;
 using NUnit.Framework;
 
 /// <summary>
@@ -65,12 +67,31 @@ public class LoggingTests
     [Test]
     public async Task TestMicrosoftConsoleLogger()
     {
-        var cfg = new IgniteClientConfiguration
-        {
-            LoggerFactory = LoggerFactory.Create(builder => builder.AddConsole().SetMinimumLevel(LogLevel.Trace))
-        };
+        var oldWriter = Console.Out;
+        var writer = new StringWriter();
+        Console.SetOut(writer);
 
-        using var server = new FakeServer();
-        using var client = await server.ConnectClientAsync(cfg);
+        try
+        {
+            var cfg = new IgniteClientConfiguration
+            {
+                LoggerFactory = LoggerFactory.Create(builder =>
+                    builder.AddSimpleConsole(opt => opt.ColorBehavior = LoggerColorBehavior.Disabled)
+                        .SetMinimumLevel(LogLevel.Trace))
+            };
+
+            using var server = new FakeServer();
+            using var client = await server.ConnectClientAsync(cfg);
+            await client.Tables.GetTablesAsync();
+
+            var log = writer.ToString();
+            StringAssert.Contains("dbug: Apache.Ignite.Internal.ClientSocket", log);
+            StringAssert.Contains("Connection established", log);
+            StringAssert.Contains("Handshake succeeded [remoteAddress=[", log);
+        }
+        finally
+        {
+            Console.SetOut(oldWriter);
+        }
     }
 }
