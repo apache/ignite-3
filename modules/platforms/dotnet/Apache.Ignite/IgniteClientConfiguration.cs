@@ -92,7 +92,7 @@ namespace Apache.Ignite
         }
 
         /// <summary>
-        /// Gets or sets the logger factory. Defaults is <see cref="NullLoggerFactory.Instance"/>.
+        /// Gets or sets the logger factory. Default is <see cref="NullLoggerFactory.Instance"/>.
         /// </summary>
         public ILoggerFactory LoggerFactory { get; set; } = NullLoggerFactory.Instance;
 
