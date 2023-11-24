@@ -91,9 +91,6 @@ namespace Apache.Ignite
             Authenticator = other.Authenticator;
         }
 
-        // TODO: Update documentation in markdown files
-        // TODO: Check external documentation
-
         /// <summary>
         /// Gets or sets the logger factory. Defaults is <see cref="NullLoggerFactory.Instance"/>.
         /// </summary>
