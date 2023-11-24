@@ -343,7 +343,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     }
 
     private CompletableFuture<Boolean> onPrimaryElected(PrimaryReplicaEventParameters evt, @Nullable Throwable exception) {
-        if (!localNode.name().equals(evt.leaseholder())) {
+        if (!localNode.name().equals(evt.leaseholder()) || !replicationGroupId.equals(evt.groupId())) {
             return completedFuture(false);
         }
 
@@ -420,7 +420,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     }
 
     private CompletableFuture<Boolean> onPrimaryExpired(PrimaryReplicaEventParameters evt, @Nullable Throwable exception) {
-        if (!localNode.name().equals(evt.leaseholder())) {
+        if (!localNode.name().equals(evt.leaseholder()) || !replicationGroupId.equals(evt.groupId())) {
             return completedFuture(false);
         }
 
