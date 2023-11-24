@@ -294,18 +294,6 @@ public class DistributionZoneManager implements IgniteComponent {
      * See {@link CausalityDataNodesEngine#dataNodes(long, int)}.
      *
      * @param causalityToken Causality token.
-     * @param zoneId Zone id.
-     * @return The future which will be completed with data nodes for the zoneId or with exception.
-     */
-    public CompletableFuture<Set<String>> dataNodes(long causalityToken, int zoneId) {
-        return causalityDataNodesEngine.dataNodes(causalityToken, zoneId);
-    }
-
-    /**
-     * Returns the data nodes of the specified zone.
-     * See {@link CausalityDataNodesEngine#dataNodes(long, int)}.
-     *
-     * @param causalityToken Causality token.
      * @param catalogVersion Catalog version.
      * @param zoneId Zone id.
      * @return The future which will be completed with data nodes for the zoneId or with exception.
