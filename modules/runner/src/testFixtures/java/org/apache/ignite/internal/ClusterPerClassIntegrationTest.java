@@ -177,12 +177,48 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
      * @param tableName Table name.
      * @param people People to insert into the table.
      */
-    protected static void insertPersons(String tableName, Person... people) {
+    protected static void insertPeople(String tableName, Person... people) {
         insertData(
                 tableName,
                 List.of("ID", "NAME", "SALARY"),
                 Stream.of(people).map(person -> new Object[]{person.id, person.name, person.salary}).toArray(Object[][]::new)
         );
+    }
+
+    /**
+     * Updates data in the table created by {@link #createZoneAndTable(String, String, int, int)}.
+     *
+     * @param tableName Table name.
+     * @param people People to update in the table.
+     */
+    protected static void updatePeople(String tableName, Person... people) {
+        Transaction tx = CLUSTER.node(0).transactions().begin();
+
+        String sql = String.format("UPDATE %s SET NAME=?, SALARY=? WHERE ID=?", tableName);
+
+        for (Person person : people) {
+            sql(tx, sql, person.name, person.salary, person.id);
+        }
+
+        tx.commit();
+    }
+
+    /**
+     * Deletes data in the table created by {@link #createZoneAndTable(String, String, int, int)}.
+     *
+     * @param tableName Table name.
+     * @param personIds Person IDs to delete.
+     */
+    protected static void deletePeople(String tableName, int... personIds) {
+        Transaction tx = CLUSTER.node(0).transactions().begin();
+
+        String sql = String.format("DELETE FROM %s WHERE ID=?", tableName);
+
+        for (int personId : personIds) {
+            sql(tx, sql, personId);
+        }
+
+        tx.commit();
     }
 
     /**
@@ -253,7 +289,10 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
         return "ZONE_" + tableName.toUpperCase();
     }
 
-    /** Class for inserting into a table using {@link #insertPersons(String, Person...)}. */
+    /**
+     * Class for updating table in {@link #insertPeople(String, Person...)}, {@link #updatePeople(String, Person...)}. You can use
+     * {@link #deletePeople(String, int...)} to remove people.
+     */
     protected static class Person {
         final int id;
 
