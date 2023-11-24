@@ -36,6 +36,20 @@ public class ListLoggerFactory : ILoggerFactory
 
     public ICollection<LogLevel>? EnabledLevels { get; }
 
+    /// <summary>
+    /// Gets the entries.
+    /// </summary>
+    public List<ListLogger.Entry> Entries
+    {
+        get
+        {
+            lock (_lock)
+            {
+                return _entries.ToList();
+            }
+        }
+    }
+
     public void Dispose()
     {
         // No-op.

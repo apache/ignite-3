@@ -689,8 +689,8 @@ public partial class LinqTests : IgniteTestsBase
     public async Task TestGeneratedSqlIsLoggedWithDebugLevel()
     {
         var config = GetConfig();
-        var logger = new ListLogger { EnabledLevels = { LogLevel.Debug } };
-        config.Logger = logger;
+        var logger = new ListLoggerFactory(new[] { LogLevel.Debug });
+        config.LoggerFactory = logger;
 
         using var client = await IgniteClient.StartAsync(config);
         var table = (await client.Tables.GetTableAsync(TableName))!;

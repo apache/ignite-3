@@ -82,7 +82,7 @@ var cfg = new IgniteClientConfiguration
     RetryPolicy = new RetryReadPolicy { RetryLimit = 32 },
 
     // Log to console.
-    Logger = new ConsoleLogger { MinLevel = LogLevel.Debug }
+    LoggerFactory = new ConsoleLogger { MinLevel = LogLevel.Debug }
 };
 ```
 

@@ -60,7 +60,7 @@ public class SocketTimeoutTest
             SocketTimeout = TimeSpan.FromMilliseconds(50),
             HeartbeatInterval = TimeSpan.FromMilliseconds(100),
             RetryPolicy = new RetryNonePolicy(),
-            Logger = log
+            LoggerFactory = log
         };
 
         using var client = await server.ConnectClientAsync(cfg);

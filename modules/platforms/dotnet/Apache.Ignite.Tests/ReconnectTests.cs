@@ -72,7 +72,7 @@ public class ReconnectTests
     {
         var cfg = new IgniteClientConfiguration
         {
-            Logger = new ConsoleLogger { MinLevel = LogLevel.Debug }
+            LoggerFactory = new ConsoleLogger { MinLevel = LogLevel.Debug }
         };
 
         using var server = new FakeServer();
@@ -92,7 +92,7 @@ public class ReconnectTests
         {
             HeartbeatInterval = TimeSpan.FromMilliseconds(100),
             ReconnectInterval = TimeSpan.FromMilliseconds(300),
-            Logger = new ConsoleLogger { MinLevel = LogLevel.Trace }
+            LoggerFactory = new ConsoleLogger { MinLevel = LogLevel.Trace }
         };
 
         using var servers = FakeServerGroup.Create(10);
@@ -142,7 +142,7 @@ public class ReconnectTests
         {
             ReconnectInterval = TimeSpan.FromMilliseconds(100),
             SocketTimeout = TimeSpan.FromSeconds(2),
-            Logger = logger
+            LoggerFactory = logger
         };
 
         using var servers = FakeServerGroup.Create(10);

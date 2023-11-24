@@ -91,7 +91,7 @@ public class SslTests : IgniteTestsBase
                     ClientCertificates = new X509Certificate2Collection(new X509Certificate2(CertificatePath, CertificatePassword))
                 }
             },
-            Logger = new ConsoleLogger { MinLevel = LogLevel.Trace }
+            LoggerFactory = new ConsoleLogger { MinLevel = LogLevel.Trace }
         };
 
         using var client = await IgniteClient.StartAsync(cfg);
