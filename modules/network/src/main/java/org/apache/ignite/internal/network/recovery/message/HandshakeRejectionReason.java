@@ -17,32 +17,26 @@
 
 package org.apache.ignite.internal.network.recovery.message;
 
-import static org.apache.ignite.internal.network.NetworkMessageTypes.HANDSHAKE_REJECTED;
-
-import org.apache.ignite.network.annotations.Transferable;
-
 /**
- * Handshake rejected message, contains the reason for a rejection.
- * This message is sent from a server to a client or wise versa.
+ * Reason for handshake rejection.
  */
-@Transferable(HANDSHAKE_REJECTED)
-public interface HandshakeRejectedMessage extends InternalMessage {
+public enum HandshakeRejectionReason {
+    /** The sender is stopping. */
+    STOPPING,
     /**
-     * Returns rejection message.
+     * The sender has detected that the counterpart launch ID is stale (was earlier used to establish a connection).
+     * After this is received it makes no sense to retry connections with same node identity (launch ID must be changed
+     * to make a retry).
      */
-    String message();
+    STALE_LAUNCH_ID,
+    /** The sender has detected a clinch and decided to terminate this handshake in favor of the competitor. */
+    CLINCH;
 
     /**
-     * Returns rejection reason (this is the name of a member of {@link HandshakeRejectionReason}).
-     *
-     * @see HandshakeRejectionReason
+     * Returns {@code true} iff the rejection is not expected and should be treated as a critical failure (requiring
+     * the rejected node to restart).
      */
-    String reasonString();
-
-    /**
-     * Returns rejection reason.
-     */
-    default HandshakeRejectionReason reason() {
-        return HandshakeRejectionReason.valueOf(reasonString());
+    public boolean critical() {
+        return this == STALE_LAUNCH_ID;
     }
 }

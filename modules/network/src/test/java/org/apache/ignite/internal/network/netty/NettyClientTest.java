@@ -30,6 +30,7 @@ import io.netty.channel.embedded.EmbeddedChannel;
 import java.net.InetSocketAddress;
 import java.nio.channels.ClosedChannelException;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
@@ -267,8 +268,13 @@ public class NettyClientTest extends BaseIgniteAbstractTest {
 
         /** {@inheritDoc} */
         @Override
-        public CompletableFuture<NettySender> handshakeFuture() {
+        public CompletableFuture<NettySender> localHandshakeFuture() {
             return CompletableFuture.completedFuture(sender);
+        }
+
+        @Override
+        public CompletionStage<NettySender> finalHandshakeFuture() {
+            return localHandshakeFuture();
         }
 
         /** {@inheritDoc} */

@@ -146,7 +146,7 @@ public class NettyClient {
                             } else if (throwable != null) {
                                 return CompletableFuture.<NettySender>failedFuture(throwable);
                             } else {
-                                return handshakeManager.handshakeFuture();
+                                return handshakeManager.finalHandshakeFuture();
                             }
                         }
                     })
