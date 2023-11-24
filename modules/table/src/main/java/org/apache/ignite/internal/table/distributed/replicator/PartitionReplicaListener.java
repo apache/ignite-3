@@ -1711,12 +1711,6 @@ public class PartitionReplicaListener implements ReplicaListener {
         markFinished(request.txId(), txState, request.commitTimestamp());
 
         return awaitCleanupReadyFutures(request.txId(), request.commit())
-                .thenApply(res -> {
-                    if (res.hadUpdateFutures() || res.hadReadFutures()) {
-                        releaseTxLocks(request.txId());
-                    }
-                    return res;
-                })
                 .thenCompose(res -> {
                     if (res.hadUpdateFutures()) {
                         HybridTimestamp commandTimestamp = hybridClock.now();
@@ -1729,13 +1723,18 @@ public class PartitionReplicaListener implements ReplicaListener {
                                                 request.commitTimestamp(),
                                                 request.commitTimestampLong(),
                                                 catalogVersion
-                                        ));
+                                        ))
+                                .thenApply(unused -> res);
                     } else {
-                        return completedFuture(null);
+                        return completedFuture(res);
+                    }
+                })
+                .thenAccept(res -> {
+                    if (res.hadUpdateFutures() || res.hadReadFutures()) {
+                        releaseTxLocks(request.txId());
                     }
                 });
     }
-
 
     private CompletableFuture<FuturesCleanupResult> awaitCleanupReadyFutures(UUID txId, boolean commit) {
         List<CompletableFuture<?>> txUpdateFutures = new ArrayList<>();
