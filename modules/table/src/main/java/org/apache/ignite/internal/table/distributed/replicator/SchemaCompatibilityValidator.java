@@ -49,7 +49,7 @@ class SchemaCompatibilityValidator {
     // TODO: Remove entries from cache when compacting schemas in SchemaManager https://issues.apache.org/jira/browse/IGNITE-20789
     private final ConcurrentMap<TableDefinitionDiffKey, TableDefinitionDiff> diffCache = new ConcurrentHashMap<>();
 
-    private final List<ForwardCompatibilityValidator> forwardCompatibilityValidators = List.of(
+    private static final List<ForwardCompatibilityValidator> FORWARD_COMPATIBILITY_VALIDATORS = List.of(
             new RenameTableValidator(),
             new AddColumnsValidator(),
             new DropColumnsValidator(),
@@ -164,7 +164,7 @@ class SchemaCompatibilityValidator {
 
         boolean accepted = false;
 
-        for (ForwardCompatibilityValidator validator : forwardCompatibilityValidators) {
+        for (ForwardCompatibilityValidator validator : FORWARD_COMPATIBILITY_VALIDATORS) {
             switch (validator.compatible(diff)) {
                 case COMPATIBLE:
                     accepted = true;
