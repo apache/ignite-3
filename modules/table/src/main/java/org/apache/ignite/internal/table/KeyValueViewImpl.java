@@ -42,6 +42,10 @@ import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.NullableValue;
 import org.apache.ignite.lang.UnexpectedNullValueException;
+import org.apache.ignite.sql.ClosableCursor;
+import org.apache.ignite.sql.async.AsyncClosableCursor;
+import org.apache.ignite.table.criteria.Criteria;
+import org.apache.ignite.table.criteria.CriteriaQueryOptions;
 import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.mapper.Mapper;
@@ -673,5 +677,21 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
         };
 
         return DataStreamer.streamData(publisher, options, batchSender, partitioner);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public ClosableCursor<Entry<K, V>> queryCriteria(@Nullable Transaction tx, @Nullable Criteria criteria, CriteriaQueryOptions opts) {
+        return null;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<AsyncClosableCursor<Entry<K, V>>> queryCriteriaAsync(
+            @Nullable Transaction tx,
+            @Nullable Criteria criteria,
+            CriteriaQueryOptions opts
+    ) {
+        return null;
     }
 }

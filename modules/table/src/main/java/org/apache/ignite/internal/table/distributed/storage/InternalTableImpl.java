@@ -114,6 +114,7 @@ import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.utils.PrimaryReplica;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -172,6 +173,9 @@ public class InternalTableImpl implements InternalTable {
     /** Placement driver. */
     private final PlacementDriver placementDriver;
 
+    /** Ignite SQL facade. */
+    private final IgniteSql sql;
+
     /** Map update guarded by {@link #updatePartitionMapsMux}. */
     private volatile Int2ObjectMap<PendingComparableValuesTracker<HybridTimestamp, Void>> safeTimeTrackerByPartitionId = emptyMap();
 
@@ -191,6 +195,7 @@ public class InternalTableImpl implements InternalTable {
      * @param replicaSvc Replica service.
      * @param clock A hybrid logical clock.
      * @param placementDriver Placement driver.
+     * @param sql Ignite SQL facade.
      */
     public InternalTableImpl(
             String tableName,
@@ -204,7 +209,8 @@ public class InternalTableImpl implements InternalTable {
             ReplicaService replicaSvc,
             HybridClock clock,
             HybridTimestampTracker observableTimestampTracker,
-            PlacementDriver placementDriver
+            PlacementDriver placementDriver,
+            IgniteSql sql
     ) {
         this.tableName = tableName;
         this.tableId = tableId;
@@ -219,6 +225,7 @@ public class InternalTableImpl implements InternalTable {
         this.clock = clock;
         this.observableTimestampTracker = observableTimestampTracker;
         this.placementDriver = placementDriver;
+        this.sql = sql;
     }
 
     /** {@inheritDoc} */
@@ -2030,5 +2037,11 @@ public class InternalTableImpl implements InternalTable {
     @Override
     public Function<String, ClusterNode> getClusterNodeResolver() {
         return clusterNodeResolver;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public IgniteSql sql() {
+        return sql;
     }
 }

@@ -46,6 +46,7 @@ import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.utils.PrimaryReplica;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.sql.IgniteSql;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -475,6 +476,11 @@ public class FakeInternalTable implements InternalTable {
 
     @Override
     public Function<String, ClusterNode> getClusterNodeResolver() {
+        return null;
+    }
+
+    @Override
+    public IgniteSql sql() {
         return null;
     }
 }

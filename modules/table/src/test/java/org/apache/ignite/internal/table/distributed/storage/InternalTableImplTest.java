@@ -49,6 +49,7 @@ import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.sql.IgniteSql;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -69,7 +70,8 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
                 mock(ReplicaService.class),
                 mock(HybridClock.class),
                 new HybridTimestampTracker(),
-                mock(PlacementDriver.class)
+                mock(PlacementDriver.class),
+                mock(IgniteSql.class)
         );
 
         // Let's check the empty table.
@@ -115,7 +117,8 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
                 mock(ReplicaService.class),
                 mock(HybridClock.class),
                 new HybridTimestampTracker(),
-                mock(PlacementDriver.class)
+                mock(PlacementDriver.class),
+                mock(IgniteSql.class)
         );
 
         List<BinaryRowEx> originalRows = List.of(

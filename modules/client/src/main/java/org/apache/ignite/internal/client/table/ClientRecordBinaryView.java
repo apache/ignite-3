@@ -30,6 +30,10 @@ import org.apache.ignite.client.RetryLimitPolicy;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.streamer.StreamerBatchSender;
+import org.apache.ignite.sql.ClosableCursor;
+import org.apache.ignite.sql.async.AsyncClosableCursor;
+import org.apache.ignite.table.criteria.Criteria;
+import org.apache.ignite.table.criteria.CriteriaQueryOptions;
 import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
@@ -378,5 +382,19 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
                 new RetryLimitPolicy().retryLimit(opts.retryLimit()));
 
         return ClientDataStreamer.streamData(publisher, opts, batchSender, provider, tbl);
+    }
+
+    @Override
+    public ClosableCursor<Tuple> queryCriteria(@Nullable Transaction tx, @Nullable Criteria criteria, CriteriaQueryOptions opts) {
+        return null;
+    }
+
+    @Override
+    public CompletableFuture<AsyncClosableCursor<Tuple>> queryCriteriaAsync(
+            @Nullable Transaction tx,
+            @Nullable Criteria criteria,
+            CriteriaQueryOptions opts
+    ) {
+        return null;
     }
 }

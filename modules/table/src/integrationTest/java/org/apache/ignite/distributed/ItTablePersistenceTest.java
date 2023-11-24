@@ -110,6 +110,7 @@ import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterNodeImpl;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
+import org.apache.ignite.sql.IgniteSql;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.TestInfo;
@@ -249,7 +250,8 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                 replicaService,
                 hybridClock,
                 new HybridTimestampTracker(),
-                TEST_PLACEMENT_DRIVER
+                TEST_PLACEMENT_DRIVER,
+                mock(IgniteSql.class)
         );
 
         closeables.add(() -> table.close());

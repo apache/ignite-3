@@ -76,6 +76,7 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
+import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.catalog.CatalogService;
@@ -176,6 +177,7 @@ import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.TopologyService;
 import org.apache.ignite.raft.jraft.storage.impl.VolatileRaftMetaStorage;
+import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.Table;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -340,6 +342,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     /** Placement driver. */
     private final PlacementDriver placementDriver;
 
+    /** Ignite SQL facade. */
+    private final Supplier<IgniteSql> sql;
+
     private final SchemaVersions schemaVersions;
 
     private final PartitionReplicatorNodeRecovery partitionReplicatorNodeRecovery;
@@ -353,7 +358,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     /**
      * Creates a new table manager.
      *
-     * @param nodeName Node name.
      * @param registry Registry for versioned values.
      * @param gcConfig Garbage collector configuration.
      * @param raftMgr Raft manager.
@@ -368,6 +372,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      * @param raftGroupServiceFactory Factory that is used for creation of raft group services for replication groups.
      * @param vaultManager Vault manager.
      * @param placementDriver Placement driver.
+     * @param sql Ignite SQL facade.
      */
     public TableManager(
             String nodeName,
@@ -392,7 +397,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             SchemaSyncService schemaSyncService,
             CatalogService catalogService,
             HybridTimestampTracker observableTimestampTracker,
-            PlacementDriver placementDriver
+            PlacementDriver placementDriver,
+            Supplier<IgniteSql> sql
     ) {
         this.gcConfig = gcConfig;
         this.clusterService = clusterService;
@@ -415,6 +421,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         this.catalogService = catalogService;
         this.observableTimestampTracker = observableTimestampTracker;
         this.placementDriver = placementDriver;
+        this.sql = sql;
 
         TopologyService topologyService = clusterService.topologyService();
 
@@ -1154,7 +1161,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 tableId,
                 new Int2ObjectOpenHashMap<>(partitions),
                 partitions, clusterNodeResolver, txManager, tableStorage,
-                txStateStorage, replicaSvc, clock, observableTimestampTracker, placementDriver);
+                txStateStorage, replicaSvc, clock, observableTimestampTracker, placementDriver, sql.get());
 
         var table = new TableImpl(internalTable, lockMgr, schemaVersions);
 

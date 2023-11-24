@@ -39,6 +39,7 @@ import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.utils.PrimaryReplica;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
 
@@ -484,4 +485,11 @@ public interface InternalTable extends ManuallyCloseable {
     @Nullable PendingComparableValuesTracker<Long, Void> getPartitionStorageIndexTracker(int partitionId);
 
     Function<String, ClusterNode> getClusterNodeResolver();
+
+    /**
+     * Returns a facade for the SQL query engine.
+     *
+     * @return Ignite SQL facade.
+     */
+    IgniteSql sql();
 }

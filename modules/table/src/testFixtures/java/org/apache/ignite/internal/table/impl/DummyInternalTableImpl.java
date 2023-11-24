@@ -99,6 +99,7 @@ import org.apache.ignite.internal.util.PendingIndependentComparableValuesTracker
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterNodeImpl;
 import org.apache.ignite.network.NetworkAddress;
+import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
 
@@ -241,7 +242,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 replicaSvc,
                 CLOCK,
                 tracker,
-                TEST_PLACEMENT_DRIVER
+                TEST_PLACEMENT_DRIVER,
+                mock(IgniteSql.class)
         );
         RaftGroupService svc = raftGroupServiceByPartitionId.get(PART_ID);
 

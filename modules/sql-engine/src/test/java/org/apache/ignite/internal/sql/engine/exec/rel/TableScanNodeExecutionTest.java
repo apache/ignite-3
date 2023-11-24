@@ -65,6 +65,7 @@ import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.sql.IgniteSql;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -188,7 +189,8 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
                     replicaSvc,
                     mock(HybridClock.class),
                     timestampTracker,
-                    mock(PlacementDriver.class)
+                    mock(PlacementDriver.class),
+                    mock(IgniteSql.class)
             );
             this.dataAmount = dataAmount;
 

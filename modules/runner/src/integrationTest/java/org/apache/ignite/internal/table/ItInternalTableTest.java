@@ -21,9 +21,13 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_R
 import static org.apache.ignite.internal.schema.BinaryRowMatcher.equalToRow;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.table.criteria.CriteriaBuilder.columnName;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.not;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -64,7 +68,11 @@ import org.apache.ignite.sql.Session;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
+import org.apache.ignite.table.criteria.Criteria;
 import org.apache.ignite.tx.Transaction;
+import org.hamcrest.FeatureMatcher;
+import org.hamcrest.Matcher;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
@@ -472,6 +480,27 @@ public class ItInternalTableTest extends BaseIgniteAbstractTest {
         }
     }
 
+    @Test
+    public void testQueryCriteria() {
+        IgniteImpl node = node();
+
+        KeyValueView<Tuple, Tuple> keyValueView = table.keyValueView();
+
+        populateData(node, keyValueView, false);
+
+        try (var cursor = table.recordView().queryCriteria(null, null)) {
+            assertThat(cursor.getAll(), hasItem(tupleValue("key", equalTo(0L))));
+        }
+
+        try (var cursor = table.recordView().queryCriteria(null, columnName("key").equal(0L))) {
+            assertThat(cursor.getAll(), hasItem(tupleValue("key", equalTo(0L))));
+        }
+
+        try (var cursor = table.recordView().queryCriteria(null, Criteria.not(Criteria.equal("key", 0L)))) {
+            assertThat(cursor.getAll(), not(hasItem(tupleValue("key", equalTo(0L)))));
+        }
+    }
+
     private ArrayList<BinaryRowEx> populateEvenKeysAndPrepareEntriesToLookup(boolean keyOnly) {
         KeyValueView<Tuple, Tuple> keyValueView = table.keyValueView();
 
@@ -639,5 +668,20 @@ public class ItInternalTableTest extends BaseIgniteAbstractTest {
 
     protected static IgniteImpl node() {
         return (IgniteImpl) NODE;
+    }
+
+    /**
+     * Creates a matcher for matching tuple value.
+     *
+     * @param valueMatcher Matcher for matching tuple value.
+     * @return Matcher for matching tuple value.
+     */
+    private static <T> Matcher<Tuple> tupleValue(String columnName, Matcher<T> valueMatcher) {
+        return new FeatureMatcher<>(valueMatcher, "A tuple with value", "value") {
+            @Override
+            protected @Nullable T featureValueOf(Tuple actual) {
+                return actual.value(columnName);
+            }
+        };
     }
 }

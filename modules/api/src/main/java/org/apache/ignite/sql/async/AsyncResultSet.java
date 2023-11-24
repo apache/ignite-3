@@ -17,8 +17,6 @@
 
 package org.apache.ignite.sql.async;
 
-import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.sql.NoRowSetExpectedException;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.Session;
@@ -56,7 +54,7 @@ import org.jetbrains.annotations.Nullable;
  * @see Session#executeAsync(Transaction, String, Object...)
  * @see Session#executeAsync(Transaction, Mapper, String, Object...)
  */
-public interface AsyncResultSet<T> {
+public interface AsyncResultSet<T> extends AsyncClosableCursor<T> {
     /**
      * Returns metadata for query results. If the result set contains rows ({@link #hasRowSet()}, returns {@code true}). 
      * If not applicable, returns {@code null}.
@@ -100,45 +98,4 @@ public interface AsyncResultSet<T> {
      */
     boolean wasApplied();
 
-    /**
-     * Returns the current page content if the query returns rows.
-     *
-     * @return Iterable set of rows.
-     * @throws NoRowSetExpectedException if no row set is returned.
-     */
-    Iterable<T> currentPage();
-
-    /**
-     * Returns the current page size if the query return rows.
-     *
-     * @return The size of {@link #currentPage()}.
-     * @throws NoRowSetExpectedException if no row set is returned.
-     */
-    int currentPageSize();
-
-    /**
-     * Fetches the next page of results asynchronously.
-     * The future that is completed with the same {@code AsyncResultSet} object.
-     * The current page is changed after the future completion.
-     * The methods {@link #currentPage()}, {@link #currentPageSize()}, {@link #hasMorePages()}
-     * use the current page and return consistent results between complete last page future and call {@code fetchNextPage}.
-     *
-     * @return Operation future.
-     * @throws NoRowSetExpectedException if no row set is expected as a query result.
-     */
-    CompletableFuture<? extends AsyncResultSet<T>> fetchNextPage();
-
-    /**
-     * Indicates whether there are more pages of results.
-     *
-     * @return {@code True} if there are more pages with results, {@code false} otherwise.
-     */
-    boolean hasMorePages();
-
-    /**
-     * Invalidates a query result, stops the query, and cleans up query resources.
-     *
-     * @return Operation future.
-     */
-    CompletableFuture<Void> closeAsync();
 }

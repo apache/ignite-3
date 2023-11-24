@@ -38,6 +38,10 @@ import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.MarshallerException;
 import org.apache.ignite.lang.NullableValue;
+import org.apache.ignite.sql.ClosableCursor;
+import org.apache.ignite.sql.async.AsyncClosableCursor;
+import org.apache.ignite.table.criteria.Criteria;
+import org.apache.ignite.table.criteria.CriteriaQueryOptions;
 import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Tuple;
@@ -554,5 +558,25 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
         }
 
         return rows;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public ClosableCursor<Entry<Tuple, Tuple>> queryCriteria(
+            @Nullable Transaction tx,
+            @Nullable Criteria criteria,
+            CriteriaQueryOptions opts
+    ) {
+        return null;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<AsyncClosableCursor<Entry<Tuple, Tuple>>> queryCriteriaAsync(
+            @Nullable Transaction tx,
+            @Nullable Criteria criteria,
+            CriteriaQueryOptions opts
+    ) {
+        return null;
     }
 }
