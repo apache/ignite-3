@@ -180,13 +180,13 @@ namespace Apache.Ignite.Tests
                 "127.0.0.1:" + ServerNode.Port,
                 "127.0.0.1:" + (ServerNode.Port + 1)
             },
-            LoggerFactory = LoggerFactory.Create(builder => builder.AddConsole().SetMinimumLevel(LogLevel.Trace))
+            LoggerFactory = TestUtils.GetConsoleLoggerFactory(LogLevel.Trace)
         };
 
         protected static IgniteClientConfiguration GetConfig(IEnumerable<IgniteProxy> proxies) =>
             new(proxies.Select(x => x.Endpoint).ToArray())
             {
-                LoggerFactory = LoggerFactory.Create(builder => builder.AddConsole().SetMinimumLevel(LogLevel.Trace))
+                LoggerFactory = TestUtils.GetConsoleLoggerFactory(LogLevel.Trace)
             };
 
         protected List<IgniteProxy> GetProxies()
