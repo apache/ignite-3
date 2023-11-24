@@ -703,13 +703,13 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         };
     }
 
-    private CompletableFuture<?> startPartition(
+    private CompletableFuture<Void> startPartition(
             TableImpl table,
             int partId,
             Set<Assignment> newPartAssignment,
             boolean isRecovery
     ) {
-        CompletableFuture<?> resultFuture = new CompletableFuture<>();
+        CompletableFuture<Void> resultFuture = new CompletableFuture<>();
 
         int tableId = table.tableId();
 
@@ -832,14 +832,12 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     }
                 }), ioExecutor)
                 .whenComplete((res, ex) -> {
-                    if (resultFuture != null) {
-                        if (ex != null) {
-                            LOG.warn("Unable to update raft groups on the node [tableId={}, partitionId={}]", ex, tableId, partId);
+                    if (ex != null) {
+                        LOG.warn("Unable to update raft groups on the node [tableId={}, partitionId={}]", ex, tableId, partId);
 
-                            resultFuture.completeExceptionally(ex);
-                        } else {
-                            resultFuture.complete(null);
-                        }
+                        resultFuture.completeExceptionally(ex);
+                    } else {
+                        resultFuture.complete(null);
                     }
                 });
 
@@ -1681,48 +1679,48 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                         }
 
                         return handleChangePendingAssignmentEvent(
-                                replicaGrpId,
-                                table,
-                                pendingAssignmentsEntry,
-                                stableAssignmentsEntry,
-                                localPartsByTableIdFut,
-                                isRecovery
-                        );
+                                    replicaGrpId,
+                                    table,
+                                    pendingAssignmentsEntry,
+                                    stableAssignmentsEntry,
+                                    localPartsByTableIdFut,
+                                    isRecovery
+                                )
+                                .thenCompose(v -> {
+                                    RaftGroupService partGrpSvc = table.internalTable().partitionRaftGroupService(partId);
+
+                                    return partGrpSvc.refreshAndGetLeaderWithTerm()
+                                            .thenCompose(leaderWithTerm -> {
+                                                if (!isLocalPeer(leaderWithTerm.leader())) {
+                                                    return completedFuture(null);
+                                                }
+
+                                                // run update of raft configuration if this node is a leader
+                                                LOG.info("Current node={} is the leader of partition raft group={}. "
+                                                                + "Initiate rebalance process for partition={}, table={}",
+                                                        leaderWithTerm.leader(), replicaGrpId, partId, table.name());
+
+                                                return metaStorageMgr.get(pendingPartAssignmentsKey(replicaGrpId))
+                                                        .thenCompose(latestPendingAssignmentsEntry -> {
+                                                            // Do not change peers of the raft group if this is a stale event.
+                                                            // Note that we start raft node before for the sake of the consistency in a
+                                                            // starting and stopping raft nodes.
+                                                            if (revision < latestPendingAssignmentsEntry.revision()) {
+                                                                return completedFuture(null);
+                                                            }
+
+                                                            PeersAndLearners newConfiguration =
+                                                                    configurationFromAssignments(pendingAssignments);
+
+                                                            return partGrpSvc.changePeersAsync(newConfiguration, leaderWithTerm.term());
+                                                        });
+                                            });
+                                });
                     } finally {
                         busyLock.leaveBusy();
                     }
                 })
-                .thenCompose(v -> {
-                        TableImpl table = tablesByIdVv.get(tblId).join().get(tblId);
-
-                        RaftGroupService partGrpSvc = table.internalTable().partitionRaftGroupService(partId);
-
-                        return partGrpSvc.refreshAndGetLeaderWithTerm()
-                                .thenCompose(leaderWithTerm -> {
-                                    if (!isLocalPeer(leaderWithTerm.leader())) {
-                                        return completedFuture(null);
-                                    }
-
-                                    // run update of raft configuration if this node is a leader
-                                    LOG.info("Current node={} is the leader of partition raft group={}. "
-                                                    + "Initiate rebalance process for partition={}, table={}",
-                                            leaderWithTerm.leader(), replicaGrpId, partId, table.name());
-
-                                    return metaStorageMgr.get(pendingPartAssignmentsKey(replicaGrpId))
-                                            .thenCompose(latestPendingAssignmentsEntry -> {
-                                                // Do not change peers of the raft group if this is a stale event.
-                                                // Note that we start raft node before for the sake of the consistency in a starting and
-                                                // stopping raft nodes.
-                                                if (revision < latestPendingAssignmentsEntry.revision()) {
-                                                    return completedFuture(null);
-                                                }
-
-                                                PeersAndLearners newConfiguration = configurationFromAssignments(pendingAssignments);
-
-                                                return partGrpSvc.changePeersAsync(newConfiguration, leaderWithTerm.term());
-                                            });
-                                });
-                    });
+                .thenCompose(Function.identity());
     }
 
     private CompletableFuture<Void> handleChangePendingAssignmentEvent(
@@ -1757,35 +1755,41 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         );
 
         // Start a new Raft node and Replica if this node has appeared in the new assignments.
-        boolean shouldStartLocalServices = pendingAssignments.stream()
+        boolean shouldStartLocalGroupNode = pendingAssignments.stream()
                 .filter(assignment -> localMember.name().equals(assignment.consistentId()))
                 .anyMatch(assignment -> !stableAssignments.contains(assignment));
 
+        boolean shouldStartLocalPartitionService = !tbl.internalTable().partitionRaftGroupServiceStarted(partId);
+
         CompletableFuture<Void> localServicesStartFuture;
 
-        if (shouldStartLocalServices) {
+        if (shouldStartLocalGroupNode || shouldStartLocalPartitionService) {
             localServicesStartFuture = localPartsByTableIdFut
                     .thenComposeAsync(oldMap -> {
-                        // TODO https://issues.apache.org/jira/browse/IGNITE-20957 This is incorrect usage of the value stored in
-                        // TODO versioned value. See ticket for the details.
-                        int tableId = tbl.tableId();
+                        if (shouldStartLocalGroupNode) {
+                            // TODO https://issues.apache.org/jira/browse/IGNITE-20957 This is incorrect usage of the value stored in
+                            // TODO versioned value. See ticket for the details.
+                            int tableId = tbl.tableId();
 
-                        PartitionSet partitionSet = oldMap.get(tableId).copy();
+                            PartitionSet partitionSet = oldMap.get(tableId).copy();
 
-                        return getOrCreatePartitionStorages(tbl, partitionSet).thenApply(u -> {
-                            var newMap = new HashMap<>(oldMap);
+                            return getOrCreatePartitionStorages(tbl, partitionSet).thenApply(u -> {
+                                var newMap = new HashMap<>(oldMap);
 
-                            newMap.put(tableId, partitionSet);
+                                newMap.put(tableId, partitionSet);
 
-                            return newMap;
-                        });
+                                return newMap;
+                            });
+                        } else {
+                            return completedFuture(null);
+                        }
                     }, ioExecutor)
                     .thenComposeAsync(unused -> inBusyLock(busyLock, () -> startPartition(
                             tbl,
                             replicaGrpId.partitionId(),
                             pendingAssignments,
                             isRecovery
-                    )), ioExecutor).thenApply(v -> null);
+                    )), ioExecutor);
         } else {
             localServicesStartFuture = completedFuture(null);
         }
