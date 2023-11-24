@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.testframework;
 
+import com.typesafe.config.ConfigException;
 import com.typesafe.config.parser.ConfigDocument;
 import com.typesafe.config.parser.ConfigDocumentFactory;
 import java.io.IOException;
@@ -78,17 +79,35 @@ public class TestIgnitionManager {
      * @throws IgniteException If error occurs while reading node configuration.
      */
     public static CompletableFuture<Ignite> start(String nodeName, @Nullable String configStr, Path workDir) {
-        String enrichedConfig = enrichConfigWithTestDefaults(configStr);
+        String enrichedConfig = enrichValidConfigWithTestDefaults(configStr);
 
         try {
             Files.createDirectories(workDir);
             Path configPath = workDir.resolve(DEFAULT_CONFIG_NAME);
-            Files.writeString(configPath, enrichedConfig,
-                    StandardOpenOption.SYNC, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+            if (configStr == null) {
+                // Null config might mean that this is a restart, so we should not rewrite the existing config file.
+                if (Files.notExists(configPath)) {
+                    Files.createFile(configPath);
+                }
+            } else {
+                assert enrichedConfig != null;
+
+                Files.writeString(configPath, enrichedConfig,
+                        StandardOpenOption.SYNC, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+            }
 
             return IgnitionManager.start(nodeName, configPath, workDir);
         } catch (IOException e) {
             throw new IgniteException("Couldn't write node config.", e);
+        }
+    }
+
+    private static @Nullable String enrichValidConfigWithTestDefaults(@Nullable String configStr) {
+        try {
+            return enrichConfigWithTestDefaults(configStr);
+        } catch (ConfigException e) {
+            // Config is invalid, let Ignite itself reject it in a predictable way.
+            return configStr;
         }
     }
 
