@@ -46,10 +46,12 @@ public class TypeConvertibility {
         ColumnType oldType = oldColumn.type();
         ColumnType newType = newColumn.type();
 
+        // Int to Int.
         if (oldType.integral() && newType.integral()) {
             return oldType.ordinal() <= newType.ordinal();
         }
 
+        // Int to floating point.
         if ((oldType == INT8 || oldType == INT16) && newType.floatingPoint()) {
             return true;
         }
@@ -58,27 +60,28 @@ public class TypeConvertibility {
             return true;
         }
 
+        // Time/date to Datetime.
         if ((oldType == TIME || oldType == DATE) && newType == DATETIME) {
             return true;
         }
 
-        if (oldType.integral() && newType == NUMBER && integralMaxDigits(oldType) <= maxExactIntPlaces(newColumn)) {
+        // Int <-> NUMBER/DECIMAL.
+        if (oldType.integral() && (newType == NUMBER || newType == DECIMAL) && integralMaxDigits(oldType) <= maxExactIntPlaces(newColumn)) {
+            return true;
+        }
+        if ((oldType == NUMBER || oldType == DECIMAL) && newType.integral() && oldColumn.scale() <= 0
+                && oldColumn.precision() - oldColumn.scale() < integralMaxDigits(newType)) {
             return true;
         }
 
-        if (oldType.integral() && newType == DECIMAL && integralMaxDigits(oldType) <= maxExactIntPlaces(newColumn)) {
+        // NUMBER <-> DECIMAL.
+        if ((oldType == NUMBER && newType == DECIMAL || oldType == DECIMAL && newType == NUMBER)
+                && oldColumn.scale() <= newColumn.scale()
+                && oldColumn.precision() - oldColumn.scale() <= newColumn.precision() - newColumn.scale()) {
             return true;
         }
 
-        // TODO: negative scale?
-        if (oldType == NUMBER && newType == DECIMAL && oldColumn.precision() <= maxExactIntPlaces(newColumn)) {
-            return true;
-        }
-        // TODO: negative scale?
-        if (oldType == DECIMAL && newType == NUMBER && oldColumn.scale() == 0 && maxExactIntPlaces(oldColumn) <= newColumn.precision()) {
-            return true;
-        }
-
+        // Increasing length.
         if (oldType == newType && oldType.lengthAllowed()
                 && oldColumn.length() <= newColumn.length()
                 && oldColumn.scale() == newColumn.scale()
@@ -86,6 +89,7 @@ public class TypeConvertibility {
             return true;
         }
 
+        // Increasing precision.
         if (oldType == newType && oldType.precisionAllowed()
                 && oldColumn.length() == newColumn.length()
                 && oldColumn.scale() == newColumn.scale()
@@ -93,6 +97,7 @@ public class TypeConvertibility {
             return true;
         }
 
+        // To STRING.
         if (oldType.convertsToStringLosslessly() && newType == STRING && maxCharacters(oldColumn) <= newColumn.length()) {
             return true;
         }
