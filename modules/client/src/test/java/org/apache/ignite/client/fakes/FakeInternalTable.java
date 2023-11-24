@@ -439,6 +439,11 @@ public class FakeInternalTable implements InternalTable {
         return null;
     }
 
+    @Override
+    public boolean partitionRaftGroupServiceStarted(int partition) {
+        return false;
+    }
+
     @Override public TxStateTableStorage txStateStorage() {
         return null;
     }
