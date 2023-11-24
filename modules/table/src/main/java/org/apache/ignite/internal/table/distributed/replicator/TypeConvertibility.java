@@ -42,6 +42,7 @@ public class TypeConvertibility {
      * @param oldColumn Old column descriptor.
      * @param newColumn New column descriptor.
      */
+    // TODO: IGNITE-20956 - Unify this with Catalog rules.
     public static boolean typeChangeIsLossless(CatalogTableColumnDescriptor oldColumn, CatalogTableColumnDescriptor newColumn) {
         ColumnType oldType = oldColumn.type();
         ColumnType newType = newColumn.type();
