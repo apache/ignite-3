@@ -165,13 +165,14 @@ class SchemaCompatibilityValidator {
         boolean accepted = false;
 
         for (ForwardCompatibilityValidator validator : forwardCompatibilityValidators) {
-            //noinspection EnumSwitchStatementWhichMissesCases
             switch (validator.compatible(diff)) {
                 case COMPATIBLE:
                     accepted = true;
                     break;
                 case INCOMPATIBLE:
                     return false;
+                default:
+                    break;
             }
         }
 
@@ -347,13 +348,14 @@ class SchemaCompatibilityValidator {
             boolean accepted = false;
 
             for (ColumnDefinitionDiff columnDiff : diff.changedColumns()) {
-                //noinspection EnumSwitchStatementWhichMissesCases
                 switch (compatible(columnDiff)) {
                     case COMPATIBLE:
                         accepted = true;
                         break;
                     case INCOMPATIBLE:
                         return ValidatorVerdict.INCOMPATIBLE;
+                    default:
+                        break;
                 }
             }
 
@@ -366,13 +368,14 @@ class SchemaCompatibilityValidator {
             boolean accepted = false;
 
             for (ColumnChangeCompatibilityValidator validator : validators) {
-                //noinspection EnumSwitchStatementWhichMissesCases
                 switch (validator.compatible(columnDiff)) {
                     case COMPATIBLE:
                         accepted = true;
                         break;
                     case INCOMPATIBLE:
                         return ValidatorVerdict.INCOMPATIBLE;
+                    default:
+                        break;
                 }
             }
 
