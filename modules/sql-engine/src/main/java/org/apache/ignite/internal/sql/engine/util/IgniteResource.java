@@ -17,9 +17,20 @@
 
 package org.apache.ignite.internal.sql.engine.util;
 
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.runtime.Resources;
 import org.apache.calcite.runtime.Resources.ExInst;
+import org.apache.calcite.sql.SqlCallBinding;
+import org.apache.calcite.sql.SqlKind;
+import org.apache.calcite.sql.SqlNode;
+import org.apache.calcite.sql.SqlOperator;
 import org.apache.calcite.sql.validate.SqlValidatorException;
+import org.apache.ignite.internal.sql.engine.prepare.IgniteSqlValidator;
 
 /**
  * IgniteResource interface.
@@ -51,4 +62,68 @@ public interface IgniteResource {
 
     @Resources.BaseMessage("System view {0} is not modifiable")
     ExInst<SqlValidatorException> systemViewIsNotModifiable(String systemViewName);
+
+    @Resources.BaseMessage("Ambiguous operator {0}. Dynamic parameter requires adding explicit type cast")
+    Resources.ExInst<SqlValidatorException> ambiguousOperator1(String signature);
+
+    @Resources.BaseMessage("Ambiguous operator {0}. Dynamic parameter requires adding explicit type cast. Supported form(s): \n{1}")
+    Resources.ExInst<SqlValidatorException> ambiguousOperator2(String signature, String allowedSignatures);
+
+    @Resources.BaseMessage("Unable to determine type of a dynamic parameter#{0}. Dynamic parameter requires adding explicit type cast")
+    Resources.ExInst<SqlValidatorException> unableToResolveDynamicParameterType(int idx);
+
+    @Resources.BaseMessage("Incorrect type of a dynamic parameter#{0} expected <{1}> but got <{2}>")
+    Resources.ExInst<SqlValidatorException> invalidDynamicParameter(int idx, String expected, String actual);
+
+    /** Constructs a signature string to use in error messages. */
+    static String makeSignature(SqlCallBinding binding, RelDataType... operandTypes) {
+        return makeSignature(binding, Arrays.asList(operandTypes));
+    }
+
+    /** Constructs a signature string to use in error messages. */
+    static String makeSignature(SqlCallBinding binding, List<RelDataType> operandTypes) {
+        IgniteSqlValidator validator = (IgniteSqlValidator) binding.getValidator();
+        List<SqlNode> operandList = binding.getCall().getOperandList();
+
+        return makeSignature(binding.getOperator(), validator, operandList, operandTypes);
+    }
+
+    /** Constructs a signature string to use in error messages. */
+    static String makeSignature(SqlOperator operator, IgniteSqlValidator validator,
+            List<SqlNode> operands, List<RelDataType> originalOperandTypes) {
+
+        List<String> operandTypeNames = new ArrayList<>(originalOperandTypes.size());
+
+        // Replace types for unspecified parameters with UNKNOWN type.
+
+        for (int i = 0; i < operands.size(); i++) {
+            SqlNode node = operands.get(i);
+            RelDataType dataType;
+
+            if (validator.isUnspecifiedDynamicParam(node)) {
+                dataType = validator.getUnknownType();
+            } else {
+                dataType = originalOperandTypes.get(i);
+            }
+
+            operandTypeNames.add(format("<{}>", dataType));
+        }
+
+        SqlKind kind = operator.getKind();
+        if (SqlKind.BINARY_ARITHMETIC.contains(kind) || SqlKind.BINARY_COMPARISON.contains(kind)) {
+            return format("{} {} {}", operandTypeNames.get(0), operator.getName(), operandTypeNames.get(1));
+        } else if (operator.getName().startsWith("IS ")) {
+            // IS NULL, IS NOT NULL, etc.
+            return format("{} {}", operandTypeNames.get(0), operator.getName());
+        } else if (kind == SqlKind.BETWEEN) {
+            return format("{} {} AND {}", operator.getName(), operandTypeNames.get(0), operandTypeNames.get(1));
+        } else if (kind == SqlKind.MINUS_PREFIX) {
+            // -
+            return format("{}{}", operator.getName(), operandTypeNames.get(0));
+        } else {
+            // Other operators
+            String operandStr = String.join(", ", operandTypeNames);
+            return format("{}({})", operator.getName(), operandStr);
+        }
+    }
 }

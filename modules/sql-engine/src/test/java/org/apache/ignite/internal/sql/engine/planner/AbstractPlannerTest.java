@@ -105,6 +105,7 @@ import org.apache.ignite.internal.sql.engine.util.StatementChecker;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.type.NativeType;
+import org.apache.ignite.internal.util.Pair;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -971,14 +972,17 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
 
         PlanChecker() {
             super((schema, sql, params) -> {
-                return physicalPlan(sql, List.of(schema), HintStrategyTable.EMPTY,
-                        params, new NoopRelOptListener());
+                PlanningContext planningContext = plannerCtx(sql, List.of(schema), HintStrategyTable.EMPTY, params);
+                IgnitePlanner planner = planningContext.planner();
+                IgniteRel igniteRel = physicalPlan(planner, sql);
+
+                return new Pair<>(igniteRel, planner);
             });
         }
 
         /** {@inheritDoc} */
         @Override
-        protected void checkRel(IgniteRel igniteRel, IgniteSchema schema) {
+        protected void checkRel(IgniteRel igniteRel, IgnitePlanner planner, IgniteSchema schema) {
             checkSplitAndSerialization(igniteRel, schema);
         }
     }
