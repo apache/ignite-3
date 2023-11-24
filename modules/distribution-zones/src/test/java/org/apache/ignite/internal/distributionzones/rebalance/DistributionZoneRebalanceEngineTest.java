@@ -370,7 +370,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
     void replicasTriggersAssignmentsChangingOnNonDefaultZones() throws Exception {
         createTable(ZONE_NAME_0, TABLE_NAME);
 
-        when(distributionZoneManager.dataNodes(anyLong(), anyInt())).thenReturn(completedFuture(Set.of("node0")));
+        when(distributionZoneManager.dataNodes(anyLong(), anyInt(), anyInt())).thenReturn(completedFuture(Set.of("node0")));
 
         keyValueStorage.put(
                 stablePartAssignmentsKey(new TablePartitionId(getTableId(TABLE_NAME), 0)).bytes(), toBytes(Set.of("node0")),
@@ -398,7 +398,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
     void replicasTriggersAssignmentsChangingOnDefaultZone() throws Exception {
         createTable(ZONE_NAME_0, TABLE_NAME);
 
-        when(distributionZoneManager.dataNodes(anyLong(), anyInt())).thenReturn(completedFuture(Set.of("node0")));
+        when(distributionZoneManager.dataNodes(anyLong(), anyInt(), anyInt())).thenReturn(completedFuture(Set.of("node0")));
 
         for (int i = 0; i < 25; i++) {
             keyValueStorage.put(

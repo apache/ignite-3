@@ -242,9 +242,9 @@ public class DistributionZoneManager implements IgniteComponent {
                 busyLock,
                 registry,
                 metaStorageManager,
-                vaultMgr,
                 zonesState,
-                this
+                this,
+                catalogManager
         );
     }
 
@@ -301,6 +301,19 @@ public class DistributionZoneManager implements IgniteComponent {
         return causalityDataNodesEngine.dataNodes(causalityToken, zoneId);
     }
 
+    /**
+     * Returns the data nodes of the specified zone.
+     * See {@link CausalityDataNodesEngine#dataNodes(long, int)}.
+     *
+     * @param causalityToken Causality token.
+     * @param catalogVersion Catalog version.
+     * @param zoneId Zone id.
+     * @return The future which will be completed with data nodes for the zoneId or with exception.
+     */
+    public CompletableFuture<Set<String>> dataNodes(long causalityToken, int catalogVersion, int zoneId) {
+        return causalityDataNodesEngine.dataNodes(causalityToken, catalogVersion, zoneId);
+    }
+
     private CompletableFuture<Void> onUpdateScaleUpBusy(AlterZoneEventParameters parameters) {
         int zoneId = parameters.zoneDescriptor().id();
 
@@ -309,11 +322,7 @@ public class DistributionZoneManager implements IgniteComponent {
         long causalityToken = parameters.causalityToken();
 
         if (newScaleUp == IMMEDIATE_TIMER_VALUE) {
-            return saveDataNodesToMetaStorageOnScaleUp(zoneId, causalityToken).thenRun(() -> {
-                // TODO: causalityOnUpdateScaleUp will be removed https://issues.apache.org/jira/browse/IGNITE-20604,
-                // catalog must be used instead
-                causalityDataNodesEngine.causalityOnUpdateScaleUp(causalityToken, zoneId, IMMEDIATE_TIMER_VALUE);
-            });
+            return saveDataNodesToMetaStorageOnScaleUp(zoneId, causalityToken);
         }
 
         // It is safe to zonesTimers.get(zoneId) in term of NPE because meta storage notifications are one-threaded
@@ -338,8 +347,6 @@ public class DistributionZoneManager implements IgniteComponent {
             zoneState.stopScaleUp();
         }
 
-        causalityDataNodesEngine.causalityOnUpdateScaleUp(causalityToken, zoneId, newScaleUp);
-
         return completedFuture(null);
     }
 
@@ -351,11 +358,7 @@ public class DistributionZoneManager implements IgniteComponent {
         long causalityToken = parameters.causalityToken();
 
         if (newScaleDown == IMMEDIATE_TIMER_VALUE) {
-            return saveDataNodesToMetaStorageOnScaleDown(zoneId, causalityToken).thenRun(() -> {
-                // TODO: causalityOnUpdateScaleDown will be removed https://issues.apache.org/jira/browse/IGNITE-20604,
-                // catalog must be used instead
-                causalityDataNodesEngine.causalityOnUpdateScaleDown(causalityToken, zoneId, IMMEDIATE_TIMER_VALUE);
-            });
+            return saveDataNodesToMetaStorageOnScaleDown(zoneId, causalityToken);
         }
 
         // It is safe to zonesTimers.get(zoneId) in term of NPE because meta storage notifications are one-threaded
@@ -380,15 +383,11 @@ public class DistributionZoneManager implements IgniteComponent {
             zoneState.stopScaleDown();
         }
 
-        causalityDataNodesEngine.causalityOnUpdateScaleDown(causalityToken, zoneId, newScaleDown);
-
         return completedFuture(null);
     }
 
     private CompletableFuture<Void> onUpdateFilter(AlterZoneEventParameters parameters) {
         int zoneId = parameters.zoneDescriptor().id();
-
-        String newFilter = parameters.zoneDescriptor().filter();
 
         long causalityToken = parameters.causalityToken();
 
@@ -404,8 +403,6 @@ public class DistributionZoneManager implements IgniteComponent {
         }
 
         vaultMgr.put(zonesFilterUpdateRevision(), longToBytes(causalityToken)).join();
-
-        causalityDataNodesEngine.onUpdateFilter(causalityToken, zoneId, newFilter);
 
         return saveDataNodesToMetaStorageOnScaleUp(zoneId, causalityToken);
     }

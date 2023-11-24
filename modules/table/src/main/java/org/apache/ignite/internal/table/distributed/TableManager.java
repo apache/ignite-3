@@ -1061,7 +1061,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             if (partitionAssignments(vaultManager, tableId, 0) != null) {
                 assignmentsFuture = completedFuture(tableAssignments(vaultManager, tableId, zoneDescriptor.partitions()));
             } else {
-                assignmentsFuture = distributionZoneManager.dataNodes(causalityToken, zoneId)
+                assignmentsFuture = distributionZoneManager.dataNodes(causalityToken, catalogVersion, zoneId)
                         .thenApply(dataNodes -> AffinityUtils.calculateAssignments(
                                 dataNodes,
                                 zoneDescriptor.partitions(),
@@ -1295,12 +1295,17 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         CatalogZoneDescriptor zoneDescriptor = getZoneDescriptor(tableDescriptor, catalogVersion);
 
-        return distributionZoneManager.dataNodes(zoneDescriptor.updateToken(), tableDescriptor.zoneId()).thenApply(dataNodes ->
+        return distributionZoneManager.dataNodes(
+                zoneDescriptor.updateToken(),
+                catalogVersion,
+                tableDescriptor.zoneId()
+        ).thenApply(dataNodes ->
                 AffinityUtils.calculateAssignmentForPartition(
                         dataNodes,
                         tablePartitionId.partitionId(),
                         zoneDescriptor.replicas()
-                ));
+                )
+        );
     }
 
     @Override
@@ -1876,7 +1881,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
                                 CatalogZoneDescriptor zoneDescriptor = getZoneDescriptor(tableDescriptor, catalogVersion);
 
-                                return distributionZoneManager.dataNodes(zoneDescriptor.updateToken(), tableDescriptor.zoneId())
+                                long causalityToken = zoneDescriptor.updateToken();
+
+                                return distributionZoneManager.dataNodes(causalityToken, catalogVersion, tableDescriptor.zoneId())
                                         .thenCompose(dataNodes -> RebalanceUtil.handleReduceChanged(
                                                 metaStorageMgr,
                                                 dataNodes,
