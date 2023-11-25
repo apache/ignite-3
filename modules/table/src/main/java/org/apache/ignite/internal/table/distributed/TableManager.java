@@ -732,8 +732,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         );
         var storageIndexTracker = new PendingComparableValuesTracker<Long, Void>(0L);
 
-        ((InternalTableImpl) internalTbl).updatePartitionTrackers(partId, safeTimeTracker, storageIndexTracker);
-
         PartitionStorages partitionStorages = getPartitionStorages(table, partId);
 
         PartitionDataStorage partitionDataStorage = partitionDataStorage(partitionStorages.getMvPartitionStorage(),
@@ -775,6 +773,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 if (((Loza) raftMgr).isStarted(raftNodeId)) {
                     return true;
                 }
+
+                ((InternalTableImpl) internalTbl).updatePartitionTrackers(partId, safeTimeTracker, storageIndexTracker);
 
                 try {
                     startPartitionRaftGroupNode(
