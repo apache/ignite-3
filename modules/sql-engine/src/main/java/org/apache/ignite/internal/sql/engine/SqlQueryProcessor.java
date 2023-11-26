@@ -700,14 +700,15 @@ public class SqlQueryProcessor implements QueryProcessor {
 
             // We fill parameters in reverse order, because each script statement
             // requires a reference to the future of the next statement.
-            for (int i = parsedResults0.size(); i > 0; i--) {
-                ParsedResult result = parsedResults0.get(i - 1);
+            CompletableFuture<AsyncSqlCursor<List<Object>>> prevCursorFuture = null;
+            for (int i = parsedResults0.size() - 1; i >= 0; i--) {
+                ParsedResult result = parsedResults0.get(i);
 
                 Object[] params0 = Arrays.copyOfRange(params, paramsCount - result.dynamicParamsCount(), paramsCount);
                 paramsCount -= result.dynamicParamsCount();
 
-                results[i - 1] = new ScriptStatementParameters(result, params0,
-                        i < parsedResults0.size() ? results[i].cursorFuture : null);
+                results[i] = new ScriptStatementParameters(result, params0, prevCursorFuture);
+                prevCursorFuture = results[i].cursorFuture;
             }
 
             return results;
