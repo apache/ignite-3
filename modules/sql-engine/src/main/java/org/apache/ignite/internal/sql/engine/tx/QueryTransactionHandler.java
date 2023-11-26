@@ -17,45 +17,58 @@
 
 package org.apache.ignite.internal.sql.engine.tx;
 
+import static org.apache.ignite.lang.ErrorGroups.Sql.RUNTIME_ERR;
+
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
-import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.tx.IgniteTransactions;
+import org.apache.ignite.tx.TransactionOptions;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * The query transaction handler is responsible for running implicit or script managed transactions during query execution.
+ * Starts an implicit transaction if there is no external transaction.
  */
-@SuppressWarnings("InterfaceMayBeAnnotatedFunctional")
-public interface QueryTransactionHandler {
-    /**
-     * Starts a transaction if there is no external transaction.
-     *
-     * @param parsedResult Result of the parse.
-     * @return Transaction wrapper.
-     */
-    QueryTransactionWrapper startTxIfNeeded(ParsedResult parsedResult);
+public class QueryTransactionHandler {
+    final IgniteTransactions transactions;
+    final @Nullable InternalTransaction externalTransaction;
 
-    /**
-     * Creates a new transaction handler that starts an implicit transaction if there is no external transaction.
-     *
-     * @param transactions Ignite transactions facade.
-     * @param externalTransaction External transaction.
-     * @return Transaction handler.
-     */
-    static QueryTransactionHandler forSingleStatement(IgniteTransactions transactions, @Nullable InternalTransaction externalTransaction) {
-        return new QueryTransactionHandlerImpl(transactions, externalTransaction);
+    public QueryTransactionHandler(IgniteTransactions transactions, @Nullable InternalTransaction externalTransaction) {
+        this.transactions = transactions;
+        this.externalTransaction = externalTransaction;
     }
 
     /**
-     * Creates a new transaction handler that starts an implicit transaction if there is no external transaction and
-     * supports script transaction management using {@link SqlQueryType#TX_CONTROL} statements.
+     * Starts a transaction if there is no external transaction.
      *
-     * @param transactions Ignite transactions facade.
-     * @param externalTransaction External transaction.
-     * @return Transaction handler.
+     * @param queryType Query type.
+     * @return Transaction wrapper.
      */
-    static QueryTransactionHandler forMultiStatement(IgniteTransactions transactions, @Nullable InternalTransaction externalTransaction) {
-        return new ScriptTransactionHandler(transactions, externalTransaction);
+    public QueryTransactionWrapper startTxIfNeeded(SqlQueryType queryType) {
+        InternalTransaction activeTx = activeTransaction();
+
+        if (activeTx == null) {
+            return new ImplicitTransactionWrapper((InternalTransaction) transactions.begin(
+                    new TransactionOptions().readOnly(queryType != SqlQueryType.DML)), true);
+        }
+
+        ensureStatementAllowedWithinExplicitTx(queryType, activeTx.isReadOnly());
+
+        return new ImplicitTransactionWrapper(activeTx, false);
+    }
+
+    protected @Nullable InternalTransaction activeTransaction() {
+        return externalTransaction;
+    }
+
+    /** Checks that the statement is allowed within an external/script transaction. */
+    static void ensureStatementAllowedWithinExplicitTx(SqlQueryType queryType, boolean readOnly) {
+        if (SqlQueryType.DDL == queryType) {
+            throw new SqlException(RUNTIME_ERR, "DDL doesn't support transactions.");
+        }
+
+        if (readOnly && SqlQueryType.DML == queryType) {
+            throw new SqlException(RUNTIME_ERR, "DML query cannot be started by using read only transactions.");
+        }
     }
 }

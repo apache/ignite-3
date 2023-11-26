@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql;
 
 import static org.apache.ignite.internal.sql.engine.property.SqlPropertiesHelper.emptyProperties;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
@@ -40,8 +41,19 @@ import org.junit.jupiter.api.AfterEach;
  */
 public abstract class BaseSqlMultiStatementTest extends BaseSqlIntegrationTest {
     @AfterEach
-    protected void checkNoPendingTransactions() {
+    protected void checkNoPendingTransactionsAndOpenedCursors() {
         assertEquals(0, txManager().pending());
+
+        try {
+            boolean success = waitForCondition(() -> queryProcessor().openedCursors() == 0, 5_000);
+
+            if (!success) {
+                assertEquals(0, queryProcessor().openedCursors());
+            }
+
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     protected AsyncSqlCursor<List<Object>> runScript(String query) {

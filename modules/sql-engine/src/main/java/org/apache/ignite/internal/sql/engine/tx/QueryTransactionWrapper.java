@@ -35,7 +35,7 @@ public interface QueryTransactionWrapper {
     CompletableFuture<Void> rollback(Throwable cause);
 
     /** Action to perform when data cursor is closed. */
-    default CompletableFuture<Void> onCursorClose() {
+    default CompletableFuture<Void> commitScriptImplicit() {
         return commitImplicit();
     }
 

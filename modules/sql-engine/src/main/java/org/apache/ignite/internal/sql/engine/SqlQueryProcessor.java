@@ -100,6 +100,7 @@ import org.apache.ignite.internal.sql.engine.sql.ParserServiceImpl;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionHandler;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionWrapper;
+import org.apache.ignite.internal.sql.engine.tx.ScriptTransactionHandler;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.sql.engine.util.cache.CacheFactory;
@@ -425,7 +426,7 @@ public class SqlQueryProcessor implements QueryProcessor {
         }
 
         try {
-            return querySingle0(properties, QueryTransactionHandler.forSingleStatement(transactions, transaction), qry, params);
+            return querySingle0(properties, new QueryTransactionHandler(transactions, transaction), qry, params);
         } finally {
             busyLock.leaveBusy();
         }
@@ -445,7 +446,7 @@ public class SqlQueryProcessor implements QueryProcessor {
         }
 
         try {
-            return queryScript0(properties, QueryTransactionHandler.forMultiStatement(transactions, transaction), qry, params);
+            return queryScript0(properties, new ScriptTransactionHandler(transactions, transaction), qry, params);
         } finally {
             busyLock.leaveBusy();
         }
@@ -475,7 +476,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
             validateParsedStatement(properties0, result, params);
 
-            QueryTransactionWrapper txWrapper = txHandler.startTxIfNeeded(result);
+            QueryTransactionWrapper txWrapper = txHandler.startTxIfNeeded(result.queryType());
 
             return executeParsedStatement(schemaName, result, txWrapper, queryCancel, params, false, null);
         });
@@ -494,7 +495,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     private CompletableFuture<AsyncSqlCursor<List<Object>>> queryScript0(
             SqlProperties properties,
-            QueryTransactionHandler transactionHandler,
+            ScriptTransactionHandler transactionHandler,
             String sql,
             Object... params
     ) {
@@ -542,7 +543,17 @@ public class SqlQueryProcessor implements QueryProcessor {
                             .thenApply(plan -> executePlan(txWrapper, ctx, plan, nextStatement));
 
                     if (waitForPrefetch) {
-                        fut = fut.thenCompose(cursor -> callback.prefetchFuture().thenApply(ignore -> cursor));
+                        fut = fut.thenCompose(cursor -> {
+                            CompletableFuture<Void> prefetchFut = callback.prefetchFuture();
+
+                            prefetchFut.whenComplete((r, e) -> {
+                                if (e != null) {
+                                    cursor.closeAsync();
+                                }
+                            });
+
+                            return prefetchFut.thenApply(ignore -> cursor);
+                        });
                     }
 
                     return fut;
@@ -654,15 +665,21 @@ public class SqlQueryProcessor implements QueryProcessor {
         }
     }
 
+    /** Returns count of opened cursors. */
+    @TestOnly
+    public int openedCursors() {
+        return openedCursors.size();
+    }
+
     private class MultiStatementHandler {
         private final String schemaName;
-        private final QueryTransactionHandler transactionHandler;
+        private final ScriptTransactionHandler transactionHandler;
         private final ScriptStatementParameters[] statements;
         private final AtomicInteger statementIndex = new AtomicInteger();
 
         MultiStatementHandler(
                 String schemaName,
-                QueryTransactionHandler transactionHandler,
+                ScriptTransactionHandler transactionHandler,
                 List<ParsedResult> parsedResults,
                 Object[] params
         ) {
@@ -706,7 +723,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                     return cursorFuture;
                 }
 
-                QueryTransactionWrapper txWrapper = transactionHandler.startTxIfNeeded(parameters.parsedResult);
+                QueryTransactionWrapper txWrapper = transactionHandler.startTxIfNeeded(parameters.parsedResult, cursorFuture);
 
                 executeStatement(parameters.parsedResult, txWrapper, parameters.dynamicParams, parameters.nextStatementFuture)
                         .whenComplete((cursor, ex) -> {
@@ -715,7 +732,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                                 cancelAll(ex);
                             }
                         })
-                        .thenCompose(cursor -> txWrapper.commitImplicit()
+                        .thenCompose(cursor -> txWrapper.commitScriptImplicit()
                                 .thenApply(ignore -> {
                                     if (parameters.nextStatementFuture == null) {
                                         // Try rollback script managed transaction, if any.
@@ -782,29 +799,21 @@ public class SqlQueryProcessor implements QueryProcessor {
             for (ScriptStatementParameters parameters : statements) {
                 CompletableFuture<AsyncSqlCursor<List<Object>>> fut = parameters.cursorFuture;
 
-                if (fut.isDone()) {
-                    tryCloseCursor(fut);
+                fut.whenComplete((cursor, e) -> {
+                    if (cursor != null) {
+                        cursor.closeAsync();
+                    }
+                });
 
+                if (fut.isDone()) {
                     continue;
                 }
 
-                if (!fut.completeExceptionally(new SqlException(
+                fut.completeExceptionally(new SqlException(
                         EXECUTION_CANCELLED_ERR,
                         "The script execution was canceled due to an error in the previous statement.",
                         cause
-                ))) {
-                    tryCloseCursor(fut);
-                }
-            }
-        }
-
-        private void tryCloseCursor(CompletableFuture<AsyncSqlCursor<List<Object>>> fut) {
-            assert fut.isDone();
-
-            try {
-                fut.get().closeAsync();
-            } catch (Exception ignore) {
-                // No-op.
+                ));
             }
         }
 

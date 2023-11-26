@@ -52,31 +52,38 @@ public class ItSqlMultiStatementTest extends BaseSqlMultiStatementTest {
     void basicMultiStatementQuery() {
         String sql = "CREATE TABLE test (id INT PRIMARY KEY, val INT);"
                 + "INSERT INTO test VALUES (0, 0);"
+                + "UPDATE test SET val=1 where id=0;"
                 + "EXPLAIN PLAN FOR SELECT * FROM test;"
-                + "SELECT * FROM test";
+                + "SELECT * FROM test;"
+                + "DELETE FROM test";
 
         List<AsyncSqlCursor<List<Object>>> cursors = fetchAllCursors(runScript(sql));
         Iterator<AsyncSqlCursor<List<Object>>> curItr = cursors.iterator();
 
         validateSingleResult(curItr.next(), true);
         validateSingleResult(curItr.next(), 1L);
+        validateSingleResult(curItr.next(), 1L);
         assertNotNull(curItr.next()); // skip EXPLAIN.
-        validateSingleResult(curItr.next(), 0, 0);
+        validateSingleResult(curItr.next(), 0, 1);
+        validateSingleResult(curItr.next(), 1L);
 
         assertFalse(curItr.hasNext());
 
+        cursors.forEach(AsyncSqlCursor::closeAsync);
+
         // Ensures that the script is executed completely, even if the cursor data has not been read.
-        fetchAllCursors(runScript("INSERT INTO test VALUES (1, 1);"
+        cursors = fetchAllCursors(runScript("INSERT INTO test VALUES (1, 1);"
                 + "INSERT INTO test VALUES (2, 2);"
                 + "SELECT * FROM test;"
                 + "INSERT INTO test VALUES (3, 3);"));
 
         assertQuery("select * from test")
-                .returns(0, 0)
                 .returns(1, 1)
                 .returns(2, 2)
                 .returns(3, 3)
                 .check();
+
+        cursors.forEach(AsyncSqlCursor::closeAsync);
     }
 
     /** Checks single statement execution using multi-statement API. */
@@ -101,13 +108,16 @@ public class ItSqlMultiStatementTest extends BaseSqlMultiStatementTest {
                 + "INSERT INTO test VALUES(?, DEFAULT);"
                 + "INSERT INTO test VALUES(?, ?);";
 
-        fetchAllCursors(runScript(sql, null, 0, "1", 2, 4, "5"));
+        List<AsyncSqlCursor<List<Object>>> cursors =
+                fetchAllCursors(runScript(sql, null, 0, "1", 2, 4, "5"));
 
         assertQuery("SELECT * FROM test")
                 .returns(0, "1")
                 .returns(2, "3")
                 .returns(4, "5")
                 .check();
+
+        cursors.forEach(AsyncSqlCursor::closeAsync);
     }
 
     @Test

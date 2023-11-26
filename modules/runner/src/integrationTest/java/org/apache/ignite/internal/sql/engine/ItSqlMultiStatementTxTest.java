@@ -87,7 +87,7 @@ public class ItSqlMultiStatementTxTest extends BaseSqlMultiStatementTest {
 
     @Test
     void basicTxStatements() {
-        fetchAllCursors(runScript(
+        List<AsyncSqlCursor<List<Object>>> cursors = fetchAllCursors(runScript(
                 "START TRANSACTION;"
                         + "INSERT INTO test VALUES(0);"
                         + "INSERT INTO test VALUES(1);"
@@ -105,6 +105,8 @@ public class ItSqlMultiStatementTxTest extends BaseSqlMultiStatementTest {
 
         assertQuery("select count(id) from test")
                 .returns(3L).check();
+
+        cursors.forEach(AsyncSqlCursor::closeAsync);
     }
 
     @Test
@@ -122,6 +124,8 @@ public class ItSqlMultiStatementTxTest extends BaseSqlMultiStatementTest {
         assertThat(res.items(), hasSize(BIG_TABLE_ROWS_COUNT));
 
         verifyFinishedTxCount(1);
+
+        cursors.forEach(AsyncSqlCursor::closeAsync);
     }
 
     @Test
@@ -163,14 +167,25 @@ public class ItSqlMultiStatementTxTest extends BaseSqlMultiStatementTest {
         }
 
         {
-            fetchAllCursors(runScript("START TRANSACTION;"
-                    + "INSERT INTO test VALUES(0);"
-                    + "INSERT INTO test VALUES(1);"
-                    + "COMMIT;"
-                    + "START TRANSACTION;"
-                    + "INSERT INTO test VALUES(2);"));
+            List<AsyncSqlCursor<List<Object>>> cursors = fetchAllCursors(
+                    runScript("START TRANSACTION;"
+                            + "INSERT INTO test VALUES(0);"
+                            + "INSERT INTO test VALUES(1);"
+                            + "COMMIT;"
+
+                            + "START TRANSACTION;"
+                            + "INSERT INTO test VALUES(2);"
+                            + "SELECT * FROM test;"
+                    )
+            );
 
             verifyFinishedTxCount(3);
+
+            assertThat(cursors, hasSize(7));
+            cursors.subList(0, 4).forEach(AsyncSqlCursor::closeAsync);
+
+            // Cursors associated with a transaction must be closed when the transaction is rolled back.
+            checkNoPendingTransactionsAndOpenedCursors();
 
             assertQuery("select count(id) from test")
                     .returns(2L).check();

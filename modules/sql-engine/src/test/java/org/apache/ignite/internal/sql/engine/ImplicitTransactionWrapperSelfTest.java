@@ -30,11 +30,13 @@ import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 import java.util.EnumSet;
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.sql.engine.framework.NoOpTransaction;
 import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
 import org.apache.ignite.internal.sql.engine.tx.ImplicitTransactionWrapper;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionHandler;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionWrapper;
+import org.apache.ignite.internal.sql.engine.tx.ScriptTransactionHandler;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.sql.ExternalTransactionNotSupportedException;
@@ -64,13 +66,13 @@ public class ImplicitTransactionWrapperSelfTest extends BaseIgniteAbstractTest {
                 }
         );
 
-        QueryTransactionHandler transactionHandler = QueryTransactionHandler.forSingleStatement(transactions, null);
-        QueryTransactionWrapper transactionWrapper = transactionHandler.startTxIfNeeded(mockParsedResult(SqlQueryType.DML));
+        QueryTransactionHandler transactionHandler = new QueryTransactionHandler(transactions, null);
+        QueryTransactionWrapper transactionWrapper = transactionHandler.startTxIfNeeded(SqlQueryType.DML);
 
         assertThat(transactionWrapper.unwrap().isReadOnly(), equalTo(false));
 
         for (SqlQueryType type : EnumSet.complementOf(EnumSet.of(SqlQueryType.DML))) {
-            transactionWrapper = transactionHandler.startTxIfNeeded(mockParsedResult(type));
+            transactionWrapper = transactionHandler.startTxIfNeeded(type);
             assertThat(transactionWrapper.unwrap().isReadOnly(), equalTo(true));
         }
 
@@ -111,40 +113,35 @@ public class ImplicitTransactionWrapperSelfTest extends BaseIgniteAbstractTest {
 
     @Test
     public void throwsExceptionForDdlWithExternalTransaction() {
-        QueryTransactionHandler txHandler = QueryTransactionHandler.forSingleStatement(transactions, new NoOpTransaction("test"));
+        QueryTransactionHandler txHandler = new QueryTransactionHandler(transactions, new NoOpTransaction("test"));
 
         //noinspection ThrowableNotThrown
         assertThrowsSqlException(Sql.RUNTIME_ERR, "DDL doesn't support transactions.",
-                () -> txHandler.startTxIfNeeded(mockParsedResult(SqlQueryType.DDL)));
+                () -> txHandler.startTxIfNeeded(SqlQueryType.DDL));
 
         verifyNoInteractions(transactions);
     }
 
     @Test
     public void throwsExceptionForDmlWithReadOnlyExternalTransaction() {
-        QueryTransactionHandler txHandler = QueryTransactionHandler.forSingleStatement(transactions, new NoOpTransaction("test"));
+        QueryTransactionHandler txHandler = new QueryTransactionHandler(transactions, new NoOpTransaction("test"));
 
         //noinspection ThrowableNotThrown
         assertThrowsSqlException(Sql.RUNTIME_ERR, "DML query cannot be started by using read only transactions.",
-                () -> txHandler.startTxIfNeeded(mockParsedResult(SqlQueryType.DML)));
+                () -> txHandler.startTxIfNeeded(SqlQueryType.DML));
 
         verifyNoInteractions(transactions);
     }
 
     @Test
     public void throwsExceptionForTxControlStatementInsideExternalTransaction() {
-        QueryTransactionHandler txHandler = QueryTransactionHandler.forMultiStatement(transactions, new NoOpTransaction("test"));
+        ParsedResult parseResult = Mockito.mock(ParsedResult.class);
+        when(parseResult.queryType()).thenReturn(SqlQueryType.TX_CONTROL);
+
+        ScriptTransactionHandler txHandler = new ScriptTransactionHandler(transactions, new NoOpTransaction("test"));
 
         assertThrowsExactly(ExternalTransactionNotSupportedException.class,
-                () -> txHandler.startTxIfNeeded(mockParsedResult(SqlQueryType.TX_CONTROL)));
-    }
-
-    private static ParsedResult mockParsedResult(SqlQueryType type) {
-        ParsedResult result = Mockito.mock(ParsedResult.class);
-
-        when(result.queryType()).thenReturn(type);
-
-        return result;
+                () -> txHandler.startTxIfNeeded(parseResult, CompletableFuture.completedFuture(null)));
     }
 }
 
