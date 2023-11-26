@@ -167,11 +167,6 @@ public class CausalityDataNodesEngine {
 
             long createOrRestoreRevision = zonesCreateOrRestoreRevision.get(zoneId);
 
-            if (createOrRestoreRevision > causalityToken) {
-                // It means that the zone does not exist on a given causality token.
-                throw new DistributionZoneNotFoundException(zoneId);
-            }
-
             long descLastUpdateRevision = zoneDescriptor.updateToken();
 
             String filter = zoneDescriptor.filter();
