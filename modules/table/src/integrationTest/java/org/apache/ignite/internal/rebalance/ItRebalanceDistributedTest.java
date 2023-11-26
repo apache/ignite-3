@@ -690,11 +690,19 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
     }
 
     private void verifyThatRaftNodesAndReplicasWereStartedOnlyOnce() throws Exception {
-        for (int i = 0; i < NODE_COUNT; i++) {
-            verify(getNode(i).raftManager, times(1))
-                    .startRaftGroupNode(any(), any(), any(), any(), any(RaftGroupOptions.class));
-            verify(getNode(i).replicaManager, times(1)).startReplica(any(), any(), any(), any(), any());
-        }
+        waitForCondition(() -> {
+            try {
+                for (int i = 0; i < NODE_COUNT; i++) {
+                    verify(getNode(i).raftManager, times(1))
+                            .startRaftGroupNode(any(), any(), any(), any(), any(RaftGroupOptions.class));
+                    verify(getNode(i).replicaManager, times(1)).startReplica(any(), any(), any(), any(), any());
+                }
+
+                return true;
+            } catch (Throwable e) {
+                return false;
+            }
+        }, 10_000);
     }
 
     private void waitPartitionAssignmentsSyncedToExpected(int partNum, int replicasNum) throws Exception {

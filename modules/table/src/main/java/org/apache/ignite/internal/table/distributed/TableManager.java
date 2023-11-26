@@ -746,7 +746,17 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 safeTimeTracker
         );
 
-        mvGc.addStorage(replicaGrpId, partitionUpdateHandlers.gcUpdateHandler);
+        Peer serverPeer = newConfiguration.peer(localNode().name());
+
+        var raftNodeId = localMemberAssignment == null ? null : new RaftNodeId(replicaGrpId, serverPeer);
+
+        boolean shouldStartRaftListeners = localMemberAssignment != null && !((Loza) raftMgr).isStarted(raftNodeId);
+
+        if (shouldStartRaftListeners) {
+            ((InternalTableImpl) internalTbl).updatePartitionTrackers(partId, safeTimeTracker, storageIndexTracker);
+
+            mvGc.addStorage(replicaGrpId, partitionUpdateHandlers.gcUpdateHandler);
+        }
 
         CompletableFuture<Boolean> startGroupFut;
 
@@ -766,15 +776,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     return false;
                 }
 
-                Peer serverPeer = newConfiguration.peer(localNode().name());
-
-                var raftNodeId = new RaftNodeId(replicaGrpId, serverPeer);
-
                 if (((Loza) raftMgr).isStarted(raftNodeId)) {
                     return true;
                 }
-
-                ((InternalTableImpl) internalTbl).updatePartitionTrackers(partId, safeTimeTracker, storageIndexTracker);
 
                 try {
                     startPartitionRaftGroupNode(
