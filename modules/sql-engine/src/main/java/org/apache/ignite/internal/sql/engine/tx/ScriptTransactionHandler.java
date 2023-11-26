@@ -159,7 +159,7 @@ public class ScriptTransactionHandler extends QueryTransactionHandler {
         }
 
         @Override
-        public CompletableFuture<Void> rollback(Throwable cause) {
+        public CompletableFuture<Void> rollback(String reason) {
             return transaction.rollbackAsync();
         }
     }
@@ -193,7 +193,7 @@ public class ScriptTransactionHandler extends QueryTransactionHandler {
             cursorsToWaitBeforeCommit.add(commitId);
         }
 
-        CompletableFuture<Void> closeAllCursorsAndRollbackTx(Throwable cause) {
+        CompletableFuture<Void> closeAllCursorsAndRollbackTx(String reason) {
             for (CompletableFuture<? extends AsyncSqlCursor<?>> cursor : cursorsToCloseOnRollback) {
                 cursor.thenCompose(AsyncCursor::closeAsync);
             }
@@ -201,7 +201,7 @@ public class ScriptTransactionHandler extends QueryTransactionHandler {
             return transaction.rollbackAsync()
                     .whenComplete((r, e) -> {
                         SqlException ex =
-                                new SqlException(EXECUTION_CANCELLED_ERR, "Execution was canceled due to transaction rollback.", cause);
+                                new SqlException(EXECUTION_CANCELLED_ERR, "Execution was canceled due to transaction rollback: " + reason);
 
                         if (e != null) {
                             ex.addSuppressed(e);
@@ -257,8 +257,8 @@ public class ScriptTransactionHandler extends QueryTransactionHandler {
         }
 
         @Override
-        public CompletableFuture<Void> rollback(Throwable cause) {
-            return txManager.closeAllCursorsAndRollbackTx(cause);
+        public CompletableFuture<Void> rollback(String reason) {
+            return txManager.closeAllCursorsAndRollbackTx(reason);
         }
 
         @Override

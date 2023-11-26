@@ -32,7 +32,7 @@ public interface QueryTransactionWrapper {
     CompletableFuture<Void> commitImplicit();
 
     /** Rolls back a transaction. */
-    CompletableFuture<Void> rollback(Throwable cause);
+    CompletableFuture<Void> rollback(String reason);
 
     /** Action to perform when data cursor is closed. */
     default CompletableFuture<Void> commitScriptImplicit() {
@@ -52,7 +52,7 @@ public interface QueryTransactionWrapper {
         }
 
         @Override
-        public CompletableFuture<Void> rollback(Throwable cause) {
+        public CompletableFuture<Void> rollback(String ignored) {
             return Commons.completedFuture();
         }
     };

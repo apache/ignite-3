@@ -560,7 +560,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                 })
                 .whenComplete((res, ex) -> {
                     if (ex != null) {
-                        txWrapper.rollback(ex);
+                        txWrapper.rollback(ex.getMessage());
                     }
                 });
     }
@@ -736,10 +736,8 @@ public class SqlQueryProcessor implements QueryProcessor {
                         .thenCompose(cursor -> txWrapper.commitScriptImplicit()
                                 .thenApply(ignore -> {
                                     if (parameters.nextStatementFuture == null) {
-                                        // Try rollback script managed transaction, if any.
-                                        txWrapper.rollback(
-                                                new SqlException(EXECUTION_CANCELLED_ERR, "Transaction commit statement missing.")
-                                        );
+                                        // Try to rollback script managed transaction, if any.
+                                        txWrapper.rollback("Transaction commit statement is missing.");
                                     } else {
                                         taskExecutor.execute(this::processNext);
                                     }
