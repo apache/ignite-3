@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.tx;
 
-import static org.apache.ignite.lang.ErrorGroups.Sql.EXECUTION_CANCELLED_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.RUNTIME_ERR;
 
 import java.util.List;
@@ -66,7 +65,7 @@ public class ScriptTransactionHandler extends QueryTransactionHandler {
      * @param cursorFut Cursor future for the current statement.
      * @return Transaction wrapper.
      */
-    public QueryTransactionWrapper startTxIfNeeded(ParsedResult parsedResult, CompletableFuture<? extends AsyncSqlCursor<?>> cursorFut) {
+    public QueryTransactionWrapper startTxIfNeeded(ParsedResult parsedResult, CompletableFuture<? extends AsyncCursor<?>> cursorFut) {
         try {
             SqlQueryType queryType = parsedResult.queryType();
 
@@ -159,7 +158,7 @@ public class ScriptTransactionHandler extends QueryTransactionHandler {
         }
 
         @Override
-        public CompletableFuture<Void> rollback(String reason) {
+        public CompletableFuture<Void> rollback() {
             return transaction.rollbackAsync();
         }
     }
@@ -183,7 +182,7 @@ public class ScriptTransactionHandler extends QueryTransactionHandler {
     private static class ScriptTxResourceManager {
         private static final UUID commitId = UUID.randomUUID();
         private final CompletableFuture<Void> finishTxFuture = new CompletableFuture<>();
-        private final List<CompletableFuture<? extends AsyncSqlCursor<?>>> cursorsToCloseOnRollback = new CopyOnWriteArrayList<>();
+        private final List<CompletableFuture<? extends AsyncCursor<?>>> cursorsToCloseOnRollback = new CopyOnWriteArrayList<>();
         private final Set<UUID> cursorsToWaitBeforeCommit = ConcurrentHashMap.newKeySet();
         private final InternalTransaction transaction;
 
@@ -193,22 +192,16 @@ public class ScriptTransactionHandler extends QueryTransactionHandler {
             cursorsToWaitBeforeCommit.add(commitId);
         }
 
-        CompletableFuture<Void> closeAllCursorsAndRollbackTx(String reason) {
-            for (CompletableFuture<? extends AsyncSqlCursor<?>> cursor : cursorsToCloseOnRollback) {
-                cursor.thenCompose(AsyncCursor::closeAsync);
+        CompletableFuture<Void> closeAllCursorsAndRollbackTx() {
+            for (CompletableFuture<? extends AsyncCursor<?>> fut : cursorsToCloseOnRollback) {
+                fut.whenComplete((cursor, ex) -> {
+                    if (cursor != null) {
+                        cursor.closeAsync();
+                    }
+                });
             }
 
-            return transaction.rollbackAsync()
-                    .whenComplete((r, e) -> {
-                        SqlException ex =
-                                new SqlException(EXECUTION_CANCELLED_ERR, "Execution was canceled due to transaction rollback: " + reason);
-
-                        if (e != null) {
-                            ex.addSuppressed(e);
-                        }
-
-                        finishTxFuture.completeExceptionally(ex);
-                    });
+            return transaction.rollbackAsync();
         }
 
         CompletableFuture<Void> onCursorClose(UUID queryId) {
@@ -220,7 +213,7 @@ public class ScriptTransactionHandler extends QueryTransactionHandler {
             return Commons.completedFuture();
         }
 
-        UUID trackStatementCursor(SqlQueryType queryType, CompletableFuture<? extends AsyncSqlCursor<?>> cursorFut) {
+        UUID trackStatementCursor(SqlQueryType queryType, CompletableFuture<? extends AsyncCursor<?>> cursorFut) {
             cursorsToCloseOnRollback.add(cursorFut);
 
             UUID cursorId = UUID.randomUUID();
@@ -257,8 +250,8 @@ public class ScriptTransactionHandler extends QueryTransactionHandler {
         }
 
         @Override
-        public CompletableFuture<Void> rollback(String reason) {
-            return txManager.closeAllCursorsAndRollbackTx(reason);
+        public CompletableFuture<Void> rollback() {
+            return txManager.closeAllCursorsAndRollbackTx();
         }
 
         @Override

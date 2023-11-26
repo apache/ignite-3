@@ -105,7 +105,7 @@ public class ImplicitTransactionWrapperSelfTest extends BaseIgniteAbstractTest {
         NoOpTransaction tx = new NoOpTransaction("test");
         ImplicitTransactionWrapper wrapper = new ImplicitTransactionWrapper(tx, true);
 
-        wrapper.rollback(null);
+        wrapper.rollback();
 
         assertThat(tx.rollbackFuture().isDone(), equalTo(true));
         assertThat(tx.commitFuture().isDone(), equalTo(false));

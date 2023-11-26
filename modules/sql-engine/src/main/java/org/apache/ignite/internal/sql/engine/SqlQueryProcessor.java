@@ -543,24 +543,20 @@ public class SqlQueryProcessor implements QueryProcessor {
                             .thenApply(plan -> executePlan(txWrapper, ctx, plan, nextStatement));
 
                     if (waitForPrefetch) {
-                        fut = fut.thenCompose(cursor -> {
-                            CompletableFuture<Void> prefetchFut = callback.prefetchFuture();
-
-                            prefetchFut.whenComplete((r, e) -> {
-                                if (e != null) {
-                                    cursor.closeAsync();
-                                }
-                            });
-
-                            return prefetchFut.thenApply(ignore -> cursor);
-                        });
+                        fut = fut.thenCompose(
+                                cursor -> callback.prefetchFuture().whenComplete((res, ex) -> {
+                                    if (ex != null) {
+                                        cursor.closeAsync();
+                                    }
+                                }).thenApply(ignore -> cursor)
+                        );
                     }
 
                     return fut;
                 })
                 .whenComplete((res, ex) -> {
                     if (ex != null) {
-                        txWrapper.rollback(ex.getMessage());
+                        txWrapper.rollback();
                     }
                 });
     }
@@ -737,7 +733,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                                 .thenApply(ignore -> {
                                     if (parameters.nextStatementFuture == null) {
                                         // Try to rollback script managed transaction, if any.
-                                        txWrapper.rollback("Transaction commit statement is missing.");
+                                        txWrapper.rollback();
                                     } else {
                                         taskExecutor.execute(this::processNext);
                                     }
