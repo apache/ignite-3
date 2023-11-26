@@ -30,7 +30,7 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.ZONE_ALTER;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.ZONE_CREATE;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.ZONE_DROP;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.conditionForGlobalStatesChanges;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.conditionForRecoverableStateChanges;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.conditionForZoneCreation;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.conditionForZoneRemoval;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.createZoneManagerExecutor;
@@ -48,12 +48,12 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleUpChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneTopologyAugmentation;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesFilterUpdateRevision;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesGlobalStateRevision;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLastHandledTopology;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyPrefix;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyVersionKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesNodesAttributes;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesRecoverableStateRevision;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.value;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
@@ -683,21 +683,21 @@ public class DistributionZoneManager implements IgniteComponent {
      * @param recoveryRevision Revision of the Meta Storage after its recovery.
      */
     private void restoreGlobalStateFromLocalMetastorage(long recoveryRevision) {
-        Entry topologyEntry = metaStorageManager.getLocally(zonesLastHandledTopology(), recoveryRevision);
+        Entry lastHandledTopologyEntry = metaStorageManager.getLocally(zonesLastHandledTopology(), recoveryRevision);
 
         Entry nodeAttributesEntry = metaStorageManager.getLocally(zonesNodesAttributes(), recoveryRevision);
 
-        if (topologyEntry.value() != null) {
+        if (lastHandledTopologyEntry.value() != null) {
             // We save zonesLastHandledTopology and zonesNodesAttributes in Meta Storage in a one batch, so it is impossible
             // that one value is not null, but other is null.
             assert nodeAttributesEntry.value() != null;
 
-            logicalTopology = fromBytes(topologyEntry.value());
+            logicalTopology = fromBytes(lastHandledTopologyEntry.value());
 
             nodesAttributes = fromBytes(nodeAttributesEntry.value());
         }
 
-        assert topologyEntry.value() == null || logicalTopology.equals(fromBytes(topologyEntry.value()))
+        assert lastHandledTopologyEntry.value() == null || logicalTopology.equals(fromBytes(lastHandledTopologyEntry.value()))
                 : "Initial value of logical topology was changed after initialization from the Meta Storage manager.";
 
         assert nodeAttributesEntry.value() == null
@@ -803,7 +803,7 @@ public class DistributionZoneManager implements IgniteComponent {
 
         logicalTopology = newLogicalTopology;
 
-        futures.add(saveGlobalStatesToMetastorage(zoneIds, revision, newLogicalTopology));
+        futures.add(saveRecoverableStateToMetastorage(zoneIds, revision, newLogicalTopology));
 
         return allOf(futures.toArray(CompletableFuture[]::new));
     }
@@ -827,7 +827,7 @@ public class DistributionZoneManager implements IgniteComponent {
     }
 
     /**
-     * Saves global states of the Distribution Zone Manager to Meta Storage atomically in one batch.
+     * Saves recoverable state of the Distribution Zone Manager to Meta Storage atomically in one batch.
      * After restart it could be used to restore these fields.
      *
      * @param zoneIds Set of zone id's, whose states will be saved in the Meta Storage.
@@ -835,7 +835,7 @@ public class DistributionZoneManager implements IgniteComponent {
      * @param newLogicalTopology New logical topology.
      * @return Future representing pending completion of the operation.
      */
-    private CompletableFuture<Void> saveGlobalStatesToMetastorage(
+    private CompletableFuture<Void> saveRecoverableStateToMetastorage(
             Set<Integer> zoneIds,
             long revision,
             Set<NodeWithAttributes> newLogicalTopology
@@ -844,7 +844,7 @@ public class DistributionZoneManager implements IgniteComponent {
 
         puts[0] = put(zonesNodesAttributes(), toBytes(nodesAttributes()));
 
-        puts[1] = put(zonesGlobalStateRevision(), longToBytes(revision));
+        puts[1] = put(zonesRecoverableStateRevision(), longToBytes(revision));
 
         puts[2] = put(zonesLastHandledTopology(), toBytes(newLogicalTopology));
 
@@ -857,7 +857,7 @@ public class DistributionZoneManager implements IgniteComponent {
         }
 
         Iif iif = iif(
-                conditionForGlobalStatesChanges(revision),
+                conditionForRecoverableStateChanges(revision),
                 ops(puts).yield(true),
                 ops().yield(false)
         );
@@ -866,11 +866,11 @@ public class DistributionZoneManager implements IgniteComponent {
                 .thenApply(StatementResult::getAsBoolean)
                 .whenComplete((invokeResult, e) -> {
                     if (e != null) {
-                        LOG.error("Failed to update global states for distribution zone manager [revision = {}]", e, revision);
+                        LOG.error("Failed to update recoverable state for distribution zone manager [revision = {}]", e, revision);
                     } else if (invokeResult) {
-                        LOG.info("Update global states for distribution zone manager [revision = {}]", revision);
+                        LOG.info("Update recoverable state for distribution zone manager [revision = {}]", revision);
                     } else {
-                        LOG.debug("Failed to update global states for distribution zone manager [revision = {}]", revision);
+                        LOG.debug("Failed to update recoverable states for distribution zone manager [revision = {}]", revision);
                     }
                 }).thenCompose((ignored) -> completedFuture(null));
     }
@@ -1499,7 +1499,7 @@ public class DistributionZoneManager implements IgniteComponent {
             // It is safe to get the latest version of the catalog as we are in the starting process.
             int catalogVersion = catalogManager.latestCatalogVersion();
 
-            Entry lastUpdateRevisionEntry = metaStorageManager.getLocally(zonesGlobalStateRevision(), recoveryRevision);
+            Entry lastUpdateRevisionEntry = metaStorageManager.getLocally(zonesRecoverableStateRevision(), recoveryRevision);
 
             if (lastUpdateRevisionEntry.value() == null || topologyRevision > bytesToLong(lastUpdateRevisionEntry.value())) {
                 // TODO: return this futures https://issues.apache.org/jira/browse/IGNITE-20477
