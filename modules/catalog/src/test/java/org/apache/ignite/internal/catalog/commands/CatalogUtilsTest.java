@@ -35,7 +35,7 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.pkIndexNa
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.sql.ColumnType.INT32;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.hasItems;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
@@ -229,12 +229,12 @@ public class CatalogUtilsTest extends BaseIgniteAbstractTest {
 
             assertThat(
                     collectIndexes(catalogManager, tableId, latestCatalogVersion, latestCatalogVersion),
-                    contains(index(catalogManager, latestCatalogVersion, PK_INDEX_NAME))
+                    hasItems(index(catalogManager, latestCatalogVersion, PK_INDEX_NAME))
             );
 
             assertThat(
                     collectIndexes(catalogManager, tableId, earliestCatalogVersion, latestCatalogVersion),
-                    contains(index(catalogManager, latestCatalogVersion, PK_INDEX_NAME))
+                    hasItems(index(catalogManager, latestCatalogVersion, PK_INDEX_NAME))
             );
         });
     }
@@ -252,7 +252,7 @@ public class CatalogUtilsTest extends BaseIgniteAbstractTest {
 
             assertThat(
                     collectIndexes(catalogManager, tableId, latestCatalogVersion, latestCatalogVersion),
-                    contains(
+                    hasItems(
                             index(catalogManager, latestCatalogVersion, PK_INDEX_NAME),
                             index(catalogManager, latestCatalogVersion, INDEX_NAME)
                     )
@@ -260,7 +260,7 @@ public class CatalogUtilsTest extends BaseIgniteAbstractTest {
 
             assertThat(
                     collectIndexes(catalogManager, tableId, earliestCatalogVersion, latestCatalogVersion),
-                    contains(
+                    hasItems(
                             index(catalogManager, latestCatalogVersion, PK_INDEX_NAME),
                             index(catalogManager, latestCatalogVersion, INDEX_NAME)
                     )
@@ -287,7 +287,7 @@ public class CatalogUtilsTest extends BaseIgniteAbstractTest {
 
             assertThat(
                     collectIndexes(catalogManager, tableId, latestCatalogVersion, latestCatalogVersion),
-                    contains(
+                    hasItems(
                             index(catalogManager, latestCatalogVersion, PK_INDEX_NAME),
                             index(catalogManager, latestCatalogVersion, indexName0),
                             index(catalogManager, latestCatalogVersion, indexName1)
@@ -296,7 +296,7 @@ public class CatalogUtilsTest extends BaseIgniteAbstractTest {
 
             assertThat(
                     collectIndexes(catalogManager, tableId, earliestCatalogVersion, latestCatalogVersion),
-                    contains(
+                    hasItems(
                             index(catalogManager, latestCatalogVersion, PK_INDEX_NAME),
                             index(catalogManager, latestCatalogVersion, indexName0),
                             index(catalogManager, latestCatalogVersion, indexName1)
@@ -332,12 +332,12 @@ public class CatalogUtilsTest extends BaseIgniteAbstractTest {
 
             assertThat(
                     collectIndexes(catalogManager, tableId, latestCatalogVersion, latestCatalogVersion),
-                    contains(index(catalogManager, latestCatalogVersion, PK_INDEX_NAME))
+                    hasItems(index(catalogManager, latestCatalogVersion, PK_INDEX_NAME))
             );
 
             assertThat(
                     collectIndexes(catalogManager, tableId, earliestCatalogVersion, latestCatalogVersion),
-                    contains(
+                    hasItems(
                             index(catalogManager, latestCatalogVersion, PK_INDEX_NAME),
                             index(catalogManager, catalogVersionBeforeDropIndex0, indexName0),
                             index(catalogManager, catalogVersionBeforeDropIndex1, indexName1)
@@ -346,6 +346,25 @@ public class CatalogUtilsTest extends BaseIgniteAbstractTest {
         });
     }
 
+    /**
+     * Tests the more complex case of getting indexes.
+     *
+     * <p>Consider the following versions of the directory with its contents:</p>
+     * <pre>
+     *     Catalog versions and entity IDs have been simplified.
+     *
+     *     0 : T0 Ipk(A)
+     *     1 : T0 Ipk(A) I0(R) I1(R) I2(R) I3(R)
+     *     2 : T0 Ipk(A) I0(A) I1(R) I2(A) I3(R)
+     *     3 : T0 Ipk(A) I1(R) I2(A)
+     * </pre>
+     *
+     * <p>Expected indexes for range version:</p>
+     * <pre>
+     *     3 -> 3 : Ipk(A) I1(R) I2(A)
+     *     0 -> 3 : Ipk(A) I0(A) I1(R) I2(A) I3(R)
+     * </pre>
+     */
     @Test
     void testCollectIndexesComplexCase() throws Exception {
         withCatalogManager(catalogManager -> {
@@ -378,7 +397,7 @@ public class CatalogUtilsTest extends BaseIgniteAbstractTest {
 
             assertThat(
                     collectIndexes(catalogManager, tableId, latestCatalogVersion, latestCatalogVersion),
-                    contains(
+                    hasItems(
                             index(catalogManager, latestCatalogVersion, PK_INDEX_NAME),
                             index(catalogManager, latestCatalogVersion, indexName1),
                             index(catalogManager, latestCatalogVersion, indexName2)
@@ -387,7 +406,7 @@ public class CatalogUtilsTest extends BaseIgniteAbstractTest {
 
             assertThat(
                     collectIndexes(catalogManager, tableId, earliestCatalogVersion, latestCatalogVersion),
-                    contains(
+                    hasItems(
                             index(catalogManager, latestCatalogVersion, PK_INDEX_NAME),
                             index(catalogManager, catalogVersionBeforeDropIndex0, indexName0),
                             index(catalogManager, latestCatalogVersion, indexName1),

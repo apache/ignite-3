@@ -459,7 +459,7 @@ public class IndexManager implements IgniteComponent {
         var indexesByTableId = new Int2ObjectOpenHashMap<Int2ObjectMap<CatalogIndexDescriptor>>();
 
         for (CatalogTableDescriptor table : catalogService.tables(latestCatalogVersion)) {
-            indexesByTableId.computeIfAbsent(table.id(), indexById -> new Int2ObjectOpenHashMap<>());
+            indexesByTableId.put(table.id(), new Int2ObjectOpenHashMap<>());
         }
 
         for (int catalogVersion = earliestCatalogVersion; catalogVersion <= latestCatalogVersion; catalogVersion++) {

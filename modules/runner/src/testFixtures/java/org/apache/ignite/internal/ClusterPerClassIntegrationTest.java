@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCo
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Path;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -34,6 +35,7 @@ import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
+import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
@@ -222,7 +224,7 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
     }
 
     /**
-     * Creates an index for the table created by {@link #createZoneAndTable(String, String, int, int)}.
+     * Creates an index for the table created by {@link #createZoneAndTable(String, String, int, int)}..
      *
      * @param tableName Table name.
      * @param indexName Index name.
@@ -378,5 +380,34 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
 
             throw new IllegalStateException(e);
         }
+    }
+
+    /**
+     * Returns {@code true} if the index exists and is available in the latest catalog version.
+     *
+     * @param ignite Node.
+     * @param indexName Index name that is being checked.
+     */
+    protected static boolean isIndexAvailable(IgniteImpl ignite, String indexName) {
+        CatalogManager catalogManager = ignite.catalogManager();
+        HybridClock clock = ignite.clock();
+
+        CatalogIndexDescriptor indexDescriptor = catalogManager.index(indexName, clock.nowLong());
+
+        return indexDescriptor != null && indexDescriptor.available();
+    }
+
+    /**
+     * Awaits for all requested indexes to become available in the latest catalog version.
+     *
+     * @param ignite Node.
+     * @param indexNames Names of indexes that are of interest.
+     */
+    protected static void awaitIndexesBecomeAvailable(IgniteImpl ignite, String... indexNames) throws Exception {
+        assertTrue(waitForCondition(
+                () -> Arrays.stream(indexNames).allMatch(indexName -> isIndexAvailable(ignite, indexName)),
+                10,
+                30_000L
+        ));
     }
 }

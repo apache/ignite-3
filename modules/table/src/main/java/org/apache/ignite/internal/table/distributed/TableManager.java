@@ -1045,7 +1045,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      * @param causalityToken Causality token.
      * @param catalogVersion Catalog version on which the table was created.
      * @param tableDescriptor Catalog table descriptor.
-     * @param onNodeRecovery On node recovery.
+     * @param onNodeRecovery {@code true} when called during node recovery, {@code false} otherwise.
      * @return Future that will be completed when local changes related to the table creation are applied.
      */
     private CompletableFuture<?> createTableLocally(
@@ -1096,7 +1096,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      * @param zoneDescriptor Catalog distributed zone descriptor.
      * @param assignmentsFuture Future with assignments.
      * @param catalogVersion Catalog version on which the table was created.
-     * @param onNodeRecovery On node recovery.
+     * @param onNodeRecovery {@code true} when called during node recovery, {@code false} otherwise.
      * @return Future that will be completed when local changes related to the table creation are applied.
      */
     private CompletableFuture<Void> createTableLocally(
@@ -2098,7 +2098,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     }
 
     private int[] collectTableIndexIds(int tableId, int catalogVersion, boolean onNodeRecovery) {
-        int catalogVersionFrom = onNodeRecovery ? catalogService.latestCatalogVersion() : catalogVersion;
+        // If the method is called on CatalogEvent#TABLE_CREATE, then we only need the catalogVersion in which this table created.
+        int catalogVersionFrom = onNodeRecovery ? catalogService.earliestCatalogVersion() : catalogVersion;
 
         return CatalogUtils.collectIndexes(catalogService, tableId, catalogVersionFrom, catalogVersion).stream()
                 .mapToInt(CatalogObjectDescriptor::id)

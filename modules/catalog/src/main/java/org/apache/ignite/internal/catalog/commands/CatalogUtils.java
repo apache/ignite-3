@@ -17,13 +17,10 @@
 
 package org.apache.ignite.internal.catalog.commands;
 
-import static java.util.Collections.unmodifiableList;
-import static java.util.Comparator.comparingInt;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.EnumMap;
 import java.util.EnumSet;
@@ -38,7 +35,6 @@ import org.apache.ignite.internal.catalog.IndexNotFoundValidationException;
 import org.apache.ignite.internal.catalog.TableNotFoundValidationException;
 import org.apache.ignite.internal.catalog.descriptors.CatalogDataStorageDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
@@ -407,17 +403,17 @@ public class CatalogUtils {
     }
 
     /**
-     * Collects all table indexes (including dropped) that the table had in the requested catalog version range.
+     * Collects all table indexes (including dropped) that the table has in the requested catalog version range.
      *
-     * <p>It is expected that at least one version of the catalog contains table indexes.</p>
+     * <p>It is expected that at least one index should be between the requested versions.</p>
      *
      * @param catalogService Catalog service.
      * @param tableId Table ID for which indexes will be collected.
      * @param catalogVersionFrom Catalog version from which indexes will be collected (including).
      * @param catalogVersionTo Catalog version up to which indexes will be collected (including).
-     * @return Table indexes sorted by {@link CatalogIndexDescriptor#id()}.
+     * @return Table indexes.
      */
-    public static List<CatalogIndexDescriptor> collectIndexes(
+    public static Collection<CatalogIndexDescriptor> collectIndexes(
             CatalogService catalogService,
             int tableId,
             int catalogVersionFrom,
@@ -444,10 +440,6 @@ public class CatalogUtils {
         assert !indexByIdMap.isEmpty()
                 : String.format("catalogVersionFrom=%s, catalogVersionTo=%s, tableId=%s", catalogVersionFrom, catalogVersionTo, tableId);
 
-        var res = new ArrayList<>(indexByIdMap.values());
-
-        res.sort(comparingInt(CatalogObjectDescriptor::id));
-
-        return unmodifiableList(res);
+        return indexByIdMap.values();
     }
 }

@@ -28,7 +28,6 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -38,10 +37,8 @@ import java.util.stream.Stream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
-import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
-import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
@@ -341,34 +338,5 @@ public class BaseSqlIntegrationTest extends ClusterPerClassIntegrationTest {
         IgniteImpl nodeImpl = (IgniteImpl) node;
 
         return nodeImpl.catalogManager().index(indexName, nodeImpl.clock().nowLong());
-    }
-
-    /**
-     * Returns {@code true} if the index exists and is available in the latest catalog version.
-     *
-     * @param ignite Node.
-     * @param indexName Index name that is being checked.
-     */
-    protected static boolean isIndexAvailable(IgniteImpl ignite, String indexName) {
-        CatalogManager catalogManager = ignite.catalogManager();
-        HybridClock clock = ignite.clock();
-
-        CatalogIndexDescriptor indexDescriptor = catalogManager.index(indexName, clock.nowLong());
-
-        return indexDescriptor != null && indexDescriptor.available();
-    }
-
-    /**
-     * Awaits for all requested indexes to become available in the latest catalog version.
-     *
-     * @param ignite Node.
-     * @param indexNames Names of indexes that are of interest.
-     */
-    protected static void awaitIndexesBecomeAvailable(IgniteImpl ignite, String... indexNames) throws Exception {
-        assertTrue(waitForCondition(
-                () -> Arrays.stream(indexNames).allMatch(indexName -> isIndexAvailable(ignite, indexName)),
-                10,
-                30_000L
-        ));
     }
 }

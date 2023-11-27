@@ -27,16 +27,16 @@ import static org.hamcrest.Matchers.equalTo;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.IntStream;
+import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
-import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.table.Table;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
 /** For {@link IndexManager} testing. */
-public class ItIndexManagerTest extends BaseSqlIntegrationTest {
+public class ItIndexManagerTest extends ClusterPerClassIntegrationTest {
     private static final String ZONE_NAME = "ZONE_TABLE";
 
     private static final String TABLE_NAME = "TEST_TABLE";
@@ -72,9 +72,7 @@ public class ItIndexManagerTest extends BaseSqlIntegrationTest {
 
         dropIndex(indexName1);
 
-        // Let's restart the node.
-        CLUSTER.stopNode(0);
-        CLUSTER.startNode(0);
+        CLUSTER.restartNode(0);
 
         TableImpl tableImpl = getTableImpl(node(), TABLE_NAME);
 
@@ -95,6 +93,7 @@ public class ItIndexManagerTest extends BaseSqlIntegrationTest {
     }
 
     private static TableImpl getTableImpl(IgniteImpl ignite, String tableName) {
+        // IgniteTables#table is not used because under the hood CompletableFuture#join is used to NOT freeze the test using an async call.
         CompletableFuture<Table> tableFuture = ignite.tables().tableAsync(tableName);
 
         assertThat(tableFuture, willCompleteSuccessfully());
@@ -103,6 +102,8 @@ public class ItIndexManagerTest extends BaseSqlIntegrationTest {
     }
 
     private static List<Integer> collectIndexIdsFromTable(TableImpl table, int partitionId) {
+        // Under the hood, TableIndexStoragesSupplier#get uses CompletableFuture#join for all indexes to NOT freeze the test using an
+        // asynchronous call.
         CompletableFuture<List<Integer>> future = runAsync(() -> table.indexStorageAdapters(partitionId).get())
                 .thenApply(indexStorageByIndexId -> indexStorageByIndexId.keySet().stream().sorted().collect(toList()));
 

@@ -321,7 +321,7 @@ public class CatalogTestUtils {
     }
 
     /**
-     * Searches for a index by name in the requested version of the catalog.
+     * Searches for an index by name in the requested version of the catalog.
      *
      * @param catalogService Catalog service.
      * @param catalogVersion Catalog version in which to find the index.
