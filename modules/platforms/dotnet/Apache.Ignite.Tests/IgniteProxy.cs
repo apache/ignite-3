@@ -135,7 +135,8 @@ public sealed class IgniteProxy : IgniteServerBase
             },
             cancellationToken);
 
-        Task.WhenAll(clientToServerRelay, serverToClientRelay).Wait(millisecondsTimeout: 5000, cancellationToken);
+        Task.WhenAll(clientToServerRelay, serverToClientRelay).Wait(cancellationToken);
+        handler.Disconnect(true);
     }
 
     protected override void Dispose(bool disposing)
