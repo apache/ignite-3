@@ -54,7 +54,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.CatalogService;
@@ -414,7 +413,7 @@ class SchemaCompatibilityValidatorTest extends BaseIgniteAbstractTest {
     }
 
     private enum ForwardCompatibleChange implements SchemaChangeSource {
-        ADD_NULLABLE_COLUMN(() -> List.of(
+        ADD_NULLABLE_COLUMN(List.of(
                 tableSchema(1, List.of(
                         intColumn("col1")
                 )),
@@ -423,7 +422,7 @@ class SchemaCompatibilityValidatorTest extends BaseIgniteAbstractTest {
                         nullableIntColumn("col2")
                 ))
         )),
-        ADD_COLUMN_WITH_DEFAULT(() -> List.of(
+        ADD_COLUMN_WITH_DEFAULT(List.of(
                 tableSchema(1, List.of(
                         intColumn("col1")
                 )),
@@ -433,7 +432,7 @@ class SchemaCompatibilityValidatorTest extends BaseIgniteAbstractTest {
                 ))
         )),
         // TODO: https://issues.apache.org/jira/browse/IGNITE-20948 - uncomment this.
-        //RENAME_COLUMN(() -> List.of(
+        //RENAME_COLUMN(List.of(
         //        tableSchema(1, List.of(
         //                intColumn("col1")
         //        )),
@@ -441,7 +440,7 @@ class SchemaCompatibilityValidatorTest extends BaseIgniteAbstractTest {
         //                intColumn("col2")
         //        ))
         //)),
-        DROP_NOT_NULL(() -> List.of(
+        DROP_NOT_NULL(List.of(
                 tableSchema(1, List.of(
                         intColumn("col1")
                 )),
@@ -450,20 +449,20 @@ class SchemaCompatibilityValidatorTest extends BaseIgniteAbstractTest {
                 ))
         ));
 
-        private final Supplier<List<FullTableSchema>> schemaVersionsSupplier;
+        private final List<FullTableSchema> schemaVersions;
 
-        ForwardCompatibleChange(Supplier<List<FullTableSchema>> schemaVersionsSupplier) {
-            this.schemaVersionsSupplier = schemaVersionsSupplier;
+        ForwardCompatibleChange(List<FullTableSchema> schemaVersions) {
+            this.schemaVersions = schemaVersions;
         }
 
         @Override
         public List<FullTableSchema> schemaVersions() {
-            return schemaVersionsSupplier.get();
+            return schemaVersions;
         }
     }
 
     private enum ForwardIncompatibleChange implements SchemaChangeSource {
-        RENAME_TABLE(() -> List.of(
+        RENAME_TABLE(List.of(
                 tableSchema(1, TABLE_NAME, List.of(
                         intColumn("col1")
                 )),
@@ -471,7 +470,7 @@ class SchemaCompatibilityValidatorTest extends BaseIgniteAbstractTest {
                         intColumn("col1")
                 ))
         )),
-        DROP_COLUMN(() -> List.of(
+        DROP_COLUMN(List.of(
                 tableSchema(1, List.of(
                         intColumn("col1"),
                         intColumn("col2")
@@ -480,7 +479,7 @@ class SchemaCompatibilityValidatorTest extends BaseIgniteAbstractTest {
                         intColumn("col1")
                 ))
         )),
-        ADD_DEFAULT(() -> List.of(
+        ADD_DEFAULT(List.of(
                 tableSchema(1, List.of(
                         intColumn("col1")
                 )),
@@ -488,7 +487,7 @@ class SchemaCompatibilityValidatorTest extends BaseIgniteAbstractTest {
                         intColumnWithDefault("col1", 42)
                 ))
         )),
-        CHANGE_DEFAULT(() -> List.of(
+        CHANGE_DEFAULT(List.of(
                 tableSchema(1, List.of(
                         intColumnWithDefault("col1", 1)
                 )),
@@ -496,7 +495,7 @@ class SchemaCompatibilityValidatorTest extends BaseIgniteAbstractTest {
                         intColumnWithDefault("col1", 2)
                 ))
         )),
-        DROP_DEFAULT(() -> List.of(
+        DROP_DEFAULT(List.of(
                 tableSchema(1, List.of(
                         intColumnWithDefault("col1", 42)
                 )),
@@ -505,15 +504,15 @@ class SchemaCompatibilityValidatorTest extends BaseIgniteAbstractTest {
                 ))
         ));
 
-        private final Supplier<List<FullTableSchema>> schemaVersionsSupplier;
+        private final List<FullTableSchema> schemaVersions;
 
-        ForwardIncompatibleChange(Supplier<List<FullTableSchema>> schemaVersionsSupplier) {
-            this.schemaVersionsSupplier = schemaVersionsSupplier;
+        ForwardIncompatibleChange(List<FullTableSchema> schemaVersions) {
+            this.schemaVersions = schemaVersions;
         }
 
         @Override
         public List<FullTableSchema> schemaVersions() {
-            return schemaVersionsSupplier.get();
+            return schemaVersions;
         }
     }
 
