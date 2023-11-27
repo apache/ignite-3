@@ -118,7 +118,7 @@ public class BasicAuthenticatorTests : IgniteTestsBase
             {
                 try
                 {
-                    await Client.Tables.GetTablesAsync();
+                    using var client2 = await IgniteClient.StartAsync(GetConfig(enableAuthn: false));
                     return true;
                 }
                 catch (Exception)
