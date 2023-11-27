@@ -52,7 +52,7 @@ public class QueryTransactionHandler {
                     new TransactionOptions().readOnly(queryType != SqlQueryType.DML)), true);
         }
 
-        ensureStatementAllowedWithinExplicitTx(queryType, activeTx.isReadOnly());
+        ensureStatementAllowedWithinExplicitTx(queryType, activeTx);
 
         return new ImplicitTransactionWrapper(activeTx, false);
     }
@@ -62,12 +62,12 @@ public class QueryTransactionHandler {
     }
 
     /** Checks that the statement is allowed within an external/script transaction. */
-    static void ensureStatementAllowedWithinExplicitTx(SqlQueryType queryType, boolean readOnly) {
+    static void ensureStatementAllowedWithinExplicitTx(SqlQueryType queryType, InternalTransaction tx) {
         if (SqlQueryType.DDL == queryType) {
             throw new SqlException(RUNTIME_ERR, "DDL doesn't support transactions.");
         }
 
-        if (readOnly && SqlQueryType.DML == queryType) {
+        if (SqlQueryType.DML == queryType && tx.isReadOnly()) {
             throw new SqlException(RUNTIME_ERR, "DML query cannot be started by using read only transactions.");
         }
     }

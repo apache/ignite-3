@@ -34,8 +34,20 @@ public interface QueryTransactionWrapper {
     /** Rolls back a transaction. */
     CompletableFuture<Void> rollback();
 
-    /** Action to perform when data cursor is closed. */
-    default CompletableFuture<Void> commitScriptImplicit() {
+    /**
+     * Action to perform, when prefetch of script statement is complete.
+     * <ul>
+     * <li>In case of an implicit transaction, it is committed asynchronously.</li>
+     * <li>In case of a script-driven read-only transaction, the transaction is committed asynchronously
+     *     when the commit statement is processed.</li>
+     * <li>In case of a script-driven read-write transaction, the transaction is committed asynchronously
+     *     when the commit statement is processed and all query cursors are closed, so the future returned
+     *     from this method will wait until the required cursors are closed.</li>
+     * </ul>
+     *
+     * @return Future representing result of execution.
+     */
+    default CompletableFuture<Void> commitImplicitAfterPrefetch() {
         return commitImplicit();
     }
 

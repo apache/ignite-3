@@ -729,7 +729,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                                 cancelAll(ex);
                             }
                         })
-                        .thenCompose(cursor -> txWrapper.commitScriptImplicit()
+                        .thenCompose(cursor -> txWrapper.commitImplicitAfterPrefetch()
                                 .thenApply(ignore -> {
                                     if (parameters.nextStatementFuture == null) {
                                         // Try to rollback script managed transaction, if any.
