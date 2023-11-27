@@ -44,6 +44,7 @@ public interface ClosableCursor<T> extends Iterator<T>, AutoCloseable {
      * Gets all query results and stores them in the collection.
      * Use this method when you know in advance that query result is
      * relatively small and will not cause memory utilization issues.
+     *
      * <p>Since all the results will be fetched, all the resources will be closed
      * automatically after this call, e.g. there is no need to call {@link #close()} method in this case.
      *

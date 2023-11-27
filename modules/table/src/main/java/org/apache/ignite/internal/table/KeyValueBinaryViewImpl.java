@@ -40,11 +40,11 @@ import org.apache.ignite.lang.MarshallerException;
 import org.apache.ignite.lang.NullableValue;
 import org.apache.ignite.sql.ClosableCursor;
 import org.apache.ignite.sql.async.AsyncClosableCursor;
-import org.apache.ignite.table.criteria.Criteria;
-import org.apache.ignite.table.criteria.CriteriaQueryOptions;
 import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Tuple;
+import org.apache.ignite.table.criteria.Criteria;
+import org.apache.ignite.table.criteria.CriteriaQueryOptions;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 
@@ -567,7 +567,8 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
             @Nullable Criteria criteria,
             CriteriaQueryOptions opts
     ) {
-        return null;
+        //TODO: implement custom user mapping https://issues.apache.org/jira/browse/IGNITE-16116
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
@@ -577,6 +578,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
             @Nullable Criteria criteria,
             CriteriaQueryOptions opts
     ) {
-        return null;
+        //TODO: implement custom user mapping https://issues.apache.org/jira/browse/IGNITE-16116
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 }

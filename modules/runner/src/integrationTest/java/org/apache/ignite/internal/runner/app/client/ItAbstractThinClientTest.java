@@ -199,5 +199,13 @@ public abstract class ItAbstractThinClientTest extends BaseIgniteAbstractTest {
         public int key;
 
         public String val;
+
+        public int getKey() {
+            return key;
+        }
+
+        public String getVal() {
+            return val;
+        }
     }
 }

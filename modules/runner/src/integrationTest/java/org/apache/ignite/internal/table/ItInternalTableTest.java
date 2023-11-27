@@ -480,27 +480,6 @@ public class ItInternalTableTest extends BaseIgniteAbstractTest {
         }
     }
 
-    @Test
-    public void testQueryCriteria() {
-        IgniteImpl node = node();
-
-        KeyValueView<Tuple, Tuple> keyValueView = table.keyValueView();
-
-        populateData(node, keyValueView, false);
-
-        try (var cursor = table.recordView().queryCriteria(null, null)) {
-            assertThat(cursor.getAll(), hasItem(tupleValue("key", equalTo(0L))));
-        }
-
-        try (var cursor = table.recordView().queryCriteria(null, columnName("key").equal(0L))) {
-            assertThat(cursor.getAll(), hasItem(tupleValue("key", equalTo(0L))));
-        }
-
-        try (var cursor = table.recordView().queryCriteria(null, Criteria.not(Criteria.equal("key", 0L)))) {
-            assertThat(cursor.getAll(), not(hasItem(tupleValue("key", equalTo(0L)))));
-        }
-    }
-
     private ArrayList<BinaryRowEx> populateEvenKeysAndPrepareEntriesToLookup(boolean keyOnly) {
         KeyValueView<Tuple, Tuple> keyValueView = table.keyValueView();
 
@@ -668,20 +647,5 @@ public class ItInternalTableTest extends BaseIgniteAbstractTest {
 
     protected static IgniteImpl node() {
         return (IgniteImpl) NODE;
-    }
-
-    /**
-     * Creates a matcher for matching tuple value.
-     *
-     * @param valueMatcher Matcher for matching tuple value.
-     * @return Matcher for matching tuple value.
-     */
-    private static <T> Matcher<Tuple> tupleValue(String columnName, Matcher<T> valueMatcher) {
-        return new FeatureMatcher<>(valueMatcher, "A tuple with value", "value") {
-            @Override
-            protected @Nullable T featureValueOf(Tuple actual) {
-                return actual.value(columnName);
-            }
-        };
     }
 }
