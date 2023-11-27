@@ -17,12 +17,14 @@
 
 package org.apache.ignite.internal.testframework;
 
+import com.typesafe.config.ConfigException;
 import com.typesafe.config.parser.ConfigDocument;
 import com.typesafe.config.parser.ConfigDocumentFactory;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
@@ -37,6 +39,8 @@ public class TestIgnitionManager {
     /** Default name of configuration file. */
     public static final String DEFAULT_CONFIG_NAME = "ignite-config.conf";
 
+    private static final int DEFAULT_SCALECUBE_METADATA_TIMEOUT = 10_000;
+
     /** Default DelayDuration in ms used for tests that is set on node init. */
     public static final int DEFAULT_DELAY_DURATION_MS = 100;
 
@@ -47,6 +51,8 @@ public class TestIgnitionManager {
 
     /**
      * Starts an Ignite node with an optional bootstrap configuration from an input stream with HOCON configs.
+     *
+     * <p>Test defaults are mixed to the configuration (only if the corresponding config keys are not explicitly defined).
      *
      * <p>When this method returns, the node is partially started and ready to accept the init command (that is, its
      * REST endpoint is functional).
@@ -73,21 +79,48 @@ public class TestIgnitionManager {
      * @throws IgniteException If error occurs while reading node configuration.
      */
     public static CompletableFuture<Ignite> start(String nodeName, @Nullable String configStr, Path workDir) {
+        String enrichedConfig = enrichValidConfigWithTestDefaults(configStr);
+
         try {
             Files.createDirectories(workDir);
             Path configPath = workDir.resolve(DEFAULT_CONFIG_NAME);
             if (configStr == null) {
+                // Null config might mean that this is a restart, so we should not rewrite the existing config file.
                 if (Files.notExists(configPath)) {
                     Files.createFile(configPath);
                 }
             } else {
-                Files.writeString(configPath, configStr,
+                assert enrichedConfig != null;
+
+                Files.writeString(configPath, enrichedConfig,
                         StandardOpenOption.SYNC, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
             }
+
             return IgnitionManager.start(nodeName, configPath, workDir);
         } catch (IOException e) {
             throw new IgniteException("Couldn't write node config.", e);
         }
+    }
+
+    private static @Nullable String enrichValidConfigWithTestDefaults(@Nullable String configStr) {
+        try {
+            return enrichConfigWithTestDefaults(configStr);
+        } catch (ConfigException e) {
+            // Config is invalid, let Ignite itself reject it in a predictable way.
+            return configStr;
+        }
+    }
+
+    private static String enrichConfigWithTestDefaults(@Nullable String configStr) {
+        ConfigDocument configDocument = parseNullableConfigString(configStr);
+
+        configDocument = applyTestDefault(
+                configDocument,
+                "network.membership.scaleCube.metadataTimeout",
+                Integer.toString(DEFAULT_SCALECUBE_METADATA_TIMEOUT)
+        );
+
+        return configDocument.render();
     }
 
     /**
@@ -108,13 +141,7 @@ public class TestIgnitionManager {
                 .metaStorageNodeNames(params.metaStorageNodeNames())
                 .cmgNodeNames(params.cmgNodeNames());
 
-        ConfigDocument configDocument;
-
-        if (params.clusterConfiguration() == null) {
-            configDocument = ConfigDocumentFactory.parseString("{}");
-        } else {
-            configDocument = ConfigDocumentFactory.parseString(params.clusterConfiguration());
-        }
+        ConfigDocument configDocument = parseNullableConfigString(params.clusterConfiguration());
 
         configDocument = applyTestDefault(
                 configDocument,
@@ -135,6 +162,12 @@ public class TestIgnitionManager {
         builder.clusterConfiguration(configDocument.render());
 
         return builder.build();
+    }
+
+    private static ConfigDocument parseNullableConfigString(@Nullable String configString) {
+        String configToParse = Objects.requireNonNullElse(configString, "{}");
+
+        return ConfigDocumentFactory.parseString(configToParse);
     }
 
     private static ConfigDocument applyTestDefault(ConfigDocument document, String path, String value) {

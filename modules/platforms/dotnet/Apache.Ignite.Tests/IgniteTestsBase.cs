@@ -23,7 +23,7 @@ namespace Apache.Ignite.Tests
     using System.Threading.Tasks;
     using Ignite.Table;
     using Internal.Proto;
-    using Log;
+    using Microsoft.Extensions.Logging;
     using NUnit.Framework;
     using Table;
 
@@ -180,13 +180,13 @@ namespace Apache.Ignite.Tests
                 "127.0.0.1:" + ServerNode.Port,
                 "127.0.0.1:" + (ServerNode.Port + 1)
             },
-            Logger = new ConsoleLogger { MinLevel = LogLevel.Trace }
+            LoggerFactory = TestUtils.GetConsoleLoggerFactory(LogLevel.Trace)
         };
 
         protected static IgniteClientConfiguration GetConfig(IEnumerable<IgniteProxy> proxies) =>
             new(proxies.Select(x => x.Endpoint).ToArray())
             {
-                Logger = new ConsoleLogger { MinLevel = LogLevel.Trace }
+                LoggerFactory = TestUtils.GetConsoleLoggerFactory(LogLevel.Trace)
             };
 
         protected List<IgniteProxy> GetProxies()
