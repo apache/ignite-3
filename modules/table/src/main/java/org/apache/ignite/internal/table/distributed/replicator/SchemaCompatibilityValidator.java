@@ -53,12 +53,7 @@ class SchemaCompatibilityValidator {
             new RenameTableValidator(),
             new AddColumnsValidator(),
             new DropColumnsValidator(),
-            new ChangeColumnsValidator(List.of(
-                    // TODO: https://issues.apache.org/jira/browse/IGNITE-20948 - add validator that says that column rename is compatible.
-                    new ChangeNullabilityValidator(),
-                    new ChangeDefaultValueValidator(),
-                    new ChangeColumnTypeValidator()
-            ))
+            new ChangeColumnsValidator()
     );
 
     /** Constructor. */
@@ -280,7 +275,18 @@ class SchemaCompatibilityValidator {
     }
 
     private enum ValidatorVerdict {
-        COMPATIBLE, INCOMPATIBLE, DONT_CARE
+        /**
+         * Validator accepts a change: it's compatible.
+         */
+        COMPATIBLE,
+        /**
+         * Validator rejects a change: it's incompatible.
+         */
+        INCOMPATIBLE,
+        /**
+         * Validator does not know how to handle a change.
+         */
+        DONT_CARE
     }
 
     @SuppressWarnings("InterfaceMayBeAnnotatedFunctional")
@@ -325,11 +331,12 @@ class SchemaCompatibilityValidator {
     }
 
     private static class ChangeColumnsValidator implements ForwardCompatibilityValidator {
-        private final List<ColumnChangeCompatibilityValidator> validators;
-
-        private ChangeColumnsValidator(List<ColumnChangeCompatibilityValidator> validators) {
-            this.validators = List.copyOf(validators);
-        }
+        private final List<ColumnChangeCompatibilityValidator> validators = List.of(
+                // TODO: https://issues.apache.org/jira/browse/IGNITE-20948 - add validator that says that column rename is compatible.
+                new ChangeNullabilityValidator(),
+                new ChangeDefaultValueValidator(),
+                new ChangeColumnTypeValidator()
+        );
 
         @Override
         public ValidatorVerdict compatible(TableDefinitionDiff diff) {
