@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.testframework;
 
+import com.typesafe.config.ConfigException;
 import com.typesafe.config.parser.ConfigDocument;
 import com.typesafe.config.parser.ConfigDocumentFactory;
 import java.io.IOException;
@@ -142,12 +143,17 @@ public class TestIgnitionManager {
     }
 
     private static String applyTestDefaultsToConfig(@Nullable String configStr, Map<String, String> defaults) {
+        if (configStr == null) {
+            configStr = "{}";
+        }
+
         ConfigDocument configDocument;
 
-        if (configStr == null) {
-            configDocument = ConfigDocumentFactory.parseString("{}");
-        } else {
+        try {
             configDocument = ConfigDocumentFactory.parseString(configStr);
+        } catch (ConfigException e) {
+            // Preserve original broken content, it might be broken on purpose.
+            return configStr;
         }
 
         for (Entry<String, String> entry : defaults.entrySet()) {
