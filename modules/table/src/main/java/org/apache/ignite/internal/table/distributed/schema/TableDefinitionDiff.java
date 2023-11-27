@@ -87,16 +87,4 @@ public class TableDefinitionDiff {
     public List<ColumnDefinitionDiff> changedColumns() {
         return changedColumns;
     }
-
-    /**
-     * Returns whether this diff is empty (so no difference at all).
-     *
-     * @return Whether this diff is empty (so no difference at all).
-     */
-    public boolean isEmpty() {
-        return !nameDiffers
-                && addedColumns.isEmpty()
-                && removedColumns.isEmpty()
-                && changedColumns.isEmpty();
-    }
 }
