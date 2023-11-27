@@ -45,8 +45,8 @@ import org.jetbrains.annotations.Nullable;
  * {@link SqlQueryType#TX_CONTROL} statements.
  */
 public class ScriptTransactionHandler extends QueryTransactionHandler {
-    /** Manager for tracking and releasing resources associated with an explicit transaction started from a script. */
-    private volatile @Nullable ScriptTxResourceManager scriptTxHolder;
+    /** Holds resources associated with an explicit transaction started from a script. */
+    private volatile @Nullable ManagedTransactionHandler handler;
 
     public ScriptTransactionHandler(IgniteTransactions transactions, @Nullable InternalTransaction externalTransaction) {
         super(transactions, externalTransaction);
@@ -76,17 +76,15 @@ public class ScriptTransactionHandler extends QueryTransactionHandler {
                 return processTxControlStatement(parsedResult.parsedTree());
             }
 
-            ScriptTxResourceManager txHld = scriptTxHolder;
+            ManagedTransactionHandler handler = this.handler;
 
-            if (txHld == null || txHld.transaction().isReadOnly()) {
+            if (handler == null) {
                 return startTxIfNeeded(queryType);
             }
 
-            ensureStatementAllowedWithinExplicitTx(parsedResult.queryType(), txHld.transaction());
+            ensureStatementAllowedWithinExplicitTx(parsedResult.queryType(), handler.transaction());
 
-            UUID cursorId = txHld.registerCursor(queryType, cursorFut);
-
-            return new ManagedReadWriteTransactionWrapper(txHld, cursorId);
+            return handler.handleStatement(queryType, cursorFut);
         } catch (SqlException e) {
             InternalTransaction scriptTx = scriptTransaction();
 
@@ -99,28 +97,26 @@ public class ScriptTransactionHandler extends QueryTransactionHandler {
     }
 
     private @Nullable InternalTransaction scriptTransaction() {
-        ScriptTxResourceManager mgr = scriptTxHolder;
+        ManagedTransactionHandler hld = handler;
 
-        return mgr != null ? mgr.transaction() : null;
+        return hld != null ? hld.transaction() : null;
     }
 
     private QueryTransactionWrapper processTxControlStatement(SqlNode node) {
-        ScriptTxResourceManager scriptTxRsc = this.scriptTxHolder;
+        ManagedTransactionHandler txHolder = this.handler;
 
         if (node instanceof IgniteSqlCommitTransaction) {
-            if (scriptTxRsc == null) {
+            if (txHolder == null) {
                 return QueryTransactionWrapper.NOOP_TX_WRAPPER;
             }
 
-            this.scriptTxHolder = null;
+            this.handler = null;
 
-            scriptTxRsc.onCursorClose(ScriptTxResourceManager.commitId);
-
-            return new CommitTxStatementWrapper(scriptTxRsc.transaction(), scriptTxRsc.finishTxFuture());
+            return txHolder.handleCommit();
         } else {
             assert node instanceof IgniteSqlStartTransaction : node == null ? "null" : node.getClass().getName();
 
-            if (scriptTxRsc != null) {
+            if (txHolder != null) {
                 throw new SqlException(RUNTIME_ERR, "Nested transactions are not supported.");
             }
 
@@ -129,37 +125,64 @@ public class ScriptTransactionHandler extends QueryTransactionHandler {
             TransactionOptions options =
                     new TransactionOptions().readOnly(txStartNode.getMode() == IgniteSqlStartTransactionMode.READ_ONLY);
 
-            scriptTxRsc = new ScriptTxResourceManager((InternalTransaction) transactions.begin(options));
+            InternalTransaction tx = (InternalTransaction) transactions.begin(options);
 
-            this.scriptTxHolder = scriptTxRsc;
+            txHolder = tx.isReadOnly() ? new ManagedTransactionHandler(tx) : new ManagedReadWriteTransactionHandler(tx);
 
-            return new StartTxStatementWrapper(scriptTxRsc.transaction());
+            this.handler = txHolder;
+
+            return txHolder.handleStart();
         }
     }
 
-    /** Responsible for tracking and releasing resources associated with an explicit transaction started from a script. */
-    private static class ScriptTxResourceManager {
-        private static final UUID commitId = UUID.randomUUID();
-        private final CompletableFuture<Void> finishTxFuture = new CompletableFuture<>();
-        private final List<CompletableFuture<? extends AsyncCursor<?>>> cursorsToCloseOnRollback = new CopyOnWriteArrayList<>();
-        private final Set<UUID> cursorsToWaitBeforeCommit = ConcurrentHashMap.newKeySet();
+    private static class ManagedTransactionHandler {
         private final InternalTransaction transaction;
+        private final QueryTransactionWrapper noCommitWrapper;
 
-        private ScriptTxResourceManager(InternalTransaction transaction) {
+        private ManagedTransactionHandler(InternalTransaction transaction) {
             this.transaction = transaction;
-
-            cursorsToWaitBeforeCommit.add(commitId);
+            this.noCommitWrapper = new ImplicitTransactionWrapper(transaction, false);
         }
 
         InternalTransaction transaction() {
             return transaction;
         }
 
-        CompletableFuture<Void> finishTxFuture() {
-            return finishTxFuture;
+        QueryTransactionWrapper handleStart() {
+            return noCommitWrapper;
         }
 
-        UUID registerCursor(SqlQueryType queryType, CompletableFuture<? extends AsyncCursor<?>> cursorFut) {
+        QueryTransactionWrapper handleCommit() {
+            return new ImplicitTransactionWrapper(transaction, true);
+        }
+
+        QueryTransactionWrapper handleStatement(SqlQueryType queryType, CompletableFuture<? extends AsyncCursor<?>> cursorFut) {
+            return noCommitWrapper;
+        }
+    }
+
+    /** Responsible for tracking and releasing resources associated with an explicit read-write transaction started from a script. */
+    private static class ManagedReadWriteTransactionHandler extends ManagedTransactionHandler {
+        private static final UUID commitId = UUID.randomUUID();
+        private final CompletableFuture<Void> finishTxFuture = new CompletableFuture<>();
+        private final List<CompletableFuture<? extends AsyncCursor<?>>> cursorsToCloseOnRollback = new CopyOnWriteArrayList<>();
+        private final Set<UUID> cursorsToWaitBeforeCommit = ConcurrentHashMap.newKeySet();
+
+        private ManagedReadWriteTransactionHandler(InternalTransaction transaction) {
+            super(transaction);
+
+            cursorsToWaitBeforeCommit.add(commitId);
+        }
+
+        @Override
+        QueryTransactionWrapper handleCommit() {
+            onCursorClose(commitId);
+
+            return new ReadWriteTxCommitWrapper();
+        }
+
+        @Override
+        QueryTransactionWrapper handleStatement(SqlQueryType queryType, CompletableFuture<? extends AsyncCursor<?>> cursorFut) {
             cursorsToCloseOnRollback.add(cursorFut);
 
             UUID cursorId = UUID.randomUUID();
@@ -168,96 +191,75 @@ public class ScriptTransactionHandler extends QueryTransactionHandler {
                 cursorsToWaitBeforeCommit.add(cursorId);
             }
 
-            return cursorId;
+            return new ReadWriteTxStatementWrapper(cursorId);
         }
 
-        CompletableFuture<Void> closeAllCursorsAndRollbackTx() {
-            for (CompletableFuture<? extends AsyncCursor<?>> fut : cursorsToCloseOnRollback) {
-                fut.whenComplete((cursor, ex) -> {
-                    if (cursor != null) {
-                        cursor.closeAsync();
-                    }
-                });
-            }
-
-            return transaction.rollbackAsync();
-        }
-
-        CompletableFuture<Void> onCursorClose(UUID queryId) {
-            if (cursorsToWaitBeforeCommit.remove(queryId) && cursorsToWaitBeforeCommit.isEmpty()) {
-                return transaction.commitAsync()
+        CompletableFuture<Void> onCursorClose(UUID cursorId) {
+            if (cursorsToWaitBeforeCommit.remove(cursorId) && cursorsToWaitBeforeCommit.isEmpty()) {
+                return transaction().commitAsync()
                         .whenComplete((r, e) -> finishTxFuture.complete(null));
             }
 
             return Commons.completedFuture();
         }
-    }
 
-    static class ManagedReadWriteTransactionWrapper implements QueryTransactionWrapper {
-        private final ScriptTxResourceManager txRscManager;
-        private final UUID cursorId;
+        class ReadWriteTxCommitWrapper implements QueryTransactionWrapper {
+            @Override
+            public InternalTransaction unwrap() {
+                return transaction();
+            }
 
-        ManagedReadWriteTransactionWrapper(ScriptTxResourceManager txRscManager, UUID cursorId) {
-            this.txRscManager = txRscManager;
-            this.cursorId = cursorId;
+            @Override
+            public CompletableFuture<Void> commitImplicit() {
+                return Commons.completedFuture();
+            }
+
+            @Override
+            public CompletableFuture<Void> rollback() {
+                return transaction().rollbackAsync();
+            }
+
+            @Override
+            public CompletableFuture<Void> commitImplicitAfterPrefetch() {
+                return finishTxFuture;
+            }
         }
 
-        @Override
-        public InternalTransaction unwrap() {
-            return txRscManager.transaction();
-        }
+        class ReadWriteTxStatementWrapper implements QueryTransactionWrapper {
+            private final UUID cursorId;
 
-        @Override
-        public CompletableFuture<Void> commitImplicit() {
-            return txRscManager.onCursorClose(cursorId);
-        }
+            ReadWriteTxStatementWrapper(UUID cursorId) {
+                this.cursorId = cursorId;
+            }
 
-        @Override
-        public CompletableFuture<Void> commitImplicitAfterPrefetch() {
-            return Commons.completedFuture();
-        }
+            @Override
+            public InternalTransaction unwrap() {
+                return transaction();
+            }
 
-        @Override
-        public CompletableFuture<Void> rollback() {
-            return txRscManager.closeAllCursorsAndRollbackTx();
-        }
-    }
+            @Override
+            public CompletableFuture<Void> commitImplicit() {
+                return onCursorClose(cursorId);
+            }
 
-    private static class StartTxStatementWrapper implements QueryTransactionWrapper {
-        private final InternalTransaction transaction;
+            @Override
+            public CompletableFuture<Void> commitImplicitAfterPrefetch() {
+                return Commons.completedFuture();
+            }
 
-        StartTxStatementWrapper(InternalTransaction transaction) {
-            this.transaction = transaction;
-        }
+            @Override
+            public CompletableFuture<Void> rollback() {
+                // Close all cursors.
+                for (CompletableFuture<? extends AsyncCursor<?>> fut : cursorsToCloseOnRollback) {
+                    fut.whenComplete((cursor, ex) -> {
+                        if (cursor != null) {
+                            cursor.closeAsync();
+                        }
+                    });
+                }
 
-        @Override
-        public InternalTransaction unwrap() {
-            return transaction;
-        }
-
-        @Override
-        public CompletableFuture<Void> commitImplicit() {
-            return Commons.completedFuture();
-        }
-
-        @Override
-        public CompletableFuture<Void> rollback() {
-            return transaction.rollbackAsync();
-        }
-    }
-
-    private static class CommitTxStatementWrapper extends StartTxStatementWrapper {
-        private final CompletableFuture<Void> finishTxFuture;
-
-        CommitTxStatementWrapper(InternalTransaction transaction, CompletableFuture<Void> finishTxFuture) {
-            super(transaction);
-
-            this.finishTxFuture = finishTxFuture;
-        }
-
-        @Override
-        public CompletableFuture<Void> commitImplicitAfterPrefetch() {
-            return finishTxFuture;
+                return transaction().rollbackAsync();
+            }
         }
     }
 }
