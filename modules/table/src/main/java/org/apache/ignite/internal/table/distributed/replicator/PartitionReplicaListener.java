@@ -158,6 +158,7 @@ import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.message.TxCleanupReplicaRequest;
 import org.apache.ignite.internal.tx.message.TxFinishReplicaRequest;
+import org.apache.ignite.internal.tx.message.TxRecoveryMessage;
 import org.apache.ignite.internal.tx.message.TxStateCommitPartitionRequest;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.util.Cursor;
@@ -342,7 +343,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     }
 
     private CompletableFuture<Boolean> onPrimaryElected(PrimaryReplicaEventParameters evt, @Nullable Throwable exception) {
-        if (!localNode.name().equals(evt.leaseholder())) {
+        if (!localNode.name().equals(evt.leaseholder()) || !replicationGroupId.equals(evt.groupId())) {
             return completedFuture(false);
         }
 
@@ -419,7 +420,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     }
 
     private CompletableFuture<Boolean> onPrimaryExpired(PrimaryReplicaEventParameters evt, @Nullable Throwable exception) {
-        if (!localNode.name().equals(evt.leaseholder())) {
+        if (!localNode.name().equals(evt.leaseholder()) || !replicationGroupId.equals(evt.groupId())) {
             return completedFuture(false);
         }
 
@@ -478,8 +479,17 @@ public class PartitionReplicaListener implements ReplicaListener {
 
             // Saving state is not needed for full transactions.
             if (!req.full()) {
-                txManager.updateTxMeta(req.transactionId(), old -> new TxStateMeta(PENDING, senderId, null));
+                txManager.updateTxMeta(req.transactionId(), old -> new TxStateMeta(
+                        PENDING,
+                        senderId,
+                        req.commitPartitionId().asTablePartitionId(),
+                        null
+                ));
             }
+        }
+
+        if (request instanceof TxRecoveryMessage) {
+            return processTxRecoveryAction((TxRecoveryMessage) request);
         }
 
         HybridTimestamp opTsIfDirectRo = (request instanceof ReadOnlyDirectReplicaRequest) ? hybridClock.now() : null;
@@ -488,6 +498,30 @@ public class PartitionReplicaListener implements ReplicaListener {
                 .thenCompose(unused -> validateSchemaMatch(request, opTsIfDirectRo))
                 .thenCompose(unused -> waitForSchemasBeforeReading(request, opTsIfDirectRo))
                 .thenCompose(opStartTimestamp -> processOperationRequest(request, isPrimary, senderId, opTsIfDirectRo));
+    }
+
+    /**
+     * Processes transaction recovery request on a commit partition.
+     *
+     * @param request Tx recovery request.
+     * @return The future is complete when the transaction state is finalized.
+     */
+    private CompletableFuture<Void> processTxRecoveryAction(TxRecoveryMessage request) {
+        UUID txId = request.txId();
+
+        TxMeta txMeta = txStateStorage.get(txId);
+
+        // Check whether a transaction has already been finished.
+        boolean transactionAlreadyFinished = txMeta != null && isFinalState(txMeta.txState());
+
+        if (transactionAlreadyFinished) {
+            return completedFuture(null);
+        }
+
+        LOG.info("Orphan transaction has to be aborted [tx={}].", txId);
+
+        // TODO: IGNITE-20735 Implement initiate recovery handling logic.
+        return completedFuture(null);
     }
 
     /**
@@ -635,7 +669,12 @@ public class PartitionReplicaListener implements ReplicaListener {
             // We treat SCAN as 2pc and only switch to a 1pc mode if all table rows fit in the bucket and the transaction is implicit.
             // See `req.full() && (err != null || rows.size() < req.batchSize())` condition.
             // If they don't fit the bucket, the transaction is treated as 2pc.
-            txManager.updateTxMeta(req.transactionId(), old -> new TxStateMeta(PENDING, senderId, null));
+            txManager.updateTxMeta(req.transactionId(), old -> new TxStateMeta(
+                    PENDING,
+                    senderId,
+                    req.commitPartitionId().asTablePartitionId(),
+                    null
+            ));
 
             // Implicit RW scan can be committed locally on a last batch or error.
             return appendTxCommand(req.transactionId(), RequestType.RW_SCAN, false, () -> processScanRetrieveBatchAction(req, senderId))
@@ -1526,6 +1565,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     ) {
         CompletableFuture<?>[] futures = enlistedPartitions.stream()
                 .map(partitionId -> changeStateFuture.thenCompose(ignored ->
+                        // TODO: IGNITE-20874 Use the node cleanup procedure instead of the replication group cleanup one.
                         cleanupWithRetry(commit, commitTimestamp, txId, partitionId, attemptsToCleanupReplica)))
                 .toArray(size -> new CompletableFuture<?>[size]);
 
@@ -1670,11 +1710,38 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         markFinished(request.txId(), txState, request.commitTimestamp());
 
+        return awaitCleanupReadyFutures(request.txId(), request.commit())
+                .thenCompose(res -> {
+                    if (res.hadUpdateFutures()) {
+                        HybridTimestamp commandTimestamp = hybridClock.now();
+
+                        return reliableCatalogVersionFor(commandTimestamp)
+                                .thenCompose(catalogVersion ->
+                                        applyCleanupCommand(
+                                                request.txId(),
+                                                request.commit(),
+                                                request.commitTimestamp(),
+                                                request.commitTimestampLong(),
+                                                catalogVersion
+                                        ))
+                                .thenApply(unused -> res);
+                    } else {
+                        return completedFuture(res);
+                    }
+                })
+                .thenAccept(res -> {
+                    if (res.hadUpdateFutures() || res.hadReadFutures()) {
+                        releaseTxLocks(request.txId());
+                    }
+                });
+    }
+
+    private CompletableFuture<FuturesCleanupResult> awaitCleanupReadyFutures(UUID txId, boolean commit) {
         List<CompletableFuture<?>> txUpdateFutures = new ArrayList<>();
         List<CompletableFuture<?>> txReadFutures = new ArrayList<>();
 
         // TODO https://issues.apache.org/jira/browse/IGNITE-18617
-        txCleanupReadyFutures.compute(request.txId(), (id, txOps) -> {
+        txCleanupReadyFutures.compute(txId, (id, txOps) -> {
             if (txOps == null) {
                 return null;
             }
@@ -1692,32 +1759,9 @@ public class PartitionReplicaListener implements ReplicaListener {
             return txOps;
         });
 
-        if (txUpdateFutures.isEmpty()) {
-            if (!txReadFutures.isEmpty()) {
-                return allOffFuturesExceptionIgnored(txReadFutures, request)
-                        .thenRun(() -> releaseTxLocks(request.txId()));
-            }
-
-            return completedFuture(null);
-        }
-
-        return allOffFuturesExceptionIgnored(txUpdateFutures, request).thenCompose(v -> {
-            HybridTimestamp commandTimestamp = hybridClock.now();
-
-            return reliableCatalogVersionFor(commandTimestamp)
-                    .thenCompose(catalogVersion -> {
-                        applyCleanupCommand(
-                                request.txId(),
-                                request.commit(),
-                                request.commitTimestamp(),
-                                request.commitTimestampLong(),
-                                catalogVersion
-                        );
-
-                        return allOffFuturesExceptionIgnored(txReadFutures, request)
-                                .thenRun(() -> releaseTxLocks(request.txId()));
-                    });
-        });
+        return allOfFuturesExceptionIgnored(txUpdateFutures, commit, txId)
+                .thenCompose(v -> allOfFuturesExceptionIgnored(txReadFutures, commit, txId))
+                .thenApply(v -> new FuturesCleanupResult(!txReadFutures.isEmpty(), !txUpdateFutures.isEmpty()));
     }
 
     private CompletableFuture<Void> applyCleanupCommand(
@@ -1763,15 +1807,15 @@ public class PartitionReplicaListener implements ReplicaListener {
      * Creates a future that waits all transaction operations are completed.
      *
      * @param txFutures Transaction operation futures.
-     * @param request Cleanup request.
+     * @param commit If {@code true} this is a commit otherwise a rollback.
+     * @param txId Transaction id.
      * @return The future completes when all futures in passed list are completed.
      */
-    private static CompletableFuture<Void> allOffFuturesExceptionIgnored(List<CompletableFuture<?>> txFutures,
-            TxCleanupReplicaRequest request) {
+    private static CompletableFuture<Void> allOfFuturesExceptionIgnored(List<CompletableFuture<?>> txFutures, boolean commit, UUID txId) {
         return allOf(txFutures.toArray(new CompletableFuture<?>[0]))
                 .exceptionally(e -> {
-                    assert !request.commit() :
-                            "Transaction is committing, but an operation has completed with exception [txId=" + request.txId()
+                    assert !commit :
+                            "Transaction is committing, but an operation has completed with exception [txId=" + txId
                                     + ", err=" + e.getMessage() + ']';
 
                     return null;
@@ -3313,6 +3357,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     private CompletableFuture<Boolean> ensureReplicaIsPrimary(ReplicaRequest request) {
         Long expectedTerm;
 
+        // TODO: IGNITE-20875 Add enlistment consistency token to PrimaryReplicaTestRequest interface.
         if (request instanceof ReadWriteReplicaRequest) {
             expectedTerm = ((ReadWriteReplicaRequest) request).term();
 
@@ -3327,6 +3372,8 @@ public class PartitionReplicaListener implements ReplicaListener {
             assert expectedTerm != null;
         } else if (request instanceof BuildIndexReplicaRequest) {
             expectedTerm = ((BuildIndexReplicaRequest) request).enlistmentConsistencyToken();
+        } else if (request instanceof TxRecoveryMessage) {
+            expectedTerm = ((TxRecoveryMessage) request).enlistmentConsistencyToken();
         } else {
             expectedTerm = null;
         }
@@ -3687,7 +3734,12 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         txManager.updateTxMeta(txId, old -> old == null
                 ? null
-                : new TxStateMeta(txState, old.txCoordinatorId(), txState == COMMITED ? commitTimestamp : null));
+                : new TxStateMeta(
+                        txState,
+                        old.txCoordinatorId(),
+                        old.commitPartitionId(),
+                        txState == COMMITED ? commitTimestamp : null
+                ));
     }
 
     // TODO: https://issues.apache.org/jira/browse/IGNITE-20124 Temporary code below
@@ -3708,5 +3760,23 @@ public class PartitionReplicaListener implements ReplicaListener {
                 .rowIds(request.rowIds())
                 .finish(request.finish())
                 .build();
+    }
+
+    private static class FuturesCleanupResult {
+        private final boolean hadReadFutures;
+        private final boolean hadUpdateFutures;
+
+        public FuturesCleanupResult(boolean hadReadFutures, boolean hadUpdateFutures) {
+            this.hadReadFutures = hadReadFutures;
+            this.hadUpdateFutures = hadUpdateFutures;
+        }
+
+        public boolean hadReadFutures() {
+            return hadReadFutures;
+        }
+
+        public boolean hadUpdateFutures() {
+            return hadUpdateFutures;
+        }
     }
 }

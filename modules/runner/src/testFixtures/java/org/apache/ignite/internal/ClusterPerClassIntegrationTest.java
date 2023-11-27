@@ -18,19 +18,33 @@
 package org.apache.ignite.internal;
 
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.catalog.CatalogManager;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
+import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.TestInstance;
 
@@ -57,9 +71,21 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
     /** Cluster nodes. */
     protected static Cluster CLUSTER;
 
+    private static final boolean DEFAULT_WAIT_FOR_INDEX_AVAILABLE = true;
+
+    /** Whether to wait for indexes to become available or not. Default is {@code true}. */
+    private static final AtomicBoolean AWAIT_INDEX_AVAILABILITY = new AtomicBoolean(DEFAULT_WAIT_FOR_INDEX_AVAILABLE);
+
     /** Work directory. */
     @WorkDirectory
     private static Path WORK_DIR;
+
+    /** Reset {@link #AWAIT_INDEX_AVAILABILITY}. */
+    @BeforeEach
+    @AfterEach
+    void resetIndexAvailabilityFlag() {
+        setAwaitIndexAvailability(DEFAULT_WAIT_FOR_INDEX_AVAILABLE);
+    }
 
     /**
      * Before all.
@@ -151,12 +177,48 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
      * @param tableName Table name.
      * @param people People to insert into the table.
      */
-    protected static void insertPersons(String tableName, Person... people) {
+    protected static void insertPeople(String tableName, Person... people) {
         insertData(
                 tableName,
                 List.of("ID", "NAME", "SALARY"),
                 Stream.of(people).map(person -> new Object[]{person.id, person.name, person.salary}).toArray(Object[][]::new)
         );
+    }
+
+    /**
+     * Updates data in the table created by {@link #createZoneAndTable(String, String, int, int)}.
+     *
+     * @param tableName Table name.
+     * @param people People to update in the table.
+     */
+    protected static void updatePeople(String tableName, Person... people) {
+        Transaction tx = CLUSTER.node(0).transactions().begin();
+
+        String sql = String.format("UPDATE %s SET NAME=?, SALARY=? WHERE ID=?", tableName);
+
+        for (Person person : people) {
+            sql(tx, sql, person.name, person.salary, person.id);
+        }
+
+        tx.commit();
+    }
+
+    /**
+     * Deletes data in the table created by {@link #createZoneAndTable(String, String, int, int)}.
+     *
+     * @param tableName Table name.
+     * @param personIds Person IDs to delete.
+     */
+    protected static void deletePeople(String tableName, int... personIds) {
+        Transaction tx = CLUSTER.node(0).transactions().begin();
+
+        String sql = String.format("DELETE FROM %s WHERE ID=?", tableName);
+
+        for (int personId : personIds) {
+            sql(tx, sql, personId);
+        }
+
+        tx.commit();
     }
 
     /**
@@ -168,6 +230,15 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
      */
     protected static void createIndex(String tableName, String indexName, String columnName) {
         sql(format("CREATE INDEX {} ON {} ({})", indexName, tableName, columnName));
+    }
+
+    /**
+     * Sets whether to wait for indexes to become available.
+     *
+     * @param value Whether to wait for indexes to become available.
+     */
+    protected static void setAwaitIndexAvailability(boolean value) {
+        AWAIT_INDEX_AVAILABILITY.set(value);
     }
 
     protected static void insertData(String tblName, List<String> columnNames, Object[]... tuples) {
@@ -192,7 +263,12 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
     }
 
     protected static List<List<Object>> sql(@Nullable Transaction tx, String sql, Object... args) {
-        return SqlTestUtils.sql(CLUSTER.node(0), tx, sql, args);
+        IgniteImpl node = CLUSTER.node(0);
+        if (!AWAIT_INDEX_AVAILABILITY.get()) {
+            return SqlTestUtils.sql(node, tx, sql, args);
+        } else {
+            return executeAwaitingIndexes(node, (n) -> SqlTestUtils.sql(n, tx, sql, args));
+        }
     }
 
     /**
@@ -213,7 +289,10 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
         return "ZONE_" + tableName.toUpperCase();
     }
 
-    /** Class for inserting into a table using {@link #insertPersons(String, Person...)}. */
+    /**
+     * Class for updating table in {@link #insertPeople(String, Person...)}, {@link #updatePeople(String, Person...)}. You can use
+     * {@link #deletePeople(String, int...)} to remove people.
+     */
     protected static class Person {
         final int id;
 
@@ -225,6 +304,70 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
             this.id = id;
             this.name = name;
             this.salary = salary;
+        }
+    }
+
+    /**
+     * Waits for some amount of time so that read-only transactions can observe the most recent version of the catalog.
+     */
+    protected static void waitForReadTimestampThatObservesMostRecentCatalog()  {
+        // See TxManagerImpl::currentReadTimestamp.
+        long delay = HybridTimestamp.CLOCK_SKEW + TestIgnitionManager.DEFAULT_PARTITION_IDLE_SYNC_TIME_INTERVAL_MS;
+        try {
+            TimeUnit.MILLISECONDS.sleep(delay);
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private static List<List<Object>> executeAwaitingIndexes(IgniteImpl node, Function<IgniteImpl, List<List<Object>>> statement) {
+        CatalogManager catalogManager = node.catalogManager();
+
+        // Get existing indexes
+        Set<Integer> existing = catalogManager.indexes(catalogManager.latestCatalogVersion())
+                .stream().map(CatalogObjectDescriptor::id)
+                .collect(Collectors.toSet());
+
+        List<List<Object>> result = statement.apply(node);
+
+        // Get indexes after a statement and compute the difference
+        Set<Integer> difference = catalogManager.indexes(catalogManager.latestCatalogVersion()).stream()
+                .map(CatalogObjectDescriptor::id)
+                .collect(Collectors.toSet());
+
+        difference.removeAll(existing);
+
+        if (difference.isEmpty()) {
+            return result;
+        }
+
+        // If there are new indexes, wait for them to become available.
+
+        try {
+            assertTrue(waitForCondition(() -> {
+                int latestVersion = catalogManager.latestCatalogVersion();
+                int notAvailable = 0;
+
+                for (CatalogIndexDescriptor index : catalogManager.indexes(latestVersion)) {
+                    if (!index.available() && difference.contains(index.id())) {
+                        notAvailable++;
+                    }
+                }
+
+                return notAvailable == 0;
+            }, 10_000));
+
+            // We have no knowledge whether the next transaction is readonly or not,
+            // so we have to assume that the next transaction is read only transaction.
+            // otherwise the statements in that transaction may not observe
+            // the latest catalog version.
+            waitForReadTimestampThatObservesMostRecentCatalog();
+
+            return result;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+
+            throw new IllegalStateException(e);
         }
     }
 }

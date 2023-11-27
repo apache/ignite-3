@@ -345,7 +345,12 @@ network::data_buffer_owning sql_connection::receive_message(std::int64_t id, std
         }
 
         auto flags = reader.read_int32();
-        UNUSED_VALUE flags; // Flags are unused for now.
+        if (test_flag(flags, protocol::response_flag::PARTITION_ASSIGNMENT_CHANGED))
+        {
+            auto assignment_ts = reader.read_int64();
+
+            UNUSED_VALUE assignment_ts;
+        }
 
         auto observable_timestamp = reader.read_int64();
         on_observable_timestamp(observable_timestamp);

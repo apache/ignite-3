@@ -29,6 +29,27 @@
 namespace ignite::protocol {
 
 /**
+ * Response flags.
+ */
+enum class response_flag : std::int32_t
+{
+    /// Partition assignment changed in cluster.s
+    PARTITION_ASSIGNMENT_CHANGED = 1,
+};
+
+/**
+ * Test whether flag is set.
+ *
+ * @param flags Flags.
+ * @param to_test A specific flag to test.
+ * @return @c true if the flag is set.
+ */
+inline bool test_flag(std::int32_t flags, response_flag to_test)
+{
+    return (flags & std::int32_t(to_test)) != 0;
+}
+
+/**
  * Handshake response.
  */
 struct handshake_response {

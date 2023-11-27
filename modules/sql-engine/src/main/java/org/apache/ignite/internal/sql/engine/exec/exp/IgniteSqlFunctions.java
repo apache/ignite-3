@@ -20,6 +20,7 @@ package org.apache.ignite.internal.sql.engine.exec.exp;
 import static java.time.format.DateTimeFormatter.ISO_LOCAL_DATE;
 import static java.time.format.DateTimeFormatter.ISO_LOCAL_TIME;
 import static org.apache.calcite.runtime.SqlFunctions.charLength;
+import static org.apache.ignite.internal.sql.engine.prepare.IgniteSqlValidator.NUMERIC_FIELD_OVERFLOW_ERROR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.RUNTIME_ERR;
 
 import java.math.BigDecimal;
@@ -61,7 +62,6 @@ import org.jetbrains.annotations.Nullable;
  */
 public class IgniteSqlFunctions {
     private static final DateTimeFormatter ISO_LOCAL_DATE_TIME_EX;
-    private static final String NUMERIC_FIELD_OVERFLOW_ERROR = "Numeric field overflow";
     private static final RoundingMode roundingMode = RoundingMode.HALF_UP;
 
     static {

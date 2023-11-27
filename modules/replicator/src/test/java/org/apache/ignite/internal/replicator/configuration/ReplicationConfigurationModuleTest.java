@@ -1,4 +1,4 @@
-﻿/*
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -15,39 +15,26 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Log
-{
-    using System;
+package org.apache.ignite.internal.replicator.configuration;
 
-    /// <summary>
-    /// Defines log levels.
-    /// </summary>
-    [Serializable]
-    public enum LogLevel
-    {
-        /// <summary>
-        /// Trace log level.
-        /// </summary>
-        Trace = 0,
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.is;
 
-        /// <summary>
-        /// Debug log level.
-        /// </summary>
-        Debug = 1,
+import org.apache.ignite.configuration.ConfigurationModule;
+import org.apache.ignite.configuration.annotation.ConfigurationType;
+import org.junit.jupiter.api.Test;
 
-        /// <summary>
-        /// Info log level.
-        /// </summary>
-        Info = 2,
+class ReplicationConfigurationModuleTest {
+    private final ConfigurationModule module = new ReplicationConfigurationModule();
 
-        /// <summary>
-        /// Warning log level.
-        /// </summary>
-        Warn = 3,
+    @Test
+    void typeIsDistributed() {
+        assertThat(module.type(), is(ConfigurationType.DISTRIBUTED));
+    }
 
-        /// <summary>
-        /// Error log level.
-        /// </summary>
-        Error = 4
+    @Test
+    void rootKeysAreAsExpected() {
+        assertThat(module.rootKeys(), contains(ReplicationConfiguration.KEY));
     }
 }

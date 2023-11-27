@@ -171,8 +171,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
                     IgniteException.class,
                     () -> client().compute().<String>execute(Set.of(node(0)), List.of(), IgniteExceptionJob.class.getName()));
 
-            // TODO IGNITE-20858: Once user errors are handled properly, make sure the cause is checked
-            cause = ex;
+            cause = (IgniteException) ex.getCause();
         }
 
         assertThat(cause.getMessage(), containsString("Custom job error"));
@@ -198,8 +197,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
                     IgniteException.class,
                     () -> client().compute().<String>execute(Set.of(node(0)), List.of(), ExceptionJob.class.getName()));
 
-            // TODO IGNITE-20858: Once user errors are handled properly, make sure the cause is checked
-            cause = ex;
+            cause = (IgniteException) ex.getCause();
         }
 
         // TODO IGNITE-20858: Once user errors are handled properly, make sure the cause is ArithmeticException
@@ -225,8 +223,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
                     IgniteException.class,
                     () -> client().compute().execute(Set.of(node(1)), List.of(), ExceptionJob.class.getName()));
 
-            // TODO IGNITE-20858: Once user errors are handled properly, make sure the cause is checked
-            cause = ex;
+            cause = (IgniteException) ex.getCause();
         }
 
         // TODO IGNITE-20858: Once user errors are handled properly, make sure the cause is ArithmeticException

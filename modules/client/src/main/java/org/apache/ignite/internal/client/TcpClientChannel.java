@@ -58,7 +58,6 @@ import org.apache.ignite.internal.client.proto.ResponseFlags;
 import org.apache.ignite.internal.client.proto.ServerMessageType;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.tostring.S;
-import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.ErrorGroups.Table;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.NetworkAddress;
@@ -98,7 +97,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     private final Map<Long, ClientRequestFuture> pendingReqs = new ConcurrentHashMap<>();
 
     /** Topology change listeners. */
-    private final Collection<Consumer<ClientChannel>> assignmentChangeListeners = new CopyOnWriteArrayList<>();
+    private final Collection<Consumer<Long>> assignmentChangeListeners = new CopyOnWriteArrayList<>();
 
     /** Observable timestamp listeners. */
     private final Collection<Consumer<Long>> observableTimestampListeners = new CopyOnWriteArrayList<>();
@@ -326,7 +325,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
 
             metrics.requestsActiveDecrement();
 
-            throw sneakyThrow(ExceptionUtils.unwrapToPublicException(t));
+            throw sneakyThrow(ClientUtils.ensurePublicException(t));
         }
     }
 
@@ -397,8 +396,9 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
                 log.info("Partition assignment change notification received [remoteAddress=" + cfg.getAddress() + "]");
             }
 
-            for (Consumer<ClientChannel> listener : assignmentChangeListeners) {
-                listener.accept(this);
+            long maxStartTime = unpacker.unpackLong();
+            for (Consumer<Long> listener : assignmentChangeListeners) {
+                listener.accept(maxStartTime);
             }
         }
 
@@ -489,7 +489,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
 
     /** {@inheritDoc} */
     @Override
-    public void addTopologyAssignmentChangeListener(Consumer<ClientChannel> listener) {
+    public void addPartitionAssignmentChangeListener(Consumer<Long> listener) {
         assignmentChangeListeners.add(listener);
     }
 

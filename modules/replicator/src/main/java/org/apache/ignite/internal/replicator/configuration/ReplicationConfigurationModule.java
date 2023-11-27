@@ -15,19 +15,27 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Log
-{
-    using System;
+package org.apache.ignite.internal.replicator.configuration;
 
-    /// <summary>
-    /// <see cref="DateTime"/> abstraction for logging.
-    /// </summary>
-    public interface IDateTimeProvider
-    {
-        /// <summary>
-        /// Gets current <see cref="DateTime"/>.
-        /// </summary>
-        /// <returns>Current DateTime.</returns>
-        DateTime Now();
+import com.google.auto.service.AutoService;
+import java.util.Collection;
+import java.util.Set;
+import org.apache.ignite.configuration.ConfigurationModule;
+import org.apache.ignite.configuration.RootKey;
+import org.apache.ignite.configuration.annotation.ConfigurationType;
+
+/**
+ * {@link ConfigurationModule} for distributed (cluster-wide) configuration of Replication.
+ */
+@AutoService(ConfigurationModule.class)
+public class ReplicationConfigurationModule implements ConfigurationModule {
+    @Override
+    public ConfigurationType type() {
+        return ConfigurationType.DISTRIBUTED;
+    }
+
+    @Override
+    public Collection<RootKey<?, ?>> rootKeys() {
+        return Set.of(ReplicationConfiguration.KEY);
     }
 }

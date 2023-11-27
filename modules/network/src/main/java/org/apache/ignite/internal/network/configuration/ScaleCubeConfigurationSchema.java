@@ -45,4 +45,19 @@ public class ScaleCubeConfigurationSchema {
      */
     @Value(hasDefault = true)
     public final int gossipInterval = 200;
+
+    /**
+     * Gossip repeat multiplier.
+     *
+     * @see <a href="https://en.wikipedia.org/wiki/Gossip_protocol">Gossip Protocol</a>
+     */
+    @Value(hasDefault = true)
+    public final int gossipRepeatMult = 3;
+
+    /**
+     * Metadata timeout (milliseconds). This is the timeout on metadata update operation (when one node requests metadata from
+     * another node).
+     */
+    @Value(hasDefault = true)
+    public final int metadataTimeout = 3_000;
 }

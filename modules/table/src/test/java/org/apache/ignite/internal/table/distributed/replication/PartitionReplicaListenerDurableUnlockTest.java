@@ -163,7 +163,7 @@ public class PartitionReplicaListenerDurableUnlockTest extends IgniteAbstractTes
             return completedFuture(null);
         };
 
-        PrimaryReplicaEventParameters parameters = new PrimaryReplicaEventParameters(0, part0, LOCAL_NODE.name());
+        PrimaryReplicaEventParameters parameters = new PrimaryReplicaEventParameters(0, part0, LOCAL_NODE.name(), clock.now());
 
         assertThat(placementDriver.fireEvent(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, parameters), willSucceedIn(1, SECONDS));
 
@@ -193,7 +193,7 @@ public class PartitionReplicaListenerDurableUnlockTest extends IgniteAbstractTes
             return completedFuture(null);
         };
 
-        PrimaryReplicaEventParameters parameters = new PrimaryReplicaEventParameters(0, part0, LOCAL_NODE.name());
+        PrimaryReplicaEventParameters parameters = new PrimaryReplicaEventParameters(0, part0, LOCAL_NODE.name(), clock.now());
 
         assertThat(placementDriver.fireEvent(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, parameters), willSucceedIn(1, SECONDS));
 
@@ -213,7 +213,7 @@ public class PartitionReplicaListenerDurableUnlockTest extends IgniteAbstractTes
         CompletableFuture<ReplicaMeta> primaryReplicaFuture = new CompletableFuture<>();
         placementDriver.setAwaitPrimaryReplicaFunction((groupId, timestamp) -> primaryReplicaFuture);
 
-        PrimaryReplicaEventParameters parameters = new PrimaryReplicaEventParameters(0, part0, LOCAL_NODE.name());
+        PrimaryReplicaEventParameters parameters = new PrimaryReplicaEventParameters(0, part0, LOCAL_NODE.name(), clock.now());
         assertThat(placementDriver.fireEvent(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, parameters), willSucceedIn(1, SECONDS));
 
         assertFalse(txStateStorage.get(tx0).locksReleased());

@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.catalog;
 
 import java.util.Collection;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
@@ -67,6 +68,8 @@ public interface CatalogService extends EventProducer<CatalogEvent, CatalogEvent
 
     Collection<CatalogIndexDescriptor> indexes(int catalogVersion);
 
+    List<CatalogIndexDescriptor> indexes(int catalogVersion, int tableId);
+
     @Nullable CatalogSchemaDescriptor schema(int version);
 
     @Nullable CatalogSchemaDescriptor schema(@Nullable String schemaName, int version);
@@ -85,9 +88,10 @@ public interface CatalogService extends EventProducer<CatalogEvent, CatalogEvent
 
     int activeCatalogVersion(long timestamp);
 
-    /**
-     * Returns the latest registered version of the catalog.
-     */
+    /** Returns the earliest registered version of the catalog. */
+    int earliestCatalogVersion();
+
+    /** Returns the latest registered version of the catalog. */
     int latestCatalogVersion();
 
     /**

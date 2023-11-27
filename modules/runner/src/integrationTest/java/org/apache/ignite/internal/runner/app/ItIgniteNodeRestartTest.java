@@ -19,7 +19,6 @@ package org.apache.ignite.internal.runner.app;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
-import static org.apache.ignite.internal.Kludges.IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS_PROPERTY;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
@@ -100,7 +99,7 @@ import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.network.recovery.VaultStateIds;
-import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
+import org.apache.ignite.internal.placementdriver.PlacementDriverManager;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.RaftNodeId;
@@ -125,7 +124,6 @@ import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.Outgo
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncServiceImpl;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
-import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
@@ -158,7 +156,6 @@ import org.junit.jupiter.params.provider.ValueSource;
  */
 @ExtendWith(ConfigurationExtension.class)
 @Timeout(120)
-@WithSystemProperty(key = IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS_PROPERTY, value = "200")
 public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
     /** Value producer for table data, is used to create data and check it later. */
     private static final IntFunction<String> VALUE_PRODUCER = i -> "val " + i;
@@ -183,17 +180,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
     @InjectConfiguration
     private static MetaStorageConfiguration metaStorageConfiguration;
-
-    /**
-     * Start some of Ignite components that are able to serve as Ignite node for test purposes.
-     *
-     * @param idx Node index.
-     * @param cfgString Configuration string or {@code null} to use the default configuration.
-     * @return Partial node.
-     */
-    private PartialNode startPartialNode(int idx, @Nullable @Language("HOCON") String cfgString) {
-        return startPartialNode(idx, cfgString, null);
-    }
 
     /**
      * Start some of Ignite components that are able to serve as Ignite node for test purposes.
@@ -261,8 +247,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
 
-        var placementDriver = new TestPlacementDriver(() -> clusterSvc.topologyService().localMember());
-
         var clusterInitializer = new ClusterInitializer(
                 clusterSvc,
                 hocon -> hocon,
@@ -280,33 +264,14 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 new NodeAttributesCollector(nodeAttributes, storageProfilesConfiguration)
         );
 
-        LongSupplier partitionIdleSafeTimePropagationPeriodMsSupplier = () -> 10L;
-
-        ReplicaManager replicaMgr = new ReplicaManager(
-                name,
-                clusterSvc,
-                cmgManager,
-                hybridClock,
-                Set.of(TableMessageGroup.class, TxMessageGroup.class),
-                placementDriver,
-                partitionIdleSafeTimePropagationPeriodMsSupplier
-        );
+        LongSupplier partitionIdleSafeTimePropagationPeriodMsSupplier
+                = () -> TestIgnitionManager.DEFAULT_PARTITION_IDLE_SYNC_TIME_INTERVAL_MS;
 
         var replicaService = new ReplicaService(clusterSvc.messagingService(), hybridClock);
 
         var lockManager = new HeapLockManager();
 
         ReplicaService replicaSvc = new ReplicaService(clusterSvc.messagingService(), hybridClock);
-
-        var txManager = new TxManagerImpl(
-                replicaService,
-                lockManager,
-                hybridClock,
-                new TransactionIdGenerator(idx),
-                () -> clusterSvc.topologyService().localMember().id(),
-                placementDriver,
-                partitionIdleSafeTimePropagationPeriodMsSupplier
-        );
 
         var logicalTopologyService = new LogicalTopologyServiceImpl(logicalTopology, cmgManager);
 
@@ -344,10 +309,41 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 ConfigurationValidatorImpl.withDefaultValidators(distributedConfigurationGenerator, modules.distributed().validators())
         );
 
+        var placementDriverManager = new PlacementDriverManager(
+                name,
+                metaStorageMgr,
+                MetastorageGroupId.INSTANCE,
+                clusterSvc,
+                cmgManager::metaStorageNodes,
+                logicalTopologyService,
+                raftMgr,
+                topologyAwareRaftGroupServiceFactory,
+                hybridClock
+        );
+
+        ReplicaManager replicaMgr = new ReplicaManager(
+                name,
+                clusterSvc,
+                cmgManager,
+                hybridClock,
+                Set.of(TableMessageGroup.class, TxMessageGroup.class),
+                placementDriverManager.placementDriver(),
+                partitionIdleSafeTimePropagationPeriodMsSupplier
+        );
+
+        var txManager = new TxManagerImpl(
+                clusterSvc,
+                replicaService,
+                lockManager,
+                hybridClock,
+                new TransactionIdGenerator(idx),
+                placementDriverManager.placementDriver(),
+                partitionIdleSafeTimePropagationPeriodMsSupplier
+        );
+
         ConfigurationRegistry clusterConfigRegistry = clusterCfgMgr.configurationRegistry();
 
         Consumer<LongFunction<CompletableFuture<?>>> registry = (c) -> metaStorageMgr.registerRevisionUpdateListener(c::apply);
-
 
         DataStorageModules dataStorageModules = new DataStorageModules(ServiceLoader.load(DataStorageModule.class));
 
@@ -366,7 +362,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         var clockWaiter = new ClockWaiter(name, hybridClock);
 
-        LongSupplier delayDurationMsSupplier = () -> 100L;
+        LongSupplier delayDurationMsSupplier = () -> TestIgnitionManager.DEFAULT_DELAY_DURATION_MS;
 
         var catalogManager = new CatalogManagerImpl(
                 new UpdateLogImpl(metaStorageMgr),
@@ -411,7 +407,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 schemaSyncService,
                 catalogManager,
                 new HybridTimestampTracker(),
-                placementDriver
+                placementDriverManager.placementDriver()
         );
 
         var indexManager = new IndexManager(schemaManager, tableManager, catalogManager, metaStorageMgr, registry);
@@ -1179,8 +1175,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         GcConfiguration gcConfiguration = ignite.clusterConfiguration()
                 .getConfiguration(GcConfiguration.KEY);
-        int defaultValue = gcConfiguration.onUpdateBatchSize().value();
-        CompletableFuture<Void> update = gcConfiguration.onUpdateBatchSize().update(defaultValue);
+        int defaultValue = gcConfiguration.batchSize().value();
+        CompletableFuture<Void> update = gcConfiguration.batchSize().update(defaultValue);
         assertThat(update, willCompleteSuccessfully());
 
         stopNode(0);

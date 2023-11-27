@@ -52,12 +52,10 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -195,9 +193,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     private static final int TX_STATE_STORAGE_FLUSH_DELAY = 1000;
     private static final IntSupplier TX_STATE_STORAGE_FLUSH_DELAY_SUPPLIER = () -> TX_STATE_STORAGE_FLUSH_DELAY;
 
-    /** Garbage collector configuration. */
-    private final GcConfiguration gcConfig;
-
     private final ClusterService clusterService;
 
     /** Raft manager. */
@@ -311,9 +306,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     /** Partitions storage path. */
     private final Path storagePath;
 
-    /** Assignment change event listeners. */
-    private final CopyOnWriteArrayList<Consumer<IgniteTablesInternal>> assignmentsChangeListeners = new CopyOnWriteArrayList<>();
-
     /** Incoming RAFT snapshots executor. */
     private final ExecutorService incomingSnapshotsExecutor;
 
@@ -394,7 +386,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             HybridTimestampTracker observableTimestampTracker,
             PlacementDriver placementDriver
     ) {
-        this.gcConfig = gcConfig;
         this.clusterService = clusterService;
         this.raftMgr = raftMgr;
         this.replicaMgr = replicaMgr;
@@ -1047,34 +1038,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         }
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public CompletableFuture<List<String>> assignmentsAsync(int tableId) {
-        return tableAsync(tableId).thenApply(table -> {
-            if (table == null) {
-                return null;
-            }
-
-            return table.internalTable().assignments();
-        });
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void addAssignmentsChangeListener(Consumer<IgniteTablesInternal> listener) {
-        Objects.requireNonNull(listener);
-
-        assignmentsChangeListeners.add(listener);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public boolean removeAssignmentsChangeListener(Consumer<IgniteTablesInternal> listener) {
-        Objects.requireNonNull(listener);
-
-        return assignmentsChangeListeners.remove(listener);
-    }
-
     /**
      * Creates local structures for a table.
      *
@@ -1112,13 +1075,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     zoneDescriptor,
                     assignmentsFuture,
                     catalogVersion
-            ).whenComplete((v, e) -> {
-                if (e == null) {
-                    for (var listener : assignmentsChangeListeners) {
-                        listener.accept(this);
-                    }
-                }
-            }).thenCompose(ignored -> writeTableAssignmentsToMetastore(tableId, assignmentsFuture));
+            ).thenCompose(ignored -> writeTableAssignmentsToMetastore(tableId, assignmentsFuture));
         });
     }
 
@@ -2087,7 +2044,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      * @return Future that will be completed after all resources have been closed.
      */
     private CompletableFuture<Void> stopPartition(TablePartitionId tablePartitionId, TableImpl table) {
-        // TODO: IGNITE-19905 - remove the check.
         if (table != null) {
             closePartitionTrackers(table.internalTable(), tablePartitionId.partitionId());
         }
@@ -2115,7 +2071,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
     private CompletableFuture<Void> destroyPartitionStorages(TablePartitionId tablePartitionId, TableImpl table) {
         // TODO: IGNITE-18703 Destroy raft log and meta
-        // TODO: IGNITE-19905 - remove the check.
         if (table == null) {
             return completedFuture(null);
         }
@@ -2131,8 +2086,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     }
 
     private int[] collectTableIndexIds(int tableId, int catalogVersion) {
-        return catalogService.indexes(catalogVersion).stream()
-                .filter(indexDescriptor -> indexDescriptor.tableId() == tableId)
+        return catalogService.indexes(catalogVersion, tableId).stream()
                 .mapToInt(CatalogIndexDescriptor::id)
                 .toArray();
     }
@@ -2153,7 +2107,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         return clusterService.topologyService().localMember();
     }
 
-    private PartitionUpdateHandlers createPartitionUpdateHandlers(
+    private static PartitionUpdateHandlers createPartitionUpdateHandlers(
             int partitionId,
             PartitionDataStorage partitionDataStorage,
             TableImpl table,
@@ -2168,10 +2122,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         StorageUpdateHandler storageUpdateHandler = new StorageUpdateHandler(
                 partitionId,
                 partitionDataStorage,
-                gcConfig,
-                lowWatermark,
-                indexUpdateHandler,
-                gcUpdateHandler
+                indexUpdateHandler
         );
 
         return new PartitionUpdateHandlers(storageUpdateHandler, indexUpdateHandler, gcUpdateHandler);

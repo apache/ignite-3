@@ -59,7 +59,7 @@ class ItShowConfigurationCallTest extends CallInitializedIntegrationTestBase {
         // Given
         var input = ClusterConfigShowCallInput.builder()
                 .clusterUrl(NODE_URL)
-                .selector("gc.onUpdateBatchSize")
+                .selector("gc.batchSize")
                 .build();
 
         // When

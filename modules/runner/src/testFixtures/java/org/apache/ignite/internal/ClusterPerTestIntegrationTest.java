@@ -20,6 +20,7 @@ package org.apache.ignite.internal;
 import java.nio.file.Path;
 import java.util.List;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -102,7 +103,7 @@ public abstract class ClusterPerTestIntegrationTest extends IgniteIntegrationTes
         cluster = new Cluster(testInfo, workDir, getNodeBootstrapConfigTemplate());
 
         if (initialNodes() > 0) {
-            cluster.startAndInit(initialNodes(), cmgMetastoreNodes());
+            cluster.startAndInit(initialNodes(), cmgMetastoreNodes(), this::customizeInitParameters);
         }
     }
 
@@ -123,6 +124,10 @@ public abstract class ClusterPerTestIntegrationTest extends IgniteIntegrationTes
 
     protected int[] cmgMetastoreNodes() {
         return new int[] { 0 };
+    }
+
+    protected void customizeInitParameters(InitParametersBuilder builder) {
+        // No-op.
     }
 
     /**

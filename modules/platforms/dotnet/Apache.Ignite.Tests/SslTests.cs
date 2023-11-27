@@ -26,7 +26,7 @@ using System.Security.Authentication;
 using System.Security.Cryptography.X509Certificates;
 using System.Threading;
 using System.Threading.Tasks;
-using Log;
+using Microsoft.Extensions.Logging;
 using NUnit.Framework;
 
 /// <summary>
@@ -91,7 +91,7 @@ public class SslTests : IgniteTestsBase
                     ClientCertificates = new X509Certificate2Collection(new X509Certificate2(CertificatePath, CertificatePassword))
                 }
             },
-            Logger = new ConsoleLogger { MinLevel = LogLevel.Trace }
+            LoggerFactory = TestUtils.GetConsoleLoggerFactory(LogLevel.Trace)
         };
 
         using var client = await IgniteClient.StartAsync(cfg);
