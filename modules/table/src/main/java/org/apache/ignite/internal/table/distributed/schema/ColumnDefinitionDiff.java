@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table.distributed.schema;
 
+import java.util.Objects;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 
@@ -56,7 +57,7 @@ public class ColumnDefinitionDiff {
     /**
      * Returns whether column type (including precision, scale, length) has been changed.
      */
-    public boolean typeDiffers() {
+    public boolean typeChanged() {
         return oldColumn.type() != newColumn.type()
                 || oldColumn.precision() != newColumn.precision()
                 || oldColumn.scale() != newColumn.scale()
@@ -68,5 +69,12 @@ public class ColumnDefinitionDiff {
      */
     public boolean typeChangeIsSupported() {
         return CatalogUtils.isColumnTypeChangeSupported(oldColumn, newColumn);
+    }
+
+    /**
+     * Returns whether the default value has been changed.
+     */
+    public boolean defaultChanged() {
+        return !Objects.equals(oldColumn.defaultValue(), newColumn.defaultValue());
     }
 }

@@ -110,7 +110,15 @@ public class FullTableSchema {
             }
         }
 
-        return new TableDefinitionDiff(prevSchema.tableName(), this.tableName(), addedColumns, removedColumns, changedColumns);
+        return new TableDefinitionDiff(
+                prevSchema.schemaVersion(),
+                this.schemaVersion,
+                prevSchema.tableName(),
+                this.tableName(),
+                addedColumns,
+                removedColumns,
+                changedColumns
+        );
     }
 
     private static <T> Map<String, T> toMapByName(List<T> elements, Function<T, String> nameExtractor) {

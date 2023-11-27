@@ -55,7 +55,8 @@ class SchemaCompatibilityValidator {
             new DropColumnsValidator(),
             new ChangeColumnsValidator(List.of(
                     // TODO: https://issues.apache.org/jira/browse/IGNITE-20948 - add validator that says that column rename is compatible.
-                    new ChangeNotNullStatusValidator(),
+                    new ChangeNullabilityValidator(),
+                    new ChangeDefaultValueValidator(),
                     new ChangeColumnTypeValidator()
             ))
     );
@@ -176,7 +177,10 @@ class SchemaCompatibilityValidator {
             }
         }
 
-        return accepted;
+        assert accepted : "Table schema changed from " + prevSchema.schemaVersion() + " and " + nextSchema.schemaVersion()
+                + ", but no schema change validator voted for any change. Some schema validator is missing.";
+
+        return true;
     }
 
     /**
@@ -347,9 +351,10 @@ class SchemaCompatibilityValidator {
                 }
             }
 
-            // If for some column no validator either accepts or refuses the change, then this
-            // is an unknown change, that we consider incompatible by default.
-            return accepted ? ValidatorVerdict.COMPATIBLE : ValidatorVerdict.INCOMPATIBLE;
+            assert accepted : "Table schema changed from " + diff.oldSchemaVersion() + " and " + diff.newSchemaVersion()
+                    + ", but no column change validator voted for any change. Some schema validator is missing.";
+
+            return ValidatorVerdict.COMPATIBLE;
         }
 
         private ValidatorVerdict compatible(ColumnDefinitionDiff columnDiff) {
@@ -371,7 +376,14 @@ class SchemaCompatibilityValidator {
         }
     }
 
-    private static class ChangeNotNullStatusValidator implements ColumnChangeCompatibilityValidator {
+    private static class ChangeDefaultValueValidator implements ColumnChangeCompatibilityValidator {
+        @Override
+        public ValidatorVerdict compatible(ColumnDefinitionDiff diff) {
+            return diff.defaultChanged() ? ValidatorVerdict.INCOMPATIBLE : ValidatorVerdict.DONT_CARE;
+        }
+    }
+
+    private static class ChangeNullabilityValidator implements ColumnChangeCompatibilityValidator {
         @Override
         public ValidatorVerdict compatible(ColumnDefinitionDiff diff) {
             if (diff.notNullAdded()) {
@@ -390,7 +402,7 @@ class SchemaCompatibilityValidator {
     private static class ChangeColumnTypeValidator implements ColumnChangeCompatibilityValidator {
         @Override
         public ValidatorVerdict compatible(ColumnDefinitionDiff diff) {
-            if (!diff.typeDiffers()) {
+            if (!diff.typeChanged()) {
                 return ValidatorVerdict.DONT_CARE;
             }
 

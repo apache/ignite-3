@@ -27,8 +27,11 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescript
  */
 public class TableDefinitionDiff {
     private static final TableDefinitionDiff EMPTY = new TableDefinitionDiff(
-            "name", "name", emptyList(), emptyList(), emptyList()
+            -1, -1, "name", "name", emptyList(), emptyList(), emptyList()
     );
+
+    private final int oldSchemaVersion;
+    private final int newSchemaVersion;
 
     private final boolean nameDiffers;
     private final List<CatalogTableColumnDescriptor> addedColumns;
@@ -48,16 +51,35 @@ public class TableDefinitionDiff {
      * Constructor.
      */
     public TableDefinitionDiff(
+            int oldSchemaVersion,
+            int newSchemaVersion,
             String oldName,
             String newName,
             List<CatalogTableColumnDescriptor> addedColumns,
             List<CatalogTableColumnDescriptor> removedColumns,
             List<ColumnDefinitionDiff> changedColumns
     ) {
+        this.oldSchemaVersion = oldSchemaVersion;
+        this.newSchemaVersion = newSchemaVersion;
+
         nameDiffers = !oldName.equals(newName);
         this.addedColumns = List.copyOf(addedColumns);
         this.removedColumns = List.copyOf(removedColumns);
         this.changedColumns = List.copyOf(changedColumns);
+    }
+
+    /**
+     * Returns old schema version.
+     */
+    public int oldSchemaVersion() {
+        return oldSchemaVersion;
+    }
+
+    /**
+     * Returns new schema version.
+     */
+    public int newSchemaVersion() {
+        return newSchemaVersion;
     }
 
     /**
