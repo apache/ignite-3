@@ -667,7 +667,7 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
         }
 
         for (AtomicInteger counter : counters.values()) {
-            assertEquals(3, counter.get());
+            assertTrue(waitForCondition(() -> counter.get() == 3, 10_000));
         }
     }
 
