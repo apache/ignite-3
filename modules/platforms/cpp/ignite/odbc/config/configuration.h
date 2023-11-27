@@ -56,7 +56,8 @@ public:
     // With auth.
     configuration(std::string identity, std::string secret)
         : m_auth_identity{std::move(identity), true}
-        , m_auth_secret{std::move(secret), true} {}
+        , m_auth_secret{std::move(secret), true}
+    {}
 
     /**
      * Get addresses.
