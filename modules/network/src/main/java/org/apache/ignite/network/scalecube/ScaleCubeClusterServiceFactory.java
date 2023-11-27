@@ -241,7 +241,11 @@ public class ScaleCubeClusterServiceFactory {
                         opts.pingInterval(cfg.failurePingInterval())
                                 .pingReqMembers(scaleCube.failurePingRequestMembers())
                 )
-                .gossip(opts -> opts.gossipInterval(scaleCube.gossipInterval()));
+                .gossip(opts ->
+                        opts.gossipInterval(scaleCube.gossipInterval())
+                                .gossipRepeatMult(scaleCube.gossipRepeatMult())
+                )
+                .metadataTimeout(scaleCube.metadataTimeout());
     }
 
     /**
