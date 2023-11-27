@@ -160,71 +160,21 @@ public class ScriptTransactionHandler extends QueryTransactionHandler {
 
         /** Returns a transaction wrapper that is responsible for committing script-driven transaction. */
         QueryTransactionWrapper forCommit() {
-            return new ImplicitTransactionWrapper(transaction, true);
+            return new TxCommitWrapper(transaction.commitAsync());
         }
 
         /** Returns a transaction wrapper that is responsible for processing a statement within a script-driven transaction. */
         QueryTransactionWrapper forStatement(SqlQueryType queryType, CompletableFuture<? extends AsyncCursor<?>> cursorFut) {
             return this;
         }
-    }
 
-    /**
-     * Holds a transaction initiated by a script control statement. Responsible for tracking and releasing resources
-     * associated with an explicit read-write transaction started from a script.
-     */
-    private static class ManagedReadWriteTransactionWrapper extends ManagedTransactionWrapper {
-        private final CompletableFuture<Void> finishTxFuture = new CompletableFuture<>();
-        private final List<CompletableFuture<? extends AsyncCursor<?>>> cursorsToCloseOnRollback = new CopyOnWriteArrayList<>();
-        private final Set<UUID> cursorsToWaitBeforeCommit = ConcurrentHashMap.newKeySet();
+        class TxCommitWrapper implements QueryTransactionWrapper {
+            private final CompletableFuture<Void> txCommitFuture;
 
-        /** */
-        private volatile boolean canCommit;
-
-        private ManagedReadWriteTransactionWrapper(InternalTransaction transaction) {
-            super(transaction);
-        }
-
-        @Override
-        QueryTransactionWrapper forCommit() {
-            canCommit = true;
-
-            commitIfNeeded();
-
-            return new ReadWriteTxCommitWrapper();
-        }
-
-        @Override
-        QueryTransactionWrapper forStatement(SqlQueryType queryType, CompletableFuture<? extends AsyncCursor<?>> cursorFut) {
-            cursorsToCloseOnRollback.add(cursorFut);
-
-            UUID cursorId = UUID.randomUUID();
-
-            if (queryType == SqlQueryType.QUERY) {
-                cursorsToWaitBeforeCommit.add(cursorId);
+            TxCommitWrapper(CompletableFuture<Void> txCommitFuture) {
+                this.txCommitFuture = txCommitFuture;
             }
 
-            return new ReadWriteTxStatementWrapper(cursorId);
-        }
-
-        private CompletableFuture<Void> tryCommit(UUID cursorId) {
-            if (cursorsToWaitBeforeCommit.remove(cursorId)) {
-                return commitIfNeeded();
-            }
-
-            return Commons.completedFuture();
-        }
-
-        private CompletableFuture<Void> commitIfNeeded() {
-            if (canCommit && cursorsToWaitBeforeCommit.isEmpty()) {
-                return transaction.commitAsync()
-                        .whenComplete((r, e) -> finishTxFuture.complete(null));
-            }
-
-            return Commons.completedFuture();
-        }
-
-        class ReadWriteTxCommitWrapper implements QueryTransactionWrapper {
             @Override
             public InternalTransaction unwrap() {
                 return transaction;
@@ -242,11 +192,70 @@ public class ScriptTransactionHandler extends QueryTransactionHandler {
 
             @Override
             public CompletableFuture<Void> commitImplicitAfterPrefetch() {
-                return finishTxFuture;
+                return txCommitFuture;
             }
         }
+    }
 
-        class ReadWriteTxStatementWrapper extends ReadWriteTxCommitWrapper {
+    /**
+     * Holds a transaction initiated by a script control statement. Responsible for tracking and releasing resources
+     * associated with an explicit read-write transaction started from a script.
+     */
+    private static class ManagedReadWriteTransactionWrapper extends ManagedTransactionWrapper {
+        private final CompletableFuture<Void> finishTxFuture = new CompletableFuture<>();
+        private final List<CompletableFuture<? extends AsyncCursor<?>>> cursorsToCloseOnRollback = new CopyOnWriteArrayList<>();
+        private final Set<UUID> cursorsToWaitBeforeCommit = ConcurrentHashMap.newKeySet();
+
+        /**
+         * Flag indicating that a {@code COMMIT} statement has been processed and
+         * the transaction can be committed after the associated cursors are closed.
+         */
+        private volatile boolean canCommit;
+
+        private ManagedReadWriteTransactionWrapper(InternalTransaction transaction) {
+            super(transaction);
+        }
+
+        @Override
+        QueryTransactionWrapper forCommit() {
+            canCommit = true;
+
+            commitIfPossible();
+
+            return new TxCommitWrapper(finishTxFuture);
+        }
+
+        @Override
+        QueryTransactionWrapper forStatement(SqlQueryType queryType, CompletableFuture<? extends AsyncCursor<?>> cursorFut) {
+            cursorsToCloseOnRollback.add(cursorFut);
+
+            UUID cursorId = UUID.randomUUID();
+
+            if (queryType == SqlQueryType.QUERY) {
+                cursorsToWaitBeforeCommit.add(cursorId);
+            }
+
+            return new ReadWriteTxStatementWrapper(cursorId);
+        }
+
+        private CompletableFuture<Void> tryCommit(UUID cursorId) {
+            if (cursorsToWaitBeforeCommit.remove(cursorId)) {
+                return commitIfPossible();
+            }
+
+            return Commons.completedFuture();
+        }
+
+        private CompletableFuture<Void> commitIfPossible() {
+            if (canCommit && cursorsToWaitBeforeCommit.isEmpty()) {
+                return transaction.commitAsync()
+                        .whenComplete((r, e) -> finishTxFuture.complete(null));
+            }
+
+            return Commons.completedFuture();
+        }
+
+        class ReadWriteTxStatementWrapper implements QueryTransactionWrapper {
             private final UUID cursorId;
 
             ReadWriteTxStatementWrapper(UUID cursorId) {
@@ -254,7 +263,13 @@ public class ScriptTransactionHandler extends QueryTransactionHandler {
             }
 
             @Override
+            public InternalTransaction unwrap() {
+                return transaction;
+            }
+
+            @Override
             public CompletableFuture<Void> commitImplicit() {
+                // Try commit on cursor close.
                 return tryCommit(cursorId);
             }
 
