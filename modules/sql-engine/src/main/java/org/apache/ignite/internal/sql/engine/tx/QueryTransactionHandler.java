@@ -52,7 +52,7 @@ public class QueryTransactionHandler {
                     new TransactionOptions().readOnly(queryType != SqlQueryType.DML)), true);
         }
 
-        ensureStatementAllowedWithinExplicitTx(queryType, activeTx);
+        validateStatement(queryType, activeTx);
 
         return new ImplicitTransactionWrapper(activeTx, false);
     }
@@ -62,7 +62,7 @@ public class QueryTransactionHandler {
     }
 
     /** Checks that the statement is allowed within an external/script transaction. */
-    static void ensureStatementAllowedWithinExplicitTx(SqlQueryType queryType, InternalTransaction tx) {
+    static void validateStatement(SqlQueryType queryType, InternalTransaction tx) {
         if (SqlQueryType.DDL == queryType) {
             throw new SqlException(RUNTIME_ERR, "DDL doesn't support transactions.");
         }

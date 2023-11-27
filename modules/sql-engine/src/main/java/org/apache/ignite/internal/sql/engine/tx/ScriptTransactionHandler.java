@@ -45,7 +45,7 @@ import org.jetbrains.annotations.Nullable;
  * {@link SqlQueryType#TX_CONTROL} statements.
  */
 public class ScriptTransactionHandler extends QueryTransactionHandler {
-    /** Holds resources associated with an explicit transaction started from a script. */
+    /** Manages the explicit transaction initiated by the script and associated resources. */
     private volatile @Nullable ManagedTransactionHandler handler;
 
     public ScriptTransactionHandler(IgniteTransactions transactions, @Nullable InternalTransaction externalTransaction) {
@@ -82,7 +82,7 @@ public class ScriptTransactionHandler extends QueryTransactionHandler {
                 return startTxIfNeeded(queryType);
             }
 
-            ensureStatementAllowedWithinExplicitTx(parsedResult.queryType(), handler.transaction());
+            validateStatement(parsedResult.queryType(), handler.transaction());
 
             return handler.handleStatement(queryType, cursorFut);
         } catch (SqlException e) {
@@ -135,6 +135,7 @@ public class ScriptTransactionHandler extends QueryTransactionHandler {
         }
     }
 
+    /** Holds a transaction initiated by a script control statement. */
     private static class ManagedTransactionHandler {
         private final InternalTransaction transaction;
         private final QueryTransactionWrapper noCommitWrapper;
@@ -176,7 +177,7 @@ public class ScriptTransactionHandler extends QueryTransactionHandler {
 
         @Override
         QueryTransactionWrapper handleCommit() {
-            onCursorClose(commitId);
+            tryCommit(commitId);
 
             return new ReadWriteTxCommitWrapper();
         }
@@ -194,7 +195,7 @@ public class ScriptTransactionHandler extends QueryTransactionHandler {
             return new ReadWriteTxStatementWrapper(cursorId);
         }
 
-        CompletableFuture<Void> onCursorClose(UUID cursorId) {
+        CompletableFuture<Void> tryCommit(UUID cursorId) {
             if (cursorsToWaitBeforeCommit.remove(cursorId) && cursorsToWaitBeforeCommit.isEmpty()) {
                 return transaction().commitAsync()
                         .whenComplete((r, e) -> finishTxFuture.complete(null));
@@ -239,7 +240,7 @@ public class ScriptTransactionHandler extends QueryTransactionHandler {
 
             @Override
             public CompletableFuture<Void> commitImplicit() {
-                return onCursorClose(cursorId);
+                return tryCommit(cursorId);
             }
 
             @Override
