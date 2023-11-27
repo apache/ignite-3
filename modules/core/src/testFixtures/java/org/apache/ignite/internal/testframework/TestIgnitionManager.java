@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.testframework;
 
-import com.typesafe.config.ConfigException;
 import com.typesafe.config.parser.ConfigDocument;
 import com.typesafe.config.parser.ConfigDocumentFactory;
 import java.io.IOException;
@@ -26,6 +25,7 @@ import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
@@ -41,6 +41,8 @@ public class TestIgnitionManager {
     /** Default name of configuration file. */
     public static final String DEFAULT_CONFIG_NAME = "ignite-config.conf";
 
+    private static final int DEFAULT_SCALECUBE_METADATA_TIMEOUT = 10_000;
+
     /** Default DelayDuration in ms used for tests that is set on node init. */
     public static final int DEFAULT_DELAY_DURATION_MS = 100;
 
@@ -51,6 +53,7 @@ public class TestIgnitionManager {
 
     /** Map with default node configuration values. */
     private static final Map<String, String> DEFAULT_NODE_CONFIG = Map.of(
+            "network.membership.scaleCube.metadataTimeout", Integer.toString(DEFAULT_SCALECUBE_METADATA_TIMEOUT),
             "aipersist.defaultRegion.size", Integer.toString(256 * Constants.MiB),
             "aimem.defaultRegion.initSize", Integer.toString(256 * Constants.MiB),
             "aimem.defaultRegion.maxSize", Integer.toString(256 * Constants.MiB)
@@ -65,6 +68,8 @@ public class TestIgnitionManager {
 
     /**
      * Starts an Ignite node with an optional bootstrap configuration from an input stream with HOCON configs.
+     *
+     * <p>Test defaults are mixed to the configuration (only if the corresponding config keys are not explicitly defined).
      *
      * <p>When this method returns, the node is partially started and ready to accept the init command (that is, its
      * REST endpoint is functional).
@@ -91,6 +96,8 @@ public class TestIgnitionManager {
      * @throws IgniteException If error occurs while reading node configuration.
      */
     public static CompletableFuture<Ignite> start(String nodeName, @Nullable String configStr, Path workDir) {
+        String enrichedConfig = enrichValidConfigWithTestDefaults(configStr);
+
         try {
             Files.createDirectories(workDir);
             Path configPath = workDir.resolve(DEFAULT_CONFIG_NAME);
@@ -170,6 +177,12 @@ public class TestIgnitionManager {
         }
 
         return configDocument.render();
+    }
+
+    private static ConfigDocument parseNullableConfigString(@Nullable String configString) {
+        String configToParse = Objects.requireNonNullElse(configString, "{}");
+
+        return ConfigDocumentFactory.parseString(configToParse);
     }
 
     private static ConfigDocument applyTestDefault(ConfigDocument document, String path, String value) {
