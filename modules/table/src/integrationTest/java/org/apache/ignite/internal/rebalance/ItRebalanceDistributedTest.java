@@ -161,6 +161,7 @@ import org.apache.ignite.internal.table.distributed.TableMessageGroup;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncServiceImpl;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
@@ -851,6 +852,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
             );
 
             Path configPath = workDir.resolve(testInfo.getDisplayName());
+            TestIgnitionManager.addDefaultsToConfigurationFile(configPath);
+
             nodeCfgMgr = new ConfigurationManager(
                     List.of(NetworkConfiguration.KEY,
                             PersistentPageMemoryStorageEngineConfiguration.KEY,
