@@ -158,6 +158,10 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
     /** Local node network identity. This id is available only after the network has started. */
     private String localNodeId;
+    /**
+     * Transaction lock release manager.
+     */
+    private final TxUnlockManager txUnlockManager;
 
     /**
      * The constructor.
@@ -198,6 +202,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                 new NamedThreadFactory("tx-async-cleanup", LOG));
 
         orphanDetector = new OrphanDetector(clusterService.topologyService(), replicaService, placementDriver, /*lockManager,*/ clock);
+
+        txUnlockManager = new TxUnlockManager(clusterService, this, lockManager, placementDriver, clock);
     }
 
     @Override
@@ -566,6 +572,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         localNodeId = clusterService.topologyService().localMember().id();
         clusterService.messagingService().addMessageHandler(ReplicaMessageGroup.class, this);
         orphanDetector.start(txStateMap::get);
+        txUnlockManager.start();
     }
 
     @Override
@@ -574,12 +581,14 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     }
 
     @Override
-    public void stop() {
+    public void stop() throws Exception {
         if (!stopGuard.compareAndSet(false, true)) {
             return;
         }
 
         busyLock.block();
+
+        txUnlockManager.stop();
 
         shutdownAndAwaitTermination(cleanupExecutor, 10, TimeUnit.SECONDS);
     }
@@ -587,6 +596,16 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     @Override
     public LockManager lockManager() {
         return lockManager;
+    }
+
+    @Override
+    public CompletableFuture<Void> unlock(
+            Collection<TablePartitionId> partitions,
+            boolean commit,
+            @Nullable HybridTimestamp commitTimestamp,
+            UUID txId
+    ) {
+        return txUnlockManager.unlock(partitions, commit, commitTimestamp, txId);
     }
 
     @Override
@@ -796,7 +815,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         }
     }
 
-    private static class TransactionFailureHandler {
+    static class TransactionFailureHandler {
         private static final Set<Class<? extends Throwable>> RECOVERABLE = Set.of(
                 TimeoutException.class,
                 IOException.class,

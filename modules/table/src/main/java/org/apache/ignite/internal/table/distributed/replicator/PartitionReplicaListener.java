@@ -181,8 +181,6 @@ public class PartitionReplicaListener implements ReplicaListener {
 
     private static final int AWAIT_PRIMARY_REPLICA_TIMEOUT = 10;
 
-    private static final int ATTEMPTS_TO_CLEANUP_REPLICA = 5;
-
     private static final CompletableFuture<?> COMPLETED_EMPTY = completedFuture(null);
 
     /** Factory to create RAFT command messages. */
@@ -1539,39 +1537,31 @@ public class PartitionReplicaListener implements ReplicaListener {
             }
         }
 
-        CompletableFuture<?> changeStateFuture = finishTransaction(enlistedPartitions, txId, commit, commitTimestamp, txCoordinatorId);
-
-        return cleanup(changeStateFuture, enlistedPartitions, commit, commitTimestamp, txId, ATTEMPTS_TO_CLEANUP_REPLICA)
-                .thenRun(() -> markLocksReleased(
-                        txId,
-                        enlistedPartitions,
-                        commit ? COMMITED : ABORTED,
-                        commitTimestamp)
+        return finishTransaction(enlistedPartitions, txId, commit, commitTimestamp, txCoordinatorId)
+                .thenCompose(v -> txManager.unlock(enlistedPartitions, commit, commitTimestamp, txId))
+                .thenRun(() ->
+                        markLocksReleased(
+                                txId,
+                                enlistedPartitions,
+                                commit ? COMMITED : ABORTED,
+                                commitTimestamp)
                 );
     }
 
     private CompletableFuture<Void> cleanup(UUID txId, TxMeta txMeta) {
-        return cleanup(completedFuture(null), txMeta.enlistedPartitions(), txMeta.txState() == COMMITED, txMeta.commitTimestamp(), txId, 1);
-    }
+        Collection<TablePartitionId> enlistedPartitions = txMeta.enlistedPartitions();
+        boolean commit = txMeta.txState() == COMMITED;
+        HybridTimestamp commitTimestamp = txMeta.commitTimestamp();
 
-    // TODO https://issues.apache.org/jira/browse/IGNITE-20681 remove attempts count.
-    private CompletableFuture<Void> cleanup(
-            CompletableFuture<?> changeStateFuture,
-            Collection<TablePartitionId> enlistedPartitions,
-            boolean commit,
-            @Nullable HybridTimestamp commitTimestamp,
-            UUID txId,
-            int attemptsToCleanupReplica
-    ) {
         CompletableFuture<?>[] futures = enlistedPartitions.stream()
-                .map(partitionId -> changeStateFuture.thenCompose(ignored ->
-                        // TODO: IGNITE-20874 Use the node cleanup procedure instead of the replication group cleanup one.
-                        cleanupWithRetry(commit, commitTimestamp, txId, partitionId, attemptsToCleanupReplica)))
+                .map(partitionId ->
+                        cleanupWithRetry(commit, commitTimestamp, txId, partitionId, 1))
                 .toArray(size -> new CompletableFuture<?>[size]);
 
         return allOf(futures);
     }
 
+    // TODO https://issues.apache.org/jira/browse/IGNITE-20681 remove attempts count.
     private CompletableFuture<Void> cleanupWithRetry(
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp,
