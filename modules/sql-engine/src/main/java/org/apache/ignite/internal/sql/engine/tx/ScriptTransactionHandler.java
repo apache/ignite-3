@@ -45,7 +45,7 @@ import org.jetbrains.annotations.Nullable;
  * {@link SqlQueryType#TX_CONTROL} statements.
  */
 public class ScriptTransactionHandler extends QueryTransactionHandler {
-    /** Wraps a transaction initiated by a script control statement. */
+    /** Wraps a transaction, which is managed by SQL engine via {@link SqlQueryType#TX_CONTROL} statements. */
     private volatile @Nullable ManagedTransactionWrapper wrapper;
 
     public ScriptTransactionHandler(IgniteTransactions transactions, @Nullable InternalTransaction externalTransaction) {
@@ -135,7 +135,7 @@ public class ScriptTransactionHandler extends QueryTransactionHandler {
         }
     }
 
-    /** Wraps an explicit transaction initiated by a script control statement. */
+    /** Wraps a transaction, which is managed by SQL engine via {@link SqlQueryType#TX_CONTROL} statements. */
     private static class ManagedTransactionWrapper implements QueryTransactionWrapper {
         final InternalTransaction transaction;
 
@@ -198,8 +198,9 @@ public class ScriptTransactionHandler extends QueryTransactionHandler {
     }
 
     /**
-     * Holds a transaction initiated by a script control statement. Responsible for tracking and releasing resources
-     * associated with an explicit read-write transaction started from a script.
+     * Wraps a transaction, which is managed by SQL engine via {@link SqlQueryType#TX_CONTROL} statements.
+     * Responsible for tracking and releasing resources associated with an explicit read-write transaction
+     * started from a script.
      */
     private static class ManagedReadWriteTransactionWrapper extends ManagedTransactionWrapper {
         private final CompletableFuture<Void> finishTxFuture = new CompletableFuture<>();

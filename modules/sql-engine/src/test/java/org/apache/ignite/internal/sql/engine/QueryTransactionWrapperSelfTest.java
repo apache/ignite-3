@@ -52,7 +52,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
  * Tests for class {@link ImplicitTransactionWrapper}.
  */
 @ExtendWith(MockitoExtension.class)
-public class ImplicitTransactionWrapperSelfTest extends BaseIgniteAbstractTest {
+public class QueryTransactionWrapperSelfTest extends BaseIgniteAbstractTest {
     @Mock
     private IgniteTransactions transactions;
 
