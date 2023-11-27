@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.testframework;
 
+import com.typesafe.config.ConfigException;
 import com.typesafe.config.parser.ConfigDocument;
 import com.typesafe.config.parser.ConfigDocumentFactory;
 import java.io.IOException;
@@ -96,8 +97,6 @@ public class TestIgnitionManager {
      * @throws IgniteException If error occurs while reading node configuration.
      */
     public static CompletableFuture<Ignite> start(String nodeName, @Nullable String configStr, Path workDir) {
-        String enrichedConfig = enrichValidConfigWithTestDefaults(configStr);
-
         try {
             Files.createDirectories(workDir);
             Path configPath = workDir.resolve(DEFAULT_CONFIG_NAME);
