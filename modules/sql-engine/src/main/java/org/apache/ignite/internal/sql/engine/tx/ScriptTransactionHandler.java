@@ -103,20 +103,20 @@ public class ScriptTransactionHandler extends QueryTransactionHandler {
     }
 
     private QueryTransactionWrapper processTxControlStatement(SqlNode node) {
-        ManagedTransactionHandler txHolder = this.handler;
+        ManagedTransactionHandler handler = this.handler;
 
         if (node instanceof IgniteSqlCommitTransaction) {
-            if (txHolder == null) {
+            if (handler == null) {
                 return QueryTransactionWrapper.NOOP_TX_WRAPPER;
             }
 
             this.handler = null;
 
-            return txHolder.handleCommit();
+            return handler.handleCommit();
         } else {
             assert node instanceof IgniteSqlStartTransaction : node == null ? "null" : node.getClass().getName();
 
-            if (txHolder != null) {
+            if (handler != null) {
                 throw new SqlException(RUNTIME_ERR, "Nested transactions are not supported.");
             }
 
@@ -127,11 +127,11 @@ public class ScriptTransactionHandler extends QueryTransactionHandler {
 
             InternalTransaction tx = (InternalTransaction) transactions.begin(options);
 
-            txHolder = tx.isReadOnly() ? new ManagedTransactionHandler(tx) : new ManagedReadWriteTransactionHandler(tx);
+            handler = tx.isReadOnly() ? new ManagedTransactionHandler(tx) : new ManagedReadWriteTransactionHandler(tx);
 
-            this.handler = txHolder;
+            this.handler = handler;
 
-            return txHolder.handleStart();
+            return handler.handleStart();
         }
     }
 
