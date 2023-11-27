@@ -2051,7 +2051,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      * @return Future that will be completed after all resources have been closed.
      */
     private CompletableFuture<Void> stopPartition(TablePartitionId tablePartitionId, TableImpl table) {
-        // TODO: IGNITE-19905 - remove the check.
         if (table != null) {
             closePartitionTrackers(table.internalTable(), tablePartitionId.partitionId());
         }
@@ -2079,7 +2078,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
     private CompletableFuture<Void> destroyPartitionStorages(TablePartitionId tablePartitionId, TableImpl table) {
         // TODO: IGNITE-18703 Destroy raft log and meta
-        // TODO: IGNITE-19905 - remove the check.
         if (table == null) {
             return completedFuture(null);
         }
