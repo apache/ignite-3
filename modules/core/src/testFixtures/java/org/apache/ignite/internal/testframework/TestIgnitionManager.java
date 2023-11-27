@@ -115,6 +115,11 @@ public class TestIgnitionManager {
     }
 
     private static void addDefaultsToConfigurationFile(@Nullable String configStr, Path configPath) throws IOException {
+        if (configStr == null && Files.exists(configPath)) {
+            // Nothing to do.
+            return;
+        }
+
         Files.writeString(configPath, applyTestDefaultsToConfig(configStr, DEFAULT_NODE_CONFIG),
                 StandardOpenOption.SYNC, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
     }
