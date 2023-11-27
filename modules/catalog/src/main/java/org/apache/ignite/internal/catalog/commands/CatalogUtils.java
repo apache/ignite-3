@@ -250,7 +250,8 @@ public class CatalogUtils {
             return false;
         }
 
-        if (newLength != null && newLength != origin.length() && origin.type() != ColumnType.STRING && origin.type() != ColumnType.BYTE_ARRAY) {
+        if (newLength != null && newLength != origin.length()
+                && origin.type() != ColumnType.STRING && origin.type() != ColumnType.BYTE_ARRAY) {
             listener.onFailure("Changing the length for column of type '{}' is not allowed", origin.type(), newType);
             return false;
         }
