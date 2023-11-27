@@ -26,6 +26,8 @@
 #include "odbc_test_utils.h"
 #include "test_utils.h"
 
+#include "tests/test-common/basic_auth_test_suite.h"
+
 #include <gtest/gtest.h>
 
 #include <memory>
@@ -39,7 +41,7 @@ namespace ignite {
 /**
  * Test suite.
  */
-class odbc_suite : public ::testing::Test, public odbc_connection {
+class odbc_suite : public odbc_connection, public basic_auth_test_suite {
 public:
     static inline const std::string TABLE_1 = "tbl1";
     static inline const std::string TABLE_NAME_ALL_COLUMNS = "tbl_all_columns";
@@ -70,6 +72,46 @@ public:
      */
     static std::string get_basic_connection_string() {
         return "driver={" + DRIVER_NAME + "};address=" + get_nodes_address() + ';';
+    }
+
+    /**
+     * Get node addresses and user credentials to use for tests.
+     *
+     * @return Addresses and credentials.
+     */
+    static std::string get_auth_connection_string() {
+        return get_basic_connection_string() + "identity=" + CORRECT_USERNAME + ';' + "secret=" + CORRECT_PASSWORD
+            + ';';
+    }
+
+    /**
+     * Get node addresses and user credentials with incorrect identity to use for tests.
+     *
+     * @return Addresses and credentials.
+     */
+    static std::string get_incorrect_identity_auth_connection_string() {
+        return get_basic_connection_string() + "identity=" + INCORRECT_USERNAME + ';' + "secret=" + CORRECT_PASSWORD
+            + ';';
+    }
+
+    /**
+     * Get node addresses and user credentials with incorrect secret to use for tests.
+     *
+     * @return Addresses and credentials.
+     */
+    static std::string get_incorrect_secret_auth_connection_string() {
+        return get_basic_connection_string() + "identity=" + CORRECT_USERNAME + ';' + "secret=" + INCORRECT_PASSWORD
+            + ';';
+    }
+
+    /**
+     * Get node addresses and user credentials with incorrect identity and secret to use for tests.
+     *
+     * @return Addresses and credentials.
+     */
+    static std::string get_incorrect_auth_connection_string() {
+        return get_basic_connection_string() + "identity=" + INCORRECT_USERNAME + ';' + "secret=" + INCORRECT_PASSWORD
+            + ';';
     }
 };
 
