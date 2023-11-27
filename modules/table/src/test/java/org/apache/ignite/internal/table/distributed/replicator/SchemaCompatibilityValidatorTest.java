@@ -45,7 +45,6 @@ import static org.apache.ignite.sql.ColumnType.TIME;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
@@ -68,8 +67,8 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.table.distributed.schema.AlwaysSyncedSchemaSyncService;
 import org.apache.ignite.internal.table.distributed.schema.FullTableSchema;
-import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
 import org.apache.ignite.internal.table.distributed.schema.ValidationSchemasSource;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tx.TransactionIds;
@@ -81,7 +80,6 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -93,10 +91,6 @@ class SchemaCompatibilityValidatorTest extends BaseIgniteAbstractTest {
     @Mock
     private CatalogService catalogService;
 
-    @Mock
-    private SchemaSyncService schemaSyncService;
-
-    @InjectMocks
     private SchemaCompatibilityValidator validator;
 
     private final HybridTimestamp beginTimestamp = new HybridTimestamp(1, 1);
@@ -112,9 +106,10 @@ class SchemaCompatibilityValidatorTest extends BaseIgniteAbstractTest {
     private final TablePartitionId tablePartitionId = new TablePartitionId(TABLE_ID, 0);
 
     @BeforeEach
-    void configureMocks() {
-        when(schemaSyncService.waitForMetadataCompleteness(any())).thenReturn(completedFuture(null));
+    void createValidatorAndInitMocks() {
         lenient().when(catalogService.table(TABLE_ID, commitTimestamp.longValue())).thenReturn(mock(CatalogTableDescriptor.class));
+
+        validator = new SchemaCompatibilityValidator(schemasSource, catalogService, new AlwaysSyncedSchemaSyncService());
     }
 
     @ParameterizedTest
