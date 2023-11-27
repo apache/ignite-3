@@ -17,13 +17,17 @@
 
 package org.apache.ignite.internal.testframework;
 
+import static java.nio.file.StandardOpenOption.CREATE;
+import static java.nio.file.StandardOpenOption.SYNC;
+import static java.nio.file.StandardOpenOption.TRUNCATE_EXISTING;
+import static org.apache.ignite.internal.util.Constants.MiB;
+
 import com.typesafe.config.ConfigException;
 import com.typesafe.config.parser.ConfigDocument;
 import com.typesafe.config.parser.ConfigDocumentFactory;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardOpenOption;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
@@ -32,7 +36,6 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.InitParametersBuilder;
-import org.apache.ignite.internal.util.Constants;
 import org.apache.ignite.lang.IgniteException;
 import org.jetbrains.annotations.Nullable;
 
@@ -55,9 +58,9 @@ public class TestIgnitionManager {
     /** Map with default node configuration values. */
     private static final Map<String, String> DEFAULT_NODE_CONFIG = Map.of(
             "network.membership.scaleCube.metadataTimeout", Integer.toString(DEFAULT_SCALECUBE_METADATA_TIMEOUT),
-            "aipersist.defaultRegion.size", Integer.toString(256 * Constants.MiB),
-            "aimem.defaultRegion.initSize", Integer.toString(256 * Constants.MiB),
-            "aimem.defaultRegion.maxSize", Integer.toString(256 * Constants.MiB)
+            "aipersist.defaultRegion.size", Integer.toString(256 * MiB),
+            "aimem.defaultRegion.initSize", Integer.toString(256 * MiB),
+            "aimem.defaultRegion.maxSize", Integer.toString(256 * MiB)
     );
 
     /** Map with default cluster configuration values. */
@@ -126,8 +129,7 @@ public class TestIgnitionManager {
             return;
         }
 
-        Files.writeString(configPath, applyTestDefaultsToConfig(configStr, DEFAULT_NODE_CONFIG),
-                StandardOpenOption.SYNC, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+        Files.writeString(configPath, applyTestDefaultsToConfig(configStr, DEFAULT_NODE_CONFIG), SYNC, CREATE, TRUNCATE_EXISTING);
     }
 
     /**
