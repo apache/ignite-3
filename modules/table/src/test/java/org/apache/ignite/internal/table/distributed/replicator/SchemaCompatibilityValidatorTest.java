@@ -28,8 +28,6 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.sql.ColumnType.BITMASK;
 import static org.apache.ignite.sql.ColumnType.BOOLEAN;
 import static org.apache.ignite.sql.ColumnType.BYTE_ARRAY;
-import static org.apache.ignite.sql.ColumnType.DATE;
-import static org.apache.ignite.sql.ColumnType.DATETIME;
 import static org.apache.ignite.sql.ColumnType.DECIMAL;
 import static org.apache.ignite.sql.ColumnType.DOUBLE;
 import static org.apache.ignite.sql.ColumnType.DURATION;
@@ -41,7 +39,6 @@ import static org.apache.ignite.sql.ColumnType.INT8;
 import static org.apache.ignite.sql.ColumnType.NUMBER;
 import static org.apache.ignite.sql.ColumnType.PERIOD;
 import static org.apache.ignite.sql.ColumnType.STRING;
-import static org.apache.ignite.sql.ColumnType.TIME;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
@@ -171,45 +168,12 @@ class SchemaCompatibilityValidatorTest extends BaseIgniteAbstractTest {
             changes.add(new ColumnTypeChange(pair.get1(), pair.get2()));
         }
 
-        // Integral types to NUMBER with enough precision.
-        changes.add(new ColumnTypeChange(INT8, number(3)));
-        changes.add(new ColumnTypeChange(INT16, number(5)));
-        changes.add(new ColumnTypeChange(INT32, number(9)));
-        changes.add(new ColumnTypeChange(INT64, number(17)));
-
-        // Integral types to DECIMAL with enough precision and zero scale.
-        changes.add(new ColumnTypeChange(INT8, decimal(3, 0)));
-        changes.add(new ColumnTypeChange(INT16, decimal(5, 0)));
-        changes.add(new ColumnTypeChange(INT32, decimal(9, 0)));
-        changes.add(new ColumnTypeChange(INT64, decimal(17, 0)));
-
-        // NUMBER to DECIMAL with enough precision and non-zero scale.
-        changes.add(new ColumnTypeChange(number(9), decimal(10, 1)));
-        changes.add(new ColumnTypeChange(number(9), decimal(11, 1)));
-
-        // NUMBER to DECIMAL with enough precision and zero scale.
-        changes.add(new ColumnTypeChange(number(10), decimal(10, 0)));
-        changes.add(new ColumnTypeChange(number(10), decimal(11, 0)));
-
-        // DECIMAL (with scale=0) TO NUMBER with enough precision.
-        changes.add(new ColumnTypeChange(decimal(10, 0), number(10)));
-
         // Increasing precision.
-        changes.add(new ColumnTypeChange(decimal(10, 5), decimal(15, 5)));
+        changes.add(new ColumnTypeChange(decimal(10, 5), decimal(11, 5)));
 
         // Increasing length.
         changes.add(new ColumnTypeChange(string(10), string(20)));
         changes.add(new ColumnTypeChange(byteArray(10), byteArray(20)));
-
-        // Conversions to STRING with enough length.
-        changes.add(new ColumnTypeChange(INT8, string(4)));
-        changes.add(new ColumnTypeChange(INT16, string(6)));
-        changes.add(new ColumnTypeChange(INT32, string(10)));
-        changes.add(new ColumnTypeChange(INT64, string(18)));
-        changes.add(new ColumnTypeChange(decimal(10, 0), string(11)));
-        changes.add(new ColumnTypeChange(decimal(10, 3), string(12)));
-        changes.add(new ColumnTypeChange(number(10), string(11)));
-        changes.add(new ColumnTypeChange(ColumnType.UUID, string(36)));
 
         return changes.stream().map(Arguments::of);
     }
@@ -218,7 +182,6 @@ class SchemaCompatibilityValidatorTest extends BaseIgniteAbstractTest {
         List<IgniteBiTuple<ColumnType, ColumnType>> changes = new ArrayList<>();
 
         List<ColumnType> intTypes = List.of(INT8, INT16, INT32, INT64);
-        List<ColumnType> floatingPointTypes = List.of(FLOAT, DOUBLE);
 
         // INT8->INT16->INT32->INT64.
         for (int i = 0; i < intTypes.size() - 1; i++) {
@@ -230,17 +193,7 @@ class SchemaCompatibilityValidatorTest extends BaseIgniteAbstractTest {
             }
         }
 
-        // Integral types to floating point types.
-        for (ColumnType intType : List.of(INT8, INT16)) {
-            for (ColumnType floatingPointType : floatingPointTypes) {
-                changes.add(new IgniteBiTuple<>(intType, floatingPointType));
-            }
-        }
-
         changes.add(new IgniteBiTuple<>(FLOAT, DOUBLE));
-
-        changes.add(new IgniteBiTuple<>(DATE, DATETIME));
-        changes.add(new IgniteBiTuple<>(TIME, DATETIME));
 
         return List.copyOf(changes);
     }
@@ -290,45 +243,41 @@ class SchemaCompatibilityValidatorTest extends BaseIgniteAbstractTest {
             }
         }
 
-        // Integral types to NUMBER with NOT enough precision.
-        changes.add(new ColumnTypeChange(INT8, number(2)));
-        changes.add(new ColumnTypeChange(INT16, number(4)));
-        changes.add(new ColumnTypeChange(INT32, number(8)));
-        changes.add(new ColumnTypeChange(INT64, number(16)));
-        // Integral types to DECIMAL with NOT enough precision and zero scale.
-        changes.add(new ColumnTypeChange(INT8, decimal(2, 0)));
-        changes.add(new ColumnTypeChange(INT16, decimal(4, 0)));
-        changes.add(new ColumnTypeChange(INT32, decimal(8, 0)));
-        changes.add(new ColumnTypeChange(INT64, decimal(16, 0)));
+        changes.add(new ColumnTypeChange(INT8, number(100)));
+        changes.add(new ColumnTypeChange(INT16, number(100)));
+        changes.add(new ColumnTypeChange(INT32, number(100)));
+        changes.add(new ColumnTypeChange(INT64, number(100)));
+        changes.add(new ColumnTypeChange(INT8, decimal(100, 0)));
+        changes.add(new ColumnTypeChange(INT16, decimal(100, 0)));
+        changes.add(new ColumnTypeChange(INT32, decimal(100, 0)));
+        changes.add(new ColumnTypeChange(INT64, decimal(100, 0)));
 
-        // NUMBER to DECIMAL with enough precision and zero scale.
-        changes.add(new ColumnTypeChange(number(10), decimal(9, 0)));
+        changes.add(new ColumnTypeChange(number(10), decimal(100, 0)));
 
         // Decreasing precision.
         changes.add(new ColumnTypeChange(decimal(10, 5), decimal(9, 5)));
+        changes.add(new ColumnTypeChange(number(10), number(9)));
 
+        // Decreasing length.
         changes.add(new ColumnTypeChange(string(10), string(9)));
         changes.add(new ColumnTypeChange(byteArray(10), byteArray(9)));
 
-        // Conversions to STRING with NOT enough length.
-        changes.add(new ColumnTypeChange(INT8, string(3)));
-        changes.add(new ColumnTypeChange(INT16, string(5)));
-        changes.add(new ColumnTypeChange(INT32, string(9)));
-        changes.add(new ColumnTypeChange(INT64, string(17)));
-        changes.add(new ColumnTypeChange(decimal(10, 0), string(10)));
-        changes.add(new ColumnTypeChange(decimal(10, 3), string(11)));
-        changes.add(new ColumnTypeChange(number(10), string(10)));
-        changes.add(new ColumnTypeChange(ColumnType.UUID, string(35)));
-        changes.add(new ColumnTypeChange(string(10), string(9)));
+        // Conversions to STRING.
+        changes.add(new ColumnTypeChange(INT8, string(100)));
+        changes.add(new ColumnTypeChange(INT16, string(100)));
+        changes.add(new ColumnTypeChange(INT32, string(100)));
+        changes.add(new ColumnTypeChange(INT64, string(100)));
+        changes.add(new ColumnTypeChange(decimal(10, 0), string(100)));
+        changes.add(new ColumnTypeChange(number(10), string(100)));
+        changes.add(new ColumnTypeChange(ColumnType.UUID, string(100)));
 
         // Conversions from STRING.
-        changes.add(new ColumnTypeChange(string(3), INT8));
-        changes.add(new ColumnTypeChange(string(5), INT16));
-        changes.add(new ColumnTypeChange(string(9), INT32));
-        changes.add(new ColumnTypeChange(string(17), INT64));
-        changes.add(new ColumnTypeChange(string(10), decimal(10, 0)));
-        changes.add(new ColumnTypeChange(string(11), decimal(10, 3)));
-        changes.add(new ColumnTypeChange(string(10), number(10)));
+        changes.add(new ColumnTypeChange(string(1), INT8));
+        changes.add(new ColumnTypeChange(string(1), INT16));
+        changes.add(new ColumnTypeChange(string(1), INT32));
+        changes.add(new ColumnTypeChange(string(1), INT64));
+        changes.add(new ColumnTypeChange(string(1), decimal(10, 0)));
+        changes.add(new ColumnTypeChange(string(1), number(10)));
         changes.add(new ColumnTypeChange(string(36), ColumnType.UUID));
 
         for (ColumnType columnType : ColumnType.values()) {

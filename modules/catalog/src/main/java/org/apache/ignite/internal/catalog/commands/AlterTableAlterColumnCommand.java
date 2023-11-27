@@ -44,6 +44,10 @@ public class AlterTableAlterColumnCommand extends AbstractTableCommand {
         return new Builder();
     }
 
+    private static final TypeChangeValidationListener TYPE_CHANGE_VALIDATION_HANDLER = (pattern, originalType, newType) -> {
+        throw new CatalogValidationException(String.format(pattern, originalType, newType));
+    };
+
     private final String columnName;
 
     private final @Nullable ColumnType type;
@@ -145,31 +149,7 @@ public class AlterTableAlterColumnCommand extends AbstractTableCommand {
     }
 
     private void validateColumnChange(CatalogTableColumnDescriptor origin) {
-        if (type != null && type != origin.type()) {
-            if (!CatalogUtils.isSupportedColumnTypeChange(origin.type(), type)) {
-                throw new CatalogValidationException(format("Changing the type from {} to {} is not allowed", origin.type(), type));
-            }
-        }
-
-        if (precision != null && precision != origin.precision() && origin.type() != ColumnType.DECIMAL) {
-            throw new CatalogValidationException(format("Changing the precision for column of type '{}' is not allowed", origin.type()));
-        }
-
-        if (precision != null && precision < origin.precision()) {
-            throw new CatalogValidationException("Decreasing the precision is not allowed");
-        }
-
-        if (scale != null && scale != origin.scale()) {
-            throw new CatalogValidationException("Changing the scale is not allowed");
-        }
-
-        if (length != null && length != origin.length() && origin.type() != ColumnType.STRING && origin.type() != ColumnType.BYTE_ARRAY) {
-            throw new CatalogValidationException(format("Changing the length for column of type '{}' is not allowed", origin.type()));
-        }
-
-        if (length != null && length < origin.length()) {
-            throw new CatalogValidationException("Decreasing the length is not allowed");
-        }
+        CatalogUtils.validateColumnChange(origin, type, precision, scale, length, TYPE_CHANGE_VALIDATION_HANDLER);
 
         if (nullable != null && !nullable && origin.nullable()) {
             throw new CatalogValidationException("Adding NOT NULL constraint is not allowed");

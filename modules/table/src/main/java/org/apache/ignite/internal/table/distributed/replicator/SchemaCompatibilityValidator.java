@@ -394,7 +394,7 @@ class SchemaCompatibilityValidator {
                 return ValidatorVerdict.DONT_CARE;
             }
 
-            return diff.typeChangeIsLossless() ? ValidatorVerdict.COMPATIBLE : ValidatorVerdict.INCOMPATIBLE;
+            return diff.typeChangeIsSupported() ? ValidatorVerdict.COMPATIBLE : ValidatorVerdict.INCOMPATIBLE;
         }
     }
 }
