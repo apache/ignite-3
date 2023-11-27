@@ -294,12 +294,8 @@ class SchemaCompatibilityValidatorTest extends BaseIgniteAbstractTest {
 
     private static void addInconvertible(ColumnType type1, ColumnType type2, List<ColumnTypeChange> changes) {
         if (type1 != type2) {
-            if (type1 != STRING || type2.convertsToStringLosslessly()) {
-                changes.add(new ColumnTypeChange(type2, type1));
-            }
-            if (type2 != STRING || type1.convertsToStringLosslessly()) {
-                changes.add(new ColumnTypeChange(type1, type2));
-            }
+            changes.add(new ColumnTypeChange(type2, type1));
+            changes.add(new ColumnTypeChange(type1, type2));
         }
     }
 

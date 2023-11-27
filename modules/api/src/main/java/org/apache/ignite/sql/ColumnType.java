@@ -127,45 +127,4 @@ public enum ColumnType {
     public boolean lengthAllowed() {
         return lengthAllowed;
     }
-
-    /**
-     * Whether this type can be converted to STRING automatically without a loss of precision.
-     */
-    public boolean convertsToStringLosslessly() {
-        switch (this) {
-            case INT8:
-            case INT16:
-            case INT32:
-            case INT64:
-            case DECIMAL:
-            case UUID:
-            case STRING:
-            case NUMBER:
-                return true;
-            default:
-                return false;
-        }
-    }
-
-    /**
-     * Returns whether this is an integral type ({@link #INT8}, {@link #INT16}, {@link #INT32} or {@link #INT64}).
-     */
-    public boolean integral() {
-        switch (this) {
-            case INT8:
-            case INT16:
-            case INT32:
-            case INT64:
-                return true;
-            default:
-                return false;
-        }
-    }
-
-    /**
-     * Returns whether this is a floating point type.
-     */
-    public boolean floatingPoint() {
-        return this == FLOAT || this == DOUBLE;
-    }
 }
