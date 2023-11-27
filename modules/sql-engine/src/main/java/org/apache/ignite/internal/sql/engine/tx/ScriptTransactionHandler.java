@@ -45,8 +45,8 @@ import org.jetbrains.annotations.Nullable;
  * {@link SqlQueryType#TX_CONTROL} statements.
  */
 public class ScriptTransactionHandler extends QueryTransactionHandler {
-    /** Manages the explicit transaction initiated by the script and associated resources. */
-    private volatile @Nullable ManagedTransactionHandler handler;
+    /** Wraps a transaction initiated by a script control statement. */
+    private volatile @Nullable ManagedTransactionWrapper wrapper;
 
     public ScriptTransactionHandler(IgniteTransactions transactions, @Nullable InternalTransaction externalTransaction) {
         super(transactions, externalTransaction);
@@ -73,18 +73,18 @@ public class ScriptTransactionHandler extends QueryTransactionHandler {
                     throw new ExternalTransactionNotSupportedException();
                 }
 
-                return processTxControlStatement(parsedResult.parsedTree());
+                return handleTxControlStatement(parsedResult.parsedTree());
             }
 
-            ManagedTransactionHandler handler = this.handler;
+            ManagedTransactionWrapper wrapper = this.wrapper;
 
-            if (handler == null) {
+            if (wrapper == null) {
                 return startTxIfNeeded(queryType);
             }
 
-            validateStatement(parsedResult.queryType(), handler.transaction());
+            validateStatement(parsedResult.queryType(), wrapper.unwrap());
 
-            return handler.handleStatement(queryType, cursorFut);
+            return wrapper.forStatement(queryType, cursorFut);
         } catch (SqlException e) {
             InternalTransaction scriptTx = scriptTransaction();
 
@@ -97,26 +97,26 @@ public class ScriptTransactionHandler extends QueryTransactionHandler {
     }
 
     private @Nullable InternalTransaction scriptTransaction() {
-        ManagedTransactionHandler hld = handler;
+        ManagedTransactionWrapper hld = wrapper;
 
-        return hld != null ? hld.transaction() : null;
+        return hld != null ? hld.unwrap() : null;
     }
 
-    private QueryTransactionWrapper processTxControlStatement(SqlNode node) {
-        ManagedTransactionHandler handler = this.handler;
+    private QueryTransactionWrapper handleTxControlStatement(SqlNode node) {
+        ManagedTransactionWrapper txWrapper = this.wrapper;
 
         if (node instanceof IgniteSqlCommitTransaction) {
-            if (handler == null) {
+            if (txWrapper == null) {
                 return QueryTransactionWrapper.NOOP_TX_WRAPPER;
             }
 
-            this.handler = null;
+            this.wrapper = null;
 
-            return handler.handleCommit();
+            return txWrapper.forCommit();
         } else {
             assert node instanceof IgniteSqlStartTransaction : node == null ? "null" : node.getClass().getName();
 
-            if (handler != null) {
+            if (txWrapper != null) {
                 throw new SqlException(RUNTIME_ERR, "Nested transactions are not supported.");
             }
 
@@ -127,63 +127,75 @@ public class ScriptTransactionHandler extends QueryTransactionHandler {
 
             InternalTransaction tx = (InternalTransaction) transactions.begin(options);
 
-            handler = tx.isReadOnly() ? new ManagedTransactionHandler(tx) : new ManagedReadWriteTransactionHandler(tx);
+            txWrapper = tx.isReadOnly() ? new ManagedTransactionWrapper(tx) : new ManagedReadWriteTransactionWrapper(tx);
 
-            this.handler = handler;
+            this.wrapper = txWrapper;
 
-            return handler.handleStart();
+            return txWrapper;
         }
     }
 
-    /** Holds a transaction initiated by a script control statement. */
-    private static class ManagedTransactionHandler {
-        private final InternalTransaction transaction;
-        private final QueryTransactionWrapper noCommitWrapper;
+    /** Wraps an explicit transaction initiated by a script control statement. */
+    private static class ManagedTransactionWrapper implements QueryTransactionWrapper {
+        final InternalTransaction transaction;
 
-        private ManagedTransactionHandler(InternalTransaction transaction) {
+        private ManagedTransactionWrapper(InternalTransaction transaction) {
             this.transaction = transaction;
-            this.noCommitWrapper = new ImplicitTransactionWrapper(transaction, false);
         }
 
-        InternalTransaction transaction() {
+        @Override
+        public InternalTransaction unwrap() {
             return transaction;
         }
 
-        QueryTransactionWrapper handleStart() {
-            return noCommitWrapper;
+        @Override
+        public CompletableFuture<Void> commitImplicit() {
+            return Commons.completedFuture();
         }
 
-        QueryTransactionWrapper handleCommit() {
+        @Override
+        public CompletableFuture<Void> rollback() {
+            return transaction.rollbackAsync();
+        }
+
+        /** Returns a transaction wrapper that is responsible for committing script-driven transaction. */
+        QueryTransactionWrapper forCommit() {
             return new ImplicitTransactionWrapper(transaction, true);
         }
 
-        QueryTransactionWrapper handleStatement(SqlQueryType queryType, CompletableFuture<? extends AsyncCursor<?>> cursorFut) {
-            return noCommitWrapper;
+        /** Returns a transaction wrapper that is responsible for processing a statement within a script-driven transaction. */
+        QueryTransactionWrapper forStatement(SqlQueryType queryType, CompletableFuture<? extends AsyncCursor<?>> cursorFut) {
+            return this;
         }
     }
 
-    /** Responsible for tracking and releasing resources associated with an explicit read-write transaction started from a script. */
-    private static class ManagedReadWriteTransactionHandler extends ManagedTransactionHandler {
-        private static final UUID commitId = UUID.randomUUID();
+    /**
+     * Holds a transaction initiated by a script control statement. Responsible for tracking and releasing resources
+     * associated with an explicit read-write transaction started from a script.
+     */
+    private static class ManagedReadWriteTransactionWrapper extends ManagedTransactionWrapper {
         private final CompletableFuture<Void> finishTxFuture = new CompletableFuture<>();
         private final List<CompletableFuture<? extends AsyncCursor<?>>> cursorsToCloseOnRollback = new CopyOnWriteArrayList<>();
         private final Set<UUID> cursorsToWaitBeforeCommit = ConcurrentHashMap.newKeySet();
 
-        private ManagedReadWriteTransactionHandler(InternalTransaction transaction) {
-            super(transaction);
+        /** */
+        private volatile boolean canCommit;
 
-            cursorsToWaitBeforeCommit.add(commitId);
+        private ManagedReadWriteTransactionWrapper(InternalTransaction transaction) {
+            super(transaction);
         }
 
         @Override
-        QueryTransactionWrapper handleCommit() {
-            tryCommit(commitId);
+        QueryTransactionWrapper forCommit() {
+            canCommit = true;
+
+            commitIfNeeded();
 
             return new ReadWriteTxCommitWrapper();
         }
 
         @Override
-        QueryTransactionWrapper handleStatement(SqlQueryType queryType, CompletableFuture<? extends AsyncCursor<?>> cursorFut) {
+        QueryTransactionWrapper forStatement(SqlQueryType queryType, CompletableFuture<? extends AsyncCursor<?>> cursorFut) {
             cursorsToCloseOnRollback.add(cursorFut);
 
             UUID cursorId = UUID.randomUUID();
@@ -195,9 +207,17 @@ public class ScriptTransactionHandler extends QueryTransactionHandler {
             return new ReadWriteTxStatementWrapper(cursorId);
         }
 
-        CompletableFuture<Void> tryCommit(UUID cursorId) {
-            if (cursorsToWaitBeforeCommit.remove(cursorId) && cursorsToWaitBeforeCommit.isEmpty()) {
-                return transaction().commitAsync()
+        private CompletableFuture<Void> tryCommit(UUID cursorId) {
+            if (cursorsToWaitBeforeCommit.remove(cursorId)) {
+                return commitIfNeeded();
+            }
+
+            return Commons.completedFuture();
+        }
+
+        private CompletableFuture<Void> commitIfNeeded() {
+            if (canCommit && cursorsToWaitBeforeCommit.isEmpty()) {
+                return transaction.commitAsync()
                         .whenComplete((r, e) -> finishTxFuture.complete(null));
             }
 
@@ -207,7 +227,7 @@ public class ScriptTransactionHandler extends QueryTransactionHandler {
         class ReadWriteTxCommitWrapper implements QueryTransactionWrapper {
             @Override
             public InternalTransaction unwrap() {
-                return transaction();
+                return transaction;
             }
 
             @Override
@@ -217,7 +237,7 @@ public class ScriptTransactionHandler extends QueryTransactionHandler {
 
             @Override
             public CompletableFuture<Void> rollback() {
-                return transaction().rollbackAsync();
+                return Commons.completedFuture();
             }
 
             @Override
@@ -226,16 +246,11 @@ public class ScriptTransactionHandler extends QueryTransactionHandler {
             }
         }
 
-        class ReadWriteTxStatementWrapper implements QueryTransactionWrapper {
+        class ReadWriteTxStatementWrapper extends ReadWriteTxCommitWrapper {
             private final UUID cursorId;
 
             ReadWriteTxStatementWrapper(UUID cursorId) {
                 this.cursorId = cursorId;
-            }
-
-            @Override
-            public InternalTransaction unwrap() {
-                return transaction();
             }
 
             @Override
@@ -250,7 +265,7 @@ public class ScriptTransactionHandler extends QueryTransactionHandler {
 
             @Override
             public CompletableFuture<Void> rollback() {
-                // Close all cursors.
+                // Close all associated cursors.
                 for (CompletableFuture<? extends AsyncCursor<?>> fut : cursorsToCloseOnRollback) {
                     fut.whenComplete((cursor, ex) -> {
                         if (cursor != null) {
@@ -259,7 +274,7 @@ public class ScriptTransactionHandler extends QueryTransactionHandler {
                     });
                 }
 
-                return transaction().rollbackAsync();
+                return transaction.rollbackAsync();
             }
         }
     }
