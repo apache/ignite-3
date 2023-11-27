@@ -20,7 +20,7 @@ package org.apache.ignite.internal.table.distributed.replication.request;
 import java.util.List;
 import java.util.UUID;
 import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
-import org.apache.ignite.internal.replicator.message.ReplicaRequest;
+import org.apache.ignite.internal.replicator.message.PrimaryReplicaRequest;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
 import org.apache.ignite.network.annotations.Transferable;
 
@@ -30,7 +30,7 @@ import org.apache.ignite.network.annotations.Transferable;
  * <p>It is possible to receive a {@link PrimaryReplicaMissException} in response to message processing if the leaseholder changes.</p>
  */
 @Transferable(TableMessageGroup.BUILD_INDEX_REPLICA_REQUEST)
-public interface BuildIndexReplicaRequest extends ReplicaRequest {
+public interface BuildIndexReplicaRequest extends PrimaryReplicaRequest {
     /** Returns index ID. */
     int indexId();
 
@@ -39,7 +39,4 @@ public interface BuildIndexReplicaRequest extends ReplicaRequest {
 
     /** Returns {@code true} if this batch is the last one. */
     boolean finish();
-
-    /** Returns an enlistment consistency token is used to check that the lease is still actual while the message goes to the replica. */
-    long enlistmentConsistencyToken();
 }

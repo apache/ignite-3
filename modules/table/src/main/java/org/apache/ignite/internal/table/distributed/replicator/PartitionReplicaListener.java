@@ -91,6 +91,7 @@ import org.apache.ignite.internal.replicator.exception.ReplicationMaxRetriesExce
 import org.apache.ignite.internal.replicator.exception.ReplicationTimeoutException;
 import org.apache.ignite.internal.replicator.exception.UnsupportedReplicaRequestException;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
+import org.apache.ignite.internal.replicator.message.PrimaryReplicaRequest;
 import org.apache.ignite.internal.replicator.message.ReadOnlyDirectReplicaRequest;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
@@ -3355,32 +3356,20 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @return Future. The result is not {@code null} only for {@link ReadOnlyReplicaRequest}. If {@code true}, then replica is primary.
      */
     private CompletableFuture<Boolean> ensureReplicaIsPrimary(ReplicaRequest request) {
-        Long expectedTerm;
+        long expectedTerm;
 
-        // TODO: IGNITE-20875 Add enlistment consistency token to PrimaryReplicaTestRequest interface.
-        if (request instanceof ReadWriteReplicaRequest) {
-            expectedTerm = ((ReadWriteReplicaRequest) request).term();
+        if (request instanceof PrimaryReplicaRequest) {
+            expectedTerm = ((PrimaryReplicaRequest) request).enlistmentConsistencyToken();
 
-            assert expectedTerm != null;
-        } else if (request instanceof TxFinishReplicaRequest) {
-            expectedTerm = ((TxFinishReplicaRequest) request).term();
-
-            assert expectedTerm != null;
-        } else if (request instanceof ReadOnlyDirectReplicaRequest) {
-            expectedTerm = ((ReadOnlyDirectReplicaRequest) request).enlistmentConsistencyToken();
-
-            assert expectedTerm != null;
-        } else if (request instanceof BuildIndexReplicaRequest) {
-            expectedTerm = ((BuildIndexReplicaRequest) request).enlistmentConsistencyToken();
-        } else if (request instanceof TxRecoveryMessage) {
-            expectedTerm = ((TxRecoveryMessage) request).enlistmentConsistencyToken();
+            assert expectedTerm != 0 :
+                    "Consistency token was not set for request to primary replicate [reqType=" + request.getClass().getSimpleName() + "].";
         } else {
-            expectedTerm = null;
+            expectedTerm = 0;
         }
 
         HybridTimestamp now = hybridClock.now();
 
-        if (expectedTerm != null) {
+        if (expectedTerm != 0) {
             return placementDriver.getPrimaryReplica(replicationGroupId, now)
                     .thenCompose(primaryReplicaMeta -> {
                         if (primaryReplicaMeta == null) {

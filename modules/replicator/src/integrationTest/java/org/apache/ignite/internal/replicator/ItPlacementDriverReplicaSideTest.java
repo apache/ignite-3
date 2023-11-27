@@ -276,6 +276,7 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
         new ReplicaService(clusterService.messagingService(), clock).invoke(
                 clusterService.topologyService().getByConsistentId(leaderNodeName),
                 TEST_REPLICA_MESSAGES_FACTORY.primaryReplicaTestRequest()
+                        .enlistmentConsistencyToken(1L)
                         .groupId(GROUP_ID)
                         .build()
         );
@@ -335,6 +336,7 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
         new ReplicaService(clusterService.messagingService(), clock).invoke(
                 clusterService.topologyService().getByConsistentId(leaderNodeName),
                 TEST_REPLICA_MESSAGES_FACTORY.primaryReplicaTestRequest()
+                        .enlistmentConsistencyToken(1L)
                         .groupId(GROUP_ID)
                         .build()
         );
