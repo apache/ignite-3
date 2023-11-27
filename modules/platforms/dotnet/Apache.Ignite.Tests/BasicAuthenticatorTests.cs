@@ -29,7 +29,7 @@ public class BasicAuthenticatorTests : IgniteTestsBase
 {
     private const string EnableAuthnJob = "org.apache.ignite.internal.runner.app.PlatformTestNodeRunner$EnableAuthenticationJob";
 
-    private bool _authnEnabled;
+    private volatile bool _authnEnabled;
 
     [TearDown]
     public async Task DisableAuthenticationAfterTest() => await EnableAuthn(false);
@@ -118,7 +118,17 @@ public class BasicAuthenticatorTests : IgniteTestsBase
             {
                 try
                 {
-                    using var client2 = await IgniteClient.StartAsync(GetConfig(enableAuthn: false));
+                    // Ensure that all servers have applied the configuration change.
+                    for (int i = 0; i < 2; i++)
+                    {
+                        var cfg = new IgniteClientConfiguration(GetEndpoint(i))
+                        {
+                            RetryPolicy = RetryNonePolicy.Instance
+                        };
+
+                        using var client2 = await IgniteClient.StartAsync(cfg);
+                    }
+
                     return true;
                 }
                 catch (Exception)
