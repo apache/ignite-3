@@ -33,8 +33,7 @@ import java.util.EnumMap;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.Consumer;
+import java.util.concurrent.atomic.AtomicLong;
 import javax.net.ssl.SSLException;
 import org.apache.ignite.client.handler.configuration.ClientConnectorView;
 import org.apache.ignite.client.handler.requests.cluster.ClientClusterGetNodesRequest;
@@ -58,7 +57,7 @@ import org.apache.ignite.client.handler.requests.sql.ClientSqlCursorNextPageRequ
 import org.apache.ignite.client.handler.requests.sql.ClientSqlExecuteRequest;
 import org.apache.ignite.client.handler.requests.table.ClientSchemasGetRequest;
 import org.apache.ignite.client.handler.requests.table.ClientTableGetRequest;
-import org.apache.ignite.client.handler.requests.table.ClientTablePartitionAssignmentGetRequest;
+import org.apache.ignite.client.handler.requests.table.ClientTablePartitionPrimaryReplicasGetRequest;
 import org.apache.ignite.client.handler.requests.table.ClientTablesGetRequest;
 import org.apache.ignite.client.handler.requests.table.ClientTupleContainsKeyRequest;
 import org.apache.ignite.client.handler.requests.table.ClientTupleDeleteAllExactRequest;
@@ -173,11 +172,10 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
     /** Chanel handler context. */
     private ChannelHandlerContext channelHandlerContext;
 
-    /** Whether the partition assignment has changed since the last server response. */
-    private final AtomicBoolean partitionAssignmentChanged = new AtomicBoolean();
+    /** Primary replicas update counter. */
+    private final AtomicLong primaryReplicaMaxStartTime;
 
-    /** Partition assignment change listener. */
-    private final Consumer<IgniteTablesInternal> partitionAssignmentsChangeListener;
+    private final ClientPrimaryReplicaTracker primaryReplicaTracker;
 
     /** Authentication manager. */
     private final AuthenticationManager authenticationManager;
@@ -215,7 +213,8 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
             HybridClock clock,
             SchemaSyncService schemaSyncService,
             CatalogService catalogService,
-            long connectionId
+            long connectionId,
+            ClientPrimaryReplicaTracker primaryReplicaTracker
     ) {
         assert igniteTables != null;
         assert igniteTransactions != null;
@@ -230,6 +229,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         assert clock != null;
         assert schemaSyncService != null;
         assert catalogService != null;
+        assert primaryReplicaTracker != null;
 
         this.igniteTables = igniteTables;
         this.igniteTransactions = igniteTransactions;
@@ -241,6 +241,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         this.metrics = metrics;
         this.authenticationManager = authenticationManager;
         this.clock = clock;
+        this.primaryReplicaTracker = primaryReplicaTracker;
 
         jdbcQueryCursorHandler = new JdbcQueryCursorHandlerImpl(resources);
         jdbcQueryEventHandler = new JdbcQueryEventHandlerImpl(
@@ -250,11 +251,10 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
                 igniteTransactions
         );
 
-        this.partitionAssignmentsChangeListener = this::onPartitionAssignmentChanged;
-        igniteTables.addAssignmentsChangeListener(partitionAssignmentsChangeListener);
-
         schemaVersions = new SchemaVersionsImpl(schemaSyncService, catalogService, clock);
         this.connectionId = connectionId;
+
+        this.primaryReplicaMaxStartTime = new AtomicLong(HybridTimestamp.MIN_VALUE.longValue());
     }
 
     @Override
@@ -291,7 +291,6 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
     @Override
     public void channelInactive(ChannelHandlerContext ctx) throws Exception {
         resources.close();
-        igniteTables.removeAssignmentsChangeListener(partitionAssignmentsChangeListener);
 
         super.channelInactive(ctx);
 
@@ -683,7 +682,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
                 return ClientSqlCursorCloseRequest.process(in, out, resources, igniteTransactions);
 
             case ClientOp.PARTITION_ASSIGNMENT_GET:
-                return ClientTablePartitionAssignmentGetRequest.process(in, out, igniteTables);
+                return ClientTablePartitionPrimaryReplicasGetRequest.process(in, out, primaryReplicaTracker);
 
             case ClientOp.JDBC_TX_FINISH:
                 return ClientJdbcFinishTxRequest.process(in, out, jdbcQueryEventHandler);
@@ -694,19 +693,25 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
     }
 
     private void writeFlags(ClientMessagePacker out, ChannelHandlerContext ctx) {
-        boolean assignmentChanged = partitionAssignmentChanged.compareAndSet(true, false);
+        // Notify the client about primary replica change that happened for ANY table since the last request.
+        // We can't assume that the client only uses uses a particular table (e.g. the one present in the replica tracker), because
+        // the client can be connected to multiple nodes.
+        long lastSentMaxStartTime = primaryReplicaMaxStartTime.get();
+        long currentMaxStartTime = primaryReplicaTracker.maxStartTime();
+        boolean primaryReplicasUpdated = currentMaxStartTime > lastSentMaxStartTime
+                && primaryReplicaMaxStartTime.compareAndSet(lastSentMaxStartTime, currentMaxStartTime);
 
-        if (assignmentChanged && LOG.isInfoEnabled()) {
-            LOG.info("Partition assignment changed, notifying client [connectionId=" + connectionId + ", remoteAddress="
+        if (primaryReplicasUpdated && LOG.isInfoEnabled()) {
+            LOG.info("Partition primary replica changed, notifying client [connectionId=" + connectionId + ", remoteAddress="
                     + ctx.channel().remoteAddress() + ']');
         }
 
-        var flags = ResponseFlags.getFlags(assignmentChanged);
+        int flags = ResponseFlags.getFlags(primaryReplicasUpdated);
         out.packInt(flags);
-    }
 
-    private void onPartitionAssignmentChanged(IgniteTablesInternal tables) {
-        partitionAssignmentChanged.set(true);
+        if (primaryReplicasUpdated) {
+            out.packLong(currentMaxStartTime);
+        }
     }
 
     /** {@inheritDoc} */
