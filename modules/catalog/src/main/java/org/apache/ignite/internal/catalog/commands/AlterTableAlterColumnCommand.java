@@ -45,7 +45,7 @@ public class AlterTableAlterColumnCommand extends AbstractTableCommand {
     }
 
     private static final TypeChangeValidationListener TYPE_CHANGE_VALIDATION_HANDLER = (pattern, originalType, newType) -> {
-        throw new CatalogValidationException(String.format(pattern, originalType, newType));
+        throw new CatalogValidationException(format(pattern, originalType, newType));
     };
 
     private final String columnName;
