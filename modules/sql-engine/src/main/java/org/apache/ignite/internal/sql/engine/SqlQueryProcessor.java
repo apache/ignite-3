@@ -364,7 +364,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
             result.add(f.handle((primaryReplica, e) -> {
                 if (e != null) {
-                    LOG.error("Failed to retrieve primary replica for partition {}", e, partitionId);
+                    LOG.debug("Failed to retrieve primary replica for partition {}", e, partitionId);
 
                     throw withCause(IgniteInternalException::new, REPLICA_UNAVAILABLE_ERR, "Failed to get the primary replica"
                             + " [tablePartitionId=" + partGroupId + ']', e);
@@ -373,14 +373,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
                     assert holder != null : "Unable to map query, nothing holds the lease";
 
-                    ClusterNode node = clusterSrvc.topologyService().getByConsistentId(holder);
-
-                    if (node == null) {
-                        // additional recovery logic is need to be present around here.
-                        throw new IgniteInternalException(Sql.MAPPING_ERR, "Unable to map query, node is lost or offline");
-                    }
-
-                    return new NodeWithTerm(node.name(), primaryReplica.getStartTime().longValue());
+                    return new NodeWithTerm(holder, primaryReplica.getStartTime().longValue());
                 }
             }));
         }
