@@ -119,13 +119,9 @@ public class BasicAuthenticatorTests : IgniteTestsBase
                 try
                 {
                     // Ensure that all servers have applied the configuration change.
-                    for (int i = 0; i < 2; i++)
+                    foreach (var endpoint in GetConfig().Endpoints)
                     {
-                        var cfg = new IgniteClientConfiguration(GetEndpoint(i))
-                        {
-                            RetryPolicy = RetryNonePolicy.Instance
-                        };
-
+                        var cfg = new IgniteClientConfiguration(endpoint);
                         using var client2 = await IgniteClient.StartAsync(cfg);
                     }
 
