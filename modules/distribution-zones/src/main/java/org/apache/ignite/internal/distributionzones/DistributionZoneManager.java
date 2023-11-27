@@ -86,6 +86,7 @@ import java.util.function.LongFunction;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.events.AlterZoneEventParameters;
+import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.events.CreateZoneEventParameters;
 import org.apache.ignite.internal.catalog.events.DropZoneEventParameters;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
@@ -290,13 +291,22 @@ public class DistributionZoneManager implements IgniteComponent {
     }
 
     /**
-     * Returns the data nodes of the specified zone.
-     * See {@link CausalityDataNodesEngine#dataNodes(long, int)}.
+     * Gets data nodes of the zone using causality token and catalog version. {@code causalityToken} must be agreed
+     * with the {@code catalogVersion}, meaning that for the provided {@code causalityToken} actual {@code catalogVersion} must be provided.
+     * For example, if you are in the meta storage watch thread and {@code causalityToken} is the revision of the watch event, it is
+     * safe to take {@link CatalogManager#latestCatalogVersion()} as a {@code catalogVersion},
+     * because {@link CatalogManager#latestCatalogVersion()} won't be updated in a watch thread.
+     * The same is applied for {@link CatalogEventParameters}, it is safe to take {@link CatalogEventParameters#causalityToken()}
+     * as a {@code causalityToken} and {@link CatalogEventParameters#catalogVersion()} as a {@code catalogVersion}.
+     *
+     * <p>Return data nodes or throw the exception:
+     * {@link IllegalArgumentException} if causalityToken or zoneId is not valid.
+     * {@link DistributionZoneNotFoundException} if the zone with the provided zoneId does not exist.
      *
      * @param causalityToken Causality token.
      * @param catalogVersion Catalog version.
      * @param zoneId Zone id.
-     * @return The future which will be completed with data nodes for the zoneId or with exception.
+     * @return The future with data nodes for the zoneId.
      */
     public CompletableFuture<Set<String>> dataNodes(long causalityToken, int catalogVersion, int zoneId) {
         return causalityDataNodesEngine.dataNodes(causalityToken, catalogVersion, zoneId);
@@ -419,7 +429,7 @@ public class DistributionZoneManager implements IgniteComponent {
 
             Set<Node> dataNodes = logicalTopology.stream().map(NodeWithAttributes::node).collect(toSet());
 
-            causalityDataNodesEngine.onCreateOrRestoreZoneState(causalityToken, zone);
+            causalityDataNodesEngine.onCreateZoneState(causalityToken, zone);
 
             return initDataNodesAndTriggerKeysInMetaStorage(zoneId, causalityToken, dataNodes);
         } else {
@@ -440,8 +450,6 @@ public class DistributionZoneManager implements IgniteComponent {
 
             restoreTimers(zone, zoneState, maxScaleUpRevision, maxScaleDownRevision, filterUpdateRevision);
         }
-
-        causalityDataNodesEngine.onCreateOrRestoreZoneState(causalityToken, zone);
 
         return completedFuture(null);
     }

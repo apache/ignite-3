@@ -459,7 +459,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
     @ParameterizedTest
     @MethodSource("provideArgumentsRestartTests")
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20604")
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20605")
     public void testScaleUpTimerIsRestoredAfterRestart(String zoneName) throws Exception {
         PartialNode node = startPartialNode(0);
 
@@ -530,7 +530,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
     @ParameterizedTest
     @MethodSource("provideArgumentsRestartTests")
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20604")
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20605")
     public void testScaleUpTriggeredByFilterUpdateIsRestoredAfterRestart(String zoneName) throws Exception {
         PartialNode node = startPartialNode(0);
 
@@ -619,7 +619,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         assertValueInStorage(
                 metastore,
                 zoneDataNodesKey(zoneId),
-                (v) -> DistributionZonesUtil.dataNodes(fromBytes(v)).stream().map(Node::nodeName).collect(toSet()),
+                (v) -> dataNodes(fromBytes(v)).stream().map(Node::nodeName).collect(toSet()),
                 emptySet(),
                 TIMEOUT_MILLIS
         );
@@ -651,7 +651,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         assertValueInStorage(
                 metastore,
                 zoneDataNodesKey(zoneId),
-                (v) -> DistributionZonesUtil.dataNodes(fromBytes(v)).stream().map(Node::nodeName).collect(toSet()),
+                (v) -> dataNodes(fromBytes(v)).stream().map(Node::nodeName).collect(toSet()),
                 Set.of(B.name(), C.name()),
                 TIMEOUT_MILLIS
         );
@@ -659,7 +659,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
     @ParameterizedTest
     @MethodSource("provideArgumentsRestartTests")
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20604")
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20605")
     public void testScaleDownTimerIsRestoredAfterRestart(String zoneName) throws Exception {
         PartialNode node = startPartialNode(0);
 

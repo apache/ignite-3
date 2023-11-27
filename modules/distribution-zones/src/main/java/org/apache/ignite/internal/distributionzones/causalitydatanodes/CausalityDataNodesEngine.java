@@ -41,6 +41,7 @@ import java.util.function.Consumer;
 import java.util.function.LongFunction;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
+import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.causality.IncrementalVersionedValue;
 import org.apache.ignite.internal.causality.OutdatedTokenException;
 import org.apache.ignite.internal.causality.VersionedValue;
@@ -79,11 +80,10 @@ public class CausalityDataNodesEngine {
     private final Map<Integer, ZoneState> zonesState;
 
     /**
-     * The map which contains configuration changes which trigger zone's data nodes recalculation.
-     * zoneId -> (revision -> zoneConfiguration).
+     * The map which contains zones' create revision. It is updated only if the current node handled zone's create event.
      * TODO IGNITE-20050 Clean up this map.
      */
-    private final ConcurrentHashMap<Integer, Long> zonesCreateOrRestoreRevision = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<Integer, Long> zonesCreateRevision = new ConcurrentHashMap<>();
 
     /** Used to guarantee that the zone will be created before other components use the zone. */
     private final VersionedValue<Void> zonesVv;
@@ -114,22 +114,13 @@ public class CausalityDataNodesEngine {
     }
 
     /**
-     * Gets data nodes of the zone using causality token.
-     *
-     * <p>Return data nodes or throw the exception:
-     * {@link IllegalArgumentException} if causalityToken or zoneId is not valid.
-     * {@link DistributionZoneNotFoundException} if the zone with the provided zoneId does not exist.
-     *
-     * @param causalityToken Causality token.
-     * @param zoneId Zone id.
-     * @return The future with data nodes for the zoneId.
-     */
-    public CompletableFuture<Set<String>> dataNodes(long causalityToken, int zoneId) {
-        return dataNodes(causalityToken, catalogManager.latestCatalogVersion(), zoneId);
-    }
-
-    /**
-     * Gets data nodes of the zone using causality token.
+     * Gets data nodes of the zone using causality token and catalog version. {@code causalityToken} must be agreed
+     * with the {@code catalogVersion}, meaning that for the provided {@code causalityToken} actual {@code catalogVersion} must be provided.
+     * For example, if you are in the meta storage watch thread and {@code causalityToken} is the revision of the watch event, it is
+     * safe to take {@link CatalogManager#latestCatalogVersion()} as a {@code catalogVersion},
+     * because {@link CatalogManager#latestCatalogVersion()} won't be updated in a watch thread.
+     * The same is applied for {@link CatalogEventParameters}, it is safe to take {@link CatalogEventParameters#causalityToken()}
+     * as a {@code causalityToken} and {@link CatalogEventParameters#catalogVersion()} as a {@code catalogVersion}.
      *
      * <p>Return data nodes or throw the exception:
      * {@link IllegalArgumentException} if causalityToken or zoneId is not valid.
@@ -165,7 +156,7 @@ public class CausalityDataNodesEngine {
                 throw new DistributionZoneNotFoundException(zoneId);
             }
 
-            long createOrRestoreRevision = zonesCreateOrRestoreRevision.get(zoneId);
+            Long createRevision = zonesCreateRevision.get(zoneId);
 
             long descLastUpdateRevision = zoneDescriptor.updateToken();
 
@@ -175,7 +166,7 @@ public class CausalityDataNodesEngine {
             long lastScaleUpRevision = getRevisionsOfLastScaleUpEvent(causalityToken, catalogVersion, zoneId);
             long lastScaleDownRevision = getRevisionsOfLastScaleDownEvent(causalityToken, catalogVersion, zoneId);
 
-            if (descLastUpdateRevision == createOrRestoreRevision
+            if (createRevision != null && createRevision.equals(descLastUpdateRevision)
                     && descLastUpdateRevision >= lastScaleUpRevision
                     && descLastUpdateRevision >= lastScaleDownRevision
             ) {
@@ -212,8 +203,7 @@ public class CausalityDataNodesEngine {
             // Search the revisions of zoneScaleUpChangeTriggerKey and zoneScaleDownChangeTriggerKey with value greater or equals
             // to expected one.
             long scaleUpDataNodesRevision = searchTriggerKey(lastScaleUpRevision, zoneId, zoneScaleUpChangeTriggerKey(zoneId));
-            long scaleDownDataNodesRevision = searchTriggerKey(lastScaleDownRevision, zoneId,
-                    zoneScaleDownChangeTriggerKey(zoneId));
+            long scaleDownDataNodesRevision = searchTriggerKey(lastScaleDownRevision, zoneId, zoneScaleDownChangeTriggerKey(zoneId));
 
             // Choose the highest revision.
             long dataNodesRevision = max(causalityToken, max(scaleUpDataNodesRevision, scaleDownDataNodesRevision));
@@ -524,16 +514,15 @@ public class CausalityDataNodesEngine {
     }
 
     /**
-     * Creates or restores zone's versioned configuration from the vault the Vault.
-     * We save versioned configuration in the Vault every time we receive event which triggers the data nodes recalculation.
+     * Saves revision of the creation a zone to a local state.
      *
      * @param revision Revision.
      * @param zone Zone descriptor.
      */
-    public void onCreateOrRestoreZoneState(long revision, CatalogZoneDescriptor zone) {
+    public void onCreateZoneState(long revision, CatalogZoneDescriptor zone) {
         int zoneId = zone.id();
 
-        zonesCreateOrRestoreRevision.put(zoneId, revision);
+        zonesCreateRevision.put(zoneId, revision);
     }
 
     /**
