@@ -42,7 +42,9 @@ public class LogicalNode extends ClusterNodeImpl {
     @IgniteToStringInclude
     private final Map<String, String> systemAttributes;
 
-    // TODO: add javadoc https://issues.apache.org/jira/browse/IGNITE-20564
+    /**
+     * List of storage profiles, which the node supports.
+     */
     @IgniteToStringInclude
     private final List<String> storageProfiles;
 
@@ -81,7 +83,7 @@ public class LogicalNode extends ClusterNodeImpl {
      * @param clusterNode Represents a node in a cluster.
      * @param userAttributes Node attributes defined in configuration.
      * @param systemAttributes Internal node attributes provided by system components at startup.
-     * @param storageProfiles TODO: add javadoc https://issues.apache.org/jira/browse/IGNITE-20564
+     * @param storageProfiles List of storage profiles, which the node supports.
      */
     public LogicalNode(
             ClusterNode clusterNode,
@@ -124,9 +126,9 @@ public class LogicalNode extends ClusterNodeImpl {
     }
 
     /**
-     * TODO: add java doc https://issues.apache.org/jira/browse/IGNITE-20564.
+     * Returns the list of storage profiles, which the node supports.
      *
-     * @return add java doc https://issues.apache.org/jira/browse/IGNITE-20564.
+     * @return List of storage profiles, which the node supports.
      */
     public List<String> storageProfiles() {
         return storageProfiles;

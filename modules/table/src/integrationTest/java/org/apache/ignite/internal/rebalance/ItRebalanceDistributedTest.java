@@ -80,7 +80,6 @@ import java.util.function.LongFunction;
 import java.util.function.LongSupplier;
 import java.util.function.Predicate;
 import java.util.stream.IntStream;
-import org.apache.calcite.jdbc.CalcitePrepare.Dummy;
 import org.apache.ignite.client.handler.configuration.ClientConnectorConfiguration;
 import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.affinity.Assignment;

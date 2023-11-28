@@ -22,12 +22,21 @@ import static org.apache.ignite.configuration.annotation.ConfigurationType.LOCAL
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
 
+/**
+ * Root for the storage engine and storage profiles configurations.
+ */
 @ConfigurationRoot(rootName = "storages", type = LOCAL)
 public class StoragesConfigurationSchema {
 
+    /**
+     * Storage engines configuration.
+     */
     @NamedConfigValue
     public StorageEngineConfigurationSchema engines;
 
+    /**
+     * Storage profiles configuration.
+     */
     @NamedConfigValue
     public StorageProfileConfigurationSchema profiles;
 

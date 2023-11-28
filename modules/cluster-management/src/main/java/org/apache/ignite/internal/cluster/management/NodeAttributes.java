@@ -40,7 +40,7 @@ public interface NodeAttributes {
     Map<String, String> systemAttributes();
 
     /**
-     * TODO: add java doc https://issues.apache.org/jira/browse/IGNITE-20564
+     * List of storage profiles, which the node supports.
      */
     List<String> storageProfiles();
 }
