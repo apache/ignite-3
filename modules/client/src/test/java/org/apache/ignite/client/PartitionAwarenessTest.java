@@ -74,9 +74,9 @@ public class PartitionAwarenessTest extends AbstractClientTest {
 
     private static IgniteClient client2;
 
-    private @Nullable String lastOp;
+    private volatile @Nullable String lastOp;
 
-    private @Nullable String lastOpServerName;
+    private volatile @Nullable String lastOpServerName;
 
     private static final AtomicInteger nextTableId = new AtomicInteger(101);
 
