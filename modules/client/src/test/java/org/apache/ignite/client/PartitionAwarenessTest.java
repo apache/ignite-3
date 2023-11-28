@@ -191,7 +191,7 @@ public class PartitionAwarenessTest extends AbstractClientTest {
                 client2.tables().tables();
             }
 
-            assertThat(maxRequests, greaterThan(0));
+            assertThat("Failed to receive assignment update", maxRequests, greaterThan(0));
         }
 
         // Check new assignment.
