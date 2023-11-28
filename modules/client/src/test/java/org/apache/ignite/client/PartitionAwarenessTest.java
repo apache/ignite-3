@@ -186,10 +186,12 @@ public class PartitionAwarenessTest extends AbstractClientTest {
             assertTrue(IgniteTestUtils.waitForCondition(() -> ch.partitionAssignmentTimestamp() > oldTs, 3000));
         } else {
             // Perform requests to receive change notification flag.
-            int maxRequests = 10;
+            int maxRequests = 50;
             while (ch.partitionAssignmentTimestamp() <= oldTs && maxRequests-- > 0) {
                 client2.tables().tables();
             }
+
+            assertThat(maxRequests, greaterThan(0));
         }
 
         // Check new assignment.
