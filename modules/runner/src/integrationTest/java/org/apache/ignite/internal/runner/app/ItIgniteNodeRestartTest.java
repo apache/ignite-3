@@ -428,7 +428,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 catalogManager,
                 metricManager,
                 new SystemViewManagerImpl(name, catalogManager),
-                placementDriver
+                placementDriverManager.placementDriver()
         );
 
         // Preparing the result map.
