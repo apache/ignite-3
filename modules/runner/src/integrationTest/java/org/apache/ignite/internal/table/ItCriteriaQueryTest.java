@@ -80,7 +80,7 @@ public class ItCriteriaQueryTest extends BaseIgniteAbstractTest {
     private static Path WORK_DIR;
 
     private Ignite node;
-    
+
     @BeforeAll
     void beforeAll(TestInfo testInfo) {
         String connectNodeAddr = "\"localhost:" + BASE_PORT + '\"';
@@ -207,7 +207,7 @@ public class ItCriteriaQueryTest extends BaseIgniteAbstractTest {
         int key;
 
         int valInt;
-        
+
         String valStr;
 
         public int getKey() {
