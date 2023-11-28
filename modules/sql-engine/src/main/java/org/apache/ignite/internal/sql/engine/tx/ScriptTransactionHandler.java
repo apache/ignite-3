@@ -67,7 +67,10 @@ public class ScriptTransactionHandler extends QueryTransactionHandler {
      * @param cursorFut Cursor future for the current statement.
      * @return Transaction wrapper.
      */
-    public QueryTransactionWrapper startTxIfNeeded(ParsedResult parsedResult, CompletableFuture<? extends AsyncCursor<?>> cursorFut) {
+    public QueryTransactionWrapper startScriptTxIfNeeded(
+            ParsedResult parsedResult,
+            CompletableFuture<? extends AsyncCursor<?>> cursorFut
+    ) {
         try {
             SqlQueryType queryType = parsedResult.queryType();
 
@@ -202,8 +205,7 @@ public class ScriptTransactionHandler extends QueryTransactionHandler {
 
     /**
      * Wraps a transaction, which is managed by SQL engine via {@link SqlQueryType#TX_CONTROL} statements.
-     * Responsible for tracking and releasing resources associated with an explicit read-write transaction
-     * started from a script.
+     * Responsible for tracking and releasing resources associated with this transaction.
      */
     private static class ManagedReadWriteTransactionWrapper extends ManagedTransactionWrapper {
         private final CompletableFuture<Void> finishTxFuture = new CompletableFuture<>();

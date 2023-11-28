@@ -35,7 +35,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Queue;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CancellationException;
@@ -720,7 +719,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                     return cursorFuture;
                 }
 
-                QueryTransactionWrapper txWrapper = transactionHandler.startTxIfNeeded(parameters.parsedResult, cursorFuture);
+                QueryTransactionWrapper txWrapper = transactionHandler.startScriptTxIfNeeded(parameters.parsedResult, cursorFuture);
 
                 executeStatement(parameters.parsedResult, txWrapper, parameters.dynamicParams, parameters.nextStatementFuture)
                         .whenComplete((cursor, ex) -> {

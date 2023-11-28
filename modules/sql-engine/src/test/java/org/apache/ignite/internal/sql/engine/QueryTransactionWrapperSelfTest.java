@@ -143,7 +143,7 @@ public class QueryTransactionWrapperSelfTest extends BaseIgniteAbstractTest {
         ScriptTransactionHandler txHandler = new ScriptTransactionHandler(transactions, new NoOpTransaction("test"));
 
         assertThrowsExactly(ExternalTransactionNotSupportedException.class,
-                () -> txHandler.startTxIfNeeded(parseResult, CompletableFuture.completedFuture(null)));
+                () -> txHandler.startScriptTxIfNeeded(parseResult, CompletableFuture.completedFuture(null)));
     }
 
     @Test
@@ -158,11 +158,11 @@ public class QueryTransactionWrapperSelfTest extends BaseIgniteAbstractTest {
 
         ScriptTransactionHandler txHandler = new ScriptTransactionHandler(transactions, null);
 
-        txHandler.startTxIfNeeded(parseResult, CompletableFuture.completedFuture(null));
+        txHandler.startScriptTxIfNeeded(parseResult, CompletableFuture.completedFuture(null));
 
         //noinspection ThrowableNotThrown
         assertThrowsSqlException(Sql.RUNTIME_ERR, "Nested transactions are not supported.",
-                () -> txHandler.startTxIfNeeded(parseResult, CompletableFuture.completedFuture(null)));
+                () -> txHandler.startScriptTxIfNeeded(parseResult, CompletableFuture.completedFuture(null)));
 
         assertTrue(tx.rollbackFuture().isDone());
     }
