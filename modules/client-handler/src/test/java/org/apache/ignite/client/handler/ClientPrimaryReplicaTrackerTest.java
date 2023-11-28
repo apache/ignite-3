@@ -51,7 +51,7 @@ class ClientPrimaryReplicaTrackerTest extends BaseIgniteAbstractTest {
     @BeforeEach
     public void setUp() throws Exception {
         driver = new FakePlacementDriver(PARTITIONS);
-        driver.setReplicas(List.of("s1", "s2"), TABLE_ID, System.currentTimeMillis());
+        driver.setReplicas(List.of("s1", "s2"), TABLE_ID, 1);
 
         InternalTable internalTable = mock(InternalTable.class);
         when(internalTable.partitions()).thenReturn(PARTITIONS);
