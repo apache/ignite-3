@@ -80,6 +80,7 @@ import java.util.function.LongFunction;
 import java.util.function.LongSupplier;
 import java.util.function.Predicate;
 import java.util.stream.IntStream;
+import org.apache.calcite.jdbc.CalcitePrepare.Dummy;
 import org.apache.ignite.client.handler.configuration.ClientConnectorConfiguration;
 import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.affinity.Assignment;
@@ -146,11 +147,15 @@ import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.DataStorageModules;
 import org.apache.ignite.internal.storage.StorageException;
+import org.apache.ignite.internal.storage.configurations.DummyStorageEngineConfigurationSchema;
+import org.apache.ignite.internal.storage.configurations.DummyStorageProfileConfigurationSchema;
 import org.apache.ignite.internal.storage.configurations.StoragesConfiguration;
 import org.apache.ignite.internal.storage.impl.TestDataStorageModule;
 import org.apache.ignite.internal.storage.impl.TestStorageEngine;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryDataStorageModule;
 import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryDataStorageModule;
+import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineConfiguration;
+import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryStorageEngineConfiguration;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.table.TableViewInternal;
@@ -843,9 +848,15 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                             NetworkConfiguration.KEY,
                             RestConfiguration.KEY,
                             ClientConnectorConfiguration.KEY,
-                            StoragesConfiguration.KEY),
+                            StoragesConfiguration.KEY,
+                            PersistentPageMemoryStorageEngineConfiguration.KEY,
+                            VolatilePageMemoryStorageEngineConfiguration.KEY),
                     List.of(),
-                    List.of(UnsafeMemoryAllocatorConfigurationSchema.class)
+                    List.of(
+                            UnsafeMemoryAllocatorConfigurationSchema.class,
+                            DummyStorageEngineConfigurationSchema.class,
+                            DummyStorageProfileConfigurationSchema.class
+                    )
             );
 
             Path configPath = workDir.resolve(testInfo.getDisplayName());
@@ -853,6 +864,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
             nodeCfgMgr = new ConfigurationManager(
                     List.of(NetworkConfiguration.KEY,
+                            PersistentPageMemoryStorageEngineConfiguration.KEY,
+                            VolatilePageMemoryStorageEngineConfiguration.KEY,
                             StoragesConfiguration.KEY,
                             RestConfiguration.KEY,
                             ClientConnectorConfiguration.KEY),

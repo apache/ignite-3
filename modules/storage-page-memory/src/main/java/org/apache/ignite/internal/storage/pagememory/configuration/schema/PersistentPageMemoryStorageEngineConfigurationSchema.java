@@ -24,28 +24,25 @@ import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.Name;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
-import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
-import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.validation.ExceptKeys;
-import org.apache.ignite.configuration.validation.Immutable;
-import org.apache.ignite.configuration.validation.PowerOfTwo;
-import org.apache.ignite.configuration.validation.Range;
 import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryCheckpointConfigurationSchema;
 import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryDataRegionConfigurationSchema;
-import org.apache.ignite.internal.storage.configurations.StorageEngineConfigurationSchema;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorageEngine;
 
 /**
  * Root configuration for {@link PersistentPageMemoryStorageEngine}.
  */
-@PolymorphicConfigInstance("aipersist")
-public class PersistentPageMemoryStorageEngineConfigurationSchema extends StorageEngineConfigurationSchema {
-    /** Page size in bytes. */
-    @Immutable
-    @PowerOfTwo
-    @Range(min = 1024, max = 16 * 1024)
-    @Value(hasDefault = true)
-    public int pageSize = 16 * 1024;
+@ConfigurationRoot(rootName = ENGINE_NAME, type = LOCAL)
+public class PersistentPageMemoryStorageEngineConfigurationSchema extends BasePageMemoryStorageEngineConfigurationSchema {
+    /** Default data region. */
+    @Name(DEFAULT_DATA_REGION_NAME)
+    @ConfigValue
+    public PersistentPageMemoryDataRegionConfigurationSchema defaultRegion;
+
+    /** Other data regions. */
+    @ExceptKeys(DEFAULT_DATA_REGION_NAME)
+    @NamedConfigValue
+    public PersistentPageMemoryDataRegionConfigurationSchema regions;
 
     /* Checkpoint configuration for persistent data regions. */
     @ConfigValue

@@ -27,12 +27,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.io.FileWriter;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.OpenOption;
-import java.nio.file.Path;
-import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -70,32 +65,23 @@ class ItLogicalTopologyTest extends ClusterPerTestIntegrationTest {
 
     private static final Map<String, String> STORAGE_PROFILES_MAP = Map.of("lru_rocks", "rocksDb", "segmented_aipersist", "aipersist");
 
-//    @Language("JSON")
-//    private static final String NODE_BOOTSTRAP_CFG_TEMPLATE_WITH_NODE_ATTRIBUTES_AND_STORAGE_PROFILES = "{\n"
-//            + "  network: {\n"
-//            + "    port: {},\n"
-//            + "    nodeFinder: {\n"
-//            + "      netClusterNodes: [ {} ]\n"
-//            + "    }\n"
-//            + "  },\n"
-//            + "  nodeAttributes: {\n"
-//            + "    nodeAttributes: " + NODE_ATTRIBUTES
-//            + "  },\n"
-//            + "  storageProfiles: {\n"
-//            + "    storageProfiles: " + STORAGE_PROFILES
-//            + "  },\n"
-//            + "  clientConnector: { port:{} },\n"
-//            + "  rest.port: {}\n"
-//            + "}";
-    private static final String NODE_BOOTSTRAP_CFG_TEMPLATE_WITH_NODE_ATTRIBUTES_AND_STORAGE_PROFILES;
-
-    static {
-        try {
-            NODE_BOOTSTRAP_CFG_TEMPLATE_WITH_NODE_ATTRIBUTES_AND_STORAGE_PROFILES = Files.readString(Path.of("/Users/kgusakov/Projects/ignite-3/configs.json"));
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-    }
+    @Language("JSON")
+    private static final String NODE_BOOTSTRAP_CFG_TEMPLATE_WITH_NODE_ATTRIBUTES_AND_STORAGE_PROFILES = "{\n"
+            + "  network: {\n"
+            + "    port: {},\n"
+            + "    nodeFinder: {\n"
+            + "      netClusterNodes: [ {} ]\n"
+            + "    }\n"
+            + "  },\n"
+            + "  nodeAttributes: {\n"
+            + "    nodeAttributes: " + NODE_ATTRIBUTES
+            + "  },\n"
+            + "  storages: {\n"
+            + "    profiles: " + STORAGE_PROFILES
+            + "  },\n"
+            + "  clientConnector: { port:{} },\n"
+            + "  rest.port: {}\n"
+            + "}";
 
     private final LogicalTopologyEventListener listener = new LogicalTopologyEventListener() {
         @Override
@@ -127,12 +113,7 @@ class ItLogicalTopologyTest extends ClusterPerTestIntegrationTest {
 
     @Override
     protected String getNodeBootstrapConfigTemplate() {
-        return NODE_BOOTSTRAP_CFG_TEMPLATE_WITH_NODE_ATTRIBUTES_AND_STORAGE_PROFILES;
-    }
-
-    @Test
-    void test() throws IOException {
-        startNode(1, NODE_BOOTSTRAP_CFG_TEMPLATE_WITH_NODE_ATTRIBUTES_AND_STORAGE_PROFILES);
+        return FAST_FAILURE_DETECTION_NODE_BOOTSTRAP_CFG_TEMPLATE;
     }
 
     @Test

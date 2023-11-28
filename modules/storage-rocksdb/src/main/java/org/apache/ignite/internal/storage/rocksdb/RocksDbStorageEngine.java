@@ -28,20 +28,18 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Supplier;
 import java.util.stream.Stream;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.storage.StorageException;
-import org.apache.ignite.internal.storage.configurations.StorageProfileView;
-import org.apache.ignite.internal.storage.configurations.StoragesConfiguration;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
+import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDataRegionConfiguration;
+import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDataRegionView;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfiguration;
-import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageProfileConfiguration;
 import org.apache.ignite.internal.storage.rocksdb.instance.SharedRocksDbInstance;
 import org.apache.ignite.internal.storage.rocksdb.instance.SharedRocksDbInstanceCreator;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
@@ -61,9 +59,7 @@ public class RocksDbStorageEngine implements StorageEngine {
         RocksDB.loadLibrary();
     }
 
-    private final Supplier<RocksDbStorageEngineConfiguration> engineConfig;
-
-    private final StoragesConfiguration storagesConfiguration = null;
+    private final RocksDbStorageEngineConfiguration engineConfig;
 
     private final Path storagePath;
 
@@ -87,7 +83,7 @@ public class RocksDbStorageEngine implements StorageEngine {
      * @param engineConfig RocksDB storage engine configuration.
      * @param storagePath Storage path.
      */
-    public RocksDbStorageEngine(String nodeName, Supplier<RocksDbStorageEngineConfiguration> engineConfig, Path storagePath) {
+    public RocksDbStorageEngine(String nodeName, RocksDbStorageEngineConfiguration engineConfig, Path storagePath) {
         this.engineConfig = engineConfig;
         this.storagePath = storagePath;
 
@@ -105,7 +101,7 @@ public class RocksDbStorageEngine implements StorageEngine {
      * Returns a RocksDB storage engine configuration.
      */
     public RocksDbStorageEngineConfiguration configuration() {
-        return engineConfig.get();
+        return engineConfig;
     }
 
     /**
@@ -132,13 +128,10 @@ public class RocksDbStorageEngine implements StorageEngine {
         registerDataRegion(DEFAULT_DATA_REGION_NAME);
 
         // TODO: IGNITE-17066 Add handling deleting/updating data regions configuration
-        storagesConfiguration.profiles().listenElements(new ConfigurationNamedListListener<>() {
-            /** {@inheritDoc} */
+        engineConfig.regions().listenElements(new ConfigurationNamedListListener<>() {
             @Override
-            public CompletableFuture<?> onCreate(ConfigurationNotificationEvent<StorageProfileView> ctx) {
-                if (ctx.newValue() instanceof RocksDbStorageProfileConfiguration) {
-                    registerDataRegion(ctx.newName(RocksDbStorageProfileConfiguration.class));
-                }
+            public CompletableFuture<?> onCreate(ConfigurationNotificationEvent<RocksDbDataRegionView> ctx) {
+                registerDataRegion(ctx.newName(RocksDbDataRegionView.class));
 
                 return completedFuture(null);
             }
@@ -146,19 +139,17 @@ public class RocksDbStorageEngine implements StorageEngine {
     }
 
     private void registerDataRegion(String name) {
-        throw new RuntimeException("addDataRegion not implemented yet");
-//
-//        RocksDbDataRegionConfiguration dataRegionConfig = DEFAULT_DATA_REGION_NAME.equals(name)
-//                ? engineConfig.defaultRegion()
-//                : engineConfig.regions().get(name);
-//
-//        var region = new RocksDbDataRegion(dataRegionConfig);
-//
-//        region.start();
-//
-//        RocksDbDataRegion previousRegion = regions.put(dataRegionConfig.name().value(), region);
-//
-//        assert previousRegion == null : dataRegionConfig.name().value();
+        RocksDbDataRegionConfiguration dataRegionConfig = DEFAULT_DATA_REGION_NAME.equals(name)
+                ? engineConfig.defaultRegion()
+                : engineConfig.regions().get(name);
+
+        var region = new RocksDbDataRegion(dataRegionConfig);
+
+        region.start();
+
+        RocksDbDataRegion previousRegion = regions.put(dataRegionConfig.name().value(), region);
+
+        assert previousRegion == null : dataRegionConfig.name().value();
     }
 
     @Override

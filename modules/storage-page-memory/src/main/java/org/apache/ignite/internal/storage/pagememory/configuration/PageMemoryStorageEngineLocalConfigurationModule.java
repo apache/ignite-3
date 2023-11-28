@@ -25,12 +25,8 @@ import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.validation.Validator;
-import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryStorageProfileConfiguration;
-import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryStorageProfileConfigurationSchema;
-import org.apache.ignite.internal.storage.configurations.StoragesConfiguration;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryDataStorageConfigurationSchema;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineConfiguration;
-import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineConfigurationSchema;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryDataStorageConfigurationSchema;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryStorageEngineConfiguration;
 
@@ -48,15 +44,13 @@ public class PageMemoryStorageEngineLocalConfigurationModule implements Configur
     /** {@inheritDoc} */
     @Override
     public Collection<RootKey<?, ?>> rootKeys() {
-        return List.of(StoragesConfiguration.KEY);
+        return List.of(VolatilePageMemoryStorageEngineConfiguration.KEY, PersistentPageMemoryStorageEngineConfiguration.KEY);
     }
 
     /** {@inheritDoc} */
     @Override
     public Collection<Class<?>> polymorphicSchemaExtensions() {
         return List.of(
-                PersistentPageMemoryStorageEngineConfigurationSchema.class,
-                PersistentPageMemoryStorageProfileConfigurationSchema.class,
                 VolatilePageMemoryDataStorageConfigurationSchema.class,
                 PersistentPageMemoryDataStorageConfigurationSchema.class);
     }

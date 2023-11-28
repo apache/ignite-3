@@ -23,6 +23,7 @@ import java.util.List;
 import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
+import org.apache.ignite.internal.storage.configurations.StoragesConfiguration;
 
 /**
  * Configuration module for Cluster Management configs.
@@ -36,6 +37,6 @@ public class ClusterManagementConfigurationModule implements ConfigurationModule
 
     @Override
     public Collection<RootKey<?, ?>> rootKeys() {
-        return List.of(ClusterManagementConfiguration.KEY, NodeAttributesConfiguration.KEY, StorageProfilesConfiguration.KEY);
+        return List.of(ClusterManagementConfiguration.KEY, NodeAttributesConfiguration.KEY);
     }
 }

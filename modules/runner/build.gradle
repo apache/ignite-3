@@ -61,7 +61,6 @@ dependencies {
     implementation project(':ignite-sql-engine')
     implementation project(':ignite-client-handler')
     implementation project(':ignite-compute')
-    implementation project(':ignite-storage-api')
     implementation project(':ignite-storage-configuration')
     implementation project(':ignite-storage-rocksdb')
     implementation project(':ignite-storage-page-memory')

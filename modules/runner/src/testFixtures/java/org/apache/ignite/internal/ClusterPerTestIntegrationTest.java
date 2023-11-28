@@ -102,9 +102,9 @@ public abstract class ClusterPerTestIntegrationTest extends IgniteIntegrationTes
     public void setup(TestInfo testInfo) throws Exception {
         cluster = new Cluster(testInfo, workDir, getNodeBootstrapConfigTemplate());
 
-//        if (initialNodes() > 0) {
-//            cluster.startAndInit(initialNodes(), cmgMetastoreNodes(), this::customizeInitParameters);
-//        }
+        if (initialNodes() > 0) {
+            cluster.startAndInit(initialNodes(), cmgMetastoreNodes(), this::customizeInitParameters);
+        }
     }
 
     @AfterEach

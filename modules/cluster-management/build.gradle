@@ -55,7 +55,6 @@ dependencies {
     testFixturesImplementation project(':ignite-core')
     testFixturesImplementation project(':ignite-raft')
     testFixturesImplementation project(':ignite-raft-api')
-    testFixturesImplementation project(':ignite-storage-api')
     testFixturesImplementation project(':ignite-storage-configuration')
     testFixturesImplementation project(':ignite-vault')
     testFixturesImplementation project(':ignite-security')

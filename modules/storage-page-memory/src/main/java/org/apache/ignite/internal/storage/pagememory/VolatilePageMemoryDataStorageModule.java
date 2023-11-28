@@ -21,14 +21,12 @@ import static org.apache.ignite.internal.storage.pagememory.VolatilePageMemorySt
 
 import com.google.auto.service.AutoService;
 import java.nio.file.Path;
-import java.util.function.Supplier;
 import org.apache.ignite.internal.components.LongJvmPauseDetector;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.pagememory.evict.PageEvictionTrackerNoOp;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.storage.DataStorageModule;
 import org.apache.ignite.internal.storage.StorageException;
-import org.apache.ignite.internal.storage.configurations.StoragesConfiguration;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryStorageEngineConfiguration;
 import org.jetbrains.annotations.Nullable;
@@ -52,10 +50,9 @@ public class VolatilePageMemoryDataStorageModule implements DataStorageModule {
             Path storagePath,
             @Nullable LongJvmPauseDetector longJvmPauseDetector
     ) throws StorageException {
-
-        Supplier<VolatilePageMemoryStorageEngineConfiguration> engineConfig = () ->
-                (VolatilePageMemoryStorageEngineConfiguration) configRegistry.getConfiguration(StoragesConfiguration.KEY)
-                        .engines().get(ENGINE_NAME);
+        VolatilePageMemoryStorageEngineConfiguration engineConfig = configRegistry.getConfiguration(
+                VolatilePageMemoryStorageEngineConfiguration.KEY
+        );
 
         assert engineConfig != null;
 
