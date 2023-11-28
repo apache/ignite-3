@@ -45,7 +45,7 @@ class SqlSerializerTest {
                 .where(Criteria.not(Criteria.equal("a", "a")))
                 .build();
 
-        assertEquals("SELECT * FROM test WHERE !(a = ?)", ser.toString());
+        assertEquals("SELECT * FROM test WHERE not a = ?", ser.toString());
         assertArrayEquals(new Object[] {"a"}, ser.getArguments());
     }
 }
