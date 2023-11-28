@@ -22,6 +22,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrowsExactly;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -32,6 +33,7 @@ import static org.mockito.Mockito.when;
 import java.util.EnumSet;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.sql.engine.framework.NoOpTransaction;
+import org.apache.ignite.internal.sql.engine.sql.IgniteSqlStartTransaction;
 import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
 import org.apache.ignite.internal.sql.engine.tx.ImplicitTransactionWrapper;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionHandler;
@@ -142,6 +144,27 @@ public class QueryTransactionWrapperSelfTest extends BaseIgniteAbstractTest {
 
         assertThrowsExactly(ExternalTransactionNotSupportedException.class,
                 () -> txHandler.startTxIfNeeded(parseResult, CompletableFuture.completedFuture(null)));
+    }
+
+    @Test
+    public void throwsExceptionForNestedScriptTransaction() {
+        ParsedResult parseResult = Mockito.mock(ParsedResult.class);
+        when(parseResult.queryType()).thenReturn(SqlQueryType.TX_CONTROL);
+        when(parseResult.parsedTree()).thenReturn(Mockito.mock(IgniteSqlStartTransaction.class));
+
+        NoOpTransaction tx = new NoOpTransaction("test");
+
+        when(transactions.begin(any())).thenReturn(tx);
+
+        ScriptTransactionHandler txHandler = new ScriptTransactionHandler(transactions, null);
+
+        txHandler.startTxIfNeeded(parseResult, CompletableFuture.completedFuture(null));
+
+        //noinspection ThrowableNotThrown
+        assertThrowsSqlException(Sql.RUNTIME_ERR, "Nested transactions are not supported.",
+                () -> txHandler.startTxIfNeeded(parseResult, CompletableFuture.completedFuture(null)));
+
+        assertTrue(tx.rollbackFuture().isDone());
     }
 }
 
