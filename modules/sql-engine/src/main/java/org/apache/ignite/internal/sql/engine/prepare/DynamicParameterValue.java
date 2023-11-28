@@ -24,6 +24,7 @@ import org.jetbrains.annotations.Nullable;
  */
 public final class DynamicParameterValue {
 
+    @Nullable
     private final Object value;
 
     private final boolean hasValue;
@@ -53,5 +54,16 @@ public final class DynamicParameterValue {
     /** Returns {@code true} if value is specified. */
     public boolean hasValue() {
         return hasValue;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public String toString() {
+        if (hasValue) {
+            String str = (value != null ? value.getClass().toString() : "null");
+            return "{value: <" + str + ">}";
+        } else {
+            return "{no-value}";
+        }
     }
 }

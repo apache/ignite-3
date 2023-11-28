@@ -69,9 +69,6 @@ public interface IgniteResource {
     @Resources.BaseMessage("Ambiguous operator {0}. Dynamic parameter requires adding explicit type cast. Supported form(s): \n{1}")
     Resources.ExInst<SqlValidatorException> ambiguousOperator2(String signature, String allowedSignatures);
 
-    @Resources.BaseMessage("Unable to determine type of a dynamic parameter#{0}. Dynamic parameter requires adding explicit type cast")
-    Resources.ExInst<SqlValidatorException> unableToResolveDynamicParameterType(int idx);
-
     @Resources.BaseMessage("Incorrect type of a dynamic parameter#{0} expected <{1}> but got <{2}>")
     Resources.ExInst<SqlValidatorException> invalidDynamicParameter(int idx, String expected, String actual);
 

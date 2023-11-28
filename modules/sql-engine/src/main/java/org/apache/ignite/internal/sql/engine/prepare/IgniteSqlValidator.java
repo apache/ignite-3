@@ -87,6 +87,7 @@ import org.apache.ignite.internal.sql.engine.type.UuidType;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.IgniteResource;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
+import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
 
@@ -984,7 +985,7 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
             if (paramState.resolvedType == null || paramState.node == null) {
                 throw new AssertionError("Dynamic parameter has not been validated: " + i);
             } else if (paramState.resolvedType == unknownType) {
-                throw newValidationError(paramState.node, IgniteResource.INSTANCE.unableToResolveDynamicParameterType(i));
+                throw new AssertionError("Dynamic parameter type has not been inferred: " + i);
             } else {
                 SqlDynamicParam dynamicParam = paramState.node;
                 RelDataType paramType = paramState.resolvedType;
@@ -1045,6 +1046,12 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
 
         private DynamicParamState(DynamicParameterValue value) {
             this.value = value;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public String toString() {
+            return S.toString(this);
         }
     }
 }
