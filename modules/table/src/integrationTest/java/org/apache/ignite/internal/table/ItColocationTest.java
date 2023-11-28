@@ -81,6 +81,7 @@ import org.apache.ignite.internal.table.distributed.replication.request.BinaryRo
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteMultiRowReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteSingleRowReplicaRequest;
 import org.apache.ignite.internal.table.distributed.schema.ConstantSchemaVersions;
+import org.apache.ignite.internal.table.distributed.schema.NaiveTransactionTimestamps;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
@@ -422,7 +423,13 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
 
         schemaRegistry = new DummySchemaManagerImpl(schema);
 
-        tbl = new TableImpl(intTable, schemaRegistry, new HeapLockManager(), new ConstantSchemaVersions(1));
+        tbl = new TableImpl(
+                intTable,
+                schemaRegistry,
+                new HeapLockManager(),
+                new ConstantSchemaVersions(1),
+                new NaiveTransactionTimestamps()
+        );
 
         marshaller = new TupleMarshallerImpl(schema);
     }

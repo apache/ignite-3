@@ -24,6 +24,7 @@ import static org.mockito.Mockito.when;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.table.distributed.schema.ConstantSchemaVersions;
+import org.apache.ignite.internal.table.distributed.schema.NaiveTransactionTimestamps;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
@@ -60,7 +61,8 @@ abstract class TableKvOperationsTestBase extends BaseIgniteAbstractTest {
                 internalTable,
                 new DummySchemaManagerImpl(schema),
                 new HeapLockManager(),
-                schemaVersions
+                schemaVersions,
+                new NaiveTransactionTimestamps()
         );
     }
 

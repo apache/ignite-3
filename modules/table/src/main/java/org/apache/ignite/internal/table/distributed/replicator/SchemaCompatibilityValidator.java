@@ -17,8 +17,11 @@
 
 package org.apache.ignite.internal.table.distributed.replicator;
 
+import static java.util.concurrent.CompletableFuture.allOf;
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toSet;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
@@ -35,6 +38,7 @@ import org.apache.ignite.internal.table.distributed.schema.ColumnDefinitionDiff;
 import org.apache.ignite.internal.table.distributed.schema.FullTableSchema;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
 import org.apache.ignite.internal.table.distributed.schema.TableDefinitionDiff;
+import org.apache.ignite.internal.table.distributed.schema.TransactionTimestamps;
 import org.apache.ignite.internal.table.distributed.schema.ValidationSchemasSource;
 import org.apache.ignite.internal.tx.TransactionIds;
 
@@ -45,6 +49,7 @@ class SchemaCompatibilityValidator {
     private final ValidationSchemasSource validationSchemasSource;
     private final CatalogService catalogService;
     private final SchemaSyncService schemaSyncService;
+    private final TransactionTimestamps transactionTimestamps;
 
     // TODO: Remove entries from cache when compacting schemas in SchemaManager https://issues.apache.org/jira/browse/IGNITE-20789
     private final ConcurrentMap<TableDefinitionDiffKey, TableDefinitionDiff> diffCache = new ConcurrentHashMap<>();
@@ -60,11 +65,13 @@ class SchemaCompatibilityValidator {
     SchemaCompatibilityValidator(
             ValidationSchemasSource validationSchemasSource,
             CatalogService catalogService,
-            SchemaSyncService schemaSyncService
+            SchemaSyncService schemaSyncService,
+            TransactionTimestamps transactionTimestamps
     ) {
         this.validationSchemasSource = validationSchemasSource;
         this.catalogService = catalogService;
         this.schemaSyncService = schemaSyncService;
+        this.transactionTimestamps = transactionTimestamps;
     }
 
     /**
@@ -94,32 +101,59 @@ class SchemaCompatibilityValidator {
         assert commitTimestamp.compareTo(beginTimestamp) > 0;
 
         return schemaSyncService.waitForMetadataCompleteness(commitTimestamp)
-                .thenApply(ignored -> validateCommit(tableIds, commitTimestamp, beginTimestamp));
+                .thenCompose(ignored -> validateCommit(tableIds, beginTimestamp, commitTimestamp));
     }
 
-    private CompatValidationResult validateCommit(Set<Integer> tableIds, HybridTimestamp commitTimestamp, HybridTimestamp beginTimestamp) {
+    private CompletableFuture<CompatValidationResult> validateCommit(
+            Set<Integer> tableIds,
+            HybridTimestamp beginTimestamp,
+            HybridTimestamp commitTimestamp
+    ) {
+        List<CompletableFuture<CompatValidationResult>> futures = new ArrayList<>();
+
         for (int tableId : tableIds) {
-            CompatValidationResult validationResult = validateCommit(beginTimestamp, commitTimestamp, tableId);
+            CompletableFuture<CompatValidationResult> future = validateCommit(beginTimestamp, commitTimestamp, tableId);
 
-            if (!validationResult.isSuccessful()) {
-                return validationResult;
+            if (future.isDone() && !future.join().isSuccessful()) {
+                return completedFuture(future.join());
             }
+
+            futures.add(future);
         }
 
-        return CompatValidationResult.success();
+
+        return allOf(futures.toArray(CompletableFuture[]::new)).thenApply(unused -> {
+            for (CompletableFuture<CompatValidationResult> future : futures) {
+                CompatValidationResult validationResult = future.join();
+
+                if (!validationResult.isSuccessful()) {
+                    return validationResult;
+                }
+            }
+
+            return CompatValidationResult.success();
+        });
     }
 
-    private CompatValidationResult validateCommit(HybridTimestamp beginTimestamp, HybridTimestamp commitTimestamp, int tableId) {
-        CatalogTableDescriptor tableAtCommitTs = catalogService.table(tableId, commitTimestamp.longValue());
+    private CompletableFuture<CompatValidationResult> validateCommit(
+            HybridTimestamp beginTimestamp,
+            HybridTimestamp commitTimestamp,
+            int tableId
+    ) {
+        return transactionTimestamps.rwTransactionBaseTimestamp(beginTimestamp, tableId).thenApply(baseTimestamp -> {
+            assert commitTimestamp.compareTo(baseTimestamp) > 0;
 
-        if (tableAtCommitTs == null) {
-            CatalogTableDescriptor tableAtTxStart = catalogService.table(tableId, beginTimestamp.longValue());
-            assert tableAtTxStart != null : "No table " + tableId + " at ts " + beginTimestamp;
+            CatalogTableDescriptor tableAtCommitTs = catalogService.table(tableId, commitTimestamp.longValue());
 
-            return CompatValidationResult.tableDropped(tableId, tableAtTxStart.schemaId());
-        }
+            if (tableAtCommitTs == null) {
+                CatalogTableDescriptor tableAtBaseTs = catalogService.table(tableId, baseTimestamp.longValue());
+                assert tableAtBaseTs != null : "No table " + tableId + " at ts " + baseTimestamp + ", beginTs is " + beginTimestamp;
 
-        return validateForwardSchemaCompatibility(beginTimestamp, commitTimestamp, tableId);
+                return CompatValidationResult.tableDropped(tableId, tableAtBaseTs.schemaId());
+            }
+
+            return validateForwardSchemaCompatibility(baseTimestamp, commitTimestamp, tableId);
+        });
     }
 
     /**
@@ -196,9 +230,11 @@ class SchemaCompatibilityValidator {
     CompletableFuture<CompatValidationResult> validateBackwards(int tupleSchemaVersion, int tableId, UUID txId) {
         HybridTimestamp beginTimestamp = TransactionIds.beginTimestamp(txId);
 
-        return schemaSyncService.waitForMetadataCompleteness(beginTimestamp)
-                .thenCompose(ignored -> validationSchemasSource.waitForSchemaAvailability(tableId, tupleSchemaVersion))
-                .thenApply(ignored -> validateBackwardSchemaCompatibility(tupleSchemaVersion, tableId, beginTimestamp));
+        return transactionTimestamps.rwTransactionBaseTimestamp(beginTimestamp, tableId).thenCompose(baseTimestamp ->
+            schemaSyncService.waitForMetadataCompleteness(baseTimestamp)
+                    .thenCompose(ignored -> validationSchemasSource.waitForSchemaAvailability(tableId, tupleSchemaVersion))
+                    .thenApply(ignored -> validateBackwardSchemaCompatibility(tupleSchemaVersion, tableId, baseTimestamp))
+        );
     }
 
     private CompatValidationResult validateBackwardSchemaCompatibility(
@@ -222,22 +258,29 @@ class SchemaCompatibilityValidator {
         return CompatValidationResult.incompatibleChange(tableId, oldSchema.schemaVersion(), newSchema.schemaVersion());
     }
 
-    void failIfSchemaChangedAfterTxStart(UUID txId, HybridTimestamp operationTimestamp, int tableId) {
-        HybridTimestamp beginTs = TransactionIds.beginTimestamp(txId);
-        CatalogTableDescriptor tableAtBeginTs = catalogService.table(tableId, beginTs.longValue());
+    CompletableFuture<Void> failIfSchemaChangedAfterBaseTs(UUID txId, HybridTimestamp operationTimestamp, int tableId) {
+        HybridTimestamp beginTimestamp = TransactionIds.beginTimestamp(txId);
+
+        return transactionTimestamps.rwTransactionBaseTimestamp(beginTimestamp, tableId).thenAccept(baseTimestamp ->
+            failIfSchemaChangedAfterBaseTs(operationTimestamp, tableId, baseTimestamp)
+        );
+    }
+
+    private void failIfSchemaChangedAfterBaseTs(HybridTimestamp operationTimestamp, int tableId, HybridTimestamp baseTs) {
+        CatalogTableDescriptor tableAtBaseTs = catalogService.table(tableId, baseTs.longValue());
         CatalogTableDescriptor tableAtOpTs = catalogService.table(tableId, operationTimestamp.longValue());
 
-        assert tableAtBeginTs != null;
+        assert tableAtBaseTs != null;
 
         if (tableAtOpTs == null) {
             throw tableWasDroppedException(tableId);
         }
 
-        if (tableAtOpTs.tableVersion() != tableAtBeginTs.tableVersion()) {
+        if (tableAtOpTs.tableVersion() != tableAtBaseTs.tableVersion()) {
             throw new IncompatibleSchemaException(
                     String.format(
                             "Table schema was updated after the transaction was started [table=%d, startSchema=%d, operationSchema=%d]",
-                            tableId, tableAtBeginTs.tableVersion(), tableAtOpTs.tableVersion()
+                            tableId, tableAtBaseTs.tableVersion(), tableAtOpTs.tableVersion()
                     )
             );
         }

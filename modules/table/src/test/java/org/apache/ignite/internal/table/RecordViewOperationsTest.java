@@ -63,6 +63,7 @@ import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.marshaller.reflection.RecordMarshallerImpl;
 import org.apache.ignite.internal.table.distributed.replicator.InternalSchemaVersionMismatchException;
+import org.apache.ignite.internal.table.distributed.schema.NaiveTransactionTimestamps;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.type.NativeTypeSpec;
@@ -389,6 +390,7 @@ public class RecordViewOperationsTest extends TableKvOperationsTestBase {
                 internalTable,
                 new DummySchemaManagerImpl(schema),
                 schemaVersions,
+                new NaiveTransactionTimestamps(),
                 recMapper
         );
     }

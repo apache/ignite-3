@@ -40,6 +40,7 @@ import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.schema.ConstantSchemaVersions;
+import org.apache.ignite.internal.table.distributed.schema.NaiveTransactionTimestamps;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
@@ -136,7 +137,13 @@ public class ExecutableTableRegistrySelfTest extends BaseIgniteAbstractTest {
             int schemaVersion = 1;
             int tableVersion = 10;
 
-            TableImpl table = new TableImpl(internalTable, schemaRegistry, new HeapLockManager(), new ConstantSchemaVersions(tableVersion));
+            TableImpl table = new TableImpl(
+                    internalTable,
+                    schemaRegistry,
+                    new HeapLockManager(),
+                    new ConstantSchemaVersions(tableVersion),
+                    new NaiveTransactionTimestamps()
+            );
             SchemaDescriptor schemaDescriptor = newDescriptor(schemaVersion);
 
             when(tableManager.tableAsync(tableId)).thenReturn(CompletableFuture.completedFuture(table));

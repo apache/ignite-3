@@ -268,4 +268,30 @@ class ItSchemaSyncSingleNodeTest extends ClusterPerTestIntegrationTest {
             executeUpdate("DROP TABLE " + tableName, session);
         });
     }
+
+    /**
+     * Makes sure that the following sequence results in a successful commit.
+     *
+     * <ol>
+     *     <li>A transaction is started</li>
+     *     <li>A table is created</li>
+     *     <li>A attempt to read or write to the table in the transaction is made</li>
+     *     <li>The transaction is committed</li>
+     * </ol>
+     */
+    @ParameterizedTest
+    @EnumSource(Operation.class)
+    void readWriteOperationSeesTableCreatedAfterTxStarted(Operation operation) {
+        InternalTransaction tx = (InternalTransaction) node.transactions().begin();
+
+        createTable();
+
+        Table table = node.tables().table(TABLE_NAME);
+
+        operation.execute(table, tx, cluster);
+
+        tx.commit();
+
+        assertThat(tx.state(), is(TxState.COMMITED));
+    }
 }

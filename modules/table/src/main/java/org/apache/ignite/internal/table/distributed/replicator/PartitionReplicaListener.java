@@ -145,6 +145,8 @@ import org.apache.ignite.internal.table.distributed.replication.request.ReadWrit
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteSwapRowReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replicator.action.RequestType;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
+import org.apache.ignite.internal.table.distributed.schema.TransactionTimestamps;
+import org.apache.ignite.internal.table.distributed.schema.TransactionTimestampsImpl;
 import org.apache.ignite.internal.table.distributed.schema.ValidationSchemasSource;
 import org.apache.ignite.internal.tx.Lock;
 import org.apache.ignite.internal.tx.LockKey;
@@ -256,6 +258,8 @@ public class PartitionReplicaListener implements ReplicaListener {
 
     private final CatalogService catalogService;
 
+    private final TransactionTimestamps transactionTimestamps;
+
     /** Busy lock to stop synchronously. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
@@ -337,7 +341,13 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         cursors = new ConcurrentSkipListMap<>(IgniteUuid.globalOrderComparator());
 
-        schemaCompatValidator = new SchemaCompatibilityValidator(validationSchemasSource, catalogService, schemaSyncService);
+        transactionTimestamps = new TransactionTimestampsImpl(schemaSyncService, catalogService, hybridClock);
+        schemaCompatValidator = new SchemaCompatibilityValidator(
+                validationSchemasSource,
+                catalogService,
+                schemaSyncService,
+                transactionTimestamps
+        );
 
         placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, this::onPrimaryElected);
         placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, this::onPrimaryExpired);
@@ -579,26 +589,28 @@ public class PartitionReplicaListener implements ReplicaListener {
             return completedFuture(null);
         }
 
-        HybridTimestamp tsToWaitForSchema = getTxStartTimestamp(request);
-        if (tsToWaitForSchema == null) {
-            tsToWaitForSchema = opTsIfDirectRo;
-        }
+        return baseTimestamp(request, opTsIfDirectRo)
+                .thenCompose(tsToWaitForSchema -> {
+                    if (tsToWaitForSchema == null) {
+                        return completedFuture(null);
+                    }
 
-        if (tsToWaitForSchema == null) {
-            return completedFuture(null);
-        }
+                    return schemaSyncService.waitForMetadataCompleteness(tsToWaitForSchema)
+                            .thenRun(() -> {
+                                SchemaVersionAwareReplicaRequest versionAwareRequest = (SchemaVersionAwareReplicaRequest) request;
 
-        HybridTimestamp finalTsToWaitForSchema = tsToWaitForSchema;
-        return schemaSyncService.waitForMetadataCompleteness(finalTsToWaitForSchema)
-                .thenRun(() -> {
-                    SchemaVersionAwareReplicaRequest versionAwareRequest = (SchemaVersionAwareReplicaRequest) request;
-
-                    schemaCompatValidator.failIfRequestSchemaDiffersFromTxTs(
-                            finalTsToWaitForSchema,
-                            versionAwareRequest.schemaVersion(),
-                            tableId()
-                    );
+                                schemaCompatValidator.failIfRequestSchemaDiffersFromTxTs(
+                                        tsToWaitForSchema,
+                                        versionAwareRequest.schemaVersion(),
+                                        tableId()
+                                );
+                            });
                 });
+    }
+
+    private CompletableFuture<@Nullable HybridTimestamp> baseTimestamp(ReplicaRequest request, @Nullable HybridTimestamp opTsIfDirectRo) {
+        return txStartTimestamp(request)
+                .thenApply(txStartTimestamp -> txStartTimestamp != null ? txStartTimestamp : opTsIfDirectRo);
     }
 
     /**
@@ -610,12 +622,8 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @return Future completed when the validation is finished.
      */
     private CompletableFuture<Void> waitForSchemasBeforeReading(ReplicaRequest request, @Nullable HybridTimestamp opTsIfDirectRo) {
-        HybridTimestamp tsToWaitForSchema = getTxStartTimestamp(request);
-        if (tsToWaitForSchema == null) {
-            tsToWaitForSchema = opTsIfDirectRo;
-        }
-
-        return tsToWaitForSchema == null ? completedFuture(null) : schemaSyncService.waitForMetadataCompleteness(tsToWaitForSchema);
+        return baseTimestamp(request, opTsIfDirectRo)
+                .thenCompose(baseTs -> baseTs == null ? completedFuture(null) : schemaSyncService.waitForMetadataCompleteness(baseTs));
     }
 
     /**
@@ -623,17 +631,15 @@ public class PartitionReplicaListener implements ReplicaListener {
      *
      * @param request Replica request corresponding to the operation.
      */
-    private static @Nullable HybridTimestamp getTxStartTimestamp(ReplicaRequest request) {
-        HybridTimestamp txStartTimestamp;
-
+    private CompletableFuture<@Nullable HybridTimestamp> txStartTimestamp(ReplicaRequest request) {
         if (request instanceof ReadWriteReplicaRequest) {
-            txStartTimestamp = TransactionIds.beginTimestamp(((ReadWriteReplicaRequest) request).transactionId());
+            HybridTimestamp beginTimestamp = TransactionIds.beginTimestamp(((ReadWriteReplicaRequest) request).transactionId());
+            return transactionTimestamps.rwTransactionBaseTimestamp(beginTimestamp, tableId());
         } else if (request instanceof ReadOnlyReplicaRequest) {
-            txStartTimestamp = ((ReadOnlyReplicaRequest) request).readTimestamp();
+            return completedFuture(((ReadOnlyReplicaRequest) request).readTimestamp());
         } else {
-            txStartTimestamp = null;
+            return completedFuture(null);
         }
-        return txStartTimestamp;
     }
 
     private CompletableFuture<?> processOperationRequest(
@@ -3573,7 +3579,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         HybridTimestamp operationTimestamp = hybridClock.now();
 
         return schemaSyncService.waitForMetadataCompleteness(operationTimestamp)
-                .thenRun(() -> failIfSchemaChangedSinceTxStart(txId, operationTimestamp));
+                .thenCompose(unused -> failIfSchemaChangedSinceBaseTs(txId, operationTimestamp));
     }
 
     /**
@@ -3586,11 +3592,10 @@ public class PartitionReplicaListener implements ReplicaListener {
         HybridTimestamp operationTimestamp = hybridClock.now();
 
         return reliableCatalogVersionFor(operationTimestamp)
-                .thenApply(catalogVersion -> {
-                    failIfSchemaChangedSinceTxStart(txId, operationTimestamp);
-
-                    return catalogVersion;
-                });
+                .thenCompose(catalogVersion ->
+                        failIfSchemaChangedSinceBaseTs(txId, operationTimestamp)
+                                .thenApply(unused -> catalogVersion)
+                );
     }
 
     private static UpdateCommand updateCommand(
@@ -3657,8 +3662,8 @@ public class PartitionReplicaListener implements ReplicaListener {
                 .build();
     }
 
-    private void failIfSchemaChangedSinceTxStart(UUID txId, HybridTimestamp operationTimestamp) {
-        schemaCompatValidator.failIfSchemaChangedAfterTxStart(txId, operationTimestamp, tableId());
+    private CompletableFuture<Void> failIfSchemaChangedSinceBaseTs(UUID txId, HybridTimestamp operationTimestamp) {
+        return schemaCompatValidator.failIfSchemaChangedAfterBaseTs(txId, operationTimestamp, tableId());
     }
 
     private CompletableFuture<Integer> reliableCatalogVersionFor(HybridTimestamp ts) {

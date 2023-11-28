@@ -32,6 +32,7 @@ import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.streamer.StreamerBatchSender;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
+import org.apache.ignite.internal.table.distributed.schema.TransactionTimestamps;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.MarshallerException;
@@ -53,9 +54,15 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
      * @param tbl The table.
      * @param schemaRegistry Table schema registry.
      * @param schemaVersions Schema versions access.
+     * @param transactionTimestamps Transaction timestamps.
      */
-    public RecordBinaryViewImpl(InternalTable tbl, SchemaRegistry schemaRegistry, SchemaVersions schemaVersions) {
-        super(tbl, schemaVersions, schemaRegistry);
+    public RecordBinaryViewImpl(
+            InternalTable tbl,
+            SchemaRegistry schemaRegistry,
+            SchemaVersions schemaVersions,
+            TransactionTimestamps transactionTimestamps
+    ) {
+        super(tbl, schemaVersions, schemaRegistry, transactionTimestamps);
 
         marshallerCache = new TupleMarshallerCache(schemaRegistry);
     }

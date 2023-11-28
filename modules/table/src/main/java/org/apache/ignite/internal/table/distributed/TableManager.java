@@ -152,6 +152,8 @@ import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersionsImpl;
 import org.apache.ignite.internal.table.distributed.schema.ThreadLocalPartitionCommandsMarshaller;
+import org.apache.ignite.internal.table.distributed.schema.TransactionTimestamps;
+import org.apache.ignite.internal.table.distributed.schema.TransactionTimestampsImpl;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.table.distributed.storage.PartitionStorages;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
@@ -335,6 +337,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
     private final SchemaVersions schemaVersions;
 
+    private final TransactionTimestamps transactionTimestamps;
+
     private final PartitionReplicatorNodeRecovery partitionReplicatorNodeRecovery;
 
     /** Versioned value used only at manager startup to correctly fire table creation events. */
@@ -422,6 +426,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         );
 
         schemaVersions = new SchemaVersionsImpl(schemaSyncService, catalogService, clock);
+        transactionTimestamps = new TransactionTimestampsImpl(schemaSyncService, catalogService, clock);
 
         tablesByIdVv = new IncrementalVersionedValue<>(registry, HashMap::new);
 
@@ -1122,7 +1127,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 partitions, clusterNodeResolver, txManager, tableStorage,
                 txStateStorage, replicaSvc, clock, observableTimestampTracker, placementDriver);
 
-        var table = new TableImpl(internalTable, lockMgr, schemaVersions);
+        var table = new TableImpl(internalTable, lockMgr, schemaVersions, transactionTimestamps);
 
         // TODO: IGNITE-18595 We need to do something different to wait for indexes before full rebalancing
         table.addIndexesToWait(collectTableIndexIds(tableId, catalogVersion, onNodeRecovery));

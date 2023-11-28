@@ -36,6 +36,7 @@ import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaTestUtils;
 import org.apache.ignite.internal.table.distributed.schema.ConstantSchemaVersions;
+import org.apache.ignite.internal.table.distributed.schema.NaiveTransactionTimestamps;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypeSpec;
@@ -691,6 +692,7 @@ public class KeyValueViewOperationsSimpleSchemaTest extends TableKvOperationsTes
                 table.internalTable(),
                 new DummySchemaManagerImpl(schema),
                 new ConstantSchemaVersions(1),
+                new NaiveTransactionTimestamps(),
                 keyMapper,
                 valMapper
         );
