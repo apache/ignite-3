@@ -839,7 +839,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
                             + "UPDATE test SET step = 1; "
                             + "SELECT * FROM test; "
                             + "UPDATE test SET step = 2; "
-                            + "COMMIT;");
+                            + "COMMIT; ");
 
             ResultProcessor result = execute(session, "SELECT step FROM test");
             assertEquals(1, result.result().size());
