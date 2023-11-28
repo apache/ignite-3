@@ -734,9 +734,4 @@ public class HeapUnboundedLockManager implements LockManager {
     public boolean isEmpty() {
         return locks.isEmpty();
     }
-
-    @Override
-    public LockManager parentLockManager() {
-        return null;
-    }
 }
