@@ -158,6 +158,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
     /** Local node network identity. This id is available only after the network has started. */
     private String localNodeId;
+
     /**
      * Transaction lock release manager.
      */

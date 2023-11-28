@@ -137,8 +137,10 @@ public class TxUnlockManager implements IgniteComponent {
         // If the primary replica has not changed, get will return a valid value and we'll send an unlock request to this node.
         // If the primary replica has expired and get returns null (or a different node), the primary node step down logic
         // will automatically release the locks on that node. All we need to do is to clean the storage.
+        HybridTimestamp now = hybridClock.now();
+
         for (TablePartitionId partitionId : partitions) {
-            primaryReplicaFutures.put(partitionId, getPrimaryReplica(partitionId));
+            primaryReplicaFutures.put(partitionId, placementDriver.getPrimaryReplica(partitionId, now));
         }
 
         // No need to have any specific handling for `getPrimaryReplica` exceptions,
@@ -168,7 +170,7 @@ public class TxUnlockManager implements IgniteComponent {
                         String node = entry.getKey();
                         Set<ReplicationGroupId> nodePartitions = entry.getValue();
 
-                        unlockFutures.add(sendDurableUnlockMessage(commit, commitTimestamp, txId, node, nodePartitions));
+                        unlockFutures.add(sendUnlockMessageWithRetries(commit, commitTimestamp, txId, node, nodePartitions));
                     }
 
                     return allOf(unlockFutures.toArray(new CompletableFuture<?>[0]));
@@ -254,10 +256,6 @@ public class TxUnlockManager implements IgniteComponent {
                 .thenCompose(Function.identity());
     }
 
-    private CompletableFuture<ReplicaMeta> getPrimaryReplica(TablePartitionId partitionId) {
-        return placementDriver.getPrimaryReplica(partitionId, hybridClock.now());
-    }
-
     private CompletableFuture<String> findPrimaryReplica(TablePartitionId partitionId, HybridTimestamp now) {
         return placementDriver.awaitPrimaryReplica(partitionId, now, AWAIT_PRIMARY_REPLICA_TIMEOUT, SECONDS)
                 .handle((primaryReplica, e) -> {
@@ -277,7 +275,7 @@ public class TxUnlockManager implements IgniteComponent {
     public void stop() throws Exception {
     }
 
-    private CompletableFuture<Void> sendDurableUnlockMessage(
+    private CompletableFuture<Void> sendUnlockMessageWithRetries(
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp,
             UUID txId,
@@ -295,7 +293,7 @@ public class TxUnlockManager implements IgniteComponent {
                 .handle((networkMessage, throwable) -> {
                     if (throwable != null) {
                         if (TransactionFailureHandler.isRecoverable(throwable)) {
-                            return sendDurableUnlockMessage(commit, commitTimestamp, txId, node, partitions);
+                            return sendUnlockMessageWithRetries(commit, commitTimestamp, txId, node, partitions);
                         }
                         return CompletableFuture.<Void>failedFuture(throwable);
                     }
