@@ -984,7 +984,7 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
             if (paramState.resolvedType == null || paramState.node == null) {
                 throw new AssertionError("Dynamic parameter has not been validated: " + i);
             } else if (paramState.resolvedType == unknownType) {
-                throw new AssertionError("Dynamic parameter type has not been inferred: " + i);
+                throw newValidationError(paramState.node, IgniteResource.INSTANCE.unableToResolveDynamicParameterType(i));
             } else {
                 SqlDynamicParam dynamicParam = paramState.node;
                 RelDataType paramType = paramState.resolvedType;

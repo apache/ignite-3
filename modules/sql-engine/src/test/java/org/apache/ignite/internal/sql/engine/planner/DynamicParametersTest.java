@@ -183,8 +183,6 @@ public class DynamicParametersTest extends AbstractPlannerTest {
     /** Dynamic parameters in independent contexts. */
     @TestFactory
     public Stream<DynamicTest> testStandalone() {
-        IgniteTypeFactory tf = Commons.typeFactory();
-
         return Stream.of(
                 checkStatement()
                         .sql("SELECT ?", 1)
@@ -198,12 +196,6 @@ public class DynamicParametersTest extends AbstractPlannerTest {
                         .project("?0"),
 
                 checkStatement()
-                        .table("t1", "c1", NativeTypes.INT32)
-                        .sql("SELECT (SELECT ? FROM t1)", 1)
-                        .parameterTypes(nullable(NativeTypes.INT32))
-                        .ok(),
-
-                checkStatement()
                         .sql("SELECT ?", Unspecified.UNKNOWN)
                         .fails("Unable to determine type of a dynamic parameter#0"),
 
@@ -211,11 +203,6 @@ public class DynamicParametersTest extends AbstractPlannerTest {
                         .sql("SELECT -?", 1)
                         .parameterTypes(nullable(NativeTypes.INT32))
                         .ok(),
-
-                checkStatement()
-                        .table("t1", "c1", NativeTypes.INT32)
-                        .sql("SELECT (SELECT ? FROM t1)", Unspecified.UNKNOWN)
-                        .fails("Unable to determine type of a dynamic parameter#0"),
 
                 checkStatement()
                         .sql("SELECT CAST(? AS INTEGER)", Unspecified.UNKNOWN)
@@ -240,6 +227,67 @@ public class DynamicParametersTest extends AbstractPlannerTest {
                 checkStatement()
                         .sql("SELECT ? IS NOT NULL", Unspecified.UNKNOWN)
                         .fails("Ambiguous operator <UNKNOWN> IS NOT NULL")
+        );
+    }
+
+    /** Subqueries in various contexts. */
+    @TestFactory
+    public Stream<DynamicTest> testSubqueries() {
+        return Stream.of(
+                checkStatement()
+                        .sql("SELECT (SELECT ?)", 1)
+                        .parameterTypes(nullable(NativeTypes.INT32))
+                        .ok(),
+
+                checkStatement()
+                        .sql("SELECT (SELECT ?)", Unspecified.UNKNOWN)
+                        .fails("Unable to determine type of a dynamic parameter#0"),
+
+                // Predicates
+
+                checkStatement()
+                        .table("t1", "int_col", NativeTypes.INT32)
+                        .sql("SELECT * FROM t1 WHERE int_col = SOME(SELECT ?)", 1)
+                        .parameterTypes(nullable(NativeTypes.INT32))
+                        .ok(),
+
+
+                checkStatement()
+                        .table("t1", "int_col", NativeTypes.INT32)
+                        .sql("SELECT * FROM t1 WHERE int_col = SOME(SELECT ?)", Unspecified.UNKNOWN)
+                        .fails("Unable to determine type of a dynamic parameter#0"),
+
+                checkStatement()
+                        .table("t1", "int_col", NativeTypes.INT32)
+                        .sql("SELECT * FROM t1 WHERE int_col = ANY(SELECT ?)", 1)
+                        .parameterTypes(nullable(NativeTypes.INT32))
+                        .ok(),
+
+                checkStatement()
+                        .table("t1", "int_col", NativeTypes.INT32)
+                        .sql("SELECT * FROM t1 WHERE int_col = ANY(SELECT ?)", Unspecified.UNKNOWN)
+                        .fails("Unable to determine type of a dynamic parameter#0"),
+
+
+                // DML
+
+                checkStatement()
+                        .table("t1", "c1", NativeTypes.INT32)
+                        .sql("INSERT INTO t1 VALUES (1), ((SELECT ?))", 1)
+                        .ok(),
+
+                checkStatement()
+                        .table("t1", "c1", NativeTypes.INT32)
+                        .sql("INSERT INTO t1 VALUES (1), ((SELECT ?))", Unspecified.UNKNOWN)
+                        .fails("Unable to determine type of a dynamic parameter#0")
+
+
+//                TODO https://issues.apache.org/jira/browse/IGNITE-20835
+//                 Assertion is caused by incorrect subquery handling
+//                 checkStatement()
+//                        .table("t1", "c1", NativeTypes.INT32, "c2", NativeTypes.INT64)
+//                        .sql("UPDATE t1 SET c1 = (SELECT ?)", Unspecified.UNKNOWN)
+//                        .fails("Unable to determine type of a dynamic parameter#0")
         );
     }
 
@@ -641,6 +689,29 @@ public class DynamicParametersTest extends AbstractPlannerTest {
                 checkStatement()
                         .sql("SELECT SUBSTRING(SUBSTRING(?, 1), 2)", 123456)
                         .fails("Values passed to SUBSTRING operator must have compatible types")
+        );
+    }
+
+    /** Set operations. */
+    @TestFactory
+    public Stream<DynamicTest> testSetOps() {
+        return Stream.of(
+                sql("SELECT 1 UNION SELECT ?", 1)
+                        .parameterTypes(nullable(NativeTypes.INT32))
+                        .ok(),
+
+                sql("SELECT 1 UNION SELECT ?", Unspecified.UNKNOWN)
+                        .fails("Unable to determine type of a dynamic parameter#0."),
+
+                sql("SELECT ? UNION SELECT 1", 1)
+                        .parameterTypes(nullable(NativeTypes.INT32))
+                        .ok(),
+
+                sql("SELECT ? UNION SELECT 1", Unspecified.UNKNOWN)
+                        .fails("Unable to determine type of a dynamic parameter#0."),
+
+                sql("SELECT ? UNION SELECT ?", 1, Unspecified.UNKNOWN)
+                        .fails("Unable to determine type of a dynamic parameter#1.")
         );
     }
 
