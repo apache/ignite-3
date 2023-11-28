@@ -250,10 +250,11 @@ public class IgniteSqlFunctionsTest {
     @Test
     public void testRound() {
         assertEquals(new BigDecimal("1"), IgniteSqlFunctions.sround(new BigDecimal("1.000")));
-        assertEquals(new BigDecimal("1"), IgniteSqlFunctions.sround(new BigDecimal("1.123")));
+        assertEquals(new BigDecimal("2"), IgniteSqlFunctions.sround(new BigDecimal("1.5")));
         assertEquals(1, IgniteSqlFunctions.sround(1), "int");
         assertEquals(1L, IgniteSqlFunctions.sround(1L), "long");
-        assertEquals(1.0d, IgniteSqlFunctions.sround(1.123d), "double");
+        assertEquals(2.0f, IgniteSqlFunctions.sround(1.5f), "float");
+        assertEquals(2.0d, IgniteSqlFunctions.sround(1.5d), "double");
     }
 
     /** Tests for ROUND(x, s) function, where x is a BigDecimal value. */
@@ -263,17 +264,19 @@ public class IgniteSqlFunctionsTest {
             "1.123, 0, 1.000",
             "1.123, 1, 1.100",
             "1.123, 2, 1.120",
-            "1.127, 2, 1.130",
+            "1.125, 2, 1.130",
             "1.123, 3, 1.123",
             "1.123, 4, 1.123",
             "10.123, 0, 10.000",
+            "10.500, 0, 11.000",
+            "10.800, 0, 11.000",
             "10.123, -1, 10.000",
             "10.123, -2, 0.000",
             "10.123, 3, 10.123",
             "10.123, 4, 10.123",
     })
     public void testRound2Decimal(String input, int scale, String result) {
-        assertEquals(new BigDecimal(result), IgniteSqlFunctions.sround(new BigDecimal(result), scale));
+        assertEquals(new BigDecimal(result), IgniteSqlFunctions.sround(new BigDecimal(input), scale));
     }
 
     /** Tests for ROUND(x, s) function, where x is a double value. */
@@ -281,9 +284,11 @@ public class IgniteSqlFunctionsTest {
     @CsvSource({
             "1.123, 3, 1.123",
             "1.123, 2, 1.12",
-            "1.127, 2, 1.13",
+            "1.125, 2, 1.13",
             "1.245, 1, 1.2",
             "1.123, 0, 1.0",
+            "1.500, 0, 2.0",
+            "1.800, 0, 2.0",
             "1.123, -1, 0.0",
             "10.123, 0, 10.000",
             "10.123, -1, 10.000",
@@ -357,5 +362,123 @@ public class IgniteSqlFunctionsTest {
     })
     public void testRound2LongType(long input, int scale, long result) {
         assertEquals(result, IgniteSqlFunctions.sround(input, scale));
+    }
+
+    /** Tests for TRUNCATE(x) function. */
+    @Test
+    public void testTruncate() {
+        assertEquals(new BigDecimal("1"), IgniteSqlFunctions.struncate(new BigDecimal("1.000")));
+        assertEquals(new BigDecimal("1"), IgniteSqlFunctions.struncate(new BigDecimal("1.5")));
+        assertEquals(1, IgniteSqlFunctions.struncate(1), "int");
+        assertEquals(1L, IgniteSqlFunctions.struncate(1L), "long");
+        assertEquals(1.0d, IgniteSqlFunctions.struncate(1.5d), "double");
+        assertEquals(1.0f, IgniteSqlFunctions.struncate(1.5f), "float");
+    }
+
+    /** Tests for TRUNCATE(x, s) function, where x is a BigDecimal value. */
+    @ParameterizedTest
+    @CsvSource({
+            "1.123, -1, 0.000",
+            "1.123, 0, 1.000",
+            "1.123, 1, 1.100",
+            "1.123, 2, 1.120",
+            "1.125, 2, 1.120",
+            "1.123, 3, 1.123",
+            "1.123, 4, 1.123",
+            "10.123, 0, 10.000",
+            "10.500, 0, 10.000",
+            "10.800, 0, 10.000",
+            "10.123, -1, 10.000",
+            "10.123, -2, 0.000",
+            "10.123, 3, 10.123",
+            "10.123, 4, 10.123",
+    })
+    public void testTruncate2Decimal(String input, int scale, String result) {
+        assertEquals(new BigDecimal(result), IgniteSqlFunctions.struncate(new BigDecimal(input), scale));
+    }
+
+    /** Tests for TRUNCATE(x, s) function, where x is a double value. */
+    @ParameterizedTest
+    @CsvSource({
+            "1.123, 3, 1.123",
+            "1.123, 2, 1.12",
+            "1.125, 2, 1.12",
+            "1.245, 1, 1.2",
+            "1.123, 0, 1.0",
+            "1.500, 0, 1.0",
+            "1.800, 0, 1.0",
+            "1.123, -1, 0.0",
+            "10.123, 0, 10.000",
+            "10.123, -1, 10.000",
+            "10.123, -2, 0.000",
+            "10.123, 3, 10.123",
+            "10.123, 4, 10.123",
+    })
+    public void testTruncate2Double(double input, int scale, double result) {
+        assertEquals(result, IgniteSqlFunctions.struncate(input, scale));
+    }
+
+    /** Tests for TRUNCATE(x, s) function, where x is an byte. */
+    @ParameterizedTest
+    @CsvSource({
+            "42, -2, 0",
+            "42, -1, 40",
+            "47, -1, 40",
+            "42, 0, 42",
+            "42, 1, 42",
+            "42, 2, 42",
+            "-42, -1, -40",
+            "-47, -1, -40",
+    })
+    public void testTruncate2ByteType(byte input, int scale, byte result) {
+        assertEquals(result, IgniteSqlFunctions.struncate(input, scale));
+    }
+
+    /** Tests for TRUNCATE(x, s) function, where x is an short. */
+    @ParameterizedTest
+    @CsvSource({
+            "42, -2, 0",
+            "42, -1, 40",
+            "47, -1, 40",
+            "42, 0, 42",
+            "42, 1, 42",
+            "42, 2, 42",
+            "-42, -1, -40",
+            "-47, -1, -40",
+    })
+    public void testTruncateShortType(short input, int scale, short result) {
+        assertEquals(result, IgniteSqlFunctions.struncate(input, scale));
+    }
+
+    /** Tests for TRUNCATE(x, s) function, where x is an int. */
+    @ParameterizedTest
+    @CsvSource({
+            "42, -2, 0",
+            "42, -1, 40",
+            "47, -1, 40",
+            "42, 0, 42",
+            "42, 1, 42",
+            "42, 2, 42",
+            "-42, -1, -40",
+            "-47, -1, -40",
+    })
+    public void testTruncate2IntType(int input, int scale, int result) {
+        assertEquals(result, IgniteSqlFunctions.struncate(input, scale));
+    }
+
+    /** Tests for TRUNCATE(x, s) function, where x is a long. */
+    @ParameterizedTest
+    @CsvSource({
+            "42, -2, 0",
+            "42, -1, 40",
+            "47, -1, 40",
+            "42, 0, 42",
+            "42, 1, 42",
+            "42, 2, 42",
+            "-42, -1, -40",
+            "-47, -1, -40",
+    })
+    public void testTruncate2LongType(long input, int scale, long result) {
+        assertEquals(result, IgniteSqlFunctions.struncate(input, scale));
     }
 }

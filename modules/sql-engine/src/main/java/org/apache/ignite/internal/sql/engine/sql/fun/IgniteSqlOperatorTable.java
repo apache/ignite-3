@@ -169,26 +169,13 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
 
     /** The {@code ROUND(numeric [, numeric])} function. */
     public static final SqlFunction ROUND = SqlBasicFunction.create("ROUND",
-            new SqlReturnTypeInference() {
-                @Override
-                public @Nullable RelDataType inferReturnType(SqlOperatorBinding opBinding) {
-                    RelDataType operandType = opBinding.getOperandType(0);
+            new SetScaleToZeroIfSingleArgument(),
+            OperandTypes.NUMERIC_OPTIONAL_INTEGER,
+            SqlFunctionCategory.NUMERIC);
 
-                    // If there is only one argument and it supports precision and scale, set scale 0.
-                    if (opBinding.getOperandCount() == 1 && operandType.getSqlTypeName().allowsPrecScale(true, true)) {
-                        int precision = operandType.getPrecision();
-                        IgniteTypeFactory typeFactory = Commons.typeFactory();
-
-                        RelDataType returnType = typeFactory.createSqlType(operandType.getSqlTypeName(), precision, 0);
-                        // Preserve nullability
-                        boolean nullable = operandType.isNullable();
-
-                        return typeFactory.createTypeWithNullability(returnType, nullable);
-                    } else {
-                        return operandType;
-                    }
-                }
-            },
+    /** The {@code ROUND(numeric [, numeric])} function. */
+    public static final SqlFunction TRUNCATE = SqlBasicFunction.create("TRUNCATE",
+            new SetScaleToZeroIfSingleArgument(),
             OperandTypes.NUMERIC_OPTIONAL_INTEGER,
             SqlFunctionCategory.NUMERIC);
 
@@ -334,7 +321,7 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
         register(SqlLibraryOperators.SINH); // Hyperbolic sine.
         register(SqlStdOperatorTable.TAN); // Tangent.
         register(SqlLibraryOperators.TANH); // Hyperbolic tangent.
-        register(SqlStdOperatorTable.TRUNCATE);
+        register(TRUNCATE); // Fixes return type scale.
         register(SqlStdOperatorTable.PI);
 
         // Date and time.
@@ -470,5 +457,27 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
         register(NULL_BOUND);
         register(RAND_UUID);
         register(GEN_RANDOM_UUID);
+    }
+
+    /** Sets scale to {@code 0} for single argument variants of ROUND/TRUNCATE operators. */
+    private static class SetScaleToZeroIfSingleArgument implements SqlReturnTypeInference {
+        @Override
+        public @Nullable RelDataType inferReturnType(SqlOperatorBinding opBinding) {
+            RelDataType operandType = opBinding.getOperandType(0);
+
+            // If there is only one argument and it supports precision and scale, set scale 0.
+            if (opBinding.getOperandCount() == 1 && operandType.getSqlTypeName().allowsPrecScale(true, true)) {
+                int precision = operandType.getPrecision();
+                IgniteTypeFactory typeFactory = Commons.typeFactory();
+
+                RelDataType returnType = typeFactory.createSqlType(operandType.getSqlTypeName(), precision, 0);
+                // Preserve nullability
+                boolean nullable = operandType.isNullable();
+
+                return typeFactory.createTypeWithNullability(returnType, nullable);
+            } else {
+                return operandType;
+            }
+        }
     }
 }

@@ -432,6 +432,7 @@ import org.checkerframework.checker.nullness.qual.Nullable;
  * Changes in comparison with original code:
  * 1. AbstractRexCallImplementor#genValueStatement() -> append op instanceof SqlTableFunction)
  * 2. populateIgnite()
+ * 3. Replaces implementation of ROUND, TRUNCATE operators and removes TRUNC operator.
  *
  * <p>Immutable.
  */
@@ -599,7 +600,8 @@ public class RexImpTable {
       defineMethod(DEGREES, "degrees", NullPolicy.STRICT);
       defineMethod(POW, "power", NullPolicy.STRICT);
       defineMethod(RADIANS, "radians", NullPolicy.STRICT);
-//      defineMethod(ROUND, "sround", NullPolicy.STRICT);
+      // Uses ignite version
+      //defineMethod(ROUND, "sround", NullPolicy.STRICT);
       defineMethod(SEC, "sec", NullPolicy.STRICT);
       defineMethod(SECH, "sech", NullPolicy.STRICT);
       defineMethod(SIGN, "sign", NullPolicy.STRICT);
@@ -607,8 +609,10 @@ public class RexImpTable {
       defineMethod(SINH, "sinh", NullPolicy.STRICT);
       defineMethod(TAN, "tan", NullPolicy.STRICT);
       defineMethod(TANH, "tanh", NullPolicy.STRICT);
-      defineMethod(TRUNC, "struncate", NullPolicy.STRICT);
-      defineMethod(TRUNCATE, "struncate", NullPolicy.STRICT);
+      // Removed.
+      //defineMethod(TRUNC, "struncate", NullPolicy.STRICT);
+      // Uses ignite version
+      //defineMethod(TRUNCATE, "struncate", NullPolicy.STRICT);
 
       map.put(PI, new PiImplementor());
       return populate2();
@@ -996,6 +1000,8 @@ public class RexImpTable {
       defineMethod(IgniteSqlOperatorTable.OCTET_LENGTH, IgniteMethod.OCTET_LENGTH.method(), NullPolicy.STRICT);
       defineMethod(SUBSTR, IgniteMethod.SUBSTR.method(), NullPolicy.STRICT);
       defineMethod(ROUND, IgniteMethod.ROUND.method(), NullPolicy.STRICT);
+      defineMethod(TRUNC, IgniteMethod.TRUNCATE.method(), NullPolicy.STRICT);
+      defineMethod(TRUNCATE, IgniteMethod.TRUNCATE.method(), NullPolicy.STRICT);
 
       map.put(TYPEOF, systemFunctionImplementor);
       map.put(NULL_BOUND, systemFunctionImplementor);

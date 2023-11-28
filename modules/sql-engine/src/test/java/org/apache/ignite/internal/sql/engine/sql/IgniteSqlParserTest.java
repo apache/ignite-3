@@ -41,6 +41,24 @@ public class IgniteSqlParserTest {
         assertNotNull(result.statement());
     }
 
+    @Test
+    public void testScriptDelete() {
+        String query1 = "SELECT 1;";
+        String query2 = "DELETE FROM TEST WHERE ID=?";
+
+        // Parse separately - ok.
+        StatementParseResult res1 = IgniteSqlParser.parse(query1, StatementParseResult.MODE);
+        StatementParseResult res2 = IgniteSqlParser.parse(query2, StatementParseResult.MODE);
+        System.out.println(res1.statement().toString());
+        System.out.println(res2.statement().toString());
+
+        // Parse script throws "UnsupportedOperationException" for `toString()` from `DELETE` statement.
+        ScriptParseResult scriptRes = IgniteSqlParser.parse(query1 + query2, ScriptParseResult.MODE);
+        for (StatementParseResult res : scriptRes.results()) {
+            System.out.println(res.statement().toString());
+        }
+    }
+
     @ParameterizedTest
     @MethodSource("multiStatementQueries")
     public void testScriptMode(String query, int[] expectedParamsCountPerStatement) {
