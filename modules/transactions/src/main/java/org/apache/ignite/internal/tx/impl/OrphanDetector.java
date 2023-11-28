@@ -86,6 +86,7 @@ public class OrphanDetector {
      * @param topologyService Topology service.
      * @param replicaService Replica service.
      * @param placementDriver Placement driver.
+     * @param lockManager Lock manager.
      * @param clock Clock.
      */
     public OrphanDetector(
