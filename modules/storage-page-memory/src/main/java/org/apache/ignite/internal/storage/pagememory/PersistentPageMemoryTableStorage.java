@@ -436,7 +436,18 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
         ByteBuffer buffer = allocateBuffer(dataRegion.pageMemory().pageSize());
 
         try {
-            FilePageStore filePageStore = readOrCreateAndInitFilePageStore(groupPartitionId, buffer.rewind());
+            FilePageStore filePageStore = dataRegion.filePageStoreManager().getStore(groupPartitionId);
+
+            // TODO: IGNITE-20983 This shouldn't happen, we should read the page store and its meta again
+            if (filePageStore != null) {
+                PartitionMeta partitionMeta = dataRegion.partitionMetaManager().getMeta(groupPartitionId);
+
+                assert partitionMeta != null : groupPartitionId;
+
+                return partitionMeta;
+            }
+
+            filePageStore = readOrCreateAndInitFilePageStore(groupPartitionId, buffer);
 
             PartitionMeta partitionMeta = readOrCreatePartitionMeta(groupPartitionId, filePageStore, buffer.rewind());
 
