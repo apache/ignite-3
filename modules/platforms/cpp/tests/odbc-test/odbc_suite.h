@@ -80,6 +80,10 @@ public:
  */
 class odbc_connection_suite : public odbc_suite, public basic_auth_test_suite {
 public:
+    void TearDown() override {
+        set_authentication_enabled(false);
+    }
+
     /**
      * Get node addresses and user credentials to use for tests.
      *

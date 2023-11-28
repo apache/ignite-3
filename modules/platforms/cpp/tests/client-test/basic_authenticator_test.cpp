@@ -22,7 +22,11 @@
 
 using namespace ignite;
 
-struct basic_authenticator_test : public basic_auth_test_suite {};
+struct basic_authenticator_test : public basic_auth_test_suite {
+    void TearDown() override {
+        set_authentication_enabled(false);
+    }
+};
 
 TEST_F(basic_authenticator_test, disabled_on_server) {
     set_authentication_enabled(false);
