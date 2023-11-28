@@ -139,6 +139,15 @@ public abstract class AbstractLockManagerEventsTest extends AbstractLockingTest 
     }
 
     @Test
+    public void reenterNoEvent() {
+        UUID tx0 = beginTx();
+
+        slock(tx0, key);
+        xlock(tx0, key);
+        checkNoEvent();
+    }
+
+    @Test
     public void multipleCompatibleLockConflictWithIncompatible() {
         UUID tx0 = beginTx();
         UUID tx1 = beginTx();
