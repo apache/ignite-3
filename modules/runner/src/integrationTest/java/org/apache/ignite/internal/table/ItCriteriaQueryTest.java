@@ -23,7 +23,6 @@ import static org.apache.ignite.table.criteria.CriteriaBuilder.columnName;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasItem;
-import static org.hamcrest.Matchers.hasKey;
 import static org.hamcrest.Matchers.hasProperty;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.not;
@@ -35,7 +34,6 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.InitParameters;
-import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
@@ -43,27 +41,24 @@ import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.sql.Session;
-import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
-import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.criteria.Criteria;
-import org.apache.ignite.table.mapper.Mapper;
 import org.hamcrest.FeatureMatcher;
 import org.hamcrest.Matcher;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
+import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Tests for the criteria query table API.
  */
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @ExtendWith(WorkDirectoryExtension.class)
 public class ItCriteriaQueryTest extends BaseIgniteAbstractTest {
     private static final String TABLE_NAME = "SOME_TABLE";
@@ -81,15 +76,13 @@ public class ItCriteriaQueryTest extends BaseIgniteAbstractTest {
             + "  }\n"
             + "}";
 
-    private static Ignite NODE;
-
     @WorkDirectory
     private static Path WORK_DIR;
 
-    private Table table;
-
+    private Ignite node;
+    
     @BeforeAll
-    static void startNode(TestInfo testInfo) {
+    void beforeAll(TestInfo testInfo) {
         String connectNodeAddr = "\"localhost:" + BASE_PORT + '\"';
 
         String nodeName = testNodeName(testInfo, 0);
@@ -110,101 +103,52 @@ public class ItCriteriaQueryTest extends BaseIgniteAbstractTest {
 
         assertThat(future, willCompleteSuccessfully());
 
-        NODE = future.join();
+        node = future.join();
+
+        startTable(node, TABLE_NAME);
+        populateData(node, TABLE_NAME);
     }
 
     @AfterAll
-    static void stopNode(TestInfo testInfo) throws Exception {
-        NODE = null;
-
+    void afterAll(TestInfo testInfo) throws Exception {
+        stopTable(node, TABLE_NAME);
         IgniteUtils.closeAll(() -> IgnitionManager.stop(testNodeName(testInfo, 0)));
-    }
-
-    @BeforeEach
-    void createTable() {
-        table = startTable(node(), TABLE_NAME);
-        populateData(table.keyValueView());
-    }
-
-    @AfterEach
-    void dropTable() {
-        stopTable(node(), TABLE_NAME);
-
-        table = null;
     }
 
     @Test
     public void testBasicQueryCriteriaRecordBinaryView() {
-        try (var cursor = table.recordView().queryCriteria(null, null)) {
-            assertThat(cursor.getAll(), hasSize(15));
-        }
+        var view = node.tables().table(TABLE_NAME).recordView();
 
-        try (var cursor = table.recordView().queryCriteria(null, columnName(COLUMN_KEY).equal(2))) {
-            assertThat(cursor.getAll(), hasItem(tupleValue(COLUMN_KEY, equalTo(2))));
-        }
+        var res = view.queryCriteria(null, null).getAll();
+        assertThat(res, hasSize(15));
 
-        try (var cursor = table.recordView().queryCriteria(null, Criteria.not(Criteria.equal(COLUMN_KEY, 2)))) {
-            assertThat(cursor.getAll(), not(hasItem(tupleValue(COLUMN_KEY, equalTo(2)))));
-        }
+        res = view.queryCriteria(null, columnName(COLUMN_KEY).equal(2)).getAll();
+        assertThat(res, hasSize(1));
+        assertThat(res, hasItem(tupleValue(COLUMN_KEY, equalTo(2))));
+
+        res = view.queryCriteria(null, Criteria.not(Criteria.equal(COLUMN_KEY, 2))).getAll();
+        assertThat(res, hasSize(14));
+        assertThat(res, not(hasItem(tupleValue(COLUMN_KEY, equalTo(2)))));
     }
 
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-18695")
     @Test
     public void testBasicQueryCriteriaRecordPojoView() {
-        RecordView<TestPojo> view = table.recordView(TestPojo.class);
+        RecordView<TestPojo> view = node.tables().table(TABLE_NAME).recordView(TestPojo.class);
 
-        try (var cursor = view.queryCriteria(null, null)) {
-            assertThat(cursor.getAll(), hasSize(3));
-        }
+        var res = view.queryCriteria(null, null).getAll();
+        assertThat(res, hasSize(15));
 
-        try (var cursor = view.queryCriteria(null, columnName(COLUMN_KEY).equal(2))) {
-            assertThat(cursor.getAll(), hasItem(hasProperty(COLUMN_KEY, equalTo(2))));
-        }
+        res = view.queryCriteria(null, columnName(COLUMN_KEY).equal(2)).getAll();
+        assertThat(res, hasSize(1));
+        assertThat(res, hasItem(hasProperty(COLUMN_KEY, equalTo(2))));
 
-        try (var cursor = view.queryCriteria(null, Criteria.not(Criteria.equal(COLUMN_KEY, 2)))) {
-            assertThat(cursor.getAll(), not(hasItem(hasProperty(COLUMN_KEY, equalTo(2)))));
-        }
+        res = view.queryCriteria(null, Criteria.not(Criteria.equal(COLUMN_KEY, 2))).getAll();
+        assertThat(res, hasSize(14));
+        assertThat(res, not(hasItem(hasProperty(COLUMN_KEY, equalTo(2)))));
     }
 
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-16116")
-    @Test
-    public void testBasicQueryCriteriaKvBinaryView() {
-        try (var cursor = table.keyValueView().queryCriteria(null, null)) {
-            assertThat(cursor.getAll(), hasSize(15));
-        }
-
-        try (var cursor = table.keyValueView().queryCriteria(null, columnName("key").equal(0L))) {
-            assertThat(cursor.getAll(), hasItem(hasProperty("key", equalTo(0L))));
-        }
-
-        try (var cursor = table.keyValueView().queryCriteria(null, Criteria.not(Criteria.equal("key", 0L)))) {
-            assertThat(cursor.getAll(), not(hasItem(hasProperty("key", equalTo(0L)))));
-        }
-    }
-
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-16116")
-    @Test
-    public void testBasicQueryCriteriaKvPojoView() {
-        var view = table.keyValueView(Mapper.of(Integer.class), Mapper.of(TestPojo.class));
-
-        try (var cursor = view.queryCriteria(null, null)) {
-            assertThat(cursor.getAll(), hasSize(3));
-        }
-
-        try (var cursor = view.queryCriteria(null, columnName(COLUMN_KEY).equal(2))) {
-            assertThat(cursor.getAll(), hasItem(hasKey(2)));
-        }
-
-        try (var cursor = view.queryCriteria(null, Criteria.not(Criteria.equal(COLUMN_KEY, 2)))) {
-            assertThat(cursor.getAll(), not(hasItem(hasKey(2))));
-        }
-    }
-
-    private static IgniteImpl node() {
-        return (IgniteImpl) NODE;
-    }
-
-    private static Table startTable(Ignite node, String tableName) {
+    private static void startTable(Ignite node, String tableName) {
         try (Session session = node.sql().createSession()) {
             session.execute(
                     null,
@@ -212,11 +156,7 @@ public class ItCriteriaQueryTest extends BaseIgniteAbstractTest {
             );
         }
 
-        Table table = node.tables().table(tableName);
-
-        assertNotNull(table);
-
-        return table;
+        assertNotNull(node.tables().table(tableName));
     }
 
     private static void stopTable(Ignite node, String tableName) {
@@ -225,7 +165,9 @@ public class ItCriteriaQueryTest extends BaseIgniteAbstractTest {
         }
     }
 
-    private static void populateData(KeyValueView<Tuple, Tuple> keyValueView) {
+    private static void populateData(Ignite node, String tableName) {
+        var keyValueView = node.tables().table(tableName).keyValueView();
+
         for (int val = 0; val < 15; val++) {
             Tuple tableKey = Tuple.create().set("key", val % 100);
 

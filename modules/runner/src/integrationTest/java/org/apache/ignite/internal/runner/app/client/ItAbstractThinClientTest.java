@@ -67,7 +67,7 @@ public abstract class ItAbstractThinClientTest extends BaseIgniteAbstractTest {
     private IgniteClient client;
 
     /**
-     * Before each.
+     * Before all.
      */
     @BeforeAll
     void beforeAll(TestInfo testInfo, @WorkDirectory Path workDir) throws InterruptedException {
