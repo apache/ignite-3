@@ -26,6 +26,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Supplier;
+import org.apache.ignite.internal.lang.RunnableX;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.thread.IgniteThread;
 import org.apache.ignite.internal.util.worker.IgniteWorker;
@@ -135,13 +136,5 @@ public class LongOperationAsyncExecutor {
      */
     public void awaitAsyncTaskCompletion(boolean cancel) {
         awaitForWorkersStop(workers, cancel, log);
-    }
-
-    /**
-     * Runnable that could throw an exception.
-     */
-    @FunctionalInterface
-    public interface RunnableX {
-        void run() throws Throwable;
     }
 }
