@@ -24,8 +24,6 @@ import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.MAX_PARTITION_ID;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.pageId;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.partitionId;
-import static org.apache.ignite.internal.util.GridUnsafe.allocateBuffer;
-import static org.apache.ignite.internal.util.GridUnsafe.freeBuffer;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 
 import java.io.File;
@@ -50,7 +48,6 @@ import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.PageReadWriteManager;
 import org.apache.ignite.internal.pagememory.persistence.store.GroupPageStoresMap.GroupPartitionPageStore;
 import org.apache.ignite.internal.pagememory.persistence.store.LongOperationAsyncExecutor.RunnableX;
-import org.apache.ignite.internal.util.IgniteStripedLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.jetbrains.annotations.Nullable;
 
@@ -97,19 +94,11 @@ public class FilePageStoreManager implements PageReadWriteManager {
     /** Starting directory for all file page stores, for example: 'db/group-123/index.bin'. */
     private final Path dbDir;
 
-    /** Page size in bytes. */
-    private final int pageSize;
-
     /** Executor to disallow running code that modifies data in {@link #groupPageStores} concurrently with cleanup of file page store. */
     private final LongOperationAsyncExecutor cleanupAsyncExecutor;
 
     /** Mapping: group ID -> group page stores. */
     private final GroupPageStoresMap<FilePageStore> groupPageStores;
-
-    /** Striped lock for partition initialization. */
-    private final IgniteStripedLock initPartitionStripedLock = new IgniteStripedLock(
-            Math.max(Runtime.getRuntime().availableProcessors(), 8)
-    );
 
     /** {@link FilePageStore} factory. */
     private final FilePageStoreFactory filePageStoreFactory;
@@ -131,7 +120,6 @@ public class FilePageStoreManager implements PageReadWriteManager {
             int pageSize
     ) throws IgniteInternalCheckedException {
         this.dbDir = storagePath.resolve("db");
-        this.pageSize = pageSize;
 
         cleanupAsyncExecutor = new LongOperationAsyncExecutor(igniteInstanceName, LOG);
 
@@ -268,48 +256,6 @@ public class FilePageStoreManager implements PageReadWriteManager {
             // TODO: IGNITE-16899 By analogy with 2.0, fail a node
 
             throw e;
-        }
-    }
-
-    /**
-     * Initialization of the page storage for the group partition.
-     *
-     * @param groupPartitionId Pair of group ID with partition ID.
-     * @throws IgniteInternalCheckedException If failed.
-     */
-    public void initialize(GroupPartitionId groupPartitionId) throws IgniteInternalCheckedException {
-        initPartitionStripedLock.lock(groupPartitionId.hashCode());
-
-        try {
-            if (!groupPageStores.contains(groupPartitionId)) {
-                Path tableWorkDir = ensureGroupWorkDir(groupPartitionId.getGroupId());
-
-                ByteBuffer buffer = allocateBuffer(pageSize);
-
-                try {
-                    Path partFilePath = tableWorkDir.resolve(String.format(PART_FILE_TEMPLATE, groupPartitionId.getPartitionId()));
-
-                    Path[] partDeltaFiles = findPartitionDeltaFiles(tableWorkDir, groupPartitionId.getPartitionId());
-
-                    FilePageStore filePageStore = filePageStoreFactory.createPageStore(buffer.rewind(), partFilePath, partDeltaFiles);
-
-                    FilePageStore previous = groupPageStores.put(groupPartitionId, filePageStore);
-
-                    assert previous == null : IgniteStringFormatter.format(
-                            "Parallel creation is not allowed: [tableId={}, partitionId={}]",
-                            groupPartitionId.getGroupId(),
-                            groupPartitionId.getPartitionId()
-                    );
-                } finally {
-                    freeBuffer(buffer);
-                }
-            }
-        } catch (IgniteInternalCheckedException e) {
-            // TODO: IGNITE-16899 By analogy with 2.0, fail a node
-
-            throw e;
-        } finally {
-            initPartitionStripedLock.unlock(groupPartitionId.hashCode());
         }
     }
 
