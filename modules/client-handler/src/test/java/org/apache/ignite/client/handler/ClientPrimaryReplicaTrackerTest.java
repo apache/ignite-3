@@ -89,7 +89,7 @@ class ClientPrimaryReplicaTrackerTest extends BaseIgniteAbstractTest {
         assertEquals(1, tracker.maxStartTime());
         driver.updateReplica("s3", TABLE_ID, 0, 2);
 
-        assertEquals(new HybridTimestamp(2, 0).longValue(), tracker.maxStartTime());
+        assertEquals(2, tracker.maxStartTime());
 
         PrimaryReplicasResult replicas = tracker.primaryReplicasAsync(TABLE_ID, null).join();
         assertEquals(PARTITIONS, replicas.nodeNames().size());
@@ -105,7 +105,7 @@ class ClientPrimaryReplicaTrackerTest extends BaseIgniteAbstractTest {
         assertEquals(1, tracker.maxStartTime());
         driver.updateReplica(null, TABLE_ID, 1, 2);
 
-        assertEquals(new HybridTimestamp(2, 0).longValue(), tracker.maxStartTime());
+        assertEquals(2, tracker.maxStartTime());
 
         PrimaryReplicasResult replicas = tracker.primaryReplicasAsync(TABLE_ID, null).join();
         assertEquals(PARTITIONS, replicas.nodeNames().size());
@@ -138,7 +138,7 @@ class ClientPrimaryReplicaTrackerTest extends BaseIgniteAbstractTest {
         driver.updateReplica("update-3", TABLE_ID, 0, 15);
         driver.updateReplica("old-update-4", TABLE_ID, 0, 14);
 
-        assertEquals(new HybridTimestamp(15, 0).longValue(), tracker.maxStartTime());
+        assertEquals(15, tracker.maxStartTime());
 
         PrimaryReplicasResult replicas = tracker.primaryReplicasAsync(TABLE_ID, null).join();
         assertEquals(PARTITIONS, replicas.nodeNames().size());
