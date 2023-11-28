@@ -28,6 +28,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.SubmissionPublisher;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
+import org.apache.commons.math3.stat.inference.TestUtils;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.client.AbstractClientTableTest.PersonPojo;
 import org.apache.ignite.client.fakes.FakeIgnite;
@@ -35,6 +36,7 @@ import org.apache.ignite.client.fakes.FakeIgniteTables;
 import org.apache.ignite.client.fakes.FakeInternalTable;
 import org.apache.ignite.client.handler.FakePlacementDriver;
 import org.apache.ignite.compute.IgniteCompute;
+import org.apache.ignite.internal.client.ReliableChannel;
 import org.apache.ignite.internal.client.tx.ClientTransaction;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
@@ -166,6 +168,8 @@ public class PartitionAwarenessTest extends AbstractClientTest {
     @ParameterizedTest
     @ValueSource(booleans = {true, false})
     public void testClientReceivesPartitionAssignmentUpdates(boolean useHeartbeat) throws InterruptedException {
+        ReliableChannel ch = IgniteTestUtils.getFieldValue(client2, "ch");
+
         // Check default assignment.
         RecordView<Tuple> recordView = defaultTable().recordView();
 
@@ -173,12 +177,12 @@ public class PartitionAwarenessTest extends AbstractClientTest {
         assertOpOnNode(nodeKey2, "get", x -> recordView.get(null, Tuple.create().set("ID", 2L)));
 
         // Update partition assignment.
+        var oldTs = ch.partitionAssignmentTimestamp();
         initPrimaryReplicas(reversedReplicas());
 
         if (useHeartbeat) {
             // Wait for heartbeat message to receive change notification flag.
-            // TODO: This is unstable, how do we ensure that the message is received?
-            Thread.sleep(500);
+            assertTrue(IgniteTestUtils.waitForCondition(() -> ch.partitionAssignmentTimestamp() > oldTs, 3000));
         } else {
             // Perform a request on the default channel to receive change notification flag.
             // Use two requests because of round-robin.
