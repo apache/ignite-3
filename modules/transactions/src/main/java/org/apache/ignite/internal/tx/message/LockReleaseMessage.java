@@ -43,10 +43,12 @@ public interface LockReleaseMessage extends NetworkMessage, TimestampAware {
 
     /**
      * Returns replication groups aggregated by expected primary replica nodes.
+     * Null when this message is sent at recovery.
      *
      * @return Replication groups aggregated by expected primary replica nodes.
      */
     @Marshallable
+    @Nullable
     Collection<ReplicationGroupId> groups();
 
     /**

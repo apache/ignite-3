@@ -185,17 +185,20 @@ public class TxUnlockManager implements IgniteComponent {
         Map<TablePartitionId, CompletableFuture<?>> cleanups = new HashMap<>();
 
         // These cleanups will all be local.
-        for (ReplicationGroupId group : lockReleaseMsg.groups()) {
-            cleanups.put((TablePartitionId) group,
-                    txManager.cleanup(
-                            node,
-                            (TablePartitionId) group,
-                            lockReleaseMsg.txId(),
-                            lockReleaseMsg.commit(),
-                            lockReleaseMsg.commitTimestamp()
-                    ));
-        }
+        Collection<ReplicationGroupId> groups = lockReleaseMsg.groups();
 
+        if (groups != null) {
+            for (ReplicationGroupId group : groups) {
+                cleanups.put((TablePartitionId) group,
+                        txManager.cleanup(
+                                node,
+                                (TablePartitionId) group,
+                                lockReleaseMsg.txId(),
+                                lockReleaseMsg.commit(),
+                                lockReleaseMsg.commitTimestamp()
+                        ));
+            }
+        }
         // First trigger the cleanup to properly release the locks if we know all affected partitions on this node.
         // If the partition collection is empty (likely to be the recovery case)- just run 'release locks'.
         allOf(cleanups.values().toArray(new CompletableFuture<?>[0]))
