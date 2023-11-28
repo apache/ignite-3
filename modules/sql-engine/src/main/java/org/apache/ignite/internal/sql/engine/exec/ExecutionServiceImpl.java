@@ -632,7 +632,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                     initiatorNodeName,
                     desc,
                     handler,
-                    Commons.parametersMap(ctx.parameters()),
+                    Commons.parametersMap(Arrays.stream(ctx.parameters()).map(p -> p.value()).toArray()),
                     txAttributes
             );
         }
