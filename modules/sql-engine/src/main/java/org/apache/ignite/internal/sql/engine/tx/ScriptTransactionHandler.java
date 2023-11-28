@@ -313,5 +313,5 @@ public class ScriptTransactionHandler extends QueryTransactionHandler {
         public CompletableFuture<Void> rollback() {
             return Commons.completedFuture();
         }
-    };
+    }
 }
