@@ -620,16 +620,18 @@ public class PartitionAwarenessTest extends AbstractClientTest {
     }
 
     private static void initPrimaryReplicas(@Nullable List<String> replicas) {
-        initPrimaryReplicas(testServer.placementDriver(), replicas);
-        initPrimaryReplicas(testServer2.placementDriver(), replicas);
+        long leaseStartTime = System.currentTimeMillis();
+
+        initPrimaryReplicas(testServer.placementDriver(), replicas, leaseStartTime);
+        initPrimaryReplicas(testServer2.placementDriver(), replicas, leaseStartTime);
     }
 
-    private static void initPrimaryReplicas(FakePlacementDriver placementDriver, @Nullable List<String> replicas) {
+    private static void initPrimaryReplicas(FakePlacementDriver placementDriver, @Nullable List<String> replicas, long leaseStartTime) {
         if (replicas == null) {
             replicas = defaultReplicas();
         }
 
-        placementDriver.setReplicas(replicas, nextTableId.get() - 1);
+        placementDriver.setReplicas(replicas, nextTableId.get() - 1, leaseStartTime);
     }
 
     private static List<String> defaultReplicas() {
