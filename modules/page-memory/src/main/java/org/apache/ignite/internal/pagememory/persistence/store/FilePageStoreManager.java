@@ -324,7 +324,7 @@ public class FilePageStoreManager implements PageReadWriteManager {
      * Returns partition file page store for the corresponding parameters.
      *
      * @param groupPartitionId Pair of group ID with partition ID.
-     * @return Partition file page, {@code null} if not initialized or has been removed.
+     * @return Partition file page store, {@code null} if not initialized or has been removed.
      */
     public @Nullable FilePageStore getStore(GroupPartitionId groupPartitionId) {
         return groupPageStores.get(groupPartitionId);
@@ -487,5 +487,44 @@ public class FilePageStoreManager implements PageReadWriteManager {
 
             delete(partitionDeleteFilePath);
         }, "destroy-group-" + groupPartitionId.getGroupId() + "-partition-" + groupPartitionId.getPartitionId());
+    }
+
+    /**
+     * Reads a partition file page store from the file system with its delta files if it exists, otherwise creates a new one but without
+     * saving it to the file system.
+     *
+     * <p>Also does not initialize the storage, i.e. does not call {@link FilePageStore#ensure()}.</p>
+     *
+     * @param groupPartitionId Pair of group ID with partition ID.
+     * @param readBuffer Buffer for reading file headers and other supporting information from files.
+     */
+    public FilePageStore readOrCreateStore(
+            GroupPartitionId groupPartitionId,
+            ByteBuffer readBuffer
+    ) throws IgniteInternalCheckedException {
+        Path tableWorkDir = ensureGroupWorkDir(groupPartitionId.getGroupId());
+
+        Path partFilePath = tableWorkDir.resolve(String.format(PART_FILE_TEMPLATE, groupPartitionId.getPartitionId()));
+
+        Path[] partDeltaFiles = findPartitionDeltaFiles(tableWorkDir, groupPartitionId.getPartitionId());
+
+        return filePageStoreFactory.createPageStore(readBuffer.rewind(), partFilePath, partDeltaFiles);
+    }
+
+    /**
+     * Adds a partition file page storage.
+     *
+     * <p>It is expected that the storage has not been added previously and is also ready to be used by other components such as checkpoint
+     * or delta file compactor.</p>
+     *
+     * @param groupPartitionId Pair of group ID with partition ID.
+     * @param filePageStore Partition file page store.
+     */
+    public void addStore(GroupPartitionId groupPartitionId, FilePageStore filePageStore) {
+        groupPageStores.compute(groupPartitionId, oldFilePageStore -> {
+            assert oldFilePageStore == null : groupPartitionId;
+
+            return filePageStore;
+        });
     }
 }
