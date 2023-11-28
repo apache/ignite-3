@@ -22,8 +22,10 @@ import static org.apache.ignite.internal.pagememory.persistence.PersistentPageMe
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.FINISHED;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.PAGES_SORTED;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointTestUtils.mockCheckpointTimeoutLock;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.Constants.MiB;
+import static org.apache.ignite.internal.util.GridUnsafe.allocateBuffer;
+import static org.apache.ignite.internal.util.GridUnsafe.freeBuffer;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
@@ -365,7 +367,7 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
         doAnswer(answer -> {
             startWriteMetaToBufferFuture.complete(null);
 
-            await(finishWaitWriteMetaToBufferFuture, 1, SECONDS);
+            assertThat(finishWaitWriteMetaToBufferFuture, willCompleteSuccessfully());
 
             return answer.callRealMethod();
         })
@@ -497,13 +499,15 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
 
         checkpointManager.checkpointTimeoutLock().checkpointReadLock();
 
+        ByteBuffer buffer = null;
+
         try {
+            buffer = allocateBuffer(PAGE_SIZE);
+
             for (int partition = 0; partition < partitions; partition++) {
                 GroupPartitionId groupPartitionId = new GroupPartitionId(GRP_ID, partition);
 
-                filePageStoreManager.initialize(groupPartitionId);
-
-                FilePageStore filePageStore = filePageStoreManager.getStore(groupPartitionId);
+                FilePageStore filePageStore = filePageStoreManager.readOrCreateStore(groupPartitionId, buffer.rewind());
 
                 filePageStore.ensure();
 
@@ -512,10 +516,9 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
                 PartitionMeta partitionMeta = partitionMetaManager.readOrCreateMeta(
                         lastCheckpointProgress == null ? null : lastCheckpointProgress.id(),
                         groupPartitionId,
-                        filePageStore
+                        filePageStore,
+                        buffer.rewind()
                 );
-
-                partitionMetaManager.addMeta(groupPartitionId, partitionMeta);
 
                 filePageStore.setPageAllocationListener(pageIdx -> {
                     assert checkpointManager.checkpointTimeoutLock().checkpointLockIsHeldByThread();
@@ -526,9 +529,17 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
                 });
 
                 filePageStore.pages(partitionMeta.pageCount());
+
+                filePageStoreManager.addStore(groupPartitionId, filePageStore);
+                partitionMetaManager.addMeta(groupPartitionId, partitionMeta);
             }
         } finally {
-            checkpointManager.checkpointTimeoutLock().checkpointReadUnlock();
+            ByteBuffer bufferToClose = buffer;
+
+            closeAll(
+                    bufferToClose == null ? null : () -> freeBuffer(bufferToClose),
+                    () -> checkpointManager.checkpointTimeoutLock().checkpointReadUnlock()
+            );
         }
     }
 }

@@ -15,19 +15,19 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Log
-{
-    using System;
+package org.apache.ignite.internal.compute.queue;
 
-    /// <summary>
-    /// <see cref="DateTime"/> abstraction for logging.
-    /// </summary>
-    public interface IDateTimeProvider
-    {
-        /// <summary>
-        /// Gets current <see cref="DateTime"/>.
-        /// </summary>
-        /// <returns>Current DateTime.</returns>
-        DateTime Now();
-    }
+import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.compute.ComputeJob;
+import org.apache.ignite.internal.compute.ExecutionOptions;
+
+/**
+ * Executor of Compute jobs.
+ */
+public interface ComputeExecutor {
+    <R> CompletableFuture<R> executeJob(ExecutionOptions options, Class<ComputeJob<R>> jobClass, Object[] args);
+
+    void start();
+
+    void stop();
 }

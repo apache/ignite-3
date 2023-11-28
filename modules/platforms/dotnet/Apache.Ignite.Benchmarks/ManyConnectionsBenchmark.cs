@@ -21,7 +21,8 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading.Tasks;
-using Log;
+using Microsoft.Extensions.Logging;
+using Tests;
 
 /// <summary>
 /// Establishes many connections to the server node to see how it affects server-side performance.
@@ -57,7 +58,7 @@ public static class ManyConnectionsBenchmark
         var cfg = new IgniteClientConfiguration
         {
             RetryPolicy = new RetryNonePolicy(),
-            Logger = new ConsoleLogger { MinLevel = LogLevel.Warn },
+            LoggerFactory = TestUtils.GetConsoleLoggerFactory(LogLevel.Warning),
             HeartbeatInterval = TimeSpan.FromMinutes(5)
         };
 

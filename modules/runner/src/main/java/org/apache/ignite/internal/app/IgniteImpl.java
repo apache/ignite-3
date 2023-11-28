@@ -69,6 +69,7 @@ import org.apache.ignite.internal.compute.IgniteComputeImpl;
 import org.apache.ignite.internal.compute.configuration.ComputeConfiguration;
 import org.apache.ignite.internal.compute.loader.JobClassLoaderFactory;
 import org.apache.ignite.internal.compute.loader.JobContextManager;
+import org.apache.ignite.internal.compute.queue.ComputeExecutorImpl;
 import org.apache.ignite.internal.configuration.ConfigurationDynamicDefaultsPatcherImpl;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.ConfigurationModules;
@@ -641,10 +642,9 @@ public class IgniteImpl implements Ignite {
         deploymentManager = deploymentManagerImpl;
 
         computeComponent = new ComputeComponentImpl(
-                this,
                 clusterSvc.messagingService(),
-                nodeConfigRegistry.getConfiguration(ComputeConfiguration.KEY),
-                new JobContextManager(deploymentManagerImpl, deploymentManagerImpl.deploymentUnitAccessor(), new JobClassLoaderFactory())
+                new JobContextManager(deploymentManagerImpl, deploymentManagerImpl.deploymentUnitAccessor(), new JobClassLoaderFactory()),
+                new ComputeExecutorImpl(this, nodeConfigRegistry.getConfiguration(ComputeConfiguration.KEY))
         );
 
         compute = new IgniteComputeImpl(clusterSvc.topologyService(), distributedTblMgr, computeComponent);
