@@ -39,6 +39,8 @@ import org.apache.ignite.client.handler.FakePlacementDriver;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.internal.client.ReliableChannel;
 import org.apache.ignite.internal.client.tx.ClientTransaction;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -622,7 +624,7 @@ public class PartitionAwarenessTest extends AbstractClientTest {
     }
 
     private static void initPrimaryReplicas(@Nullable List<String> replicas) {
-        long leaseStartTime = System.currentTimeMillis();
+        long leaseStartTime = new HybridClockImpl().nowLong();
 
         initPrimaryReplicas(testServer.placementDriver(), replicas, leaseStartTime);
         initPrimaryReplicas(testServer2.placementDriver(), replicas, leaseStartTime);
