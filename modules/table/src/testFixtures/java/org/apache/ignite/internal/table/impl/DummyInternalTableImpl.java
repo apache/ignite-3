@@ -96,7 +96,6 @@ import org.apache.ignite.internal.util.PendingIndependentComparableValuesTracker
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterNodeImpl;
 import org.apache.ignite.network.ClusterService;
-import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.TopologyService;
 import org.apache.ignite.tx.TransactionException;
@@ -429,7 +428,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
         when(topologyService.localMember()).thenReturn(LOCAL_NODE);
 
         ClusterService clusterService = mock(ClusterService.class);
-        when(clusterService.messagingService()).thenReturn(mock(MessagingService.class));
+
+        when(clusterService.messagingService()).thenReturn(new DummyMessagingService(LOCAL_NODE.name()));
         when(clusterService.topologyService()).thenReturn(topologyService);
 
         var txManager = new TxManagerImpl(
