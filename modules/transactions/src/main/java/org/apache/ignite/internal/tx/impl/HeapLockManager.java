@@ -490,10 +490,10 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
         }
 
         /**
-         * Notifies about the found lock conflict.
+         * Notifies about the lock conflict found between transactions.
          *
-         * @param holderTx Transaction id which holds a lock.
-         * @param acquirerTx Transaction id which cannot acquire a lock.
+         * @param acquirerTx Transaction which tries to acquire the lock.
+         * @param holderTx Transaction which holds the lock.
          */
         private void conflictFound(UUID acquirerTx, UUID holderTx) {
             fireEvent(LockEvent.LOCK_CONFLICT, new LockEventParameters(acquirerTx, holderTx));

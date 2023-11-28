@@ -153,9 +153,9 @@ public class OrphanDetector {
     private CompletableFuture<Void> handleLockHolderInternal(UUID txId) {
         TxStateMeta txState = txLocalStateStorage.apply(txId);
 
-        assert txState != null : "The transaction is undefined in the local node [txId=" + txId + "].";
-
-        if (txState.txState() == TxState.ABANDONED
+        // Transaction state for full transactions is not stored in the local map, so it can be null.
+        if (txState == null
+                || txState.txState() == TxState.ABANDONED
                 || isFinalState(txState.txState())
                 || topologyService.getById(txState.txCoordinatorId()) != null) {
             return completedFuture(null);
