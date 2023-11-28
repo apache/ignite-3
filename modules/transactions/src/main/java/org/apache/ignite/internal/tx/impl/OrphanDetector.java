@@ -25,14 +25,18 @@ import static org.apache.ignite.internal.tx.TxState.isFinalState;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
+import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.replicator.ReplicaService;
+import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
+import org.apache.ignite.internal.tx.event.LockEvent;
+import org.apache.ignite.internal.tx.event.LockEventParameters;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
 import org.apache.ignite.internal.tx.message.TxRecoveryMessage;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -64,9 +68,11 @@ public class OrphanDetector {
     /** Placement driver. */
     private final PlacementDriver placementDriver;
 
-    // TODO: IGNITE-20773 Uncomment this during implementation.
-    ///** Lock manager. */
-    //private final LockManager lockManager;
+    /** Lock manager. */
+    private final LockManager lockManager;
+
+    /** Lock conflict events listener. */
+    private final EventListener<LockEventParameters> lockConflictListener = this::lockConflictListener;
 
     /** Hybrid clock. */
     private final HybridClock clock;
@@ -86,12 +92,12 @@ public class OrphanDetector {
             TopologyService topologyService,
             ReplicaService replicaService,
             PlacementDriver placementDriver,
-            //LockManager lockManager,
+            LockManager lockManager,
             HybridClock clock) {
         this.topologyService = topologyService;
         this.replicaService = replicaService;
         this.placementDriver = placementDriver;
-        //this.lockManager = lockManager;
+        this.lockManager = lockManager;
         this.clock = clock;
     }
 
@@ -102,7 +108,8 @@ public class OrphanDetector {
      */
     public void start(Function<UUID, TxStateMeta> txLocalStateStorage) {
         this.txLocalStateStorage = txLocalStateStorage;
-        // TODO: IGNITE-20773 Subscribe to lock conflicts here.
+
+        lockManager.listen(LockEvent.LOCK_CONFLICT, lockConflictListener);
     }
 
     /**
@@ -110,12 +117,17 @@ public class OrphanDetector {
      */
     public void stop() {
         busyLock.block();
-        // TODO: IGNITE-20773 Unsubscribe from lock conflicts here.
+
+        lockManager.removeListener(LockEvent.LOCK_CONFLICT, lockConflictListener);
+    }
+
+    private CompletableFuture<Boolean> lockConflictListener(LockEventParameters params, Throwable e) {
+        return handleLockHolder(params.lockHolderTx())
+                .thenApply(v -> false);
     }
 
     /**
      * Sends {@link TxRecoveryMessage} if the transaction is orphaned.
-     * TODO: IGNITE-20773 Invoke the method when the lock conflict is noted.
      *
      * @param txId Transaction id that holds a lock.
      * @return Future to complete.
