@@ -177,6 +177,7 @@ public class PartitionAwarenessTest extends AbstractClientTest {
 
         if (useHeartbeat) {
             // Wait for heartbeat message to receive change notification flag.
+            // TODO: This is unstable, how do we ensure that the message is received?
             Thread.sleep(500);
         } else {
             // Perform a request on the default channel to receive change notification flag.
