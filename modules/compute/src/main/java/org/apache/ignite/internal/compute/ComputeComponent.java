@@ -30,21 +30,72 @@ public interface ComputeComponent extends IgniteComponent {
     /**
      * Executes a job of the given class on the current node.
      *
-     * @param jobClassName name of the job class
-     * @param args     job args
-     * @param <R>      result type
-     * @return future execution result
+     * @param options Job execution options.
+     * @param units Deployment units which will be loaded for execution.
+     * @param jobClassName Name of the job class.
+     * @param args Job args.
+     * @param <R> Job result type.
+     * @return Future execution result.
      */
-    <R> CompletableFuture<R> executeLocally(List<DeploymentUnit> units, String jobClassName, Object... args);
+    <R> CompletableFuture<R> executeLocally(
+            ExecutionOptions options,
+            List<DeploymentUnit> units,
+            String jobClassName,
+            Object... args
+    );
+
+    /**
+     * Executes a job of the given class on the current node with default execution options {@link ExecutionOptions.DEFAULT}.
+     *
+     * @param units Deployment units which will be loaded for execution.
+     * @param jobClassName Name of the job class.
+     * @param args Job args.
+     * @param <R> Job result type.
+     * @return Future execution result.
+     */
+    default <R> CompletableFuture<R> executeLocally(
+            List<DeploymentUnit> units,
+            String jobClassName,
+            Object... args
+    ) {
+        return executeLocally(ExecutionOptions.DEFAULT, units, jobClassName, args);
+    }
 
     /**
      * Executes a job of the given class on a remote node.
      *
-     * @param remoteNode name of the job class
-     * @param jobClassName name of the job class
-     * @param args     job args
-     * @param <R>      result type
-     * @return future execution result
+     * @param options Job execution options.
+     * @param remoteNode Name of the job class.
+     * @param units Deployment units which will be loaded for execution.
+     * @param jobClassName Name of the job class.
+     * @param args Job args.
+     * @param <R> Job result type.
+     * @return Future execution result.
      */
-    <R> CompletableFuture<R> executeRemotely(ClusterNode remoteNode, List<DeploymentUnit> units, String jobClassName, Object... args);
+    <R> CompletableFuture<R> executeRemotely(
+            ExecutionOptions options,
+            ClusterNode remoteNode,
+            List<DeploymentUnit> units,
+            String jobClassName,
+            Object... args
+    );
+
+    /**
+     * Executes a job of the given class on a remote node with default execution options {@link ExecutionOptions.DEFAULT}.
+     *
+     * @param remoteNode Name of the job class.
+     * @param units Deployment units which will be loaded for execution.
+     * @param jobClassName Name of the job class.
+     * @param args Job args.
+     * @param <R> Job result type.
+     * @return Future execution result.
+     */
+    default <R> CompletableFuture<R> executeRemotely(
+            ClusterNode remoteNode,
+            List<DeploymentUnit> units,
+            String jobClassName,
+            Object... args
+    ) {
+        return executeRemotely(ExecutionOptions.DEFAULT, remoteNode, units, jobClassName, args);
+    }
 }

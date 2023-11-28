@@ -234,6 +234,7 @@ namespace Apache.Ignite.Tests
                         using var arrayBufferWriter = new PooledArrayBuffer();
                         var writer = new MsgPackWriter(arrayBufferWriter);
                         writer.Write(PartitionAssignment.Length);
+                        writer.Write(DateTime.UtcNow.Ticks); // Timestamp
 
                         foreach (var nodeId in PartitionAssignment)
                         {
@@ -346,7 +347,17 @@ namespace Apache.Ignite.Tests
 
             writer.Write(0); // Message type.
             writer.Write(requestId);
-            writer.Write(PartitionAssignmentChanged ? (int)ResponseFlags.PartitionAssignmentChanged : 0);
+
+            if (PartitionAssignmentChanged)
+            {
+                writer.Write((int)ResponseFlags.PartitionAssignmentChanged);
+                writer.Write(DateTime.UtcNow.Ticks);
+            }
+            else
+            {
+                writer.Write(0);
+            }
+
             writer.Write(ObservableTimestamp); // Observable timestamp.
 
             if (!isError)

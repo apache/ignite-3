@@ -131,6 +131,7 @@ public class CatalogValidationSchemasSource implements ValidationSchemasSource {
         return new FullTableSchema(
                 tableDescriptor.tableVersion(),
                 tableDescriptor.id(),
+                tableDescriptor.name(),
                 tableDescriptor.columns()
         );
     }

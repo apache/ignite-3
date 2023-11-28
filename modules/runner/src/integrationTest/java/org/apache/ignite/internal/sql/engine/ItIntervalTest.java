@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine;
 
+import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -29,6 +30,7 @@ import java.time.LocalTime;
 import java.time.Period;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
+import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.IgniteException;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -64,6 +66,11 @@ public class ItIntervalTest extends BaseSqlIntegrationTest {
         assertEquals(Duration.ofMillis(3723456), eval("INTERVAL '0 1:2:3.456' DAY TO SECOND"));
 
         assertThrowsEx("SELECT INTERVAL '123' SECONDS", IgniteException.class, "exceeds precision");
+
+        // Interval range overflow
+        assertThrowsSqlException(Sql.RUNTIME_ERR, "INTEGER out of range", () -> sql("SELECT INTERVAL 5000000 MONTHS * 1000"));
+        assertThrowsSqlException(Sql.RUNTIME_ERR, "BIGINT out of range", () -> sql("SELECT DATE '2021-01-01' + INTERVAL 999999999999 DAY"));
+        assertThrowsSqlException(Sql.RUNTIME_ERR, "INTEGER out of range", () -> sql("SELECT DATE '2021-01-01' + INTERVAL -999999999 YEAR"));
     }
 
     /**

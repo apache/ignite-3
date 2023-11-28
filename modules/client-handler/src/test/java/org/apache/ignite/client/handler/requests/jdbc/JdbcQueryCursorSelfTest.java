@@ -18,6 +18,7 @@
 package org.apache.ignite.client.handler.requests.jdbc;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.Mockito.mock;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -26,27 +27,29 @@ import org.apache.ignite.internal.sql.engine.AsyncSqlCursorImpl;
 import org.apache.ignite.internal.sql.engine.QueryTransactionWrapper;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
 import org.apache.ignite.internal.util.AsyncWrapper;
-import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
 
 /**
  * Test class for {@link JdbcQueryCursor}.
  */
-@ExtendWith(MockitoExtension.class)
 public class JdbcQueryCursorSelfTest extends BaseIgniteAbstractTest {
-    @Mock
     private QueryTransactionWrapper txWrapper;
 
     private static final List<Integer> ROWS = List.of(1, 2, 3);
 
     private static final int TOTAL_ROWS_COUNT = ROWS.size();
+
+    @BeforeEach
+    void initTxMock() {
+        txWrapper = new QueryTransactionWrapper(mock(InternalTransaction.class), false);
+    }
 
     /** Tests corner cases of setting the {@code maxRows} parameter. */
     @ParameterizedTest(name = "maxRows={0}, fetchSize={1}")

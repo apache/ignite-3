@@ -81,8 +81,11 @@ public class DistributionZonesUtil {
     /** Key value for zones' nodes' attributes in vault. */
     private static final String DISTRIBUTION_ZONES_NODES_ATTRIBUTES = "distributionZones.nodesAttributes";
 
-    /** Key value for zones' global state revision. */
-    private static final String DISTRIBUTION_ZONES_GLOBAL_STATE_REVISION = "distributionZones.globalState.revision";
+    /** Key value for zones' recoverable state revision. */
+    private static final String DISTRIBUTION_ZONES_RECOVERABLE_STATE_REVISION = "distributionZones.recoverableStateRevision";
+
+    /** Key value for the last handled logical topology by Distribution zone manager. */
+    private static final String DISTRIBUTION_ZONES_LAST_HANDLED_TOPOLOGY = "distributionZones.lastHandledTopology";
 
     /** Key value for zones' filter update revision in vault. */
     private static final String DISTRIBUTION_ZONES_FILTER_UPDATE_REVISION_VAULT = "vault.distributionZones.filterUpdate.revision";
@@ -106,9 +109,13 @@ public class DistributionZonesUtil {
     /** ByteArray representation of {@link DistributionZonesUtil#DISTRIBUTION_ZONES_NODES_ATTRIBUTES}. */
     private static final ByteArray DISTRIBUTION_ZONES_NODES_ATTRIBUTES_KEY = new ByteArray(DISTRIBUTION_ZONES_NODES_ATTRIBUTES);
 
-    /** ByteArray representation of {@link DistributionZonesUtil#DISTRIBUTION_ZONES_GLOBAL_STATE_REVISION}. */
-    private static final ByteArray DISTRIBUTION_ZONES_GLOBAL_STATE_REVISION_KEY =
-            new ByteArray(DISTRIBUTION_ZONES_GLOBAL_STATE_REVISION);
+    /** ByteArray representation of {@link DistributionZonesUtil#DISTRIBUTION_ZONES_RECOVERABLE_STATE_REVISION}. */
+    private static final ByteArray DISTRIBUTION_ZONES_RECOVERABLE_STATE_REVISION_KEY =
+            new ByteArray(DISTRIBUTION_ZONES_RECOVERABLE_STATE_REVISION);
+
+    /** ByteArray representation of {@link DistributionZonesUtil#DISTRIBUTION_ZONES_LAST_HANDLED_TOPOLOGY}. */
+    private static final ByteArray DISTRIBUTION_ZONES_LAST_HANDLED_TOPOLOGY_KEY =
+            new ByteArray(DISTRIBUTION_ZONES_LAST_HANDLED_TOPOLOGY);
 
     /** ByteArray representation of {@link DistributionZonesUtil#DISTRIBUTION_ZONES_FILTER_UPDATE_REVISION_VAULT}. */
     private static final ByteArray DISTRIBUTION_ZONES_FILTER_UPDATE_REVISION_VAULT_KEY =
@@ -227,11 +234,18 @@ public class DistributionZonesUtil {
     }
 
     /**
-     * The key represents zones' global state revision. This is the revision of the event that triggered saving the global state
+     * The key represents zones' recoverable state revision. This is the revision of the event that triggered saving the recoverable state
      * of Distribution Zone Manager in Meta Storage.
      */
-    public static ByteArray zonesGlobalStateRevision() {
-        return DISTRIBUTION_ZONES_GLOBAL_STATE_REVISION_KEY;
+    public static ByteArray zonesRecoverableStateRevision() {
+        return DISTRIBUTION_ZONES_RECOVERABLE_STATE_REVISION_KEY;
+    }
+
+    /**
+     * The key represents the last handled logical topology by Distribution zone manager.
+     */
+    public static ByteArray zonesLastHandledTopology() {
+        return DISTRIBUTION_ZONES_LAST_HANDLED_TOPOLOGY_KEY;
     }
 
     /**
@@ -263,16 +277,16 @@ public class DistributionZonesUtil {
     }
 
     /**
-     * Condition fot updating global states of Distribution zone manager.
+     * Condition fot updating recoverable state of Distribution zone manager.
      * Update only if the revision of the event is newer than value in that trigger key.
      *
      * @param revision Event revision.
      * @return Update condition.
      */
-    static CompoundCondition conditionForGlobalStatesChanges(long revision) {
+    static CompoundCondition conditionForRecoverableStateChanges(long revision) {
         return or(
-                notExists(zonesGlobalStateRevision()),
-                value(zonesGlobalStateRevision()).lt(ByteUtils.longToBytes(revision))
+                notExists(zonesRecoverableStateRevision()),
+                value(zonesRecoverableStateRevision()).lt(ByteUtils.longToBytes(revision))
         );
     }
 

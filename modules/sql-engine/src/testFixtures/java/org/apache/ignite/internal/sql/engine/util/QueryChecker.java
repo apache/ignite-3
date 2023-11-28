@@ -186,8 +186,8 @@ public interface QueryChecker {
     static void assertEqualsCollections(Collection<?> exp, Collection<?> act) {
         if (exp.size() != act.size()) {
             String errorMsg = new IgniteStringBuilder("Collections sizes are not equal:").nl()
-                    .app("\tExpected: ").app(exp).nl()
-                    .app("\t  Actual: ").app(act).toString();
+                    .app("\tExpected: ").app(exp.size()).nl()
+                    .app("\t  Actual: ").app(act.size()).toString();
 
             throw new AssertionError(errorMsg);
         }
@@ -304,6 +304,8 @@ public interface QueryChecker {
     QueryChecker returnNothing();
 
     QueryChecker returnSomething();
+
+    QueryChecker returnRowCount(int rowCount);
 
     QueryChecker columnNames(String... columns);
 

@@ -19,8 +19,8 @@ package org.apache.ignite.internal.index;
 
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static java.util.stream.Collectors.toMap;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.INDEX_CREATE;
-import static org.apache.ignite.internal.catalog.events.CatalogEvent.INDEX_DROP;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 
@@ -28,7 +28,10 @@ import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiFunction;
@@ -135,14 +138,6 @@ public class IndexManager implements IgniteComponent {
             return onIndexCreate((CreateIndexEventParameters) parameters);
         });
 
-        catalogService.listen(INDEX_DROP, (parameters, exception) -> {
-            if (exception != null) {
-                return failedFuture(exception);
-            }
-
-            return onIndexDrop((DropIndexEventParameters) parameters);
-        });
-
         LOG.info("Index manager started");
     }
 
@@ -179,6 +174,7 @@ public class IndexManager implements IgniteComponent {
         return mvTableStoragesByIdVv.get(causalityToken).thenApply(mvTableStoragesById -> mvTableStoragesById.get(tableId));
     }
 
+    // TODO: IGNITE-20121 Unregister index only before we physically start deleting the index before truncate catalog
     private CompletableFuture<Boolean> onIndexDrop(DropIndexEventParameters parameters) {
         int indexId = parameters.indexId();
         int tableId = parameters.tableId();
@@ -317,19 +313,16 @@ public class IndexManager implements IgniteComponent {
 
         assert recoveryFinishedFuture.isDone();
 
-        int catalogVersion = catalogService.latestCatalogVersion();
         long causalityToken = recoveryFinishedFuture.join();
 
         List<CompletableFuture<?>> startIndexFutures = new ArrayList<>();
 
-        for (CatalogIndexDescriptor index : catalogService.indexes(catalogVersion)) {
-            int tableId = index.tableId();
+        for (Entry<CatalogTableDescriptor, Collection<CatalogIndexDescriptor>> e : collectIndexesForRecovery(catalogService).entrySet()) {
+            CatalogTableDescriptor table = e.getKey();
 
-            CatalogTableDescriptor table = catalogService.table(tableId, catalogVersion);
-
-            assert table != null : "tableId=" + tableId + ", indexId=" + index.id();
-
-            startIndexFutures.add(startIndexAsync(table, index, causalityToken));
+            for (CatalogIndexDescriptor index : e.getValue()) {
+                startIndexFutures.add(startIndexAsync(table, index, causalityToken));
+            }
         }
 
         // Forces to wait until recovery is complete before the metastore watches are deployed to avoid races with other components.
@@ -451,5 +444,39 @@ public class IndexManager implements IgniteComponent {
 
             return updateFunction.apply(t);
         };
+    }
+
+    /**
+     * Collects indexes (including deleted ones) for tables (tables from the latest version of the catalog) from the earliest to the latest
+     * version of the catalog that need to be started on node recovery.
+     *
+     * @param catalogService Catalog service.
+     */
+    static Map<CatalogTableDescriptor, Collection<CatalogIndexDescriptor>> collectIndexesForRecovery(CatalogService catalogService) {
+        int earliestCatalogVersion = catalogService.earliestCatalogVersion();
+        int latestCatalogVersion = catalogService.latestCatalogVersion();
+
+        var indexesByTableId = new Int2ObjectOpenHashMap<Int2ObjectMap<CatalogIndexDescriptor>>();
+
+        for (CatalogTableDescriptor table : catalogService.tables(latestCatalogVersion)) {
+            indexesByTableId.put(table.id(), new Int2ObjectOpenHashMap<>());
+        }
+
+        for (int catalogVersion = earliestCatalogVersion; catalogVersion <= latestCatalogVersion; catalogVersion++) {
+            for (CatalogIndexDescriptor index : catalogService.indexes(catalogVersion)) {
+                Int2ObjectMap<CatalogIndexDescriptor> indexById = indexesByTableId.get(index.tableId());
+
+                if (indexById != null) {
+                    indexById.put(index.id(), index);
+                }
+            }
+        }
+
+        return indexesByTableId.int2ObjectEntrySet()
+                .stream()
+                .collect(toMap(
+                        entry -> catalogService.table(entry.getIntKey(), latestCatalogVersion),
+                        entry -> entry.getValue().values()
+                ));
     }
 }

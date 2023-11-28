@@ -23,7 +23,6 @@ import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestampToLong;
-import static org.apache.ignite.internal.replicator.ReplicaManager.DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
 import static org.apache.ignite.internal.tx.TxState.COMMITED;
 import static org.apache.ignite.internal.tx.TxState.PENDING;
@@ -55,8 +54,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.concurrent.locks.ReadWriteLock;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Function;
 import java.util.function.LongSupplier;
 import java.util.function.Supplier;
@@ -89,7 +86,7 @@ import org.apache.ignite.internal.tx.message.TxFinishReplicaRequest;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
-import org.apache.ignite.internal.util.Lazy;
+import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.NetworkMessageHandler;
 import org.apache.ignite.tx.TransactionException;
@@ -143,11 +140,6 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
      */
     private final AtomicReference<HybridTimestamp> lowWatermark = new AtomicReference<>();
 
-    /** Lock to update and read the low watermark. */
-    private final ReadWriteLock lowWatermarkReadWriteLock = new ReentrantReadWriteLock();
-
-    private final Lazy<String> localNodeId;
-
     private final PlacementDriver placementDriver;
 
     private final LongSupplier idleSafeTimePropagationPeriodMsSupplier;
@@ -158,48 +150,32 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     /** Busy lock to stop synchronously. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
-    /**
-     * The constructor.
-     *
-     * @param replicaService Replica service.
-     * @param lockManager Lock manager.
-     * @param clock A hybrid logical clock.
-     * @param transactionIdGenerator Used to generate transaction IDs.
-     */
-    public TxManagerImpl(
-            ReplicaService replicaService,
-            LockManager lockManager,
-            HybridClock clock,
-            TransactionIdGenerator transactionIdGenerator,
-            Supplier<String> localNodeIdSupplier,
-            PlacementDriver placementDriver
-    ) {
-        this(
-                replicaService,
-                lockManager,
-                clock,
-                transactionIdGenerator,
-                localNodeIdSupplier,
-                placementDriver,
-                () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS
-        );
-    }
+    /** Cluster service. */
+    private final ClusterService clusterService;
+
+    /** Detector of transactions that lost the coordinator. */
+    private final OrphanDetector orphanDetector;
+
+    /** Local node network identity. This id is available only after the network has started. */
+    private String localNodeId;
 
     /**
      * The constructor.
      *
+     * @param clusterService Cluster service.
      * @param replicaService Replica service.
      * @param lockManager Lock manager.
      * @param clock A hybrid logical clock.
      * @param transactionIdGenerator Used to generate transaction IDs.
+     * @param placementDriver Placement driver.
      * @param idleSafeTimePropagationPeriodMsSupplier Used to get idle safe time propagation period in ms.
      */
     public TxManagerImpl(
+            ClusterService clusterService,
             ReplicaService replicaService,
             LockManager lockManager,
             HybridClock clock,
             TransactionIdGenerator transactionIdGenerator,
-            Supplier<String> localNodeIdSupplier,
             PlacementDriver placementDriver,
             LongSupplier idleSafeTimePropagationPeriodMsSupplier
     ) {
@@ -207,7 +183,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         this.lockManager = lockManager;
         this.clock = clock;
         this.transactionIdGenerator = transactionIdGenerator;
-        this.localNodeId = new Lazy<>(localNodeIdSupplier);
+        this.clusterService = clusterService;
         this.placementDriver = placementDriver;
         this.idleSafeTimePropagationPeriodMsSupplier = idleSafeTimePropagationPeriodMsSupplier;
 
@@ -220,6 +196,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                 TimeUnit.MILLISECONDS,
                 new LinkedBlockingQueue<>(),
                 new NamedThreadFactory("tx-async-cleanup", LOG));
+
+        orphanDetector = new OrphanDetector(clusterService.topologyService(), replicaService, placementDriver, /*lockManager,*/ clock);
     }
 
     @Override
@@ -231,7 +209,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     public InternalTransaction begin(HybridTimestampTracker timestampTracker, boolean readOnly) {
         HybridTimestamp beginTimestamp = clock.now();
         UUID txId = transactionIdGenerator.transactionIdFor(beginTimestamp);
-        updateTxMeta(txId, old -> new TxStateMeta(PENDING, coordinatorId(), null));
+        updateTxMeta(txId, old -> new TxStateMeta(PENDING, localNodeId, null, null));
 
         if (!readOnly) {
             return new ReadWriteTransactionImpl(this, timestampTracker, txId);
@@ -243,29 +221,34 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                 ? HybridTimestamp.max(observableTimestamp, currentReadTimestamp())
                 : currentReadTimestamp();
 
-        lowWatermarkReadWriteLock.readLock().lock();
+        TxIdAndTimestamp txIdAndTimestamp = new TxIdAndTimestamp(readTimestamp, txId);
 
-        try {
-            HybridTimestamp lowWatermark1 = this.lowWatermark.get();
+        CompletableFuture<Void> txFuture = new CompletableFuture<>();
 
-            readOnlyTxFutureById.compute(new TxIdAndTimestamp(readTimestamp, txId), (txIdAndTimestamp, readOnlyTxFuture) -> {
-                assert readOnlyTxFuture == null : "previous transaction has not completed yet: " + txIdAndTimestamp;
+        CompletableFuture<Void> oldFuture = readOnlyTxFutureById.put(txIdAndTimestamp, txFuture);
+        assert oldFuture == null : "previous transaction has not completed yet: " + txIdAndTimestamp;
 
-                if (lowWatermark1 != null && readTimestamp.compareTo(lowWatermark1) <= 0) {
-                    throw new IgniteInternalException(
-                            TX_READ_ONLY_TOO_OLD_ERR,
-                            "Timestamp of read-only transaction must be greater than the low watermark: [txTimestamp={}, lowWatermark={}]",
-                            readTimestamp, lowWatermark1
-                    );
-                }
+        HybridTimestamp lowWatermark = this.lowWatermark.get();
 
-                return new CompletableFuture<>();
-            });
+        if (lowWatermark != null && readTimestamp.compareTo(lowWatermark) <= 0) {
+            // "updateLowWatermark" method updates "this.lowWatermark" field, and only then scans "this.readOnlyTxFutureById" for old
+            // transactions to wait. In order for that code to work safely, we have to make sure that no "too old" transactions will be
+            // created here in "begin" method after "this.lowWatermark" is already updated. The simplest way to achieve that is to check
+            // LW after we add transaction to the map (adding transaction to the map before reading LW value, of course).
+            readOnlyTxFutureById.remove(txIdAndTimestamp);
 
-            return new ReadOnlyTransactionImpl(this, timestampTracker, txId, readTimestamp);
-        } finally {
-            lowWatermarkReadWriteLock.readLock().unlock();
+            // Completing the future is necessary, because "updateLowWatermark" method may already wait for it if race condition happened.
+            txFuture.complete(null);
+
+            throw new IgniteInternalException(
+                    TX_READ_ONLY_TOO_OLD_ERR,
+                    "Timestamp of read-only transaction must be greater than the low watermark: [txTimestamp={}, lowWatermark={}]",
+                    readTimestamp,
+                    lowWatermark
+            );
         }
+
+        return new ReadOnlyTransactionImpl(this, timestampTracker, txId, readTimestamp);
     }
 
     /**
@@ -289,8 +272,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     }
 
     @Override
-    public void updateTxMeta(UUID txId, Function<TxStateMeta, TxStateMeta> updater) {
-        txStateMap.compute(txId, (k, oldMeta) -> {
+    public TxStateMeta updateTxMeta(UUID txId, Function<TxStateMeta, TxStateMeta> updater) {
+        return txStateMap.compute(txId, (k, oldMeta) -> {
             TxStateMeta newMeta = updater.apply(oldMeta);
 
             if (newMeta == null) {
@@ -315,15 +298,11 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             finalState = ABORTED;
         }
 
-        updateTxMeta(txId, old -> new TxStateMeta(finalState, old.txCoordinatorId(), old.commitTimestamp()));
+        updateTxMeta(txId, old -> new TxStateMeta(finalState, old.txCoordinatorId(), old.commitPartitionId(), old.commitTimestamp()));
     }
 
     private @Nullable HybridTimestamp commitTimestamp(boolean commit) {
         return commit ? clock.now() : null;
-    }
-
-    private String coordinatorId() {
-        return localNodeId.get();
     }
 
     @Override
@@ -338,7 +317,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
         if (enlistedGroups.isEmpty()) {
             // If there are no enlisted groups, just update local state - we already marked the tx as finished.
-            updateTxMeta(txId, old -> coordinatorFinalTxStateMeta(commit, commitTimestamp(commit)));
+            updateTxMeta(txId, old -> coordinatorFinalTxStateMeta(commit, commitPartition, commitTimestamp(commit)));
 
             return completedFuture(null);
         }
@@ -349,41 +328,31 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         // than all the read timestamps processed before.
         // Every concurrent operation will now use a finish future from the finishing state meta and get only final transaction
         // state after the transaction is finished.
-        TxStateMetaFinishing finishingStateMeta = new TxStateMetaFinishing(coordinatorId());
+        TxStateMetaFinishing finishingStateMeta = (TxStateMetaFinishing) updateTxMeta(txId, old ->
+                new TxStateMetaFinishing(localNodeId, old == null ? null : old.commitPartitionId()));
 
-        updateTxMeta(txId, old -> finishingStateMeta);
-
-        AtomicBoolean performingFinish = new AtomicBoolean();
         TxContext tuple = txCtxMap.compute(txId, (uuid, tuple0) -> {
             if (tuple0 == null) {
                 tuple0 = new TxContext(); // No writes enlisted.
             }
 
-            if (!tuple0.isTxFinishing()) {
-                tuple0.finishTx();
+            assert !tuple0.isTxFinishing() : "Transaction is already finished [id=" + uuid + "].";
 
-                performingFinish.set(true);
-            }
+            tuple0.finishTx();
 
             return tuple0;
         });
 
-        // This is a finishing thread.
-        if (performingFinish.get()) {
-            // Wait for commit acks first, then proceed with the finish request.
-            return tuple.performFinish(commit, ignored ->
-                    prepareFinish(
-                            observableTimestampTracker,
-                            commitPartition,
-                            commit,
-                            enlistedGroups,
-                            txId,
-                            finishingStateMeta.txFinishFuture()
-                    ));
-        }
-        // The method `performFinish` above has a side effect on `finishInProgressFuture` future,
-        // it kicks off another future that will complete it.
-        return tuple.finishInProgressFuture;
+        // Wait for commit acks first, then proceed with the finish request.
+        return tuple.performFinish(commit, ignored ->
+                prepareFinish(
+                        observableTimestampTracker,
+                        commitPartition,
+                        commit,
+                        enlistedGroups,
+                        txId,
+                        finishingStateMeta.txFinishFuture()
+                ));
     }
 
     private CompletableFuture<Void> prepareFinish(
@@ -455,7 +424,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
                             if (transactionException.code() == TX_WAS_ABORTED_ERR) {
                                 updateTxMeta(txId, old -> {
-                                    TxStateMeta txStateMeta = new TxStateMeta(ABORTED, old.txCoordinatorId(), null);
+                                    TxStateMeta txStateMeta = new TxStateMeta(ABORTED, old.txCoordinatorId(), commitPartition, null);
 
                                     txFinishFuture.complete(txStateMeta);
 
@@ -526,7 +495,11 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
                         assert old instanceof TxStateMetaFinishing;
 
-                        TxStateMeta finalTxStateMeta = coordinatorFinalTxStateMeta(commit, commitTimestamp);
+                        TxStateMeta finalTxStateMeta = coordinatorFinalTxStateMeta(
+                                commit,
+                                old.commitPartitionId(),
+                                commitTimestamp
+                        );
 
                         txFinishFuture.complete(finalTxStateMeta);
 
@@ -590,7 +563,14 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
     @Override
     public void start() {
-        replicaService.messagingService().addMessageHandler(ReplicaMessageGroup.class, this);
+        localNodeId = clusterService.topologyService().localMember().id();
+        clusterService.messagingService().addMessageHandler(ReplicaMessageGroup.class, this);
+        orphanDetector.start(txStateMap::get);
+    }
+
+    @Override
+    public void beforeNodeStop() {
+        orphanDetector.stop();
     }
 
     @Override
@@ -631,28 +611,22 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
     @Override
     public CompletableFuture<Void> updateLowWatermark(HybridTimestamp newLowWatermark) {
-        lowWatermarkReadWriteLock.writeLock().lock();
-
-        try {
-            lowWatermark.updateAndGet(previousLowWatermark -> {
-                if (previousLowWatermark == null) {
-                    return newLowWatermark;
-                }
-
-                assert newLowWatermark.compareTo(previousLowWatermark) > 0 :
-                        "lower watermark should be growing: [previous=" + previousLowWatermark + ", new=" + newLowWatermark + ']';
-
+        lowWatermark.updateAndGet(previousLowWatermark -> {
+            if (previousLowWatermark == null) {
                 return newLowWatermark;
-            });
+            }
 
-            TxIdAndTimestamp upperBound = new TxIdAndTimestamp(newLowWatermark, new UUID(Long.MAX_VALUE, Long.MAX_VALUE));
+            assert newLowWatermark.compareTo(previousLowWatermark) > 0 :
+                    "lower watermark should be growing: [previous=" + previousLowWatermark + ", new=" + newLowWatermark + ']';
 
-            List<CompletableFuture<Void>> readOnlyTxFutures = List.copyOf(readOnlyTxFutureById.headMap(upperBound, true).values());
+            return newLowWatermark;
+        });
 
-            return allOf(readOnlyTxFutures.toArray(CompletableFuture[]::new));
-        } finally {
-            lowWatermarkReadWriteLock.writeLock().unlock();
-        }
+        TxIdAndTimestamp upperBound = new TxIdAndTimestamp(newLowWatermark, new UUID(Long.MAX_VALUE, Long.MAX_VALUE));
+
+        List<CompletableFuture<Void>> readOnlyTxFutures = List.copyOf(readOnlyTxFutureById.headMap(upperBound, true).values());
+
+        return allOf(readOnlyTxFutures.toArray(CompletableFuture[]::new));
     }
 
     @Override
@@ -718,11 +692,16 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
      * Creates final {@link TxStateMeta} for coordinator node.
      *
      * @param commit Commit flag.
+     * @param commitPartitionId Commit partition id.
      * @param commitTimestamp Commit timestamp.
      * @return Transaction meta.
      */
-    private TxStateMeta coordinatorFinalTxStateMeta(boolean commit, @Nullable HybridTimestamp commitTimestamp) {
-        return new TxStateMeta(commit ? COMMITED : ABORTED, coordinatorId(), commitTimestamp);
+    private TxStateMeta coordinatorFinalTxStateMeta(
+            boolean commit,
+            TablePartitionId commitPartitionId,
+            @Nullable HybridTimestamp commitTimestamp
+    ) {
+        return new TxStateMeta(commit ? COMMITED : ABORTED, localNodeId, commitPartitionId, commitTimestamp);
     }
 
     /**

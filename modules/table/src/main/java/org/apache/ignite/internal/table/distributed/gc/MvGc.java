@@ -52,9 +52,6 @@ import org.jetbrains.annotations.TestOnly;
 public class MvGc implements ManuallyCloseable {
     private static final IgniteLogger LOG = Loggers.forClass(MvGc.class);
 
-    /** GC batch size for the storage. */
-    static final int GC_BATCH_SIZE = 5;
-
     /** Node name. */
     private final String nodeName;
 
@@ -242,7 +239,7 @@ public class MvGc implements ManuallyCloseable {
                 // We can only start garbage collection when the partition safe time is reached.
                 gcUpdateHandler.getSafeTimeTracker()
                         .waitFor(lowWatermark)
-                        .thenApplyAsync(unused -> gcUpdateHandler.vacuumBatch(lowWatermark, GC_BATCH_SIZE, true), executor)
+                        .thenApplyAsync(unused -> gcUpdateHandler.vacuumBatch(lowWatermark, gcConfig.value().batchSize(), true), executor)
                         .whenComplete((isGarbageLeft, throwable) -> {
                             if (throwable != null) {
                                 if (throwable instanceof TrackerClosedException

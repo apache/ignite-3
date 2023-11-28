@@ -75,6 +75,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.function.LongFunction;
 import java.util.function.LongSupplier;
 import java.util.function.Predicate;
@@ -160,6 +161,7 @@ import org.apache.ignite.internal.table.distributed.TableMessageGroup;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncServiceImpl;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
@@ -175,6 +177,7 @@ import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.ReverseIterator;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
+import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.StaticNodeFinder;
@@ -206,6 +209,10 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
     private static final String ZONE_NAME = "zone1";
 
     private static final int BASE_PORT = 20_000;
+
+    /** Filter to determine a primary node identically on any cluster node. */
+    private static final Function<Collection<ClusterNode>, ClusterNode> PRIMARY_FILTER = nodes -> nodes.stream()
+            .filter(n -> n.address().port() == BASE_PORT).findFirst().get();
 
     private static final String HOST = "localhost";
 
@@ -845,6 +852,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
             );
 
             Path configPath = workDir.resolve(testInfo.getDisplayName());
+            TestIgnitionManager.addDefaultsToConfigurationFile(configPath);
+
             nodeCfgMgr = new ConfigurationManager(
                     List.of(NetworkConfiguration.KEY,
                             PersistentPageMemoryStorageEngineConfiguration.KEY,
@@ -870,7 +879,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
             var clusterStateStorage = new TestClusterStateStorage();
             var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
-            var placementDriver = new TestPlacementDriver(() -> clusterService.topologyService().localMember());
 
             var clusterInitializer = new ClusterInitializer(
                     clusterService,
@@ -888,6 +896,33 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     clusterManagementConfiguration,
                     new NodeAttributesCollector(nodeAttributes, storageProfilesConfiguration)
             );
+
+            LogicalTopologyServiceImpl logicalTopologyService = new LogicalTopologyServiceImpl(logicalTopology, cmgManager);
+
+            KeyValueStorage keyValueStorage = testInfo.getTestMethod().get().isAnnotationPresent(UseRocksMetaStorage.class)
+                    ? new RocksDbKeyValueStorage(name, resolveDir(dir, "metaStorage"))
+                    : new SimpleInMemoryKeyValueStorage(name);
+
+            var topologyAwareRaftGroupServiceFactory = new TopologyAwareRaftGroupServiceFactory(
+                    clusterService,
+                    logicalTopologyService,
+                    Loza.FACTORY,
+                    raftGroupEventsClientListener
+            );
+
+            metaStorageManager = new MetaStorageManagerImpl(
+                    vaultManager,
+                    clusterService,
+                    cmgManager,
+                    logicalTopologyService,
+                    raftManager,
+                    keyValueStorage,
+                    hybridClock,
+                    topologyAwareRaftGroupServiceFactory,
+                    metaStorageConfiguration
+            );
+
+            var placementDriver = new TestPlacementDriver(() -> PRIMARY_FILTER.apply(clusterService.topologyService().allMembers()));
 
             LongSupplier partitionIdleSafeTimePropagationPeriodMsSupplier = () -> 10L;
 
@@ -907,40 +942,13 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
             );
 
             txManager = new TxManagerImpl(
+                    clusterService,
                     replicaSvc,
                     lockManager,
                     hybridClock,
                     new TransactionIdGenerator(addr.port()),
-                    () -> clusterService.topologyService().localMember().id(),
                     placementDriver,
                     partitionIdleSafeTimePropagationPeriodMsSupplier
-            );
-
-            String nodeName = clusterService.nodeName();
-
-            LogicalTopologyServiceImpl logicalTopologyService = new LogicalTopologyServiceImpl(logicalTopology, cmgManager);
-
-            var topologyAwareRaftGroupServiceFactory = new TopologyAwareRaftGroupServiceFactory(
-                    clusterService,
-                    logicalTopologyService,
-                    Loza.FACTORY,
-                    raftGroupEventsClientListener
-            );
-
-            KeyValueStorage keyValueStorage = testInfo.getTestMethod().get().isAnnotationPresent(UseRocksMetaStorage.class)
-                    ? new RocksDbKeyValueStorage(nodeName, resolveDir(dir, "metaStorage"))
-                    : new SimpleInMemoryKeyValueStorage(nodeName);
-
-            metaStorageManager = new MetaStorageManagerImpl(
-                    vaultManager,
-                    clusterService,
-                    cmgManager,
-                    logicalTopologyService,
-                    raftManager,
-                    keyValueStorage,
-                    hybridClock,
-                    topologyAwareRaftGroupServiceFactory,
-                    metaStorageConfiguration
             );
 
             cfgStorage = new DistributedConfigurationStorage(metaStorageManager);

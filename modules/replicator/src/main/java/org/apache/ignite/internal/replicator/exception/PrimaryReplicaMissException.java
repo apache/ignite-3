@@ -25,7 +25,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Unchecked exception that is thrown when a replica is not the current primary replica.
  */
-public class PrimaryReplicaMissException extends IgniteInternalException {
+public class PrimaryReplicaMissException extends IgniteInternalException implements ExpectedReplicationException {
     private static final long serialVersionUID = 8755220779942651494L;
 
     /**

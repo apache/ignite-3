@@ -27,6 +27,7 @@ import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
+import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.BinaryTuple;
@@ -330,6 +331,7 @@ public interface InternalTable extends ManuallyCloseable {
      *
      * @param partId The partition.
      * @param txId Transaction id.
+     * @param commitPartition Commit partition id.
      * @param recipient Primary replica that will handle given get request.
      * @param lowerBound Lower search bound.
      * @param upperBound Upper search bound.
@@ -340,6 +342,7 @@ public interface InternalTable extends ManuallyCloseable {
     Publisher<BinaryRow> scan(
             int partId,
             UUID txId,
+            TablePartitionId commitPartition,
             PrimaryReplica recipient,
             @Nullable Integer indexId,
             @Nullable BinaryTuplePrefix lowerBound,
@@ -396,6 +399,7 @@ public interface InternalTable extends ManuallyCloseable {
      *
      * @param partId The partition.
      * @param txId Transaction id.
+     * @param commitPartition Commit partition id.
      * @param recipient Primary replica that will handle given get request.
      * @param indexId Index id.
      * @param key Key to search.
@@ -405,6 +409,7 @@ public interface InternalTable extends ManuallyCloseable {
     Publisher<BinaryRow> lookup(
             int partId,
             UUID txId,
+            TablePartitionId commitPartition,
             PrimaryReplica recipient,
             int indexId,
             BinaryTuple key,

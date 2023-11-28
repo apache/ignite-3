@@ -729,18 +729,17 @@ public class SqlQueryProcessor implements QueryProcessor {
                             if (ex != null) {
                                 cursorFuture.completeExceptionally(ex);
                                 cancelAll(ex);
-
-                                return;
                             }
+                        })
+                        .thenCompose(res -> txWrapper.commitImplicit()
+                                .thenRun(() -> {
+                                    if (nextCursorFuture != null) {
+                                        taskExecutor.execute(this::processNext);
+                                    }
 
-                            txWrapper.commitImplicit();
-
-                            if (nextCursorFuture != null) {
-                                taskExecutor.execute(this::processNext);
-                            }
-
-                            cursorFuture.complete(res);
-                        });
+                                    cursorFuture.complete(res);
+                                })
+                        );
             } catch (Exception e) {
                 cursorFuture.completeExceptionally(e);
 

@@ -1,4 +1,4 @@
-﻿/*
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -15,39 +15,20 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Log
-{
-    using System;
+package org.apache.ignite.internal.compute.queue;
 
-    /// <summary>
-    /// Defines log levels.
-    /// </summary>
-    [Serializable]
-    public enum LogLevel
-    {
-        /// <summary>
-        /// Trace log level.
-        /// </summary>
-        Trace = 0,
+/**
+ * Throws when compute jobs queue overflows.
+ */
+public class QueueOverflowException extends RuntimeException {
+    private static final long serialVersionUID = 2673965424194085849L;
 
-        /// <summary>
-        /// Debug log level.
-        /// </summary>
-        Debug = 1,
-
-        /// <summary>
-        /// Info log level.
-        /// </summary>
-        Info = 2,
-
-        /// <summary>
-        /// Warning log level.
-        /// </summary>
-        Warn = 3,
-
-        /// <summary>
-        /// Error log level.
-        /// </summary>
-        Error = 4
+    /**
+     * Constructor.
+     *
+     * @param message Exception message.
+     */
+    public QueueOverflowException(String message) {
+        super(message);
     }
 }
