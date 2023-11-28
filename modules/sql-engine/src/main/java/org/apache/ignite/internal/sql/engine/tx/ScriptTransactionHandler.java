@@ -45,6 +45,9 @@ import org.jetbrains.annotations.Nullable;
  * {@link SqlQueryType#TX_CONTROL} statements.
  */
 public class ScriptTransactionHandler extends QueryTransactionHandler {
+    /** No-op transaction wrapper. */
+    private static final QueryTransactionWrapper NOOP_TX_WRAPPER = new NoopTransactionWrapper();
+
     /** Wraps a transaction, which is managed by SQL engine via {@link SqlQueryType#TX_CONTROL} statements. */
     private volatile @Nullable ManagedTransactionWrapper wrapper;
 
@@ -107,7 +110,7 @@ public class ScriptTransactionHandler extends QueryTransactionHandler {
 
         if (node instanceof IgniteSqlCommitTransaction) {
             if (txWrapper == null) {
-                return QueryTransactionWrapper.NOOP_TX_WRAPPER;
+                return NOOP_TX_WRAPPER;
             }
 
             this.wrapper = null;
@@ -294,4 +297,21 @@ public class ScriptTransactionHandler extends QueryTransactionHandler {
             }
         }
     }
+
+    private static class NoopTransactionWrapper implements QueryTransactionWrapper {
+        @Override
+        public InternalTransaction unwrap() {
+            return null;
+        }
+
+        @Override
+        public CompletableFuture<Void> commitImplicit() {
+            return Commons.completedFuture();
+        }
+
+        @Override
+        public CompletableFuture<Void> rollback() {
+            return Commons.completedFuture();
+        }
+    };
 }

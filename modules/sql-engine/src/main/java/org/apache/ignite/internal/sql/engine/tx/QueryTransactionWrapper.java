@@ -18,14 +18,13 @@
 package org.apache.ignite.internal.sql.engine.tx;
 
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.tx.InternalTransaction;
 
 /**
- * Wrapper for the transaction that encapsulates the management of an implicit transaction.
+ * Wrapper for the transaction that encapsulates the management of an implicit/script-driven transaction.
  */
 public interface QueryTransactionWrapper {
-    /** Unwrap transaction. */
+    /** Unwraps transaction. */
     InternalTransaction unwrap();
 
     /** Commits an implicit transaction, if one has been started. */
@@ -50,22 +49,4 @@ public interface QueryTransactionWrapper {
     default CompletableFuture<Void> commitImplicitAfterPrefetch() {
         return commitImplicit();
     }
-
-    /** No-op transaction wrapper. */
-    QueryTransactionWrapper NOOP_TX_WRAPPER = new QueryTransactionWrapper() {
-        @Override
-        public InternalTransaction unwrap() {
-            return null;
-        }
-
-        @Override
-        public CompletableFuture<Void> commitImplicit() {
-            return Commons.completedFuture();
-        }
-
-        @Override
-        public CompletableFuture<Void> rollback() {
-            return Commons.completedFuture();
-        }
-    };
 }

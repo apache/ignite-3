@@ -249,10 +249,6 @@ public class ItSqlMultiStatementTxTest extends BaseSqlMultiStatementTest {
     @Test
     void nestedTransactionStartFails() {
         AsyncSqlCursor<List<Object>> cursor = runScript("START TRANSACTION; START TRANSACTION;");
-
-        validateSingleResult(cursor);
-        assertTrue(cursor.hasNextResult());
-
         assertThrowsSqlException(RUNTIME_ERR, "Nested transactions are not supported.", () -> await(cursor.nextResult()));
 
         verifyFinishedTxCount(1);

@@ -23,7 +23,6 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 import org.apache.ignite.internal.lang.SqlExceptionMapperUtil;
-import org.apache.ignite.internal.sql.engine.tx.ImplicitTransactionWrapper;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionWrapper;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.util.AsyncCursor;
@@ -59,7 +58,7 @@ public class AsyncSqlCursorImpl<T> implements AsyncSqlCursor<T> {
     public AsyncSqlCursorImpl(
             SqlQueryType queryType,
             ResultSetMetadata meta,
-            ImplicitTransactionWrapper txWrapper,
+            QueryTransactionWrapper txWrapper,
             AsyncCursor<T> dataCursor,
             Runnable onClose
     ) {

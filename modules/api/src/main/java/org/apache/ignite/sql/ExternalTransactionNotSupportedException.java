@@ -21,7 +21,8 @@ import java.util.UUID;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 
 /**
- * The exception is thrown if a query was cancelled or timed out while executing.
+ * The exception is thrown when an attempt is made to execute a transaction control statement
+ * ({@code START TRANSACTION} or {@code COMMIT}) while an external transaction is already running.
  */
 public class ExternalTransactionNotSupportedException extends SqlException {
     /**
