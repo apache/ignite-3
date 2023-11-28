@@ -306,11 +306,13 @@ public class CheckpointManager {
      * @param partitionDirtyPages Dirty pages of the partition.
      */
     static int[] pageIndexesForDeltaFilePageStore(CheckpointDirtyPagesView partitionDirtyPages) {
-        // +1 since the first page (pageIdx == 0) will always be PartitionMetaIo.
-        int[] pageIndexes = new int[partitionDirtyPages.size() + 1];
+        // If there is no partition meta page among the dirty pages, then we add an additional page to the result.
+        int offset = partitionDirtyPages.get(0).pageIdx() == 0 ? 0 : 1;
+
+        int[] pageIndexes = new int[partitionDirtyPages.size() + offset];
 
         for (int i = 0; i < partitionDirtyPages.size(); i++) {
-            pageIndexes[i + 1] = partitionDirtyPages.get(i).pageIdx();
+            pageIndexes[i + offset] = partitionDirtyPages.get(i).pageIdx();
         }
 
         return pageIndexes;
