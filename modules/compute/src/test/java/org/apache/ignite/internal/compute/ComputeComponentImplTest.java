@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.compute;
 
+import static org.apache.ignite.internal.compute.ExecutionOptions.DEFAULT;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
@@ -43,12 +45,9 @@ import static org.mockito.Mockito.when;
 import java.net.URL;
 import java.time.Duration;
 import java.util.List;
-import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.RejectedExecutionException;
-import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
@@ -57,13 +56,16 @@ import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.compute.version.Version;
-import org.apache.ignite.configuration.ConfigurationValue;
 import org.apache.ignite.internal.compute.configuration.ComputeConfiguration;
 import org.apache.ignite.internal.compute.loader.JobClassLoader;
 import org.apache.ignite.internal.compute.loader.JobContext;
 import org.apache.ignite.internal.compute.loader.JobContextManager;
 import org.apache.ignite.internal.compute.message.ExecuteRequest;
 import org.apache.ignite.internal.compute.message.ExecuteResponse;
+import org.apache.ignite.internal.compute.queue.ComputeExecutor;
+import org.apache.ignite.internal.compute.queue.ComputeExecutorImpl;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.deployunit.DeploymentStatus;
 import org.apache.ignite.internal.deployunit.exception.DeploymentUnitNotFoundException;
 import org.apache.ignite.internal.deployunit.exception.DeploymentUnitUnavailableException;
@@ -89,6 +91,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
+@ExtendWith(ConfigurationExtension.class)
 @Timeout(10)
 class ComputeComponentImplTest extends BaseIgniteAbstractTest {
     private static final String INSTANCE_NAME = "Ignite-0";
@@ -99,18 +102,16 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
     @Mock
     private MessagingService messagingService;
 
-    @Mock
+    @InjectConfiguration
     private ComputeConfiguration computeConfiguration;
 
-    @Mock
-    private ConfigurationValue<Integer> threadPoolSizeValue;
-    @Mock
-    private ConfigurationValue<Long> threadPoolStopTimeoutMillisValue;
     @Mock
     private JobContextManager jobContextManager;
 
     @InjectMocks
     private ComputeComponentImpl computeComponent;
+
+    private ComputeExecutor computeExecutor;
 
     @Captor
     private ArgumentCaptor<ExecuteRequest> executeRequestCaptor;
@@ -125,11 +126,6 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
 
     @BeforeEach
     void setUp() {
-        lenient().when(computeConfiguration.threadPoolSize()).thenReturn(threadPoolSizeValue);
-        lenient().when(threadPoolSizeValue.value()).thenReturn(8);
-        lenient().when(computeConfiguration.threadPoolStopTimeoutMillis()).thenReturn(threadPoolStopTimeoutMillisValue);
-        lenient().when(threadPoolStopTimeoutMillisValue.value()).thenReturn(10_000L);
-
         lenient().when(ignite.name()).thenReturn(INSTANCE_NAME);
 
         JobClassLoader classLoader = new JobClassLoader(List.of(), new URL[0], getClass().getClassLoader());
@@ -141,6 +137,15 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
             computeMessageHandlerRef.set(invocation.getArgument(1));
             return null;
         }).when(messagingService).addMessageHandler(eq(ComputeMessageTypes.class), any());
+
+        assertThat(computeConfiguration.change(computeChange ->
+                        computeChange.changeThreadPoolStopTimeoutMillis(10_000L).changeThreadPoolSize(8)),
+                willCompleteSuccessfully()
+        );
+
+
+        computeExecutor = new ComputeExecutorImpl(ignite, computeConfiguration);
+        computeComponent = new ComputeComponentImpl(messagingService, jobContextManager, computeExecutor);
 
         computeComponent.start();
     }
@@ -229,6 +234,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
         String sender = "test";
 
         ExecuteRequest request = new ComputeMessagesFactory().executeRequest()
+                .executeOptions(DEFAULT)
                 .deploymentUnits(List.of())
                 .jobClassName(SimpleJob.class.getName())
                 .args(new Object[]{"a", 42})
@@ -304,6 +310,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
         String sender = "test";
 
         ExecuteRequest request = new ComputeMessagesFactory().executeRequest()
+                .executeOptions(DEFAULT)
                 .deploymentUnits(List.of())
                 .jobClassName(SimpleJob.class.getName())
                 .args(new Object[]{"a", 42})
@@ -330,47 +337,18 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
         assertThat(threadName, startsWith(NamedThreadFactory.threadPrefix(INSTANCE_NAME, "compute")));
     }
 
-    @Test
-    void executionRejectionCausesExceptionToBeReturnedViaFuture() throws Exception {
-        restrictPoolSizeTo1();
-
-        computeComponent = new ComputeComponentImpl(ignite, messagingService, computeConfiguration, jobContextManager) {
-            @Override
-            BlockingQueue<Runnable> newExecutorServiceTaskQueue() {
-                return new SynchronousQueue<>();
-            }
-
-            @Override
-            long stopTimeoutMillis() {
-                return 100;
-            }
-        };
-        computeComponent.start();
-
-        // take the only executor thread
-        computeComponent.executeLocally(List.of(), LongJob.class.getName());
-
-        Exception result = (Exception) computeComponent.executeLocally(List.of(), SimpleJob.class.getName())
-                .handle((res, ex) -> ex != null ? ex : res)
-                .get();
-
-        assertThat(result.getCause(), is(instanceOf(RejectedExecutionException.class)));
-    }
-
     private void restrictPoolSizeTo1() {
-        when(threadPoolSizeValue.value()).thenReturn(1);
+        assertThat(computeConfiguration.change(computeChange -> computeChange.changeThreadPoolSize(1)), willCompleteSuccessfully());
     }
 
     @Test
     void stopCausesCancellationExceptionOnLocalExecution() throws Exception {
         restrictPoolSizeTo1();
 
-        computeComponent = new ComputeComponentImpl(ignite, messagingService, computeConfiguration, jobContextManager) {
-            @Override
-            long stopTimeoutMillis() {
-                return 100;
-            }
-        };
+        assertThat(computeConfiguration.change(computeChange -> computeChange.changeThreadPoolStopTimeoutMillis(100)),
+                willCompleteSuccessfully());
+
+        computeComponent = new ComputeComponentImpl(messagingService, jobContextManager, computeExecutor);
         computeComponent.start();
 
         // take the only executor thread
