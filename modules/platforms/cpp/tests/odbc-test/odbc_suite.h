@@ -41,7 +41,7 @@ namespace ignite {
 /**
  * Test suite.
  */
-class odbc_suite : public odbc_connection, public basic_auth_test_suite {
+class odbc_suite : public virtual ::testing::Test, public odbc_connection {
 public:
     static inline const std::string TABLE_1 = "tbl1";
     static inline const std::string TABLE_NAME_ALL_COLUMNS = "tbl_all_columns";
@@ -73,7 +73,13 @@ public:
     static std::string get_basic_connection_string() {
         return "driver={" + DRIVER_NAME + "};address=" + get_nodes_address() + ';';
     }
+};
 
+/**
+ * Test suite for connection tests.
+ */
+class odbc_connection_suite : public odbc_suite, public basic_auth_test_suite {
+public:
     /**
      * Get node addresses and user credentials to use for tests.
      *

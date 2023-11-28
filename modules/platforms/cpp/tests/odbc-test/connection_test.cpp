@@ -27,7 +27,13 @@ using namespace ignite;
 /**
  * Test suite.
  */
-class connection_test : public ignite::odbc_suite {};
+class connection_test : public ignite::odbc_connection_suite {
+public:
+    /**
+     * Tear down.
+     */
+    static void TearDownTestSuite() { set_authentication_enabled(false); }
+};
 
 TEST_F(connection_test, connection_success) {
     odbc_connect(get_basic_connection_string());
@@ -69,6 +75,7 @@ TEST_F(connection_test, auth_connection_incorrect_creds) {
 }
 
 TEST_F(connection_test, odbc3_supported) {
+    set_authentication_enabled(false);
     // Allocate an environment handle
     SQLAllocHandle(SQL_HANDLE_ENV, SQL_NULL_HANDLE, &m_env);
 

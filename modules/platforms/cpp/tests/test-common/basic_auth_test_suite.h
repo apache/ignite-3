@@ -44,11 +44,6 @@ public:
     inline static const std::string INCORRECT_PASSWORD{"123"};
 
     /**
-     * Tear down.
-     */
-    static void TearDownTestSuite() { set_authentication_enabled(false); }
-
-    /**
      * Get default configuration.
      *
      * @return Configuration.
