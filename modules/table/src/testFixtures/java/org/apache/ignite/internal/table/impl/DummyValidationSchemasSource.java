@@ -67,11 +67,7 @@ public class DummyValidationSchemasSource implements ValidationSchemasSource {
                 })
                 .collect(toList());
 
-        var fullSchema = new FullTableSchema(
-                1,
-                1,
-                columns
-        );
+        var fullSchema = new FullTableSchema(1, tableId, "test", columns);
 
         return List.of(fullSchema);
     }

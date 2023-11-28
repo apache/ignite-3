@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table;
 
+import static org.apache.ignite.internal.affinity.AffinityUtils.calculateAssignmentForPartition;
 import static org.apache.ignite.internal.storage.index.SortedIndexStorage.GREATER_OR_EQUAL;
 import static org.apache.ignite.internal.storage.index.SortedIndexStorage.LESS_OR_EQUAL;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runRace;
@@ -34,6 +35,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.Flow.Subscriber;
@@ -44,7 +46,7 @@ import java.util.function.Function;
 import java.util.function.IntFunction;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import org.apache.ignite.Ignite;
+import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.catalog.CatalogManager;
@@ -645,12 +647,16 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
             Publisher<BinaryRow> publisher;
 
             if (readOnly) {
-                List<String> assignments = internalTable.assignments();
-
                 // Any node from assignments will do it.
-                ClusterNode node0 = CLUSTER.aliveNode().clusterNodes().stream().filter(clusterNode -> {
-                    return assignments.contains(clusterNode.name());
-                }).findFirst().orElseThrow();
+                Set<Assignment> assignments = calculateAssignmentForPartition(CLUSTER.aliveNode().clusterNodes().stream().map(
+                        ClusterNode::name).collect(Collectors.toList()), 0, 1);
+
+                assertFalse(assignments.isEmpty());
+
+                String consId = assignments.iterator().next().consistentId();
+
+                ClusterNode node0 = CLUSTER.aliveNode().clusterNodes().stream().filter(n -> n.name().equals(consId)).findAny()
+                        .orElseThrow();
 
                 //noinspection DataFlowIssue
                 publisher = internalTable.scan(PART_ID, tx.readTimestamp(), node0, sortedIndexId, null, null, 0, null);
@@ -874,21 +880,22 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
      * @return Transaction.
      */
     private InternalTransaction startTxWithEnlistedPartition(int partId, boolean readOnly) {
-        Ignite ignite = CLUSTER.aliveNode();
+        IgniteImpl ignite = CLUSTER.aliveNode();
 
         InternalTransaction tx = (InternalTransaction) ignite.transactions().begin(new TransactionOptions().readOnly(readOnly));
 
         InternalTable table = ((TableViewInternal) ignite.tables().table(TABLE_NAME)).internalTable();
         TablePartitionId tblPartId = new TablePartitionId(table.tableId(), partId);
 
-        PlacementDriver placementDriver = ((IgniteImpl) ignite).placementDriver();
+        PlacementDriver placementDriver = ignite.placementDriver();
         ReplicaMeta primaryReplica = IgniteTestUtils.await(
-                placementDriver.awaitPrimaryReplica(tblPartId, ((IgniteImpl) ignite).clock().now(), 30, TimeUnit.SECONDS));
+                placementDriver.awaitPrimaryReplica(tblPartId, ignite.clock().now(), 30, TimeUnit.SECONDS));
 
         tx.enlist(
                 tblPartId,
                 new IgniteBiTuple<>(
-                        table.getClusterNodeResolver().apply(primaryReplica.getLeaseholder()),
+                        ignite.clusterNodes().stream().filter(n -> n.name().equals(primaryReplica.getLeaseholder()))
+                                .findFirst().orElseThrow(),
                         primaryReplica.getStartTime().longValue()
                 )
         );

@@ -22,14 +22,12 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsIndexScan;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
@@ -40,7 +38,6 @@ import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.MakeIndexAvailableEventParameters;
-import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.engine.util.QueryChecker;
 import org.apache.ignite.internal.table.distributed.replication.request.BuildIndexReplicaRequest;
@@ -102,7 +99,7 @@ public class ItBuildIndexOneNodeTest extends BaseSqlIntegrationTest {
         CLUSTER.stopNode(0);
         CLUSTER.startNode(0);
 
-        awaitIndexBecomeAvailable(node(), INDEX_NAME);
+        awaitIndexesBecomeAvailable(node(), INDEX_NAME);
     }
 
     @Test
@@ -243,10 +240,6 @@ public class ItBuildIndexOneNodeTest extends BaseSqlIntegrationTest {
         return CLUSTER.node(0);
     }
 
-    private static void awaitIndexBecomeAvailable(IgniteImpl ignite, String indexName) throws Exception {
-        assertTrue(waitForCondition(() -> isIndexAvailable(ignite, indexName), 100, 5_000));
-    }
-
     private static CompletableFuture<Void> awaitIndexBecomeAvailableEventAsync(IgniteImpl ignite, String indexName) {
         var future = new CompletableFuture<Void>();
 
@@ -284,15 +277,6 @@ public class ItBuildIndexOneNodeTest extends BaseSqlIntegrationTest {
         return future;
     }
 
-    private static boolean isIndexAvailable(IgniteImpl ignite, String indexName) {
-        CatalogManager catalogManager = ignite.catalogManager();
-        HybridClock clock = ignite.clock();
-
-        CatalogIndexDescriptor indexDescriptor = catalogManager.index(indexName, clock.nowLong());
-
-        return indexDescriptor != null && indexDescriptor.available();
-    }
-
     private static void createTableAndInsertManyPeople(AtomicInteger nextPersonId) {
         createZoneAndTable(ZONE_NAME, TABLE_NAME, 1, 1);
 
@@ -303,7 +287,7 @@ public class ItBuildIndexOneNodeTest extends BaseSqlIntegrationTest {
         createIndex(TABLE_NAME, INDEX_NAME, "SALARY");
 
         // Hack so that we can wait for the index to be added to the sql planner.
-        awaitIndexBecomeAvailable(node(), INDEX_NAME);
+        awaitIndexesBecomeAvailable(node(), INDEX_NAME);
         waitForReadTimestampThatObservesMostRecentCatalog();
     }
 
