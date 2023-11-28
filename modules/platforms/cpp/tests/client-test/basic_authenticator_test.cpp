@@ -23,9 +23,10 @@
 using namespace ignite;
 
 struct basic_authenticator_test : public basic_auth_test_suite {
-    void TearDown() override {
-        set_authentication_enabled(false);
-    }
+    /**
+     * Tear down.
+     */
+    static void TearDownTestSuite() { set_authentication_enabled(false); }
 };
 
 TEST_F(basic_authenticator_test, disabled_on_server) {

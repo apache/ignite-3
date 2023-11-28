@@ -27,15 +27,56 @@ using namespace ignite;
 /**
  * Test suite.
  */
-class connection_test : public ignite::odbc_connection_suite {
+class connection_test : public odbc_suite, public basic_auth_test_suite {
 public:
     /**
      * Tear down.
      */
     static void TearDownTestSuite() { set_authentication_enabled(false); }
+
+    /**
+     * Get node addresses and user credentials to use for tests.
+     *
+     * @return Addresses and credentials.
+     */
+    static std::string get_auth_connection_string() {
+        return get_basic_connection_string() + "identity=" + CORRECT_USERNAME + ';' + "secret=" + CORRECT_PASSWORD
+            + ';';
+    }
+
+    /**
+     * Get node addresses and user credentials with incorrect identity to use for tests.
+     *
+     * @return Addresses and credentials.
+     */
+    static std::string get_incorrect_identity_auth_connection_string() {
+        return get_basic_connection_string() + "identity=" + INCORRECT_USERNAME + ';' + "secret=" + CORRECT_PASSWORD
+            + ';';
+    }
+
+    /**
+     * Get node addresses and user credentials with incorrect secret to use for tests.
+     *
+     * @return Addresses and credentials.
+     */
+    static std::string get_incorrect_secret_auth_connection_string() {
+        return get_basic_connection_string() + "identity=" + CORRECT_USERNAME + ';' + "secret=" + INCORRECT_PASSWORD
+            + ';';
+    }
+
+    /**
+     * Get node addresses and user credentials with incorrect identity and secret to use for tests.
+     *
+     * @return Addresses and credentials.
+     */
+    static std::string get_incorrect_auth_connection_string() {
+        return get_basic_connection_string() + "identity=" + INCORRECT_USERNAME + ';' + "secret=" + INCORRECT_PASSWORD
+            + ';';
+    }
 };
 
 TEST_F(connection_test, connection_success) {
+    set_authentication_enabled(false);
     odbc_connect(get_basic_connection_string());
 }
 
