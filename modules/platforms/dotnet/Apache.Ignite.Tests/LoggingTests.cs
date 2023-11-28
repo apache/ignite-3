@@ -69,7 +69,7 @@ public class LoggingTests
     {
         var oldWriter = Console.Out;
         var writer = new StringWriter();
-        Console.SetOut(writer);
+        Console.SetOut(TextWriter.Synchronized(writer));
 
         try
         {
@@ -83,15 +83,18 @@ public class LoggingTests
             using var server = new FakeServer();
             using var client = await server.ConnectClientAsync(cfg);
             await client.Tables.GetTablesAsync();
-
-            var log = writer.ToString();
-            StringAssert.Contains("dbug: Apache.Ignite.Internal.ClientSocket", log);
-            StringAssert.Contains("Connection established", log);
-            StringAssert.Contains("Handshake succeeded [remoteAddress=[", log);
         }
         finally
         {
             Console.SetOut(oldWriter);
         }
+
+        // Prevent further writes before accessing the inner StringBuilder.
+        writer.Close();
+        var log = writer.ToString();
+
+        StringAssert.Contains("dbug: Apache.Ignite.Internal.ClientSocket", log);
+        StringAssert.Contains("Connection established", log);
+        StringAssert.Contains("Handshake succeeded [remoteAddress=[", log);
     }
 }
