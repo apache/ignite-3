@@ -156,6 +156,10 @@ public class HeapLockManager implements LockManager {
 
     @Override
     public CompletableFuture<Lock> acquire(UUID txId, LockKey lockKey, LockMode lockMode) {
+        if (lockKey.contextId() == null) {
+            return parentLockManager.acquire(txId, lockKey, lockMode);
+        }
+
         while (true) {
             LockState state = lockState(lockKey);
 
@@ -311,12 +315,6 @@ public class HeapLockManager implements LockManager {
         }
 
         return true;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public @Nullable LockManager parentLockManager() {
-        return parentLockManager;
     }
 
     /**
@@ -820,8 +818,7 @@ public class HeapLockManager implements LockManager {
             } else {
                 assert lockMode != null;
 
-                // TODO FIXME complete async if waiters are in queue to prevent to prevent thread pool starvation.
-                // This method can be called from raft thread, for example.
+                // TODO FIXME https://issues.apache.org/jira/browse/IGNITE-20985
                 fut.complete(null);
             }
         }

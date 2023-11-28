@@ -1078,7 +1078,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         IgniteUuid cursorId = new IgniteUuid(txId, request.scanId());
 
-        return lockManager.parentLockManager().acquire(txId, new LockKey(tableId()), LockMode.S)
+        return lockManager.acquire(txId, new LockKey(tableId()), LockMode.S)
                 .thenCompose(tblLock -> retrieveExactEntriesUntilCursorEmpty(txId, cursorId, batchCount));
     }
 
@@ -1126,8 +1126,8 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         BinaryTuple exactKey = request.exactKey().asBinaryTuple();
 
-        return lockManager.parentLockManager().acquire(txId, new LockKey(indexId), LockMode.IS).thenCompose(idxLock -> { // Index IS lock
-            return lockManager.parentLockManager().acquire(txId, new LockKey(tableId()), LockMode.IS) // Table IS lock
+        return lockManager.acquire(txId, new LockKey(indexId), LockMode.IS).thenCompose(idxLock -> { // Index IS lock
+            return lockManager.acquire(txId, new LockKey(tableId()), LockMode.IS) // Table IS lock
                     .thenCompose(tblLock -> {
                         return lockManager.acquire(txId, new LockKey(indexId, exactKey.byteBuffer()), LockMode.S)
                                 .thenCompose(indRowLock -> { // Hash index bucket S lock
@@ -1171,8 +1171,8 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         int flags = request.flags();
 
-        return lockManager.parentLockManager().acquire(txId, new LockKey(indexId), LockMode.IS).thenCompose(idxLock -> { // Index IS lock
-            return lockManager.parentLockManager().acquire(txId, new LockKey(tableId()), LockMode.IS) // Table IS lock
+        return lockManager.acquire(txId, new LockKey(indexId), LockMode.IS).thenCompose(idxLock -> { // Index IS lock
+            return lockManager.acquire(txId, new LockKey(tableId()), LockMode.IS) // Table IS lock
                     .thenCompose(tblLock -> {
                         var comparator = new BinaryTupleComparator(indexStorage.indexDescriptor().columns());
 
@@ -3157,7 +3157,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @return Future completes with tuple {@link RowId} and collection of {@link Lock}.
      */
     private CompletableFuture<IgniteBiTuple<RowId, Collection<Lock>>> takeLocksForUpdate(BinaryRow binaryRow, RowId rowId, UUID txId) {
-        return lockManager.parentLockManager().acquire(txId, new LockKey(tableId()), LockMode.IX)
+        return lockManager.acquire(txId, new LockKey(tableId()), LockMode.IX)
                 .thenCompose(ignored -> lockManager.acquire(txId, new LockKey(tableId(), rowId), LockMode.X))
                 .thenCompose(ignored -> takePutLockOnIndexes(binaryRow, rowId, txId))
                 .thenApply(shortTermLocks -> new IgniteBiTuple<>(rowId, shortTermLocks));
@@ -3171,7 +3171,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @return Future completes with tuple {@link RowId} and collection of {@link Lock}.
      */
     private CompletableFuture<IgniteBiTuple<RowId, Collection<Lock>>> takeLocksForInsert(BinaryRow binaryRow, RowId rowId, UUID txId) {
-        return lockManager.parentLockManager().acquire(txId, new LockKey(tableId()), LockMode.IX) // IX lock on table
+        return lockManager.acquire(txId, new LockKey(tableId()), LockMode.IX) // IX lock on table
                 .thenCompose(ignored -> takePutLockOnIndexes(binaryRow, rowId, txId))
                 .thenApply(shortTermLocks -> new IgniteBiTuple<>(rowId, shortTermLocks));
     }
@@ -3229,7 +3229,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @return Future completes with {@link RowId} or {@code null} if there is no value for remove.
      */
     private CompletableFuture<RowId> takeLocksForDeleteExact(BinaryRow expectedRow, RowId rowId, BinaryRow actualRow, UUID txId) {
-        return lockManager.parentLockManager().acquire(txId, new LockKey(tableId()), LockMode.IX) // IX lock on table
+        return lockManager.acquire(txId, new LockKey(tableId()), LockMode.IX) // IX lock on table
                 .thenCompose(ignored -> lockManager.acquire(txId, new LockKey(tableId(), rowId), LockMode.S)) // S lock on RowId
                 .thenCompose(ignored -> {
                     if (equalValues(actualRow, expectedRow)) {
@@ -3249,7 +3249,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @return Future completes with {@link RowId} or {@code null} if there is no value for the key.
      */
     private CompletableFuture<RowId> takeLocksForDelete(BinaryRow binaryRow, RowId rowId, UUID txId) {
-        return lockManager.parentLockManager().acquire(txId, new LockKey(tableId()), LockMode.IX) // IX lock on table
+        return lockManager.acquire(txId, new LockKey(tableId()), LockMode.IX) // IX lock on table
                 .thenCompose(ignored -> lockManager.acquire(txId, new LockKey(tableId(), rowId), LockMode.X)) // X lock on RowId
                 .thenCompose(ignored -> takeRemoveLockOnIndexes(binaryRow, rowId, txId))
                 .thenApply(ignored -> rowId);
@@ -3262,7 +3262,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @return Future completes with {@link RowId} or {@code null} if there is no value for the key.
      */
     private CompletableFuture<RowId> takeLocksForGet(RowId rowId, UUID txId) {
-        return lockManager.parentLockManager().acquire(txId, new LockKey(tableId()), LockMode.IS) // IS lock on table
+        return lockManager.acquire(txId, new LockKey(tableId()), LockMode.IS) // IS lock on table
                 .thenCompose(tblLock -> lockManager.acquire(txId, new LockKey(tableId(), rowId), LockMode.S)) // S lock on RowId
                 .thenApply(ignored -> rowId);
     }
@@ -3336,7 +3336,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      */
     private CompletableFuture<IgniteBiTuple<RowId, Collection<Lock>>> takeLocksForReplace(BinaryRow expectedRow, @Nullable BinaryRow oldRow,
             BinaryRow newRow, RowId rowId, UUID txId) {
-        return lockManager.parentLockManager().acquire(txId, new LockKey(tableId()), LockMode.IX)
+        return lockManager.acquire(txId, new LockKey(tableId()), LockMode.IX)
                 .thenCompose(ignored -> lockManager.acquire(txId, new LockKey(tableId(), rowId), LockMode.S))
                 .thenCompose(ignored -> {
                     if (oldRow != null && equalValues(oldRow, expectedRow)) {

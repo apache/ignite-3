@@ -431,7 +431,6 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
 
         var partitioner = new TupleStreamerPartitionAwarenessProvider(rowConverter.registry(), tbl.partitions());
         StreamerBatchSender<Tuple, Integer> batchSender = (partitionId, items) -> withSchemaSync(null, (schemaVersion) -> {
-            System.out.println("BEGIN " + partitionId);
             return this.tbl.upsertAll(mapToBinary(items, schemaVersion, false), partitionId).thenAccept(new Consumer<Void>() {
                 @Override
                 public void accept(Void unused) {
@@ -440,7 +439,6 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
                     } catch (InterruptedException e) {
                         throw new RuntimeException(e);
                     }
-                    System.out.println("END " + partitionId);
                 }
             });
         });

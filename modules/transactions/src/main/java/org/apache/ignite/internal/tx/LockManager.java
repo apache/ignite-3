@@ -95,12 +95,4 @@ public interface LockManager {
      */
     @TestOnly
     boolean isEmpty();
-
-    /**
-     * Get parent lock manager.
-     *
-     * @return Parent lock manager in lock hierarchy.
-     */
-    @Nullable
-    LockManager parentLockManager();
 }
