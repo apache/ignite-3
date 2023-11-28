@@ -183,10 +183,11 @@ public class PartitionAwarenessTest extends AbstractClientTest {
             // Wait for heartbeat message to receive change notification flag.
             assertTrue(IgniteTestUtils.waitForCondition(() -> ch.partitionAssignmentTimestamp() > oldTs, 3000));
         } else {
-            // Perform a request on the default channel to receive change notification flag.
-            // Use two requests because of round-robin.
-            client2.tables().tables();
-            client2.tables().tables();
+            // Perform requests to receive change notification flag.
+            int maxRequests = 10;
+            while (ch.partitionAssignmentTimestamp() <= oldTs && maxRequests-- > 0) {
+                client2.tables().tables();
+            }
         }
 
         // Check new assignment.
