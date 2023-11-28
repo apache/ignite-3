@@ -463,13 +463,13 @@ public class RebalanceUtil {
     }
 
     /**
-     * Returns partition assignments from vault.
+     * Returns partition assignments from meta storage locally.
      *
      * @param metaStorageManager Meta storage manager.
      * @param tableId Table id.
      * @param partitionNumber Partition number.
      * @param revision Revision.
-     * @return Returns partition assignments from vault or {@code null} if assignments is absent.
+     * @return Returns partition assignments from meta storage locally or {@code null} if assignments is absent.
      */
     public static Set<Assignment> partitionAssignments(
             MetaStorageManager metaStorageManager, int tableId, int partitionNumber, long revision) {
@@ -514,7 +514,7 @@ public class RebalanceUtil {
     }
 
     /**
-     * Returns table assignments for all table partitions from vault.
+     * Returns table assignments for all table partitions from meta storage locally.
      *
      * @param metaStorageManager Meta storage manager.
      * @param tableId Table id.

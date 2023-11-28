@@ -683,12 +683,12 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
             @Override
             public long revision() {
-                return 1;
+                throw new UnsupportedOperationException("Not implemented.");
             }
 
             @Override
             public long updateCounter() {
-                return 1;
+                throw new UnsupportedOperationException("Not implemented.");
             }
 
             @Override

@@ -31,6 +31,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCo
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
+import static org.apache.ignite.internal.testframework.verification.WaitForTimes.waitForTimes;
 import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
 import static org.apache.ignite.internal.util.CollectionUtils.first;
 import static org.apache.ignite.internal.utils.RebalanceUtil.STABLE_ASSIGNMENTS_PREFIX;
@@ -50,7 +51,6 @@ import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.timeout;
-import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 import java.io.IOException;
@@ -493,7 +493,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
     @Test
     @UseTestTxStateStorage
     @UseRocksMetaStorage
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-21463")
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19170")
     void testDestroyPartitionStoragesOnRestartEvictedNode(TestInfo testInfo) throws Exception {
         Node node = getNode(0);
 
@@ -690,19 +690,11 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
     }
 
     private void verifyThatRaftNodesAndReplicasWereStartedOnlyOnce() throws Exception {
-        waitForCondition(() -> {
-            try {
-                for (int i = 0; i < NODE_COUNT; i++) {
-                    verify(getNode(i).raftManager, times(1))
-                            .startRaftGroupNode(any(), any(), any(), any(), any(RaftGroupOptions.class));
-                    verify(getNode(i).replicaManager, times(1)).startReplica(any(), any(), any(), any(), any());
-                }
-
-                return true;
-            } catch (Throwable e) {
-                return false;
-            }
-        }, 10_000);
+        for (int i = 0; i < NODE_COUNT; i++) {
+            verify(getNode(i).raftManager, waitForTimes(1, 10_000))
+                    .startRaftGroupNode(any(), any(), any(), any(), any(RaftGroupOptions.class));
+            verify(getNode(i).replicaManager, waitForTimes(1, 10_000)).startReplica(any(), any(), any(), any(), any());
+        }
     }
 
     private void waitPartitionAssignmentsSyncedToExpected(int partNum, int replicasNum) throws Exception {
