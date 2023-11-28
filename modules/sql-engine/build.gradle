@@ -40,6 +40,7 @@ dependencies {
     implementation project(':ignite-cluster-management')
     implementation project(':ignite-system-view-api')
     implementation project(':ignite-system-view')
+    implementation project(':ignite-placement-driver-api')
     implementation libs.jetbrains.annotations
     implementation libs.fastutil.core
     implementation libs.caffeine
