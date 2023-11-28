@@ -51,10 +51,10 @@ import org.apache.calcite.tools.Frameworks;
 import org.apache.ignite.internal.sql.engine.QueryCancel;
 import org.apache.ignite.internal.sql.engine.QueryPrefetchCallback;
 import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCostFactory;
+import org.apache.ignite.internal.sql.engine.prepare.DynamicParameterValue;
 import org.apache.ignite.internal.sql.engine.rex.IgniteRexBuilder;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
-import org.apache.ignite.internal.util.ArrayUtils;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -66,6 +66,7 @@ public final class BaseQueryContext implements Context {
     public static final RelOptCluster CLUSTER;
 
     private static final IgniteCostFactory COST_FACTORY = new IgniteCostFactory();
+    private static final DynamicParameterValue[] NO_DYNAMIC_PARAMETERS = new DynamicParameterValue[0];
 
     static {
         Properties props = new Properties();
@@ -138,7 +139,7 @@ public final class BaseQueryContext implements Context {
 
     private final UUID queryId;
 
-    private final Object[] parameters;
+    private final DynamicParameterValue[] parameters;
 
     private final QueryPrefetchCallback prefetchCallback;
 
@@ -151,7 +152,7 @@ public final class BaseQueryContext implements Context {
             UUID queryId,
             FrameworkConfig cfg,
             QueryCancel cancel,
-            Object[] parameters,
+            DynamicParameterValue[] parameters,
             QueryPrefetchCallback prefetchCallback
     ) {
         this.parentCtx = Contexts.chain(cfg.getContext());
@@ -182,7 +183,7 @@ public final class BaseQueryContext implements Context {
         return queryId;
     }
 
-    public Object[] parameters() {
+    public DynamicParameterValue[] parameters() {
         return parameters;
     }
 
@@ -244,7 +245,7 @@ public final class BaseQueryContext implements Context {
 
         private UUID queryId;
 
-        private Object[] parameters = ArrayUtils.OBJECT_EMPTY_ARRAY;
+        private DynamicParameterValue[] parameters = NO_DYNAMIC_PARAMETERS;
 
         private QueryPrefetchCallback prefetchCallback;
 
@@ -268,7 +269,7 @@ public final class BaseQueryContext implements Context {
             return this;
         }
 
-        public Builder parameters(Object... parameters) {
+        public Builder parameters(DynamicParameterValue... parameters) {
             this.parameters = Objects.requireNonNull(parameters);
             return this;
         }

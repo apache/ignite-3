@@ -82,7 +82,7 @@ public final class PlanningContext implements Context {
     }
 
     /** Get query parameters. */
-    public Object[] parameters() {
+    public DynamicParameterValue[] parameters() {
         return unwrap(BaseQueryContext.class).parameters();
     }
 

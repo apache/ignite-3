@@ -81,6 +81,7 @@ import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders.HashIndexBuilder;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders.SortedIndexBuilder;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders.TableBuilder;
+import org.apache.ignite.internal.sql.engine.prepare.DynamicParameterValue;
 import org.apache.ignite.internal.sql.engine.prepare.Fragment;
 import org.apache.ignite.internal.sql.engine.prepare.IgnitePlanner;
 import org.apache.ignite.internal.sql.engine.prepare.PlannerHelper;
@@ -269,6 +270,16 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
             relConvCfg = relConvCfg.withHintStrategyTable(hintStrategies);
         }
 
+        DynamicParameterValue[] dynamicParams = Arrays.stream(params)
+                .map(v -> {
+                    if (v == Unspecified.UNKNOWN) {
+                        return DynamicParameterValue.noValue();
+                    } else {
+                        return DynamicParameterValue.value(v);
+                    }
+                })
+                .toArray(DynamicParameterValue[]::new);
+
         return BaseQueryContext.builder()
                 .queryId(UUID.randomUUID())
                 .frameworkConfig(
@@ -277,7 +288,7 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
                                 .sqlToRelConverterConfig(relConvCfg)
                                 .build()
                 )
-                .parameters(params)
+                .parameters(dynamicParams)
                 .build();
     }
 
@@ -1025,5 +1036,12 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
     /** Sets table size. */
     static Function<TableBuilder, TableBuilder> setSize(int size) {
         return t -> t.size(size);
+    }
+
+
+    /** Unspecified dynamic parameter. */
+    public enum Unspecified {
+        /** Placeholder for unspecified dynamic parameter. */
+        UNKNOWN
     }
 }

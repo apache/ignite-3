@@ -25,6 +25,7 @@ import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -70,6 +71,7 @@ import org.apache.ignite.internal.sql.engine.message.QueryStartResponse;
 import org.apache.ignite.internal.sql.engine.message.SqlQueryMessageGroup;
 import org.apache.ignite.internal.sql.engine.message.SqlQueryMessagesFactory;
 import org.apache.ignite.internal.sql.engine.prepare.DdlPlan;
+import org.apache.ignite.internal.sql.engine.prepare.DynamicParameterValue;
 import org.apache.ignite.internal.sql.engine.prepare.ExplainPlan;
 import org.apache.ignite.internal.sql.engine.prepare.Fragment;
 import org.apache.ignite.internal.sql.engine.prepare.IgniteRelShuttle;
@@ -240,9 +242,13 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
     }
 
     private BaseQueryContext createQueryContext(UUID queryId, int schemaVersion, Object[] params) {
+        DynamicParameterValue[] dynamicParams = Arrays.stream(params)
+                .map(DynamicParameterValue::value)
+                .toArray(DynamicParameterValue[]::new);
+
         return BaseQueryContext.builder()
                 .queryId(queryId)
-                .parameters(params)
+                .parameters(dynamicParams)
                 .frameworkConfig(
                         Frameworks.newConfigBuilder(FRAMEWORK_CONFIG)
                                 .defaultSchema(sqlSchemaManager.schema(schemaVersion))

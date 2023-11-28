@@ -23,7 +23,6 @@ import java.util.stream.Stream;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.internal.sql.engine.prepare.IgniteSqlValidator;
-import org.apache.ignite.internal.sql.engine.prepare.IgniteSqlValidator.Unspecified;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.StatementChecker;
@@ -279,7 +278,7 @@ public class DynamicParametersTest extends AbstractPlannerTest {
                         .parameterTypes(nullable(NativeTypes.INT32), nullable(NativeTypes.INT32), nullable(NativeTypes.INT32))
                         .ok(),
 
-                sql("SELECT ? BETWEEN ? AND ?", Unspecified.UNKNOWN,Unspecified.UNKNOWN, Unspecified.UNKNOWN)
+                sql("SELECT ? BETWEEN ? AND ?", Unspecified.UNKNOWN, Unspecified.UNKNOWN, Unspecified.UNKNOWN)
                         .fails("Unable to determine type of a dynamic parameter#0")
         );
     }

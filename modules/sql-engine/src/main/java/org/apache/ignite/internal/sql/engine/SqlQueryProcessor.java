@@ -70,6 +70,7 @@ import org.apache.ignite.internal.sql.engine.exec.mapping.ExecutionTargetFactory
 import org.apache.ignite.internal.sql.engine.exec.mapping.ExecutionTargetProvider;
 import org.apache.ignite.internal.sql.engine.exec.mapping.MappingServiceImpl;
 import org.apache.ignite.internal.sql.engine.message.MessageServiceImpl;
+import org.apache.ignite.internal.sql.engine.prepare.DynamicParameterValue;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareService;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareServiceImpl;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
@@ -456,13 +457,16 @@ public class SqlQueryProcessor implements QueryProcessor {
         return waitForActualSchema(schemaName, txWrapper.unwrap().startTimestamp())
                 .thenCompose(schema -> {
                     PrefetchCallback callback = waitForPrefetch ? new PrefetchCallback() : null;
+                    DynamicParameterValue[] dynamicParams = Arrays.stream(params)
+                            .map(DynamicParameterValue::value)
+                            .toArray(DynamicParameterValue[]::new);
 
                     BaseQueryContext ctx = BaseQueryContext.builder()
                             .frameworkConfig(Frameworks.newConfigBuilder(FRAMEWORK_CONFIG).defaultSchema(schema).build())
                             .queryId(UUID.randomUUID())
                             .cancel(queryCancel)
                             .prefetchCallback(callback)
-                            .parameters(params)
+                            .parameters(dynamicParams)
                             .build();
 
                     CompletableFuture<AsyncSqlCursor<List<Object>>> fut = prepareSvc.prepareAsync(parsedResult, ctx)
