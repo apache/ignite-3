@@ -21,6 +21,7 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import java.util.List;
 import java.util.Set;
@@ -30,6 +31,8 @@ import org.apache.ignite.internal.catalog.commands.AlterTableDropColumnCommand;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.ColumnParams.Builder;
 import org.apache.ignite.internal.catalog.commands.DropTableCommand;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.storage.UpdateLog;
 import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
 import org.apache.ignite.internal.catalog.storage.VersionedUpdate;
@@ -297,5 +300,41 @@ public class CatalogTestUtils {
         public void stop() throws Exception {
 
         }
+    }
+
+    /**
+     * Searches for a table by name in the requested version of the catalog.
+     *
+     * @param catalogService Catalog service.
+     * @param catalogVersion Catalog version in which to find the table.
+     * @param tableName Table name.
+     */
+    public static CatalogTableDescriptor table(CatalogService catalogService, int catalogVersion, String tableName) {
+        CatalogTableDescriptor tableDescriptor = catalogService.tables(catalogVersion).stream()
+                .filter(table -> tableName.equals(table.name()))
+                .findFirst()
+                .orElse(null);
+
+        assertNotNull(tableDescriptor, "catalogVersion=" + catalogVersion + ", tableName=" + tableName);
+
+        return tableDescriptor;
+    }
+
+    /**
+     * Searches for an index by name in the requested version of the catalog.
+     *
+     * @param catalogService Catalog service.
+     * @param catalogVersion Catalog version in which to find the index.
+     * @param indexName Index name.
+     */
+    public static CatalogIndexDescriptor index(CatalogService catalogService, int catalogVersion, String indexName) {
+        CatalogIndexDescriptor indexDescriptor = catalogService.indexes(catalogVersion).stream()
+                .filter(index -> indexName.equals(index.name()))
+                .findFirst()
+                .orElse(null);
+
+        assertNotNull(indexDescriptor, "catalogVersion=" + catalogVersion + ", indexName=" + indexName);
+
+        return indexDescriptor;
     }
 }

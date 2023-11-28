@@ -27,9 +27,11 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import org.apache.ignite.internal.catalog.CatalogService;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.table.distributed.schema.ColumnDefinitionDiff;
 import org.apache.ignite.internal.table.distributed.schema.FullTableSchema;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
 import org.apache.ignite.internal.table.distributed.schema.TableDefinitionDiff;
@@ -46,6 +48,13 @@ class SchemaCompatibilityValidator {
 
     // TODO: Remove entries from cache when compacting schemas in SchemaManager https://issues.apache.org/jira/browse/IGNITE-20789
     private final ConcurrentMap<TableDefinitionDiffKey, TableDefinitionDiff> diffCache = new ConcurrentHashMap<>();
+
+    private static final List<ForwardCompatibilityValidator> FORWARD_COMPATIBILITY_VALIDATORS = List.of(
+            new RenameTableValidator(),
+            new AddColumnsValidator(),
+            new DropColumnsValidator(),
+            new ChangeColumnsValidator()
+    );
 
     /** Constructor. */
     SchemaCompatibilityValidator(
@@ -149,8 +158,24 @@ class SchemaCompatibilityValidator {
                 key -> nextSchema.diffFrom(prevSchema)
         );
 
-        // TODO: IGNITE-19229 - more sophisticated logic.
-        return diff.isEmpty();
+        boolean accepted = false;
+
+        for (ForwardCompatibilityValidator validator : FORWARD_COMPATIBILITY_VALIDATORS) {
+            switch (validator.compatible(diff)) {
+                case COMPATIBLE:
+                    accepted = true;
+                    break;
+                case INCOMPATIBLE:
+                    return false;
+                default:
+                    break;
+            }
+        }
+
+        assert accepted : "Table schema changed from " + prevSchema.schemaVersion() + " and " + nextSchema.schemaVersion()
+                + ", but no schema change validator voted for any change. Some schema validator is missing.";
+
+        return true;
     }
 
     /**
@@ -187,25 +212,14 @@ class SchemaCompatibilityValidator {
                 tupleSchemaVersion
         );
 
-        if (tableSchemas.isEmpty()) {
+        if (tableSchemas.size() < 2) {
             // The tuple was not written with a future schema.
             return CompatValidationResult.success();
         }
 
-        for (int i = 0; i < tableSchemas.size() - 1; i++) {
-            FullTableSchema oldSchema = tableSchemas.get(i);
-            FullTableSchema newSchema = tableSchemas.get(i + 1);
-            if (!isBackwardCompatible(oldSchema, newSchema)) {
-                return CompatValidationResult.incompatibleChange(tableId, oldSchema.schemaVersion(), newSchema.schemaVersion());
-            }
-        }
-
-        return CompatValidationResult.success();
-    }
-
-    private boolean isBackwardCompatible(FullTableSchema oldSchema, FullTableSchema newSchema) {
-        // TODO: IGNITE-19229 - is backward compatibility always symmetric with the forward compatibility?
-        return isForwardCompatible(newSchema, oldSchema);
+        FullTableSchema oldSchema = tableSchemas.get(0);
+        FullTableSchema newSchema = tableSchemas.get(1);
+        return CompatValidationResult.incompatibleChange(tableId, oldSchema.schemaVersion(), newSchema.schemaVersion());
     }
 
     void failIfSchemaChangedAfterTxStart(UUID txId, HybridTimestamp operationTimestamp, int tableId) {
@@ -257,6 +271,149 @@ class SchemaCompatibilityValidator {
 
         if (table.tableVersion() != requestSchemaVersion) {
             throw new InternalSchemaVersionMismatchException();
+        }
+    }
+
+    private enum ValidatorVerdict {
+        /**
+         * Validator accepts a change: it's compatible.
+         */
+        COMPATIBLE,
+        /**
+         * Validator rejects a change: it's incompatible.
+         */
+        INCOMPATIBLE,
+        /**
+         * Validator does not know how to handle a change.
+         */
+        DONT_CARE
+    }
+
+    @SuppressWarnings("InterfaceMayBeAnnotatedFunctional")
+    private interface ForwardCompatibilityValidator {
+        ValidatorVerdict compatible(TableDefinitionDiff diff);
+    }
+
+    private static class RenameTableValidator implements ForwardCompatibilityValidator {
+        @Override
+        public ValidatorVerdict compatible(TableDefinitionDiff diff) {
+            return diff.nameDiffers() ? ValidatorVerdict.INCOMPATIBLE : ValidatorVerdict.DONT_CARE;
+        }
+    }
+
+    private static class AddColumnsValidator implements ForwardCompatibilityValidator {
+        @Override
+        public ValidatorVerdict compatible(TableDefinitionDiff diff) {
+            if (diff.addedColumns().isEmpty()) {
+                return ValidatorVerdict.DONT_CARE;
+            }
+
+            for (CatalogTableColumnDescriptor column : diff.addedColumns()) {
+                if (!column.nullable() && column.defaultValue() == null) {
+                    return ValidatorVerdict.INCOMPATIBLE;
+                }
+            }
+
+            return ValidatorVerdict.COMPATIBLE;
+        }
+    }
+
+    private static class DropColumnsValidator implements ForwardCompatibilityValidator {
+        @Override
+        public ValidatorVerdict compatible(TableDefinitionDiff diff) {
+            return diff.removedColumns().isEmpty() ? ValidatorVerdict.DONT_CARE : ValidatorVerdict.INCOMPATIBLE;
+        }
+    }
+
+    @SuppressWarnings("InterfaceMayBeAnnotatedFunctional")
+    private interface ColumnChangeCompatibilityValidator {
+        ValidatorVerdict compatible(ColumnDefinitionDiff diff);
+    }
+
+    private static class ChangeColumnsValidator implements ForwardCompatibilityValidator {
+        private final List<ColumnChangeCompatibilityValidator> validators = List.of(
+                // TODO: https://issues.apache.org/jira/browse/IGNITE-20948 - add validator that says that column rename is compatible.
+                new ChangeNullabilityValidator(),
+                new ChangeDefaultValueValidator(),
+                new ChangeColumnTypeValidator()
+        );
+
+        @Override
+        public ValidatorVerdict compatible(TableDefinitionDiff diff) {
+            if (diff.changedColumns().isEmpty()) {
+                return ValidatorVerdict.DONT_CARE;
+            }
+
+            boolean accepted = false;
+
+            for (ColumnDefinitionDiff columnDiff : diff.changedColumns()) {
+                switch (compatible(columnDiff)) {
+                    case COMPATIBLE:
+                        accepted = true;
+                        break;
+                    case INCOMPATIBLE:
+                        return ValidatorVerdict.INCOMPATIBLE;
+                    default:
+                        break;
+                }
+            }
+
+            assert accepted : "Table schema changed from " + diff.oldSchemaVersion() + " and " + diff.newSchemaVersion()
+                    + ", but no column change validator voted for any change. Some schema validator is missing.";
+
+            return ValidatorVerdict.COMPATIBLE;
+        }
+
+        private ValidatorVerdict compatible(ColumnDefinitionDiff columnDiff) {
+            boolean accepted = false;
+
+            for (ColumnChangeCompatibilityValidator validator : validators) {
+                switch (validator.compatible(columnDiff)) {
+                    case COMPATIBLE:
+                        accepted = true;
+                        break;
+                    case INCOMPATIBLE:
+                        return ValidatorVerdict.INCOMPATIBLE;
+                    default:
+                        break;
+                }
+            }
+
+            return accepted ? ValidatorVerdict.COMPATIBLE : ValidatorVerdict.DONT_CARE;
+        }
+    }
+
+    private static class ChangeDefaultValueValidator implements ColumnChangeCompatibilityValidator {
+        @Override
+        public ValidatorVerdict compatible(ColumnDefinitionDiff diff) {
+            return diff.defaultChanged() ? ValidatorVerdict.INCOMPATIBLE : ValidatorVerdict.DONT_CARE;
+        }
+    }
+
+    private static class ChangeNullabilityValidator implements ColumnChangeCompatibilityValidator {
+        @Override
+        public ValidatorVerdict compatible(ColumnDefinitionDiff diff) {
+            if (diff.notNullAdded()) {
+                return ValidatorVerdict.INCOMPATIBLE;
+            }
+            if (diff.notNullDropped()) {
+                return ValidatorVerdict.COMPATIBLE;
+            }
+
+            assert !diff.nullabilityChanged() : diff;
+
+            return ValidatorVerdict.DONT_CARE;
+        }
+    }
+
+    private static class ChangeColumnTypeValidator implements ColumnChangeCompatibilityValidator {
+        @Override
+        public ValidatorVerdict compatible(ColumnDefinitionDiff diff) {
+            if (!diff.typeChanged()) {
+                return ValidatorVerdict.DONT_CARE;
+            }
+
+            return diff.typeChangeIsSupported() ? ValidatorVerdict.COMPATIBLE : ValidatorVerdict.INCOMPATIBLE;
         }
     }
 }
