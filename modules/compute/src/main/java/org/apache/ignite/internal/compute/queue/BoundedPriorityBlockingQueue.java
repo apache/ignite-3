@@ -44,14 +44,17 @@ public class BoundedPriorityBlockingQueue<E> extends AbstractQueue<E> implements
 
     private final Condition notEmpty = lock.newCondition();
 
+    private final QueueListener<E> listener;
+
     /**
      * Constructor.
      *
      * @param maxCapacity Max queue size supplier.
      */
-    public BoundedPriorityBlockingQueue(Supplier<Integer> maxCapacity) {
+    public BoundedPriorityBlockingQueue(Supplier<Integer> maxCapacity, QueueListener<E> listener) {
         queue = new PriorityQueue<>();
         this.maxCapacity = maxCapacity;
+        this.listener = listener;
     }
 
     /**
@@ -61,9 +64,10 @@ public class BoundedPriorityBlockingQueue<E> extends AbstractQueue<E> implements
      * @param comparator The comparator that will be used to order this
      *     priority queue. If {@code null}, the {@link Comparable} natural ordering of the elements will be used.
      */
-    public BoundedPriorityBlockingQueue(Supplier<Integer> maxCapacity, Comparator<E> comparator) {
+    public BoundedPriorityBlockingQueue(Supplier<Integer> maxCapacity, Comparator<E> comparator, QueueListener<E> listener) {
         queue = new PriorityQueue<>(comparator);
         this.maxCapacity = maxCapacity;
+        this.listener = listener;
     }
 
     @Override
@@ -98,6 +102,7 @@ public class BoundedPriorityBlockingQueue<E> extends AbstractQueue<E> implements
             checkInsert(1);
             boolean result = queue.offer(e);
             if (result) {
+                listener.onAdd(e);
                 notEmpty.signalAll();
             }
             return result;
@@ -119,6 +124,7 @@ public class BoundedPriorityBlockingQueue<E> extends AbstractQueue<E> implements
                 notEmpty.await();
             }
             E x = poll();
+            listener.onTake(x);
             assert x != null;
             return x;
         } finally {
@@ -130,7 +136,11 @@ public class BoundedPriorityBlockingQueue<E> extends AbstractQueue<E> implements
     public E poll() {
         lock.lock();
         try {
-            return queue.poll();
+            E poll = queue.poll();
+            if (poll != null) {
+                listener.onTake(poll);
+            }
+            return poll;
         } finally {
             lock.unlock();
         }
@@ -273,4 +283,5 @@ public class BoundedPriorityBlockingQueue<E> extends AbstractQueue<E> implements
                     + "Max queue size is " + maxSize + ".");
         }
     }
+
 }
