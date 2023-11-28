@@ -24,6 +24,10 @@ import org.apache.ignite.network.ChannelType;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkMessage;
 
+/**
+ * Dummy messaging service for tests purposes.
+ * It does not provide any messaging functionality, but allows to trigger events.
+ */
 public class DummyMessagingService extends AbstractMessagingService {
     private final String localNodeName;
 
