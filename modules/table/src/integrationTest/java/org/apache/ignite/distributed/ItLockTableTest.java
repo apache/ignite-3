@@ -93,7 +93,6 @@ public class ItLockTableTest extends IgniteAbstractTest {
         txTestCluster = new ItTxTestCluster(
                 testInfo,
                 raftConfiguration,
-                gcConfig,
                 workDir,
                 1,
                 1,

@@ -156,7 +156,7 @@ public class HeapLockManager implements LockManager {
 
     @Override
     public CompletableFuture<Lock> acquire(UUID txId, LockKey lockKey, LockMode lockMode) {
-        if (lockKey.contextId() == null) {
+        if (lockKey.contextId() == null) { // Treat this lock as a hierarchy lock.
             return parentLockManager.acquire(txId, lockKey, lockMode);
         }
 
