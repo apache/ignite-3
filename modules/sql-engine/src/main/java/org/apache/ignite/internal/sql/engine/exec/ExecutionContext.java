@@ -34,6 +34,7 @@ import org.apache.calcite.DataContext;
 import org.apache.calcite.linq4j.QueryProvider;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.lang.RunnableX;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.schema.BinaryRowConverter;
@@ -334,14 +335,6 @@ public class ExecutionContext<RowT> implements DataContext {
                 throw new IgniteInternalException(INTERNAL_ERR, "Unexpected exception", e);
             }
         });
-    }
-
-    /**
-     * RunnableX interface.
-     */
-    @FunctionalInterface
-    public interface RunnableX {
-        void run() throws Throwable;
     }
 
     /** Transaction for current context. */

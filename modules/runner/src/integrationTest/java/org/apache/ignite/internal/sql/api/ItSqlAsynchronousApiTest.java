@@ -107,6 +107,11 @@ public class ItSqlAsynchronousApiTest extends ItSqlApiBaseTest {
     }
 
     @Override
+    protected void executeScript(Session ses, String sql, Object... args) {
+        await(ses.executeScriptAsync(sql, args));
+    }
+
+    @Override
     protected void rollback(Transaction tx) {
         await(tx.rollbackAsync());
     }

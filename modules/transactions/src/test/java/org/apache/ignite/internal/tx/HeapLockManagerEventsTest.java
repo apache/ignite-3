@@ -15,19 +15,17 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Log
-{
-    using System;
+package org.apache.ignite.internal.tx;
 
-    /// <summary>
-    /// <see cref="DateTime"/> abstraction for logging.
-    /// </summary>
-    public interface IDateTimeProvider
-    {
-        /// <summary>
-        /// Gets current <see cref="DateTime"/>.
-        /// </summary>
-        /// <returns>Current DateTime.</returns>
-        DateTime Now();
+import org.apache.ignite.internal.tx.impl.HeapLockManager;
+import org.apache.ignite.internal.tx.impl.WaitDieDeadlockPreventionPolicy;
+
+/**
+ * Class that contains the tests for lock manager events producing for {@link HeapLockManager}.
+ */
+public class HeapLockManagerEventsTest extends AbstractLockManagerEventsTest {
+    @Override
+    protected LockManager lockManager() {
+        return new HeapLockManager(new WaitDieDeadlockPreventionPolicy());
     }
 }

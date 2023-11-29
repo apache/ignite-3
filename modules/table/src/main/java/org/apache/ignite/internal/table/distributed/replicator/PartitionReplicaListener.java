@@ -91,6 +91,7 @@ import org.apache.ignite.internal.replicator.exception.ReplicationMaxRetriesExce
 import org.apache.ignite.internal.replicator.exception.ReplicationTimeoutException;
 import org.apache.ignite.internal.replicator.exception.UnsupportedReplicaRequestException;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
+import org.apache.ignite.internal.replicator.message.PrimaryReplicaRequest;
 import org.apache.ignite.internal.replicator.message.ReadOnlyDirectReplicaRequest;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
@@ -343,7 +344,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     }
 
     private CompletableFuture<Boolean> onPrimaryElected(PrimaryReplicaEventParameters evt, @Nullable Throwable exception) {
-        if (!localNode.name().equals(evt.leaseholder())) {
+        if (!localNode.name().equals(evt.leaseholder()) || !replicationGroupId.equals(evt.groupId())) {
             return completedFuture(false);
         }
 
@@ -420,7 +421,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     }
 
     private CompletableFuture<Boolean> onPrimaryExpired(PrimaryReplicaEventParameters evt, @Nullable Throwable exception) {
-        if (!localNode.name().equals(evt.leaseholder())) {
+        if (!localNode.name().equals(evt.leaseholder()) || !replicationGroupId.equals(evt.groupId())) {
             return completedFuture(false);
         }
 
@@ -1472,10 +1473,12 @@ public class PartitionReplicaListener implements ReplicaListener {
     private static void throwIfSchemaValidationOnCommitFailed(CompatValidationResult validationResult) {
         if (!validationResult.isSuccessful()) {
             if (validationResult.isTableDropped()) {
+                // TODO: IGNITE-20966 - improve error message.
                 throw new IncompatibleSchemaAbortException(
                         format("Commit failed because a table was already dropped [tableId={}]", validationResult.failedTableId())
                 );
             } else {
+                // TODO: IGNITE-20966 - improve error message.
                 throw new IncompatibleSchemaAbortException("Commit failed because schema "
                         + validationResult.fromSchemaVersion() + " is not forward-compatible with "
                         + validationResult.toSchemaVersion() + " for table " + validationResult.failedTableId());
@@ -1710,11 +1713,38 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         markFinished(request.txId(), txState, request.commitTimestamp());
 
+        return awaitCleanupReadyFutures(request.txId(), request.commit())
+                .thenCompose(res -> {
+                    if (res.hadUpdateFutures()) {
+                        HybridTimestamp commandTimestamp = hybridClock.now();
+
+                        return reliableCatalogVersionFor(commandTimestamp)
+                                .thenCompose(catalogVersion ->
+                                        applyCleanupCommand(
+                                                request.txId(),
+                                                request.commit(),
+                                                request.commitTimestamp(),
+                                                request.commitTimestampLong(),
+                                                catalogVersion
+                                        ))
+                                .thenApply(unused -> res);
+                    } else {
+                        return completedFuture(res);
+                    }
+                })
+                .thenAccept(res -> {
+                    if (res.hadUpdateFutures() || res.hadReadFutures()) {
+                        releaseTxLocks(request.txId());
+                    }
+                });
+    }
+
+    private CompletableFuture<FuturesCleanupResult> awaitCleanupReadyFutures(UUID txId, boolean commit) {
         List<CompletableFuture<?>> txUpdateFutures = new ArrayList<>();
         List<CompletableFuture<?>> txReadFutures = new ArrayList<>();
 
         // TODO https://issues.apache.org/jira/browse/IGNITE-18617
-        txCleanupReadyFutures.compute(request.txId(), (id, txOps) -> {
+        txCleanupReadyFutures.compute(txId, (id, txOps) -> {
             if (txOps == null) {
                 return null;
             }
@@ -1732,32 +1762,9 @@ public class PartitionReplicaListener implements ReplicaListener {
             return txOps;
         });
 
-        if (txUpdateFutures.isEmpty()) {
-            if (!txReadFutures.isEmpty()) {
-                return allOffFuturesExceptionIgnored(txReadFutures, request)
-                        .thenRun(() -> releaseTxLocks(request.txId()));
-            }
-
-            return completedFuture(null);
-        }
-
-        return allOffFuturesExceptionIgnored(txUpdateFutures, request).thenCompose(v -> {
-            HybridTimestamp commandTimestamp = hybridClock.now();
-
-            return reliableCatalogVersionFor(commandTimestamp)
-                    .thenCompose(catalogVersion -> {
-                        applyCleanupCommand(
-                                request.txId(),
-                                request.commit(),
-                                request.commitTimestamp(),
-                                request.commitTimestampLong(),
-                                catalogVersion
-                        );
-
-                        return allOffFuturesExceptionIgnored(txReadFutures, request)
-                                .thenRun(() -> releaseTxLocks(request.txId()));
-                    });
-        });
+        return allOfFuturesExceptionIgnored(txUpdateFutures, commit, txId)
+                .thenCompose(v -> allOfFuturesExceptionIgnored(txReadFutures, commit, txId))
+                .thenApply(v -> new FuturesCleanupResult(!txReadFutures.isEmpty(), !txUpdateFutures.isEmpty()));
     }
 
     private CompletableFuture<Void> applyCleanupCommand(
@@ -1803,15 +1810,15 @@ public class PartitionReplicaListener implements ReplicaListener {
      * Creates a future that waits all transaction operations are completed.
      *
      * @param txFutures Transaction operation futures.
-     * @param request Cleanup request.
+     * @param commit If {@code true} this is a commit otherwise a rollback.
+     * @param txId Transaction id.
      * @return The future completes when all futures in passed list are completed.
      */
-    private static CompletableFuture<Void> allOffFuturesExceptionIgnored(List<CompletableFuture<?>> txFutures,
-            TxCleanupReplicaRequest request) {
+    private static CompletableFuture<Void> allOfFuturesExceptionIgnored(List<CompletableFuture<?>> txFutures, boolean commit, UUID txId) {
         return allOf(txFutures.toArray(new CompletableFuture<?>[0]))
                 .exceptionally(e -> {
-                    assert !request.commit() :
-                            "Transaction is committing, but an operation has completed with exception [txId=" + request.txId()
+                    assert !commit :
+                            "Transaction is committing, but an operation has completed with exception [txId=" + txId
                                     + ", err=" + e.getMessage() + ']';
 
                     return null;
@@ -3351,46 +3358,32 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @return Future. The result is not {@code null} only for {@link ReadOnlyReplicaRequest}. If {@code true}, then replica is primary.
      */
     private CompletableFuture<Boolean> ensureReplicaIsPrimary(ReplicaRequest request) {
-        Long expectedTerm;
-
-        // TODO: IGNITE-20875 Add enlistment consistency token to PrimaryReplicaTestRequest interface.
-        if (request instanceof ReadWriteReplicaRequest) {
-            expectedTerm = ((ReadWriteReplicaRequest) request).term();
-
-            assert expectedTerm != null;
-        } else if (request instanceof TxFinishReplicaRequest) {
-            expectedTerm = ((TxFinishReplicaRequest) request).term();
-
-            assert expectedTerm != null;
-        } else if (request instanceof ReadOnlyDirectReplicaRequest) {
-            expectedTerm = ((ReadOnlyDirectReplicaRequest) request).enlistmentConsistencyToken();
-
-            assert expectedTerm != null;
-        } else if (request instanceof BuildIndexReplicaRequest) {
-            expectedTerm = ((BuildIndexReplicaRequest) request).enlistmentConsistencyToken();
-        } else if (request instanceof TxRecoveryMessage) {
-            expectedTerm = ((TxRecoveryMessage) request).enlistmentConsistencyToken();
-        } else {
-            expectedTerm = null;
-        }
-
         HybridTimestamp now = hybridClock.now();
 
-        if (expectedTerm != null) {
+        if (request instanceof PrimaryReplicaRequest) {
+            Long enlistmentConsistencyToken = ((PrimaryReplicaRequest) request).enlistmentConsistencyToken();
+
             return placementDriver.getPrimaryReplica(replicationGroupId, now)
                     .thenCompose(primaryReplicaMeta -> {
                         if (primaryReplicaMeta == null) {
-                            return failedFuture(new PrimaryReplicaMissException(localNode.name(), null, expectedTerm, null, null));
+                            return failedFuture(new PrimaryReplicaMissException(
+                                    localNode.name(),
+                                    null,
+                                    enlistmentConsistencyToken,
+                                    null,
+                                    null
+                            ));
                         }
 
                         long currentEnlistmentConsistencyToken = primaryReplicaMeta.getStartTime().longValue();
 
                         // TODO: https://issues.apache.org/jira/browse/IGNITE-20377
-                        if (expectedTerm != currentEnlistmentConsistencyToken || primaryReplicaMeta.getExpirationTime().before(now)) {
+                        if (enlistmentConsistencyToken != currentEnlistmentConsistencyToken
+                                || primaryReplicaMeta.getExpirationTime().before(now)) {
                             return failedFuture(new PrimaryReplicaMissException(
                                     localNode.name(),
                                     primaryReplicaMeta.getLeaseholder(),
-                                    expectedTerm,
+                                    enlistmentConsistencyToken,
                                     currentEnlistmentConsistencyToken,
                                     null
                             ));
@@ -3756,5 +3749,23 @@ public class PartitionReplicaListener implements ReplicaListener {
                 .rowIds(request.rowIds())
                 .finish(request.finish())
                 .build();
+    }
+
+    private static class FuturesCleanupResult {
+        private final boolean hadReadFutures;
+        private final boolean hadUpdateFutures;
+
+        public FuturesCleanupResult(boolean hadReadFutures, boolean hadUpdateFutures) {
+            this.hadReadFutures = hadReadFutures;
+            this.hadUpdateFutures = hadUpdateFutures;
+        }
+
+        public boolean hadReadFutures() {
+            return hadReadFutures;
+        }
+
+        public boolean hadUpdateFutures() {
+            return hadUpdateFutures;
+        }
     }
 }

@@ -29,7 +29,7 @@ namespace Apache.Ignite.Internal.Table
     using Ignite.Table;
     using Ignite.Transactions;
     using Linq;
-    using Log;
+    using Microsoft.Extensions.Logging;
     using Proto;
     using Serialization;
     using Sql;
@@ -51,7 +51,7 @@ namespace Apache.Ignite.Internal.Table
         /** SQL. */
         private readonly Sql _sql;
 
-        private readonly IIgniteLogger? _logger;
+        private readonly ILogger _logger;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="RecordView{T}"/> class.
@@ -64,7 +64,7 @@ namespace Apache.Ignite.Internal.Table
             _table = table;
             _ser = ser;
             _sql = sql;
-            _logger = table.Socket.Configuration.Logger.GetLogger(GetType());
+            _logger = table.Socket.Configuration.LoggerFactory.CreateLogger<RecordView<T>>();
         }
 
         /// <summary>
@@ -427,22 +427,16 @@ namespace Apache.Ignite.Internal.Table
             catch (IgniteException e) when (e.Code == ErrorGroups.Table.SchemaVersionMismatch &&
                                             schemaVersionOverride != e.GetExpectedSchemaVersion())
             {
-                if (_logger?.IsEnabled(LogLevel.Debug) == true)
-                {
-                    _logger.Debug($"Retrying SchemaVersionMismatch error [tableId={_table.Id}, schemaVersion={schema?.Version}, " +
-                                  $"expectedSchemaVersion={e.GetExpectedSchemaVersion()}]");
-                }
-
                 schemaVersionOverride = e.GetExpectedSchemaVersion();
+
+                _logger.LogRetryingSchemaVersionMismatchErrorDebug(_table.Id, schema?.Version, schemaVersionOverride);
+
                 return await DoRecordOutOpAsync(op, transaction, record, keyOnly, schemaVersionOverride).ConfigureAwait(false);
             }
             catch (Exception e) when (e.CausedByUnmappedColumns() &&
                                       schemaVersionOverride == null)
             {
-                if (_logger?.IsEnabled(LogLevel.Debug) == true)
-                {
-                    _logger.Debug($"Retrying unmapped columns error [tableId={_table.Id}, schemaVersion={schema?.Version}]");
-                }
+                _logger.LogRetryingUnmappedColumnsErrorDebug(_table.Id, schema?.Version, e.Message);
 
                 schemaVersionOverride = Table.SchemaVersionForceLatest;
                 return await DoRecordOutOpAsync(op, transaction, record, keyOnly, schemaVersionOverride).ConfigureAwait(false);
@@ -474,22 +468,16 @@ namespace Apache.Ignite.Internal.Table
             catch (IgniteException e) when (e.Code == ErrorGroups.Table.SchemaVersionMismatch &&
                                             schemaVersionOverride != e.GetExpectedSchemaVersion())
             {
-                if (_logger?.IsEnabled(LogLevel.Debug) == true)
-                {
-                    _logger.Debug($"Retrying SchemaVersionMismatch error [tableId={_table.Id}, schemaVersion={schema?.Version}, " +
-                                  $"expectedSchemaVersion={e.GetExpectedSchemaVersion()}]");
-                }
-
                 schemaVersionOverride = e.GetExpectedSchemaVersion();
+
+                _logger.LogRetryingSchemaVersionMismatchErrorDebug(_table.Id, schema?.Version, schemaVersionOverride);
+
                 return await DoTwoRecordOutOpAsync(op, transaction, record, record2, keyOnly, schemaVersionOverride).ConfigureAwait(false);
             }
             catch (Exception e) when (e.CausedByUnmappedColumns() &&
                                       schemaVersionOverride == null)
             {
-                if (_logger?.IsEnabled(LogLevel.Debug) == true)
-                {
-                    _logger.Debug($"Retrying unmapped columns error [tableId={_table.Id}, schemaVersion={schema?.Version}]");
-                }
+                _logger.LogRetryingUnmappedColumnsErrorDebug(_table.Id, schema?.Version, e.Message);
 
                 schemaVersionOverride = Table.SchemaVersionForceLatest;
                 return await DoTwoRecordOutOpAsync(op, transaction, record, record2, keyOnly, schemaVersionOverride).ConfigureAwait(false);
@@ -527,13 +515,9 @@ namespace Apache.Ignite.Internal.Table
             catch (IgniteException e) when (e.Code == ErrorGroups.Table.SchemaVersionMismatch &&
                                             schemaVersionOverride != e.GetExpectedSchemaVersion())
             {
-                if (_logger?.IsEnabled(LogLevel.Debug) == true)
-                {
-                    _logger.Debug($"Retrying SchemaVersionMismatch error [tableId={_table.Id}, schemaVersion={schema?.Version}, " +
-                                  $"expectedSchemaVersion={e.GetExpectedSchemaVersion()}]");
-                }
-
                 schemaVersionOverride = e.GetExpectedSchemaVersion();
+
+                _logger.LogRetryingSchemaVersionMismatchErrorDebug(_table.Id, schema?.Version, schemaVersionOverride);
 
                 // ReSharper disable once PossibleMultipleEnumeration (we have to retry, but this is very rare)
                 return await DoMultiRecordOutOpAsync(op, transaction, recs, keyOnly, schemaVersionOverride).ConfigureAwait(false);
@@ -541,10 +525,7 @@ namespace Apache.Ignite.Internal.Table
             catch (Exception e) when (e.CausedByUnmappedColumns() &&
                                       schemaVersionOverride == null)
             {
-                if (_logger?.IsEnabled(LogLevel.Debug) == true)
-                {
-                    _logger.Debug($"Retrying unmapped columns error [tableId={_table.Id}, schemaVersion={schema?.Version}]");
-                }
+                _logger.LogRetryingUnmappedColumnsErrorDebug(_table.Id, schema?.Version, e.Message);
 
                 schemaVersionOverride = Table.SchemaVersionForceLatest;
 

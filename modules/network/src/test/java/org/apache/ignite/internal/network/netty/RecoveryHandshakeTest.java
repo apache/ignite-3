@@ -54,6 +54,8 @@ import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.OutNetworkObject;
 import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Recovery protocol handshake flow test.
@@ -61,6 +63,9 @@ import org.junit.jupiter.api.Test;
 public class RecoveryHandshakeTest {
     /** Connection id. */
     private static final short CONNECTION_ID = 1337;
+
+    private static final UUID LOWER_UUID = new UUID(100, 200);
+    private static final UUID HIGHER_UUID = new UUID(300, 400);
 
     /** Serialization registry. */
     private static final MessageSerializationRegistry MESSAGE_REGISTRY = defaultSerializationRegistry();
@@ -209,12 +214,12 @@ public class RecoveryHandshakeTest {
     }
 
     @Test
-    public void testPairedRecoveryDescriptors() throws Exception {
+    public void testPairedRecoveryDescriptorsClinch() throws Exception {
         RecoveryDescriptorProvider node1Recovery = createRecoveryDescriptorProvider();
         RecoveryDescriptorProvider node2Recovery = createRecoveryDescriptorProvider();
 
-        UUID node1Uuid = new UUID(100, 200);
-        UUID node2Uuid = new UUID(300, 400);
+        UUID node1Uuid = LOWER_UUID;
+        UUID node2Uuid = HIGHER_UUID;
 
         RecoveryClientHandshakeManager chm1 = createRecoveryClientHandshakeManager("client", node1Uuid, node1Recovery);
         RecoveryServerHandshakeManager shm1 = createRecoveryServerHandshakeManager("client", node1Uuid, node1Recovery);
@@ -222,14 +227,14 @@ public class RecoveryHandshakeTest {
         RecoveryClientHandshakeManager chm2 = createRecoveryClientHandshakeManager("server", node2Uuid, node2Recovery);
         RecoveryServerHandshakeManager shm2 = createRecoveryServerHandshakeManager("server", node2Uuid, node2Recovery);
 
-        // Channel opened from node1 to node2 - channel 1.
-        // Channel opened from node2 to node1 - channel 2.
+        // Channel opened from node1 to node2 is channel 1.
+        // Channel opened from node2 to node1 is channel 2.
 
         // Channel 1.
         EmbeddedChannel channel1Src = setupChannel(chm1, noMessageListener);
         EmbeddedChannel channel1Dst = setupChannel(shm2, noMessageListener);
 
-        // Channel 1.
+        // Channel 2.
         EmbeddedChannel channel2Src = setupChannel(chm2, noMessageListener);
         EmbeddedChannel channel2Dst = setupChannel(shm1, noMessageListener);
 
@@ -239,10 +244,65 @@ public class RecoveryHandshakeTest {
         exchangeClientToServer(channel2Dst, channel2Src);
         exchangeClientToServer(channel1Dst, channel1Src);
 
-        // 2 -> 1 is alive, while 1 -> 2 closes because of the tie-breaking.
+        // 2 -> 1 (Channel 2) is alive, while 1 -> 2 (Channel 1) closes because of the tie-breaking.
+        exchangeServerToClient(channel1Dst, channel1Src);
         exchangeServerToClient(channel2Dst, channel2Src);
         assertFalse(channel1Src.isOpen());
         assertFalse(channel1Dst.isOpen());
+
+        assertTrue(channel2Src.isOpen());
+        assertTrue(channel2Dst.isOpen());
+
+        assertFalse(channel1Src.finish());
+        assertFalse(channel2Dst.finish());
+        assertFalse(channel2Src.finish());
+        assertFalse(channel1Dst.finish());
+    }
+
+    /**
+     * This tests the following scenario: two handshakes in the opposite directions are started,
+     * Handshake 1 is faster and it takes both client-side and server-side locks (using recovery descriptors
+     * as locks), and only then Handshake 2 tries to take the first lock (the one on the client side).
+     * In such a situation, tie-breaking logic should not be applied (as Handshake 1 could have already
+     * established, or almost established, a logical connection); instead, Handshake 2 must stop
+     * itself (regardless of what that the Tie Breaker would prescribe).
+     */
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    public void testLateHandshakeDoesNotUseTieBreaker(boolean node1LaunchIdIsLower) throws Exception {
+        RecoveryDescriptorProvider node1Recovery = createRecoveryDescriptorProvider();
+        RecoveryDescriptorProvider node2Recovery = createRecoveryDescriptorProvider();
+
+        UUID node1Uuid = node1LaunchIdIsLower ? LOWER_UUID : HIGHER_UUID;
+        UUID node2Uuid = node1LaunchIdIsLower ? HIGHER_UUID : LOWER_UUID;
+
+        RecoveryClientHandshakeManager chm1 = createRecoveryClientHandshakeManager("client", node1Uuid, node1Recovery);
+        RecoveryServerHandshakeManager shm1 = createRecoveryServerHandshakeManager("client", node1Uuid, node1Recovery);
+
+        RecoveryClientHandshakeManager chm2 = createRecoveryClientHandshakeManager("server", node2Uuid, node2Recovery);
+        RecoveryServerHandshakeManager shm2 = createRecoveryServerHandshakeManager("server", node2Uuid, node2Recovery);
+
+        // Channel opened from node1 to node2 is channel 1.
+        // Channel opened from node2 to node1 is channel 2.
+
+        // Channel 1.
+        EmbeddedChannel channel1Src = setupChannel(chm1, noMessageListener);
+        EmbeddedChannel channel1Dst = setupChannel(shm2, noMessageListener);
+
+        // Channel 2.
+        EmbeddedChannel channel2Src = setupChannel(chm2, noMessageListener);
+        EmbeddedChannel channel2Dst = setupChannel(shm1, noMessageListener);
+
+        // Channel 2's handshake acquires both locks.
+        exchangeServerToClient(channel2Dst, channel2Src);
+        exchangeClientToServer(channel2Dst, channel2Src);
+
+        // Now Channel 1's handshake cannot acquire even first lock.
+        exchangeServerToClient(channel1Dst, channel1Src);
+
+        // 2 -> 1 is alive, while 1 -> 2 closes because it is late.
+        exchangeServerToClient(channel2Dst, channel2Src);
+        assertFalse(channel1Src.isOpen());
 
         assertTrue(channel2Src.isOpen());
         assertTrue(channel2Dst.isOpen());
@@ -464,25 +524,41 @@ public class RecoveryHandshakeTest {
     }
 
     private void checkHandshakeNotCompleted(HandshakeManager manager) {
-        CompletableFuture<NettySender> handshakeFuture = manager.handshakeFuture();
-        assertFalse(handshakeFuture.isDone());
-        assertFalse(handshakeFuture.isCompletedExceptionally());
-        assertFalse(handshakeFuture.isCancelled());
+        CompletableFuture<NettySender> localHandshakeFuture = manager.localHandshakeFuture();
+        assertFalse(localHandshakeFuture.isDone());
+        assertFalse(localHandshakeFuture.isCompletedExceptionally());
+        assertFalse(localHandshakeFuture.isCancelled());
+
+        CompletableFuture<NettySender> finalHandshakeFuture = manager.finalHandshakeFuture().toCompletableFuture();
+        assertFalse(finalHandshakeFuture.isDone());
+        assertFalse(finalHandshakeFuture.isCompletedExceptionally());
+        assertFalse(finalHandshakeFuture.isCancelled());
     }
 
     private void checkHandshakeCompleted(HandshakeManager manager) {
-        CompletableFuture<NettySender> handshakeFuture = manager.handshakeFuture();
-        assertTrue(handshakeFuture.isDone());
-        assertFalse(handshakeFuture.isCompletedExceptionally());
-        assertFalse(handshakeFuture.isCancelled());
+        CompletableFuture<NettySender> localHandshakeFuture = manager.localHandshakeFuture();
+        assertTrue(localHandshakeFuture.isDone());
+        assertFalse(localHandshakeFuture.isCompletedExceptionally());
+        assertFalse(localHandshakeFuture.isCancelled());
+
+        CompletableFuture<NettySender> finalHandshakeFuture = manager.finalHandshakeFuture().toCompletableFuture();
+        assertTrue(finalHandshakeFuture.isDone());
+        assertFalse(finalHandshakeFuture.isCompletedExceptionally());
+        assertFalse(finalHandshakeFuture.isCancelled());
     }
 
     private void checkHandshakeCompletedExceptionally(HandshakeManager manager) {
-        CompletableFuture<NettySender> handshakeFuture = manager.handshakeFuture();
+        CompletableFuture<NettySender> handshakeFuture = manager.localHandshakeFuture();
 
         assertTrue(handshakeFuture.isDone());
         assertTrue(handshakeFuture.isCompletedExceptionally());
         assertFalse(handshakeFuture.isCancelled());
+
+        CompletableFuture<NettySender> finalHandshakeFuture = manager.finalHandshakeFuture().toCompletableFuture();
+
+        assertTrue(finalHandshakeFuture.isDone());
+        assertTrue(finalHandshakeFuture.isCompletedExceptionally());
+        assertFalse(finalHandshakeFuture.isCancelled());
     }
 
     private void addUnacknowledgedMessages(RecoveryDescriptor recoveryDescriptor) {

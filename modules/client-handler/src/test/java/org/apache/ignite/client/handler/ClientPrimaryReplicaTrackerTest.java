@@ -28,7 +28,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.client.handler.ClientPrimaryReplicaTracker.PrimaryReplicasResult;
 import org.apache.ignite.internal.TestHybridClock;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableViewInternal;
@@ -51,7 +50,7 @@ class ClientPrimaryReplicaTrackerTest extends BaseIgniteAbstractTest {
     @BeforeEach
     public void setUp() throws Exception {
         driver = new FakePlacementDriver(PARTITIONS);
-        driver.setReplicas(List.of("s1", "s2"), TABLE_ID);
+        driver.setReplicas(List.of("s1", "s2"), TABLE_ID, 1);
 
         InternalTable internalTable = mock(InternalTable.class);
         when(internalTable.partitions()).thenReturn(PARTITIONS);
@@ -89,7 +88,7 @@ class ClientPrimaryReplicaTrackerTest extends BaseIgniteAbstractTest {
         assertEquals(1, tracker.maxStartTime());
         driver.updateReplica("s3", TABLE_ID, 0, 2);
 
-        assertEquals(new HybridTimestamp(2, 0).longValue(), tracker.maxStartTime());
+        assertEquals(2, tracker.maxStartTime());
 
         PrimaryReplicasResult replicas = tracker.primaryReplicasAsync(TABLE_ID, null).join();
         assertEquals(PARTITIONS, replicas.nodeNames().size());
@@ -105,7 +104,7 @@ class ClientPrimaryReplicaTrackerTest extends BaseIgniteAbstractTest {
         assertEquals(1, tracker.maxStartTime());
         driver.updateReplica(null, TABLE_ID, 1, 2);
 
-        assertEquals(new HybridTimestamp(2, 0).longValue(), tracker.maxStartTime());
+        assertEquals(2, tracker.maxStartTime());
 
         PrimaryReplicasResult replicas = tracker.primaryReplicasAsync(TABLE_ID, null).join();
         assertEquals(PARTITIONS, replicas.nodeNames().size());
@@ -138,7 +137,7 @@ class ClientPrimaryReplicaTrackerTest extends BaseIgniteAbstractTest {
         driver.updateReplica("update-3", TABLE_ID, 0, 15);
         driver.updateReplica("old-update-4", TABLE_ID, 0, 14);
 
-        assertEquals(new HybridTimestamp(15, 0).longValue(), tracker.maxStartTime());
+        assertEquals(15, tracker.maxStartTime());
 
         PrimaryReplicasResult replicas = tracker.primaryReplicasAsync(TABLE_ID, null).join();
         assertEquals(PARTITIONS, replicas.nodeNames().size());

@@ -91,8 +91,8 @@ class TestIndexManagementUtils {
         return TableTestUtils.getIndexIdStrict(catalogService, indexName, clock.nowLong());
     }
 
-    static CatalogIndexDescriptor indexDescriptor(CatalogService catalogService, String indexId, HybridClock clock) {
-        return TableTestUtils.getIndexStrict(catalogService, indexId, clock.nowLong());
+    static CatalogIndexDescriptor indexDescriptor(CatalogService catalogService, String indexName, HybridClock clock) {
+        return TableTestUtils.getIndexStrict(catalogService, indexName, clock.nowLong());
     }
 
     static int tableId(CatalogService catalogService, String tableName, HybridClock clock) {
