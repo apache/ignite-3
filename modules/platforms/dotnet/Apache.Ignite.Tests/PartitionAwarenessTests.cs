@@ -362,11 +362,13 @@ public class PartitionAwarenessTests
         await AssertOpOnNode(() => func(recordView), op, _server2);
 
         // Update assignment.
+        var assignmentTimestamp = DateTime.UtcNow.Ticks;
+
         foreach (var server in new[] { _server1, _server2 })
         {
             server.ClearOps();
             server.PartitionAssignment = server.PartitionAssignment.Reverse().ToArray();
-            server.PartitionAssignmentChanged = true;
+            server.PartitionAssignmentTimestamp = assignmentTimestamp;
         }
 
         // First request on default node receives update flag.
