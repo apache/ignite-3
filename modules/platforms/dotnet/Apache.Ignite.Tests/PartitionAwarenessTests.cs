@@ -336,6 +336,10 @@ public class PartitionAwarenessTests
         using var client = await GetClient();
         var recordView = (await client.Tables.GetTableAsync(FakeServer.ExistingTableName))!.GetRecordView<int>();
 
+        // Check default assignment.
+        await recordView.UpsertAsync(null, 1);
+        await AssertOpOnNode(() => recordView.UpsertAsync(null, 1), ClientOp.TupleUpsert, _server2);
+
         // One server has old assignment
         _server1.PartitionAssignment = _server1.PartitionAssignment.Reverse().ToArray();
         _server1.PartitionAssignmentTimestamp -= 1000;
@@ -346,7 +350,7 @@ public class PartitionAwarenessTests
             await client.Tables.GetTablesAsync();
         }
 
-        // Check assignment.
+        // Check that assignment has not changed - update with old timestamp was ignored.
         _server1.ClearOps();
         _server2.ClearOps();
 
