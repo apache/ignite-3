@@ -17,48 +17,27 @@
 
 package org.apache.ignite.internal.sql;
 
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
-import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
-import java.util.stream.Stream;
-import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
-import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
-import org.apache.ignite.internal.raft.Peer;
-import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.sql.engine.util.InjectQueryCheckerFactory;
 import org.apache.ignite.internal.sql.engine.util.QueryChecker;
 import org.apache.ignite.internal.sql.engine.util.QueryCheckerExtension;
 import org.apache.ignite.internal.sql.engine.util.QueryCheckerFactory;
-import org.apache.ignite.internal.storage.index.IndexStorage;
-import org.apache.ignite.internal.storage.index.StorageIndexDescriptor;
 import org.apache.ignite.internal.systemview.SystemViewManagerImpl;
-import org.apache.ignite.internal.table.InternalTable;
-import org.apache.ignite.internal.table.TableTestUtils;
-import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.tx.IgniteTransactions;
-import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
@@ -246,97 +225,5 @@ public class BaseSqlIntegrationTest extends ClusterPerClassIntegrationTest {
      */
     protected SystemViewManagerImpl systemViewManager() {
         return (SystemViewManagerImpl) CLUSTER.aliveNode().systemViewManager();
-    }
-
-    /**
-     * Waits for the index to be built on all nodes.
-     *
-     * @param tableName Table name.
-     * @param indexName Index name.
-     * @return Nodes on which the partition index was built.
-     * @throws Exception If failed.
-     */
-    protected static Map<Integer, List<Ignite>> waitForIndexBuild(String tableName, String indexName) {
-        Map<Integer, List<Ignite>> partitionIdToNodes = new HashMap<>();
-
-        CLUSTER.runningNodes().forEach(clusterNode -> {
-            try {
-                TableViewInternal table = getTableView(clusterNode, tableName);
-
-                assertNotNull(table, clusterNode.name() + " : " + tableName);
-
-                InternalTable internalTable = table.internalTable();
-
-                assertTrue(
-                        waitForCondition(() -> getIndexDescriptor(clusterNode, indexName) != null, 10, TimeUnit.SECONDS.toMillis(10)),
-                        String.format("node=%s, tableName=%s, indexName=%s", clusterNode.name(), tableName, indexName)
-                );
-
-                for (int partitionId = 0; partitionId < internalTable.partitions(); partitionId++) {
-                    RaftGroupService raftGroupService = internalTable.partitionRaftGroupService(partitionId);
-
-                    Stream<Peer> allPeers = Stream.concat(Stream.of(raftGroupService.leader()), raftGroupService.peers().stream());
-
-                    // Let's check if there is a node in the partition assignments.
-                    if (allPeers.map(Peer::consistentId).noneMatch(clusterNode.name()::equals)) {
-                        continue;
-                    }
-
-                    CatalogTableDescriptor tableDescriptor = getTableDescriptor(clusterNode, tableName);
-                    CatalogIndexDescriptor indexDescriptor = getIndexDescriptor(clusterNode, indexName);
-
-                    IndexStorage index = internalTable.storage().getOrCreateIndex(
-                            partitionId,
-                            StorageIndexDescriptor.create(tableDescriptor, indexDescriptor)
-                    );
-
-                    assertTrue(waitForCondition(() -> index.getNextRowIdToBuild() == null, 10, TimeUnit.SECONDS.toMillis(10)));
-
-                    partitionIdToNodes.computeIfAbsent(partitionId, p -> new ArrayList<>()).add(clusterNode);
-                }
-            } catch (InterruptedException e) {
-                throw new RuntimeException(e);
-            }
-        });
-
-        return partitionIdToNodes;
-    }
-
-    /**
-     * Returns table descriptor of the given table at the given node, or {@code null} if no such table exists.
-     *
-     * @param node Node.
-     * @param tableName Table name.
-     */
-    private static @Nullable CatalogTableDescriptor getTableDescriptor(Ignite node, String tableName) {
-        IgniteImpl nodeImpl = (IgniteImpl) node;
-
-        return TableTestUtils.getTable(nodeImpl.catalogManager(), tableName, nodeImpl.clock().nowLong());
-    }
-
-    /**
-     * Returns the table by name, {@code null} if absent.
-     *
-     * @param node Node.
-     * @param tableName Table name.
-     */
-    protected static @Nullable TableViewInternal getTableView(Ignite node, String tableName) {
-        CompletableFuture<Table> tableFuture = node.tables().tableAsync(tableName);
-
-        assertThat(tableFuture, willSucceedFast());
-
-        return (TableViewInternal) tableFuture.join();
-    }
-
-    /**
-     * Returns table index descriptor of the given index at the given node, or {@code null} if no such index exists.
-     *
-     * @param node Node.
-     * @param indexName Index name.
-     */
-    protected static @Nullable CatalogIndexDescriptor getIndexDescriptor(Ignite node, String indexName) {
-        IgniteImpl nodeImpl = (IgniteImpl) node;
-
-        return nodeImpl.catalogManager().index(indexName, nodeImpl.clock().nowLong());
     }
 }

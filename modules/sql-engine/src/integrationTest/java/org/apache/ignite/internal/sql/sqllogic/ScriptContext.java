@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sqllogic;
+package org.apache.ignite.internal.sql.sqllogic;
 
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -26,7 +26,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.sqllogic.SqlScriptRunner.RunnerRuntime;
+import org.apache.ignite.internal.sql.sqllogic.SqlScriptRunner.RunnerRuntime;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.Session;

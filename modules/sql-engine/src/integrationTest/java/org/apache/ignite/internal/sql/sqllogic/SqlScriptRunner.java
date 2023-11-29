@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sqllogic;
+package org.apache.ignite.internal.sql.sqllogic;
 
 import java.nio.file.Path;
 import org.apache.ignite.internal.logger.IgniteLogger;
