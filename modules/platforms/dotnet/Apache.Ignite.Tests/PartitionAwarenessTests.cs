@@ -54,8 +54,13 @@ public class PartitionAwarenessTests
         _server2 = new FakeServer(nodeName: "srv2");
 
         var assignment = new[] { _server1.Node.Name, _server2.Node.Name };
-        _server1.PartitionAssignment = assignment;
-        _server2.PartitionAssignment = assignment;
+        var assignmentTimestamp = DateTime.UtcNow.AddDays(-1).Ticks; // Old assignment.
+
+        foreach (var server in new[] { _server1, _server2 })
+        {
+            server.PartitionAssignment = assignment;
+            server.PartitionAssignmentTimestamp = assignmentTimestamp;
+        }
     }
 
     [TearDown]
@@ -371,9 +376,7 @@ public class PartitionAwarenessTests
             server.PartitionAssignmentTimestamp = assignmentTimestamp;
         }
 
-        // First request on default node receives update flag.
-        // Make two requests because balancing uses round-robin node.
-        await client.Tables.GetTablesAsync();
+        // First request receives update flag.
         await client.Tables.GetTablesAsync();
 
         // Second request loads and uses new assignment.
