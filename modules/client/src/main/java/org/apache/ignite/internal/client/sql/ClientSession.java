@@ -223,16 +223,19 @@ public class ClientSession implements AbstractSession {
 
     /** {@inheritDoc} */
     @Override
-    public void executeScript(String query, @Nullable Object... arguments) {
-        // TODO IGNITE-17060.
-        throw new UnsupportedOperationException("Not implemented yet.");
-    }
-
-    /** {@inheritDoc} */
-    @Override
     public CompletableFuture<Void> executeScriptAsync(String query, @Nullable Object... arguments) {
         // TODO IGNITE-17060.
-        throw new UnsupportedOperationException("Not implemented yet.");
+        Objects.requireNonNull(query);
+
+        PayloadWriter payloadWriter = w -> {
+            w.out().packString(query);
+            w.out().packObjectArrayAsBinaryTuple(arguments);
+
+            // TODO: ???
+            w.out().packLong(ch.observableTimestamp());
+        };
+
+        return ch.serviceAsync(ClientOp.SQL_EXEC_SCRIPT, payloadWriter, null);
     }
 
     /** {@inheritDoc} */
