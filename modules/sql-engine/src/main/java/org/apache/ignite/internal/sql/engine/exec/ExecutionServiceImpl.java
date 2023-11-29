@@ -522,12 +522,16 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         private CompletableFuture<Void> sendFragment(
                 String targetNodeName, String serialisedFragment, FragmentDescription desc, TxAttributes txAttributes
         ) {
+            Object[] parameterValues = Arrays.stream(ctx.parameters())
+                    .map((v) -> v.value())
+                    .toArray();
+
             QueryStartRequest request = FACTORY.queryStartRequest()
                     .queryId(ctx.queryId())
                     .fragmentId(desc.fragmentId())
                     .root(serialisedFragment)
                     .fragmentDescription(desc)
-                    .parameters(ctx.parameters())
+                    .parameters(parameterValues)
                     .txAttributes(txAttributes)
                     .schemaVersion(ctx.schemaVersion())
                     .build();
