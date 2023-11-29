@@ -67,6 +67,7 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.IntSupplier;
@@ -519,17 +520,37 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     }
 
     private void performRebalanceOnRecovery(long recoveryRevision) {
-        CompletableFuture<Void> pendingAssignmentsRecoveryFuture;
+        var pendingAssignmentsPrefix = new ByteArray(PENDING_ASSIGNMENTS_PREFIX);
+        var stableAssignmentsPrefix = new ByteArray(STABLE_ASSIGNMENTS_PREFIX);
 
-        var prefix = new ByteArray(PENDING_ASSIGNMENTS_PREFIX);
+        startVv.update(recoveryRevision, (v, e) -> handleAssignmentsEventsOnRecovery(
+                pendingAssignmentsPrefix,
+                recoveryRevision,
+                (entry, rev) -> handleChangePendingAssignmentEvent(entry, localPartsByTableIdVv.get(recoveryRevision), rev, true),
+                "pending"
+        ));
+        startVv.update(recoveryRevision, (v, e) -> handleAssignmentsEventsOnRecovery(
+                stableAssignmentsPrefix,
+                recoveryRevision,
+                (entry, rev) -> handleChangeStableAssignmentEvent(entry, rev, true),
+                "stable"
+        ));
+    }
 
-        try (Cursor<Entry> cursor = metaStorageMgr.prefixLocally(prefix, recoveryRevision)) {
+    private CompletableFuture<Void> handleAssignmentsEventsOnRecovery(
+            ByteArray prefix,
+            long revision,
+            BiFunction<Entry, Long, CompletableFuture<Void>> assignmentsEventHandler,
+            String assignmentsType
+    ) {
+        try (Cursor<Entry> cursor = metaStorageMgr.prefixLocally(prefix, revision)) {
             CompletableFuture<?>[] futures = cursor.stream()
-                    .map(pendingAssignmentEntry -> {
+                    .map(entry -> {
                         if (LOG.isInfoEnabled()) {
                             LOG.info(
-                                    "Missed pending assignments for key '{}' discovered, performing recovery",
-                                    new String(pendingAssignmentEntry.key(), UTF_8)
+                                    "Missed {} assignments for key '{}' discovered, performing recovery",
+                                    assignmentsType,
+                                    new String(entry.key(), UTF_8)
                             );
                         }
 
@@ -537,25 +558,19 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                         // 'handleChangePendingAssignmentEvent' accesses some Versioned Values that only store values starting with
                         // tokens equal to Meta Storage recovery revision. In other words, if the entry has a lower revision than the
                         // recovery revision, there will never be a Versioned Value corresponding to its revision.
-                        return handleChangePendingAssignmentEvent(
-                                pendingAssignmentEntry,
-                                localPartsByTableIdVv.get(recoveryRevision),
-                                recoveryRevision,
-                                true
-                        );
+                        return assignmentsEventHandler.apply(entry, revision);
                     })
                     .toArray(CompletableFuture[]::new);
 
-            pendingAssignmentsRecoveryFuture = allOf(futures)
+
+            return allOf(futures)
                     // Simply log any errors, we don't want to block watch processing.
                     .exceptionally(e -> {
-                        LOG.error("Error when performing pending assignments recovery", e);
+                        LOG.error("Error when performing assignments recovery", e);
 
                         return null;
                     });
         }
-
-        startVv.update(recoveryRevision, (v, e) -> pendingAssignmentsRecoveryFuture);
     }
 
     private CompletableFuture<?> onTableCreate(CreateTableEventParameters parameters) {
@@ -1087,6 +1102,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
             // Check if the table already has assignments in the vault.
             // So, it means, that it is a recovery process and we should use the vault assignments instead of calculation for the new ones.
+            // TODO https://issues.apache.org/jira/browse/IGNITE-20993
             if (partitionAssignments(metaStorageMgr, tableId, 0, causalityToken) != null) {
                 assignmentsFuture = completedFuture(tableAssignments(metaStorageMgr, tableId, zoneDescriptor.partitions(), causalityToken));
             } else {
@@ -2021,6 +2037,14 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             return completedFuture(null);
         }
 
+        return handleChangeStableAssignmentEvent(stableAssignmentsWatchEvent, evt.revision(), false);
+    }
+
+    protected CompletableFuture<Void> handleChangeStableAssignmentEvent(
+            Entry stableAssignmentsWatchEvent,
+            long revision,
+            boolean isRecovery
+    ) {
         int partitionId = extractPartitionNumber(stableAssignmentsWatchEvent.key());
         int tableId = extractTableId(stableAssignmentsWatchEvent.key(), STABLE_ASSIGNMENTS_PREFIX);
 
@@ -2031,11 +2055,15 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         return metaStorageMgr.get(pendingPartAssignmentsKey(tablePartitionId), stableAssignmentsWatchEvent.revision())
                 .thenComposeAsync(pendingAssignmentsEntry -> {
                     // Update raft client peers and learners according to the actual assignments.
-                    CompletableFuture<Void> raftClientUpdateFuture = tablesById(evt.revision()).thenAccept(t -> {
-                        t.get(tableId).internalTable()
-                                .partitionRaftGroupService(tablePartitionId.partitionId())
-                                .updateConfiguration(configurationFromAssignments(stableAssignments));
-                    });
+                    // TODO https://issues.apache.org/jira/browse/IGNITE-19170 for now it's not needed on recovery because it's handled
+                    // TODO by tables recovery (see #startTables)
+                    CompletableFuture<Void> raftClientUpdateFuture = isRecovery
+                            ? completedFuture(null)
+                            : tablesById(revision).thenAccept(t -> {
+                                t.get(tableId).internalTable()
+                                        .partitionRaftGroupService(tablePartitionId.partitionId())
+                                        .updateConfiguration(configurationFromAssignments(stableAssignments));
+                            });
 
                     byte[] pendingAssignmentsFromMetaStorage = pendingAssignmentsEntry.value();
 
@@ -2043,15 +2071,13 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                             ? Set.of()
                             : ByteUtils.fromBytes(pendingAssignmentsFromMetaStorage);
 
-                    String localMemberName = localNode().name();
-
                     boolean shouldStopLocalServices = Stream.concat(stableAssignments.stream(), pendingAssignments.stream())
-                            .noneMatch(assignment -> assignment.consistentId().equals(localMemberName));
+                            .noneMatch(assignment -> assignment.consistentId().equals(localNode().name()));
 
                     if (shouldStopLocalServices) {
                         return allOf(
                                 raftClientUpdateFuture,
-                                stopAndDestroyPartition(tablePartitionId, evt.revision()));
+                                stopAndDestroyPartition(tablePartitionId, revision));
                     } else {
                         return raftClientUpdateFuture;
                     }
