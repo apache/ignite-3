@@ -395,8 +395,7 @@ public class DistributionZoneManager implements IgniteComponent {
     }
 
     /**
-     * Creates or restores zone's state depending on the {@link ZoneState#topologyAugmentationMap()} existence in the Vault.
-     * We save {@link ZoneState#topologyAugmentationMap()} in the Vault every time we receive logical topology changes from the metastore.
+     * Restores zones' states.
      *
      * @param zone Zone descriptor.
      * @param causalityToken Causality token.
@@ -407,8 +406,8 @@ public class DistributionZoneManager implements IgniteComponent {
 
         Entry zoneDataNodesLocalMetaStorage = metaStorageManager.getLocally(zoneDataNodesKey(zoneId), causalityToken);
 
-        // In this case, creation of a zone was interrupted during restart.
         if (zoneDataNodesLocalMetaStorage.value() == null) {
+            // In this case, creation of a zone was interrupted during restart.
             return onCreateZone(zone, causalityToken);
         } else {
             Entry topologyAugmentationMapLocalMetaStorage = metaStorageManager.getLocally(zoneTopologyAugmentation(zoneId), causalityToken);
@@ -848,8 +847,8 @@ public class DistributionZoneManager implements IgniteComponent {
      * Schedules scale up and scale down timers.
      *
      * @param zone Zone descriptor.
-     * @param nodesAdded Nodes that was added to a topology and should be added to zones data nodes.
-     * @param nodesRemoved Nodes that was removed from a topology and should be removed from zones data nodes.
+     * @param nodesAdded Flag indicating that nodes was added to a topology and should be added to zones data nodes.
+     * @param nodesRemoved Flag indicating that nodes was removed from a topology and should be removed from zones data nodes.
      * @param revision Revision that triggered that event.
      * @return Future that represents the pending completion of the operation.
      *         For the immediate timers it will be completed when data nodes will be updated in Meta Storage.
@@ -874,8 +873,8 @@ public class DistributionZoneManager implements IgniteComponent {
      * Schedules scale up and scale down timers. This method is needed also for test purposes.
      *
      * @param zone Zone descriptor.
-     * @param nodesAdded Nodes that was added to a topology and should be added to zones data nodes.
-     * @param nodesRemoved Nodes that was removed from a topology and should be removed from zones data nodes.
+     * @param nodesAdded Flag indicating that nodes was added to a topology and should be added to zones data nodes.
+     * @param nodesRemoved Flag indicating that nodes was removed from a topology and should be removed from zones data nodes.
      * @param revision Revision that triggered that event.
      * @param saveDataNodesOnScaleUp Function that saves nodes to a zone's data nodes in case of scale up was triggered.
      * @param saveDataNodesOnScaleDown Function that saves nodes to a zone's data nodes in case of scale down was triggered.

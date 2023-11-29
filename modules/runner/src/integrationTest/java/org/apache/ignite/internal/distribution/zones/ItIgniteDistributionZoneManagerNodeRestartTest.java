@@ -61,6 +61,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.function.Consumer;
 import java.util.function.LongFunction;
 import java.util.stream.Stream;
@@ -84,6 +85,7 @@ import org.apache.ignite.internal.configuration.storage.LocalFileConfigurationSt
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.validation.ConfigurationValidatorImpl;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
+import org.apache.ignite.internal.distributionzones.DistributionZoneManager.Augmentation;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager.ZoneState;
 import org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil;
 import org.apache.ignite.internal.distributionzones.Node;
@@ -332,6 +334,44 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         assertEquals(3, nodeAttributesAfterRestart.size());
 
         assertEquals(nodeAttributesBeforeRestart, nodeAttributesAfterRestart);
+    }
+
+    @ParameterizedTest
+    @MethodSource("provideArgumentsRestartTests")
+    public void testTopologyAugmentationMapRestoredAfterRestart(String zoneName) throws Exception {
+        PartialNode node = startPartialNode(0);
+
+        node.logicalTopology().putNode(A);
+
+        createZoneOrAlterDefaultZone(node, zoneName, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE);
+
+        node.logicalTopology().putNode(B);
+        node.logicalTopology().putNode(C);
+
+        int zoneId = getZoneId(node, zoneName);
+
+        DistributionZoneManager distributionZoneManager = getDistributionZoneManager(node);
+
+        assertDataNodesFromManager(distributionZoneManager, metastore::appliedRevision, zoneId, Set.of(A, B, C), TIMEOUT_MILLIS);
+
+        ConcurrentSkipListMap<Long, Augmentation> nodeAttributesBeforeRestart =
+                distributionZoneManager.zonesState().get(zoneId).topologyAugmentationMap();
+
+        node.stop();
+
+        node = startPartialNode(0);
+
+        distributionZoneManager = getDistributionZoneManager(node);
+
+        ConcurrentSkipListMap<Long, Augmentation> nodeAttributesAfterRestart =
+                distributionZoneManager.zonesState().get(zoneId).topologyAugmentationMap();
+
+        assertEquals(2, nodeAttributesAfterRestart.size());
+
+        assertEquals(
+                nodeAttributesBeforeRestart.values().stream().map(Augmentation::nodes).collect(toSet()),
+                nodeAttributesAfterRestart.values().stream().map(Augmentation::nodes).collect(toSet())
+        );
     }
 
     @Test
