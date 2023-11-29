@@ -337,7 +337,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
                     logAndRethrowIfError(obj, e);
                 } finally {
                     long took = System.currentTimeMillis() - started;
-                    if (took > 1000) {
+                    if (took > 100) {
                         LOG.warn("XXX Processing of {} from {} took {} ms", obj.message(), obj.consistentId(), took);
                     }
                 }
