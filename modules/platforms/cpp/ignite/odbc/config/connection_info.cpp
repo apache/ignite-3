@@ -809,8 +809,7 @@ connection_info::connection_info(const configuration &config)
 
 #ifdef SQL_USER_NAME
     // A character string with the name used in a particular database, which can be different from the login name.
-    // TODO: IGNITE-19722 Report username here.
-    m_str_params[SQL_USER_NAME] = "ignite";
+    m_str_params[SQL_USER_NAME] = config.get_auth_identity().get_value();
 #endif // SQL_USER_NAME
 
     //
