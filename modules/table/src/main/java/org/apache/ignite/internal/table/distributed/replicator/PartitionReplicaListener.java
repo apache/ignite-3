@@ -3356,17 +3356,11 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @return Future. The result is not {@code null} only for {@link ReadOnlyReplicaRequest}. If {@code true}, then replica is primary.
      */
     private CompletableFuture<Boolean> ensureReplicaIsPrimary(ReplicaRequest request) {
-        long enlistmentConsistencyToken;
-
-        if (request instanceof PrimaryReplicaRequest) {
-            enlistmentConsistencyToken = ((PrimaryReplicaRequest) request).enlistmentConsistencyToken();
-        } else {
-            enlistmentConsistencyToken = 0;
-        }
-
         HybridTimestamp now = hybridClock.now();
 
-        if (enlistmentConsistencyToken != 0) {
+        if (request instanceof PrimaryReplicaRequest) {
+            Long enlistmentConsistencyToken = ((PrimaryReplicaRequest) request).enlistmentConsistencyToken();
+
             return placementDriver.getPrimaryReplica(replicationGroupId, now)
                     .thenCompose(primaryReplicaMeta -> {
                         if (primaryReplicaMeta == null) {
