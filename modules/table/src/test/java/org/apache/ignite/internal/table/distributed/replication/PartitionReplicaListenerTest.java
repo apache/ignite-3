@@ -495,7 +495,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     }
 
     @AfterEach
-    public void cleanup() {
+    public void clearMocks() {
         Mockito.framework().clearInlineMocks();
     }
 

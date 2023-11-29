@@ -77,7 +77,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
     protected RaftConfiguration raftConfiguration;
 
     @AfterEach
-    public void cleanup() {
+    public void clearMocks() {
         Mockito.framework().clearInlineMocks();
     }
 
