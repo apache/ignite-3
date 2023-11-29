@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.replicator;
 
-import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.raft.PeersAndLearners.fromConsistentIds;
@@ -450,7 +449,7 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
 
                     replicaManager.startReplica(
                             groupId,
-                            allOf(raftManager.raftNodeReadyFuture(groupId)),
+                            completedFuture(null),
                             (request, senderId) -> {
                                 log.info("Handle request [type={}]", request.getClass().getSimpleName());
 

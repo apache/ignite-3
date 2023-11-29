@@ -530,7 +530,6 @@ public class TableManagerTest extends IgniteAbstractTest {
     private void testStoragesGetClearedInMiddleOfFailedRebalance(boolean isTxStorageUnderRebalance) throws NodeStoppingException {
         when(rm.startRaftGroupService(any(), any(), any(), any()))
                 .thenAnswer(mock -> completedFuture(mock(TopologyAwareRaftGroupService.class)));
-        when(rm.raftNodeReadyFuture(any())).thenReturn(completedFuture(1L));
 
         createZone(1, 1);
 
