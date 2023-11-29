@@ -2033,10 +2033,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         Entry stableAssignmentsWatchEvent = evt.entryEvent().newEntry();
 
-        if (stableAssignmentsWatchEvent.value() == null) {
-            return completedFuture(null);
-        }
-
         return handleChangeStableAssignmentEvent(stableAssignmentsWatchEvent, evt.revision(), false);
     }
 
@@ -2045,6 +2041,10 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             long revision,
             boolean isRecovery
     ) {
+        if (stableAssignmentsWatchEvent.value() == null) {
+            return completedFuture(null);
+        }
+
         int partitionId = extractPartitionNumber(stableAssignmentsWatchEvent.key());
         int tableId = extractTableId(stableAssignmentsWatchEvent.key(), STABLE_ASSIGNMENTS_PREFIX);
 
