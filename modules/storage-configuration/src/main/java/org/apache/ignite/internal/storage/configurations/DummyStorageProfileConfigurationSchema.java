@@ -15,27 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cluster.management.configuration;
+package org.apache.ignite.internal.storage.configurations;
 
-import com.google.auto.service.AutoService;
-import java.util.Collection;
-import java.util.List;
-import org.apache.ignite.configuration.ConfigurationModule;
-import org.apache.ignite.configuration.RootKey;
-import org.apache.ignite.configuration.annotation.ConfigurationType;
+import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
 
 /**
- * Configuration module for Cluster Management configs.
+ * Dummy storage profile configuration schema to prevent the errors from configuration framework, while
+ * TODO: https://issues.apache.org/jira/browse/IGNITE-20990 is not implemented yet.
  */
-@AutoService(ConfigurationModule.class)
-public class ClusterManagementConfigurationModule implements ConfigurationModule {
-    @Override
-    public ConfigurationType type() {
-        return ConfigurationType.LOCAL;
-    }
-
-    @Override
-    public Collection<RootKey<?, ?>> rootKeys() {
-        return List.of(ClusterManagementConfiguration.KEY, NodeAttributesConfiguration.KEY);
-    }
+@PolymorphicConfigInstance("dummy")
+public class DummyStorageProfileConfigurationSchema extends StorageProfileConfigurationSchema {
 }

@@ -15,27 +15,29 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cluster.management.configuration;
+package org.apache.ignite.internal.storage.configurations;
 
-import com.google.auto.service.AutoService;
-import java.util.Collection;
-import java.util.List;
-import org.apache.ignite.configuration.ConfigurationModule;
-import org.apache.ignite.configuration.RootKey;
-import org.apache.ignite.configuration.annotation.ConfigurationType;
+import static org.apache.ignite.configuration.annotation.ConfigurationType.LOCAL;
+
+import org.apache.ignite.configuration.annotation.ConfigurationRoot;
+import org.apache.ignite.configuration.annotation.NamedConfigValue;
 
 /**
- * Configuration module for Cluster Management configs.
+ * Root for the storage engine and storage profiles configurations.
  */
-@AutoService(ConfigurationModule.class)
-public class ClusterManagementConfigurationModule implements ConfigurationModule {
-    @Override
-    public ConfigurationType type() {
-        return ConfigurationType.LOCAL;
-    }
+@ConfigurationRoot(rootName = "storages", type = LOCAL)
+public class StoragesConfigurationSchema {
 
-    @Override
-    public Collection<RootKey<?, ?>> rootKeys() {
-        return List.of(ClusterManagementConfiguration.KEY, NodeAttributesConfiguration.KEY);
-    }
+    /**
+     * Storage engines configuration.
+     */
+    @NamedConfigValue
+    public StorageEngineConfigurationSchema engines;
+
+    /**
+     * Storage profiles configuration.
+     */
+    @NamedConfigValue
+    public StorageProfileConfigurationSchema profiles;
+
 }

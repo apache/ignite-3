@@ -95,7 +95,6 @@ import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManag
 import org.apache.ignite.internal.cluster.management.NodeAttributesCollector;
 import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
 import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesConfiguration;
-import org.apache.ignite.internal.cluster.management.configuration.StorageProfilesConfiguration;
 import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
@@ -147,6 +146,9 @@ import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.DataStorageModules;
 import org.apache.ignite.internal.storage.StorageException;
+import org.apache.ignite.internal.storage.configurations.DummyStorageEngineConfigurationSchema;
+import org.apache.ignite.internal.storage.configurations.DummyStorageProfileConfigurationSchema;
+import org.apache.ignite.internal.storage.configurations.StoragesConfiguration;
 import org.apache.ignite.internal.storage.impl.TestDataStorageModule;
 import org.apache.ignite.internal.storage.impl.TestStorageEngine;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryDataStorageModule;
@@ -230,7 +232,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
     private static NodeAttributesConfiguration nodeAttributes;
 
     @InjectConfiguration
-    private static StorageProfilesConfiguration storageProfilesConfiguration;
+    private static StoragesConfiguration storagesConfiguration;
 
     @InjectConfiguration
     private static MetaStorageConfiguration metaStorageConfiguration;
@@ -845,10 +847,15 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                             NetworkConfiguration.KEY,
                             RestConfiguration.KEY,
                             ClientConnectorConfiguration.KEY,
+                            StoragesConfiguration.KEY,
                             PersistentPageMemoryStorageEngineConfiguration.KEY,
                             VolatilePageMemoryStorageEngineConfiguration.KEY),
                     List.of(),
-                    List.of(UnsafeMemoryAllocatorConfigurationSchema.class)
+                    List.of(
+                            UnsafeMemoryAllocatorConfigurationSchema.class,
+                            DummyStorageEngineConfigurationSchema.class,
+                            DummyStorageProfileConfigurationSchema.class
+                    )
             );
 
             Path configPath = workDir.resolve(testInfo.getDisplayName());
@@ -858,6 +865,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     List.of(NetworkConfiguration.KEY,
                             PersistentPageMemoryStorageEngineConfiguration.KEY,
                             VolatilePageMemoryStorageEngineConfiguration.KEY,
+                            StoragesConfiguration.KEY,
                             RestConfiguration.KEY,
                             ClientConnectorConfiguration.KEY),
                     new LocalFileConfigurationStorage(configPath, nodeCfgGenerator),
@@ -894,7 +902,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     clusterStateStorage,
                     logicalTopology,
                     clusterManagementConfiguration,
-                    new NodeAttributesCollector(nodeAttributes, storageProfilesConfiguration)
+                    new NodeAttributesCollector(nodeAttributes, storagesConfiguration)
             );
 
             LogicalTopologyServiceImpl logicalTopologyService = new LogicalTopologyServiceImpl(logicalTopology, cmgManager);

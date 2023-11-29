@@ -55,7 +55,6 @@ import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManag
 import org.apache.ignite.internal.cluster.management.NodeAttributesCollector;
 import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
 import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesConfiguration;
-import org.apache.ignite.internal.cluster.management.configuration.StorageProfilesConfiguration;
 import org.apache.ignite.internal.cluster.management.raft.ClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.raft.RocksDbClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
@@ -137,6 +136,7 @@ import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.DataStorageModule;
 import org.apache.ignite.internal.storage.DataStorageModules;
+import org.apache.ignite.internal.storage.configurations.StoragesConfiguration;
 import org.apache.ignite.internal.systemview.SystemViewManagerImpl;
 import org.apache.ignite.internal.systemview.api.SystemViewManager;
 import org.apache.ignite.internal.table.distributed.TableManager;
@@ -425,7 +425,7 @@ public class IgniteImpl implements Ignite {
         NodeAttributesCollector nodeAttributesCollector =
                 new NodeAttributesCollector(
                         nodeConfigRegistry.getConfiguration(NodeAttributesConfiguration.KEY),
-                        nodeConfigRegistry.getConfiguration(StorageProfilesConfiguration.KEY)
+                        nodeConfigRegistry.getConfiguration(StoragesConfiguration.KEY)
                 );
 
         cmgMgr = new ClusterManagementGroupManager(

@@ -15,27 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cluster.management.configuration;
+apply from: "$rootDir/buildscripts/java-core.gradle"
+apply from: "$rootDir/buildscripts/publishing.gradle"
+apply from: "$rootDir/buildscripts/java-junit5.gradle"
+apply from: "$rootDir/buildscripts/java-test-fixtures.gradle"
 
-import com.google.auto.service.AutoService;
-import java.util.Collection;
-import java.util.List;
-import org.apache.ignite.configuration.ConfigurationModule;
-import org.apache.ignite.configuration.RootKey;
-import org.apache.ignite.configuration.annotation.ConfigurationType;
+dependencies {
+    annotationProcessor project(":ignite-configuration-annotation-processor")
+    annotationProcessor libs.auto.service
 
-/**
- * Configuration module for Cluster Management configs.
- */
-@AutoService(ConfigurationModule.class)
-public class ClusterManagementConfigurationModule implements ConfigurationModule {
-    @Override
-    public ConfigurationType type() {
-        return ConfigurationType.LOCAL;
-    }
-
-    @Override
-    public Collection<RootKey<?, ?>> rootKeys() {
-        return List.of(ClusterManagementConfiguration.KEY, NodeAttributesConfiguration.KEY);
-    }
+    implementation project(':ignite-configuration-api')
+    implementation libs.jetbrains.annotations
+    implementation libs.auto.service.annotations
 }
+
+description = 'ignite-storage-configuration'

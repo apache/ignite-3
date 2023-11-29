@@ -565,7 +565,7 @@ public class TestBuilders {
                             String nodeNameSep = SystemViewManagerImpl.NODE_ATTRIBUTES_LIST_SEPARATOR;
                             String nodeNamesString = String.join(nodeNameSep, systemViewForNode);
 
-                            return new LogicalNode(logicalNode, Map.of(), Map.of(attrName, nodeNamesString), Map.of());
+                            return new LogicalNode(logicalNode, Map.of(), Map.of(attrName, nodeNamesString), List.of());
                         }
                     })
                     .collect(Collectors.toList());

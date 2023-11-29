@@ -15,20 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cluster.management.configuration;
+package org.apache.ignite.internal.storage.configurations;
 
-import org.apache.ignite.configuration.annotation.ConfigurationRoot;
-import org.apache.ignite.configuration.annotation.ConfigurationType;
-import org.apache.ignite.configuration.annotation.NamedConfigValue;
+import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
 
 /**
- * TODO: add java doc https://issues.apache.org/jira/browse/IGNITE-20564.
+ * Dummy storage engine configuration schema to prevent the errors from configuration framework, while
+ * TODO: https://issues.apache.org/jira/browse/IGNITE-20990 is not implemented yet.
  */
-@ConfigurationRoot(rootName = "storageProfiles", type = ConfigurationType.LOCAL)
-public class StorageProfilesConfigurationSchema {
-    /**
-     * TODO: add java doc https://issues.apache.org/jira/browse/IGNITE-20564.
-     */
-    @NamedConfigValue
-    public StorageProfileConfigurationSchema storageProfiles;
+@PolymorphicConfigInstance("dummy")
+public class DummyStorageEngineConfigurationSchema extends StorageEngineConfigurationSchema {
 }

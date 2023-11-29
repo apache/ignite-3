@@ -15,22 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cluster.management.configuration;
+package org.apache.ignite.internal.storage.configurations;
 
-import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.InjectedName;
-import org.apache.ignite.configuration.annotation.Value;
+import org.apache.ignite.configuration.annotation.PolymorphicConfig;
+import org.apache.ignite.configuration.annotation.PolymorphicId;
 
 /**
- * TODO: add java doc https://issues.apache.org/jira/browse/IGNITE-20564.
+ * Storage profile configuration schema.
  */
-@Config
+@PolymorphicConfig
 public class StorageProfileConfigurationSchema {
-    /** TODO: add java doc https://issues.apache.org/jira/browse/IGNITE-20564. */
+
+    /** Storage engine name. */
+    @PolymorphicId
+    public String engine;
+
     @InjectedName
     public String name;
 
-    /** TODO: add java doc https://issues.apache.org/jira/browse/IGNITE-20564. */
-    @Value(hasDefault = true)
-    public String engine = "";
 }
