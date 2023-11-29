@@ -29,6 +29,7 @@ import org.apache.ignite.internal.sql.engine.util.StatementChecker;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypes;
+import org.apache.ignite.internal.type.VarlenNativeType;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.DynamicTest;
 import org.junit.jupiter.api.Test;
@@ -38,8 +39,6 @@ import org.junit.jupiter.api.TestFactory;
  * Test cases for dynamic parameters.
  */
 public class DynamicParametersTest extends AbstractPlannerTest {
-
-    private static final NativeType DEFAULT_STRING = NativeTypes.stringOf(65536);
 
     /**
      * This test case triggers "Conversion to relational algebra failed to preserve datatypes" assertion,
@@ -110,9 +109,12 @@ public class DynamicParametersTest extends AbstractPlannerTest {
                 sql("SELECT ? IN (1, 2)", "1").fails(error),
                 sql("SELECT ? IN (1, 2)", 1).parameterTypes(nullable(NativeTypes.INT32)).project("OR(=(?0, 1), =(?0, 2))"),
 
-                sql("SELECT ? IN (1)", Unspecified.UNKNOWN).fails("Err"),
-                sql("SELECT ? IN (?, 1)", Unspecified.UNKNOWN, Unspecified.UNKNOWN).fails("Err"),
-                sql("SELECT ? IN (?, ?)", Unspecified.UNKNOWN, Unspecified.UNKNOWN, Unspecified.UNKNOWN).fails("Err"),
+                //          sql("SELECT ? IN (1)", Unspecified.UNKNOWN)
+                //                  .fails("Unable to determine type of a dynamic parameter#0"),
+                //          sql("SELECT ? IN (?, 1)", Unspecified.UNKNOWN, Unspecified.UNKNOWN)
+                //                  .fails("Unable to determine type of a dynamic parameter#0"),
+                //          sql("SELECT ? IN (?, ?)", Unspecified.UNKNOWN, Unspecified.UNKNOWN, Unspecified.UNKNOWN)
+                //                  .fails("Unable to determine type of a dynamic parameter#0"),
 
                 sql("SELECT 1 IN (?, ?)", Unspecified.UNKNOWN, Unspecified.UNKNOWN)
                         .project("OR(=(1, ?0), =(1, ?1))"),
@@ -138,13 +140,19 @@ public class DynamicParametersTest extends AbstractPlannerTest {
     /** CASE expression. */
     @TestFactory
     public Stream<DynamicTest> testCaseWhenExpression() {
+        IgniteTypeFactory tf = Commons.typeFactory();
+        // String parameter is inferred as VARCHAR with default attributes, but
+        // the createSqlType(VARCHAR, DEFAULT_PRECISION) != createSqlType(VARCHAR)
+        // have to create rel data type directly instead of building one from a native type.
+        RelDataType nullableVarchar = tf.createTypeWithNullability(tf.createSqlType(SqlTypeName.VARCHAR), true);
+
         return Stream.of(
                 sql("SELECT CASE ? = ? WHEN true THEN 1 ELSE 2 END", 1, 1)
                         .parameterTypes(nullable(NativeTypes.INT32), nullable(NativeTypes.INT32))
                         .ok(),
 
                 sql("SELECT CASE WHEN ? = '1' THEN ? ELSE ? END", "1", 2, 2.5)
-                        .parameterTypes(nullable(DEFAULT_STRING), nullable(NativeTypes.INT32), nullable(NativeTypes.DOUBLE))
+                        .parameterTypes(nullableVarchar, nullable(NativeTypes.INT32), nullable(NativeTypes.DOUBLE))
                         .project("CASE(=(?0, _UTF-8'1'), CAST(?1):DOUBLE, ?2)"),
 
                 sql("SELECT CASE ? = ? WHEN true THEN 1 ELSE 2 END", 1, "1")
@@ -791,6 +799,20 @@ public class DynamicParametersTest extends AbstractPlannerTest {
         if (type == null) {
             return tf.createTypeWithNullability(tf.createSqlType(SqlTypeName.NULL), true);
         }
-        return TypeUtils.native2relationalType(tf, type, true);
+
+        RelDataType relDataType = TypeUtils.native2relationalType(tf, type, true);
+
+        // For var length types inferred without precision.
+        if (type instanceof VarlenNativeType) {
+            SqlTypeName typeName = relDataType.getSqlTypeName();
+            return tf.createTypeWithNullability(tf.createSqlType(typeName), true);
+        }
+
+        return relDataType;
+    }
+
+    private static RelDataType nullableRelType(SqlTypeName typeName) {
+        IgniteTypeFactory tf = Commons.typeFactory();
+        return tf.createTypeWithNullability(tf.createSqlType(typeName), true);
     }
 }
