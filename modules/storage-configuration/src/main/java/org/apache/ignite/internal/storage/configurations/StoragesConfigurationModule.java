@@ -46,6 +46,7 @@ public class StoragesConfigurationModule implements ConfigurationModule {
     public Collection<Class<?>> polymorphicSchemaExtensions() {
         return List.of(
                 DummyStorageEngineConfigurationSchema.class,
-                DummyStorageProfileConfigurationSchema.class);
+                DummyStorageProfileConfigurationSchema.class
+        );
     }
 }
