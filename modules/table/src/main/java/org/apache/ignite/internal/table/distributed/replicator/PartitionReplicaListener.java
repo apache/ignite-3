@@ -3356,34 +3356,38 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @return Future. The result is not {@code null} only for {@link ReadOnlyReplicaRequest}. If {@code true}, then replica is primary.
      */
     private CompletableFuture<Boolean> ensureReplicaIsPrimary(ReplicaRequest request) {
-        long expectedTerm;
+        long enlistmentConsistencyToken;
 
         if (request instanceof PrimaryReplicaRequest) {
-            expectedTerm = ((PrimaryReplicaRequest) request).enlistmentConsistencyToken();
-
-            assert expectedTerm != 0 :
-                    "Consistency token was not set for request to primary replicate [reqType=" + request.getClass().getSimpleName() + "].";
+            enlistmentConsistencyToken = ((PrimaryReplicaRequest) request).enlistmentConsistencyToken();
         } else {
-            expectedTerm = 0;
+            enlistmentConsistencyToken = 0;
         }
 
         HybridTimestamp now = hybridClock.now();
 
-        if (expectedTerm != 0) {
+        if (enlistmentConsistencyToken != 0) {
             return placementDriver.getPrimaryReplica(replicationGroupId, now)
                     .thenCompose(primaryReplicaMeta -> {
                         if (primaryReplicaMeta == null) {
-                            return failedFuture(new PrimaryReplicaMissException(localNode.name(), null, expectedTerm, null, null));
+                            return failedFuture(new PrimaryReplicaMissException(
+                                    localNode.name(),
+                                    null,
+                                    enlistmentConsistencyToken,
+                                    null,
+                                    null
+                            ));
                         }
 
                         long currentEnlistmentConsistencyToken = primaryReplicaMeta.getStartTime().longValue();
 
                         // TODO: https://issues.apache.org/jira/browse/IGNITE-20377
-                        if (expectedTerm != currentEnlistmentConsistencyToken || primaryReplicaMeta.getExpirationTime().before(now)) {
+                        if (enlistmentConsistencyToken != currentEnlistmentConsistencyToken
+                                || primaryReplicaMeta.getExpirationTime().before(now)) {
                             return failedFuture(new PrimaryReplicaMissException(
                                     localNode.name(),
                                     primaryReplicaMeta.getLeaseholder(),
-                                    expectedTerm,
+                                    enlistmentConsistencyToken,
                                     currentEnlistmentConsistencyToken,
                                     null
                             ));

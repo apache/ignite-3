@@ -27,5 +27,5 @@ public interface PrimaryReplicaRequest extends ReplicaRequest {
      *
      * @return Enlistment consistency token.
      */
-    long enlistmentConsistencyToken();
+    Long enlistmentConsistencyToken();
 }
