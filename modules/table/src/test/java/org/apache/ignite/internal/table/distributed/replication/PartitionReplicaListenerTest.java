@@ -128,6 +128,7 @@ import org.apache.ignite.internal.table.distributed.command.PartitionCommand;
 import org.apache.ignite.internal.table.distributed.command.TablePartitionIdMessage;
 import org.apache.ignite.internal.table.distributed.command.TxCleanupCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateCommand;
+import org.apache.ignite.internal.table.distributed.command.UpdateCommandImpl;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
 import org.apache.ignite.internal.table.distributed.replication.request.BinaryRowMessage;
@@ -1324,6 +1325,34 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         assertThat(writeAfterCleanupFuture, willThrowFast(TransactionException.class));
     }
 
+    @Test
+    void testWriteIntentBearsLastCommitTimestamp() {
+        BinaryRow br1 = binaryRow(1);
+
+        BinaryRow br2 = binaryRow(2);
+
+        // First insert a row
+        UUID tx0 = newTxId();
+        upsert(tx0, br1);
+        upsert(tx0, br2);
+
+        cleanup(tx0);
+
+        raftClientFutureClosure = partitionCommand -> {
+            assertTrue(partitionCommand instanceof UpdateCommandImpl);
+
+            UpdateCommandImpl impl = (UpdateCommandImpl) partitionCommand;
+
+            assertNotNull(impl.messageRowToUpdate());
+            assertNotNull(impl.messageRowToUpdate().binaryRow());
+            assertNotNull(impl.messageRowToUpdate().timestamp());
+
+            return defaultMockRaftFutureClosure.apply(partitionCommand);
+        };
+
+        UUID tx1 = newTxId();
+        upsert(tx1, br1);
+    }
     /**
      * Puts several records into the storage, optionally leaving them as write intents, alternately deleting and upserting the same row
      * within the same RW transaction, then checking read correctness via read only request.
