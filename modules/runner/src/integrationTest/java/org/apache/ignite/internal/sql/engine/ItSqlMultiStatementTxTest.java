@@ -79,8 +79,13 @@ public class ItSqlMultiStatementTxTest extends BaseSqlMultiStatementTest {
 
         assertThat(cursors, hasSize(2));
 
-        validateSingleResult(cursors.get(0));
-        validateSingleResult(cursors.get(1));
+        AsyncSqlCursor<List<Object>> cur = cursors.get(0);
+        assertTrue(cur.hasNextResult());
+        validateSingleResult(cur);
+
+        cur = cursors.get(1);
+        assertFalse(cur.hasNextResult());
+        validateSingleResult(cur);
 
         verifyFinishedTxCount(1);
     }
@@ -133,6 +138,7 @@ public class ItSqlMultiStatementTxTest extends BaseSqlMultiStatementTest {
         String query = "START TRANSACTION;"
                 + "UPDATE big SET salary=1 WHERE id=1;"
                 + "SELECT id FROM big;"
+                + "SELECT id FROM big;"
                 + "COMMIT;";
 
         AsyncSqlCursor<List<Object>> cursor = runScript(query);
@@ -144,18 +150,24 @@ public class ItSqlMultiStatementTxTest extends BaseSqlMultiStatementTest {
         validateSingleResult(updateCursor, 1L);
         assertTrue(updateCursor.hasNextResult());
 
-        AsyncSqlCursor<List<Object>> selectCursor = await(updateCursor.nextResult());
-        assertNotNull(selectCursor);
+        AsyncSqlCursor<List<Object>> selectCursor0 = await(updateCursor.nextResult());
+        assertNotNull(selectCursor0);
 
-        BatchedResult<List<Object>> res = await(
-                selectCursor.requestNextAsync(BIG_TABLE_ROWS_COUNT / 2));
-
+        BatchedResult<List<Object>> res = await(selectCursor0.requestNextAsync(BIG_TABLE_ROWS_COUNT / 2));
         assertNotNull(res);
         assertThat(res.items(), hasSize(BIG_TABLE_ROWS_COUNT / 2));
         assertEquals(1, txManager().pending(), "Transaction must not finished until the cursor is closed.");
-        assertFalse(selectCursor.nextResult().isDone());
 
-        await(selectCursor.requestNextAsync(BIG_TABLE_ROWS_COUNT)); // Cursor must close implicitly.
+        AsyncSqlCursor<List<Object>> selectCursor1 = await(selectCursor0.nextResult());
+        assertNotNull(selectCursor1);
+
+        res = await(selectCursor1.requestNextAsync(BIG_TABLE_ROWS_COUNT * 2));
+        assertNotNull(res);
+        assertThat(res.items(), hasSize(BIG_TABLE_ROWS_COUNT));
+        assertEquals(1, txManager().pending(), "Transaction must not finished until the cursor is closed.");
+
+        await(selectCursor0.requestNextAsync(BIG_TABLE_ROWS_COUNT)); // Cursor must close implicitly.
+        assertFalse(res.hasMore());
         verifyFinishedTxCount(1);
     }
 
@@ -182,7 +194,7 @@ public class ItSqlMultiStatementTxTest extends BaseSqlMultiStatementTest {
             verifyFinishedTxCount(3);
 
             assertThat(cursors, hasSize(7));
-            cursors.subList(0, 4).forEach(AsyncSqlCursor::closeAsync);
+            cursors.subList(0, 4).forEach(cur -> await(cur.closeAsync()));
 
             // Cursors associated with a transaction must be closed when the transaction is rolled back.
             checkNoPendingTransactionsAndOpenedCursors();
