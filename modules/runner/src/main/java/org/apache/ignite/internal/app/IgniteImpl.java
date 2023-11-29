@@ -647,8 +647,8 @@ public class IgniteImpl implements Ignite {
         computeComponent = new ComputeComponentImpl(
                 clusterSvc.messagingService(),
                 new JobContextManager(deploymentManagerImpl, deploymentManagerImpl.deploymentUnitAccessor(), new JobClassLoaderFactory()),
-                new ComputeExecutorImpl(this, stateMachine, computeCfg),
-                stateMachine);
+                new ComputeExecutorImpl(this, stateMachine, computeCfg)
+        );
 
         compute = new IgniteComputeImpl(clusterSvc.topologyService(), distributedTblMgr, computeComponent);
 

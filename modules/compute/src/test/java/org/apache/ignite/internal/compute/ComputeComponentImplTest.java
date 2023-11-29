@@ -152,8 +152,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
         computeComponent = new ComputeComponentImpl(
                 messagingService,
                 jobContextManager,
-                computeExecutor,
-                new InMemoryComputeStateMachine()
+                computeExecutor
         );
 
         computeComponent.start();
@@ -357,8 +356,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
         computeComponent = new ComputeComponentImpl(
                 messagingService,
                 jobContextManager,
-                computeExecutor,
-                new InMemoryComputeStateMachine()
+                computeExecutor
         );
         computeComponent.start();
 

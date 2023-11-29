@@ -29,7 +29,6 @@ import org.apache.ignite.internal.compute.executor.ComputeExecutor;
 import org.apache.ignite.internal.compute.loader.JobContext;
 import org.apache.ignite.internal.compute.loader.JobContextManager;
 import org.apache.ignite.internal.compute.messaging.ComputeMessaging;
-import org.apache.ignite.internal.compute.state.ComputeStateMachine;
 import org.apache.ignite.internal.future.InFlightFutures;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
@@ -53,8 +52,6 @@ public class ComputeComponentImpl implements ComputeComponent {
 
     private final ComputeExecutor executor;
 
-    private final ComputeStateMachine stateMachine;
-
     private final ComputeMessaging messaging;
 
     /**
@@ -63,12 +60,10 @@ public class ComputeComponentImpl implements ComputeComponent {
     public ComputeComponentImpl(
             MessagingService messagingService,
             JobContextManager jobContextManager,
-            ComputeExecutor executor,
-            ComputeStateMachine stateMachine
+            ComputeExecutor executor
     ) {
         this.jobContextManager = jobContextManager;
         this.executor = executor;
-        this.stateMachine = stateMachine;
         messaging = new ComputeMessaging(messagingService);
     }
 

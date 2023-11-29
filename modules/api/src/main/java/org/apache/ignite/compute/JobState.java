@@ -22,12 +22,7 @@ package org.apache.ignite.compute;
  */
 public enum JobState {
     /**
-     * The job was created and sent to the cluster, but not yet processed.
-     */
-    SUBMITTED,
-
-    /**
-     * The job was added to the queue and waiting queue for execution.
+     * The job was submitted and added to the queue and waiting queue for execution.
      */
     QUEUED,
 

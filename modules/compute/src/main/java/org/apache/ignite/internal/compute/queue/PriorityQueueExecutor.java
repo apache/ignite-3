@@ -20,19 +20,15 @@ package org.apache.ignite.internal.compute.queue;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Compute.QUEUE_OVERFLOW_ERR;
 
-import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.compute.configuration.ComputeConfiguration;
 import org.apache.ignite.internal.compute.state.ComputeStateMachine;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteException;
 
@@ -40,8 +36,6 @@ import org.apache.ignite.lang.IgniteException;
  * Compute job executor with priority mechanism.
  */
 public class PriorityQueueExecutor {
-    private static final IgniteLogger LOG = Loggers.forClass(PriorityQueueExecutor.class);
-
     private static final long THREAD_KEEP_ALIVE_SECONDS = 60;
 
     private final ComputeConfiguration configuration;
@@ -49,8 +43,6 @@ public class PriorityQueueExecutor {
     private final ThreadPoolExecutor executor;
 
     private final ComputeStateMachine stateMachine;
-
-    private final Map<QueueEntry<?>, UUID> jobEntryToId = new ConcurrentHashMap<>();
 
     /**
      * Constructor.
@@ -70,23 +62,7 @@ public class PriorityQueueExecutor {
                 configuration.threadPoolSize().value(),
                 THREAD_KEEP_ALIVE_SECONDS,
                 TimeUnit.SECONDS,
-                new BoundedPriorityBlockingQueue<>(() -> configuration.queueMaxSize().value(), new QueueListener<>() {
-                    @Override
-                    public void onAdd(Runnable runnable) {
-                        UUID jobId = jobEntryToId.get(runnable);
-                        if (jobId == null) {
-                            LOG.info("Unregister job added to queue {} ", runnable);
-                            return;
-                        }
-
-                        stateMachine.queueJob(jobId);
-                    }
-
-                    @Override
-                    public void onTake(Runnable runnable) {
-
-                    }
-                }),
+                new BoundedPriorityBlockingQueue<>(() -> configuration.queueMaxSize().value()),
                 threadFactory
         );
     }
@@ -108,22 +84,17 @@ public class PriorityQueueExecutor {
             return job.call();
         }, priority);
 
-        jobEntryToId.put(queueEntry, jobId);
         try {
             executor.execute(queueEntry);
         } catch (QueueOverflowException e) {
-            jobEntryToId.remove(queueEntry);
             return failedFuture(new IgniteException(QUEUE_OVERFLOW_ERR, e));
         }
         return queueEntry.toFuture()
                 .whenComplete((r, throwable) -> {
-                    UUID jobIdInner = jobEntryToId.remove(queueEntry);
-                    assert jobIdInner != null;
-
                     if (throwable != null) {
-                        stateMachine.failJob(jobIdInner);
+                        stateMachine.failJob(jobId);
                     } else {
-                        stateMachine.completeJob(jobIdInner);
+                        stateMachine.completeJob(jobId);
                     }
                 });
     }
@@ -143,7 +114,6 @@ public class PriorityQueueExecutor {
      * Shutdown executor. After shutdown executor is not usable anymore.
      */
     public void shutdown() {
-        jobEntryToId.clear();
         Long stopTimeout = configuration.threadPoolStopTimeoutMillis().value();
         IgniteUtils.shutdownAndAwaitTermination(executor, stopTimeout, TimeUnit.MILLISECONDS);
     }

@@ -38,7 +38,7 @@ public class BoundedPriorityBlockingQueueTest {
     @BeforeEach
     public void setup() {
         maxCapacity = 1;
-        queue = new BoundedPriorityBlockingQueue<>(() -> maxCapacity, QueueListener.noop());
+        queue = new BoundedPriorityBlockingQueue<>(() -> maxCapacity);
     }
 
     @Test
@@ -143,8 +143,7 @@ public class BoundedPriorityBlockingQueueTest {
 
         BoundedPriorityBlockingQueue<Integer> queue = new BoundedPriorityBlockingQueue<>(
                 () -> maxCapacity,
-                Comparator.<Integer>reverseOrder(),
-                QueueListener.noop()
+                Comparator.<Integer>reverseOrder()
         );
 
         assertThat(queue.offer(2), is(true));

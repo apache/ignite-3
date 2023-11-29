@@ -22,7 +22,6 @@ import static org.apache.ignite.compute.JobState.CANCELING;
 import static org.apache.ignite.compute.JobState.COMPLETED;
 import static org.apache.ignite.compute.JobState.EXECUTING;
 import static org.apache.ignite.compute.JobState.FAILED;
-import static org.apache.ignite.compute.JobState.QUEUED;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
@@ -54,7 +53,6 @@ public class InMemoryComputeStateMachineTest {
 
     @Test
     public void testCompleteWay() {
-        queueJob(false);
         executeJob(false);
         completeJob(false);
     }
@@ -69,13 +67,6 @@ public class InMemoryComputeStateMachineTest {
     @Test
     public void testCancel() {
         assertThat(stateMachine.cancelJob(jobId), is(true));
-        assertThat(stateMachine.currentState(jobId), is(CANCELED));
-    }
-
-    @Test
-    public void testCancelFromQueue() {
-        queueJob(false);
-        cancelJob(false);
         assertThat(stateMachine.currentState(jobId), is(CANCELED));
     }
 
@@ -118,12 +109,6 @@ public class InMemoryComputeStateMachineTest {
     }
 
     @Test
-    public void testDoubleQueue() {
-        queueJob(false);
-        queueJob(true);
-    }
-
-    @Test
     public void testDoubleExecution() {
         executeJob(false);
         executeJob(true);
@@ -153,15 +138,6 @@ public class InMemoryComputeStateMachineTest {
             assertThat(stateMachine.currentState(jobId), Matchers.oneOf(CANCELED, CANCELING));
         } else {
             assertThrows(IllegalJobStateTransition.class, () -> stateMachine.cancelJob(jobId));
-        }
-    }
-
-    private void queueJob(boolean shouldFail) {
-        if (!shouldFail) {
-            stateMachine.queueJob(jobId);
-            assertThat(stateMachine.currentState(jobId), is(QUEUED));
-        } else {
-            assertThrows(IllegalJobStateTransition.class, () -> stateMachine.queueJob(jobId));
         }
     }
 

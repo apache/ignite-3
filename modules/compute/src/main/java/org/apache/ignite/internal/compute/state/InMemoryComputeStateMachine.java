@@ -23,7 +23,6 @@ import static org.apache.ignite.compute.JobState.COMPLETED;
 import static org.apache.ignite.compute.JobState.EXECUTING;
 import static org.apache.ignite.compute.JobState.FAILED;
 import static org.apache.ignite.compute.JobState.QUEUED;
-import static org.apache.ignite.compute.JobState.SUBMITTED;
 
 import java.util.Map;
 import java.util.UUID;
@@ -50,7 +49,7 @@ public class InMemoryComputeStateMachine implements ComputeStateMachine {
     @Override
     public UUID initJob() {
         UUID uuid = UUID.randomUUID();
-        JobState prevValue = states.putIfAbsent(uuid, SUBMITTED);
+        JobState prevValue = states.putIfAbsent(uuid, QUEUED);
         if (prevValue != null) {
             LOG.info("UUID collision detected! UUID: {}", uuid);
             return initJob();
@@ -60,13 +59,8 @@ public class InMemoryComputeStateMachine implements ComputeStateMachine {
     }
 
     @Override
-    public void queueJob(UUID jobId) {
-        changeState(jobId, QUEUED, SUBMITTED);
-    }
-
-    @Override
     public void executeJob(UUID jobId) {
-        changeState(jobId, EXECUTING, SUBMITTED, QUEUED);
+        changeState(jobId, EXECUTING, QUEUED);
     }
 
     @Override
@@ -86,7 +80,7 @@ public class InMemoryComputeStateMachine implements ComputeStateMachine {
             if (currentState == EXECUTING) {
                 result.set(false);
                 return CANCELING;
-            } else if (currentState == CANCELING || currentState == QUEUED || currentState == SUBMITTED) {
+            } else if (currentState == CANCELING || currentState == QUEUED) {
                 result.set(true);
                 return CANCELED;
             }

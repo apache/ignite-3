@@ -48,14 +48,6 @@ public interface ComputeStateMachine {
     void executeJob(UUID jobId);
 
     /**
-     * Try to transfer Compute Job to queue state.
-     *
-     * @param jobId Compute job identifier.
-     * @throws IllegalJobStateTransition in case when job can't be transferred to complete state.
-     */
-    void queueJob(UUID jobId);
-
-    /**
      * Try to transfer Compute Job to cancel state.
      *
      * @param jobId Compute job identifier.
