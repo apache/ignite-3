@@ -330,6 +330,30 @@ public class PartitionAwarenessTests
             expectedNode);
     }
 
+    [Test]
+    public async Task TestOldAssignmentIsIgnored()
+    {
+        using var client = await GetClient();
+        var recordView = (await client.Tables.GetTableAsync(FakeServer.ExistingTableName))!.GetRecordView<int>();
+
+        // One server has old assignment
+        _server1.PartitionAssignment = _server1.PartitionAssignment.Reverse().ToArray();
+        _server1.PartitionAssignmentTimestamp -= 1000;
+
+        // Multiple requests to receive timestamp from all servers.
+        for (int i = 0; i < 10; i++)
+        {
+            await client.Tables.GetTablesAsync();
+        }
+
+        // Check assignment.
+        _server1.ClearOps();
+        _server2.ClearOps();
+
+        await recordView.UpsertAsync(null, 1);
+        await AssertOpOnNode(() => recordView.UpsertAsync(null, 1), ClientOp.TupleUpsert, _server2);
+    }
+
     private static async Task AssertOpOnNode(
         Func<Task> action,
         ClientOp op,
