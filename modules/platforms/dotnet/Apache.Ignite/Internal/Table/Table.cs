@@ -239,16 +239,14 @@ namespace Apache.Ignite.Internal.Table
                 var res = await LoadPartitionAssignmentAsync(latestKnownTimestamp).ConfigureAwait(false);
                 if (res == null)
                 {
-                    _partitionAssignment = null;
-                    _partitionAssignmentTimestamp = latestKnownTimestamp;
-
+                    // Assignment for the given timestamp is not available yet (some nodes can lag behind).
                     return null;
                 }
 
                 Debug.Assert(res.Value.Timestamp >= latestKnownTimestamp, "res.Value.Timestamp >= socketTimestamp");
 
                 _partitionAssignment = res.Value.Assignment;
-                _partitionAssignmentTimestamp = res.Value.Timestamp;
+                Interlocked.Exchange(ref _partitionAssignmentTimestamp, res.Value.Timestamp);
 
                 return res.Value.Assignment;
             }
