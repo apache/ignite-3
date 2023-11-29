@@ -810,9 +810,4 @@ public class DynamicParametersTest extends AbstractPlannerTest {
 
         return relDataType;
     }
-
-    private static RelDataType nullableRelType(SqlTypeName typeName) {
-        IgniteTypeFactory tf = Commons.typeFactory();
-        return tf.createTypeWithNullability(tf.createSqlType(typeName), true);
-    }
 }
