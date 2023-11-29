@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.readonly;
+package org.apache.ignite.internal.tx.readonly;
 
 import static org.apache.ignite.internal.SessionUtils.executeUpdate;
 import static org.hamcrest.MatcherAssert.assertThat;
