@@ -186,6 +186,7 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
                 .schemaVersion(binaryRow.schemaVersion())
                 .binaryTuple(binaryRow.tupleSlice())
                 .requestType(RequestType.RW_GET)
+                .enlistmentConsistencyToken(1L)
                 .build();
     }
 

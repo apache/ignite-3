@@ -826,6 +826,50 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
         assertEquals(0, txManager().pending(), "Expected no pending transactions");
     }
 
+
+    @Test
+    public void runScriptThatCompletesSuccessfully() {
+        IgniteSql sql = igniteSql();
+
+        try (Session session = sql.createSession()) {
+            executeScript(session,
+                    "CREATE TABLE test (id INT PRIMARY KEY, step INTEGER); "
+                            + "START TRANSACTION; "
+                            + "INSERT INTO test VALUES(1, 0); "
+                            + "UPDATE test SET step = 1; "
+                            + "SELECT * FROM test; "
+                            + "UPDATE test SET step = 2; "
+                            + "COMMIT; ");
+
+            ResultProcessor result = execute(session, "SELECT step FROM test");
+            assertEquals(1, result.result().size());
+            assertEquals(2, result.result().get(0).intValue(0));
+        }
+    }
+
+    @Test
+    public void runScriptThatFails() {
+        IgniteSql sql = igniteSql();
+
+        try (Session session = sql.createSession()) {
+            assertThrowsSqlException(
+                    Sql.RUNTIME_ERR,
+                    "/ by zero",
+                    () -> executeScript(session,
+                            "CREATE TABLE test (id INT PRIMARY KEY, step INTEGER); "
+                                    + "INSERT INTO test VALUES(1, 0); "
+                                    + "UPDATE test SET step = 1; "
+                                    + "SELECT 1/0; "
+                                    + "UPDATE test SET step = 2; "
+                    )
+            );
+
+            ResultProcessor result = execute(session, "SELECT step FROM test");
+            assertEquals(1, result.result().size());
+            assertEquals(1, result.result().get(0).intValue(0));
+        }
+    }
+
     protected ResultSet<SqlRow> executeForRead(Session ses, String query, Object... args) {
         return executeForRead(ses, null, query, args);
     }
@@ -872,6 +916,8 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
     protected ResultProcessor execute(Session ses, String sql, Object... args) {
         return execute(null, null, ses, sql, args);
     }
+
+    protected abstract void executeScript(Session ses, String sql, Object... args);
 
     protected abstract void rollback(Transaction outerTx);
 
