@@ -726,8 +726,7 @@ namespace Apache.Ignite.Internal
 
                 _logger.LogPartitionAssignmentChangeNotificationInfo(ConnectionContext.ClusterNode.Address, timestamp);
 
-                // TODO IGNITE-20900: Propagate assignment timestamp.
-                _listener.OnAssignmentChanged(this);
+                _listener.OnAssignmentChanged(timestamp);
             }
 
             var observableTimestamp = reader.ReadInt64();
