@@ -34,6 +34,7 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiPredicate;
 import java.util.function.Function;
@@ -327,11 +328,22 @@ public class DefaultMessagingService extends AbstractMessagingService {
      */
     private void onMessage(InNetworkObject obj) {
         if (isInNetworkThread()) {
-            inboundExecutor.execute(() -> {
+            CompletableFuture.runAsync(() -> {
+                long started = System.currentTimeMillis();
+
                 try {
                     onMessage(obj);
                 } catch (Throwable e) {
                     logAndRethrowIfError(obj, e);
+                } finally {
+                    long took = System.currentTimeMillis() - started;
+                    if (took > 1000) {
+                        LOG.warn("XXX Processing of {} from {} took {} ms", obj.message(), obj.consistentId(), took);
+                    }
+                }
+            }, inboundExecutor).orTimeout(5, TimeUnit.SECONDS).whenComplete((res, ex) -> {
+                if (ex instanceof TimeoutException) {
+                    LOG.warn("YYY Timeout while processing {} from {}", ex, obj.message(), obj.consistentId());
                 }
             });
 
