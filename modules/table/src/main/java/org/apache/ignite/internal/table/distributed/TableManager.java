@@ -524,16 +524,16 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         var stableAssignmentsPrefix = new ByteArray(STABLE_ASSIGNMENTS_PREFIX);
 
         startVv.update(recoveryRevision, (v, e) -> handleAssignmentsEventsOnRecovery(
-                pendingAssignmentsPrefix,
-                recoveryRevision,
-                (entry, rev) -> handleChangePendingAssignmentEvent(entry, localPartsByTableIdVv.get(recoveryRevision), rev, true),
-                "pending"
-        ));
-        startVv.update(recoveryRevision, (v, e) -> handleAssignmentsEventsOnRecovery(
                 stableAssignmentsPrefix,
                 recoveryRevision,
                 (entry, rev) -> handleChangeStableAssignmentEvent(entry, rev, true),
                 "stable"
+        ));
+        startVv.update(recoveryRevision, (v, e) -> handleAssignmentsEventsOnRecovery(
+                pendingAssignmentsPrefix,
+                recoveryRevision,
+                (entry, rev) -> handleChangePendingAssignmentEvent(entry, localPartsByTableIdVv.get(recoveryRevision), rev, true),
+                "pending"
         ));
     }
 
@@ -2033,6 +2033,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         Entry stableAssignmentsWatchEvent = evt.entryEvent().newEntry();
 
+        assert stableAssignmentsWatchEvent.revision() == evt.revision() : stableAssignmentsWatchEvent;
+
         return handleChangeStableAssignmentEvent(stableAssignmentsWatchEvent, evt.revision(), false);
     }
 
@@ -2052,7 +2054,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         Set<Assignment> stableAssignments = ByteUtils.fromBytes(stableAssignmentsWatchEvent.value());
 
-        return metaStorageMgr.get(pendingPartAssignmentsKey(tablePartitionId), stableAssignmentsWatchEvent.revision())
+        return metaStorageMgr.get(pendingPartAssignmentsKey(tablePartitionId), revision)
                 .thenComposeAsync(pendingAssignmentsEntry -> {
                     // Update raft client peers and learners according to the actual assignments.
                     // TODO https://issues.apache.org/jira/browse/IGNITE-19170 for now it's not needed on recovery because it's handled
@@ -2077,7 +2079,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     if (shouldStopLocalServices) {
                         return allOf(
                                 raftClientUpdateFuture,
-                                stopAndDestroyPartition(tablePartitionId, revision));
+                                stopAndDestroyPartition(tablePartitionId, revision)
+                        );
                     } else {
                         return raftClientUpdateFuture;
                     }
@@ -2085,7 +2088,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     }
 
     private CompletableFuture<Void> stopAndDestroyPartition(TablePartitionId tablePartitionId, long causalityToken) {
-        return tablesById(causalityToken)
+        return tablesByIdVv.get(causalityToken)
                 .thenCompose(tables -> {
                     TableImpl table = tables.get(tablePartitionId.tableId());
 

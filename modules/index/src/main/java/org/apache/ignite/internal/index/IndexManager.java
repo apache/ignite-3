@@ -331,7 +331,7 @@ public class IndexManager implements IgniteComponent {
                     if (throwable != null) {
                         LOG.error("Error starting indexes", throwable);
                     } else {
-                        LOG.debug("Indexes started successfully");
+                        LOG.info("Indexes started successfully");
                     }
                 });
     }
