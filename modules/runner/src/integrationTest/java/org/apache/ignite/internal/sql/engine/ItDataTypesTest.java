@@ -410,7 +410,7 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
         expectResult(checker, result);
     }
 
-    @ParameterizedTest(name = "{1}")
+    @ParameterizedTest(name = "{1} {2}")
     @MethodSource("decimalOverflows")
     public void testCalcOpOverflow(SqlTypeName type, String expr, Object param) {
         if (param == EMPTY_PARAM) {

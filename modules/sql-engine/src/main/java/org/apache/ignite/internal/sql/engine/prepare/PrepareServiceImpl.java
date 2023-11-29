@@ -345,7 +345,7 @@ public class PrepareServiceImpl implements PrepareService {
 
         Class[] paramTypes = ctx.parameters().length == 0
                 ? EMPTY_CLASS_ARRAY :
-                Arrays.stream(ctx.parameters()).map(p -> (p != null) ? p.getClass() : Void.class).toArray(Class[]::new);
+                Arrays.stream(ctx.parameters()).map(p -> (p.value() != null) ? p.value().getClass() : Void.class).toArray(Class[]::new);
 
         return new CacheKey(catalogVersion, ctx.schemaName(), parsedResult.normalizedQuery(), distributed, paramTypes);
     }
