@@ -102,6 +102,8 @@ import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.internal.util.Pair;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.network.ClusterNodeImpl;
+import org.apache.ignite.network.NetworkAddress;
 import org.hamcrest.CustomMatcher;
 import org.hamcrest.Matcher;
 import org.junit.jupiter.api.BeforeAll;
@@ -203,7 +205,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
 
         when(catalogService.table(anyInt(), anyLong())).thenReturn(tableDescriptor);
 
-        ClusterNode localNode = mock(ClusterNode.class);
+        ClusterNode localNode = new ClusterNodeImpl("test-node-id", "test-node", new NetworkAddress("localhost", 1234));
 
         partitionReplicaListener = new PartitionReplicaListener(
                 TEST_MV_PARTITION_STORAGE,
