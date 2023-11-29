@@ -28,4 +28,9 @@ public class HeapUnboundedLockManagerTest extends AbstractLockManagerTest {
     protected LockManager newInstance() {
         return new HeapUnboundedLockManager(new WaitDieDeadlockPreventionPolicy());
     }
+
+    @Override
+    protected LockKey lockKey() {
+        return new LockKey("test");
+    }
 }

@@ -49,7 +49,7 @@ public abstract class AbstractLockingTest {
         b.putInt(key.hashCode());
         b.position(0);
 
-        return new LockKey(b);
+        return new LockKey(0, b);
     }
 
     protected CompletableFuture<?> xlock(UUID tx, LockKey key) {
