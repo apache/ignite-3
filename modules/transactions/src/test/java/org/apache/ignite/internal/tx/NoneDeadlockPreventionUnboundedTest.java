@@ -19,6 +19,9 @@ package org.apache.ignite.internal.tx;
 
 import org.apache.ignite.internal.tx.impl.HeapUnboundedLockManager;
 
+/**
+ * NoneDeadlockPreventionUnboundedTest.
+ */
 public class NoneDeadlockPreventionUnboundedTest extends NoneDeadlockPreventionTest {
     @Override
     protected LockManager lockManager() {

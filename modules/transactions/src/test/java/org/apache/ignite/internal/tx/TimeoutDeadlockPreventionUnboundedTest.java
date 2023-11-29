@@ -19,6 +19,9 @@ package org.apache.ignite.internal.tx;
 
 import org.apache.ignite.internal.tx.impl.HeapUnboundedLockManager;
 
+/**
+ * TimeoutDeadlockPreventionUnboundedTest.
+ */
 public class TimeoutDeadlockPreventionUnboundedTest extends TimeoutDeadlockPreventionTest {
     @Override
     protected LockManager lockManager() {
