@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.component;
+package org.apache.ignite.internal.rest;
 
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -34,7 +34,6 @@ import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.internal.IgniteIntegrationTest;
 import org.apache.ignite.internal.app.IgniteRunner;
-import org.apache.ignite.internal.runner.app.IgniteRunnerTest;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -56,7 +55,7 @@ public class ItRestAddressReportTest extends IgniteIntegrationTest {
     @DisplayName("Should report rest port to the file after RestComponent started")
     void restPortReportedToFile() throws Exception {
         // Given configuration with rest port configured rest.port=10333
-        Path configPath = Path.of(IgniteRunnerTest.class.getResource("/ignite-config-rest-port-not-default.json").toURI());
+        Path configPath = Path.of(ItRestAddressReportTest.class.getResource("/ignite-config-rest-port-not-default.json").toURI());
 
         // When start node
         CompletableFuture<Ignite> ign = IgniteRunner.start(
