@@ -1,4 +1,4 @@
-﻿/*
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -15,39 +15,15 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Log
-{
-    using System;
+package org.apache.ignite.internal.lang;
 
-    /// <summary>
-    /// Defines log levels.
-    /// </summary>
-    [Serializable]
-    public enum LogLevel
-    {
-        /// <summary>
-        /// Trace log level.
-        /// </summary>
-        Trace = 0,
-
-        /// <summary>
-        /// Debug log level.
-        /// </summary>
-        Debug = 1,
-
-        /// <summary>
-        /// Info log level.
-        /// </summary>
-        Info = 2,
-
-        /// <summary>
-        /// Warning log level.
-        /// </summary>
-        Warn = 3,
-
-        /// <summary>
-        /// Error log level.
-        /// </summary>
-        Error = 4
-    }
+/** Same as {@link Runnable}, but with {@link Throwable} thrown. */
+@FunctionalInterface
+public interface RunnableX {
+    /**
+     * Runs some logic like {@link Runnable#run()} throws a {@link Throwable}.
+     *
+     * @throws Throwable If failed.
+     */
+    void run() throws Throwable;
 }

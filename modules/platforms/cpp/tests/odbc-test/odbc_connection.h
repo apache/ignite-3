@@ -56,8 +56,24 @@ public:
      * ODBC connect.
      *
      * @param connect_str Connect string.
+     * @throws ignite_error on connection failed.
      */
-    void odbc_connect(std::string_view connect_str) { ignite::odbc_connect(connect_str, m_env, m_conn, m_statement); }
+    void odbc_connect_throw(std::string_view connect_str) {
+        ignite::odbc_connect(connect_str, m_env, m_conn, m_statement);
+    }
+
+    /**
+     * ODBC connect.
+     *
+     * @param connect_str Connect string.
+     */
+    void odbc_connect(std::string_view connect_str) {
+        try {
+            odbc_connect_throw(connect_str);
+        } catch (const ignite_error &error) {
+            FAIL() << error.what();
+        }
+    }
 
     /**
      * Disconnect.

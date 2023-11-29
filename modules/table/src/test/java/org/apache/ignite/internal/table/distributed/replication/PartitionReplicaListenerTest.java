@@ -1481,7 +1481,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     }
 
     private static FullTableSchema tableSchema(int schemaVersion, List<CatalogTableColumnDescriptor> columns) {
-        return new FullTableSchema(schemaVersion, 1, columns);
+        return new FullTableSchema(schemaVersion, TABLE_ID, "test", columns);
     }
 
     private AtomicReference<Boolean> interceptFinishTxCommand() {
@@ -1518,11 +1518,11 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     }
 
     @Test
-    @Disabled("IGNITE-19229")
     public void commitsOnCompatibleSchemaChangeSuccessfully() {
         when(validationSchemasSource.tableSchemaVersionsBetween(anyInt(), any(), any(HybridTimestamp.class)))
                 .thenReturn(List.of(
                         tableSchema(CURRENT_SCHEMA_VERSION, List.of(nullableColumn("col1"))),
+                        // Addition of a nullable column is forward-compatible.
                         tableSchema(FUTURE_SCHEMA_VERSION, List.of(nullableColumn("col1"), nullableColumn("col2")))
                 ));
 

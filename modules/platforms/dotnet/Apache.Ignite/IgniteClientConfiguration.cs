@@ -22,7 +22,8 @@ namespace Apache.Ignite
     using System.ComponentModel;
     using System.Linq;
     using Internal.Common;
-    using Log;
+    using Microsoft.Extensions.Logging;
+    using Microsoft.Extensions.Logging.Abstractions;
 
     /// <summary>
     /// Ignite client driver configuration.
@@ -80,7 +81,7 @@ namespace Apache.Ignite
         {
             IgniteArgumentCheck.NotNull(other);
 
-            Logger = other.Logger;
+            LoggerFactory = other.LoggerFactory;
             SocketTimeout = other.SocketTimeout;
             Endpoints = other.Endpoints.ToList();
             RetryPolicy = other.RetryPolicy;
@@ -91,9 +92,9 @@ namespace Apache.Ignite
         }
 
         /// <summary>
-        /// Gets or sets the logger.
+        /// Gets or sets the logger factory. Default is <see cref="NullLoggerFactory.Instance"/>.
         /// </summary>
-        public IIgniteLogger? Logger { get; set; }
+        public ILoggerFactory LoggerFactory { get; set; } = NullLoggerFactory.Instance;
 
         /// <summary>
         /// Gets or sets the socket timeout.

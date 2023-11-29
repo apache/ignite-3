@@ -26,6 +26,7 @@ import io.netty.channel.ChannelHandlerContext;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -40,6 +41,7 @@ import org.apache.ignite.internal.network.netty.NettyUtils;
 import org.apache.ignite.internal.network.netty.PipelineUtils;
 import org.apache.ignite.internal.network.recovery.message.HandshakeFinishMessage;
 import org.apache.ignite.internal.network.recovery.message.HandshakeRejectedMessage;
+import org.apache.ignite.internal.network.recovery.message.HandshakeRejectionReason;
 import org.apache.ignite.internal.network.recovery.message.HandshakeStartMessage;
 import org.apache.ignite.internal.network.recovery.message.HandshakeStartResponseMessage;
 import org.apache.ignite.lang.IgniteException;
@@ -51,6 +53,8 @@ import org.apache.ignite.network.OutNetworkObject;
  */
 public class RecoveryServerHandshakeManager implements HandshakeManager {
     private static final IgniteLogger LOG = Loggers.forClass(RecoveryServerHandshakeManager.class);
+
+    private static final int MAX_CLINCH_TERMINATION_AWAIT_ATTEMPTS = 1000;
 
     /** Launch id. */
     private final UUID launchId;
@@ -180,22 +184,7 @@ public class RecoveryServerHandshakeManager implements HandshakeManager {
         }
 
         if (message instanceof HandshakeRejectedMessage) {
-            HandshakeRejectedMessage msg = (HandshakeRejectedMessage) message;
-
-            boolean ignorable = stopping.get() || !msg.critical();
-
-            if (ignorable) {
-                LOG.debug("Handshake rejected by client: {}", msg.reason());
-            } else {
-                LOG.warn("Handshake rejected by client: {}", msg.reason());
-            }
-
-            handshakeCompleteFuture.completeExceptionally(new HandshakeException(msg.reason()));
-
-            if (!ignorable) {
-                // TODO: IGNITE-16899 Perhaps we need to fail the node by FailureHandler
-                failureHandler.handleFailure(new IgniteException("Handshake rejected by client: " + msg.reason()));
-            }
+            onHandshakeRejectedMessage((HandshakeRejectedMessage) message);
 
             return;
         }
@@ -232,27 +221,84 @@ public class RecoveryServerHandshakeManager implements HandshakeManager {
         this.receivedCount = remoteReceivedCount;
         this.remoteChannelId = remoteChannelId;
 
+        tryAcquireDescriptorAndFinishHandshake();
+    }
+
+    private void handleStaleClientId(HandshakeStartResponseMessage msg) {
+        String message = msg.consistentId() + ":" + msg.launchId() + " is stale, client should be restarted to be allowed to connect";
+        HandshakeRejectedMessage rejectionMessage = messageFactory.handshakeRejectedMessage()
+                .reasonString(HandshakeRejectionReason.STALE_LAUNCH_ID.name())
+                .message(message)
+                .build();
+
+        sendHandshakeRejectedMessage(rejectionMessage, message);
+    }
+
+    private void handleRefusalToEstablishConnectionDueToStopping(HandshakeStartResponseMessage msg) {
+        String message = msg.consistentId() + ":" + msg.launchId() + " tried to establish a connection with " + consistentId
+                + ", but it's stopping";
+        HandshakeRejectedMessage rejectionMessage = messageFactory.handshakeRejectedMessage()
+                .reasonString(HandshakeRejectionReason.STOPPING.name())
+                .message(message)
+                .build();
+
+        sendHandshakeRejectedMessage(rejectionMessage, message);
+    }
+
+    private void tryAcquireDescriptorAndFinishHandshake() {
+        tryAcquireDescriptorAndFinishHandshake(0);
+    }
+
+    private void tryAcquireDescriptorAndFinishHandshake(int attempt) {
+        if (attempt > MAX_CLINCH_TERMINATION_AWAIT_ATTEMPTS) {
+            throw new IllegalStateException("Too many attempts during handshake from " + remoteConsistentId + "(" + remoteLaunchId
+                    + ":" + remoteChannelId + ") via " + ctx.channel());
+        }
+
         RecoveryDescriptor descriptor = recoveryDescriptorProvider.getRecoveryDescriptor(
                 this.remoteConsistentId,
                 this.remoteLaunchId,
                 this.remoteChannelId
         );
 
-        while (!descriptor.acquire(ctx)) {
+        while (!descriptor.acquire(ctx, handshakeCompleteFuture)) {
             if (shouldCloseChannel(launchId, remoteLaunchId)) {
-                Channel holderChannel = descriptor.holderChannel();
+                // A competitor is holding the descriptor and we win the clinch; so we need to wait on the 'clinch resolved' future till
+                // the competitor realises it should terminate (this realization will happen on the other side of the channel), send
+                // the corresponding message to this node, terminate its handshake and complete the 'clinch resolved' future.
+                DescriptorAcquiry competitorAcquiry = descriptor.holder();
 
-                if (holderChannel == null) {
+                if (competitorAcquiry == null) {
                     continue;
                 }
 
-                holderChannel.close().awaitUninterruptibly();
+                competitorAcquiry.clinchResolved().whenComplete((res, ex) -> {
+                    // The competitor has finished terminating its handshake, it must've already released the descriptor,
+                    // so let's try again.
+                    if (ctx.executor().inEventLoop()) {
+                        tryAcquireDescriptorAndFinishHandshake(attempt + 1);
+                    } else {
+                        ctx.executor().execute(() -> tryAcquireDescriptorAndFinishHandshake(attempt + 1));
+                    }
+                });
+
+                return;
             } else {
-                String err = "Failed to acquire recovery descriptor during handshake, it is held by: " + descriptor.holderDescription();
+                // A competitor is holding the descriptor and we lose the clinch; so we need to send the correspnding message
+                // to the other side, where the code handling the message will terminate our handshake and complete the 'clinch resolved'
+                // future, making it possible for the competitor to proceed and finish the handshake.
+                String localErrorMessage = "Failed to acquire recovery descriptor during handshake, it is held by: "
+                        + descriptor.holderDescription();
 
-                LOG.info(err);
+                LOG.debug(localErrorMessage);
 
-                handshakeCompleteFuture.completeExceptionally(new HandshakeException(err));
+                HandshakeRejectedMessage rejectionMessage = messageFactory.handshakeRejectedMessage()
+                        .reasonString(HandshakeRejectionReason.CLINCH.name())
+                        .message("Handshake clinch detected, this handshake will be terminated, winning channel is "
+                                + descriptor.holderDescription())
+                        .build();
+
+                sendHandshakeRejectedMessage(rejectionMessage, localErrorMessage);
 
                 return;
             }
@@ -263,25 +309,21 @@ public class RecoveryServerHandshakeManager implements HandshakeManager {
         handshake(descriptor);
     }
 
-    private void handleStaleClientId(HandshakeStartResponseMessage msg) {
-        String reason = msg.consistentId() + ":" + msg.launchId() + " is stale, client should be restarted to be allowed to connect";
-        HandshakeRejectedMessage rejectionMessage = messageFactory.handshakeRejectedMessage()
-                .critical(true)
-                .reason(reason)
-                .build();
+    private void onHandshakeRejectedMessage(HandshakeRejectedMessage msg) {
+        boolean ignorable = stopping.get() || !msg.reason().critical();
 
-        sendHandshakeRejectedMessage(rejectionMessage, reason);
-    }
+        if (ignorable) {
+            LOG.debug("Handshake rejected by client: {}", msg.message());
+        } else {
+            LOG.warn("Handshake rejected by client: {}", msg.message());
+        }
 
-    private void handleRefusalToEstablishConnectionDueToStopping(HandshakeStartResponseMessage msg) {
-        String reason = msg.consistentId() + ":" + msg.launchId() + " tried to establish a connection with " + consistentId
-                + ", but it's stopping";
-        HandshakeRejectedMessage rejectionMessage = messageFactory.handshakeRejectedMessage()
-                .critical(false)
-                .reason(reason)
-                .build();
+        handshakeCompleteFuture.completeExceptionally(new HandshakeException(msg.message()));
 
-        sendHandshakeRejectedMessage(rejectionMessage, reason);
+        if (!ignorable) {
+            // TODO: IGNITE-16899 Perhaps we need to fail the node by FailureHandler
+            failureHandler.handleFailure(new IgniteException("Handshake rejected by client: " + msg.message()));
+        }
     }
 
     private void sendHandshakeRejectedMessage(HandshakeRejectedMessage rejectionMessage, String reason) {
@@ -353,7 +395,12 @@ public class RecoveryServerHandshakeManager implements HandshakeManager {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<NettySender> handshakeFuture() {
+    public CompletableFuture<NettySender> localHandshakeFuture() {
+        return handshakeCompleteFuture;
+    }
+
+    @Override
+    public CompletionStage<NettySender> finalHandshakeFuture() {
         return handshakeCompleteFuture;
     }
 
