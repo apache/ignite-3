@@ -64,6 +64,11 @@ public class ItSqlSynchronousApiTest extends ItSqlApiBaseTest {
     }
 
     @Override
+    protected void executeScript(Session ses, String sql, Object... args) {
+        ses.executeScript(sql, args);
+    }
+
+    @Override
     protected void rollback(Transaction tx) {
         tx.rollback();
     }

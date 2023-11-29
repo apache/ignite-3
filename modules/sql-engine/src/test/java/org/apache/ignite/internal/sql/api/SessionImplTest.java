@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.api;
 
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.SESSION_CLOSED_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
@@ -27,6 +28,7 @@ import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 import static org.hamcrest.Matchers.sameInstance;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.mock;
@@ -337,6 +339,110 @@ class SessionImplTest extends BaseIgniteAbstractTest {
 
         hasMore.set(false);
         await(rs.fetchNextPage());
+
+        assertThat(session.openedCursors(), empty());
+    }
+
+    @Test
+    public void scriptIteratesOverCursors() {
+        AsyncSqlCursor<List<Object>> cursor1 = mock(AsyncSqlCursor.class, "cursor1");
+        AsyncSqlCursor<List<Object>> cursor2 = mock(AsyncSqlCursor.class, "cursor2");
+
+        when(cursor1.hasNextResult()).thenReturn(true);
+        when(cursor1.nextResult()).thenReturn(CompletableFuture.completedFuture(cursor2));
+        when(cursor1.closeAsync()).thenReturn(CompletableFuture.completedFuture(null));
+
+        when(cursor2.hasNextResult()).thenReturn(false);
+        when(cursor2.closeAsync()).thenReturn(CompletableFuture.completedFuture(null));
+
+        when(queryProcessor.queryScriptAsync(any(), any(), any(), any(), any(Object[].class)))
+                .thenReturn(CompletableFuture.completedFuture(cursor1));
+
+        SessionImpl session = newSession(3);
+
+        Void rs = await(session.executeScriptAsync("SELECT 1; SELECT 2"));
+
+        assertNull(rs);
+        assertThat(session.openedCursors(), empty());
+    }
+
+    @Test
+    public void scriptRethrowsExceptionFromCursor() {
+        AsyncSqlCursor<List<Object>> cursor1 = mock(AsyncSqlCursor.class);
+
+        when(cursor1.hasNextResult()).thenReturn(true);
+        when(cursor1.nextResult()).thenReturn(CompletableFuture.failedFuture(new RuntimeException("Broken")));
+        when(cursor1.closeAsync()).thenReturn(CompletableFuture.completedFuture(null));
+
+        when(queryProcessor.queryScriptAsync(any(), any(), any(), any(), any(Object[].class)))
+                .thenReturn(CompletableFuture.completedFuture(cursor1));
+
+        SessionImpl session = newSession(3);
+
+        assertThrowsSqlException(
+                INTERNAL_ERR,
+                "Broken",
+                () -> await(session.executeScriptAsync("SELECT 1; SELECT 2"))
+        );
+
+        assertThat(session.openedCursors(), empty());
+    }
+
+    @Test
+    public void scriptIgnoresCloseCursorException() {
+        AsyncSqlCursor<List<Object>> cursor1 = mock(AsyncSqlCursor.class, "cursor1");
+        AsyncSqlCursor<List<Object>> cursor2 = mock(AsyncSqlCursor.class, "cursor2");
+
+        when(cursor1.hasNextResult()).thenReturn(true);
+        when(cursor1.nextResult()).thenReturn(CompletableFuture.completedFuture(cursor2));
+        when(cursor1.closeAsync()).thenReturn(CompletableFuture.failedFuture(new IllegalStateException("cursor1")));
+
+        when(cursor2.hasNextResult()).thenReturn(false);
+        when(cursor2.closeAsync()).thenReturn(CompletableFuture.failedFuture(new IllegalStateException("cursor2")));
+
+        when(queryProcessor.queryScriptAsync(any(), any(), any(), any(), any(Object[].class)))
+                .thenReturn(CompletableFuture.completedFuture(cursor1));
+
+        SessionImpl session = newSession(3);
+
+        Void rs = await(session.executeScriptAsync("SELECT 1; SELECT 2"));
+
+        assertNull(rs);
+        assertThat(session.openedCursors(), empty());
+    }
+
+    @Test
+    public void scriptTerminatesWhenSessionCloses() {
+        AsyncSqlCursor<List<Object>> cursor1 = mock(AsyncSqlCursor.class, "cursor1");
+        AsyncSqlCursor<List<Object>> cursor2 = mock(AsyncSqlCursor.class, "cursor2");
+
+        CompletableFuture<AsyncSqlCursor<List<Object>>> cursor2Fut = new CompletableFuture<>();
+
+        when(cursor1.hasNextResult()).thenReturn(true);
+        when(cursor1.nextResult()).thenAnswer(ignored -> cursor2Fut);
+        when(cursor1.closeAsync()).thenReturn(CompletableFuture.completedFuture(null));
+
+        when(cursor2.closeAsync()).thenReturn(CompletableFuture.completedFuture(null));
+
+        when(queryProcessor.queryScriptAsync(any(), any(), any(), any(), any(Object[].class)))
+                .thenReturn(CompletableFuture.completedFuture(cursor1));
+
+        SessionImpl session = newSession(3);
+
+        Thread thread = new Thread(() -> {
+            session.close();
+            cursor2Fut.complete(cursor2);
+        });
+
+        assertThrowsSqlException(
+                SESSION_CLOSED_ERR,
+                "Session is closed",
+                () -> {
+                    CompletableFuture<Void> f = session.executeScriptAsync("SELECT 1; SELECT 2");
+                    thread.start();
+                    await(f);
+                }
+        );
 
         assertThat(session.openedCursors(), empty());
     }
