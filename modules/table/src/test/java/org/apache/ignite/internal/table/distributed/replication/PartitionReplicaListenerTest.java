@@ -1353,6 +1353,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         UUID tx1 = newTxId();
         upsert(tx1, br1);
     }
+    
     /**
      * Puts several records into the storage, optionally leaving them as write intents, alternately deleting and upserting the same row
      * within the same RW transaction, then checking read correctness via read only request.
