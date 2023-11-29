@@ -15,15 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed.replication.request;
+package org.apache.ignite.internal.tx;
 
-import java.util.UUID;
-import org.apache.ignite.internal.replicator.message.PrimaryReplicaRequest;
-import org.apache.ignite.internal.replicator.message.TimestampAware;
+import org.apache.ignite.internal.tx.impl.HeapLockManager;
+import org.apache.ignite.internal.tx.impl.WaitDieDeadlockPreventionPolicy;
 
 /**
- * Read-write replica request.
+ * Class that contains the tests for lock manager events producing for {@link HeapLockManager}.
  */
-public interface ReadWriteReplicaRequest extends PrimaryReplicaRequest, TimestampAware {
-    UUID transactionId();
+public class HeapLockManagerEventsTest extends AbstractLockManagerEventsTest {
+    @Override
+    protected LockManager lockManager() {
+        return new HeapLockManager(new WaitDieDeadlockPreventionPolicy());
+    }
 }

@@ -15,15 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed.replication.request;
+package org.apache.ignite.internal.lang;
 
-import java.util.UUID;
-import org.apache.ignite.internal.replicator.message.PrimaryReplicaRequest;
-import org.apache.ignite.internal.replicator.message.TimestampAware;
-
-/**
- * Read-write replica request.
- */
-public interface ReadWriteReplicaRequest extends PrimaryReplicaRequest, TimestampAware {
-    UUID transactionId();
+/** Same as {@link Runnable}, but with {@link Throwable} thrown. */
+@FunctionalInterface
+public interface RunnableX {
+    /**
+     * Runs some logic like {@link Runnable#run()} throws a {@link Throwable}.
+     *
+     * @throws Throwable If failed.
+     */
+    void run() throws Throwable;
 }

@@ -847,10 +847,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 raftGroupService
         );
 
-        CompletableFuture<Void> whenReplicaReady = allOf(
-                ((Loza) raftMgr).raftNodeReadyFuture(replicaGrpId),
-                table.pkIndexesReadyFuture()
-        );
+        CompletableFuture<Void> whenReplicaReady = table.pkIndexesReadyFuture();
 
         replicaMgr.startReplica(
                 replicaGrpId,

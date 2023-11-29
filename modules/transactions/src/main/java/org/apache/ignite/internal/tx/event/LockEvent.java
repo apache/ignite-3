@@ -15,15 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed.replication.request;
+package org.apache.ignite.internal.tx.event;
 
-import java.util.UUID;
-import org.apache.ignite.internal.replicator.message.PrimaryReplicaRequest;
-import org.apache.ignite.internal.replicator.message.TimestampAware;
+import org.apache.ignite.internal.event.Event;
 
 /**
- * Read-write replica request.
+ * Lock manager events.
  */
-public interface ReadWriteReplicaRequest extends PrimaryReplicaRequest, TimestampAware {
-    UUID transactionId();
+public enum LockEvent implements Event {
+    /** This event is triggered when the lock manager finds a lock interfering with another lock. */
+    LOCK_CONFLICT
 }
