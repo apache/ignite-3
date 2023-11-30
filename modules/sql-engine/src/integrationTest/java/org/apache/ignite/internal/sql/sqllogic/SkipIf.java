@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sqllogic;
+package org.apache.ignite.internal.sql.sqllogic;
 
 /**
  * SkipIf command skips the next command in a script if the specific condition does not hold.

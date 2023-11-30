@@ -16,7 +16,7 @@
  */
 
 
-package org.apache.ignite.internal.sqllogic;
+package org.apache.ignite.internal.sql.sqllogic;
 
 import org.jetbrains.annotations.Nullable;
 

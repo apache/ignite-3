@@ -135,6 +135,11 @@ public enum ClientOperationType {
     SQL_EXECUTE,
 
     /**
+     * SQL Execute ({@link org.apache.ignite.sql.Session#executeScriptAsync(String, Object...)}).
+     */
+    SQL_EXECUTE_SCRIPT,
+
+    /**
      * SQL Cursor Next Page ({@link AsyncResultSet#fetchNextPage()}).
      */
     SQL_CURSOR_NEXT_PAGE

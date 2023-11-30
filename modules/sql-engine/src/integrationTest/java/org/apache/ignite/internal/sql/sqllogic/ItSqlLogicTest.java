@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sqllogic;
+package org.apache.ignite.internal.sql.sqllogic;
 
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
@@ -46,8 +46,8 @@ import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.sqllogic.SqlLogicTestEnvironment.RestartMode;
-import org.apache.ignite.internal.sqllogic.SqlScriptRunner.RunnerRuntime;
+import org.apache.ignite.internal.sql.sqllogic.SqlLogicTestEnvironment.RestartMode;
+import org.apache.ignite.internal.sql.sqllogic.SqlScriptRunner.RunnerRuntime;
 import org.apache.ignite.internal.testframework.SystemPropertiesExtension;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WithSystemProperty;

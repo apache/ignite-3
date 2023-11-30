@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.sql.api;
 
-import static org.apache.ignite.internal.runner.app.client.ItAbstractThinClientTest.getClientAddresses;
-
 import java.util.List;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.sql.IgniteSql;
@@ -28,12 +26,10 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
 
 /**
- * Tests for synchronous client SQL API.
+ * Tests for asynchronous client SQL API.
  */
-public class ItSqlClientSynchronousApiTest extends ItSqlSynchronousApiTest {
+public class ItSqlClientAsynchronousApiTest extends ItSqlAsynchronousApiTest {
     private IgniteClient client;
-
-    private static final int ROW_COUNT = 16;
 
     @BeforeAll
     public void startClient() {
@@ -74,13 +70,11 @@ public class ItSqlClientSynchronousApiTest extends ItSqlSynchronousApiTest {
     }
 
     @Override
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17060")
     public void runScriptThatCompletesSuccessfully() {
         super.runScriptThatCompletesSuccessfully();
     }
 
     @Override
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17060")
     public void runScriptThatFails() {
         super.runScriptThatFails();
     }
