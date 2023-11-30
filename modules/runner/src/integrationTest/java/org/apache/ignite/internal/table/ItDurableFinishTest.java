@@ -30,7 +30,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
@@ -138,12 +137,12 @@ public class ItDurableFinishTest extends ClusterPerTestIntegrationTest {
     ) {
         DefaultMessagingService coordinatorMessaging = messaging(coordinatorNode);
 
-        AtomicBoolean dropFinish = new AtomicBoolean(true);
+        AtomicBoolean dropMessage = new AtomicBoolean(true);
 
         // Make sure the finish message is prepared, i.e. the outcome, commit timestamp, primary node, etc. have been set,
         // and then temporarily block the messaging to simulate network issues.
         coordinatorMessaging.dropMessages((s, networkMessage) -> {
-            if (networkMessage instanceof TxFinishReplicaRequest && dropFinish.get()) {
+            if (networkMessage instanceof TxFinishReplicaRequest && dropMessage.get()) {
                 logger().info("Dropping: {}.", networkMessage);
 
                 return true;
@@ -165,7 +164,7 @@ public class ItDurableFinishTest extends ClusterPerTestIntegrationTest {
             } finally {
                 logger().info("Finished transferring primary.");
 
-                dropFinish.set(false);
+                dropMessage.set(false);
             }
         });
     }
@@ -225,28 +224,15 @@ public class ItDurableFinishTest extends ClusterPerTestIntegrationTest {
     ) {
         DefaultMessagingService primaryMessaging = messaging(primaryNode);
 
-        CountDownLatch msg = new CountDownLatch(1);
-        CountDownLatch transfer = new CountDownLatch(1);
-        AtomicBoolean messageHandled = new AtomicBoolean();
+        AtomicBoolean dropMessage = new AtomicBoolean(true);
 
         // Make sure the finish message is prepared, i.e. the outcome, commit timestamp, primary node, etc. have been set,
         // and then temporarily block the messaging to simulate network issues.
         primaryMessaging.dropMessages((s, networkMessage) -> {
-            if (networkMessage instanceof TxCleanupReplicaRequest && !messageHandled.get()) {
-                messageHandled.set(true);
+            if (networkMessage instanceof TxCleanupReplicaRequest && dropMessage.get()) {
+                logger().info("Dropping message: {}.", networkMessage);
 
-                try {
-                    logger().info("Pausing message handling: {}.", networkMessage);
-
-                    transfer.countDown();
-                    msg.await();
-
-                    logger().info("Continue message handling: {}.", networkMessage);
-
-                    return true;
-                } catch (InterruptedException e) {
-                    throw new RuntimeException(e);
-                }
+                return true;
             }
 
             return false;
@@ -257,8 +243,6 @@ public class ItDurableFinishTest extends ClusterPerTestIntegrationTest {
         // will run in the current thread.
         CompletableFuture.runAsync(() -> {
             try {
-                transfer.await();
-
                 logger().info("Start transferring primary.");
 
                 NodeUtils.transferPrimary(tbl, null, this::node);
@@ -267,7 +251,7 @@ public class ItDurableFinishTest extends ClusterPerTestIntegrationTest {
             } finally {
                 logger().info("Finished transferring primary.");
 
-                msg.countDown();
+                dropMessage.set(false);
             }
         });
     }
