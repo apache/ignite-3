@@ -525,9 +525,7 @@ public class SqlQueryProcessor implements QueryProcessor {
         return waitForActualSchema(schemaName, txWrapper.unwrap().startTimestamp())
                 .thenCompose(schema -> {
                     PrefetchCallback callback = waitForPrefetch ? new PrefetchCallback() : null;
-                    DynamicParameterValue[] dynamicParams = Arrays.stream(params)
-                            .map(DynamicParameterValue::value)
-                            .toArray(DynamicParameterValue[]::new);
+                    DynamicParameterValue[] dynamicParams = DynamicParameterValue.fromValues(params);
 
                     BaseQueryContext ctx = BaseQueryContext.builder()
                             .frameworkConfig(Frameworks.newConfigBuilder(FRAMEWORK_CONFIG).defaultSchema(schema).build())
