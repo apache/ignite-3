@@ -35,9 +35,9 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.sql.engine.framework.NoOpTransaction;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlStartTransaction;
 import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
-import org.apache.ignite.internal.sql.engine.tx.ImplicitTransactionWrapper;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionHandler;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionWrapper;
+import org.apache.ignite.internal.sql.engine.tx.QueryTransactionWrapperImpl;
 import org.apache.ignite.internal.sql.engine.tx.ScriptTransactionHandler;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.lang.ErrorGroups.Sql;
@@ -51,7 +51,7 @@ import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 /**
- * Tests for class {@link ImplicitTransactionWrapper}.
+ * Tests for class {@link QueryTransactionWrapperImpl}.
  */
 @ExtendWith(MockitoExtension.class)
 public class QueryTransactionWrapperSelfTest extends BaseIgniteAbstractTest {
@@ -86,7 +86,7 @@ public class QueryTransactionWrapperSelfTest extends BaseIgniteAbstractTest {
     public void commitImplicitTxNotAffectExternalTransaction() {
         NoOpTransaction externalTx = new NoOpTransaction("test");
 
-        ImplicitTransactionWrapper wrapper = new ImplicitTransactionWrapper(externalTx, false);
+        QueryTransactionWrapperImpl wrapper = new QueryTransactionWrapperImpl(externalTx, false);
         wrapper.commitImplicit();
         assertFalse(externalTx.commitFuture().isDone());
     }
@@ -94,7 +94,7 @@ public class QueryTransactionWrapperSelfTest extends BaseIgniteAbstractTest {
     @Test
     public void testCommitImplicit() {
         NoOpTransaction tx = new NoOpTransaction("test");
-        ImplicitTransactionWrapper wrapper = new ImplicitTransactionWrapper(tx, true);
+        QueryTransactionWrapperImpl wrapper = new QueryTransactionWrapperImpl(tx, true);
 
         wrapper.commitImplicit();
 
@@ -105,7 +105,7 @@ public class QueryTransactionWrapperSelfTest extends BaseIgniteAbstractTest {
     @Test
     public void testRollbackImplicit() {
         NoOpTransaction tx = new NoOpTransaction("test");
-        ImplicitTransactionWrapper wrapper = new ImplicitTransactionWrapper(tx, true);
+        QueryTransactionWrapperImpl wrapper = new QueryTransactionWrapperImpl(tx, true);
 
         wrapper.rollback();
 

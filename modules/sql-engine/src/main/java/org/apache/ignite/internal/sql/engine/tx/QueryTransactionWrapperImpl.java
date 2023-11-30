@@ -24,12 +24,12 @@ import org.apache.ignite.internal.tx.InternalTransaction;
 /**
  * Wrapper for the transaction that encapsulates the management of an implicit transaction.
  */
-public class ImplicitTransactionWrapper implements QueryTransactionWrapper {
+public class QueryTransactionWrapperImpl implements QueryTransactionWrapper {
     private final boolean implicit;
 
     private final InternalTransaction transaction;
 
-    public ImplicitTransactionWrapper(InternalTransaction transaction, boolean implicit) {
+    public QueryTransactionWrapperImpl(InternalTransaction transaction, boolean implicit) {
         this.transaction = transaction;
         this.implicit = implicit;
     }

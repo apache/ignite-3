@@ -48,13 +48,13 @@ public class QueryTransactionHandler {
         InternalTransaction activeTx = activeTransaction();
 
         if (activeTx == null) {
-            return new ImplicitTransactionWrapper((InternalTransaction) transactions.begin(
+            return new QueryTransactionWrapperImpl((InternalTransaction) transactions.begin(
                     new TransactionOptions().readOnly(queryType != SqlQueryType.DML)), true);
         }
 
         validateStatement(queryType, activeTx);
 
-        return new ImplicitTransactionWrapper(activeTx, false);
+        return new QueryTransactionWrapperImpl(activeTx, false);
     }
 
     protected @Nullable InternalTransaction activeTransaction() {

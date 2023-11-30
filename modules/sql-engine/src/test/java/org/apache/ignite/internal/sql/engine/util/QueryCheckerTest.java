@@ -33,7 +33,7 @@ import org.apache.ignite.internal.sql.engine.framework.TestCluster;
 import org.apache.ignite.internal.sql.engine.framework.TestNode;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
 import org.apache.ignite.internal.sql.engine.property.SqlProperties;
-import org.apache.ignite.internal.sql.engine.tx.ImplicitTransactionWrapper;
+import org.apache.ignite.internal.sql.engine.tx.QueryTransactionWrapperImpl;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.type.NativeTypes;
@@ -285,7 +285,7 @@ public class QueryCheckerTest extends BaseIgniteAbstractTest {
             AsyncSqlCursor<List<Object>> sqlCursor = new AsyncSqlCursorImpl<>(
                     type,
                     plan.metadata(),
-                    new ImplicitTransactionWrapper(new NoOpTransaction("test"), false),
+                    new QueryTransactionWrapperImpl(new NoOpTransaction("test"), false),
                     dataCursor,
                     () -> {}
             );
