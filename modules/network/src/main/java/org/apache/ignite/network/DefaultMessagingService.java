@@ -338,12 +338,12 @@ public class DefaultMessagingService extends AbstractMessagingService {
                 } finally {
                     long took = System.currentTimeMillis() - started;
                     if (took > 100) {
-                        LOG.warn("XXX Processing of {} from {} took {} ms", obj.message(), obj.consistentId(), took);
+                        LOG.info("XXX Processing of {} from {} took {} ms", obj.message(), obj.consistentId(), took);
                     }
                 }
             }, inboundExecutor).orTimeout(5, TimeUnit.SECONDS).whenComplete((res, ex) -> {
                 if (ex instanceof TimeoutException) {
-                    LOG.warn("YYY Timeout while processing {} from {}", ex, obj.message(), obj.consistentId());
+                    LOG.info("YYY Timeout while processing {} from {}", ex, obj.message(), obj.consistentId());
                 }
             });
 
