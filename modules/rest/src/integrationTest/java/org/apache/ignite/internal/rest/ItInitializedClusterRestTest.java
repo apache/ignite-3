@@ -46,6 +46,7 @@ public class ItInitializedClusterRestTest extends AbstractRestTestBase {
             "(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<maintenance>\\d+)((?<snapshot>-SNAPSHOT)|-(?<alpha>alpha\\d+)|--(?<beta>beta\\d+))?";
 
     @BeforeEach
+    @Override
     void setUp(TestInfo testInfo) throws IOException, InterruptedException {
         super.setUp(testInfo);
 

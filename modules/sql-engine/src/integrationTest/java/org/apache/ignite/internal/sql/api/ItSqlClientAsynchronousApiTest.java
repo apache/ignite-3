@@ -70,13 +70,11 @@ public class ItSqlClientAsynchronousApiTest extends ItSqlAsynchronousApiTest {
     }
 
     @Override
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17060")
     public void runScriptThatCompletesSuccessfully() {
         super.runScriptThatCompletesSuccessfully();
     }
 
     @Override
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17060")
     public void runScriptThatFails() {
         super.runScriptThatFails();
     }
