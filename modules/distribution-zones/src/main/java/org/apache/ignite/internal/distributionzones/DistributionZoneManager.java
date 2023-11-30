@@ -80,7 +80,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.LongFunction;
 import org.apache.ignite.internal.catalog.CatalogManager;
@@ -476,7 +475,7 @@ public class DistributionZoneManager implements IgniteComponent {
                         // Take the highest revision from the topologyAugmentationMap and schedule scale up/scale down,
                         // meaning that all augmentations of nodes will be taken into account in newly created timers.
                         // If augmentations have already been proposed to data nodes in the metastorage before restart,
-                        // that means we have updated corresponding trigger key and it's value will be greater than
+                        // that means we have updated corresponding trigger key and it's value will be greater or equal to
                         // the highest revision from the topologyAugmentationMap, and current timer won't affect data nodes.
 
                         futures.add(scheduleTimers(zone, true, false, maxScaleUpRevision));
@@ -853,42 +852,7 @@ public class DistributionZoneManager implements IgniteComponent {
      * @return Future that represents the pending completion of the operation.
      *         For the immediate timers it will be completed when data nodes will be updated in Meta Storage.
      */
-    private CompletableFuture<Void> scheduleTimers(
-            CatalogZoneDescriptor zone,
-            boolean nodesAdded,
-            boolean nodesRemoved,
-            long revision
-    ) {
-        return scheduleTimers(
-                zone,
-                nodesAdded,
-                nodesRemoved,
-                revision,
-                this::saveDataNodesToMetaStorageOnScaleUp,
-                this::saveDataNodesToMetaStorageOnScaleDown
-        );
-    }
-
-    /**
-     * Schedules scale up and scale down timers. This method is needed also for test purposes.
-     *
-     * @param zone Zone descriptor.
-     * @param nodesAdded Flag indicating that nodes was added to a topology and should be added to zones data nodes.
-     * @param nodesRemoved Flag indicating that nodes was removed from a topology and should be removed from zones data nodes.
-     * @param revision Revision that triggered that event.
-     * @param saveDataNodesOnScaleUp Function that saves nodes to a zone's data nodes in case of scale up was triggered.
-     * @param saveDataNodesOnScaleDown Function that saves nodes to a zone's data nodes in case of scale down was triggered.
-     * @return Future that represents the pending completion of the operation.
-     *         For the immediate timers it will be completed when data nodes will be updated in Meta Storage.
-     */
-    private CompletableFuture<Void> scheduleTimers(
-            CatalogZoneDescriptor zone,
-            boolean nodesAdded,
-            boolean nodesRemoved,
-            long revision,
-            BiFunction<Integer, Long, CompletableFuture<Void>> saveDataNodesOnScaleUp,
-            BiFunction<Integer, Long, CompletableFuture<Void>> saveDataNodesOnScaleDown
-    ) {
+    private CompletableFuture<Void> scheduleTimers(CatalogZoneDescriptor zone, boolean nodesAdded, boolean nodesRemoved, long revision) {
         int autoAdjust = zone.dataNodesAutoAdjust();
         int autoAdjustScaleDown = zone.dataNodesAutoAdjustScaleDown();
         int autoAdjustScaleUp = zone.dataNodesAutoAdjustScaleUp();
@@ -909,7 +873,7 @@ public class DistributionZoneManager implements IgniteComponent {
                 if (autoAdjustScaleUp != INFINITE_TIMER_VALUE) {
                     zonesState.get(zoneId).rescheduleScaleUp(
                             autoAdjustScaleUp,
-                            () -> saveDataNodesOnScaleUp.apply(zoneId, revision),
+                            () -> saveDataNodesToMetaStorageOnScaleUp(zoneId, revision),
                             zoneId
                     );
                 }
@@ -923,7 +887,7 @@ public class DistributionZoneManager implements IgniteComponent {
                 if (autoAdjustScaleDown != INFINITE_TIMER_VALUE) {
                     zonesState.get(zoneId).rescheduleScaleDown(
                             autoAdjustScaleDown,
-                            () -> saveDataNodesOnScaleDown.apply(zoneId, revision),
+                            () -> saveDataNodesToMetaStorageOnScaleDown(zoneId, revision),
                             zoneId
                     );
                 }
