@@ -25,7 +25,6 @@ import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -242,13 +241,11 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
     }
 
     private BaseQueryContext createQueryContext(UUID queryId, int schemaVersion, Object[] params) {
-        DynamicParameterValue[] dynamicParams = Arrays.stream(params)
-                .map(DynamicParameterValue::value)
-                .toArray(DynamicParameterValue[]::new);
+        DynamicParameterValue[] parameters = DynamicParameterValue.fromValues(params);
 
         return BaseQueryContext.builder()
                 .queryId(queryId)
-                .parameters(dynamicParams)
+                .parameters(parameters)
                 .frameworkConfig(
                         Frameworks.newConfigBuilder(FRAMEWORK_CONFIG)
                                 .defaultSchema(sqlSchemaManager.schema(schemaVersion))
@@ -522,9 +519,11 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         private CompletableFuture<Void> sendFragment(
                 String targetNodeName, String serialisedFragment, FragmentDescription desc, TxAttributes txAttributes
         ) {
-            Object[] parameterValues = Arrays.stream(ctx.parameters())
-                    .map((v) -> v.value())
-                    .toArray();
+            DynamicParameterValue[] parameters = ctx.parameters();
+            Object[] parameterValues = new Object[parameters.length];
+            for (int i = 0; i < parameters.length; i++) {
+                parameterValues[i] = parameters[i];
+            }
 
             QueryStartRequest request = FACTORY.queryStartRequest()
                     .queryId(ctx.queryId())
@@ -636,7 +635,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                     initiatorNodeName,
                     desc,
                     handler,
-                    Commons.parametersMap(Arrays.stream(ctx.parameters()).map(p -> p.value()).toArray()),
+                    Commons.parametersMap(ctx.parameters()),
                     txAttributes
             );
         }

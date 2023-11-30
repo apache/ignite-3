@@ -56,6 +56,19 @@ public final class DynamicParameterValue {
         return hasValue;
     }
 
+    /** Creates an array of dynamic parameter values for the given array of values. */
+    public static DynamicParameterValue[] fromValues(Object[] values) {
+        if (values.length == 0) {
+            return new DynamicParameterValue[0];
+        } else {
+            DynamicParameterValue[] dynamicParams = new DynamicParameterValue[values.length];
+            for (int i = 0; i < dynamicParams.length; i++) {
+                dynamicParams[i] = value(values[i]);
+            }
+            return dynamicParams;
+        }
+    }
+
     /** {@inheritDoc} */
     @Override
     public String toString() {

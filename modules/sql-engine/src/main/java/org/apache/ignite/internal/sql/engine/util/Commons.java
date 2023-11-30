@@ -89,6 +89,7 @@ import org.apache.ignite.internal.sql.engine.hint.IgniteHint;
 import org.apache.ignite.internal.sql.engine.metadata.IgniteMetadata;
 import org.apache.ignite.internal.sql.engine.metadata.RelMetadataQueryEx;
 import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCostFactory;
+import org.apache.ignite.internal.sql.engine.prepare.DynamicParameterValue;
 import org.apache.ignite.internal.sql.engine.prepare.IgniteConvertletTable;
 import org.apache.ignite.internal.sql.engine.prepare.IgniteTypeCoercion;
 import org.apache.ignite.internal.sql.engine.prepare.PlanningContext;
@@ -314,16 +315,22 @@ public final class Commons {
     }
 
     /**
-     * ParametersMap.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Creates a map of parameters values from the given array of dynamic parameter values.
+     * All dynamic parameter should have their values specified.
      *
      * @param params Parameters.
      * @return Parameters map.
      */
-    public static Map<String, Object> parametersMap(@Nullable Object[] params) {
-        HashMap<String, Object> res = new HashMap<>();
+    public static Map<String, Object> parametersMap(@Nullable DynamicParameterValue[] params) {
+        if (ArrayUtils.nullOrEmpty(params)) {
+            return Collections.emptyMap();
+        } else {
+            HashMap<String, Object> res = new HashMap<>();
 
-        return params != null ? populateParameters(res, params) : res;
+            populateParameters(res, params);
+
+            return res;
+        }
     }
 
     /**
@@ -331,15 +338,13 @@ public final class Commons {
      *
      * @param dst    Map to populate.
      * @param params Parameters.
-     * @return Parameters map.
      */
-    public static Map<String, Object> populateParameters(Map<String, Object> dst, @Nullable Object[] params) {
-        if (!ArrayUtils.nullOrEmpty(params)) {
-            for (int i = 0; i < params.length; i++) {
-                dst.put("?" + i, params[i]);
-            }
+    private static void populateParameters(Map<String, Object> dst, DynamicParameterValue[] params) {
+        for (int i = 0; i < params.length; i++) {
+            DynamicParameterValue param = params[i];
+            Object value = param.value();
+            dst.put("?" + i, value);
         }
-        return dst;
     }
 
     /**
