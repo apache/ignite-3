@@ -191,6 +191,7 @@ dependencies {
     testFixturesImplementation project(':ignite-cluster-management')
     testFixturesImplementation project(':ignite-configuration')
     testFixturesImplementation project(':ignite-vault')
+    testFixturesImplementation project(':ignite-placement-driver-api')
     testFixturesImplementation testFixtures(project(':ignite-api'))
     testFixturesImplementation testFixtures(project(':ignite-core'))
     testFixturesImplementation testFixtures(project(':ignite-network'))
