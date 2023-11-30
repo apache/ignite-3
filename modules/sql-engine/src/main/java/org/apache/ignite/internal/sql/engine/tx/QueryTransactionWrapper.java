@@ -31,7 +31,7 @@ public interface QueryTransactionWrapper {
     CompletableFuture<Void> commitImplicit();
 
     /** Rolls back a transaction. */
-    CompletableFuture<Void> rollback();
+    CompletableFuture<Void> rollback(Throwable cause);
 
     /**
      * Action to perform, when prefetch of script statement is complete.

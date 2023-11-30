@@ -107,7 +107,7 @@ public class QueryTransactionWrapperSelfTest extends BaseIgniteAbstractTest {
         NoOpTransaction tx = new NoOpTransaction("test");
         QueryTransactionWrapperImpl wrapper = new QueryTransactionWrapperImpl(tx, true);
 
-        wrapper.rollback();
+        wrapper.rollback(null);
 
         assertThat(tx.rollbackFuture().isDone(), equalTo(true));
         assertThat(tx.commitFuture().isDone(), equalTo(false));
@@ -167,4 +167,3 @@ public class QueryTransactionWrapperSelfTest extends BaseIgniteAbstractTest {
         assertTrue(tx.rollbackFuture().isDone());
     }
 }
-

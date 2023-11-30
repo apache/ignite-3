@@ -49,7 +49,7 @@ public class QueryTransactionWrapperImpl implements QueryTransactionWrapper {
     }
 
     @Override
-    public CompletableFuture<Void> rollback() {
+    public CompletableFuture<Void> rollback(Throwable cause) {
         return transaction.rollbackAsync();
     }
 }

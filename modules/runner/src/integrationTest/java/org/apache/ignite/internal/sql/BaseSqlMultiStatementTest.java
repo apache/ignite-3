@@ -72,16 +72,32 @@ public abstract class BaseSqlMultiStatementTest extends BaseSqlIntegrationTest {
     }
 
     protected static List<AsyncSqlCursor<List<Object>>> fetchAllCursors(AsyncSqlCursor<List<Object>> cursor) {
+        return fetchCursors(cursor, -1, false);
+    }
+
+    protected static List<AsyncSqlCursor<List<Object>>> fetchAllCursorsAndClose(AsyncSqlCursor<List<Object>> cursor) {
+        return fetchCursors(cursor, -1, true);
+    }
+
+    protected static List<AsyncSqlCursor<List<Object>>> fetchCursors(AsyncSqlCursor<List<Object>> cursor, int count, boolean close) {
         List<AsyncSqlCursor<List<Object>>> cursors = new ArrayList<>();
 
         cursors.add(cursor);
 
-        while (cursor.hasNextResult()) {
+        if (close) {
+            cursor.closeAsync();
+        }
+
+        while ((count < 0 || --count > 0) && cursor.hasNextResult()) {
             cursor = await(cursor.nextResult());
 
             assertNotNull(cursor);
 
             cursors.add(cursor);
+
+            if (close) {
+                cursor.closeAsync();
+            }
         }
 
         return cursors;

@@ -35,13 +35,14 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Queue;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.function.LongFunction;
 import java.util.function.Supplier;
@@ -555,7 +556,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                 })
                 .whenComplete((res, ex) -> {
                     if (ex != null) {
-                        txWrapper.rollback();
+                        txWrapper.rollback(ex);
                     }
                 });
     }
@@ -669,8 +670,7 @@ public class SqlQueryProcessor implements QueryProcessor {
     private class MultiStatementHandler {
         private final String schemaName;
         private final ScriptTransactionHandler transactionHandler;
-        private final ScriptStatementParameters[] statements;
-        private final AtomicInteger statementIndex = new AtomicInteger();
+        private final Queue<ScriptStatementParameters> statements;
 
         MultiStatementHandler(
                 String schemaName,
@@ -680,11 +680,13 @@ public class SqlQueryProcessor implements QueryProcessor {
         ) {
             this.schemaName = schemaName;
             this.transactionHandler = transactionHandler;
-            this.statements = prepareStatements(parsedResults, params);
+            this.statements = prepareStatementsQueue(parsedResults, params);
         }
 
-        /** Returns an array. each element of which represents parameters required to execute a single statement of the script. */
-        private ScriptStatementParameters[] prepareStatements(List<ParsedResult> parsedResults0, Object[] params) {
+        /**
+         * Returns a queue. each element of which represents parameters required to execute a single statement of the script.
+         */
+        private Queue<ScriptStatementParameters> prepareStatementsQueue(List<ParsedResult> parsedResults0, Object[] params) {
             assert !parsedResults0.isEmpty();
 
             int paramsCount = parsedResults0.stream().mapToInt(ParsedResult::dynamicParamsCount).sum();
@@ -706,11 +708,13 @@ public class SqlQueryProcessor implements QueryProcessor {
                 prevCursorFuture = results[i].cursorFuture;
             }
 
-            return results;
+            return new ArrayBlockingQueue<>(results.length, false, List.of(results));
         }
 
         CompletableFuture<AsyncSqlCursor<List<Object>>> processNext() {
-            ScriptStatementParameters parameters = nextStatementParameters();
+            ScriptStatementParameters parameters = statements.poll();
+
+            assert parameters != null;
 
             CompletableFuture<AsyncSqlCursor<List<Object>>> cursorFuture = parameters.cursorFuture;
 
@@ -732,7 +736,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                                 .thenApply(ignore -> {
                                     if (parameters.nextStatementFuture == null) {
                                         // Try to rollback script managed transaction, if any.
-                                        txWrapper.rollback();
+                                        txWrapper.rollback(null);
                                     } else {
                                         taskExecutor.execute(this::processNext);
                                     }
@@ -749,15 +753,6 @@ public class SqlQueryProcessor implements QueryProcessor {
             }
 
             return cursorFuture;
-        }
-
-        /** Gets the parameters for the next statement. */
-        private ScriptStatementParameters nextStatementParameters() {
-            int idx = statementIndex.getAndIncrement();
-
-            assert idx < statements.length : "idx=" + idx + ", total=" + statements.length;
-
-            return statements[idx];
         }
 
         private CompletableFuture<AsyncSqlCursor<List<Object>>> executeStatement(
@@ -792,12 +787,6 @@ public class SqlQueryProcessor implements QueryProcessor {
         private void cancelAll(Throwable cause) {
             for (ScriptStatementParameters parameters : statements) {
                 CompletableFuture<AsyncSqlCursor<List<Object>>> fut = parameters.cursorFuture;
-
-                fut.whenComplete((cursor, e) -> {
-                    if (cursor != null) {
-                        cursor.closeAsync();
-                    }
-                });
 
                 if (fut.isDone()) {
                     continue;

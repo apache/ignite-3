@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine;
 
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
@@ -40,6 +41,8 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Tests to verify the execution of queries with transaction control statements.
@@ -92,7 +95,7 @@ public class ItSqlMultiStatementTxTest extends BaseSqlMultiStatementTest {
 
     @Test
     void basicTxStatements() {
-        List<AsyncSqlCursor<List<Object>>> cursors = fetchAllCursors(runScript(
+        fetchAllCursorsAndClose(runScript(
                 "START TRANSACTION;"
                         + "INSERT INTO test VALUES(0);"
                         + "INSERT INTO test VALUES(1);"
@@ -110,36 +113,18 @@ public class ItSqlMultiStatementTxTest extends BaseSqlMultiStatementTest {
 
         assertQuery("select count(id) from test")
                 .returns(3L).check();
-
-        cursors.forEach(AsyncSqlCursor::closeAsync);
     }
 
-    @Test
-    void readMoreRowsThanCanBePrefetchedReadOnlyTx() {
-        String query = "START TRANSACTION READ ONLY;"
-                + "SELECT 1;"
-                + "SELECT id FROM big;"
-                + "COMMIT;";
-
-        List<AsyncSqlCursor<List<Object>>> cursors = fetchAllCursors(runScript(query));
-        assertThat(cursors, hasSize(4));
-
-        BatchedResult<List<Object>> res = await(cursors.get(2).requestNextAsync(BIG_TABLE_ROWS_COUNT * 2));
-        assertNotNull(res);
-        assertThat(res.items(), hasSize(BIG_TABLE_ROWS_COUNT));
-
-        verifyFinishedTxCount(1);
-
-        cursors.forEach(AsyncSqlCursor::closeAsync);
-    }
-
-    @Test
-    void readMoreRowsThanCanBePrefetchedReadWriteTx() {
-        String query = "START TRANSACTION;"
-                + "UPDATE big SET salary=1 WHERE id=1;"
+    @ParameterizedTest(name = "ReadOnly: {0}")
+    @ValueSource(booleans = {true, false})
+    void readMoreRowsThanCanBePrefetchedReadOnlyTx(boolean readOnly) {
+        String txOptions = readOnly ? "READ ONLY" : "READ WRITE";
+        String specificStatement = readOnly ? "SELECT 1::BIGINT" : "UPDATE big SET salary=1 WHERE id=1";
+        String query = format("START TRANSACTION {};"
+                + "{};"
                 + "SELECT id FROM big;"
                 + "SELECT id FROM big;"
-                + "COMMIT;";
+                + "COMMIT;", txOptions, specificStatement);
 
         AsyncSqlCursor<List<Object>> cursor = runScript(query);
 
@@ -171,35 +156,75 @@ public class ItSqlMultiStatementTxTest extends BaseSqlMultiStatementTest {
         verifyFinishedTxCount(1);
     }
 
-    @Test
-    void openedScriptTransactionRollsBackImplicitly() {
-        {
-            runScript("START TRANSACTION;");
+    @ParameterizedTest
+    @ValueSource(strings = {"READ ONLY", "READ WRITE"})
+    void openedScriptTransactionRollsBackImplicitly(String txOptions) {
+        String startTxStatement = format("START TRANSACTION {};", txOptions);
 
+        {
+            runScript(startTxStatement);
+
+            // Transaction does not depend on the START TRANSACTION statement cursor,
+            // so it rolls back without waiting for this cursor to close.
             verifyFinishedTxCount(1);
         }
 
         {
             List<AsyncSqlCursor<List<Object>>> cursors = fetchAllCursors(
-                    runScript("START TRANSACTION;"
-                            + "INSERT INTO test VALUES(0);"
-                            + "INSERT INTO test VALUES(1);"
-                            + "COMMIT;"
-
-                            + "START TRANSACTION;"
-                            + "INSERT INTO test VALUES(2);"
-                            + "SELECT * FROM BIG;"
+                    runScript(startTxStatement
+                            + "SELECT * FROM TEST;"
+                            + "SELECT * FROM TEST;"
                     )
             );
 
-            verifyFinishedTxCount(3);
+            assertThat(cursors, hasSize(3));
 
-            assertThat(cursors, hasSize(7));
-            cursors.subList(0, 4).forEach(cur -> await(cur.closeAsync()));
+            // The transaction depends on the cursors of the SELECT statement,
+            // so it waits for them to close.
+            assertEquals(1, txManager().pending());
 
-            // Cursors associated with a transaction must be closed when the transaction is rolled back.
+            cursors.forEach(AsyncSqlCursor::closeAsync);
+            verifyFinishedTxCount(2);
+        }
+
+        {
+            AsyncSqlCursor<List<Object>> cur = runScript("START TRANSACTION READ WRITE;"
+                    + "INSERT INTO test VALUES(0);"
+                    + "INSERT INTO test VALUES(1);"
+                    + "COMMIT;"
+
+                    + "START TRANSACTION READ WRITE;"
+                    + "SELECT * FROM BIG;"
+                    + "INSERT INTO test VALUES(2);"
+            );
+
+            List<AsyncSqlCursor<List<Object>>> cursors = fetchCursors(cur, 3, false);
+            assertThat(cursors, hasSize(3));
+
+            // Set last cursor.
+            cur = cursors.get(2);
+            assertEquals(1, txManager().pending());
+
+            assertTrue(cur.hasNextResult());
+            assertFalse(cur.nextResult().isDone());
+
+            cursors.forEach(AsyncSqlCursor::closeAsync);
+
+            cur = await(cur.nextResult());
+            assertNotNull(cur);
+
+            // Fetch remaining.
+            cursors = fetchAllCursors(cur);
+            assertThat(cursors, hasSize(4));
+
+            assertEquals(1, txManager().pending());
+            cursors.forEach(AsyncSqlCursor::closeAsync);
+
             checkNoPendingTransactionsAndOpenedCursors();
 
+            verifyFinishedTxCount(4);
+
+            // Make sure that the last transaction was rolled back.
             assertQuery("select count(id) from test")
                     .returns(2L).check();
         }

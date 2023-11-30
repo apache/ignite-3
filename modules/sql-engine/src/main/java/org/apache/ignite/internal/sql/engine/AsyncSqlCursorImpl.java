@@ -117,7 +117,7 @@ public class AsyncSqlCursorImpl<T> implements AsyncSqlCursor<T> {
                 })
                 .exceptionally(rootEx -> {
                     // Always rollback a transaction in case of an error.
-                    return txWrapper.rollback()
+                    return txWrapper.rollback(rootEx)
                             .handle((none, rollbackEx) -> {
                                 Throwable wrapped = wrapIfNecessary(rootEx);
 
