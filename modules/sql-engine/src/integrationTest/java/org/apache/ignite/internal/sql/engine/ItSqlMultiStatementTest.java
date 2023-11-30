@@ -32,7 +32,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.sql.BaseSqlMultiStatementTest;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.tx.Transaction;
 import org.junit.jupiter.api.AfterEach;
@@ -108,16 +107,13 @@ public class ItSqlMultiStatementTest extends BaseSqlMultiStatementTest {
                 + "INSERT INTO test VALUES(?, DEFAULT);"
                 + "INSERT INTO test VALUES(?, ?);";
 
-        List<AsyncSqlCursor<List<Object>>> cursors =
-                fetchAllCursors(runScript(sql, null, 0, "1", 2, 4, "5"));
+        executeScript(sql, 0, "1", 2, 4, "5");;
 
         assertQuery("SELECT * FROM test")
                 .returns(0, "1")
                 .returns(2, "3")
                 .returns(4, "5")
                 .check();
-
-        cursors.forEach(AsyncSqlCursor::closeAsync);
     }
 
     @Test

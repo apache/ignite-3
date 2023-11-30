@@ -32,7 +32,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
 import java.util.List;
-import org.apache.ignite.internal.sql.BaseSqlMultiStatementTest;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
@@ -95,19 +94,17 @@ public class ItSqlMultiStatementTxTest extends BaseSqlMultiStatementTest {
 
     @Test
     void basicTxStatements() {
-        fetchAllCursorsAndClose(runScript(
-                "START TRANSACTION;"
-                        + "INSERT INTO test VALUES(0);"
-                        + "INSERT INTO test VALUES(1);"
-                        + "COMMIT;"
+        executeScript("START TRANSACTION;"
+                + "INSERT INTO test VALUES(0);"
+                + "INSERT INTO test VALUES(1);"
+                + "COMMIT;"
 
-                        + "START TRANSACTION;"
-                        + "COMMIT;"
+                + "START TRANSACTION;"
+                + "COMMIT;"
 
-                        + "START TRANSACTION;"
-                        + "INSERT INTO test VALUES(2);"
-                        + "COMMIT;"
-        ));
+                + "START TRANSACTION;"
+                + "INSERT INTO test VALUES(2);"
+                + "COMMIT;");
 
         verifyFinishedTxCount(3);
 
@@ -117,7 +114,7 @@ public class ItSqlMultiStatementTxTest extends BaseSqlMultiStatementTest {
 
     @ParameterizedTest(name = "ReadOnly: {0}")
     @ValueSource(booleans = {true, false})
-    void readMoreRowsThanCanBePrefetchedReadOnlyTx(boolean readOnly) {
+    void readMoreRowsThanCanBePrefetched(boolean readOnly) {
         String txOptions = readOnly ? "READ ONLY" : "READ WRITE";
         String specificStatement = readOnly ? "SELECT 1::BIGINT" : "UPDATE big SET salary=1 WHERE id=1";
         String query = format("START TRANSACTION {};"

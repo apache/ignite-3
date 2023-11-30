@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql;
+package org.apache.ignite.internal.sql.engine;
 
 import static org.apache.ignite.internal.sql.engine.property.SqlPropertiesHelper.emptyProperties;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
@@ -30,7 +30,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
-import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
+import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
 import org.jetbrains.annotations.Nullable;
@@ -56,30 +56,29 @@ public abstract class BaseSqlMultiStatementTest extends BaseSqlIntegrationTest {
         }
     }
 
-    protected AsyncSqlCursor<List<Object>> runScript(String query) {
+    /** Fully executes multi-statements query without reading cursor data. */
+    void executeScript(String query, Object ... params) {
+        fetchCursors(runScript(query, null, params), -1, true);
+    }
+
+    /** Initiates multi-statements query execution. */
+    AsyncSqlCursor<List<Object>> runScript(String query) {
         return runScript(query, null);
     }
 
-    protected AsyncSqlCursor<List<Object>> runScript(
-            String query,
-            @Nullable InternalTransaction tx,
-            Object ... params
-    ) {
-        AsyncSqlCursor<List<Object>> cursor =
-                await(queryProcessor().queryScriptAsync(emptyProperties(), igniteTx(), tx, query, params));
+    AsyncSqlCursor<List<Object>> runScript(String query, @Nullable InternalTransaction tx, Object ... params) {
+        AsyncSqlCursor<List<Object>> cursor = await(
+                queryProcessor().queryScriptAsync(emptyProperties(), igniteTx(), tx, query, params)
+        );
 
         return Objects.requireNonNull(cursor);
     }
 
-    protected static List<AsyncSqlCursor<List<Object>>> fetchAllCursors(AsyncSqlCursor<List<Object>> cursor) {
+    static List<AsyncSqlCursor<List<Object>>> fetchAllCursors(AsyncSqlCursor<List<Object>> cursor) {
         return fetchCursors(cursor, -1, false);
     }
 
-    protected static List<AsyncSqlCursor<List<Object>>> fetchAllCursorsAndClose(AsyncSqlCursor<List<Object>> cursor) {
-        return fetchCursors(cursor, -1, true);
-    }
-
-    protected static List<AsyncSqlCursor<List<Object>>> fetchCursors(AsyncSqlCursor<List<Object>> cursor, int count, boolean close) {
+    static List<AsyncSqlCursor<List<Object>>> fetchCursors(AsyncSqlCursor<List<Object>> cursor, int count, boolean close) {
         List<AsyncSqlCursor<List<Object>>> cursors = new ArrayList<>();
 
         cursors.add(cursor);
@@ -103,7 +102,7 @@ public abstract class BaseSqlMultiStatementTest extends BaseSqlIntegrationTest {
         return cursors;
     }
 
-    protected static void validateSingleResult(AsyncSqlCursor<List<Object>> cursor, Object... expected) {
+    static void validateSingleResult(AsyncSqlCursor<List<Object>> cursor, Object... expected) {
         BatchedResult<List<Object>> res = await(cursor.requestNextAsync(1));
         assertNotNull(res);
 
