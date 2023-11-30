@@ -129,3 +129,13 @@ dependencies {
     testFixturesImplementation libs.jetbrains.annotations
     testFixturesImplementation libs.hamcrest.core
 }
+
+integrationTest {
+    useJUnitPlatform {
+        if (System.getProperty("sqlTest") != null) {
+            it.includeTags "sqllogic"
+        } else {
+            it.excludeTags "sqllogic"
+        }
+    }
+}

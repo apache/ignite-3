@@ -220,16 +220,6 @@ tasks.register("runnerPlatformBenchmark", JavaExec) {
     enableAssertions = true
 }
 
-integrationTest {
-    useJUnitPlatform {
-        if (System.getProperty("sqlTest") != null) {
-            it.includeTags "sqllogic"
-        } else {
-            it.excludeTags "sqllogic"
-        }
-    }
-}
-
 jar {
     manifest {
         attributes(
