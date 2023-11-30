@@ -175,7 +175,6 @@ public class BallotBox implements Lifecycle<BallotBoxOptions>, Describer {
                 return false;
             }
             this.pendingIndex = newPendingIndex;
-            this.lastCommittedIndex = newPendingIndex - 1;
             this.closureQueue.resetFirstIndex(newPendingIndex);
             return true;
         }
