@@ -59,15 +59,12 @@ namespace Apache.Ignite.Internal
             Justification = "WaitHandle is not used in SemaphoreSlim, no need to dispose.")]
         private readonly SemaphoreSlim _socketLock = new(1);
 
-        /** Last connected socket. Used to track partition assignment updates. */
-        private volatile ClientSocket? _lastConnectedSocket;
-
         /** Disposed flag. */
         private volatile bool _disposed;
 
         /** Local topology assignment version. Instead of using event handlers to notify all tables about assignment change,
          * the table will compare its version with channel version to detect an update. */
-        private int _assignmentVersion;
+        private long _assignmentTimestamp;
 
         /** Cluster id from the first handshake. */
         private Guid? _clusterId;
@@ -104,9 +101,9 @@ namespace Apache.Ignite.Internal
         public IgniteClientConfiguration Configuration { get; }
 
         /// <summary>
-        /// Gets the partition assignment version.
+        /// Gets the partition assignment timestamp.
         /// </summary>
-        public int PartitionAssignmentVersion => Interlocked.CompareExchange(ref _assignmentVersion, -1, -1);
+        public long PartitionAssignmentTimestamp => Interlocked.Read(ref _assignmentTimestamp);
 
         /// <summary>
         /// Gets the observable timestamp.
@@ -255,15 +252,20 @@ namespace Apache.Ignite.Internal
         }
 
         /// <inheritdoc/>
-        void IClientSocketEventListener.OnAssignmentChanged(ClientSocket clientSocket)
+        void IClientSocketEventListener.OnAssignmentChanged(long timestamp)
         {
-            // NOTE: Multiple channels will send the same update to us, resulting in multiple cache invalidations.
-            // This could be solved with a cluster-wide AssignmentVersion, but we don't have that.
-            // So we only react to updates from the last known good channel. When no user-initiated operations are performed on that
-            // channel, heartbeat messages will trigger updates.
-            if (clientSocket == _lastConnectedSocket)
+            while (true)
             {
-                Interlocked.Increment(ref _assignmentVersion);
+                var oldTimestamp = Interlocked.Read(ref _assignmentTimestamp);
+                if (oldTimestamp >= timestamp)
+                {
+                    return;
+                }
+
+                if (Interlocked.CompareExchange(ref _assignmentTimestamp, value: timestamp, comparand: oldTimestamp) == oldTimestamp)
+                {
+                    return;
+                }
             }
         }
 
@@ -491,7 +493,6 @@ namespace Apache.Ignite.Internal
                 endpoint.Socket = socket;
 
                 _endpointsByName[socket.ConnectionContext.ClusterNode.Name] = endpoint;
-                _lastConnectedSocket = socket;
 
                 return socket;
             }

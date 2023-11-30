@@ -57,6 +57,7 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
+import org.apache.ignite.internal.lang.RunnableX;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
@@ -693,14 +694,6 @@ public final class IgniteTestUtils {
                         shortTestMethodName(testClassName),
                         shortTestMethodName(testMethodName),
                         idx);
-    }
-
-    /**
-     * Runnable that could throw an exception.
-     */
-    @FunctionalInterface
-    public interface RunnableX {
-        void run() throws Throwable;
     }
 
     /**

@@ -645,6 +645,7 @@ public class PersistentPageMemory implements PageMemory {
             @Nullable AtomicBoolean pageAllocated
     ) throws IgniteInternalCheckedException {
         assert started;
+        assert pageIndex(pageId) != 0 : "Partition meta should should not be read through PageMemory so as not to occupy memory.";
 
         int partId = partitionId(pageId);
 

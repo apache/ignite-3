@@ -23,7 +23,7 @@ import java.util.Collection;
 import java.util.UUID;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.message.ReplicaRequest;
+import org.apache.ignite.internal.replicator.message.PrimaryReplicaRequest;
 import org.apache.ignite.internal.replicator.message.TimestampAware;
 import org.apache.ignite.network.annotations.Marshallable;
 import org.apache.ignite.network.annotations.Transferable;
@@ -39,7 +39,7 @@ import org.jetbrains.annotations.Nullable;
  *  </ol>
  */
 @Transferable(value = TxMessageGroup.TX_FINISH_REQUEST)
-public interface TxFinishReplicaRequest extends ReplicaRequest, TimestampAware {
+public interface TxFinishReplicaRequest extends PrimaryReplicaRequest, TimestampAware {
     /**
      * Returns transaction Id.
      *
@@ -73,13 +73,4 @@ public interface TxFinishReplicaRequest extends ReplicaRequest, TimestampAware {
      */
     @Marshallable
     Collection<ReplicationGroupId> groups();
-
-    /**
-     * Gets a raft term.
-     * TODO: A temp solution until lease-based engine will be implemented (IGNITE-17256, IGNITE-15083)
-     *
-     * @return Raft term.
-     */
-    @Deprecated
-    Long term();
 }

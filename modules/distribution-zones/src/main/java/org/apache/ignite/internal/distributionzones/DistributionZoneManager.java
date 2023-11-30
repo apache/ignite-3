@@ -30,7 +30,7 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.ZONE_ALTER;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.ZONE_CREATE;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.ZONE_DROP;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.conditionForGlobalStatesChanges;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.conditionForRecoverableStateChanges;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.conditionForZoneCreation;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.conditionForZoneRemoval;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.createZoneManagerExecutor;
@@ -48,11 +48,12 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleUpChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneTopologyAugmentation;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesFilterUpdateRevision;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesGlobalStateRevision;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLastHandledTopology;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyPrefix;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyVersionKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesNodesAttributes;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesRecoverableStateRevision;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.value;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
@@ -267,7 +268,9 @@ public class DistributionZoneManager implements IgniteComponent {
 
             restoreGlobalStateFromLocalMetastorage(recoveryRevision);
 
-            startZonesOnStartManagerBusy(recoveryRevision);
+            createOrRestoreZonesStates(recoveryRevision);
+
+            restoreLogicalTopologyChangeEvent(recoveryRevision);
 
             rebalanceEngine.start();
         });
@@ -669,31 +672,28 @@ public class DistributionZoneManager implements IgniteComponent {
 
     /**
      * Restores from local Meta Storage logical topology and nodes' attributes fields in {@link DistributionZoneManager} after restart.
+     *
+     * @param recoveryRevision Revision of the Meta Storage after its recovery.
      */
-    private void restoreGlobalStateFromLocalMetastorage(long revision) {
-        Entry topologyEntry = metaStorageManager.getLocally(zonesLogicalTopologyKey(), revision);
+    private void restoreGlobalStateFromLocalMetastorage(long recoveryRevision) {
+        Entry lastHandledTopologyEntry = metaStorageManager.getLocally(zonesLastHandledTopology(), recoveryRevision);
 
-        Entry nodeAttributesEntry = metaStorageManager.getLocally(zonesNodesAttributes(), revision);
+        Entry nodeAttributesEntry = metaStorageManager.getLocally(zonesNodesAttributes(), recoveryRevision);
 
-        if (topologyEntry != null && topologyEntry.value() != null) {
-            logicalTopology = fromBytes(topologyEntry.value());
+        if (lastHandledTopologyEntry.value() != null) {
+            // We save zonesLastHandledTopology and zonesNodesAttributes in Meta Storage in a one batch, so it is impossible
+            // that one value is not null, but other is null.
+            assert nodeAttributesEntry.value() != null;
 
-            if (nodeAttributesEntry.value() != null) {
-                nodesAttributes = fromBytes(nodeAttributesEntry.value());
-            } else {
-                // This possible, if after CMG has notified about new topology, but cluster restarted in the middle of
-                // DistributionZoneManager.createMetastorageTopologyListener, so nodeAttributes has not been saved to MS.
-                // In that case, we can initialise it with the current logical topology.
-                // TODO: https://issues.apache.org/jira/browse/IGNITE-20603 restore nodeAttributes as well
-                logicalTopology.forEach(n -> nodesAttributes.put(n.nodeId(), n.nodeAttributes()));
-            }
+            logicalTopology = fromBytes(lastHandledTopologyEntry.value());
+
+            nodesAttributes = fromBytes(nodeAttributesEntry.value());
         }
 
-        assert topologyEntry == null || topologyEntry.value() == null || logicalTopology.equals(fromBytes(topologyEntry.value()))
+        assert lastHandledTopologyEntry.value() == null || logicalTopology.equals(fromBytes(lastHandledTopologyEntry.value()))
                 : "Initial value of logical topology was changed after initialization from the Meta Storage manager.";
 
-        assert nodeAttributesEntry == null
-                || nodeAttributesEntry.value() == null
+        assert nodeAttributesEntry.value() == null
                 || nodesAttributes.equals(fromBytes(nodeAttributesEntry.value()))
                 : "Initial value of nodes' attributes was changed after initialization from the Meta Storage manager.";
     }
@@ -738,44 +738,10 @@ public class DistributionZoneManager implements IgniteComponent {
                     assert newLogicalTopology != null : "The event doesn't contain logical topology";
                     assert revision > 0 : "The event doesn't contain logical topology version";
 
-                    Set<NodeWithAttributes> newLogicalTopology0 = newLogicalTopology;
-
-                    Set<Node> removedNodes =
-                            logicalTopology.stream()
-                                    .filter(node -> !newLogicalTopology0.contains(node))
-                                    .map(NodeWithAttributes::node)
-                                    .collect(toSet());
-
-                    Set<Node> addedNodes =
-                            newLogicalTopology.stream()
-                                    .filter(node -> !logicalTopology.contains(node))
-                                    .map(NodeWithAttributes::node)
-                                    .collect(toSet());
-
                     // It is safe to get the latest version of the catalog as we are in the metastore thread.
                     int catalogVersion = catalogManager.latestCatalogVersion();
 
-                    Set<Integer> zoneIds = new HashSet<>();
-
-                    List<CompletableFuture<Void>> futures = new ArrayList<>();
-
-                    for (CatalogZoneDescriptor zone : catalogManager.zones(catalogVersion)) {
-                        int zoneId = zone.id();
-
-                        updateTopologyAugmentationMap(addedNodes, removedNodes, revision, zoneId);
-
-                        futures.add(scheduleTimers(zone, addedNodes, removedNodes, revision));
-
-                        zoneIds.add(zone.id());
-                    }
-
-                    newLogicalTopology.forEach(n -> nodesAttributes.put(n.nodeId(), n.nodeAttributes()));
-
-                    logicalTopology = newLogicalTopology;
-
-                    futures.add(saveGlobalStatesToMetastorage(zoneIds, revision));
-
-                    return allOf(futures.toArray(CompletableFuture[]::new));
+                    return onLogicalTopologyUpdate(newLogicalTopology, revision, catalogVersion);
                 } finally {
                     busyLock.leaveBusy();
                 }
@@ -789,14 +755,61 @@ public class DistributionZoneManager implements IgniteComponent {
     }
 
     /**
-     * Update topology augmentation map with newly added and removed nodes.
+     * Reaction on an update of logical topology. In this method {@link DistributionZoneManager#logicalTopology},
+     * {@link DistributionZoneManager#nodesAttributes}, {@link ZoneState#topologyAugmentationMap} are updated.
+     * This fields are saved to Meta Storage, also timers are scheduled.
+     * Note that all futures of Meta Storage updates that happen in this method are returned from this method.
+     *
+     * @param newLogicalTopology New logical topology.
+     * @param revision Revision of the logical topology update.
+     * @param catalogVersion Actual version of the Catalog.
+     * @return Future reflecting the completion of the actions needed when logical topology was updated.
+     */
+    private CompletableFuture<Void> onLogicalTopologyUpdate(Set<NodeWithAttributes> newLogicalTopology, long revision, int catalogVersion) {
+        Set<Node> removedNodes =
+                logicalTopology.stream()
+                        .filter(node -> !newLogicalTopology.contains(node))
+                        .map(NodeWithAttributes::node)
+                        .collect(toSet());
+
+        Set<Node> addedNodes =
+                newLogicalTopology.stream()
+                        .filter(node -> !logicalTopology.contains(node))
+                        .map(NodeWithAttributes::node)
+                        .collect(toSet());
+
+        Set<Integer> zoneIds = new HashSet<>();
+
+        List<CompletableFuture<Void>> futures = new ArrayList<>();
+
+        for (CatalogZoneDescriptor zone : catalogManager.zones(catalogVersion)) {
+            int zoneId = zone.id();
+
+            updateLocalTopologyAugmentationMap(addedNodes, removedNodes, revision, zoneId);
+
+            futures.add(scheduleTimers(zone, addedNodes, removedNodes, revision));
+
+            zoneIds.add(zone.id());
+        }
+
+        newLogicalTopology.forEach(n -> nodesAttributes.put(n.nodeId(), n.nodeAttributes()));
+
+        logicalTopology = newLogicalTopology;
+
+        futures.add(saveRecoverableStateToMetastorage(zoneIds, revision, newLogicalTopology));
+
+        return allOf(futures.toArray(CompletableFuture[]::new));
+    }
+
+    /**
+     * Update local topology augmentation map with newly added and removed nodes.
      *
      * @param addedNodes Nodes that was added to a topology and should be added to zones data nodes.
      * @param removedNodes Nodes that was removed from a topology and should be removed from zones data nodes.
      * @param revision Revision of the event that triggered this method.
      * @param zoneId Zone's id.
      */
-    private void updateTopologyAugmentationMap(Set<Node> addedNodes, Set<Node> removedNodes, long revision, int zoneId) {
+    private void updateLocalTopologyAugmentationMap(Set<Node> addedNodes, Set<Node> removedNodes, long revision, int zoneId) {
         if (!addedNodes.isEmpty()) {
             zonesState.get(zoneId).nodesToAddToDataNodes(addedNodes, revision);
         }
@@ -807,30 +820,37 @@ public class DistributionZoneManager implements IgniteComponent {
     }
 
     /**
-     * Saves global states of the Distribution Zone Manager to Meta Storage atomically in one batch.
+     * Saves recoverable state of the Distribution Zone Manager to Meta Storage atomically in one batch.
      * After restart it could be used to restore these fields.
      *
      * @param zoneIds Set of zone id's, whose states will be saved in the Meta Storage.
      * @param revision Revision of the event.
+     * @param newLogicalTopology New logical topology.
      * @return Future representing pending completion of the operation.
      */
-    private CompletableFuture<Void> saveGlobalStatesToMetastorage(Set<Integer> zoneIds, long revision) {
-        Operation[] puts = new Operation[2 + zoneIds.size()];
+    private CompletableFuture<Void> saveRecoverableStateToMetastorage(
+            Set<Integer> zoneIds,
+            long revision,
+            Set<NodeWithAttributes> newLogicalTopology
+    ) {
+        Operation[] puts = new Operation[3 + zoneIds.size()];
 
         puts[0] = put(zonesNodesAttributes(), toBytes(nodesAttributes()));
 
-        puts[1] = put(zonesGlobalStateRevision(), longToBytes(revision));
+        puts[1] = put(zonesRecoverableStateRevision(), longToBytes(revision));
 
-        int i = 2;
+        puts[2] = put(zonesLastHandledTopology(), toBytes(newLogicalTopology));
+
+        int i = 3;
 
         // TODO: https://issues.apache.org/jira/browse/IGNITE-19491 Properly utilise topology augmentation map. Also this map
         // TODO: can be saved only once for all zones.
         for (Integer zoneId : zoneIds) {
-            puts[i++] = put(zoneTopologyAugmentation(zoneId), toBytes(zonesState.get(zoneId).topologyAugmentationMap));
+            puts[i++] = put(zoneTopologyAugmentation(zoneId), toBytes(zonesState.get(zoneId).topologyAugmentationMap()));
         }
 
         Iif iif = iif(
-                conditionForGlobalStatesChanges(revision),
+                conditionForRecoverableStateChanges(revision),
                 ops(puts).yield(true),
                 ops().yield(false)
         );
@@ -839,11 +859,11 @@ public class DistributionZoneManager implements IgniteComponent {
                 .thenApply(StatementResult::getAsBoolean)
                 .whenComplete((invokeResult, e) -> {
                     if (e != null) {
-                        LOG.error("Failed to update global states for distribution zone manager [revision = {}]", e, revision);
+                        LOG.error("Failed to update recoverable state for distribution zone manager [revision = {}]", e, revision);
                     } else if (invokeResult) {
-                        LOG.info("Update global states for distribution zone manager [revision = {}]", revision);
+                        LOG.info("Update recoverable state for distribution zone manager [revision = {}]", revision);
                     } else {
-                        LOG.debug("Failed to update global states for distribution zone manager [revision = {}]", revision);
+                        LOG.debug("Failed to update recoverable states for distribution zone manager [revision = {}]", revision);
                     }
                 }).thenCompose((ignored) -> completedFuture(null));
     }
@@ -1446,12 +1466,38 @@ public class DistributionZoneManager implements IgniteComponent {
         catalogManager.listen(ZONE_ALTER, new ManagerCatalogAlterZoneEventListener());
     }
 
-    private void startZonesOnStartManagerBusy(long revision) {
+    private void createOrRestoreZonesStates(long recoveryRevision) {
         int catalogVersion = catalogManager.latestCatalogVersion();
 
         // TODO: IGNITE-20287 Clean up abandoned resources for dropped zones from volt and metastore
         for (CatalogZoneDescriptor zone : catalogManager.zones(catalogVersion)) {
-            createOrRestoreZoneStateBusy(zone, revision);
+            // TODO: return this futures https://issues.apache.org/jira/browse/IGNITE-20477
+            createOrRestoreZoneStateBusy(zone, recoveryRevision);
+        }
+    }
+
+    /**
+     * Restore the event of the updating the logical topology from Meta Storage, that has not been completed before restart.
+     *
+     * @param recoveryRevision Revision of the Meta Storage after its recovery.
+     */
+    private void restoreLogicalTopologyChangeEvent(long recoveryRevision) {
+        Entry topologyEntry = metaStorageManager.getLocally(zonesLogicalTopologyKey(), recoveryRevision);
+
+        if (topologyEntry.value() != null) {
+            Set<NodeWithAttributes> newLogicalTopology = fromBytes(topologyEntry.value());
+
+            long topologyRevision = topologyEntry.revision();
+
+            // It is safe to get the latest version of the catalog as we are in the starting process.
+            int catalogVersion = catalogManager.latestCatalogVersion();
+
+            Entry lastUpdateRevisionEntry = metaStorageManager.getLocally(zonesRecoverableStateRevision(), recoveryRevision);
+
+            if (lastUpdateRevisionEntry.value() == null || topologyRevision > bytesToLong(lastUpdateRevisionEntry.value())) {
+                // TODO: return this futures https://issues.apache.org/jira/browse/IGNITE-20477
+                onLogicalTopologyUpdate(newLogicalTopology, recoveryRevision, catalogVersion);
+            }
         }
     }
 
