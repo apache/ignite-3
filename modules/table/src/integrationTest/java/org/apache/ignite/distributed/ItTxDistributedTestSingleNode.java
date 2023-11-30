@@ -76,11 +76,6 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
     @InjectConfiguration("mock: { fsync: false }")
     protected RaftConfiguration raftConfiguration;
 
-    @AfterEach
-    public void clearMocks() {
-        Mockito.framework().clearInlineMocks();
-    }
-
     /**
      * Returns a count of nodes.
      *
@@ -153,6 +148,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
     @AfterEach
     public void after() throws Exception {
         txTestCluster.shutdownCluster();
+        Mockito.framework().clearInlineMocks();
     }
 
     /**
