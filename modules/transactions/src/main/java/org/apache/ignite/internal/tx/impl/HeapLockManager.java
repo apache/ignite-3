@@ -284,7 +284,6 @@ public class HeapLockManager implements LockManager {
                 }
             } else {
                 res[0] = v;
-                // assert v.waitersCount() == 1;
             }
 
             return v;
