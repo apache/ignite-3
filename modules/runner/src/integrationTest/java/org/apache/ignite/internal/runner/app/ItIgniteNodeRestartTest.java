@@ -1141,7 +1141,12 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
      */
     @Test
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-19712")
-    // TODO https://issues.apache.org/jira/browse/IGNITE-19712 This test should work, but is disabled because of assertion errors
+    // TODO https://issues.apache.org/jira/browse/IGNITE-19712 This test should work, but is disabled because of assertion errors.
+    // TODO Root cause of errors is the absence of the indexes on the partition after restart. Scenario: indexes are recovered from
+    // TODO the catalog, then partition storages are cleaned up on recovery due to the absence of the node in stable assignments,
+    // TODO then after recovery the pending assignments event is processed, and it creates the storages and partition again, but
+    // TODO doesn't register the indexes. As a result, indexes are not found and assertion happens.
+    // TODO This also causes https://issues.apache.org/jira/browse/IGNITE-20996 .
     public void testCfgGap() {
         List<IgniteImpl> nodes = startNodes(4);
 
