@@ -138,23 +138,15 @@ public class ItDurableFinishTest extends ClusterPerTestIntegrationTest {
     ) {
         DefaultMessagingService coordinatorMessaging = messaging(coordinatorNode);
 
-        CountDownLatch msg = new CountDownLatch(1);
-        CountDownLatch transfer = new CountDownLatch(1);
+        AtomicBoolean dropFinish = new AtomicBoolean(true);
 
         // Make sure the finish message is prepared, i.e. the outcome, commit timestamp, primary node, etc. have been set,
         // and then temporarily block the messaging to simulate network issues.
         coordinatorMessaging.dropMessages((s, networkMessage) -> {
-            if (networkMessage instanceof TxFinishReplicaRequest) {
-                try {
-                    logger().info("Pausing message handling: {}.", networkMessage);
+            if (networkMessage instanceof TxFinishReplicaRequest && dropFinish.get()) {
+                logger().info("Dropping: {}.", networkMessage);
 
-                    transfer.countDown();
-                    msg.await();
-
-                    logger().info("Continue message handling: {}.", networkMessage);
-                } catch (InterruptedException e) {
-                    throw new RuntimeException(e);
-                }
+                return true;
             }
 
             return false;
@@ -165,8 +157,6 @@ public class ItDurableFinishTest extends ClusterPerTestIntegrationTest {
         // will run in the current thread.
         CompletableFuture.runAsync(() -> {
             try {
-                transfer.await();
-
                 logger().info("Start transferring primary.");
 
                 NodeUtils.transferPrimary(tbl, null, this::node);
@@ -175,7 +165,7 @@ public class ItDurableFinishTest extends ClusterPerTestIntegrationTest {
             } finally {
                 logger().info("Finished transferring primary.");
 
-                msg.countDown();
+                dropFinish.set(false);
             }
         });
     }
