@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.api;
 
+import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsIndexScan;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsTableScan;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.asStream;
@@ -35,6 +36,8 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.api.ColumnMetadataImpl.ColumnOriginImpl;
@@ -83,9 +86,6 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
 
     @Test
     public void ddl() throws Exception {
-        // Do not wait for indexes to become available.
-        setAwaitIndexAvailability(false);
-
         IgniteSql sql = igniteSql();
         Session ses = sql.createSession();
 
@@ -131,9 +131,6 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
         );
         checkDdl(false, ses, "CREATE INDEX IF NOT EXISTS TEST_IDX ON TEST(VAL1)");
 
-        // TODO: IGNITE-19150 We are waiting for schema synchronization to avoid races to create and destroy indexes
-        waitForIndexBuild("TEST", "TEST_IDX");
-
         checkDdl(true, ses, "DROP INDEX TESt_iDX");
         checkDdl(true, ses, "CREATE INDEX TEST_IDX1 ON TEST(VAL0)");
         checkDdl(true, ses, "CREATE INDEX TEST_IDX2 ON TEST(VAL0)");
@@ -166,8 +163,6 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
                 "ALTER TABLE TEST DROP COLUMN id"
         );
 
-        // TODO: IGNITE-19150 We are waiting for schema synchronization to avoid races to create and destroy indexes
-        waitForIndexBuild("TEST", "TEST_IDX3");
         checkDdl(true, ses, "DROP INDEX TESt_iDX3");
 
         // DROP COLUMNS
@@ -942,5 +937,18 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
         List<SqlRow> result();
 
         long affectedRows();
+    }
+
+    /**
+     * Gets client connector addresses for the specified nodes.
+     *
+     * @param nodes Nodes.
+     * @return List of client addresses.
+     */
+    static List<String> getClientAddresses(List<Ignite> nodes) {
+        return nodes.stream()
+                .map(ignite -> ((IgniteImpl) ignite).clientAddress().port())
+                .map(port -> "127.0.0.1" + ":" + port)
+                .collect(toList());
     }
 }

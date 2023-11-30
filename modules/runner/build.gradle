@@ -193,7 +193,6 @@ dependencies {
     testFixturesImplementation project(':ignite-vault')
     testFixturesImplementation testFixtures(project(':ignite-api'))
     testFixturesImplementation testFixtures(project(':ignite-core'))
-    testFixturesImplementation testFixtures(project(':ignite-sql-engine'))
     testFixturesImplementation testFixtures(project(':ignite-network'))
     testFixturesImplementation testFixtures(project(':ignite-catalog'))
     testFixturesImplementation testFixtures(project(':ignite-table'))
@@ -216,16 +215,6 @@ tasks.register("runnerPlatformBenchmark", JavaExec) {
     classpath = sourceSets.integrationTest.runtimeClasspath
 
     enableAssertions = true
-}
-
-integrationTest {
-    useJUnitPlatform {
-        if (System.getProperty("sqlTest") != null) {
-            it.includeTags "sqllogic"
-        } else {
-            it.excludeTags "sqllogic"
-        }
-    }
 }
 
 jar {
