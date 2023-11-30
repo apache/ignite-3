@@ -1,3 +1,20 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package org.apache.ignite.distributed;
 
 import static org.apache.ignite.internal.replicator.ReplicaManager.DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS;
@@ -153,11 +170,11 @@ public class ItLockTableTest extends IgniteAbstractTest {
 
         assertTrue(tx2.id().compareTo(tx1.id()) > 0);
 
-        Tuple r1_0 = view.get(tx1, keyTuple(0));
-        Tuple r2_1 = view.get(tx2, keyTuple(1));
+        Tuple t10 = view.get(tx1, keyTuple(0));
+        Tuple t21 = view.get(tx2, keyTuple(1));
 
-        assertEquals(t1.stringValue("name"), r1_0.stringValue("name"));
-        assertEquals(t2.stringValue("name"), r2_1.stringValue("name"));
+        assertEquals(t1.stringValue("name"), t10.stringValue("name"));
+        assertEquals(t2.stringValue("name"), t21.stringValue("name"));
 
         view.upsertAsync(tx1, tuple(1, "11"));
         view.upsertAsync(tx2, tuple(0, "00"));
