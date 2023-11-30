@@ -85,16 +85,18 @@ public class CausalityDataNodesEngine {
      */
     private final ConcurrentHashMap<Integer, Long> zonesCreateRevision = new ConcurrentHashMap<>();
 
-    /** Used to guarantee that the zone will be created before other components use the zone. */
+    /** Used to guarantee that the synchronous parts of all metastorage listeners for a specified causality token are handled. */
     private final VersionedValue<Void> zonesVv;
 
     /**
      * The constructor.
      *
      * @param busyLock Busy lock to stop synchronously.
+     * @param registry Registry for versioned values.
      * @param msManager Meta Storage manager.
      * @param zonesState Map with states for distribution zones.
      * @param distributionZoneManager Distribution zones manager.
+     * @param catalogManager Catalog manager.
      */
     public CausalityDataNodesEngine(
             IgniteSpinBusyLock busyLock,
@@ -134,6 +136,10 @@ public class CausalityDataNodesEngine {
     public CompletableFuture<Set<String>> dataNodes(long causalityToken, int catalogVersion, int zoneId) {
         if (causalityToken < 1) {
             throw new IllegalArgumentException("causalityToken must be greater then zero [causalityToken=" + causalityToken + '"');
+        }
+
+        if (catalogVersion < 0) {
+            throw new IllegalArgumentException("catalogVersion must be greater or equal to zero [catalogVersion=" + catalogVersion + '"');
         }
 
         if (zoneId < 0) {
@@ -258,7 +264,7 @@ public class CausalityDataNodesEngine {
             int zoneId
     ) {
         return max(
-                getLastScaleUpConfigRevision(causalityToken, catalogVersion, zoneId),
+                getLastScaleUpConfigRevision(catalogVersion, zoneId),
                 getLastScaleUpTopologyRevisions(causalityToken, catalogVersion, zoneId)
         );
     }
@@ -272,7 +278,7 @@ public class CausalityDataNodesEngine {
             int zoneId
     ) {
         return max(
-                getLastScaleDownConfigRevision(causalityToken, catalogVersion, zoneId),
+                getLastScaleDownConfigRevision(catalogVersion, zoneId),
                 getLastScaleDownTopologyRevisions(causalityToken, catalogVersion, zoneId)
         );
     }
@@ -281,22 +287,20 @@ public class CausalityDataNodesEngine {
      * Return revision of the last configuration change event which triggers immediate scale up recalculation of the data nodes value.
      */
     private long getLastScaleUpConfigRevision(
-            long causalityToken,
             int catalogVersion,
             int zoneId
     ) {
-        return getLastConfigRevision(causalityToken, catalogVersion, zoneId, true);
+        return getLastConfigRevision(catalogVersion, zoneId, true);
     }
 
     /**
      * Return revision of the last configuration change event which triggers immediate scale down recalculation of the data nodes value.
      */
     private long getLastScaleDownConfigRevision(
-            long causalityToken,
             int catalogVersion,
             int zoneId
     ) {
-        return getLastConfigRevision(causalityToken, catalogVersion, zoneId, false);
+        return getLastConfigRevision(catalogVersion, zoneId, false);
     }
 
     /**
@@ -304,7 +308,6 @@ public class CausalityDataNodesEngine {
      * of the data nodes value.
      */
     private long getLastConfigRevision(
-            long causalityToken,
             int catalogVersion,
             int zoneId,
             boolean isScaleUp
@@ -312,7 +315,7 @@ public class CausalityDataNodesEngine {
         CatalogZoneDescriptor entryNewerCfg = null;
 
         // Iterate over zone configurations from newest to oldest.
-        for (int i = catalogVersion; i > 0; i--) {
+        for (int i = catalogVersion; i >= 0; i--) {
             CatalogZoneDescriptor entryOlderCfg = catalogManager.catalog(i).zone(zoneId);
 
             if (entryOlderCfg == null) {

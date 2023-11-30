@@ -700,7 +700,8 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
         assertThrowsWithCause(
                 () -> distributionZoneManager.dataNodes(0, catalogManager.latestCatalogVersion(), defaultZoneId).get(TIMEOUT, MILLISECONDS),
-                IllegalArgumentException.class);
+                IllegalArgumentException.class
+        );
 
         assertThrowsWithCause(
                 () -> distributionZoneManager.dataNodes(
@@ -712,7 +713,13 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
         assertThrowsWithCause(
                 () -> distributionZoneManager.dataNodes(1, catalogManager.latestCatalogVersion(), -1).get(TIMEOUT, MILLISECONDS),
-                IllegalArgumentException.class);
+                IllegalArgumentException.class
+        );
+
+        assertThrowsWithCause(
+                () -> distributionZoneManager.dataNodes(1, -1, defaultZoneId).get(TIMEOUT, MILLISECONDS),
+                IllegalArgumentException.class
+        );
     }
 
     /**
