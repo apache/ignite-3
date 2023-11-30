@@ -174,7 +174,8 @@ public class ItSqlMultiStatementTxTest extends BaseSqlMultiStatementTest {
     @Test
     void openedScriptTransactionRollsBackImplicitly() {
         {
-            fetchAllCursors(runScript("START TRANSACTION;"));
+            runScript("START TRANSACTION;");
+
             verifyFinishedTxCount(1);
         }
 
@@ -187,7 +188,7 @@ public class ItSqlMultiStatementTxTest extends BaseSqlMultiStatementTest {
 
                             + "START TRANSACTION;"
                             + "INSERT INTO test VALUES(2);"
-                            + "SELECT * FROM test;"
+                            + "SELECT * FROM BIG;"
                     )
             );
 
