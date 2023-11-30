@@ -25,8 +25,10 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.calcite.schema.Table;
 import org.apache.calcite.schema.impl.AbstractSchema;
+import org.apache.ignite.internal.sql.engine.QueryCatalogVersions;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Schema implementation for sql engine.
@@ -35,16 +37,22 @@ public class IgniteSchema extends AbstractSchema {
 
     private final String name;
 
-    private final int version;
+    private final QueryCatalogVersions catalogVersions;
 
     private final Map<String, IgniteDataSource> tableByName;
 
     private final Int2ObjectMap<IgniteDataSource> tableById;
 
     /** Constructor. */
-    public IgniteSchema(String name, int version, Collection<? extends IgniteDataSource> tables) {
+    @TestOnly
+    public IgniteSchema(String name, int baseSchemaVersion, Collection<? extends IgniteDataSource> tables) {
+        this(name, new QueryCatalogVersions(baseSchemaVersion, Map.of()), tables);
+    }
+
+    /** Constructor. */
+    public IgniteSchema(String name, QueryCatalogVersions catalogVersions, Collection<? extends IgniteDataSource> tables) {
         this.name = name;
-        this.version = version;
+        this.catalogVersions = catalogVersions;
         this.tableByName = tables.stream().collect(Collectors.toMap(IgniteDataSource::name, Function.identity()));
         this.tableById = tables.stream().collect(CollectionUtils.toIntMapCollector(IgniteDataSource::id, Function.identity()));
     }
@@ -54,9 +62,9 @@ public class IgniteSchema extends AbstractSchema {
         return name;
     }
 
-    /** Schema version. */
-    public int version() {
-        return version;
+    /** Schema versions. */
+    public QueryCatalogVersions versions() {
+        return catalogVersions;
     }
 
     /** {@inheritDoc} */

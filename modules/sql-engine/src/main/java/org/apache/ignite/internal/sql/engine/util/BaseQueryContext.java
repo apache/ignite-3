@@ -49,6 +49,7 @@ import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.tools.FrameworkConfig;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.ignite.internal.sql.engine.QueryCancel;
+import org.apache.ignite.internal.sql.engine.QueryCatalogVersions;
 import org.apache.ignite.internal.sql.engine.QueryPrefetchCallback;
 import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCostFactory;
 import org.apache.ignite.internal.sql.engine.rex.IgniteRexBuilder;
@@ -194,8 +195,8 @@ public final class BaseQueryContext implements Context {
         return cfg.getDefaultSchema();
     }
 
-    public int schemaVersion() {
-        return Objects.requireNonNull(schema().unwrap(IgniteSchema.class)).version();
+    public QueryCatalogVersions schemaVersions() {
+        return Objects.requireNonNull(schema().unwrap(IgniteSchema.class)).versions();
     }
 
     public QueryPrefetchCallback prefetchCallback() {

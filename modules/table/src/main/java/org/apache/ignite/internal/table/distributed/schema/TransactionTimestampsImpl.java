@@ -46,10 +46,10 @@ public class TransactionTimestampsImpl implements TransactionTimestamps {
 
     @Override
     public CompletableFuture<HybridTimestamp> baseTimestamp(InternalTransaction tx, int tableId) {
-        if (tx.isReadOnly()) {
-            return completedFuture(tx.startTimestamp());
-        } else {
+        if (TransactionTimestamps.transactionSeesFutureTables(tx)) {
             return rwTransactionBaseTimestamp(tx.startTimestamp(), tableId);
+        } else {
+            return completedFuture(tx.startTimestamp());
         }
     }
 

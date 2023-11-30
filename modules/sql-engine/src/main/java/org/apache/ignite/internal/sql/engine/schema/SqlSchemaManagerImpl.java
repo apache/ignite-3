@@ -27,6 +27,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -49,6 +50,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescript
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.schema.DefaultValueGenerator;
+import org.apache.ignite.internal.sql.engine.QueryCatalogVersions;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
@@ -64,7 +66,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
 
     private final CatalogManager catalogManager;
 
-    private final Cache<Integer, SchemaPlus> schemaCache;
+    private final Cache<SchemaCacheKey, SchemaPlus> schemaCache;
 
     private final Cache<Long, IgniteTable> tableCache;
 
@@ -77,10 +79,10 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
 
     /** {@inheritDoc} */
     @Override
-    public SchemaPlus schema(int schemaVersion) {
+    public SchemaPlus schema(int schemaVersion, Map<Integer, Integer> tableOverrides) {
         return schemaCache.get(
-                schemaVersion,
-                version -> createRootSchema(catalogManager.catalog(version))
+                new SchemaCacheKey(schemaVersion, tableOverrides),
+                key -> createRootSchema(new QueryCatalogVersions(key.catalogVersion, tableOverrides))
         );
     }
 
@@ -107,7 +109,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
     @Override
     public IgniteTable table(int schemaVersion, int tableId) {
         return tableCache.get(tableCacheKey(schemaVersion, tableId), key -> {
-            SchemaPlus rootSchema = schemaCache.get(schemaVersion);
+            SchemaPlus rootSchema = schemaCache.get(new SchemaCacheKey(schemaVersion, Map.of()));
 
             if (rootSchema != null) {
                 for (String name : rootSchema.getSubSchemaNames()) {
@@ -149,62 +151,39 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
         return cacheKey | tableId;
     }
 
-    private static SchemaPlus createRootSchema(Catalog catalog) {
+    private SchemaPlus createRootSchema(QueryCatalogVersions catalogVersions) {
+        Catalog catalog = catalogManager.catalog(catalogVersions.baseVersion());
+
         SchemaPlus rootSchema = Frameworks.createRootSchema(false);
 
         for (CatalogSchemaDescriptor schemaDescriptor : catalog.schemas()) {
-            IgniteSchema igniteSchema = createSqlSchema(catalog.version(), schemaDescriptor);
+            IgniteSchema igniteSchema = createSqlSchema(catalogVersions, schemaDescriptor);
             rootSchema.add(igniteSchema.getName(), igniteSchema);
         }
 
         return rootSchema;
     }
 
-    private static IgniteSchema createSqlSchema(int catalogVersion, CatalogSchemaDescriptor schemaDescriptor) {
+    private IgniteSchema createSqlSchema(QueryCatalogVersions catalogVersions, CatalogSchemaDescriptor schemaDescriptor) {
         String schemaName = schemaDescriptor.name();
 
         int numTables = schemaDescriptor.tables().length;
-        List<IgniteDataSource> schemaDataSources = new ArrayList<>(numTables);
+        List<IgniteDataSource> schemaDataSources = new ArrayList<>(numTables + schemaDescriptor.systemViews().length);
         Int2ObjectMap<TableDescriptor> tableDescriptorMap = new Int2ObjectOpenHashMap<>(numTables);
 
         // Assemble sql-engine.TableDescriptors as they are required by indexes.
         for (CatalogTableDescriptor tableDescriptor : schemaDescriptor.tables()) {
-            TableDescriptor descriptor = createTableDescriptorForTable(tableDescriptor);
-            tableDescriptorMap.put(tableDescriptor.id(), descriptor);
+            assembleAndAddDescriptor(tableDescriptor, tableDescriptorMap);
         }
 
         Int2ObjectMap<Map<String, IgniteIndex>> schemaTableIndexes = new Int2ObjectOpenHashMap<>(schemaDescriptor.indexes().length);
 
         // Assemble indexes as they are required by tables.
-        for (CatalogIndexDescriptor indexDescriptor : schemaDescriptor.indexes()) {
-            if (!indexDescriptor.available()) {
-                continue;
-            }
-
-            int tableId = indexDescriptor.tableId();
-            TableDescriptor tableDescriptor = tableDescriptorMap.get(tableId);
-            assert tableDescriptor != null : "Table is not found in schema: " + tableId;
-
-            String indexName = indexDescriptor.name();
-            Map<String, IgniteIndex> tableIndexes = schemaTableIndexes.computeIfAbsent(tableId, id -> new LinkedHashMap<>());
-
-            IgniteIndex schemaIndex = createSchemaIndex(indexDescriptor, tableDescriptor);
-            tableIndexes.put(indexName, schemaIndex);
-
-            schemaTableIndexes.put(tableId, tableIndexes);
-        }
+        assembleAndCollectIndexes(schemaDescriptor.indexes(), tableDescriptorMap, schemaTableIndexes);
 
         // Assemble tables.
         for (CatalogTableDescriptor tableDescriptor : schemaDescriptor.tables()) {
-            int tableId = tableDescriptor.id();
-            TableDescriptor descriptor = tableDescriptorMap.get(tableId);
-            assert descriptor != null;
-
-            Map<String, IgniteIndex> tableIndexMap = schemaTableIndexes.getOrDefault(tableId, Collections.emptyMap());
-
-            IgniteTable schemaTable = createTable(tableDescriptor, descriptor, tableIndexMap);
-
-            schemaDataSources.add(schemaTable);
+            assembleAndAddTable(tableDescriptor, schemaDataSources, tableDescriptorMap, schemaTableIndexes);
         }
 
         for (CatalogSystemViewDescriptor systemViewDescriptor : schemaDescriptor.systemViews()) {
@@ -221,7 +200,73 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
             schemaDataSources.add(schemaTable);
         }
 
-        return new IgniteSchema(schemaName, catalogVersion, schemaDataSources);
+        // Add override tables.
+        for (Entry<Integer, Integer> entry : catalogVersions.tableOverrides().entrySet()) {
+            int tableId = entry.getKey();
+            Catalog overrideCatalog = catalogManager.catalog(entry.getValue());
+            CatalogTableDescriptor tableDescriptor = overrideCatalog.table(tableId);
+            assert tableDescriptor != null : "No table with ID " + tableId + " was found in catalog version "
+                    + overrideCatalog.version();
+
+            if (tableDescriptor.schemaId() == schemaDescriptor.id()) {
+                assembleAndAddDescriptor(tableDescriptor, tableDescriptorMap);
+                assembleAndCollectIndexes(
+                        overrideCatalog.indexes(tableDescriptor.id()).toArray(CatalogIndexDescriptor[]::new),
+                        tableDescriptorMap,
+                        schemaTableIndexes
+                );
+                assembleAndAddTable(tableDescriptor, schemaDataSources, tableDescriptorMap, schemaTableIndexes);
+            }
+        }
+
+        return new IgniteSchema(schemaName, catalogVersions, schemaDataSources);
+    }
+
+    private static void assembleAndAddDescriptor(
+            CatalogTableDescriptor tableDescriptor,
+            Int2ObjectMap<TableDescriptor> tableDescriptorMap
+    ) {
+        TableDescriptor descriptor = createTableDescriptorForTable(tableDescriptor);
+
+        tableDescriptorMap.put(tableDescriptor.id(), descriptor);
+    }
+
+    private static void assembleAndCollectIndexes(CatalogIndexDescriptor[] indexes, Int2ObjectMap<TableDescriptor> tableDescriptorMap,
+            Int2ObjectMap<Map<String, IgniteIndex>> schemaTableIndexes) {
+        for (CatalogIndexDescriptor indexDescriptor : indexes) {
+            if (!indexDescriptor.available()) {
+                continue;
+            }
+
+            int tableId = indexDescriptor.tableId();
+            TableDescriptor tableDescriptor = tableDescriptorMap.get(tableId);
+            assert tableDescriptor != null : "Table is not found in schema: " + tableId;
+
+            String indexName = indexDescriptor.name();
+            Map<String, IgniteIndex> tableIndexes = schemaTableIndexes.computeIfAbsent(tableId, id -> new LinkedHashMap<>());
+
+            IgniteIndex schemaIndex = createSchemaIndex(indexDescriptor, tableDescriptor);
+            tableIndexes.put(indexName, schemaIndex);
+
+            schemaTableIndexes.put(tableId, tableIndexes);
+        }
+    }
+
+    private static void assembleAndAddTable(
+            CatalogTableDescriptor tableDescriptor,
+            List<IgniteDataSource> schemaDataSources,
+            Int2ObjectMap<TableDescriptor> tableDescriptorMap,
+            Int2ObjectMap<Map<String, IgniteIndex>> schemaTableIndexes
+    ) {
+        int tableId = tableDescriptor.id();
+        TableDescriptor descriptor = tableDescriptorMap.get(tableId);
+        assert descriptor != null;
+
+        Map<String, IgniteIndex> tableIndexMap = schemaTableIndexes.getOrDefault(tableId, Collections.emptyMap());
+
+        IgniteTable schemaTable = createTable(tableDescriptor, descriptor, tableIndexMap);
+
+        schemaDataSources.add(schemaTable);
     }
 
     private static IgniteIndex createSchemaIndex(CatalogIndexDescriptor indexDescriptor, TableDescriptor tableDescriptor) {
@@ -363,5 +408,39 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
                 statistic,
                 indexes
         );
+    }
+
+    private static class SchemaCacheKey {
+        private final int catalogVersion;
+        private final Map<Integer, Integer> tableOverrides;
+
+        private SchemaCacheKey(int catalogVersion, Map<Integer, Integer> tableOverrides) {
+            this.catalogVersion = catalogVersion;
+            this.tableOverrides = Map.copyOf(tableOverrides);
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+
+            SchemaCacheKey that = (SchemaCacheKey) o;
+
+            if (catalogVersion != that.catalogVersion) {
+                return false;
+            }
+            return tableOverrides != null ? tableOverrides.equals(that.tableOverrides) : that.tableOverrides == null;
+        }
+
+        @Override
+        public int hashCode() {
+            int result = catalogVersion;
+            result = 31 * result + (tableOverrides != null ? tableOverrides.hashCode() : 0);
+            return result;
+        }
     }
 }

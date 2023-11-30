@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.message;
 
+import java.util.Map;
+import org.apache.ignite.internal.sql.engine.QueryCatalogVersions;
 import org.apache.ignite.internal.sql.engine.exec.TxAttributes;
 import org.apache.ignite.internal.sql.engine.exec.mapping.FragmentDescription;
 import org.apache.ignite.network.annotations.Marshallable;
@@ -51,7 +53,24 @@ public interface QueryStartRequest extends ExecutionContextAwareMessage {
     TxAttributes txAttributes();
 
     /**
-     * Return last schema version, just a stub, need to be removed after IGNITE-20633.
+     * Returns base schema version corresponding to the request. This schema version may be overriden
+     * for individual tables via {@link #schemaVersionTableOverrides()}.
+     *
+     * @see #schemaVersionTableOverrides()
      */
-    int schemaVersion();
+    int baseSchemaVersion();
+
+    /**
+     * Returns overrides of schema versions for this request.
+     *
+     * @return Map of overrides, keys are table IDs, values are catalog versions.
+     */
+    Map<Integer, Integer> schemaVersionTableOverrides();
+
+    /**
+     * Returns information about catalog versions fixed for this query.
+     */
+    default QueryCatalogVersions schemaVersions() {
+        return new QueryCatalogVersions(baseSchemaVersion(), schemaVersionTableOverrides());
+    }
 }

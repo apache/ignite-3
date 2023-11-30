@@ -48,4 +48,11 @@ public interface TransactionTimestamps {
      * @return Future that will be completed with the timestamp.
      */
     CompletableFuture<HybridTimestamp> rwTransactionBaseTimestamp(HybridTimestamp txBeginTimestamp, int tableId);
+
+    /**
+     * Determines whether a transaction can see tables created after the transaction was started.
+     */
+    static boolean transactionSeesFutureTables(InternalTransaction transaction) {
+        return !transaction.isReadOnly();
+    }
 }
