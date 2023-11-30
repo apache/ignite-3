@@ -719,6 +719,10 @@ public class DynamicParametersTest extends AbstractPlannerTest {
                         .parameterTypes(nullable(NativeTypes.INT32))
                         .ok(),
 
+                sql("SELECT ? UNION SELECT ?", 1L, 2)
+                        .parameterTypes(nullable(NativeTypes.INT64), nullable(NativeTypes.INT32))
+                        .ok(),
+
                 sql("SELECT ? UNION SELECT 1", Unspecified.UNKNOWN)
                         .fails("Unable to determine type of a dynamic parameter#0."),
 
