@@ -224,14 +224,11 @@ public class ClientSession implements AbstractSession {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> executeScriptAsync(String query, @Nullable Object... arguments) {
-        // TODO IGNITE-17060.
         Objects.requireNonNull(query);
 
         PayloadWriter payloadWriter = w -> {
             w.out().packString(query);
             w.out().packObjectArrayAsBinaryTuple(arguments);
-
-            // TODO: ???
             w.out().packLong(ch.observableTimestamp());
         };
 
