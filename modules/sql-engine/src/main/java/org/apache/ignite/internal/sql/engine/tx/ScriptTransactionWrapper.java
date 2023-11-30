@@ -65,7 +65,9 @@ class ScriptTransactionWrapper implements QueryTransactionWrapper {
     }
 
     QueryTransactionWrapper forCommit() {
-        finishTxAction.set(Transaction::commitAsync);
+        boolean success = finishTxAction.compareAndSet(null, Transaction::commitAsync);
+
+        assert success;
 
         tryCompleteTx();
 
@@ -140,7 +142,9 @@ class ScriptTransactionWrapper implements QueryTransactionWrapper {
 
                 return transaction.rollbackAsync();
             } else {
-                finishTxAction.set(InternalTransaction::rollbackAsync);
+                boolean success = finishTxAction.compareAndSet(null, InternalTransaction::rollbackAsync);
+
+                assert success;
 
                 // Wait until all cursors will be closed.
                 tryCompleteTx();
