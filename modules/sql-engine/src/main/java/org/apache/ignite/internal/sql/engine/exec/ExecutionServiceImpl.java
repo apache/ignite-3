@@ -521,8 +521,9 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         ) {
             DynamicParameterValue[] parameters = ctx.parameters();
             Object[] parameterValues = new Object[parameters.length];
+
             for (int i = 0; i < parameters.length; i++) {
-                parameterValues[i] = parameters[i];
+                parameterValues[i] = parameters[i].value();
             }
 
             QueryStartRequest request = FACTORY.queryStartRequest()
