@@ -1189,6 +1189,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 (previous, throwable) -> inBusyLock(busyLock, () -> assignmentsFuture.thenCompose(newAssignments -> {
                     PartitionSet parts = new BitSetPartitionSet();
 
+                    // TODO: https://issues.apache.org/jira/browse/IGNITE-19713 Process assignments and set partitions only for
+                    // TODO assigned partitions.
                     for (int i = 0; i < newAssignments.size(); i++) {
                         parts.set(i);
                     }
