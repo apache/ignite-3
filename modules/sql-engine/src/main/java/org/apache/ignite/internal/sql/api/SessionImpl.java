@@ -404,11 +404,10 @@ public class SessionImpl implements AbstractSession {
         CompletableFuture<Void> resFut = new CompletableFuture<>();
         try {
             SqlProperties properties = SqlPropertiesHelper.emptyProperties();
-
-            CompletableFuture<AsyncSqlCursor<List<Object>>> f = qryProc.queryScriptAsync(properties, transactions, null, query, arguments);
-
             ScriptHandler handler = new ScriptHandler(resFut);
-            f.whenComplete(handler::processFirstResult);
+
+            qryProc.queryScriptAsync(properties, transactions, null, query, arguments)
+                            .whenComplete(handler::processCursor);
         } finally {
             busyLock.leaveBusy();
         }
@@ -548,48 +547,29 @@ public class SessionImpl implements AbstractSession {
             this.resFut = resFut;
         }
 
-        void processFirstResult(AsyncSqlCursor<List<Object>> cursor, Throwable t) {
+        void processCursor(AsyncSqlCursor<List<Object>> cursor, Throwable t) {
             if (t != null) {
                 resFut.completeExceptionally(t);
-            } else {
-                int cursorId = registerCursor(cursor);
-                processCursor(cursor, cursorId);
+
+                return;
             }
-        }
 
-        void processCursor(AsyncSqlCursor<List<Object>> cursor, int cursorId) {
+            cursor.closeAsync();
+
             if (!busyLock.enterBusy()) {
-                closeCursor(cursor, cursorId);
-
                 resFut.completeExceptionally(sessionIsClosedException());
                 return;
             }
 
             try {
                 if (cursor.hasNextResult()) {
-                    cursor.nextResult().whenComplete((nextCursor, t) -> {
-                        closeCursor(cursor, cursorId);
-
-                        if (nextCursor != null) {
-                            int nextCursorId = registerCursor(nextCursor);
-                            processCursor(nextCursor, nextCursorId);
-                        } else {
-                            resFut.completeExceptionally(t);
-                        }
-                    });
+                    cursor.nextResult().whenComplete(this::processCursor);
                 } else {
-                    closeCursor(cursor, cursorId);
-
                     resFut.complete(null);
                 }
             } finally {
                 busyLock.leaveBusy();
             }
-        }
-
-        void closeCursor(AsyncSqlCursor<List<Object>> cursor, int cursorId) {
-            openedCursors.remove(cursorId);
-            cursor.closeAsync();
         }
     }
 }
