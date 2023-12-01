@@ -45,7 +45,6 @@ import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.lang.TableNotFoundException;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -282,7 +281,6 @@ public class ClientPrimaryReplicaTracker implements EventListener<EventParameter
         }
     }
 
-    @NotNull
     private CompletableFuture<Boolean> notifyInternal(EventParameters parameters) {
         if (parameters instanceof DropTableEventParameters) {
             removeTable((DropTableEventParameters) parameters);

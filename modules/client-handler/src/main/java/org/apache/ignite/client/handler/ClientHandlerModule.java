@@ -17,7 +17,6 @@
 
 package org.apache.ignite.client.handler;
 
-import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import io.netty.bootstrap.ServerBootstrap;
@@ -43,7 +42,6 @@ import org.apache.ignite.internal.client.proto.ClientMessageDecoder;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.lang.IgniteInternalException;
-import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
@@ -294,7 +292,8 @@ public class ClientHandlerModule implements IgniteComponent {
                                 ch.pipeline().addFirst("ssl", sslContext.newHandler(ch.alloc()));
                             }
 
-                            ClientInboundMessageHandler messageHandler = createInboundMessageHandler(configuration, clusterId, connectionId);
+                            ClientInboundMessageHandler messageHandler = createInboundMessageHandler(
+                                    configuration, clusterId, connectionId);
                             authenticationManager.listen(messageHandler);
 
                             ch.pipeline().addLast(
