@@ -58,6 +58,10 @@ import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.table.Table;
+import org.apache.logging.log4j.Level;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.core.Logger;
+import org.apache.logging.log4j.core.config.Configurator;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DynamicContainer;
@@ -198,6 +202,8 @@ public class ItSqlLogicTest extends IgniteIntegrationTest {
 
     @BeforeAll
     static void init() {
+        Configurator.setLevel("io.scalecube", Level.DEBUG);
+
         config();
 
         startNodes();
