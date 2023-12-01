@@ -273,5 +273,4 @@ public class BoundedPriorityBlockingQueue<E> extends AbstractQueue<E> implements
                     + "Max queue size is " + maxSize + ".");
         }
     }
-
 }

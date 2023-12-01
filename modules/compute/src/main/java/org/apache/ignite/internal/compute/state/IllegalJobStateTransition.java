@@ -24,20 +24,20 @@ import org.apache.ignite.compute.JobState;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 
 /**
- * Throws from Compute Jobs state machine {@link ComputeStateMachine} when job state transfer is illegal.
+ * Thrown from Compute Jobs state machine {@link ComputeStateMachine} when job state transfer is illegal.
  */
 public class IllegalJobStateTransition extends IgniteInternalException {
     public IllegalJobStateTransition(UUID jobId) {
-        super(COMPUTE_JOB_STATE_TRANSITION_ERR, "Failed to transfer job state for not-existed job.");
+        super(COMPUTE_JOB_STATE_TRANSITION_ERR, "Failed to transfer job state for nonexistent job" + jobId + ".");
     }
 
     public IllegalJobStateTransition(UUID jobId, JobState prevState, JobState newState) {
         super(COMPUTE_JOB_STATE_TRANSITION_ERR, message(jobId, prevState, newState));
     }
 
-    static String message(UUID jobId, JobState prevState, JobState newState) {
+    private static String message(UUID jobId, JobState prevState, JobState newState) {
         return "Failed to transfer job " + jobId
-                + " from state " + (prevState == null ? "NOT_EXIST" : prevState)
+                + " from state " + prevState
                 + " to state " + newState;
     }
 }

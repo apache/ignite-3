@@ -58,13 +58,6 @@ public class InMemoryComputeStateMachineTest {
     }
 
     @Test
-    public void testCompleteWayWithoutQueue() {
-        executeJob(false);
-        completeJob(false);
-    }
-
-
-    @Test
     public void testCancel() {
         assertThat(stateMachine.cancelJob(jobId), is(true));
         assertThat(stateMachine.currentState(jobId), is(CANCELED));
