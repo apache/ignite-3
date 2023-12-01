@@ -112,7 +112,9 @@ namespace Apache.Ignite.Internal.Sql
                 ColumnType.Period => reader.GetPeriod(idx),
                 ColumnType.Duration => reader.GetDuration(idx),
                 ColumnType.Number => reader.GetNumber(idx),
-                _ => throw new ArgumentOutOfRangeException(nameof(col.Type), col.Type, "Unknown SQL column type.")
+
+                // ReSharper disable once PatternIsRedundant
+                ColumnType.Null or _ => throw new ArgumentOutOfRangeException(nameof(col.Type), col.Type, "Unknown SQL column type.")
             };
         }
 

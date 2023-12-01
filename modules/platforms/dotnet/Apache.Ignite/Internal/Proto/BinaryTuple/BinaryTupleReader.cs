@@ -484,7 +484,9 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
                 ColumnType.Boolean => GetBoolNullable(index),
                 ColumnType.Period => GetPeriodNullable(index),
                 ColumnType.Duration => GetDurationNullable(index),
-                _ => throw new IgniteClientException(ErrorGroups.Client.Protocol, "Unsupported type: " + columnType)
+
+                // ReSharper disable once PatternIsRedundant
+                ColumnType.Null or _ => throw new IgniteClientException(ErrorGroups.Client.Protocol, "Unsupported type: " + columnType)
             };
 
         /// <summary>

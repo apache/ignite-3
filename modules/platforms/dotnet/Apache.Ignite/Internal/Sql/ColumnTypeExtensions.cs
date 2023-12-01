@@ -64,7 +64,9 @@ internal static class ColumnTypeExtensions
         ColumnType.Period => typeof(Period),
         ColumnType.Duration => typeof(Duration),
         ColumnType.Number => typeof(BigInteger),
-        _ => throw new InvalidOperationException($"Invalid {nameof(ColumnType)}: {columnType}")
+
+        // ReSharper disable once PatternIsRedundant
+        ColumnType.Null or _ => throw new InvalidOperationException($"Invalid {nameof(ColumnType)}: {columnType}")
     };
 
     /// <summary>
@@ -106,7 +108,9 @@ internal static class ColumnTypeExtensions
         ColumnType.Number => "numeric",
         ColumnType.Period => "interval",
         ColumnType.Duration => "duration",
-        _ => throw new InvalidOperationException($"Unsupported {nameof(ColumnType)}: {columnType}")
+
+        // ReSharper disable once PatternIsRedundant
+        ColumnType.Null or _ => throw new InvalidOperationException($"Unsupported {nameof(ColumnType)}: {columnType}")
     };
 
     /// <summary>
