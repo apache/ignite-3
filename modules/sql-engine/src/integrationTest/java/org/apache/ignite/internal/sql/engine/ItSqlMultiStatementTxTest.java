@@ -183,48 +183,50 @@ public class ItSqlMultiStatementTxTest extends BaseSqlMultiStatementTest {
             cursors.forEach(AsyncSqlCursor::closeAsync);
             verifyFinishedTxCount(2);
         }
+    }
 
-        {
-            AsyncSqlCursor<List<Object>> cur = runScript("START TRANSACTION READ WRITE;"
-                    + "INSERT INTO test VALUES(0);"
-                    + "INSERT INTO test VALUES(1);"
-                    + "COMMIT;"
+    @Test
+    void dmlScriptRollsBackImplicitly() {
+        AsyncSqlCursor<List<Object>> cur = runScript("START TRANSACTION READ WRITE;"
+                + "INSERT INTO test VALUES(0);"
+                + "INSERT INTO test VALUES(1);"
+                + "COMMIT;"
 
-                    + "START TRANSACTION READ WRITE;"
-                    + "SELECT * FROM BIG;"
-                    + "INSERT INTO test VALUES(2);"
-            );
+                + "START TRANSACTION READ WRITE;"
+                + "SELECT * FROM BIG;"
+                + "INSERT INTO test VALUES(2);"
+        );
 
-            List<AsyncSqlCursor<List<Object>>> cursors = fetchCursors(cur, 3, false);
-            assertThat(cursors, hasSize(3));
+        List<AsyncSqlCursor<List<Object>>> cursors = fetchCursors(cur, 3, false);
+        assertThat(cursors, hasSize(3));
 
-            // Set last cursor.
-            cur = cursors.get(2);
-            assertEquals(1, txManager().pending());
+        // Set last cursor.
+        cur = cursors.get(2);
+        assertEquals(1, txManager().pending());
 
-            assertTrue(cur.hasNextResult());
-            assertFalse(cur.nextResult().isDone());
+        assertTrue(cur.hasNextResult());
+        assertFalse(cur.nextResult().isDone());
 
-            cursors.forEach(AsyncSqlCursor::closeAsync);
+        cursors.forEach(AsyncSqlCursor::closeAsync);
 
-            cur = await(cur.nextResult());
-            assertNotNull(cur);
+        cur = await(cur.nextResult());
+        assertNotNull(cur);
 
-            // Fetch remaining.
-            cursors = fetchAllCursors(cur);
-            assertThat(cursors, hasSize(4));
+        // Fetch remaining.
+        cursors = fetchAllCursors(cur);
+        assertThat(cursors, hasSize(4));
 
-            assertEquals(1, txManager().pending());
-            cursors.forEach(AsyncSqlCursor::closeAsync);
+        assertEquals(1, txManager().pending());
+        cursors.forEach(AsyncSqlCursor::closeAsync);
 
-            checkNoPendingTransactionsAndOpenedCursors();
+        checkNoPendingTransactionsAndOpenedCursors();
 
-            verifyFinishedTxCount(4);
+        // 1 COMMIT + 1 ROLLBACK.
+        verifyFinishedTxCount(2);
 
-            // Make sure that the last transaction was rolled back.
-            assertQuery("select count(id) from test")
-                    .returns(2L).check();
-        }
+        // Make sure that the last transaction was rolled back.
+        assertQuery("select count(id) from test")
+                .returns(2L).check();
     }
 
     @Test

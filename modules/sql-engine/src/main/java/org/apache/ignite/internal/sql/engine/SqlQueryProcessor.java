@@ -686,20 +686,20 @@ public class SqlQueryProcessor implements QueryProcessor {
         /**
          * Returns a queue. each element of which represents parameters required to execute a single statement of the script.
          */
-        private Queue<ScriptStatementParameters> prepareStatementsQueue(List<ParsedResult> parsedResults0, Object[] params) {
-            assert !parsedResults0.isEmpty();
+        private Queue<ScriptStatementParameters> prepareStatementsQueue(List<ParsedResult> parsedResults, Object[] params) {
+            assert !parsedResults.isEmpty();
 
-            int paramsCount = parsedResults0.stream().mapToInt(ParsedResult::dynamicParamsCount).sum();
+            int paramsCount = parsedResults.stream().mapToInt(ParsedResult::dynamicParamsCount).sum();
 
             validateDynamicParameters(paramsCount, params);
 
-            ScriptStatementParameters[] results = new ScriptStatementParameters[parsedResults0.size()];
+            ScriptStatementParameters[] results = new ScriptStatementParameters[parsedResults.size()];
 
             // We fill parameters in reverse order, because each script statement
             // requires a reference to the future of the next statement.
             CompletableFuture<AsyncSqlCursor<List<Object>>> prevCursorFuture = null;
-            for (int i = parsedResults0.size() - 1; i >= 0; i--) {
-                ParsedResult result = parsedResults0.get(i);
+            for (int i = parsedResults.size() - 1; i >= 0; i--) {
+                ParsedResult result = parsedResults.get(i);
 
                 Object[] params0 = Arrays.copyOfRange(params, paramsCount - result.dynamicParamsCount(), paramsCount);
                 paramsCount -= result.dynamicParamsCount();

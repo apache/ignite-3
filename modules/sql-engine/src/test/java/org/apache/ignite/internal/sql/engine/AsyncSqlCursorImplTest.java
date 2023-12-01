@@ -30,6 +30,7 @@ import java.util.concurrent.CompletionException;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.sql.api.ResultSetMetadataImpl;
 import org.apache.ignite.internal.sql.engine.framework.NoOpTransaction;
+import org.apache.ignite.internal.sql.engine.tx.QueryTransactionWrapper;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionWrapperImpl;
 import org.apache.ignite.internal.util.AsyncCursor;
 import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
@@ -52,7 +53,7 @@ public class AsyncSqlCursorImplTest {
     /** Cursor should trigger commit of implicit transaction (if any) only if data is fully read. */
     @ParameterizedTest(name = "{0}")
     @MethodSource("transactions")
-    public void testTriggerCommitAfterDataIsFullyRead(boolean implicit, QueryTransactionWrapperImpl txWrapper) {
+    public void testTriggerCommitAfterDataIsFullyRead(boolean implicit, QueryTransactionWrapper txWrapper) {
         List<Integer> list = List.of(1, 2, 3);
 
         AsyncSqlCursorImpl<Integer> cursor = new AsyncSqlCursorImpl<>(SqlQueryType.QUERY, RESULT_SET_METADATA, txWrapper,
@@ -75,7 +76,7 @@ public class AsyncSqlCursorImplTest {
     /** Exception on read should trigger rollback of implicit transaction, if any. */
     @ParameterizedTest(name = "{0}")
     @MethodSource("transactions")
-    public void testExceptionRollbacksImplicitTx(boolean implicit, QueryTransactionWrapperImpl txWrapper) {
+    public void testExceptionRollbacksImplicitTx(boolean implicit, QueryTransactionWrapper txWrapper) {
         IgniteException err = new IgniteException(Common.INTERNAL_ERR);
 
         AsyncSqlCursorImpl<Integer> cursor = new AsyncSqlCursorImpl<>(SqlQueryType.QUERY, RESULT_SET_METADATA, txWrapper,
@@ -93,7 +94,7 @@ public class AsyncSqlCursorImplTest {
     /** Cursor close should trigger commit of implicit transaction, if any. */
     @ParameterizedTest(name = "{0}")
     @MethodSource("transactions")
-    public void testCloseCommitsImplicitTx(boolean implicit, QueryTransactionWrapperImpl txWrapper) {
+    public void testCloseCommitsImplicitTx(boolean implicit, QueryTransactionWrapper txWrapper) {
         AsyncCursor<Integer> data = new AsyncWrapper<>(List.of(1, 2, 3, 4).iterator());
         AsyncSqlCursorImpl<Integer> cursor = new AsyncSqlCursorImpl<>(SqlQueryType.QUERY, RESULT_SET_METADATA, txWrapper, data, () -> {});
         cursor.closeAsync().join();
@@ -109,7 +110,7 @@ public class AsyncSqlCursorImplTest {
         );
     }
 
-    private static QueryTransactionWrapperImpl newTxWrapper(boolean implicit) {
+    private static QueryTransactionWrapper newTxWrapper(boolean implicit) {
         return new QueryTransactionWrapperImpl(NoOpTransaction.readOnly("TX"), implicit);
     }
 }
