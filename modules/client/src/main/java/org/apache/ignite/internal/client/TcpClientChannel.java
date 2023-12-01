@@ -247,8 +247,8 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     @Override
     public <T> CompletableFuture<T> serviceAsync(
             int opCode,
-            PayloadWriter payloadWriter,
-            PayloadReader<T> payloadReader
+            @Nullable PayloadWriter payloadWriter,
+            @Nullable PayloadReader<T> payloadReader
     ) {
         try {
             if (log.isTraceEnabled()) {
@@ -273,7 +273,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
      * @param payloadWriter Payload writer to stream or {@code null} if request has no payload.
      * @return Request future.
      */
-    private ClientRequestFuture send(int opCode, PayloadWriter payloadWriter) {
+    private ClientRequestFuture send(int opCode, @Nullable PayloadWriter payloadWriter) {
         long id = reqId.getAndIncrement();
 
         if (closed()) {
@@ -336,7 +336,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
      * @param payloadReader Payload reader from stream.
      * @return Future for the operation.
      */
-    private <T> CompletableFuture<T> receiveAsync(ClientRequestFuture pendingReq, PayloadReader<T> payloadReader) {
+    private <T> CompletableFuture<T> receiveAsync(ClientRequestFuture pendingReq, @Nullable PayloadReader<T> payloadReader) {
         return pendingReq.thenApplyAsync(payload -> {
             if (payload == null) {
                 return null;

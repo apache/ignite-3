@@ -156,7 +156,7 @@ public class ClientSqlExecuteRequest {
         return statementBuilder.build();
     }
 
-    private static Session readSession(ClientMessageUnpacker in, IgniteSql sql, IgniteTransactions transactions) {
+    static Session readSession(ClientMessageUnpacker in, IgniteSql sql, @Nullable IgniteTransactions transactions) {
         SessionBuilder sessionBuilder = sql.sessionBuilder();
 
         if (transactions != null && sessionBuilder instanceof SessionBuilderImpl) {
