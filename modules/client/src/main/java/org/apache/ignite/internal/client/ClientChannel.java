@@ -28,16 +28,18 @@ public interface ClientChannel extends AutoCloseable {
     /**
      * Send request and handle response asynchronously for client operation.
      *
-     * @param opCode        Operation code.
-     * @param payloadWriter Payload writer to stream or {@code null} if request has no payload.
-     * @param payloadReader Payload reader from stream.
-     * @param <T>           Response type.
+     * @param opCode              Operation code.
+     * @param payloadWriter       Payload writer to stream or {@code null} if request has no payload.
+     * @param payloadReader       Payload reader from stream or {@code null} if response has no payload.
+     * @param notificationHandler Notification handler or {@code null} if request does not trigger notifications.
+     * @param <T>                 Response type.
      * @return Future for the operation.
      */
     <T> CompletableFuture<T> serviceAsync(
             int opCode,
             @Nullable PayloadWriter payloadWriter,
-            @Nullable PayloadReader<T> payloadReader
+            @Nullable PayloadReader<T> payloadReader,
+            @Nullable NotificationHandler notificationHandler
     );
 
     /**

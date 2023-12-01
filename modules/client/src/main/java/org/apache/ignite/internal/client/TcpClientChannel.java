@@ -248,13 +248,15 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     public <T> CompletableFuture<T> serviceAsync(
             int opCode,
             @Nullable PayloadWriter payloadWriter,
-            @Nullable PayloadReader<T> payloadReader
+            @Nullable PayloadReader<T> payloadReader,
+            @Nullable NotificationHandler notificationHandler
     ) {
         try {
             if (log.isTraceEnabled()) {
                 log.trace("Sending request [opCode=" + opCode + ", remoteAddress=" + cfg.getAddress() + ']');
             }
 
+            // TODO: If notificationHandler is not null, subscribe to notifications before sending the request.
             ClientRequestFuture fut = send(opCode, payloadWriter);
 
             return receiveAsync(fut, payloadReader);
