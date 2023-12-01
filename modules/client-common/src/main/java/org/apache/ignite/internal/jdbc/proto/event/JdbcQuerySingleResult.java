@@ -196,12 +196,10 @@ public class JdbcQuerySingleResult extends Response {
 
         packer.packIntArray(decimalScales);
 
-        int[] columnTypes = new int[this.columnTypes.size()];
+        packer.packInt(this.columnTypes.size());
         for (int i = 0; i < this.columnTypes.size(); i++) {
-            columnTypes[i] = this.columnTypes.get(i).id();
+            packer.packInt(this.columnTypes.get(i).id());
         }
-
-        packer.packIntArray(columnTypes);
 
         packer.packInt(rowTuples.size());
 
