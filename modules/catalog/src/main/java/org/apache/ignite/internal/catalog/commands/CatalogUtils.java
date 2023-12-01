@@ -20,6 +20,7 @@ package org.apache.ignite.internal.catalog.commands;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.util.Collection;
 import java.util.EnumMap;
 import java.util.EnumSet;
@@ -28,6 +29,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import org.apache.ignite.internal.catalog.Catalog;
+import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
 import org.apache.ignite.internal.catalog.IndexNotFoundValidationException;
 import org.apache.ignite.internal.catalog.TableNotFoundValidationException;
@@ -207,6 +209,79 @@ public class CatalogUtils {
         Set<ColumnType> supportedTransitions = ALTER_COLUMN_TYPE_TRANSITIONS.get(source);
 
         return supportedTransitions != null && supportedTransitions.contains(target);
+    }
+
+    /**
+     * Validates a column change. If something is not valid, the supplied listener is invoked with information about the exact reason.
+     *
+     * @param origin Original column definition.
+     * @param newType New type.
+     * @param newPrecision New column precision.
+     * @param newScale New column scale.
+     * @param newLength New column length.
+     * @param listener Listener to invoke on a validation failure.
+     * @return {@code true} iff the proposed change is valid.
+     */
+    static boolean validateColumnChange(
+            CatalogTableColumnDescriptor origin,
+            @Nullable ColumnType newType,
+            @Nullable Integer newPrecision,
+            @Nullable Integer newScale,
+            @Nullable Integer newLength,
+            TypeChangeValidationListener listener
+    ) {
+        if (newType != null && newType != origin.type()) {
+            if (!isSupportedColumnTypeChange(origin.type(), newType)) {
+                listener.onFailure("Changing the type from {} to {} is not allowed", origin.type(), newType);
+                return false;
+            }
+        }
+
+        if (newPrecision != null && newPrecision != origin.precision() && origin.type() != ColumnType.DECIMAL) {
+            listener.onFailure("Changing the precision for column of type '{}' is not allowed", origin.type(), newType);
+            return false;
+        }
+
+        if (newPrecision != null && newPrecision < origin.precision()) {
+            listener.onFailure("Decreasing the precision is not allowed", origin.type(), newType);
+            return false;
+        }
+
+        if (newScale != null && newScale != origin.scale()) {
+            listener.onFailure("Changing the scale is not allowed", origin.type(), newType);
+            return false;
+        }
+
+        if (newLength != null && newLength != origin.length()
+                && origin.type() != ColumnType.STRING && origin.type() != ColumnType.BYTE_ARRAY) {
+            listener.onFailure("Changing the length for column of type '{}' is not allowed", origin.type(), newType);
+            return false;
+        }
+
+        if (newLength != null && newLength < origin.length()) {
+            listener.onFailure("Decreasing the length is not allowed", origin.type(), newType);
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Returns whether the proposed column type change is supported.
+     *
+     * @param oldColumn Original column definition.
+     * @param newColumn New column definition.
+     * @return {@code true} iff the proposed change is supported.
+     */
+    public static boolean isColumnTypeChangeSupported(CatalogTableColumnDescriptor oldColumn, CatalogTableColumnDescriptor newColumn) {
+        return validateColumnChange(
+                oldColumn,
+                newColumn.type(),
+                newColumn.precision(),
+                newColumn.scale(),
+                newColumn.length(),
+                TypeChangeValidationListener.NO_OP
+        );
     }
 
     /**
@@ -398,5 +473,46 @@ public class CatalogUtils {
         }
 
         return index;
+    }
+
+    /**
+     * Collects all table indexes (including dropped) that the table has in the requested catalog version range.
+     *
+     * <p>It is expected that at least one index should be between the requested versions.</p>
+     *
+     * @param catalogService Catalog service.
+     * @param tableId Table ID for which indexes will be collected.
+     * @param catalogVersionFrom Catalog version from which indexes will be collected (including).
+     * @param catalogVersionTo Catalog version up to which indexes will be collected (including).
+     * @return Table indexes.
+     */
+    public static Collection<CatalogIndexDescriptor> collectIndexes(
+            CatalogService catalogService,
+            int tableId,
+            int catalogVersionFrom,
+            int catalogVersionTo
+    ) {
+        assert catalogVersionFrom <= catalogVersionTo : "from=" + catalogVersionFrom + ", to=" + catalogVersionTo;
+
+        if (catalogVersionFrom == catalogVersionTo) {
+            List<CatalogIndexDescriptor> indexes = catalogService.indexes(catalogVersionFrom, tableId);
+
+            assert !indexes.isEmpty() : "catalogVersion=" + catalogVersionFrom + ", tableId=" + tableId;
+
+            return indexes;
+        }
+
+        var indexByIdMap = new Int2ObjectOpenHashMap<CatalogIndexDescriptor>();
+
+        for (int catalogVersion = catalogVersionFrom; catalogVersion <= catalogVersionTo; catalogVersion++) {
+            for (CatalogIndexDescriptor index : catalogService.indexes(catalogVersion, tableId)) {
+                indexByIdMap.put(index.id(), index);
+            }
+        }
+
+        assert !indexByIdMap.isEmpty()
+                : String.format("catalogVersionFrom=%s, catalogVersionTo=%s, tableId=%s", catalogVersionFrom, catalogVersionTo, tableId);
+
+        return indexByIdMap.values();
     }
 }

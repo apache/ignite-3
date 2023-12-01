@@ -95,7 +95,7 @@ namespace Apache.Ignite.Tests
 
         public string[] PartitionAssignment { get; set; }
 
-        public bool PartitionAssignmentChanged { get; set; }
+        public long PartitionAssignmentTimestamp { get; set; }
 
         public TimeSpan HandshakeDelay { get; set; }
 
@@ -234,6 +234,7 @@ namespace Apache.Ignite.Tests
                         using var arrayBufferWriter = new PooledArrayBuffer();
                         var writer = new MsgPackWriter(arrayBufferWriter);
                         writer.Write(PartitionAssignment.Length);
+                        writer.Write(DateTime.UtcNow.Ticks); // Timestamp
 
                         foreach (var nodeId in PartitionAssignment)
                         {
@@ -346,7 +347,10 @@ namespace Apache.Ignite.Tests
 
             writer.Write(0); // Message type.
             writer.Write(requestId);
-            writer.Write(PartitionAssignmentChanged ? (int)ResponseFlags.PartitionAssignmentChanged : 0);
+
+            writer.Write((int)ResponseFlags.PartitionAssignmentChanged);
+            writer.Write(PartitionAssignmentTimestamp);
+
             writer.Write(ObservableTimestamp); // Observable timestamp.
 
             if (!isError)

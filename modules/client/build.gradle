@@ -52,10 +52,12 @@ dependencies {
     testImplementation project(':ignite-security')
     testImplementation project(':ignite-metrics')
     testImplementation project(':ignite-catalog')
+    testImplementation project(':ignite-placement-driver-api')
     testImplementation(testFixtures(project(':ignite-core')))
     testImplementation(testFixtures(project(':ignite-configuration')))
     testImplementation(testFixtures(project(':ignite-sql-engine')))
     testImplementation(testFixtures(project(':ignite-table')))
+    testImplementation(testFixtures(project(':ignite-client-handler')))
     testImplementation libs.hamcrest.core
     testImplementation libs.junit5.params
     testImplementation libs.mockito.junit

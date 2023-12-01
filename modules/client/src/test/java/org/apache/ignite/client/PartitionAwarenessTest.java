@@ -17,11 +17,12 @@
 
 package org.apache.ignite.client;
 
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.greaterThan;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.netty.util.ResourceLeakDetector;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -34,8 +35,11 @@ import org.apache.ignite.client.AbstractClientTableTest.PersonPojo;
 import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.client.fakes.FakeIgniteTables;
 import org.apache.ignite.client.fakes.FakeInternalTable;
+import org.apache.ignite.client.handler.FakePlacementDriver;
 import org.apache.ignite.compute.IgniteCompute;
+import org.apache.ignite.internal.client.ReliableChannel;
 import org.apache.ignite.internal.client.tx.ClientTransaction;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -58,6 +62,7 @@ import org.junit.jupiter.params.provider.ValueSource;
  */
 public class PartitionAwarenessTest extends AbstractClientTest {
     private static final String nodeKey0 = "server-2";
+
     private static final String nodeKey1 = "server-2";
 
     private static final String nodeKey2 = "server-1";
@@ -70,11 +75,11 @@ public class PartitionAwarenessTest extends AbstractClientTest {
 
     private static IgniteClient client2;
 
-    private @Nullable String lastOp;
+    private volatile @Nullable String lastOp;
 
-    private @Nullable String lastOpServerName;
+    private volatile @Nullable String lastOpServerName;
 
-    private final AtomicInteger nextTableId = new AtomicInteger(101);
+    private static final AtomicInteger nextTableId = new AtomicInteger(101);
 
     /**
      * Before all.
@@ -102,10 +107,10 @@ public class PartitionAwarenessTest extends AbstractClientTest {
     }
 
     @BeforeEach
-    public void initAssignments() throws InterruptedException {
+    public void initReplicas() throws InterruptedException {
         dropTables(server2);
 
-        initPartitionAssignment(null);
+        initPrimaryReplicas(null);
 
         assertTrue(IgniteTestUtils.waitForCondition(() -> client2.connections().size() == 2, 3000));
     }
@@ -165,6 +170,8 @@ public class PartitionAwarenessTest extends AbstractClientTest {
     @ParameterizedTest
     @ValueSource(booleans = {true, false})
     public void testClientReceivesPartitionAssignmentUpdates(boolean useHeartbeat) throws InterruptedException {
+        ReliableChannel ch = IgniteTestUtils.getFieldValue(client2, "ch");
+
         // Check default assignment.
         RecordView<Tuple> recordView = defaultTable().recordView();
 
@@ -172,24 +179,25 @@ public class PartitionAwarenessTest extends AbstractClientTest {
         assertOpOnNode(nodeKey2, "get", x -> recordView.get(null, Tuple.create().set("ID", 2L)));
 
         // Update partition assignment.
-        var assignments = new ArrayList<String>();
-
-        assignments.add(testServer2.nodeName());
-        assignments.add(testServer.nodeName());
-
-        initPartitionAssignment(assignments);
+        var oldTs = ch.partitionAssignmentTimestamp();
+        initPrimaryReplicas(reversedReplicas());
 
         if (useHeartbeat) {
             // Wait for heartbeat message to receive change notification flag.
-            Thread.sleep(500);
+            assertTrue(IgniteTestUtils.waitForCondition(() -> ch.partitionAssignmentTimestamp() > oldTs, 3000));
         } else {
-            // Perform a request on the default channel to receive change notification flag.
-            // Use two requests because of round-robin.
-            client2.tables().tables();
-            client2.tables().tables();
+            // Perform requests to receive change notification flag.
+            int maxRequests = 50;
+            while (ch.partitionAssignmentTimestamp() <= oldTs && maxRequests-- > 0) {
+                client2.tables().tables();
+            }
+
+            assertThat("Failed to receive assignment update", maxRequests, greaterThan(0));
         }
 
         // Check new assignment.
+        assertThat(ch.partitionAssignmentTimestamp(), greaterThan(oldTs));
+
         assertOpOnNode(nodeKey2, "get", x -> recordView.get(null, Tuple.create().set("ID", 1L)));
         assertOpOnNode(nodeKey1, "get", x -> recordView.get(null, Tuple.create().set("ID", 2L)));
     }
@@ -534,7 +542,7 @@ public class PartitionAwarenessTest extends AbstractClientTest {
     }
 
     @Test
-    public void testDataStreamerReceivesPartitionAssignmentUpdates() throws InterruptedException {
+    public void testDataStreamerReceivesPartitionAssignmentUpdates() {
         DataStreamerOptions options = DataStreamerOptions.builder()
                 .batchSize(1)
                 .perNodeParallelOperations(1)
@@ -549,6 +557,7 @@ public class PartitionAwarenessTest extends AbstractClientTest {
 
             Consumer<Long> submit = id -> {
                 try {
+                    lastOpServerName = null;
                     publisher.submit(Tuple.create().set("ID", id));
                     assertTrue(IgniteTestUtils.waitForCondition(() -> lastOpServerName != null, 1000));
                 } catch (InterruptedException e) {
@@ -560,21 +569,12 @@ public class PartitionAwarenessTest extends AbstractClientTest {
             assertOpOnNode(nodeKey2, "upsertAll", x -> submit.accept(2L));
 
             // Update partition assignment.
-            var assignments = new ArrayList<String>();
-
-            assignments.add(testServer2.nodeName());
-            assignments.add(testServer.nodeName());
-
-            initPartitionAssignment(assignments);
+            initPrimaryReplicas(reversedReplicas());
 
             // Send some batches so that the client receives updated assignment.
-            lastOpServerName = null;
-            submit.accept(1L);
-            assertTrue(IgniteTestUtils.waitForCondition(() -> lastOpServerName != null, 1000));
-
-            lastOpServerName = null;
-            submit.accept(2L);
-            assertTrue(IgniteTestUtils.waitForCondition(() -> lastOpServerName != null, 1000));
+            for (long i = 0; i < 10; i++) {
+                submit.accept(i);
+            }
 
             // Check updated assignment.
             assertOpOnNode(nodeKey2, "upsertAll", x -> submit.accept(1L));
@@ -622,23 +622,26 @@ public class PartitionAwarenessTest extends AbstractClientTest {
         });
     }
 
-    private static void initPartitionAssignment(@Nullable ArrayList<String> assignments) {
-        initPartitionAssignment(server, assignments);
-        initPartitionAssignment(server2, assignments);
+    private static void initPrimaryReplicas(@Nullable List<String> replicas) {
+        long leaseStartTime = new HybridClockImpl().nowLong();
+
+        initPrimaryReplicas(testServer.placementDriver(), replicas, leaseStartTime);
+        initPrimaryReplicas(testServer2.placementDriver(), replicas, leaseStartTime);
     }
 
-    private static void initPartitionAssignment(Ignite ignite, @Nullable ArrayList<String> assignments) {
-        if (assignments == null) {
-            assignments = new ArrayList<>();
-
-            assignments.add(testServer.nodeName());
-            assignments.add(testServer2.nodeName());
-            assignments.add(testServer.nodeName());
-            assignments.add(testServer2.nodeName());
+    private static void initPrimaryReplicas(FakePlacementDriver placementDriver, @Nullable List<String> replicas, long leaseStartTime) {
+        if (replicas == null) {
+            replicas = defaultReplicas();
         }
 
-        FakeIgniteTables tables = (FakeIgniteTables) ignite.tables();
+        placementDriver.setReplicas(replicas, nextTableId.get() - 1, leaseStartTime);
+    }
 
-        tables.setPartitionAssignments(assignments);
+    private static List<String> defaultReplicas() {
+        return List.of(testServer.nodeName(), testServer2.nodeName(), testServer.nodeName(), testServer2.nodeName());
+    }
+
+    private static List<String> reversedReplicas() {
+        return List.of(testServer2.nodeName(), testServer.nodeName(), testServer2.nodeName(), testServer.nodeName());
     }
 }

@@ -150,4 +150,22 @@ public interface AbstractSession extends Session {
             throw ExceptionUtils.sneakyThrow(ExceptionUtils.copyExceptionWithCause(e));
         }
     }
+
+    /**
+     * Executes a multi-statement SQL query.
+     *
+     * @param query SQL query template.
+     * @param arguments Arguments for the template (optional).
+     * @throws SqlException If failed.
+     */
+    @Override
+    default void executeScript(String query, @Nullable Object... arguments) {
+        Objects.requireNonNull(query);
+
+        try {
+            executeScriptAsync(query, arguments).join();
+        } catch (CompletionException e) {
+            throw ExceptionUtils.sneakyThrow(ExceptionUtils.copyExceptionWithCause(e));
+        }
+    }
 }

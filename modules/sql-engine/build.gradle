@@ -20,6 +20,7 @@ apply from: "$rootDir/buildscripts/publishing.gradle"
 apply from: "$rootDir/buildscripts/java-junit5.gradle"
 apply from: "$rootDir/buildscripts/sql-parser-generator.gradle"
 apply from: "$rootDir/buildscripts/java-test-fixtures.gradle"
+apply from: "$rootDir/buildscripts/java-integration-test.gradle"
 
 description = 'ignite-sql-engine'
 
@@ -40,6 +41,7 @@ dependencies {
     implementation project(':ignite-cluster-management')
     implementation project(':ignite-system-view-api')
     implementation project(':ignite-system-view')
+    implementation project(':ignite-placement-driver-api')
     implementation libs.jetbrains.annotations
     implementation libs.fastutil.core
     implementation libs.caffeine
@@ -100,11 +102,40 @@ dependencies {
     testImplementation libs.archunit.core
     testImplementation libs.archunit.junit5
 
+    integrationTestImplementation project(':ignite-api')
+    integrationTestImplementation project(':ignite-schema')
+    integrationTestImplementation project(':ignite-catalog')
+    integrationTestImplementation project(':ignite-transactions')
+    integrationTestImplementation project(':ignite-cluster-management')
+    integrationTestImplementation project(':ignite-system-view-api')
+    integrationTestImplementation project(':ignite-system-view')
+    integrationTestImplementation project(':ignite-client')
+    integrationTestImplementation project(':ignite-metrics')
+    integrationTestImplementation testFixtures(project(':ignite-core'))
+    integrationTestImplementation testFixtures(project(':ignite-schema'))
+    integrationTestImplementation testFixtures(project(':ignite-sql-engine'))
+    integrationTestImplementation testFixtures(project(':ignite-table'))
+    integrationTestImplementation testFixtures(project(':ignite-runner'))
+    integrationTestImplementation libs.jetbrains.annotations
+
     testFixturesImplementation project(':ignite-core')
     testFixturesImplementation project(':ignite-api')
     testFixturesImplementation project(':ignite-schema')
     testFixturesImplementation project(':ignite-transactions')
+    testFixturesImplementation project(':ignite-system-view-api')
+    testFixturesImplementation project(':ignite-system-view')
     testFixturesImplementation testFixtures(project(':ignite-core'))
+    testFixturesImplementation testFixtures(project(':ignite-runner'))
     testFixturesImplementation libs.jetbrains.annotations
     testFixturesImplementation libs.hamcrest.core
+}
+
+integrationTest {
+    useJUnitPlatform {
+        if (System.getProperty("sqlTest") != null) {
+            it.includeTags "sqllogic"
+        } else {
+            it.excludeTags "sqllogic"
+        }
+    }
 }

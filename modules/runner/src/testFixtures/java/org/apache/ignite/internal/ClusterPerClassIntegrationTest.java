@@ -22,6 +22,8 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCo
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -30,14 +32,18 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
+import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
+import org.apache.ignite.sql.ResultSet;
+import org.apache.ignite.sql.Session;
+import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
@@ -177,12 +183,48 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
      * @param tableName Table name.
      * @param people People to insert into the table.
      */
-    protected static void insertPersons(String tableName, Person... people) {
+    protected static void insertPeople(String tableName, Person... people) {
         insertData(
                 tableName,
                 List.of("ID", "NAME", "SALARY"),
                 Stream.of(people).map(person -> new Object[]{person.id, person.name, person.salary}).toArray(Object[][]::new)
         );
+    }
+
+    /**
+     * Updates data in the table created by {@link #createZoneAndTable(String, String, int, int)}.
+     *
+     * @param tableName Table name.
+     * @param people People to update in the table.
+     */
+    protected static void updatePeople(String tableName, Person... people) {
+        Transaction tx = CLUSTER.node(0).transactions().begin();
+
+        String sql = String.format("UPDATE %s SET NAME=?, SALARY=? WHERE ID=?", tableName);
+
+        for (Person person : people) {
+            sql(tx, sql, person.name, person.salary, person.id);
+        }
+
+        tx.commit();
+    }
+
+    /**
+     * Deletes data in the table created by {@link #createZoneAndTable(String, String, int, int)}.
+     *
+     * @param tableName Table name.
+     * @param personIds Person IDs to delete.
+     */
+    protected static void deletePeople(String tableName, int... personIds) {
+        Transaction tx = CLUSTER.node(0).transactions().begin();
+
+        String sql = String.format("DELETE FROM %s WHERE ID=?", tableName);
+
+        for (int personId : personIds) {
+            sql(tx, sql, personId);
+        }
+
+        tx.commit();
     }
 
     /**
@@ -194,6 +236,15 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
      */
     protected static void createIndex(String tableName, String indexName, String columnName) {
         sql(format("CREATE INDEX {} ON {} ({})", indexName, tableName, columnName));
+    }
+
+    /**
+     * Drops an index for the table created by {@link #createZoneAndTable(String, String, int, int)}.
+     *
+     * @param indexName Index name.
+     */
+    protected static void dropIndex(String indexName) {
+        sql(format("DROP INDEX {}", indexName));
     }
 
     /**
@@ -226,13 +277,48 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
         return sql(null, sql, args);
     }
 
+    /**
+     * Run SQL on given Ignite instance with given transaction and parameters.
+     *
+     * @param node Ignite instance to run a query.
+     * @param tx Transaction to run a given query. Can be {@code null} to run within implicit transaction.
+     * @param sql Query to be run.
+     * @param args Dynamic parameters for a given query.
+     * @return List of lists, where outer list represents a rows, internal lists represents a columns.
+     */
+    public static List<List<Object>> sql(Ignite node, @Nullable Transaction tx, String sql, Object... args) {
+        try (
+                Session session = node.sql().createSession();
+                ResultSet<SqlRow> rs = session.execute(tx, sql, args)
+        ) {
+            return getAllResultSet(rs);
+        }
+    }
+
     protected static List<List<Object>> sql(@Nullable Transaction tx, String sql, Object... args) {
         IgniteImpl node = CLUSTER.node(0);
         if (!AWAIT_INDEX_AVAILABILITY.get()) {
-            return SqlTestUtils.sql(node, tx, sql, args);
+            return sql(node, tx, sql, args);
         } else {
-            return executeAwaitingIndexes(node, (n) -> SqlTestUtils.sql(n, tx, sql, args));
+            return executeAwaitingIndexes(node, (n) -> sql(n, tx, sql, args));
         }
+    }
+
+    private static List<List<Object>> getAllResultSet(ResultSet<SqlRow> resultSet) {
+        List<List<Object>> res = new ArrayList<>();
+
+        while (resultSet.hasNext()) {
+            SqlRow sqlRow = resultSet.next();
+
+            ArrayList<Object> row = new ArrayList<>(sqlRow.columnCount());
+            for (int i = 0; i < sqlRow.columnCount(); i++) {
+                row.add(sqlRow.value(i));
+            }
+
+            res.add(row);
+        }
+
+        return res;
     }
 
     /**
@@ -253,7 +339,10 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
         return "ZONE_" + tableName.toUpperCase();
     }
 
-    /** Class for inserting into a table using {@link #insertPersons(String, Person...)}. */
+    /**
+     * Class for updating table in {@link #insertPeople(String, Person...)}, {@link #updatePeople(String, Person...)}. You can use
+     * {@link #deletePeople(String, int...)} to remove people.
+     */
     protected static class Person {
         final int id;
 
@@ -330,5 +419,34 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
 
             throw new IllegalStateException(e);
         }
+    }
+
+    /**
+     * Returns {@code true} if the index exists and is available in the latest catalog version.
+     *
+     * @param ignite Node.
+     * @param indexName Index name that is being checked.
+     */
+    protected static boolean isIndexAvailable(IgniteImpl ignite, String indexName) {
+        CatalogManager catalogManager = ignite.catalogManager();
+        HybridClock clock = ignite.clock();
+
+        CatalogIndexDescriptor indexDescriptor = catalogManager.index(indexName, clock.nowLong());
+
+        return indexDescriptor != null && indexDescriptor.available();
+    }
+
+    /**
+     * Awaits for all requested indexes to become available in the latest catalog version.
+     *
+     * @param ignite Node.
+     * @param indexNames Names of indexes that are of interest.
+     */
+    protected static void awaitIndexesBecomeAvailable(IgniteImpl ignite, String... indexNames) throws Exception {
+        assertTrue(waitForCondition(
+                () -> Arrays.stream(indexNames).allMatch(indexName -> isIndexAvailable(ignite, indexName)),
+                10,
+                30_000L
+        ));
     }
 }

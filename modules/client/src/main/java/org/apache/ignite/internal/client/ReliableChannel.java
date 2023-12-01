@@ -102,9 +102,8 @@ public final class ReliableChannel implements AutoCloseable {
     /** Cache addresses returned by {@code ThinClientAddressFinder}. */
     private volatile String[] prevHostAddrs;
 
-    /** Local topology assignment version. Instead of using event handlers to notify all tables about assignment change,
-     * the table will compare its version with channel version to detect an update. */
-    private final AtomicLong assignmentVersion = new AtomicLong();
+    /** Latest known partition assignment timestamp (for any table). */
+    private final AtomicLong partitionAssignmentTimestamp = new AtomicLong();
 
     /** Observable timestamp, or causality token. Sent by the server with every response, and required by some requests. */
     private final AtomicLong observableTimestamp = new AtomicLong();
@@ -201,8 +200,8 @@ public final class ReliableChannel implements AutoCloseable {
      */
     public <T> CompletableFuture<T> serviceAsync(
             int opCode,
-            PayloadWriter payloadWriter,
-            PayloadReader<T> payloadReader,
+            @Nullable PayloadWriter payloadWriter,
+            @Nullable PayloadReader<T> payloadReader,
             @Nullable String preferredNodeName,
             @Nullable RetryPolicy retryPolicyOverride
     ) {
@@ -225,7 +224,7 @@ public final class ReliableChannel implements AutoCloseable {
     public <T> CompletableFuture<T> serviceAsync(
             int opCode,
             PayloadWriter payloadWriter,
-            PayloadReader<T> payloadReader
+            @Nullable PayloadReader<T> payloadReader
     ) {
         return serviceAsync(opCode, payloadWriter, payloadReader, null, null);
     }
@@ -244,8 +243,8 @@ public final class ReliableChannel implements AutoCloseable {
 
     private <T> CompletableFuture<T> serviceAsyncInternal(
             int opCode,
-            PayloadWriter payloadWriter,
-            PayloadReader<T> payloadReader,
+            @Nullable PayloadWriter payloadWriter,
+            @Nullable PayloadReader<T> payloadReader,
             ClientChannel ch) {
         return ch.serviceAsync(opCode, payloadWriter, payloadReader).whenComplete((res, err) -> {
             if (err != null && unwrapConnectionException(err) != null) {
@@ -387,7 +386,6 @@ public final class ReliableChannel implements AutoCloseable {
             String[] hostAddrs = clientCfg.addressesFinder().getAddresses();
 
             if (hostAddrs.length == 0) {
-                //noinspection NonPrivateFieldAccessedInSynchronizedContext
                 throw new IgniteException(CONFIGURATION_ERR, "Empty addresses");
             }
 
@@ -656,40 +654,21 @@ public final class ReliableChannel implements AutoCloseable {
         }
     }
 
-    private void onObservableTimestampReceived(Long newTs) {
-        // Atomically update the observable timestamp to max(newTs, curTs).
-        while (true) {
-            long curTs = observableTimestamp.get();
-
-            if (curTs >= newTs) {
-                break;
-            }
-
-            if (observableTimestamp.compareAndSet(curTs, newTs)) {
-                break;
-            }
-        }
+    private void onObservableTimestampReceived(long newTs) {
+        observableTimestamp.updateAndGet(curTs -> Math.max(curTs, newTs));
     }
 
-    private void onTopologyAssignmentChanged(ClientChannel clientChannel) {
-        // NOTE: Multiple channels will send the same update to us, resulting in multiple cache invalidations.
-        // This could be solved with a cluster-wide AssignmentVersion, but we don't have that.
-        // So we only react to updates from the default channel. When no user-initiated operations are performed on the default
-        // channel, heartbeat messages will trigger updates.
-        CompletableFuture<ClientChannel> ch = channels.get(defaultChIdx).chFut;
-
-        if (ch != null && clientChannel == ClientFutureUtils.getNowSafe(ch)) {
-            assignmentVersion.incrementAndGet();
-        }
+    private void onPartitionAssignmentChanged(long timestamp) {
+        partitionAssignmentTimestamp.updateAndGet(curTs -> Math.max(curTs, timestamp));
     }
 
     /**
-     * Gets the local partition assignment version.
+     * Gets the last known primary replica start time (for any table).
      *
-     * @return Assignment version.
+     * @return Primary replica max start time.
      */
-    public long partitionAssignmentVersion() {
-        return assignmentVersion.get();
+    public long partitionAssignmentTimestamp() {
+        return partitionAssignmentTimestamp.get();
     }
 
     @Nullable
@@ -814,7 +793,7 @@ public final class ReliableChannel implements AutoCloseable {
                                 "Cluster ID mismatch: expected=" + oldClusterId + ", actual=" + ch.protocolContext().clusterId());
                     }
 
-                    ch.addTopologyAssignmentChangeListener(ReliableChannel.this::onTopologyAssignmentChanged);
+                    ch.addPartitionAssignmentChangeListener(ReliableChannel.this::onPartitionAssignmentChanged);
                     ch.addObservableTimestampListener(ReliableChannel.this::onObservableTimestampReceived);
 
                     ClusterNode newNode = ch.protocolContext().clusterNode();

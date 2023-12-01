@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.util.ArrayUtils.OBJECT_EMPTY_ARRAY;
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
+import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.not;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.fail;
@@ -197,6 +198,15 @@ abstract class QueryCheckerImpl implements QueryChecker {
         assert resultChecker == null : "Result checker already set to " + resultChecker.getClass().getSimpleName();
 
         resultChecker = new NotEmptyResultChecker();
+
+        return this;
+    }
+
+    @Override
+    public QueryChecker returnRowCount(int rowCount) {
+        assert resultChecker == null : "Result checker already set to " + resultChecker.getClass().getSimpleName();
+
+        resultChecker = new RowCountResultChecker(rowCount);
 
         return this;
     }
@@ -451,6 +461,19 @@ abstract class QueryCheckerImpl implements QueryChecker {
             }
 
             QueryChecker.assertEqualsCollections(expectedResult, rows);
+        }
+    }
+
+    private static class RowCountResultChecker implements ResultChecker {
+        private final int expRowCount;
+
+        private RowCountResultChecker(int expRowCount) {
+            this.expRowCount = expRowCount;
+        }
+
+        @Override
+        public void check(List<List<?>> rows, boolean ordered) {
+            assertThat(rows, hasSize(expRowCount));
         }
     }
 }

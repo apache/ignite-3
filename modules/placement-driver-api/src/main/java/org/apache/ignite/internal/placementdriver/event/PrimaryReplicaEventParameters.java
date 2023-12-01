@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.placementdriver.event;
 
 import org.apache.ignite.internal.event.CausalEventParameters;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 
 /** Primary replica event parameters. There are properties which associate with a concrete primary replica. */
@@ -26,18 +27,22 @@ public class PrimaryReplicaEventParameters extends CausalEventParameters {
 
     private final String leaseholder;
 
+    private final HybridTimestamp startTime;
+
     /**
      * Constructor.
      *
      * @param causalityToken Causality token.
      * @param groupId Replication group ID.
      * @param leaseholder Leaseholder node consistent ID.
+     * @param startTime Lease start timestamp.
      */
-    public PrimaryReplicaEventParameters(long causalityToken, ReplicationGroupId groupId, String leaseholder) {
+    public PrimaryReplicaEventParameters(long causalityToken, ReplicationGroupId groupId, String leaseholder, HybridTimestamp startTime) {
         super(causalityToken);
 
         this.groupId = groupId;
         this.leaseholder = leaseholder;
+        this.startTime = startTime;
     }
 
     /** Replication group ID. */
@@ -48,5 +53,10 @@ public class PrimaryReplicaEventParameters extends CausalEventParameters {
     /** Returns leaseholder node consistent ID. */
     public String leaseholder() {
         return leaseholder;
+    }
+
+    /** Returns lease start timestamp. */
+    public HybridTimestamp startTime() {
+        return startTime;
     }
 }

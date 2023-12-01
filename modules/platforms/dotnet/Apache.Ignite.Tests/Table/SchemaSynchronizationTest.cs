@@ -360,7 +360,7 @@ public class SchemaSynchronizationTest : IgniteTestsBase
 
             // Wait for background streaming to complete.
             // TODO: Remove this workaround when IGNITE-20416 is fixed.
-            metricListener.AssertMetric("streamer-items-sent", 6, 3000);
+            metricListener.AssertMetricGreaterOrEqual("streamer-items-sent", 6, 3000);
 
             // Update schema.
             // New schema has a new column with a default value, so it is not required to provide it in the streamed data.

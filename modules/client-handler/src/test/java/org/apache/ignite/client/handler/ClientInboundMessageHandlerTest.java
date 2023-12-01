@@ -159,7 +159,8 @@ class ClientInboundMessageHandlerTest extends BaseIgniteAbstractTest {
                 clock,
                 schemaSyncService,
                 catalogService,
-                clientIdGen.incrementAndGet()
+                clientIdGen.incrementAndGet(),
+                new ClientPrimaryReplicaTracker(null, catalogService, clock, schemaSyncService)
         );
 
         authenticationManager.listen(handler);

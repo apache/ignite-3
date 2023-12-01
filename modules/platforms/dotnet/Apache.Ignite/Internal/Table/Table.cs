@@ -28,7 +28,7 @@ namespace Apache.Ignite.Internal.Table
     using Ignite.Sql;
     using Ignite.Table;
     using Ignite.Transactions;
-    using Log;
+    using Microsoft.Extensions.Logging;
     using Proto;
     using Proto.MsgPack;
     using Serialization;
@@ -65,7 +65,7 @@ namespace Apache.Ignite.Internal.Table
         private readonly object _latestSchemaLock = new();
 
         /** */
-        private readonly IIgniteLogger? _logger;
+        private readonly ILogger _logger;
 
         /** */
         private readonly SemaphoreSlim _partitionAssignmentSemaphore = new(1);
@@ -74,10 +74,10 @@ namespace Apache.Ignite.Internal.Table
         private volatile int _latestSchemaVersion = SchemaVersionUnknown;
 
         /** */
-        private volatile int _partitionAssignmentVersion = -1;
+        private long _partitionAssignmentTimestamp = -1;
 
         /** */
-        private volatile string[]? _partitionAssignment;
+        private volatile string?[]? _partitionAssignment;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="Table"/> class.
@@ -94,7 +94,7 @@ namespace Apache.Ignite.Internal.Table
             Name = name;
             Id = id;
 
-            _logger = socket.Configuration.Logger.GetLogger(GetType());
+            _logger = socket.Configuration.LoggerFactory.CreateLogger<Table>();
 
             RecordBinaryView = new RecordView<IIgniteTuple>(
                 this,
@@ -213,13 +213,13 @@ namespace Apache.Ignite.Internal.Table
         /// Gets the partition assignment.
         /// </summary>
         /// <returns>Partition assignment.</returns>
-        internal async ValueTask<string[]?> GetPartitionAssignmentAsync()
+        internal async ValueTask<string?[]?> GetPartitionAssignmentAsync()
         {
-            var socketVer = _socket.PartitionAssignmentVersion;
+            var latestKnownTimestamp = _socket.PartitionAssignmentTimestamp;
             var assignment = _partitionAssignment;
 
             // Async double-checked locking. Assignment changes rarely, so we avoid the lock if possible.
-            if (_partitionAssignmentVersion == socketVer && assignment != null)
+            if (Interlocked.Read(ref _partitionAssignmentTimestamp) >= latestKnownTimestamp && assignment != null)
             {
                 return assignment;
             }
@@ -228,20 +228,27 @@ namespace Apache.Ignite.Internal.Table
 
             try
             {
-                socketVer = _socket.PartitionAssignmentVersion;
+                latestKnownTimestamp = _socket.PartitionAssignmentTimestamp;
                 assignment = _partitionAssignment;
 
-                if (_partitionAssignmentVersion == socketVer && assignment != null)
+                if (Interlocked.Read(ref _partitionAssignmentTimestamp) >= latestKnownTimestamp && assignment != null)
                 {
                     return assignment;
                 }
 
-                assignment = await LoadPartitionAssignmentAsync().ConfigureAwait(false);
+                var res = await LoadPartitionAssignmentAsync(latestKnownTimestamp).ConfigureAwait(false);
+                if (res == null)
+                {
+                    // Assignment for the given timestamp is not available yet (some nodes can lag behind).
+                    return null;
+                }
 
-                _partitionAssignment = assignment;
-                _partitionAssignmentVersion = socketVer;
+                Debug.Assert(res.Value.Timestamp >= latestKnownTimestamp, "res.Value.Timestamp >= socketTimestamp");
 
-                return assignment;
+                _partitionAssignment = res.Value.Assignment;
+                Interlocked.Exchange(ref _partitionAssignmentTimestamp, res.Value.Timestamp);
+
+                return res.Value.Assignment;
             }
             finally
             {
@@ -372,10 +379,7 @@ namespace Apache.Ignite.Internal.Table
 
             _schemas[schemaVersion] = Task.FromResult(schema);
 
-            if (_logger?.IsEnabled(LogLevel.Debug) == true)
-            {
-                _logger.Debug($"Schema loaded [tableId={Id}, schemaVersion={schema.Version}]");
-            }
+            _logger.LogSchemaLoadedDebug(Id, schema.Version);
 
             lock (_latestSchemaLock)
             {
@@ -392,15 +396,21 @@ namespace Apache.Ignite.Internal.Table
         /// Loads the partition assignment.
         /// </summary>
         /// <returns>Partition assignment.</returns>
-        private async Task<string[]?> LoadPartitionAssignmentAsync()
+        private async Task<(string?[]? Assignment, long Timestamp)?> LoadPartitionAssignmentAsync(long timestamp)
         {
             using var writer = ProtoCommon.GetMessageWriter();
-            writer.MessageWriter.Write(Id);
+            Write(writer.MessageWriter);
 
             using var resBuf = await _socket.DoOutInOpAsync(ClientOp.PartitionAssignmentGet, writer).ConfigureAwait(false);
             return Read();
 
-            string[]? Read()
+            void Write(MsgPackWriter w)
+            {
+                w.Write(Id);
+                w.Write(timestamp);
+            }
+
+            (string?[] Assignment, long Timestamp)? Read()
             {
                 var r = resBuf.GetReader();
                 var count = r.ReadInt32();
@@ -410,14 +420,15 @@ namespace Apache.Ignite.Internal.Table
                     return null;
                 }
 
-                var res = new string[count];
+                var resTimestamp = r.ReadInt64();
+                var res = new string?[count];
 
                 for (int i = 0; i < count; i++)
                 {
-                    res[i] = r.ReadString();
+                    res[i] = r.ReadStringNullable();
                 }
 
-                return res;
+                return (res, resTimestamp);
             }
         }
     }

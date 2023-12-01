@@ -97,7 +97,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     private final Map<Long, ClientRequestFuture> pendingReqs = new ConcurrentHashMap<>();
 
     /** Topology change listeners. */
-    private final Collection<Consumer<ClientChannel>> assignmentChangeListeners = new CopyOnWriteArrayList<>();
+    private final Collection<Consumer<Long>> assignmentChangeListeners = new CopyOnWriteArrayList<>();
 
     /** Observable timestamp listeners. */
     private final Collection<Consumer<Long>> observableTimestampListeners = new CopyOnWriteArrayList<>();
@@ -247,8 +247,8 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     @Override
     public <T> CompletableFuture<T> serviceAsync(
             int opCode,
-            PayloadWriter payloadWriter,
-            PayloadReader<T> payloadReader
+            @Nullable PayloadWriter payloadWriter,
+            @Nullable PayloadReader<T> payloadReader
     ) {
         try {
             if (log.isTraceEnabled()) {
@@ -273,7 +273,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
      * @param payloadWriter Payload writer to stream or {@code null} if request has no payload.
      * @return Request future.
      */
-    private ClientRequestFuture send(int opCode, PayloadWriter payloadWriter) {
+    private ClientRequestFuture send(int opCode, @Nullable PayloadWriter payloadWriter) {
         long id = reqId.getAndIncrement();
 
         if (closed()) {
@@ -336,7 +336,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
      * @param payloadReader Payload reader from stream.
      * @return Future for the operation.
      */
-    private <T> CompletableFuture<T> receiveAsync(ClientRequestFuture pendingReq, PayloadReader<T> payloadReader) {
+    private <T> CompletableFuture<T> receiveAsync(ClientRequestFuture pendingReq, @Nullable PayloadReader<T> payloadReader) {
         return pendingReq.thenApplyAsync(payload -> {
             if (payload == null) {
                 return null;
@@ -396,8 +396,9 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
                 log.info("Partition assignment change notification received [remoteAddress=" + cfg.getAddress() + "]");
             }
 
-            for (Consumer<ClientChannel> listener : assignmentChangeListeners) {
-                listener.accept(this);
+            long maxStartTime = unpacker.unpackLong();
+            for (Consumer<Long> listener : assignmentChangeListeners) {
+                listener.accept(maxStartTime);
             }
         }
 
@@ -488,7 +489,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
 
     /** {@inheritDoc} */
     @Override
-    public void addTopologyAssignmentChangeListener(Consumer<ClientChannel> listener) {
+    public void addPartitionAssignmentChangeListener(Consumer<Long> listener) {
         assignmentChangeListeners.add(listener);
     }
 

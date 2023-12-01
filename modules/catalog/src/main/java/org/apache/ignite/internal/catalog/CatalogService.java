@@ -88,9 +88,10 @@ public interface CatalogService extends EventProducer<CatalogEvent, CatalogEvent
 
     int activeCatalogVersion(long timestamp);
 
-    /**
-     * Returns the latest registered version of the catalog.
-     */
+    /** Returns the earliest registered version of the catalog. */
+    int earliestCatalogVersion();
+
+    /** Returns the latest registered version of the catalog. */
     int latestCatalogVersion();
 
     /**

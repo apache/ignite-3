@@ -21,7 +21,7 @@ using System;
 using System.Diagnostics.CodeAnalysis;
 using System.Threading.Tasks;
 using Internal;
-using Log;
+using Microsoft.Extensions.Logging;
 using NUnit.Framework;
 
 /// <summary>
@@ -72,7 +72,7 @@ public class ReconnectTests
     {
         var cfg = new IgniteClientConfiguration
         {
-            Logger = new ConsoleLogger { MinLevel = LogLevel.Debug }
+            LoggerFactory = TestUtils.GetConsoleLoggerFactory(LogLevel.Debug)
         };
 
         using var server = new FakeServer();
@@ -92,7 +92,7 @@ public class ReconnectTests
         {
             HeartbeatInterval = TimeSpan.FromMilliseconds(100),
             ReconnectInterval = TimeSpan.FromMilliseconds(300),
-            Logger = new ConsoleLogger { MinLevel = LogLevel.Trace }
+            LoggerFactory = TestUtils.GetConsoleLoggerFactory(LogLevel.Trace)
         };
 
         using var servers = FakeServerGroup.Create(10);
@@ -134,15 +134,17 @@ public class ReconnectTests
     }
 
     [Test]
+    [SuppressMessage("Performance", "CA1848:Use the LoggerMessage delegates", Justification = "Test")]
     public async Task TestReconnectAfterFullClusterRestart()
     {
-        var logger = new ConsoleLogger { MinLevel = LogLevel.Trace };
+        var loggerFactory = TestUtils.GetConsoleLoggerFactory(LogLevel.Trace);
+        var logger = loggerFactory.CreateLogger("test");
 
         var cfg = new IgniteClientConfiguration
         {
             ReconnectInterval = TimeSpan.FromMilliseconds(100),
             SocketTimeout = TimeSpan.FromSeconds(2),
-            Logger = logger
+            LoggerFactory = loggerFactory
         };
 
         using var servers = FakeServerGroup.Create(10);
@@ -151,24 +153,24 @@ public class ReconnectTests
         Assert.DoesNotThrowAsync(async () => await client.Tables.GetTablesAsync());
 
         // Drop all connections and block new connections.
-        logger.Debug("Dropping all connections and blocking new connections...");
+        logger.LogDebug("Dropping all connections and blocking new connections...");
         servers.DropNewConnections = true;
         servers.DropExistingConnections();
-        logger.Debug("Dropped all connections and blocked new connections.");
+        logger.LogDebug("Dropped all connections and blocked new connections.");
 
         // Client fails to perform operations.
         Assert.ThrowsAsync<IgniteClientConnectionException>(async () => await client.Tables.GetTablesAsync());
 
         // Allow new connections.
-        logger.Debug("Allowing new connections...");
+        logger.LogDebug("Allowing new connections...");
         servers.DropNewConnections = false;
-        logger.Debug("Allowed new connections.");
+        logger.LogDebug("Allowed new connections.");
 
         // Client works again.
         Assert.DoesNotThrowAsync(async () => await client.Tables.GetTablesAsync());
 
         // All connections are restored.
-        logger.Debug("Waiting for all connections to be restored...");
+        logger.LogDebug("Waiting for all connections to be restored...");
         client.WaitForConnections(10);
     }
 }
