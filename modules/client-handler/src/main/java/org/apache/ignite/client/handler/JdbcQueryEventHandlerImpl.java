@@ -388,9 +388,8 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
 
                     List<ColumnMetadata> columns = cur.metadata().columns();
 
+                    int[] decimalScales = new int[columns.size()];
                     List<ColumnType> schema = new ArrayList<>(columns.size());
-                    int[] decimalScales = new int[schema.size()];
-                    schema = new ArrayList<>(columns.size());
 
                     int countOfDecimal = 0;
                     for (ColumnMetadata column : columns) {
