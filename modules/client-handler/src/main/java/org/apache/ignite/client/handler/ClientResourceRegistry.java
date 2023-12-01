@@ -20,10 +20,9 @@ package org.apache.ignite.client.handler;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.locks.ReadWriteLock;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 
 /**
  * Per-connection resource registry.
@@ -42,12 +41,7 @@ public class ClientResourceRegistry {
     /**
      * RW lock.
      */
-    private final ReadWriteLock rwLock = new ReentrantReadWriteLock();
-
-    /**
-     * Closed flag.
-     */
-    private volatile boolean closed;
+    private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
     /**
      * Stores the resource and returns the generated id.
@@ -116,31 +110,26 @@ public class ClientResourceRegistry {
      * Closes the registry and releases all resources.
      */
     public void close() {
-        rwLock.writeLock().lock();
+        busyLock.block();
 
-        try {
-            closed = true;
-            IgniteInternalException ex = null;
+        IgniteInternalException ex = null;
 
-            for (ClientResource r : res.values()) {
-                try {
-                    r.release();
-                } catch (Exception e) {
-                    if (ex == null) {
-                        ex = new IgniteInternalException(e);
-                    } else {
-                        ex.addSuppressed(e);
-                    }
+        for (ClientResource r : res.values()) {
+            try {
+                r.release();
+            } catch (Exception e) {
+                if (ex == null) {
+                    ex = new IgniteInternalException(e);
+                } else {
+                    ex.addSuppressed(e);
                 }
             }
+        }
 
-            res.clear();
+        res.clear();
 
-            if (ex != null) {
-                throw ex;
-            }
-        } finally {
-            rwLock.writeLock().unlock();
+        if (ex != null) {
+            throw ex;
         }
     }
 
@@ -148,7 +137,7 @@ public class ClientResourceRegistry {
      * Enters the lock.
      */
     private void enter() throws IgniteInternalCheckedException {
-        if (!rwLock.readLock().tryLock() || closed) {
+        if (!busyLock.enterBusy()) {
             throw new IgniteInternalCheckedException("Resource registry is closed.");
         }
     }
@@ -157,6 +146,6 @@ public class ClientResourceRegistry {
      * Leaves the lock.
      */
     private void leave() {
-        rwLock.readLock().unlock();
+        busyLock.leaveBusy();
     }
 }
