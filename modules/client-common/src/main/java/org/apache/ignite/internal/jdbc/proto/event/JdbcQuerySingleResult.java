@@ -229,11 +229,12 @@ public class JdbcQuerySingleResult extends Response {
         last = unpacker.unpackBoolean();
 
         decimalScales = unpacker.unpackIntArray();
-        int[] columnTypeIds = unpacker.unpackIntArray();
 
-        columnTypes = new ArrayList<>(columnTypeIds.length);
-        for (int columnType : columnTypeIds) {
-            columnTypes.add(ColumnType.getById(columnType));
+        int count = unpacker.unpackInt();
+        columnTypes = new ArrayList<>(count);
+
+        for (int i = 0; i < count; i++) {
+            columnTypes.add(ColumnType.getById(unpacker.unpackInt()));
         }
 
         int size = unpacker.unpackInt();

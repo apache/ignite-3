@@ -171,7 +171,7 @@ public class JdbcStatement implements Statement {
                 List<ColumnType> columnTypes = jdbcRes.columnTypes();
                 int[] decimalScales = jdbcRes.decimalScales();
                 List<Object> row = new ArrayList<>(columnTypes.size());
-                int decimalIdx = -1;
+                int decimalIdx = 0;
                 int currentDecimalScale = -1;
                 for (int colIdx = 0; colIdx < columnTypes.size(); colIdx++) {
                     ColumnType type = columnTypes.get(colIdx);

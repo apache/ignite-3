@@ -323,7 +323,15 @@ abstract class QueryCheckerImpl implements QueryChecker {
             assertEquals(metadataMatchers.size(), columnMetadata.size(), "Column metadata doesn't match");
         }
 
-        List<List<?>> res = Commons.cast(getAllFromCursor(cur));
+        List<InternalSqlRow> rows = Commons.cast(getAllFromCursor(cur));
+        List<List<?>> res = new ArrayList<>(rows.size());
+        rows.forEach(r -> {
+            List<Object> row = new ArrayList<>(r.fieldCount());
+            for (int i = 0; i < r.fieldCount(); i++) {
+                row.add(r.get(i));
+            }
+            res.add(row);
+        });
 
         if (resultChecker != null) {
             resultChecker.check(res, ordered);
