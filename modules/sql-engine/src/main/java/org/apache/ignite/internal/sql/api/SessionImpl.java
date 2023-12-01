@@ -406,7 +406,8 @@ public class SessionImpl implements AbstractSession {
         try {
             SqlProperties properties = SqlPropertiesHelper.emptyProperties();
 
-            CompletableFuture<AsyncSqlCursor<List<Object>>> f = qryProc.queryScriptAsync(properties, transactions, null, query, arguments);
+            CompletableFuture<AsyncSqlCursor<InternalSqlRow>> f =
+                    qryProc.queryScriptAsync(properties, transactions, null, query, arguments);
 
             ScriptHandler handler = new ScriptHandler(resFut);
             f.whenComplete(handler::processFirstResult);
@@ -549,7 +550,7 @@ public class SessionImpl implements AbstractSession {
             this.resFut = resFut;
         }
 
-        void processFirstResult(AsyncSqlCursor<List<Object>> cursor, Throwable t) {
+        void processFirstResult(AsyncSqlCursor<InternalSqlRow> cursor, Throwable t) {
             if (t != null) {
                 resFut.completeExceptionally(t);
             } else {
@@ -558,7 +559,7 @@ public class SessionImpl implements AbstractSession {
             }
         }
 
-        void processCursor(AsyncSqlCursor<List<Object>> cursor, int cursorId) {
+        void processCursor(AsyncSqlCursor<InternalSqlRow> cursor, int cursorId) {
             if (!busyLock.enterBusy()) {
                 closeCursor(cursor, cursorId);
 
@@ -588,7 +589,7 @@ public class SessionImpl implements AbstractSession {
             }
         }
 
-        void closeCursor(AsyncSqlCursor<List<Object>> cursor, int cursorId) {
+        void closeCursor(AsyncSqlCursor<InternalSqlRow> cursor, int cursorId) {
             openedCursors.remove(cursorId);
             cursor.closeAsync();
         }
