@@ -31,13 +31,11 @@ using NodaTime;
 internal static class ColumnTypeExtensions
 {
     private static readonly IReadOnlyDictionary<Type, ColumnType> ClrToSql =
-        Enum.GetValues<ColumnType>()
-            .Where(x => x != ColumnType.Null)
-            .ToDictionary(x => x.ToClrType(), x => x);
+        Enum.GetValues<ColumnType>().ToDictionary(x => x.ToClrType(), x => x);
 
     private static readonly IReadOnlyDictionary<Type, string> ClrToSqlName =
         Enum.GetValues<ColumnType>()
-            .Where(x => x != ColumnType.Period && x != ColumnType.Duration && x != ColumnType.Null)
+            .Where(x => x != ColumnType.Period && x != ColumnType.Duration)
             .ToDictionary(x => x.ToClrType(), x => x.ToSqlTypeName());
 
     /// <summary>
@@ -47,6 +45,7 @@ internal static class ColumnTypeExtensions
     /// <returns>CLR type.</returns>
     public static Type ToClrType(this ColumnType columnType) => columnType switch
     {
+        ColumnType.Null => typeof(void),
         ColumnType.Boolean => typeof(bool),
         ColumnType.Int8 => typeof(sbyte),
         ColumnType.Int16 => typeof(short),
@@ -66,9 +65,7 @@ internal static class ColumnTypeExtensions
         ColumnType.Period => typeof(Period),
         ColumnType.Duration => typeof(Duration),
         ColumnType.Number => typeof(BigInteger),
-
-        // ReSharper disable once PatternIsRedundant
-        ColumnType.Null or _ => throw new InvalidOperationException($"Invalid {nameof(ColumnType)}: {columnType}")
+        _ => throw new InvalidOperationException($"Invalid {nameof(ColumnType)}: {columnType}")
     };
 
     /// <summary>
@@ -91,6 +88,7 @@ internal static class ColumnTypeExtensions
     /// <returns>SQL type name.</returns>
     public static string ToSqlTypeName(this ColumnType columnType) => columnType switch
     {
+        ColumnType.Null => "null",
         ColumnType.Boolean => "boolean",
         ColumnType.Int8 => "tinyint",
         ColumnType.Int16 => "smallint",
@@ -110,9 +108,7 @@ internal static class ColumnTypeExtensions
         ColumnType.Number => "numeric",
         ColumnType.Period => "interval",
         ColumnType.Duration => "duration",
-
-        // ReSharper disable once PatternIsRedundant
-        ColumnType.Null or _ => throw new InvalidOperationException($"Unsupported {nameof(ColumnType)}: {columnType}")
+        _ => throw new InvalidOperationException($"Unsupported {nameof(ColumnType)}: {columnType}")
     };
 
     /// <summary>

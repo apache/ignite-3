@@ -93,6 +93,7 @@ namespace Apache.Ignite.Internal.Sql
 
             return col.Type switch
             {
+                ColumnType.Null => null,
                 ColumnType.Boolean => reader.GetBool(idx),
                 ColumnType.Int8 => reader.GetByte(idx),
                 ColumnType.Int16 => reader.GetShort(idx),
@@ -112,9 +113,7 @@ namespace Apache.Ignite.Internal.Sql
                 ColumnType.Period => reader.GetPeriod(idx),
                 ColumnType.Duration => reader.GetDuration(idx),
                 ColumnType.Number => reader.GetNumber(idx),
-
-                // ReSharper disable once PatternIsRedundant
-                ColumnType.Null or _ => throw new ArgumentOutOfRangeException(nameof(col.Type), col.Type, "Unknown SQL column type.")
+                _ => throw new ArgumentOutOfRangeException(nameof(col.Type), col.Type, "Unknown SQL column type.")
             };
         }
 

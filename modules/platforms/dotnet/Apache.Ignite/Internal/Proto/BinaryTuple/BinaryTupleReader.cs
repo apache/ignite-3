@@ -465,6 +465,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         public object? GetObject(int index, ColumnType columnType, int scale = 0) =>
             columnType switch
             {
+                ColumnType.Null => null,
                 ColumnType.Int8 => GetByteNullable(index),
                 ColumnType.Int16 => GetShortNullable(index),
                 ColumnType.Int32 => GetIntNullable(index),
@@ -484,9 +485,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
                 ColumnType.Boolean => GetBoolNullable(index),
                 ColumnType.Period => GetPeriodNullable(index),
                 ColumnType.Duration => GetDurationNullable(index),
-
-                // ReSharper disable once PatternIsRedundant
-                ColumnType.Null or _ => throw new IgniteClientException(ErrorGroups.Client.Protocol, "Unsupported type: " + columnType)
+                _ => throw new IgniteClientException(ErrorGroups.Client.Protocol, "Unsupported type: " + columnType)
             };
 
         /// <summary>
