@@ -31,11 +31,13 @@ using NodaTime;
 internal static class ColumnTypeExtensions
 {
     private static readonly IReadOnlyDictionary<Type, ColumnType> ClrToSql =
-        Enum.GetValues<ColumnType>().ToDictionary(x => x.ToClrType(), x => x);
+        Enum.GetValues<ColumnType>()
+            .Where(x => x != ColumnType.Null)
+            .ToDictionary(x => x.ToClrType(), x => x);
 
     private static readonly IReadOnlyDictionary<Type, string> ClrToSqlName =
         Enum.GetValues<ColumnType>()
-            .Where(x => x != ColumnType.Period && x != ColumnType.Duration)
+            .Where(x => x != ColumnType.Period && x != ColumnType.Duration && x != ColumnType.Null)
             .ToDictionary(x => x.ToClrType(), x => x.ToSqlTypeName());
 
     /// <summary>
