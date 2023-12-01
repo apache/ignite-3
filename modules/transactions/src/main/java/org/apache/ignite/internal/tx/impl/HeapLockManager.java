@@ -41,6 +41,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
+import org.apache.ignite.internal.event.AbstractEventProducer;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.tostring.IgniteToStringExclude;
 import org.apache.ignite.internal.tostring.S;
@@ -51,6 +52,8 @@ import org.apache.ignite.internal.tx.LockKey;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.LockMode;
 import org.apache.ignite.internal.tx.Waiter;
+import org.apache.ignite.internal.tx.event.LockEvent;
+import org.apache.ignite.internal.tx.event.LockEventParameters;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -66,7 +69,7 @@ import org.jetbrains.annotations.TestOnly;
  *
  * <p>Additionally limits the lock map size.
  */
-public class HeapLockManager implements LockManager {
+public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventParameters> implements LockManager {
     /**
      * Table size. TODO make it configurable IGNITE-20694
      */
@@ -319,7 +322,7 @@ public class HeapLockManager implements LockManager {
     /**
      * A lock state.
      */
-    public class LockState {
+    private static class LockState {
         /** Waiters. */
         private final TreeMap<UUID, WaiterImpl> waiters;
 
@@ -421,6 +424,8 @@ public class HeapLockManager implements LockManager {
                 LockMode mode = lockedMode(tmp);
 
                 if (mode != null && !mode.isCompatible(waiter.intendedLockMode())) {
+                    conflictFound(waiter.txId(), tmp.txId());
+
                     if (!deadlockPreventionPolicy.usePriority() && deadlockPreventionPolicy.waitTimeout() == 0) {
                         waiter.fail(lockException(waiter, tmp));
 
@@ -436,6 +441,8 @@ public class HeapLockManager implements LockManager {
                 LockMode mode = lockedMode(tmp);
 
                 if (mode != null && !mode.isCompatible(waiter.intendedLockMode())) {
+                    conflictFound(waiter.txId(), tmp.txId());
+
                     if (skipFail) {
                         return false;
                     } else if (deadlockPreventionPolicy.waitTimeout() == 0) {
@@ -653,6 +660,16 @@ public class HeapLockManager implements LockManager {
 
                 return v;
             });
+        }
+
+        /**
+         * Notifies about the lock conflict found between transactions.
+         *
+         * @param acquirerTx Transaction which tries to acquire the lock.
+         * @param holderTx Transaction which holds the lock.
+         */
+        private void conflictFound(UUID acquirerTx, UUID holderTx) {
+            fireEvent(LockEvent.LOCK_CONFLICT, new LockEventParameters(acquirerTx, holderTx));
         }
     }
 

@@ -20,21 +20,10 @@ package org.apache.ignite.internal.table.distributed.replication.request;
 import java.util.UUID;
 import org.apache.ignite.internal.replicator.message.PrimaryReplicaRequest;
 import org.apache.ignite.internal.replicator.message.TimestampAware;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Read-write replica request.
  */
 public interface ReadWriteReplicaRequest extends PrimaryReplicaRequest, TimestampAware {
     UUID transactionId();
-
-    /**
-     * Gets a raft term.
-     * TODO: A temp solution until lease-based engine will be implemented (IGNITE-17256, IGNITE-15083, IGNITE-20377)
-     *
-     * @return Raft term.
-     */
-    @Deprecated
-    @Nullable
-    Long term();
 }

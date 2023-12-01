@@ -87,7 +87,7 @@ public class MetricsTests
         await client.Tables.GetTablesAsync();
 
         AssertMetric("bytes-sent", 17);
-        AssertMetric("bytes-received", 73);
+        AssertMetric("bytes-received", 74);
     }
 
     [Test]
