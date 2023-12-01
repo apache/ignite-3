@@ -173,7 +173,7 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
             OperandTypes.NUMERIC_OPTIONAL_INTEGER,
             SqlFunctionCategory.NUMERIC);
 
-    /** The {@code ROUND(numeric [, numeric])} function. */
+    /** The {@code TRUNCATE(numeric [, numeric])} function. */
     public static final SqlFunction TRUNCATE = SqlBasicFunction.create("TRUNCATE",
             new SetScaleToZeroIfSingleArgument(),
             OperandTypes.NUMERIC_OPTIONAL_INTEGER,
