@@ -1000,7 +1000,6 @@ public class RexImpTable {
       defineMethod(IgniteSqlOperatorTable.OCTET_LENGTH, IgniteMethod.OCTET_LENGTH.method(), NullPolicy.STRICT);
       defineMethod(SUBSTR, IgniteMethod.SUBSTR.method(), NullPolicy.STRICT);
       defineMethod(ROUND, IgniteMethod.ROUND.method(), NullPolicy.STRICT);
-      defineMethod(TRUNC, IgniteMethod.TRUNCATE.method(), NullPolicy.STRICT);
       defineMethod(TRUNCATE, IgniteMethod.TRUNCATE.method(), NullPolicy.STRICT);
 
       map.put(TYPEOF, systemFunctionImplementor);
