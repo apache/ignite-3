@@ -47,6 +47,7 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.sql.api.ColumnMetadataImpl;
 import org.apache.ignite.internal.sql.api.ResultSetMetadataImpl;
+import org.apache.ignite.internal.sql.engine.QueryCatalogVersions;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DdlSqlToCommandConverter;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
@@ -341,13 +342,13 @@ public class PrepareServiceImpl implements PrepareService {
 
     private static CacheKey createCacheKey(ParsedResult parsedResult, PlanningContext ctx) {
         boolean distributed = distributionPresent(ctx.config().getTraitDefs());
-        int catalogVersion = ctx.unwrap(BaseQueryContext.class).schemaVersion();
+        QueryCatalogVersions catalogVersions = ctx.unwrap(BaseQueryContext.class).schemaVersions();
 
         Class[] paramTypes = ctx.parameters().length == 0
                 ? EMPTY_CLASS_ARRAY :
                 Arrays.stream(ctx.parameters()).map(p -> (p != null) ? p.getClass() : Void.class).toArray(Class[]::new);
 
-        return new CacheKey(catalogVersion, ctx.schemaName(), parsedResult.normalizedQuery(), distributed, paramTypes);
+        return new CacheKey(catalogVersions, ctx.schemaName(), parsedResult.normalizedQuery(), distributed, paramTypes);
     }
 
     private static ResultSetMetadata resultSetMetadata(

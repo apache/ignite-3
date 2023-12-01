@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine.prepare;
 
 import java.util.Arrays;
 import java.util.Objects;
+import org.apache.ignite.internal.sql.engine.QueryCatalogVersions;
 
 /**
  * CacheKey.
@@ -28,7 +29,7 @@ import java.util.Objects;
 public class CacheKey {
     static final Class<?>[] EMPTY_CLASS_ARRAY = {};
 
-    private final int catalogVersion;
+    private final QueryCatalogVersions catalogVersions;
 
     private final String schemaName;
 
@@ -41,15 +42,15 @@ public class CacheKey {
     /**
      * Constructor.
      *
-     * @param catalogVersion Catalog version.
+     * @param catalogVersions Catalog versions.
      * @param schemaName Schema name.
      * @param query      Query string.
      * @param contextKey Optional context key to differ queries with and without/different flags, having an impact on result plan (like
      *                   LOCAL flag)
      * @param paramTypes Types of all dynamic parameters, no any type can be {@code null}.
      */
-    public CacheKey(int catalogVersion, String schemaName, String query, Object contextKey, Class<?>[] paramTypes) {
-        this.catalogVersion = catalogVersion;
+    public CacheKey(QueryCatalogVersions catalogVersions, String schemaName, String query, Object contextKey, Class<?>[] paramTypes) {
+        this.catalogVersions = catalogVersions;
         this.schemaName = schemaName;
         this.query = query;
         this.contextKey = contextKey;
@@ -68,7 +69,7 @@ public class CacheKey {
 
         CacheKey cacheKey = (CacheKey) o;
 
-        if (catalogVersion != cacheKey.catalogVersion) {
+        if (!catalogVersions.equals(cacheKey.catalogVersions)) {
             return false;
         }
         if (!schemaName.equals(cacheKey.schemaName)) {
@@ -86,7 +87,7 @@ public class CacheKey {
 
     @Override
     public int hashCode() {
-        int result = catalogVersion;
+        int result = catalogVersions.hashCode();
         result = 31 * result + schemaName.hashCode();
         result = 31 * result + query.hashCode();
         result = 31 * result + (contextKey != null ? contextKey.hashCode() : 0);

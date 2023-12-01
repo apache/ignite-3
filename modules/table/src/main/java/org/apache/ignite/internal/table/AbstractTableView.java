@@ -29,6 +29,7 @@ import org.apache.ignite.internal.lang.IgniteExceptionMapperUtil;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.table.distributed.replicator.InternalSchemaVersionMismatchException;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
+import org.apache.ignite.internal.table.distributed.schema.TransactionTimestamps;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.tx.Transaction;
@@ -43,6 +44,8 @@ abstract class AbstractTableView {
 
     private final SchemaVersions schemaVersions;
 
+    private final TransactionTimestamps transactionTimestamps;
+
     /** Table row view converter. */
     protected final TableViewRowConverter rowConverter;
 
@@ -53,9 +56,15 @@ abstract class AbstractTableView {
      * @param schemaVersions Schema versions access.
      * @param schemaReg Schema registry.
      */
-    AbstractTableView(InternalTable tbl, SchemaVersions schemaVersions, SchemaRegistry schemaReg) {
+    AbstractTableView(
+            InternalTable tbl,
+            SchemaVersions schemaVersions,
+            SchemaRegistry schemaReg,
+            TransactionTimestamps transactionTimestamps
+    ) {
         this.tbl = tbl;
         this.schemaVersions = schemaVersions;
+        this.transactionTimestamps = transactionTimestamps;
 
         this.rowConverter = new TableViewRowConverter(schemaReg);
     }
@@ -103,9 +112,13 @@ abstract class AbstractTableView {
     }
 
     private <T> CompletableFuture<T> withSchemaSync(@Nullable Transaction tx, @Nullable Integer previousSchemaVersion, KvAction<T> action) {
-        CompletableFuture<Integer> schemaVersionFuture = tx == null
-                ? schemaVersions.schemaVersionAtNow(tbl.tableId())
-                : schemaVersions.schemaVersionAt(((InternalTransaction) tx).startTimestamp(), tbl.tableId());
+        CompletableFuture<Integer> schemaVersionFuture;
+        if (tx == null) {
+            schemaVersionFuture = schemaVersions.schemaVersionAtNow(tbl.tableId());
+        } else {
+            schemaVersionFuture = transactionTimestamps.baseTimestamp((InternalTransaction) tx, tbl.tableId())
+                    .thenCompose(baseTs -> schemaVersions.schemaVersionAt(baseTs, tbl.tableId()));
+        }
 
         CompletableFuture<T> future = schemaVersionFuture
                 .thenCompose(schemaVersion -> action.act(schemaVersion)

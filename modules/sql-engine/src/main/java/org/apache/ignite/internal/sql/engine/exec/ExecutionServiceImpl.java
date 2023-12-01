@@ -53,6 +53,7 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.sql.engine.NodeLeftException;
 import org.apache.ignite.internal.sql.engine.QueryCancelledException;
+import org.apache.ignite.internal.sql.engine.QueryCatalogVersions;
 import org.apache.ignite.internal.sql.engine.QueryPrefetchCallback;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.exec.ddl.DdlCommandHandler;
@@ -239,21 +240,21 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         return queryManager.execute(tx, plan);
     }
 
-    private BaseQueryContext createQueryContext(UUID queryId, int schemaVersion, Object[] params) {
+    private BaseQueryContext createQueryContext(UUID queryId, QueryCatalogVersions schemaVersions, Object[] params) {
         return BaseQueryContext.builder()
                 .queryId(queryId)
                 .parameters(params)
                 .frameworkConfig(
                         Frameworks.newConfigBuilder(FRAMEWORK_CONFIG)
-                                .defaultSchema(sqlSchemaManager.schema(schemaVersion))
+                                .defaultSchema(sqlSchemaManager.schema(schemaVersions.baseVersion(), schemaVersions.tableOverrides()))
                                 .build()
                 )
                 .build();
     }
 
-    private IgniteRel relationalTreeFromJsonString(int schemaVersion, String jsonFragment, BaseQueryContext ctx) {
+    private IgniteRel relationalTreeFromJsonString(QueryCatalogVersions schemaVersions, String jsonFragment, BaseQueryContext ctx) {
         return physNodesCache.computeIfAbsent(
-                new FragmentCacheKey(schemaVersion, jsonFragment),
+                new FragmentCacheKey(schemaVersions, jsonFragment),
                 key -> fromJson(ctx, key.fragmentString)
         );
     }
@@ -340,7 +341,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
     private void onMessage(String nodeName, QueryStartRequest msg) {
         assert nodeName != null && msg != null;
 
-        CompletableFuture<Void> fut = sqlSchemaManager.schemaReadyFuture(msg.schemaVersion());
+        CompletableFuture<Void> fut = sqlSchemaManager.schemaReadyFuture(msg.schemaVersions().maxVersion());
 
         if (fut.isDone()) {
             submitFragment(nodeName, msg);
@@ -436,7 +437,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
     private void submitFragment(String nodeName, QueryStartRequest msg) {
         DistributedQueryManager queryManager = getOrCreateQueryManager(nodeName, msg);
 
-        queryManager.submitFragment(nodeName, msg.schemaVersion(), msg.root(), msg.fragmentDescription(), msg.txAttributes());
+        queryManager.submitFragment(nodeName, msg.schemaVersions(), msg.root(), msg.fragmentDescription(), msg.txAttributes());
     }
 
     private void handleError(Throwable ex, String nodeName, QueryStartRequest msg) {
@@ -447,7 +448,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
     private DistributedQueryManager getOrCreateQueryManager(String coordinatorNodeName, QueryStartRequest msg) {
         return queryManagerMap.computeIfAbsent(msg.queryId(), key -> {
-            BaseQueryContext ctx = createQueryContext(key, msg.schemaVersion(), msg.parameters());
+            BaseQueryContext ctx = createQueryContext(key, msg.schemaVersions(), msg.parameters());
 
             return new DistributedQueryManager(coordinatorNodeName, ctx);
         });
@@ -523,7 +524,8 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                     .fragmentDescription(desc)
                     .parameters(ctx.parameters())
                     .txAttributes(txAttributes)
-                    .schemaVersion(ctx.schemaVersion())
+                    .baseSchemaVersion(ctx.schemaVersions().baseVersion())
+                    .schemaVersionTableOverrides(ctx.schemaVersions().tableOverrides())
                     .build();
 
             CompletableFuture<Void> remoteFragmentInitializationCompletionFuture = new CompletableFuture<>();
@@ -633,7 +635,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
         private void submitFragment(
                 String initiatorNode,
-                int schemaVersion,
+                QueryCatalogVersions schemaVersions,
                 String fragmentString,
                 FragmentDescription desc,
                 TxAttributes txAttributes
@@ -645,9 +647,9 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             Executor exec = (r) -> context.execute(r::run, err -> handleError(err, initiatorNode, desc.fragmentId()));
 
             try {
-                IgniteRel treeRoot = relationalTreeFromJsonString(schemaVersion, fragmentString, ctx);
+                IgniteRel treeRoot = relationalTreeFromJsonString(schemaVersions, fragmentString, ctx);
 
-                dependencyResolver.resolveDependencies(List.of(treeRoot), schemaVersion)
+                dependencyResolver.resolveDependencies(List.of(treeRoot), schemaVersions)
                         .thenComposeAsync(deps -> executeFragment(treeRoot, deps, context), exec)
                         .exceptionally(ex -> {
                             handleError(ex, initiatorNode, desc.fragmentId());
@@ -1013,11 +1015,11 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
     }
 
     private static class FragmentCacheKey {
-        private final int schemaVersion;
+        private final QueryCatalogVersions schemaVersions;
         private final String fragmentString;
 
-        FragmentCacheKey(int schemaVersion, String fragmentString) {
-            this.schemaVersion = schemaVersion;
+        FragmentCacheKey(QueryCatalogVersions schemaVersions, String fragmentString) {
+            this.schemaVersions = schemaVersions;
             this.fragmentString = fragmentString;
         }
 
@@ -1033,13 +1035,13 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
             FragmentCacheKey that = (FragmentCacheKey) o;
 
-            return schemaVersion == that.schemaVersion
+            return schemaVersions.equals(that.schemaVersions)
                     && fragmentString.equals(that.fragmentString);
         }
 
         @Override
         public int hashCode() {
-            return Objects.hash(schemaVersion, fragmentString);
+            return Objects.hash(schemaVersions, fragmentString);
         }
     }
 }

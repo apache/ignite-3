@@ -34,6 +34,7 @@ import org.apache.ignite.internal.schema.marshaller.reflection.RecordMarshallerI
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.streamer.StreamerBatchSender;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
+import org.apache.ignite.internal.table.distributed.schema.TransactionTimestamps;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.lang.MarshallerException;
 import org.apache.ignite.table.DataStreamerOptions;
@@ -58,10 +59,17 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
      * @param tbl Table.
      * @param schemaRegistry Schema registry.
      * @param schemaVersions Schema versions access.
+     * @param transactionTimestamps Transaction timestamps.
      * @param mapper Record class mapper.
      */
-    public RecordViewImpl(InternalTable tbl, SchemaRegistry schemaRegistry, SchemaVersions schemaVersions, Mapper<R> mapper) {
-        super(tbl, schemaVersions, schemaRegistry);
+    public RecordViewImpl(
+            InternalTable tbl,
+            SchemaRegistry schemaRegistry,
+            SchemaVersions schemaVersions,
+            TransactionTimestamps transactionTimestamps,
+            Mapper<R> mapper
+    ) {
+        super(tbl, schemaVersions, schemaRegistry, transactionTimestamps);
 
         marshallerFactory = (schema) -> new RecordMarshallerImpl<>(schema, mapper);
     }

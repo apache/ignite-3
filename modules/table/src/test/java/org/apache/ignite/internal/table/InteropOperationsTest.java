@@ -46,6 +46,7 @@ import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.SchemaTestUtils;
 import org.apache.ignite.internal.table.distributed.schema.ConstantSchemaVersions;
+import org.apache.ignite.internal.table.distributed.schema.NaiveTransactionTimestamps;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
@@ -125,14 +126,16 @@ public class InteropOperationsTest extends BaseIgniteAbstractTest {
         when(clusterService.messagingService()).thenReturn(mock(MessagingService.class, RETURNS_DEEP_STUBS));
 
         SchemaVersions schemaVersions = new ConstantSchemaVersions(schemaVersion);
+        NaiveTransactionTimestamps transactionTimestamps = new NaiveTransactionTimestamps();
 
-        TABLE = new TableImpl(INT_TABLE, schemaRegistry, new HeapLockManager(), schemaVersions);
-        KV_BIN_VIEW = new KeyValueBinaryViewImpl(INT_TABLE, schemaRegistry, schemaVersions);
+        TABLE = new TableImpl(INT_TABLE, schemaRegistry, new HeapLockManager(), schemaVersions, transactionTimestamps);
+        KV_BIN_VIEW = new KeyValueBinaryViewImpl(INT_TABLE, schemaRegistry, schemaVersions, transactionTimestamps);
 
         KV_VIEW = new KeyValueViewImpl<>(
                 INT_TABLE,
                 schemaRegistry,
                 schemaVersions,
+                transactionTimestamps,
                 Mapper.of(Long.class, "id"),
                 Mapper.of(Value.class)
         );

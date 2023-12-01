@@ -34,6 +34,7 @@ import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.TableViewInternal;
+import org.apache.ignite.internal.table.distributed.schema.NaiveTransactionTimestamps;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.type.NativeTypes;
@@ -213,7 +214,8 @@ public class FakeIgniteTables implements IgniteTablesInternal {
                     public CompletableFuture<Integer> schemaVersionAtNow(int tableId) {
                         return completedFuture(schemaReg.lastKnownSchemaVersion());
                     }
-                }
+                },
+                new NaiveTransactionTimestamps()
         );
     }
 

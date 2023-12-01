@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.schema;
 
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import org.apache.calcite.schema.SchemaPlus;
 
@@ -27,7 +28,14 @@ public interface SqlSchemaManager {
     /**
      * Returns root schema of the given version.
      */
-    SchemaPlus schema(int version);
+    default SchemaPlus schema(int version) {
+        return schema(version, Map.of());
+    }
+
+    /**
+     * Returns root schema of the given version with possible overrides for specific tables.
+     */
+    SchemaPlus schema(int version, Map<Integer, Integer> tableOverrides);
 
     /**
      * Returns root schema by the given timestamp.

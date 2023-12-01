@@ -22,8 +22,11 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import java.util.Arrays;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.Cluster;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
@@ -33,14 +36,18 @@ import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.lang.ErrorGroups.Transactions;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.MethodSource;
 
 /**
  * Tests about basic Schema Synchronization properties that can be tested using just one Ignite node.
@@ -52,6 +59,9 @@ class ItSchemaSyncSingleNodeTest extends ClusterPerTestIntegrationTest {
     private static final String UNRELATED_TABLE_NAME = "unrelated_table";
 
     private static final int KEY = 1;
+
+    private static final String ORIGINAL_VALUE = "original value";
+    private static final String NEW_VALUE = "new value";
 
     private IgniteImpl node;
 
@@ -77,8 +87,8 @@ class ItSchemaSyncSingleNodeTest extends ClusterPerTestIntegrationTest {
      * </ol>
      */
     @ParameterizedTest
-    @EnumSource(Operation.class)
-    void readWriteOperationInTxAfterAlteringSchemaOnTargetTableIsRejected(Operation operation) {
+    @MethodSource("readWriteOperations")
+    void readWriteOperationInTxAfterAlteringSchemaOnTargetTableIsRejected(RwOperation<?> operation) {
         createTable();
 
         Table table = node.tables().table(TABLE_NAME);
@@ -120,6 +130,11 @@ class ItSchemaSyncSingleNodeTest extends ClusterPerTestIntegrationTest {
         assertThat(tx.state(), is(TxState.ABORTED));
     }
 
+    private static Stream<Arguments> readWriteOperations() {
+        return Stream.concat(Arrays.stream(ReadOperation.values()), Arrays.stream(WriteOperation.values()))
+                .map(Arguments::of);
+    }
+
     private void createTable() {
         cluster.doInSession(0, session -> {
             executeUpdate("CREATE TABLE " + TABLE_NAME + " (id int PRIMARY KEY, val varchar)", session);
@@ -133,74 +148,97 @@ class ItSchemaSyncSingleNodeTest extends ClusterPerTestIntegrationTest {
     }
 
     private static void putPreExistingValueTo(Table table) {
-        table.keyValueView().put(null, Tuple.create().set("id", KEY), Tuple.create().set("val", "original"));
+        table.keyValueView().put(null, Tuple.create().set("id", KEY), Tuple.create().set("val", ORIGINAL_VALUE));
     }
 
     private void enlistTableInTransaction(Table table, Transaction tx) {
-        executeRwReadOn(table, tx, cluster);
+        executeSqlRwReadOn(table, tx, cluster);
     }
 
-    private static void executeRwReadOn(Table table, Transaction tx, Cluster cluster) {
-        cluster.doInSession(0, session -> {
-            executeUpdate("SELECT * FROM " + table.name(), session, tx);
+    @Nullable
+    private static String executeSqlRwReadOn(Table table, @Nullable Transaction tx, Cluster cluster) {
+        return cluster.query(0, tx, "SELECT val FROM " + table.name() + " where id = " + KEY, rs -> {
+            if (!rs.hasNext()) {
+                return null;
+            }
+
+            SqlRow row = rs.next();
+
+            String val = row.stringValue("val");
+
+            assertFalse(rs.hasNext());
+
+            return val;
         });
     }
 
-    private enum Operation {
-        KV_WRITE {
+    private interface RwOperation<T> {
+        @Nullable
+        T execute(Table table, Transaction tx, Cluster cluster);
+
+        boolean sql();
+    }
+
+    private enum ReadOperation implements RwOperation<String> {
+        KV_READ {
             @Override
-            void execute(Table table, Transaction tx, Cluster cluster) {
-                putInTx(table, tx);
+            public String execute(Table table, Transaction tx, Cluster cluster) {
+                Tuple tuple = table.keyValueView().get(tx, Tuple.create().set("id", KEY));
+
+                return tuple == null ? null : tuple.stringValue("val");
             }
 
             @Override
-            boolean sql() {
+            public boolean sql() {
                 return false;
             }
         },
-        KV_READ {
+        SQL_READ {
             @Override
-            void execute(Table table, Transaction tx, Cluster cluster) {
-                table.keyValueView().get(tx, Tuple.create().set("id", KEY));
+            public String execute(Table table, Transaction tx, Cluster cluster) {
+                return executeSqlRwReadOn(table, tx, cluster);
             }
 
             @Override
-            boolean sql() {
+            public boolean sql() {
+                return true;
+            }
+        }
+    }
+
+    private enum WriteOperation implements RwOperation<Void> {
+        KV_WRITE {
+            @Override
+            public Void execute(Table table, Transaction tx, Cluster cluster) {
+                putInTx(table, tx);
+
+                return null;
+            }
+
+            @Override
+            public boolean sql() {
                 return false;
             }
         },
         SQL_WRITE {
             @Override
-            void execute(Table table, Transaction tx, Cluster cluster) {
+            public Void execute(Table table, Transaction tx, Cluster cluster) {
                 cluster.doInSession(0, session -> {
                     executeUpdate("UPDATE " + table.name() + " SET val = 'new value' WHERE id = " + KEY, session, tx);
                 });
+
+                return null;
             }
 
             @Override
-            boolean sql() {
+            public boolean sql() {
                 return true;
             }
-        },
-        SQL_READ {
-            @Override
-            void execute(Table table, Transaction tx, Cluster cluster) {
-                executeRwReadOn(table, tx, cluster);
-            }
-
-            @Override
-            boolean sql() {
-                return true;
-            }
-        };
-
-        abstract void execute(Table table, Transaction tx, Cluster cluster);
-
-        abstract boolean sql();
+        }
     }
 
     private static void putInTx(Table table, Transaction tx) {
-        table.keyValueView().put(tx, Tuple.create().set("id", 1), Tuple.create().set("val", "one"));
+        table.keyValueView().put(tx, Tuple.create().set("id", KEY), Tuple.create().set("val", NEW_VALUE));
     }
 
     /**
@@ -225,9 +263,9 @@ class ItSchemaSyncSingleNodeTest extends ClusterPerTestIntegrationTest {
     }
 
     @ParameterizedTest
-    @EnumSource(Operation.class)
+    @MethodSource("readWriteOperations")
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-20680")
-    void readWriteOperationAfterDroppingTargetTableIsRejected(Operation operation) {
+    void readWriteOperationAfterDroppingTargetTableIsRejected(RwOperation<?> operation) {
         createTable();
 
         Table table = node.tables().table(TABLE_NAME);
@@ -267,5 +305,65 @@ class ItSchemaSyncSingleNodeTest extends ClusterPerTestIntegrationTest {
         cluster.doInSession(0, session -> {
             executeUpdate("DROP TABLE " + tableName, session);
         });
+    }
+
+    /**
+     * Makes sure that the following sequence results in a successful commit.
+     *
+     * <ol>
+     *     <li>A transaction is started</li>
+     *     <li>A table is created</li>
+     *     <li>A attempt to read or write to the table in the transaction is made</li>
+     *     <li>The transaction is committed</li>
+     * </ol>
+     */
+    @ParameterizedTest
+    @EnumSource(ReadOperation.class)
+    void readOperationInRwTxSeesTableCreatedAfterTxStarted(ReadOperation operation) {
+        InternalTransaction tx = (InternalTransaction) node.transactions().begin();
+
+        createTable();
+
+        Table table = node.tables().table(TABLE_NAME);
+
+        putPreExistingValueTo(table);
+
+        String readResult = operation.execute(table, tx, cluster);
+        assertThat(readResult, is(ORIGINAL_VALUE));
+
+        tx.commit();
+
+        assertThat(tx.state(), is(TxState.COMMITED));
+    }
+
+    /**
+     * Makes sure that the following sequence results in a successful commit.
+     *
+     * <ol>
+     *     <li>A transaction is started</li>
+     *     <li>A table is created</li>
+     *     <li>A attempt to read or write to the table in the transaction is made</li>
+     *     <li>The transaction is committed</li>
+     * </ol>
+     */
+    @ParameterizedTest
+    @EnumSource(WriteOperation.class)
+    void writeOperationSeesTableCreatedAfterTxStarted(WriteOperation operation) {
+        InternalTransaction tx = (InternalTransaction) node.transactions().begin();
+
+        createTable();
+
+        Table table = node.tables().table(TABLE_NAME);
+
+        putPreExistingValueTo(table);
+
+        operation.execute(table, tx, cluster);
+
+        tx.commit();
+
+        assertThat(tx.state(), is(TxState.COMMITED));
+
+        String result = executeSqlRwReadOn(table, null, cluster);
+        assertThat(result, is(NEW_VALUE));
     }
 }

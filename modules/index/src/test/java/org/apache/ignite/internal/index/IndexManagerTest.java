@@ -86,6 +86,7 @@ import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.PartitionSet;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.schema.ConstantSchemaVersions;
+import org.apache.ignite.internal.table.distributed.schema.NaiveTransactionTimestamps;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -355,7 +356,7 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
         when(internalTable.tableId()).thenReturn(tableId);
         when(internalTable.storage()).thenReturn(mvTableStorage);
 
-        return spy(new TableImpl(internalTable, new HeapLockManager(), new ConstantSchemaVersions(1)));
+        return spy(new TableImpl(internalTable, new HeapLockManager(), new ConstantSchemaVersions(1), new NaiveTransactionTimestamps()));
     }
 
     private CompletableFuture<MvTableStorage> getMvTableStorageLatestRevision(int tableId) {

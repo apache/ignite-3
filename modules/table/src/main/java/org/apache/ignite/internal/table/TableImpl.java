@@ -45,6 +45,7 @@ import org.apache.ignite.internal.table.distributed.PartitionSet;
 import org.apache.ignite.internal.table.distributed.TableIndexStoragesSupplier;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
+import org.apache.ignite.internal.table.distributed.schema.TransactionTimestamps;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.lang.ErrorGroups;
 import org.apache.ignite.network.ClusterNode;
@@ -65,6 +66,8 @@ public class TableImpl implements TableViewInternal {
 
     private final SchemaVersions schemaVersions;
 
+    private final TransactionTimestamps transactionTimestamps;
+
     /** Schema registry. Should be set either in constructor or via {@link #schemaView(SchemaRegistry)} before start of using the table. */
     private volatile SchemaRegistry schemaReg;
 
@@ -80,11 +83,18 @@ public class TableImpl implements TableViewInternal {
      * @param tbl The table.
      * @param lockManager Lock manager.
      * @param schemaVersions Schema versions access.
+     * @param transactionTimestamps Transaction timestamps.
      */
-    public TableImpl(InternalTable tbl, LockManager lockManager, SchemaVersions schemaVersions) {
+    public TableImpl(
+            InternalTable tbl,
+            LockManager lockManager,
+            SchemaVersions schemaVersions,
+            TransactionTimestamps transactionTimestamps
+    ) {
         this.tbl = tbl;
         this.lockManager = lockManager;
         this.schemaVersions = schemaVersions;
+        this.transactionTimestamps = transactionTimestamps;
     }
 
     /**
@@ -94,10 +104,17 @@ public class TableImpl implements TableViewInternal {
      * @param schemaReg Table schema registry.
      * @param lockManager Lock manager.
      * @param schemaVersions Schema versions access.
+     * @param transactionTimestamps Transaction timestamps.
      */
     @TestOnly
-    public TableImpl(InternalTable tbl, SchemaRegistry schemaReg, LockManager lockManager, SchemaVersions schemaVersions) {
-        this(tbl, lockManager, schemaVersions);
+    public TableImpl(
+            InternalTable tbl,
+            SchemaRegistry schemaReg,
+            LockManager lockManager,
+            SchemaVersions schemaVersions,
+            TransactionTimestamps transactionTimestamps
+    ) {
+        this(tbl, lockManager, schemaVersions, transactionTimestamps);
 
         this.schemaReg = schemaReg;
     }
@@ -142,22 +159,22 @@ public class TableImpl implements TableViewInternal {
 
     @Override
     public <R> RecordView<R> recordView(Mapper<R> recMapper) {
-        return new RecordViewImpl<>(tbl, schemaReg, schemaVersions, recMapper);
+        return new RecordViewImpl<>(tbl, schemaReg, schemaVersions, transactionTimestamps, recMapper);
     }
 
     @Override
     public RecordView<Tuple> recordView() {
-        return new RecordBinaryViewImpl(tbl, schemaReg, schemaVersions);
+        return new RecordBinaryViewImpl(tbl, schemaReg, schemaVersions, transactionTimestamps);
     }
 
     @Override
     public <K, V> KeyValueView<K, V> keyValueView(Mapper<K> keyMapper, Mapper<V> valMapper) {
-        return new KeyValueViewImpl<>(tbl, schemaReg, schemaVersions, keyMapper, valMapper);
+        return new KeyValueViewImpl<>(tbl, schemaReg, schemaVersions, transactionTimestamps, keyMapper, valMapper);
     }
 
     @Override
     public KeyValueView<Tuple, Tuple> keyValueView() {
-        return new KeyValueBinaryViewImpl(tbl, schemaReg, schemaVersions);
+        return new KeyValueBinaryViewImpl(tbl, schemaReg, schemaVersions, transactionTimestamps);
     }
 
     @Override

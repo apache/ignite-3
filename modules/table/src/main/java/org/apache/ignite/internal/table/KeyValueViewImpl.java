@@ -37,6 +37,7 @@ import org.apache.ignite.internal.schema.marshaller.reflection.KvMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.streamer.StreamerBatchSender;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
+import org.apache.ignite.internal.table.distributed.schema.TransactionTimestamps;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteException;
@@ -64,6 +65,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
      * @param tbl Table storage.
      * @param schemaRegistry Schema registry.
      * @param schemaVersions Schema versions access.
+     * @param transactionTimestamps Transaction timestamps.
      * @param keyMapper Key class mapper.
      * @param valueMapper Value class mapper.
      */
@@ -71,10 +73,11 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
             InternalTable tbl,
             SchemaRegistry schemaRegistry,
             SchemaVersions schemaVersions,
+            TransactionTimestamps transactionTimestamps,
             Mapper<K> keyMapper,
             Mapper<V> valueMapper
     ) {
-        super(tbl, schemaVersions, schemaRegistry);
+        super(tbl, schemaVersions, schemaRegistry, transactionTimestamps);
 
         marshallerFactory = (schema) -> new KvMarshallerImpl<>(schema, keyMapper, valueMapper);
     }

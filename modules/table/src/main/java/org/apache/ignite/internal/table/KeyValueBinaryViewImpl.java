@@ -33,6 +33,7 @@ import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.streamer.StreamerBatchSender;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
+import org.apache.ignite.internal.table.distributed.schema.TransactionTimestamps;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteException;
@@ -59,9 +60,15 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
      * @param tbl Table storage.
      * @param schemaReg Schema registry.
      * @param schemaVersions Schema versions access.
+     * @param transactionTimestamps Transaction timestamps.
      */
-    public KeyValueBinaryViewImpl(InternalTable tbl, SchemaRegistry schemaReg, SchemaVersions schemaVersions) {
-        super(tbl, schemaVersions, schemaReg);
+    public KeyValueBinaryViewImpl(
+            InternalTable tbl,
+            SchemaRegistry schemaReg,
+            SchemaVersions schemaVersions,
+            TransactionTimestamps transactionTimestamps
+    ) {
+        super(tbl, schemaVersions, schemaReg, transactionTimestamps);
 
         marshallerCache = new TupleMarshallerCache(schemaReg);
     }

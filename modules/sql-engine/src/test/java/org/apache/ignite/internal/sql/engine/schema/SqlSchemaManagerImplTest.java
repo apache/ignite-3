@@ -166,7 +166,7 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
 
         IgniteSchema schema = unwrapSchema(schemaPlus);
 
-        assertThat(schema.version(), equalTo(versionAfter));
+        assertThat(schema.versions().baseVersion(), equalTo(versionAfter));
 
         CatalogSchemaDescriptor schemaDescriptor = catalogManager.schema(PUBLIC_SCHEMA_NAME, versionAfter);
 

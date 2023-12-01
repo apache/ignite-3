@@ -15,20 +15,25 @@
  * limitations under the License.
  */
 
+package org.apache.ignite.internal.table.distributed.schema;
 
-package org.apache.ignite.internal.sql.engine.exec;
+import static java.util.concurrent.CompletableFuture.completedFuture;
 
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.sql.engine.QueryCatalogVersions;
-import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.tx.InternalTransaction;
 
 /**
- * Resolves components required for execution.
+ * Naive implementation of {@link TransactionTimestamps} which always returns transaction start timestamp.
  */
-public interface ExecutionDependencyResolver {
+public class NaiveTransactionTimestamps implements TransactionTimestamps {
+    @Override
+    public CompletableFuture<HybridTimestamp> baseTimestamp(InternalTransaction tx, int tableId) {
+        return completedFuture(tx.startTimestamp());
+    }
 
-    /**
-     * Resolves dependencies required to execute the given list of relations.
-     */
-    CompletableFuture<ResolvedDependencies> resolveDependencies(Iterable<IgniteRel> rels, QueryCatalogVersions schemaVersions);
+    @Override
+    public CompletableFuture<HybridTimestamp> rwTransactionBaseTimestamp(HybridTimestamp txBeginTimestamp, int tableId) {
+        return completedFuture(txBeginTimestamp);
+    }
 }

@@ -64,6 +64,7 @@ import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.marshaller.reflection.KvMarshallerImpl;
 import org.apache.ignite.internal.table.distributed.replicator.InternalSchemaVersionMismatchException;
+import org.apache.ignite.internal.table.distributed.schema.NaiveTransactionTimestamps;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.type.NativeTypeSpec;
@@ -721,6 +722,7 @@ public class KeyValueViewOperationsTest extends TableKvOperationsTestBase {
                 internalTable,
                 new DummySchemaManagerImpl(schema),
                 schemaVersions,
+                new NaiveTransactionTimestamps(),
                 keyMapper,
                 valMapper
         );

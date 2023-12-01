@@ -26,7 +26,6 @@ import org.apache.calcite.sql.SqlOperator;
 import org.apache.calcite.sql.SqlSpecialOperator;
 import org.apache.calcite.sql.SqlWriter;
 import org.apache.calcite.sql.parser.SqlParserPos;
-import org.apache.calcite.sql.util.SqlVisitor;
 import org.apache.calcite.sql.validate.SqlValidator;
 import org.apache.calcite.sql.validate.SqlValidatorScope;
 import org.apache.calcite.util.Litmus;
@@ -81,12 +80,6 @@ public class IgniteSqlZoneOption extends SqlCall {
     /** {@inheritDoc} */
     @Override
     public void validate(SqlValidator validator, SqlValidatorScope scope) {
-        throw new UnsupportedOperationException();
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public <R> R accept(SqlVisitor<R> visitor) {
         throw new UnsupportedOperationException();
     }
 

@@ -65,6 +65,7 @@ import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.table.distributed.schema.AlwaysSyncedSchemaSyncService;
 import org.apache.ignite.internal.table.distributed.schema.FullTableSchema;
+import org.apache.ignite.internal.table.distributed.schema.NaiveTransactionTimestamps;
 import org.apache.ignite.internal.table.distributed.schema.ValidationSchemasSource;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tx.TransactionIds;
@@ -105,7 +106,12 @@ class SchemaCompatibilityValidatorTest extends BaseIgniteAbstractTest {
     void createValidatorAndInitMocks() {
         lenient().when(catalogService.table(TABLE_ID, commitTimestamp.longValue())).thenReturn(mock(CatalogTableDescriptor.class));
 
-        validator = new SchemaCompatibilityValidator(schemasSource, catalogService, new AlwaysSyncedSchemaSyncService());
+        validator = new SchemaCompatibilityValidator(
+                schemasSource,
+                catalogService,
+                new AlwaysSyncedSchemaSyncService(),
+                new NaiveTransactionTimestamps()
+        );
     }
 
     @ParameterizedTest

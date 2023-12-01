@@ -38,6 +38,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.isA;
 import static org.mockito.Mockito.mock;
@@ -737,7 +738,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         rootSch.add(schema.getName(), schema);
         SchemaPlus plus = rootSch.plus().getSubSchema(schema.getName());
 
-        when(schemaManagerMock.schema(anyInt())).thenReturn(plus);
+        when(schemaManagerMock.schema(anyInt(), any())).thenReturn(plus);
 
         var targetProvider = new ExecutionTargetProvider() {
             @Override

@@ -41,6 +41,7 @@ import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.table.distributed.replicator.InternalSchemaVersionMismatchException;
+import org.apache.ignite.internal.table.distributed.schema.NaiveTransactionTimestamps;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.table.KeyValueView;
@@ -450,7 +451,12 @@ public class KeyValueBinaryViewOperationsTest extends TableKvOperationsTestBase 
         SchemaDescriptor schema = schemaDescriptor();
         InternalTable internalTable = spy(createInternalTable(schema));
 
-        KeyValueView<Tuple, Tuple> view = new KeyValueBinaryViewImpl(internalTable, new DummySchemaManagerImpl(schema), schemaVersions);
+        KeyValueView<Tuple, Tuple> view = new KeyValueBinaryViewImpl(
+                internalTable,
+                new DummySchemaManagerImpl(schema),
+                schemaVersions,
+                new NaiveTransactionTimestamps()
+        );
 
         BinaryRow resultRow = new TupleMarshallerImpl(schema).marshal(Tuple.create().set("ID", 1L).set("VAL", 2L));
 

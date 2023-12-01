@@ -46,6 +46,7 @@ import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaMismatchException;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.table.distributed.replicator.InternalSchemaVersionMismatchException;
+import org.apache.ignite.internal.table.distributed.schema.NaiveTransactionTimestamps;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.table.impl.TestTupleBuilder;
 import org.apache.ignite.internal.type.NativeTypes;
@@ -582,7 +583,12 @@ public class RecordBinaryViewOperationsTest extends TableKvOperationsTestBase {
         SchemaDescriptor schema = schemaDescriptor();
         InternalTable internalTable = spy(createInternalTable(schema));
 
-        RecordView<Tuple> view = new RecordBinaryViewImpl(internalTable, new DummySchemaManagerImpl(schema), schemaVersions);
+        RecordView<Tuple> view = new RecordBinaryViewImpl(
+                internalTable,
+                new DummySchemaManagerImpl(schema),
+                schemaVersions,
+                new NaiveTransactionTimestamps()
+        );
 
         BinaryRow resultRow = new TupleMarshallerImpl(schema).marshal(Tuple.create().set("id", 1L).set("val", 2L));
 

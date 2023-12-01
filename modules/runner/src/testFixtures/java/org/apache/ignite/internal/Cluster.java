@@ -69,6 +69,7 @@ import org.apache.ignite.raft.jraft.util.concurrent.ConcurrentHashSet;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.SqlRow;
+import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.TestInfo;
 
@@ -498,7 +499,7 @@ public class Cluster {
     }
 
     /**
-     * Executes a SQL query on a node with the given index.
+     * Executes a SQL query on a node with the given index. The query is executed in an implicit transaction.
      *
      * @param nodeIndex Index of node on which to execute the query.
      * @param sql SQL query to execute.
@@ -506,8 +507,21 @@ public class Cluster {
      * @return Query result.
      */
     public <T> T query(int nodeIndex, String sql, Function<ResultSet<SqlRow>, T> extractor) {
+        return query(nodeIndex, null, sql, extractor);
+    }
+
+    /**
+     * Executes a SQL query on a node with the given index.
+     *
+     * @param nodeIndex Index of node on which to execute the query.
+     * @param sql SQL query to execute.
+     * @param tx Transaction in which to execute the query.
+     * @param extractor Used to extract the result from a {@link ResultSet}.
+     * @return Query result.
+     */
+    public <T> T query(int nodeIndex, @Nullable Transaction tx, String sql, Function<ResultSet<SqlRow>, T> extractor) {
         return doInSession(nodeIndex, session -> {
-            try (ResultSet<SqlRow> resultSet = session.execute(null, sql)) {
+            try (ResultSet<SqlRow> resultSet = session.execute(tx, sql)) {
                 return extractor.apply(resultSet);
             }
         });

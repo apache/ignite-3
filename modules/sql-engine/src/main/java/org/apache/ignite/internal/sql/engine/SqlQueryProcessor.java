@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.lang.SqlExceptionMapperUtil.mapToPublicSqlException;
@@ -32,6 +33,9 @@ import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -106,6 +110,7 @@ import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.systemview.api.SystemViewManager;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
+import org.apache.ignite.internal.table.distributed.schema.TransactionTimestamps;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -297,7 +302,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                     );
                 }
 
-                return CompletableFuture.completedFuture(
+                return completedFuture(
                         view.distribution() == IgniteDistributions.single()
                                 ? factory.oneOf(nodes)
                                 : factory.allOf(nodes)
@@ -521,7 +526,9 @@ public class SqlQueryProcessor implements QueryProcessor {
             boolean waitForPrefetch,
             @Nullable CompletableFuture<AsyncSqlCursor<List<Object>>> nextStatement
     ) {
-        return waitForActualSchema(schemaName, txWrapper.unwrap().startTimestamp())
+        Set<String> tableNamesInQuery = extractTableNames(parsedResult);
+
+        return waitForActualSchema(schemaName, txWrapper.unwrap(), tableNamesInQuery)
                 .thenCompose(schema -> {
                     PrefetchCallback callback = waitForPrefetch ? new PrefetchCallback() : null;
 
@@ -549,10 +556,15 @@ public class SqlQueryProcessor implements QueryProcessor {
                 });
     }
 
-    private CompletableFuture<SchemaPlus> waitForActualSchema(String schemaName, HybridTimestamp timestamp) {
+    private static Set<String> extractTableNames(ParsedResult parsedResult) {
+        return SqlNodeUtils.extractTableNames(parsedResult.parsedTree());
+    }
+
+    private CompletableFuture<SchemaPlus> waitForActualSchema(String schemaName, InternalTransaction tx, Set<String> tableNamesInQuery) {
         try {
-            return schemaSyncService.waitForMetadataCompleteness(timestamp).thenApply(unused -> {
-                SchemaPlus schema = sqlSchemaManager.schema(timestamp.longValue()).getSubSchema(schemaName);
+            return queryCatalogVersions(tx, tableNamesInQuery).thenApply(catalogVersions -> {
+                SchemaPlus schema = sqlSchemaManager.schema(catalogVersions.baseVersion(), catalogVersions.tableOverrides())
+                        .getSubSchema(schemaName);
 
                 if (schema == null) {
                     throw new SchemaNotFoundException(schemaName);
@@ -563,6 +575,88 @@ public class SqlQueryProcessor implements QueryProcessor {
         } catch (Throwable t) {
             return CompletableFuture.failedFuture(t);
         }
+    }
+
+    private CompletableFuture<QueryCatalogVersions> queryCatalogVersions(InternalTransaction tx, Set<String> tableNames) {
+        return schemaSyncService.waitForMetadataCompleteness(tx.startTimestamp()).thenCompose(unused -> {
+            int catalogVersionByStartTs = catalogManager.activeCatalogVersion(tx.startTimestamp().longValue());
+
+            return catalogVersionOverrides(tx, catalogVersionByStartTs, tableNames)
+                    .thenApply(overrides -> new QueryCatalogVersions(catalogVersionByStartTs, overrides));
+        });
+    }
+
+    private CompletableFuture<Map<Integer, Integer>> catalogVersionOverrides(
+            InternalTransaction tx,
+            int catalogVersionByStartTs,
+            Set<String> tableNames
+    ) {
+        if (!TransactionTimestamps.transactionSeesFutureTables(tx)) {
+            return completedFuture(Map.of());
+        }
+
+        Set<String> notExistingAtTxStart = new HashSet<>();
+        for (String tableName : tableNames) {
+            if (catalogManager.table(tableName, tx.startTimestamp().longValue()) == null) {
+                notExistingAtTxStart.add(tableName);
+            }
+        }
+
+        if (notExistingAtTxStart.isEmpty()) {
+            return completedFuture(Map.of());
+        }
+
+        HybridTimestamp now = clock.now();
+        return schemaSyncService.waitForMetadataCompleteness(now)
+                .thenApply(unused -> catalogVersionOverrides(catalogVersionByStartTs, now, notExistingAtTxStart));
+    }
+
+    /**
+     * Returns a map of catalog version overrides per table ID. That is, for each table name that did not exist
+     * at transaction start, look for first catalog version that is higher than the tx start version, but
+     * not higher than 'now' version, and that contains a table with a matching name.
+     *
+     * @param catalogVersionByStartTs Catalog version corresponding to the moment when the transaction was started.
+     * @param now Current timestamp.
+     * @param notExistingAtTxStart Mutable set of tables for which we look for overrides.
+     * @return Map from table ID to catalog version (the override) for each table for which something
+     *     was found by name.
+     */
+    private Map<Integer, Integer> catalogVersionOverrides(
+            int catalogVersionByStartTs,
+            HybridTimestamp now,
+            Set<String> notExistingAtTxStart
+    ) {
+        Map<Integer, Integer> overrides = new HashMap<>();
+
+        int catalogVersionAtNow = catalogManager.activeCatalogVersion(now.longValue());
+
+        for (int catalogVersion = catalogVersionByStartTs + 1; catalogVersion <= catalogVersionAtNow; catalogVersion++) {
+            Iterator<String> namesToCheckIt = notExistingAtTxStart.iterator();
+
+            while (namesToCheckIt.hasNext()) {
+                String nameToCheck = namesToCheckIt.next();
+                long versionTs = catalogManager.catalog(catalogVersion).time();
+                CatalogTableDescriptor table = catalogManager.table(nameToCheck, versionTs);
+
+                if (table != null) {
+                    assert table.tableVersion() == CatalogTableDescriptor.INITIAL_TABLE_VERSION : "Table " + nameToCheck
+                            + " was first encountered at catalogVersion " + catalogVersion + " with non-initial tableVersion "
+                            + table.tableVersion();
+
+                    overrides.put(table.id(), catalogVersion);
+
+                    // No need to look for this table anymore.
+                    namesToCheckIt.remove();
+                }
+            }
+
+            if (notExistingAtTxStart.isEmpty()) {
+                break;
+            }
+        }
+
+        return Map.copyOf(overrides);
     }
 
     private AsyncSqlCursor<List<Object>> executePlan(
@@ -703,7 +797,7 @@ public class SqlQueryProcessor implements QueryProcessor {
         CompletableFuture<AsyncSqlCursor<List<Object>>> processNext() {
             if (statements == null) {
                 // TODO https://issues.apache.org/jira/browse/IGNITE-20463 Each tx control statement must return an empty cursor.
-                return CompletableFuture.completedFuture(null);
+                return completedFuture(null);
             }
 
             ScriptStatementParameters parameters = statements.poll();
