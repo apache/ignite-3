@@ -667,7 +667,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
                 return ClientTransactionRollbackRequest.process(in, resources, metrics);
 
             case ClientOp.COMPUTE_EXECUTE:
-                return ClientComputeExecuteRequest.process(in, out, compute, clusterService, w -> sendNotification(requestId, w));
+                return ClientComputeExecuteRequest.process(in, compute, clusterService, w -> sendNotification(requestId, w));
 
             case ClientOp.COMPUTE_EXECUTE_COLOCATED:
                 return ClientComputeExecuteColocatedRequest.process(in, out, compute, igniteTables);

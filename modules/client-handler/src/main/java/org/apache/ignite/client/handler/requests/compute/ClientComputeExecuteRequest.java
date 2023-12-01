@@ -62,7 +62,7 @@ public class ClientComputeExecuteRequest {
 
         Object[] args = unpackArgs(in);
 
-        // TODO: Still possible to send notification earlier that the response - fix this.
+        // TODO: Still possible to send notification earlier that the response - is that a problem?
         compute.executeAsync(Set.of(node), deploymentUnits, jobClassName, args)
                 .thenAccept(res -> notificationSender.sendNotification(w -> w.packObjectAsBinaryTuple(res)));
 
