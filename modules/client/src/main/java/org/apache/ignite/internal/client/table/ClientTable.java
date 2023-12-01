@@ -551,7 +551,10 @@ public class ClientTable implements Table {
                         }
 
                         // Returned timestamp can be newer than requested.
-                        partitionAssignment.timestamp = r.in().unpackLong();
+                        long ts = r.in().unpackLong();
+                        assert ts >= timestamp : "Returned timestamp is older than requested: " + ts + " < " + timestamp;
+
+                        partitionAssignment.timestamp = ts;
 
                         List<String> res = new ArrayList<>(cnt);
                         for (int i = 0; i < cnt; i++) {

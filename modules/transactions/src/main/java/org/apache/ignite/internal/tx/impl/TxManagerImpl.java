@@ -481,7 +481,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                 // In case of verification future failure transaction will be rolled back.
                 .commit(commit)
                 .commitTimestampLong(hybridTimestampToLong(commitTimestamp))
-                .term(term)
+                .enlistmentConsistencyToken(term)
                 .build();
 
         return replicaService.invoke(primaryConsistentId, req)

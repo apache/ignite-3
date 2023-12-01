@@ -200,8 +200,8 @@ public final class ReliableChannel implements AutoCloseable {
      */
     public <T> CompletableFuture<T> serviceAsync(
             int opCode,
-            PayloadWriter payloadWriter,
-            PayloadReader<T> payloadReader,
+            @Nullable PayloadWriter payloadWriter,
+            @Nullable PayloadReader<T> payloadReader,
             @Nullable String preferredNodeName,
             @Nullable RetryPolicy retryPolicyOverride
     ) {
@@ -224,7 +224,7 @@ public final class ReliableChannel implements AutoCloseable {
     public <T> CompletableFuture<T> serviceAsync(
             int opCode,
             PayloadWriter payloadWriter,
-            PayloadReader<T> payloadReader
+            @Nullable PayloadReader<T> payloadReader
     ) {
         return serviceAsync(opCode, payloadWriter, payloadReader, null, null);
     }
@@ -243,8 +243,8 @@ public final class ReliableChannel implements AutoCloseable {
 
     private <T> CompletableFuture<T> serviceAsyncInternal(
             int opCode,
-            PayloadWriter payloadWriter,
-            PayloadReader<T> payloadReader,
+            @Nullable PayloadWriter payloadWriter,
+            @Nullable PayloadReader<T> payloadReader,
             ClientChannel ch) {
         return ch.serviceAsync(opCode, payloadWriter, payloadReader).whenComplete((res, err) -> {
             if (err != null && unwrapConnectionException(err) != null) {
@@ -386,7 +386,6 @@ public final class ReliableChannel implements AutoCloseable {
             String[] hostAddrs = clientCfg.addressesFinder().getAddresses();
 
             if (hostAddrs.length == 0) {
-                //noinspection NonPrivateFieldAccessedInSynchronizedContext
                 throw new IgniteException(CONFIGURATION_ERR, "Empty addresses");
             }
 
