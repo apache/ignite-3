@@ -322,7 +322,7 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
     /**
      * A lock state.
      */
-    private static class LockState {
+    private class LockState {
         /** Waiters. */
         private final TreeMap<UUID, WaiterImpl> waiters;
 
