@@ -119,7 +119,7 @@ public enum IgniteMethod {
     /** ROUND function. See {@link IgniteSqlFunctions#sround(double)}, {@link IgniteSqlFunctions#sround(double, int)} and variants. */
     ROUND(IgniteSqlFunctions.class, "sround", true),
 
-    /** ROUND function. See {@link IgniteSqlFunctions#struncate(double)}, {@link IgniteSqlFunctions#struncate(double, int)} and variants. */
+    /** TRUNCATE function. See {@link IgniteSqlFunctions#struncate(double)}, {@link IgniteSqlFunctions#struncate(double, int)} and variants. */
     TRUNCATE(IgniteSqlFunctions.class, "struncate", true);
 
     private final Method method;
