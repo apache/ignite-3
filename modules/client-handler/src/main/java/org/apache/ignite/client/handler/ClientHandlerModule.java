@@ -17,6 +17,7 @@
 
 package org.apache.ignite.client.handler;
 
+import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import io.netty.bootstrap.ServerBootstrap;
@@ -31,6 +32,7 @@ import java.net.InetSocketAddress;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
 import org.apache.ignite.client.handler.configuration.ClientConnectorConfiguration;
@@ -41,6 +43,7 @@ import org.apache.ignite.internal.client.proto.ClientMessageDecoder;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
@@ -52,6 +55,7 @@ import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
+import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.lang.ErrorGroups;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterService;
@@ -116,6 +120,10 @@ public class ClientHandlerModule implements IgniteComponent {
     private final CatalogService catalogService;
 
     private final ClientPrimaryReplicaTracker primaryReplicaTracker;
+
+    private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
+
+    private final AtomicBoolean stopGuard = new AtomicBoolean();
 
     /**
      * Constructor.
@@ -211,6 +219,12 @@ public class ClientHandlerModule implements IgniteComponent {
     /** {@inheritDoc} */
     @Override
     public void stop() throws Exception {
+        if (!stopGuard.compareAndSet(false, true)) {
+            return;
+        }
+
+        busyLock.block();
+
         metricManager.unregisterSource(metrics);
         primaryReplicaTracker.stop();
 
@@ -255,36 +269,45 @@ public class ClientHandlerModule implements IgniteComponent {
         bootstrap.childHandler(new ChannelInitializer<>() {
                     @Override
                     protected void initChannel(Channel ch) {
-                        long connectionId = CONNECTION_ID_GEN.incrementAndGet();
-
-                        if (LOG.isDebugEnabled()) {
-                            LOG.debug("New client connection [connectionId=" + connectionId
-                                    + ", remoteAddress=" + ch.remoteAddress() + ']');
+                        if (!busyLock.enterBusy()) {
+                            ch.close();
+                            return;
                         }
 
-                        if (configuration.idleTimeout() > 0) {
-                            IdleStateHandler idleStateHandler = new IdleStateHandler(
-                                    configuration.idleTimeout(), 0, 0, TimeUnit.MILLISECONDS);
+                        try {
+                            long connectionId = CONNECTION_ID_GEN.incrementAndGet();
 
-                            ch.pipeline().addLast(idleStateHandler);
-                            ch.pipeline().addLast(new IdleChannelHandler(configuration.idleTimeout(), metrics, connectionId));
+                            if (LOG.isDebugEnabled()) {
+                                LOG.debug("New client connection [connectionId=" + connectionId
+                                        + ", remoteAddress=" + ch.remoteAddress() + ']');
+                            }
+
+                            if (configuration.idleTimeout() > 0) {
+                                IdleStateHandler idleStateHandler = new IdleStateHandler(
+                                        configuration.idleTimeout(), 0, 0, TimeUnit.MILLISECONDS);
+
+                                ch.pipeline().addLast(idleStateHandler);
+                                ch.pipeline().addLast(new IdleChannelHandler(configuration.idleTimeout(), metrics, connectionId));
+                            }
+
+                            if (sslContext != null) {
+                                ch.pipeline().addFirst("ssl", sslContext.newHandler(ch.alloc()));
+                            }
+
+                            ClientInboundMessageHandler messageHandler = createInboundMessageHandler(configuration, clusterId, connectionId);
+                            authenticationManager.listen(messageHandler);
+
+                            ch.pipeline().addLast(
+                                    new ClientMessageDecoder(),
+                                    messageHandler
+                            );
+
+                            ch.closeFuture().addListener(future -> authenticationManager.stopListen(messageHandler));
+
+                            metrics.connectionsInitiatedIncrement();
+                        } finally {
+                            busyLock.leaveBusy();
                         }
-
-                        if (sslContext != null) {
-                            ch.pipeline().addFirst("ssl", sslContext.newHandler(ch.alloc()));
-                        }
-
-                        ClientInboundMessageHandler messageHandler = createInboundMessageHandler(configuration, clusterId, connectionId);
-                        authenticationManager.listen(messageHandler);
-
-                        ch.pipeline().addLast(
-                                new ClientMessageDecoder(),
-                                messageHandler
-                        );
-
-                        ch.closeFuture().addListener(future -> authenticationManager.stopListen(messageHandler));
-
-                        metrics.connectionsInitiatedIncrement();
                     }
                 })
                 .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, configuration.connectTimeout());
@@ -340,5 +363,4 @@ public class ClientHandlerModule implements IgniteComponent {
                 primaryReplicaTracker
         );
     }
-
 }
