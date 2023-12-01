@@ -90,25 +90,25 @@ public class DdlCommandHandler {
 
     /** Handles create distribution zone command. */
     private CompletableFuture<Boolean> handleCreateZone(CreateZoneCommand cmd) {
-        return catalogManager.createZone(DdlToCatalogCommandConverter.convert(cmd))
+        return catalogManager.execute(DdlToCatalogCommandConverter.convert(cmd))
                 .handle(handleModificationResult(cmd.ifNotExists(), DistributionZoneAlreadyExistsException.class));
     }
 
     /** Handles rename zone command. */
     private CompletableFuture<Boolean> handleRenameZone(AlterZoneRenameCommand cmd) {
-        return catalogManager.renameZone(DdlToCatalogCommandConverter.convert(cmd))
+        return catalogManager.execute(DdlToCatalogCommandConverter.convert(cmd))
                 .handle(handleModificationResult(cmd.ifExists(), DistributionZoneNotFoundException.class));
     }
 
     /** Handles alter zone command. */
     private CompletableFuture<Boolean> handleAlterZone(AlterZoneSetCommand cmd) {
-        return catalogManager.alterZone(DdlToCatalogCommandConverter.convert(cmd))
+        return catalogManager.execute(DdlToCatalogCommandConverter.convert(cmd))
                 .handle(handleModificationResult(cmd.ifExists(), DistributionZoneNotFoundException.class));
     }
 
     /** Handles drop distribution zone command. */
     private CompletableFuture<Boolean> handleDropZone(DropZoneCommand cmd) {
-        return catalogManager.dropZone(DdlToCatalogCommandConverter.convert(cmd))
+        return catalogManager.execute(DdlToCatalogCommandConverter.convert(cmd))
                 .handle(handleModificationResult(cmd.ifExists(), DistributionZoneNotFoundException.class));
     }
 

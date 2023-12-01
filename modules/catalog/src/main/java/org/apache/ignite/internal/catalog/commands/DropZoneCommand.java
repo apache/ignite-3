@@ -1,0 +1,94 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.ignite.internal.catalog.commands;
+
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_ZONE_NAME;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.getZone;
+
+import java.util.Arrays;
+import java.util.List;
+import org.apache.ignite.internal.catalog.Catalog;
+import org.apache.ignite.internal.catalog.CatalogCommand;
+import org.apache.ignite.internal.catalog.CatalogValidationException;
+import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
+import org.apache.ignite.internal.catalog.storage.DropZoneEntry;
+import org.apache.ignite.internal.catalog.storage.UpdateEntry;
+import org.apache.ignite.internal.distributionzones.DistributionZoneBindTableException;
+import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.lang.ErrorGroups.DistributionZones;
+
+/**
+ * A command that drops a zone with specified name.
+ */
+public class DropZoneCommand extends AbstractZoneCommand {
+    /** Returns builder to create a command to drop zone with specified name. */
+    public static DropZoneCommandBuilder builder() {
+        return new Builder();
+    }
+
+    /**
+     * Constructor.
+     *
+     * @param zoneName Name of the zone.
+     * @throws CatalogValidationException if any of restrictions above is violated.
+     */
+    private DropZoneCommand(String zoneName) throws CatalogValidationException {
+        super(zoneName);
+    }
+
+    @Override
+    public List<UpdateEntry> get(Catalog catalog) {
+        CatalogZoneDescriptor zone = getZone(catalog, zoneName);
+
+        if (zone.name().equals(DEFAULT_ZONE_NAME)) {
+            throw new IgniteInternalException(
+                    DistributionZones.ZONE_DROP_ERR,
+                    "Default distribution zone can't be dropped"
+            );
+        }
+
+        catalog.schemas().stream()
+                .flatMap(s -> Arrays.stream(s.tables()))
+                .filter(t -> t.zoneId() == zone.id())
+                .findAny()
+                .ifPresent(t -> {
+                    throw new DistributionZoneBindTableException(zone.name(), t.name());
+                });
+
+        return List.of(new DropZoneEntry(zone.id()));
+    }
+
+    /**
+     * Implementation of {@link DropZoneCommandBuilder}.
+     */
+    private static class Builder implements DropZoneCommandBuilder {
+        private String zoneName;
+
+        @Override
+        public DropZoneCommandBuilder zoneName(String zoneName) {
+            this.zoneName = zoneName;
+
+            return this;
+        }
+
+        @Override
+        public CatalogCommand build() {
+            return new DropZoneCommand(zoneName);
+        }
+    }
+}

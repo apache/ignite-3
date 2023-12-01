@@ -31,15 +31,13 @@ import org.apache.ignite.internal.catalog.commands.AlterTableAddColumnCommand;
 import org.apache.ignite.internal.catalog.commands.AlterTableAlterColumnCommand;
 import org.apache.ignite.internal.catalog.commands.AlterTableAlterColumnCommandBuilder;
 import org.apache.ignite.internal.catalog.commands.AlterTableDropColumnCommand;
-import org.apache.ignite.internal.catalog.commands.AlterZoneParams;
+import org.apache.ignite.internal.catalog.commands.AlterZoneCommand;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.CreateHashIndexCommand;
 import org.apache.ignite.internal.catalog.commands.CreateSortedIndexCommand;
-import org.apache.ignite.internal.catalog.commands.CreateZoneParams;
 import org.apache.ignite.internal.catalog.commands.DataStorageParams;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
-import org.apache.ignite.internal.catalog.commands.DropZoneParams;
-import org.apache.ignite.internal.catalog.commands.RenameZoneParams;
+import org.apache.ignite.internal.catalog.commands.RenameZoneCommand;
 import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterColumnCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterTableAddCommand;
@@ -85,12 +83,12 @@ class DdlToCatalogCommandConverter {
                 .build();
     }
 
-    static CreateZoneParams convert(CreateZoneCommand cmd) {
+    static CatalogCommand convert(CreateZoneCommand cmd) {
         // TODO: IGNITE-19719 We need to define the default engine differently and the parameters should depend on the engine
         String engine = Objects.requireNonNullElse(cmd.dataStorage(), DEFAULT_STORAGE_ENGINE);
         String dataRegion = (String) cmd.dataStorageOptions().getOrDefault("dataRegion", DEFAULT_DATA_REGION);
 
-        return CreateZoneParams.builder()
+        return org.apache.ignite.internal.catalog.commands.CreateZoneCommand.builder()
                 .zoneName(cmd.zoneName())
                 .partitions(cmd.partitions())
                 .replicas(cmd.replicas())
@@ -98,37 +96,32 @@ class DdlToCatalogCommandConverter {
                 .dataNodesAutoAdjust(cmd.dataNodesAutoAdjust())
                 .dataNodesAutoAdjustScaleUp(cmd.dataNodesAutoAdjustScaleUp())
                 .dataNodesAutoAdjustScaleDown(cmd.dataNodesAutoAdjustScaleDown())
-                .dataStorage(DataStorageParams.builder().engine(engine).dataRegion(dataRegion).build())
+                .dataStorageParams(DataStorageParams.builder().engine(engine).dataRegion(dataRegion).build())
                 .build();
     }
 
-    static DropZoneParams convert(DropZoneCommand cmd) {
-        return DropZoneParams.builder()
+    static CatalogCommand convert(DropZoneCommand cmd) {
+        return org.apache.ignite.internal.catalog.commands.DropZoneCommand.builder()
                 .zoneName(cmd.zoneName())
                 .build();
     }
 
-    static RenameZoneParams convert(AlterZoneRenameCommand cmd) {
-        return RenameZoneParams.builder()
+    static CatalogCommand convert(AlterZoneRenameCommand cmd) {
+        return RenameZoneCommand.builder()
                 .zoneName(cmd.zoneName())
-
                 .newZoneName(cmd.newZoneName())
-
                 .build();
     }
 
-    static AlterZoneParams convert(AlterZoneSetCommand cmd) {
-        return AlterZoneParams.builder()
+    static CatalogCommand convert(AlterZoneSetCommand cmd) {
+        return AlterZoneCommand.builder()
                 .zoneName(cmd.zoneName())
-
                 .partitions(cmd.partitions())
                 .replicas(cmd.replicas())
                 .filter(cmd.nodeFilter())
-
                 .dataNodesAutoAdjust(cmd.dataNodesAutoAdjust())
                 .dataNodesAutoAdjustScaleUp(cmd.dataNodesAutoAdjustScaleUp())
                 .dataNodesAutoAdjustScaleDown(cmd.dataNodesAutoAdjustScaleDown())
-
                 .build();
     }
 

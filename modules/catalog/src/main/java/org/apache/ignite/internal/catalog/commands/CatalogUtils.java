@@ -39,6 +39,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
+import org.apache.ignite.internal.distributionzones.DistributionZoneNotFoundException;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.Nullable;
@@ -196,6 +197,24 @@ public class CatalogUtils {
 
         return new CatalogTableColumnDescriptor(params.name(), params.type(), params.nullable(),
                 precision, scale, length, defaultValue);
+    }
+
+    /**
+     * Returns appropriate zone descriptor.
+     *
+     * @param catalog Catalog descriptor.
+     * @param zoneName Zone name.
+     */
+    static CatalogZoneDescriptor getZone(Catalog catalog, String zoneName) {
+        zoneName = Objects.requireNonNull(zoneName, "zoneName");
+
+        CatalogZoneDescriptor zone = catalog.zone(zoneName);
+
+        if (zone == null) {
+            throw new DistributionZoneNotFoundException(zoneName);
+        }
+
+        return zone;
     }
 
     /**

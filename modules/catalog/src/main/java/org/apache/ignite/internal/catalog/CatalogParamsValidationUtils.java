@@ -17,15 +17,10 @@
 
 package org.apache.ignite.internal.catalog;
 
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.MAX_PARTITION_COUNT;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
 import com.jayway.jsonpath.InvalidPathException;
 import com.jayway.jsonpath.JsonPath;
-import org.apache.ignite.internal.catalog.commands.AlterZoneParams;
-import org.apache.ignite.internal.catalog.commands.CreateZoneParams;
-import org.apache.ignite.internal.catalog.commands.DropZoneParams;
-import org.apache.ignite.internal.catalog.commands.RenameZoneParams;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.util.StringUtils;
 import org.apache.ignite.lang.ErrorGroups.DistributionZones;
@@ -49,95 +44,27 @@ public class CatalogParamsValidationUtils {
         }
     }
 
-    static void validateCreateZoneParams(CreateZoneParams params) {
-        validateUpdateZoneFieldsParameters(
-                params.zoneName(),
-                params.partitions(),
-                params.replicas(),
-                params.dataNodesAutoAdjust(),
-                params.dataNodesAutoAdjustScaleUp(),
-                params.dataNodesAutoAdjustScaleDown(),
-                params.filter()
-        );
+    /**
+     * Validates correctness of incoming value.
+     */
+    public static void validateField(@Nullable Integer value, int min, @Nullable Integer max, String errorPrefix) {
+        if (value == null) {
+            return;
+        }
+
+        if (value < min || (max != null && value > max)) {
+            throw new CatalogValidationException(
+                    DistributionZones.ZONE_DEFINITION_ERR,
+                    "{}: [value={}, min={}" + (max == null ? ']' : ", max={}]"),
+                    errorPrefix, value, min, max
+            );
+        }
     }
 
-    static void validateAlterZoneParams(AlterZoneParams params) {
-        validateUpdateZoneFieldsParameters(
-                params.zoneName(),
-                params.partitions(),
-                params.replicas(),
-                params.dataNodesAutoAdjust(),
-                params.dataNodesAutoAdjustScaleUp(),
-                params.dataNodesAutoAdjustScaleDown(),
-                params.filter()
-        );
-    }
-
-    static void validateDropZoneParams(DropZoneParams params) {
-        validateZoneName(params.zoneName());
-    }
-
-    static void validateRenameZoneParams(RenameZoneParams params) {
-        validateZoneName(params.zoneName());
-        validateZoneName(params.newZoneName(), "Missing new zone name");
-    }
-
-    private static void validateUpdateZoneFieldsParameters(
-            String zoneName,
-            @Nullable Integer partitions,
-            @Nullable Integer replicas,
-            @Nullable Integer dataNodesAutoAdjust,
-            @Nullable Integer dataNodesAutoAdjustScaleUp,
-            @Nullable Integer dataNodesAutoAdjustScaleDown,
-            @Nullable String filter
-    ) {
-        validateZoneName(zoneName);
-
-        validateZonePartitions(partitions);
-        validateZoneReplicas(replicas);
-
-        validateZoneDataNodesAutoAdjust(dataNodesAutoAdjust);
-        validateZoneDataNodesAutoAdjustScaleUp(dataNodesAutoAdjustScaleUp);
-        validateZoneDataNodesAutoAdjustScaleDown(dataNodesAutoAdjustScaleDown);
-
-        validateZoneDataNodesAutoAdjustParametersCompatibility(
-                dataNodesAutoAdjust,
-                dataNodesAutoAdjustScaleUp,
-                dataNodesAutoAdjustScaleDown
-        );
-
-        validateZoneFilter(filter);
-    }
-
-    private static void validateZoneName(String zoneName) {
-        validateZoneName(zoneName, "Missing zone name");
-    }
-
-    private static void validateZoneName(String zoneName, String errorMessage) {
-        validateNameField(zoneName, DistributionZones.ZONE_DEFINITION_ERR, errorMessage);
-    }
-
-    private static void validateZonePartitions(@Nullable Integer partitions) {
-        validateZoneField(partitions, 1, MAX_PARTITION_COUNT, "Invalid number of partitions");
-    }
-
-    private static void validateZoneReplicas(@Nullable Integer replicas) {
-        validateZoneField(replicas, 1, null, "Invalid number of replicas");
-    }
-
-    private static void validateZoneDataNodesAutoAdjust(@Nullable Integer dataNodesAutoAdjust) {
-        validateZoneField(dataNodesAutoAdjust, 0, null, "Invalid data nodes auto adjust");
-    }
-
-    private static void validateZoneDataNodesAutoAdjustScaleUp(@Nullable Integer dataNodesAutoAdjustScaleUp) {
-        validateZoneField(dataNodesAutoAdjustScaleUp, 0, null, "Invalid data nodes auto adjust scale up");
-    }
-
-    private static void validateZoneDataNodesAutoAdjustScaleDown(@Nullable Integer dataNodesAutoAdjustScaleDown) {
-        validateZoneField(dataNodesAutoAdjustScaleDown, 0, null, "Invalid data nodes auto adjust scale down");
-    }
-
-    private static void validateZoneDataNodesAutoAdjustParametersCompatibility(
+    /**
+     * Validates correctness of the auto adjust params.
+     */
+    public static void validateZoneDataNodesAutoAdjustParametersCompatibility(
             @Nullable Integer autoAdjust,
             @Nullable Integer scaleUp,
             @Nullable Integer scaleDown
@@ -151,7 +78,10 @@ public class CatalogParamsValidationUtils {
         }
     }
 
-    private static void validateZoneFilter(@Nullable String filter) {
+    /**
+     * Validates correctness of the filter.
+     */
+    public static void validateZoneFilter(@Nullable String filter) {
         if (filter == null) {
             return;
         }
@@ -167,26 +97,6 @@ public class CatalogParamsValidationUtils {
                     e,
                     filter, error
             );
-        }
-    }
-
-    private static void validateZoneField(@Nullable Integer value, int min, @Nullable Integer max, String errorPrefix) {
-        if (value == null) {
-            return;
-        }
-
-        if (value < min || (max != null && value > max)) {
-            throw new CatalogValidationException(
-                    DistributionZones.ZONE_DEFINITION_ERR,
-                    "{}: [value={}, min={}" + (max == null ? ']' : ", max={}]"),
-                    errorPrefix, value, min, max
-            );
-        }
-    }
-
-    private static void validateNameField(String name, int errorCode, String errorMessage) {
-        if (StringUtils.nullOrBlank(name)) {
-            throw new CatalogValidationException(errorCode, errorMessage);
         }
     }
 

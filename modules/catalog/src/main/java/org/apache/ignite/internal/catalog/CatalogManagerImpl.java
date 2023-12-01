@@ -20,12 +20,7 @@ package org.apache.ignite.internal.catalog;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
-import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateAlterZoneParams;
-import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateCreateZoneParams;
-import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateDropZoneParams;
-import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateRenameZoneParams;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.fromParams;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.fromParamsAndPreviousValue;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
@@ -40,10 +35,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.Flow.Publisher;
 import java.util.function.LongSupplier;
-import org.apache.ignite.internal.catalog.commands.AlterZoneParams;
 import org.apache.ignite.internal.catalog.commands.CreateZoneParams;
-import org.apache.ignite.internal.catalog.commands.DropZoneParams;
-import org.apache.ignite.internal.catalog.commands.RenameZoneParams;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
@@ -53,17 +45,11 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
-import org.apache.ignite.internal.catalog.storage.AlterZoneEntry;
-import org.apache.ignite.internal.catalog.storage.DropZoneEntry;
 import org.apache.ignite.internal.catalog.storage.Fireable;
-import org.apache.ignite.internal.catalog.storage.NewZoneEntry;
-import org.apache.ignite.internal.catalog.storage.ObjectIdGenUpdateEntry;
 import org.apache.ignite.internal.catalog.storage.UpdateEntry;
 import org.apache.ignite.internal.catalog.storage.UpdateLog;
 import org.apache.ignite.internal.catalog.storage.UpdateLog.OnUpdateHandler;
 import org.apache.ignite.internal.catalog.storage.VersionedUpdate;
-import org.apache.ignite.internal.distributionzones.DistributionZoneAlreadyExistsException;
-import org.apache.ignite.internal.distributionzones.DistributionZoneBindTableException;
 import org.apache.ignite.internal.distributionzones.DistributionZoneNotFoundException;
 import org.apache.ignite.internal.event.AbstractEventProducer;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -77,7 +63,6 @@ import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.util.SubscriptionUtils;
 import org.apache.ignite.lang.ErrorGroups.Common;
-import org.apache.ignite.lang.ErrorGroups.DistributionZones;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -335,97 +320,6 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
         }
 
         return saveUpdateAndWaitForActivation(new BulkUpdateProducer(List.copyOf(commands)));
-    }
-
-    @Override
-    public CompletableFuture<Void> createZone(CreateZoneParams params) {
-        return saveUpdateAndWaitForActivation(catalog -> {
-            validateCreateZoneParams(params);
-
-            if (catalog.zone(params.zoneName()) != null) {
-                throw new DistributionZoneAlreadyExistsException(params.zoneName());
-            }
-
-            CatalogZoneDescriptor zone = fromParams(catalog.objectIdGenState(), params);
-
-            return List.of(
-                    new NewZoneEntry(zone),
-                    new ObjectIdGenUpdateEntry(1)
-            );
-        });
-    }
-
-    @Override
-    public CompletableFuture<Void> dropZone(DropZoneParams params) {
-        return saveUpdateAndWaitForActivation(catalog -> {
-            validateDropZoneParams(params);
-
-            CatalogZoneDescriptor zone = getZone(catalog, params.zoneName());
-
-            if (zone.name().equals(DEFAULT_ZONE_NAME)) {
-                throw new IgniteInternalException(
-                        DistributionZones.ZONE_DROP_ERR,
-                        "Default distribution zone can't be dropped"
-                );
-            }
-
-            catalog.schemas().stream()
-                    .flatMap(s -> Arrays.stream(s.tables()))
-                    .filter(t -> t.zoneId() == zone.id())
-                    .findAny()
-                    .ifPresent(t -> {
-                        throw new DistributionZoneBindTableException(zone.name(), t.name());
-                    });
-
-            return List.of(new DropZoneEntry(zone.id()));
-        });
-    }
-
-    @Override
-    public CompletableFuture<Void> renameZone(RenameZoneParams params) {
-        return saveUpdateAndWaitForActivation(catalog -> {
-            validateRenameZoneParams(params);
-
-            CatalogZoneDescriptor zone = getZone(catalog, params.zoneName());
-
-            if (catalog.zone(params.newZoneName()) != null) {
-                throw new DistributionZoneAlreadyExistsException(params.newZoneName());
-            }
-
-            if (zone.name().equals(DEFAULT_ZONE_NAME)) {
-                throw new IgniteInternalException(
-                        DistributionZones.ZONE_RENAME_ERR,
-                        "Default distribution zone can't be renamed"
-                );
-            }
-
-            CatalogZoneDescriptor descriptor = new CatalogZoneDescriptor(
-                    zone.id(),
-                    params.newZoneName(),
-                    zone.partitions(),
-                    zone.replicas(),
-                    zone.dataNodesAutoAdjust(),
-                    zone.dataNodesAutoAdjustScaleUp(),
-                    zone.dataNodesAutoAdjustScaleDown(),
-                    zone.filter(),
-                    zone.dataStorage()
-            );
-
-            return List.of(new AlterZoneEntry(descriptor));
-        });
-    }
-
-    @Override
-    public CompletableFuture<Void> alterZone(AlterZoneParams params) {
-        return saveUpdateAndWaitForActivation(catalog -> {
-            validateAlterZoneParams(params);
-
-            CatalogZoneDescriptor zone = getZone(catalog, params.zoneName());
-
-            CatalogZoneDescriptor descriptor = fromParamsAndPreviousValue(params, zone);
-
-            return List.of(new AlterZoneEntry(descriptor));
-        });
     }
 
     private void registerCatalog(Catalog newCatalog) {

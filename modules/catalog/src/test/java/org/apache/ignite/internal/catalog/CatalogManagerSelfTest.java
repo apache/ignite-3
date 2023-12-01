@@ -94,17 +94,17 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.catalog.commands.AlterTableAlterColumnCommand;
 import org.apache.ignite.internal.catalog.commands.AlterTableAlterColumnCommandBuilder;
-import org.apache.ignite.internal.catalog.commands.AlterZoneParams;
+import org.apache.ignite.internal.catalog.commands.AlterZoneCommand;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.ColumnParams.Builder;
-import org.apache.ignite.internal.catalog.commands.CreateZoneParams;
+import org.apache.ignite.internal.catalog.commands.CreateZoneCommand;
 import org.apache.ignite.internal.catalog.commands.DataStorageParams;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
 import org.apache.ignite.internal.catalog.commands.DropIndexCommand;
-import org.apache.ignite.internal.catalog.commands.DropZoneParams;
+import org.apache.ignite.internal.catalog.commands.DropZoneCommand;
 import org.apache.ignite.internal.catalog.commands.MakeIndexAvailableCommand;
-import org.apache.ignite.internal.catalog.commands.RenameZoneParams;
+import org.apache.ignite.internal.catalog.commands.RenameZoneCommand;
 import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
@@ -1156,16 +1156,16 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
     public void testCreateZone() {
         String zoneName = ZONE_NAME + 1;
 
-        CreateZoneParams params = CreateZoneParams.builder()
+        CatalogCommand cmd = CreateZoneCommand.builder()
                 .zoneName(zoneName)
                 .partitions(42)
                 .replicas(15)
                 .dataNodesAutoAdjust(73)
                 .filter("expression")
-                .dataStorage(DataStorageParams.builder().engine("test_engine").dataRegion("test_region").build())
+                .dataStorageParams(DataStorageParams.builder().engine("test_engine").dataRegion("test_region").build())
                 .build();
 
-        assertThat(manager.createZone(params), willCompleteSuccessfully());
+        assertThat(manager.execute(cmd), willCompleteSuccessfully());
 
         // Validate catalog version from the past.
         assertNull(manager.zone(zoneName, 0));
@@ -1197,19 +1197,17 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
     public void testDropZone() {
         String zoneName = ZONE_NAME + 1;
 
-        CreateZoneParams createZoneParams = CreateZoneParams.builder()
-                .zoneName(zoneName)
-                .build();
+        CatalogCommand cmd = CreateZoneCommand.builder().zoneName(zoneName).build();
 
-        assertThat(manager.createZone(createZoneParams), willCompleteSuccessfully());
+        assertThat(manager.execute(cmd), willCompleteSuccessfully());
 
         long beforeDropTimestamp = clock.nowLong();
 
-        DropZoneParams params = DropZoneParams.builder()
+        CatalogCommand dropCommand = DropZoneCommand.builder()
                 .zoneName(zoneName)
                 .build();
 
-        CompletableFuture<Void> fut = manager.dropZone(params);
+        CompletableFuture<Void> fut = manager.execute(dropCommand);
 
         assertThat(fut, willCompleteSuccessfully());
 
@@ -1226,20 +1224,20 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertNull(manager.zone(zone.id(), clock.nowLong()));
 
         // Try to drop non-existing zone.
-        assertThat(manager.dropZone(params), willThrow(DistributionZoneNotFoundException.class));
+        assertThat(manager.execute(dropCommand), willThrow(DistributionZoneNotFoundException.class));
     }
 
     @Test
     public void testRenameZone() throws InterruptedException {
         String zoneName = ZONE_NAME + 1;
 
-        CreateZoneParams createParams = CreateZoneParams.builder()
+        CatalogCommand cmd = CreateZoneCommand.builder()
                 .zoneName(zoneName)
                 .partitions(42)
                 .replicas(15)
                 .build();
 
-        assertThat(manager.createZone(createParams), willCompleteSuccessfully());
+        assertThat(manager.execute(cmd), willCompleteSuccessfully());
 
         long beforeDropTimestamp = clock.nowLong();
 
@@ -1247,12 +1245,12 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
         String newZoneName = "RenamedZone";
 
-        RenameZoneParams renameZoneParams = RenameZoneParams.builder()
+        CatalogCommand renameZoneCmd = RenameZoneCommand.builder()
                 .zoneName(zoneName)
                 .newZoneName(newZoneName)
                 .build();
 
-        assertThat(manager.renameZone(renameZoneParams), willCompleteSuccessfully());
+        assertThat(manager.execute(renameZoneCmd), willCompleteSuccessfully());
 
         // Validate catalog version from the past.
         CatalogZoneDescriptor zone = manager.zone(zoneName, beforeDropTimestamp);
@@ -1277,12 +1275,12 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         CatalogZoneDescriptor defaultZone = manager.zone(DEFAULT_ZONE_NAME, clock.nowLong());
 
         // Try to create zone with default zone name.
-        CreateZoneParams createParams = CreateZoneParams.builder()
+        CatalogCommand cmd = CreateZoneCommand.builder()
                 .zoneName(DEFAULT_ZONE_NAME)
                 .partitions(42)
                 .replicas(15)
                 .build();
-        assertThat(manager.createZone(createParams), willThrow(IgniteInternalException.class));
+        assertThat(manager.execute(cmd), willThrow(IgniteInternalException.class));
 
         // Validate default zone wasn't changed.
         assertSame(defaultZone, manager.zone(DEFAULT_ZONE_NAME, clock.nowLong()));
@@ -1290,21 +1288,23 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         // Try to rename default zone.
         String newDefaultZoneName = "RenamedDefaultZone";
 
-        RenameZoneParams renameZoneParams = RenameZoneParams.builder()
+        CatalogCommand renameZoneCmd = RenameZoneCommand.builder()
                 .zoneName(DEFAULT_ZONE_NAME)
                 .newZoneName(newDefaultZoneName)
                 .build();
-        assertThat(manager.renameZone(renameZoneParams), willThrow(IgniteInternalException.class));
+
+        assertThat(manager.execute(renameZoneCmd), willThrow(IgniteInternalException.class));
 
         // Validate default zone wasn't changed.
         assertNull(manager.zone(newDefaultZoneName, clock.nowLong()));
         assertSame(defaultZone, manager.zone(DEFAULT_ZONE_NAME, clock.nowLong()));
 
         // Try to drop default zone.
-        DropZoneParams dropZoneParams = DropZoneParams.builder()
+        CatalogCommand dropCommand = DropZoneCommand.builder()
                 .zoneName(DEFAULT_ZONE_NAME)
                 .build();
-        assertThat(manager.dropZone(dropZoneParams), willThrow(IgniteInternalException.class));
+
+        assertThat(manager.execute(dropCommand), willThrow(IgniteInternalException.class));
 
         // Validate default zone wasn't changed.
         assertSame(defaultZone, manager.zone(DEFAULT_ZONE_NAME, clock.nowLong()));
@@ -1314,7 +1314,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
     public void testAlterZone() {
         String zoneName = ZONE_NAME + 1;
 
-        CreateZoneParams createParams = CreateZoneParams.builder()
+        CatalogCommand cmd = CreateZoneCommand.builder()
                 .zoneName(zoneName)
                 .partitions(42)
                 .replicas(15)
@@ -1322,18 +1322,18 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
                 .filter("expression")
                 .build();
 
-        AlterZoneParams alterZoneParams = AlterZoneParams.builder()
+        CatalogCommand alterCmd = AlterZoneCommand.builder()
                 .zoneName(zoneName)
                 .partitions(10)
                 .replicas(2)
                 .dataNodesAutoAdjustScaleUp(3)
                 .dataNodesAutoAdjustScaleDown(4)
                 .filter("newExpression")
-                .dataStorage(DataStorageParams.builder().engine("test_engine").dataRegion("test_region").build())
+                .dataStorageParams(DataStorageParams.builder().engine("test_engine").dataRegion("test_region").build())
                 .build();
 
-        assertThat(manager.createZone(createParams), willCompleteSuccessfully());
-        assertThat(manager.alterZone(alterZoneParams), willCompleteSuccessfully());
+        assertThat(manager.execute(cmd), willCompleteSuccessfully());
+        assertThat(manager.execute(alterCmd), willCompleteSuccessfully());
 
         // Validate actual catalog
         CatalogZoneDescriptor zone = manager.zone(zoneName, clock.nowLong());
@@ -1355,22 +1355,22 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
     public void testCreateZoneWithSameName() {
         String zoneName = ZONE_NAME + 1;
 
-        CreateZoneParams params = CreateZoneParams.builder()
+        CatalogCommand cmd = CreateZoneCommand.builder()
                 .zoneName(zoneName)
                 .partitions(42)
                 .replicas(15)
                 .build();
 
-        assertThat(manager.createZone(params), willCompleteSuccessfully());
+        assertThat(manager.execute(cmd), willCompleteSuccessfully());
 
         // Try to create zone with same name.
-        params = CreateZoneParams.builder()
+        cmd = CreateZoneCommand.builder()
                 .zoneName(zoneName)
                 .partitions(8)
                 .replicas(1)
                 .build();
 
-        assertThat(manager.createZone(params), willThrowFast(DistributionZoneAlreadyExistsException.class));
+        assertThat(manager.execute(cmd), willThrowFast(DistributionZoneAlreadyExistsException.class));
 
         // Validate zone was NOT changed
         CatalogZoneDescriptor zone = manager.zone(zoneName, clock.nowLong());
@@ -1388,11 +1388,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
     public void testCreateZoneEvents() {
         String zoneName = ZONE_NAME + 1;
 
-        CreateZoneParams createZoneParams = CreateZoneParams.builder()
-                .zoneName(zoneName)
-                .build();
-
-        DropZoneParams dropZoneParams = DropZoneParams.builder()
+        CatalogCommand cmd = CreateZoneCommand.builder()
                 .zoneName(zoneName)
                 .build();
 
@@ -1402,13 +1398,17 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         manager.listen(CatalogEvent.ZONE_CREATE, eventListener);
         manager.listen(CatalogEvent.ZONE_DROP, eventListener);
 
-        CompletableFuture<Void> fut = manager.createZone(createZoneParams);
+        CompletableFuture<Void> fut = manager.execute(cmd);
 
         assertThat(fut, willCompleteSuccessfully());
 
         verify(eventListener).notify(any(CreateZoneEventParameters.class), isNull());
 
-        fut = manager.dropZone(dropZoneParams);
+        CatalogCommand dropCommand = DropZoneCommand.builder()
+                .zoneName(zoneName)
+                .build();
+
+        fut = manager.execute(dropCommand);
 
         assertThat(fut, willCompleteSuccessfully());
 
@@ -1630,7 +1630,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
     @Test
     void testCreateZoneWithDefaults() {
-        assertThat(manager.createZone(CreateZoneParams.builder().zoneName(ZONE_NAME + 1).build()), willBe(nullValue()));
+        assertThat(manager.execute(CreateZoneCommand.builder().zoneName(ZONE_NAME + 1).build()), willBe(nullValue()));
 
         CatalogZoneDescriptor zone = manager.zone(ZONE_NAME, clock.nowLong());
 
