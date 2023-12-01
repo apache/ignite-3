@@ -61,6 +61,15 @@ class ScriptTransactionWrapper implements QueryTransactionWrapper {
 
     @Override
     public CompletableFuture<Void> rollback(Throwable cause) {
+        // Close all associated cursors on error.
+        for (CompletableFuture<? extends AsyncCursor<?>> fut : openedCursors.values()) {
+            fut.whenComplete((cursor, ex) -> {
+                if (cursor != null) {
+                    cursor.closeAsync();
+                }
+            });
+        }
+
         return transaction.rollbackAsync();
     }
 
@@ -131,16 +140,7 @@ class ScriptTransactionWrapper implements QueryTransactionWrapper {
         @Override
         public CompletableFuture<Void> rollback(Throwable cause) {
             if (cause != null) {
-                // Close all associated cursors on error.
-                for (CompletableFuture<? extends AsyncCursor<?>> fut : openedCursors.values()) {
-                    fut.whenComplete((cursor, ex) -> {
-                        if (cursor != null) {
-                            cursor.closeAsync();
-                        }
-                    });
-                }
-
-                return transaction.rollbackAsync();
+                return ScriptTransactionWrapper.this.rollback(cause);
             } else {
                 boolean success = finishTxAction.compareAndSet(null, InternalTransaction::rollbackAsync);
 

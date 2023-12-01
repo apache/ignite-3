@@ -283,8 +283,12 @@ public class ItSqlMultiStatementTxTest extends BaseSqlMultiStatementTest {
 
     @Test
     void nestedTransactionStartFails() {
-        AsyncSqlCursor<List<Object>> cursor = runScript("START TRANSACTION; START TRANSACTION;");
-        assertThrowsSqlException(RUNTIME_ERR, "Nested transactions are not supported.", () -> await(cursor.nextResult()));
+        AsyncSqlCursor<List<Object>> cursor = runScript("START TRANSACTION; SELECT 1; START TRANSACTION;");
+
+        AsyncSqlCursor<List<Object>> startTxCur = await(cursor.nextResult());
+        assertNotNull(startTxCur);
+
+        assertThrowsSqlException(RUNTIME_ERR, "Nested transactions are not supported.", () -> await(startTxCur.nextResult()));
 
         verifyFinishedTxCount(1);
     }
@@ -292,11 +296,15 @@ public class ItSqlMultiStatementTxTest extends BaseSqlMultiStatementTest {
     @Test
     void dmlFailsOnReadOnlyTransaction() {
         AsyncSqlCursor<List<Object>> cursor = runScript("START TRANSACTION READ ONLY;"
+                + "SELECT 1;"
                 + "INSERT INTO test VALUES(0);"
                 + "COMMIT;");
 
+        AsyncSqlCursor<List<Object>> insCur = await(cursor.nextResult());
+        assertNotNull(insCur);
+
         assertThrowsSqlException(RUNTIME_ERR, "DML query cannot be started by using read only transactions.",
-                () -> await(cursor.nextResult()));
+                () -> await(insCur.nextResult()));
 
         verifyFinishedTxCount(1);
     }

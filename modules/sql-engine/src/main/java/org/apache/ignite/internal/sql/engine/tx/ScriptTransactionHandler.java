@@ -87,10 +87,10 @@ public class ScriptTransactionHandler extends QueryTransactionHandler {
 
             return wrapper.forStatement(queryType, cursorFut);
         } catch (SqlException e) {
-            InternalTransaction scriptTx = scriptTransaction();
+            ScriptTransactionWrapper wrapper = this.wrapper;
 
-            if (scriptTx != null) {
-                scriptTx.rollback();
+            if (wrapper != null) {
+                wrapper.rollback(e);
             }
 
             throw e;
@@ -126,9 +126,7 @@ public class ScriptTransactionHandler extends QueryTransactionHandler {
             TransactionOptions options =
                     new TransactionOptions().readOnly(txStartNode.getMode() == IgniteSqlStartTransactionMode.READ_ONLY);
 
-            InternalTransaction tx = (InternalTransaction) transactions.begin(options);
-
-            txWrapper = new ScriptTransactionWrapper(tx);
+            txWrapper = new ScriptTransactionWrapper((InternalTransaction) transactions.begin(options));
 
             this.wrapper = txWrapper;
 
