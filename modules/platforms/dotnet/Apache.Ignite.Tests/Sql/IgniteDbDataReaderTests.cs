@@ -35,9 +35,11 @@ using Table;
 /// </summary>
 public class IgniteDbDataReaderTests : IgniteTestsBase
 {
+    private const int ColumnCount = 17;
+
     private const string AllColumnsQuery = "select \"KEY\", \"STR\", \"INT8\", \"INT16\", \"INT32\", \"INT64\", \"FLOAT\", " +
                                            "\"DOUBLE\", \"DATE\", \"TIME\", \"DATETIME\", \"TIMESTAMP\", \"BLOB\", \"DECIMAL\", \"UUID\", " +
-                                           "\"BOOLEAN\" from TBL_ALL_COLUMNS_SQL ORDER BY KEY";
+                                           "\"BOOLEAN\", NULL from TBL_ALL_COLUMNS_SQL ORDER BY KEY";
 
     private static readonly LocalDate LocalDate = new(2023, 01, 18);
     private static readonly LocalTime LocalTime = new(09, 28);
@@ -122,7 +124,7 @@ public class IgniteDbDataReaderTests : IgniteTestsBase
     {
         await using var reader = await ExecuteReader();
 
-        Assert.AreEqual(16, reader.FieldCount);
+        Assert.AreEqual(ColumnCount, reader.FieldCount);
 
         Assert.AreEqual(1, reader.GetInt64("KEY"));
         Assert.AreEqual("v-1", reader.GetString("STR"));
@@ -140,6 +142,7 @@ public class IgniteDbDataReaderTests : IgniteTestsBase
         Assert.AreEqual(2, reader.GetBytes("BLOB", 0, null!, 0, 0));
         Assert.AreEqual(Guid, reader.GetGuid("UUID"));
         Assert.IsTrue(reader.GetBoolean("BOOLEAN"));
+        Assert.IsTrue(reader.IsDBNull("NULL"));
     }
 
     [Test]
@@ -190,6 +193,8 @@ public class IgniteDbDataReaderTests : IgniteTestsBase
         Assert.AreEqual(Instant, reader.GetFieldValue<Instant>("TIMESTAMP"));
         Assert.AreEqual(8.7m, reader.GetFieldValue<decimal>("DECIMAL"));
         Assert.AreEqual(Bytes, reader.GetFieldValue<byte[]>("BLOB"));
+
+        Assert.IsNull(reader.GetFieldValue<object>("NULL"));
 
         Assert.Throws<InvalidCastException>(() => reader.GetFieldValue<Array>("TIME"));
     }
@@ -383,7 +388,7 @@ public class IgniteDbDataReaderTests : IgniteTestsBase
 
         ReadOnlyCollection<DbColumn> schema = async ? await reader.GetColumnSchemaAsync() : reader.GetColumnSchema();
 
-        Assert.AreEqual(16, schema.Count);
+        Assert.AreEqual(ColumnCount, schema.Count);
 
         Assert.AreEqual("KEY", schema[0].ColumnName);
         Assert.AreEqual(0, schema[0].ColumnOrdinal);
@@ -436,6 +441,7 @@ public class IgniteDbDataReaderTests : IgniteTestsBase
         Assert.AreEqual(Instant, reader.GetValue("TIMESTAMP"));
         Assert.AreEqual(8.7m, reader.GetValue("DECIMAL"));
         Assert.AreEqual(Bytes, reader.GetValue("BLOB"));
+        Assert.IsNull(reader.GetValue("NULL"));
     }
 
     [Test]
@@ -446,9 +452,9 @@ public class IgniteDbDataReaderTests : IgniteTestsBase
         var values = new object[reader.FieldCount];
         var count = reader.GetValues(values);
 
-        var expected = new object[]
+        var expected = new object?[]
         {
-            1, "v-1", 2, 3, 4, 5, 6.5f, 7.5d, LocalDate, LocalTime, LocalDateTime, Instant, Bytes, 8.7m, Guid, true
+            1, "v-1", 2, 3, 4, 5, 6.5f, 7.5d, LocalDate, LocalTime, LocalDateTime, Instant, Bytes, 8.7m, Guid, true, null
         };
 
         CollectionAssert.AreEqual(expected, values);
@@ -601,7 +607,7 @@ public class IgniteDbDataReaderTests : IgniteTestsBase
         foreach (DbDataRecord row in reader)
         {
             // DbDataRecord delegates to methods in DbDataReader, no need to test everything here.
-            Assert.AreEqual(16, row.FieldCount);
+            Assert.AreEqual(ColumnCount, row.FieldCount);
             Assert.AreEqual("KEY", row.GetName(0));
         }
     }
@@ -657,7 +663,7 @@ public class IgniteDbDataReaderTests : IgniteTestsBase
         var dt = new DataTable();
         dt.Load(reader);
 
-        Assert.AreEqual(16, dt.Columns.Count);
+        Assert.AreEqual(ColumnCount, dt.Columns.Count);
         Assert.AreEqual(9, dt.Rows.Count);
     }
 
