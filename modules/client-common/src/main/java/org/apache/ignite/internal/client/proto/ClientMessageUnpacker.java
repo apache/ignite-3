@@ -758,21 +758,6 @@ public class ClientMessageUnpacker implements AutoCloseable {
         return ClientBinaryTupleUtils.readObject(reader, 0);
     }
 
-
-    /**
-     * Reads a binary value.
-     *
-     * @return Payload bytes wrapped into {@code }OnHeapByteBuffer}.
-     */
-    public ByteBuffer unpackByteBufferOnHeap() {
-        assert refCnt > 0 : "Unpacker is closed";
-
-        ByteBuffer buf =  readBinaryUnsafe();
-        byte[] arr = new byte[buf.remaining()];
-        buf.get(arr);
-        return ByteBuffer.wrap(arr).order(ByteOrder.LITTLE_ENDIAN);
-    }
-
     /**
      * Increases the reference count by {@code 1}.
      *

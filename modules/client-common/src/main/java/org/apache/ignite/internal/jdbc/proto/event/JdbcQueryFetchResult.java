@@ -121,7 +121,7 @@ public class JdbcQueryFetchResult extends Response {
         for (int i = 0; i < size; i++) {
             int elementCount = unpacker.unpackInt();
 
-            BinaryTuple row = new BinaryTuple(elementCount, unpacker.unpackByteBufferOnHeap());
+            BinaryTuple row = new BinaryTuple(elementCount, unpacker.readBinary());
             rowTuples.add(row);
         }
     }

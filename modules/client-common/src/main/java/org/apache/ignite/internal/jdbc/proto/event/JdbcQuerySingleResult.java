@@ -240,7 +240,7 @@ public class JdbcQuerySingleResult extends Response {
 
         rowTuples = new ArrayList<>(size);
         for (int rowIdx = 0; rowIdx < size; rowIdx++) {
-            rowTuples.add(new BinaryTuple(columnTypes.size(), unpacker.unpackByteBufferOnHeap()));
+            rowTuples.add(new BinaryTuple(columnTypes.size(), unpacker.readBinary()));
         }
 
     }
