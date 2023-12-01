@@ -25,6 +25,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
@@ -35,13 +36,16 @@ import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.event.EventParameters;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
 import org.apache.ignite.internal.util.ExceptionUtils;
+import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.lang.TableNotFoundException;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -77,6 +81,10 @@ public class ClientPrimaryReplicaTracker implements EventListener<EventParameter
 
     private final SchemaSyncService schemaSyncService;
 
+    private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
+
+    private final AtomicBoolean stopGuard = new AtomicBoolean();
+
     /**
      * Constructor.
      *
@@ -104,6 +112,25 @@ public class ClientPrimaryReplicaTracker implements EventListener<EventParameter
      * @return Primary replicas for the table, or null when not yet known.
      */
     public CompletableFuture<PrimaryReplicasResult> primaryReplicasAsync(int tableId, @Nullable Long maxStartTime) {
+        if (!busyLock.enterBusy()) {
+            return CompletableFuture.failedFuture(new NodeStoppingException());
+        }
+
+        try {
+            return primaryReplicasAsyncInternal(tableId, maxStartTime);
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
+    /**
+     * Gets primary replicas by partition for the table.
+     *
+     * @param tableId Table ID.
+     * @param maxStartTime Timestamp.
+     * @return Primary replicas for the table, or null when not yet known.
+     */
+    private CompletableFuture<PrimaryReplicasResult> primaryReplicasAsyncInternal(int tableId, @Nullable Long maxStartTime) {
         HybridTimestamp timestamp = clock.now();
 
         if (maxStartTime == null) {
@@ -227,6 +254,12 @@ public class ClientPrimaryReplicaTracker implements EventListener<EventParameter
 
     @SuppressWarnings({"rawtypes", "unchecked"})
     void stop() {
+        if (!stopGuard.compareAndSet(false, true)) {
+            return;
+        }
+
+        busyLock.block();
+
         catalogService.removeListener(CatalogEvent.TABLE_DROP, (EventListener) this);
         placementDriver.removeListener(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, (EventListener) this);
         primaryReplicas.clear();
@@ -234,10 +267,23 @@ public class ClientPrimaryReplicaTracker implements EventListener<EventParameter
 
     @Override
     public CompletableFuture<Boolean> notify(EventParameters parameters, @Nullable Throwable exception) {
-        if (exception != null) {
-            return CompletableFuture.completedFuture(false);
+        if (!busyLock.enterBusy()) {
+            return CompletableFuture.failedFuture(new NodeStoppingException());
         }
 
+        try {
+            if (exception != null) {
+                return CompletableFuture.completedFuture(false);
+            }
+
+            return notifyInternal(parameters);
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
+    @NotNull
+    private CompletableFuture<Boolean> notifyInternal(EventParameters parameters) {
         if (parameters instanceof DropTableEventParameters) {
             removeTable((DropTableEventParameters) parameters);
 
@@ -258,7 +304,7 @@ public class ClientPrimaryReplicaTracker implements EventListener<EventParameter
         TablePartitionId tablePartitionId = (TablePartitionId) primaryReplicaEvent.groupId();
         updatePrimaryReplica(tablePartitionId, primaryReplicaEvent.startTime(), primaryReplicaEvent.leaseholder());
 
-        return CompletableFuture.completedFuture(false); // false: don't remove listener.
+        return CompletableFuture.completedFuture(false);
     }
 
     private void removeTable(DropTableEventParameters dropTableEvent) {

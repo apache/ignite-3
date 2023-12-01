@@ -19,6 +19,7 @@ package org.apache.ignite.client.handler;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.lang.IgniteInternalException;
@@ -42,6 +43,8 @@ public class ClientResourceRegistry {
      * RW lock.
      */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
+
+    private final AtomicBoolean stopGuard = new AtomicBoolean();
 
     /**
      * Stores the resource and returns the generated id.
@@ -110,6 +113,10 @@ public class ClientResourceRegistry {
      * Closes the registry and releases all resources.
      */
     public void close() {
+        if (!stopGuard.compareAndSet(false, true)) {
+            return;
+        }
+
         busyLock.block();
 
         IgniteInternalException ex = null;
