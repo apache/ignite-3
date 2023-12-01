@@ -401,8 +401,13 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
 
         markFinished(txId, cmd.commit(), cmd.commitTimestamp(), cmd.txCoordinatorId());
 
-        storageUpdateHandler.handleTransactionCleanup(txId, cmd.commit(), cmd.commitTimestamp(),
-                () -> storage.lastApplied(commandIndex, commandTerm));
+        storageUpdateHandler.handleTransactionCleanup(
+                txId,
+                cmd.commit(),
+                cmd.commitTimestamp(),
+                () -> storage.lastApplied(commandIndex, commandTerm),
+                indexIdsForRwUpdateOperation(storage.tableId(), cmd.requiredCatalogVersion())
+        );
     }
 
     /**
@@ -610,8 +615,10 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
     }
 
     private List<Integer> indexIdsForRwUpdateOperation(int tableId, HybridTimestamp opTs) {
-        int catalogVersion = catalogService.activeCatalogVersion(opTs.longValue());
+        return indexIdsForRwUpdateOperation(tableId, catalogService.activeCatalogVersion(opTs.longValue()));
+    }
 
+    private List<Integer> indexIdsForRwUpdateOperation(int tableId, int catalogVersion) {
         return view(indexChooser.chooseForRwTxUpdateOperation(catalogVersion, tableId), CatalogObjectDescriptor::id);
     }
 }

@@ -1796,7 +1796,12 @@ public class PartitionReplicaListener implements ReplicaListener {
                 .requiredCatalogVersion(catalogVersion)
                 .build();
 
-        storageUpdateHandler.handleTransactionCleanup(transactionId, commit, commitTimestamp);
+        storageUpdateHandler.handleTransactionCleanup(
+                transactionId,
+                commit,
+                commitTimestamp,
+                indexIdsForRwUpdateOperation(catalogVersion)
+        );
 
         CompletableFuture<Object> resultFuture = new CompletableFuture<>();
 
@@ -3583,13 +3588,15 @@ public class PartitionReplicaListener implements ReplicaListener {
         CompletableFuture<?> future = rowCleanupMap.computeIfAbsent(rowId, k -> {
             // The cleanup for this row has already been triggered. For example, we are resolving a write intent for an RW transaction
             // and a concurrent RO transaction resolves the same row, hence computeIfAbsent.
-            return txManager.executeCleanupAsync(() ->
-                    inBusyLock(busyLock, () -> storageUpdateHandler.handleTransactionCleanup(txId, txState == COMMITED, commitTimestamp))
-            ).whenComplete((unused, e) -> {
-                if (e != null) {
-                    LOG.warn("Failed to complete transaction cleanup command [txId=" + txId + ']', e);
-                }
-            });
+            return txManager.executeCleanupAsync(() -> inBusyLock(
+                            busyLock,
+                            () -> storageUpdateHandler.handleTransactionCleanup(txId, txState == COMMITED, commitTimestamp, null)
+                    ))
+                    .whenComplete((unused, e) -> {
+                        if (e != null) {
+                            LOG.warn("Failed to complete transaction cleanup command [txId=" + txId + ']', e);
+                        }
+                    });
         });
 
         future.handle((v, e) -> rowCleanupMap.remove(rowId, future));
@@ -3874,12 +3881,6 @@ public class PartitionReplicaListener implements ReplicaListener {
         });
     }
 
-    private List<Integer> indexIdsForRwUpdateOperation(HybridTimestamp opTs) {
-        int catalogVersion = catalogService.activeCatalogVersion(opTs.longValue());
-
-        return view(indexChooser.chooseForRwTxUpdateOperation(catalogVersion, tableId()), CatalogObjectDescriptor::id);
-    }
-
     private <T> CompletableFuture<T>[] takeLockOnIndexes(
             List<Integer> indexIds,
             Function<IndexLocker, CompletableFuture<T>> lockFunction
@@ -3901,5 +3902,13 @@ public class PartitionReplicaListener implements ReplicaListener {
         }
 
         return locks;
+    }
+
+    private List<Integer> indexIdsForRwUpdateOperation(HybridTimestamp opTs) {
+        return indexIdsForRwUpdateOperation(catalogService.activeCatalogVersion(opTs.longValue()));
+    }
+
+    private List<Integer> indexIdsForRwUpdateOperation(int catalogVersion) {
+        return view(indexChooser.chooseForRwTxUpdateOperation(catalogVersion, tableId()), CatalogObjectDescriptor::id);
     }
 }

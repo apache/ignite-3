@@ -60,7 +60,7 @@ public class IndexUpdateHandler {
     public void addToIndexes(
             @Nullable BinaryRow binaryRow,
             RowId rowId,
-            // TODO: IGNITE-18595 You need to know the indexes for a full rebalance, i.e. null must go
+            // TODO: IGNITE-18595 We need to know the indexes for a full rebalance, i.e. null must go
             @Nullable List<Integer> indexIds
     ) {
         assert indexIds == null || !indexIds.isEmpty() : indexIds;
@@ -69,9 +69,7 @@ public class IndexUpdateHandler {
             return;
         }
 
-        Map<Integer, TableSchemaAwareIndexStorage> indexStorageByIndexId = indexes.get();
-
-        assert !indexStorageByIndexId.isEmpty();
+        Map<Integer, TableSchemaAwareIndexStorage> indexStorageByIndexId = indexStorageByIndexId();
 
         if (indexIds == null) {
             indexStorageByIndexId.values().forEach(indexStorage -> indexStorage.put(binaryRow, rowId));
@@ -91,15 +89,22 @@ public class IndexUpdateHandler {
      * Removes the row only if no previous value's index matches index of the row to remove, because if it matches, then the index
      * might still be in use.
      *
-     * <p>Must be called inside a {@link MvPartitionStorage#runConsistently(WriteClosure)} closure.
+     * <p>Must be called inside a {@link MvPartitionStorage#runConsistently(WriteClosure)} closure.</p>
      *
      * @param rowToRemove Row to remove from indexes.
      * @param rowId Row id.
      * @param previousValues Cursor with previous version of the row.
+     * @param indexIds IDs of indexes that will need to be updated, {@code null} for all indexes.
      */
-    // TODO: IGNITE-20125 разобраться и с этим дерьмом
-    public void tryRemoveFromIndexes(BinaryRow rowToRemove, RowId rowId, Cursor<ReadResult> previousValues) {
-        TableSchemaAwareIndexStorage[] indexes = this.indexes.get().values().toArray(new TableSchemaAwareIndexStorage[0]);
+    public void tryRemoveFromIndexes(
+            BinaryRow rowToRemove,
+            RowId rowId,
+            Cursor<ReadResult> previousValues,
+            @Nullable List<Integer> indexIds
+    ) {
+        assert indexIds == null || !indexIds.isEmpty() : indexIds;
+
+        TableSchemaAwareIndexStorage[] indexes = indexStoragesSnapshot(indexIds);
 
         ByteBuffer[] indexValues = new ByteBuffer[indexes.length];
 
@@ -181,5 +186,35 @@ public class IndexUpdateHandler {
         indexes.addIndexToWaitIfAbsent(indexId);
 
         waitIndexes();
+    }
+
+    private Map<Integer, TableSchemaAwareIndexStorage> indexStorageByIndexId() {
+        Map<Integer, TableSchemaAwareIndexStorage> indexes = this.indexes.get();
+
+        assert !indexes.isEmpty();
+
+        return indexes;
+    }
+
+    private TableSchemaAwareIndexStorage[] indexStoragesSnapshot(@Nullable List<Integer> indexIds) {
+        Map<Integer, TableSchemaAwareIndexStorage> indexStorageByIndexId = indexStorageByIndexId();
+
+        if (indexIds == null) {
+            return indexStorageByIndexId.values().toArray(TableSchemaAwareIndexStorage[]::new);
+        }
+
+        TableSchemaAwareIndexStorage[] indexes = new TableSchemaAwareIndexStorage[indexIds.size()];
+
+        for (int i = 0; i < indexIds.size(); i++) {
+            Integer indexId = indexIds.get(i);
+
+            TableSchemaAwareIndexStorage indexStorage = indexStorageByIndexId.get(indexId);
+
+            assert indexStorage != null : indexId;
+
+            indexes[i] = indexStorage;
+        }
+
+        return indexes;
     }
 }

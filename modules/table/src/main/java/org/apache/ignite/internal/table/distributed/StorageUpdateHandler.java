@@ -100,7 +100,7 @@ public class StorageUpdateHandler {
             @Nullable Runnable onApplication,
             @Nullable HybridTimestamp commitTs,
             @Nullable HybridTimestamp lastCommitTs,
-            // TODO: IGNITE-18595 You need to know the indexes for a full rebalance, i.e. null must go
+            // TODO: IGNITE-18595 We need to know the indexes for a full rebalance, i.e. null must go
             @Nullable List<Integer> indexIds
     ) {
         assert indexIds == null || !indexIds.isEmpty() : indexIds;
@@ -115,7 +115,7 @@ public class StorageUpdateHandler {
 
             locker.lock(rowId);
 
-            performStorageCleanupIfNeeded(txId, rowId, lastCommitTs);
+            performStorageCleanupIfNeeded(txId, rowId, lastCommitTs, indexIds);
 
             if (commitTs != null) {
                 storage.addWriteCommitted(rowId, row, commitTs);
@@ -125,7 +125,7 @@ public class StorageUpdateHandler {
                 if (oldRow != null) {
                     assert commitTs == null : String.format("Expecting explicit txn: [txId=%s]", txId);
                     // Previous uncommitted row should be removed from indexes.
-                    tryRemovePreviousWritesIndex(rowId, oldRow);
+                    tryRemovePreviousWritesIndex(rowId, oldRow, indexIds);
                 }
             }
 
@@ -161,7 +161,7 @@ public class StorageUpdateHandler {
             boolean trackWriteIntent,
             @Nullable Runnable onApplication,
             @Nullable HybridTimestamp commitTs,
-            // TODO: IGNITE-18595 You need to know the indexes for a full rebalance, i.e. null must go
+            // TODO: IGNITE-18595 We need to know the indexes for a full rebalance, i.e. null must go
             @Nullable List<Integer> indexIds
     ) {
         assert indexIds == null || !indexIds.isEmpty() : indexIds;
@@ -181,11 +181,13 @@ public class StorageUpdateHandler {
 
                 for (Map.Entry<UUID, TimedBinaryRow> entry : sortedRowsToUpdateMap.entrySet()) {
                     RowId rowId = new RowId(partitionId, entry.getKey());
-                    BinaryRow row = entry.getValue() == null ? null : entry.getValue().binaryRow();
+
+                    TimedBinaryRow timedBinaryRow = entry.getValue();
+                    BinaryRow row = timedBinaryRow == null ? null : timedBinaryRow.binaryRow();
 
                     locker.lock(rowId);
 
-                    performStorageCleanupIfNeeded(txId, rowId, entry.getValue() == null ? null : entry.getValue().commitTimestamp());
+                    performStorageCleanupIfNeeded(txId, rowId, timedBinaryRow == null ? null : timedBinaryRow.commitTimestamp(), indexIds);
 
                     if (commitTs != null) {
                         storage.addWriteCommitted(rowId, row, commitTs);
@@ -195,7 +197,7 @@ public class StorageUpdateHandler {
                         if (oldRow != null) {
                             assert commitTs == null : String.format("Expecting explicit txn: [txId=%s]", txId);
                             // Previous uncommitted row should be removed from indexes.
-                            tryRemovePreviousWritesIndex(rowId, oldRow);
+                            tryRemovePreviousWritesIndex(rowId, oldRow, indexIds);
                         }
                     }
 
@@ -216,7 +218,12 @@ public class StorageUpdateHandler {
         });
     }
 
-    private void performStorageCleanupIfNeeded(UUID txId, RowId rowId, @Nullable HybridTimestamp lastCommitTs) {
+    private void performStorageCleanupIfNeeded(
+            UUID txId,
+            RowId rowId,
+            @Nullable HybridTimestamp lastCommitTs,
+            @Nullable List<Integer> indexIds
+    ) {
         // No previously committed value, this action might be an insert. No need to cleanup.
         if (lastCommitTs == null) {
             return;
@@ -263,7 +270,7 @@ public class StorageUpdateHandler {
                     // So if we got up to here, it means that the previous transaction was aborted,
                     // but the storage was not cleaned after it.
                     // Action: abort this write intent.
-                    performAbortWrite(item.transactionId(), Set.of(rowId));
+                    performAbortWrite(item.transactionId(), Set.of(rowId), indexIds);
                 }
             }
         }
@@ -274,14 +281,15 @@ public class StorageUpdateHandler {
      *
      * @param rowId Row id.
      * @param previousRow Previous write value.
+     * @param indexIds IDs of indexes that will need to be updated, {@code null} for all indexes.
      */
-    private void tryRemovePreviousWritesIndex(RowId rowId, BinaryRow previousRow) {
+    private void tryRemovePreviousWritesIndex(RowId rowId, BinaryRow previousRow, @Nullable List<Integer> indexIds) {
         try (Cursor<ReadResult> cursor = storage.scanVersions(rowId)) {
             if (!cursor.hasNext()) {
                 return;
             }
 
-            indexUpdateHandler.tryRemoveFromIndexes(previousRow, rowId, cursor);
+            indexUpdateHandler.tryRemoveFromIndexes(previousRow, rowId, cursor, indexIds);
         }
     }
 
@@ -301,9 +309,15 @@ public class StorageUpdateHandler {
      * @param txId Transaction id.
      * @param commit Commit flag. {@code true} if transaction is committed, {@code false} otherwise.
      * @param commitTimestamp Commit timestamp. Not {@code null} if {@code commit} is {@code true}.
+     * @param indexIds IDs of indexes that will need to be updated, {@code null} for all indexes.
      */
-    public void handleTransactionCleanup(UUID txId, boolean commit, @Nullable HybridTimestamp commitTimestamp) {
-        handleTransactionCleanup(txId, commit, commitTimestamp, null);
+    public void handleTransactionCleanup(
+            UUID txId,
+            boolean commit,
+            @Nullable HybridTimestamp commitTimestamp,
+            @Nullable List<Integer> indexIds
+    ) {
+        handleTransactionCleanup(txId, commit, commitTimestamp, null, indexIds);
     }
 
     /**
@@ -313,12 +327,15 @@ public class StorageUpdateHandler {
      * @param commit Commit flag. {@code true} if transaction is committed, {@code false} otherwise.
      * @param commitTimestamp Commit timestamp. Not {@code null} if {@code commit} is {@code true}.
      * @param onApplication On application callback.
+     * @param indexIds IDs of indexes that will need to be updated, {@code null} for all indexes.
      */
     public void handleTransactionCleanup(
             UUID txId,
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp,
-            @Nullable Runnable onApplication) {
+            @Nullable Runnable onApplication,
+            @Nullable List<Integer> indexIds
+    ) {
         Set<RowId> pendingRowIds = pendingRows.removePendingRowIds(txId);
 
         // `pendingRowIds` might be empty when we have already cleaned up the storage for this transaction,
@@ -334,7 +351,7 @@ public class StorageUpdateHandler {
                 if (commit) {
                     performCommitWrite(txId, pendingRowIds, commitTimestamp);
                 } else {
-                    performAbortWrite(txId, pendingRowIds);
+                    performAbortWrite(txId, pendingRowIds, indexIds);
                 }
 
                 if (onApplication != null) {
@@ -390,8 +407,9 @@ public class StorageUpdateHandler {
      *
      * @param txId Transaction id
      * @param pendingRowIds Row ids of write-intents to be aborted.
+     * @param indexIds IDs of indexes that will need to be updated, {@code null} for all indexes.
      */
-    private void performAbortWrite(UUID txId, Set<RowId> pendingRowIds) {
+    private void performAbortWrite(UUID txId, Set<RowId> pendingRowIds, @Nullable List<Integer> indexIds) {
         List<RowId> rowIds = new ArrayList<>();
 
         for (RowId rowId : pendingRowIds) {
@@ -417,7 +435,7 @@ public class StorageUpdateHandler {
                         continue;
                     }
 
-                    indexUpdateHandler.tryRemoveFromIndexes(rowToRemove, rowId, cursor);
+                    indexUpdateHandler.tryRemoveFromIndexes(rowToRemove, rowId, cursor, indexIds);
                 }
             }
         }

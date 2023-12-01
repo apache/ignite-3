@@ -147,7 +147,8 @@ public class GcUpdateHandler {
             }
 
             try (Cursor<ReadResult> cursor = storage.scanVersions(rowId)) {
-                indexUpdateHandler.tryRemoveFromIndexes(binaryRow, rowId, cursor);
+                // TODO: IGNITE-20125 добавить туду
+                indexUpdateHandler.tryRemoveFromIndexes(binaryRow, rowId, cursor, null);
             }
 
             return VacuumResult.SUCCESS;
