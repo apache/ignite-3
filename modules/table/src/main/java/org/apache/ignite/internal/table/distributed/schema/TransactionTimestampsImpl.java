@@ -63,34 +63,26 @@ public class TransactionTimestampsImpl implements TransactionTimestamps {
 
                     HybridTimestamp now = clock.now();
 
-                    return tableWithSchemaSync(tableId, now)
-                            .thenApply(tableAtNow -> {
-                                if (tableAtNow == null) {
-                                    return txBeginTimestamp;
-                                }
-
-                                if (tableAtNow.tableVersion() == CatalogTableDescriptor.INITIAL_TABLE_VERSION) {
-                                    int nowCatalogVersion = catalogService.activeCatalogVersion(now.longValue());
-                                    return catalogVersionTimestamp(nowCatalogVersion);
-                                }
-
-                                int fromCatalogVersion = catalogService.activeCatalogVersion(txBeginTimestamp.longValue());
-                                int toCatalogVersion = catalogService.activeCatalogVersion(now.longValue());
-                                for (int catalogVersion = fromCatalogVersion + 1; catalogVersion <= toCatalogVersion; catalogVersion++) {
-                                    CatalogTableDescriptor table = catalogService.table(tableId, catalogVersion);
-
-                                    if (table != null) {
-                                        assert table.tableVersion() == CatalogTableDescriptor.INITIAL_TABLE_VERSION : "For table " + tableId
-                                                + " first encountered version is " + table.tableVersion();
-
-                                        return catalogVersionTimestamp(catalogVersion);
-                                    }
-                                }
-
-                                throw new IllegalStateException("Did not find table " + tableId
-                                        + " while scanning the Catalog, even though it's there at ts " + now);
-                            });
+                    return schemaSyncService.waitForMetadataCompleteness(now)
+                            .thenApply(unused -> findTableActivationTimestamp(txBeginTimestamp, now, tableId));
                 });
+    }
+
+    private HybridTimestamp findTableActivationTimestamp(HybridTimestamp txBeginTimestamp, HybridTimestamp now, int tableId) {
+        int fromCatalogVersion = catalogService.activeCatalogVersion(txBeginTimestamp.longValue());
+        int toCatalogVersion = catalogService.activeCatalogVersion(now.longValue());
+        for (int catalogVersion = fromCatalogVersion + 1; catalogVersion <= toCatalogVersion; catalogVersion++) {
+            CatalogTableDescriptor table = catalogService.table(tableId, catalogVersion);
+
+            if (table != null) {
+                assert table.tableVersion() == CatalogTableDescriptor.INITIAL_TABLE_VERSION : "For table " + tableId
+                        + " first encountered version is " + table.tableVersion();
+
+                return catalogVersionTimestamp(catalogVersion);
+            }
+        }
+
+        return txBeginTimestamp;
     }
 
     private CompletableFuture<CatalogTableDescriptor> tableWithSchemaSync(int tableId, HybridTimestamp timestamp) {
