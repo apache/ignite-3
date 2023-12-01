@@ -37,6 +37,7 @@ import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.event.LockEvent;
 import org.apache.ignite.internal.tx.event.LockEventParameters;
+import org.apache.ignite.internal.tx.event.WriteIntentEventParameters;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
 import org.apache.ignite.internal.tx.message.TxRecoveryMessage;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -73,6 +74,9 @@ public class OrphanDetector {
 
     /** Lock conflict events listener. */
     private final EventListener<LockEventParameters> lockConflictListener = this::lockConflictListener;
+
+    /** Lock conflict events listener. */
+    private final EventListener<WriteIntentEventParameters> writeIntentEventListener = this::writeIntentEventListener;
 
     /** Hybrid clock. */
     private final HybridClock clock;
@@ -123,7 +127,12 @@ public class OrphanDetector {
     }
 
     private CompletableFuture<Boolean> lockConflictListener(LockEventParameters params, Throwable e) {
-        return handleLockHolder(params.lockHolderTx())
+        return checkOrphanhood(params.lockHolderTx())
+                .thenApply(v -> false);
+    }
+
+    private CompletableFuture<Boolean> writeIntentEventListener(WriteIntentEventParameters params, Throwable e) {
+        return checkOrphanhood(params.creatorTransactionId())
                 .thenApply(v -> false);
     }
 
@@ -133,10 +142,10 @@ public class OrphanDetector {
      * @param txId Transaction id that holds a lock.
      * @return Future to complete.
      */
-    private CompletableFuture<Void> handleLockHolder(UUID txId) {
+    private CompletableFuture<Void> checkOrphanhood(UUID txId) {
         if (busyLock.enterBusy()) {
             try {
-                return handleLockHolderInternal(txId);
+                return checkOrphanhoodInternal(txId);
             } finally {
                 busyLock.leaveBusy();
             }
@@ -151,7 +160,7 @@ public class OrphanDetector {
      * @param txId Transaction id that holds a lock.
      * @return Future to complete.
      */
-    private CompletableFuture<Void> handleLockHolderInternal(UUID txId) {
+    private CompletableFuture<Void> checkOrphanhoodInternal(UUID txId) {
         TxStateMeta txState = txLocalStateStorage.apply(txId);
 
         // Transaction state for full transactions is not stored in the local map, so it can be null.
