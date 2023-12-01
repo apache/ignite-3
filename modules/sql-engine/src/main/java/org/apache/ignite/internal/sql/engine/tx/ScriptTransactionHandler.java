@@ -46,13 +46,13 @@ public class ScriptTransactionHandler extends QueryTransactionHandler {
     /** Wraps a transaction, which is managed by SQL engine via {@link SqlQueryType#TX_CONTROL} statements. */
     private volatile @Nullable ScriptTransactionWrapper wrapper;
 
-    public ScriptTransactionHandler(IgniteTransactions transactions, @Nullable InternalTransaction outerTransaction) {
-        super(transactions, outerTransaction);
+    public ScriptTransactionHandler(IgniteTransactions transactions, @Nullable InternalTransaction externalTx) {
+        super(transactions, externalTx);
     }
 
     @Override
     protected @Nullable InternalTransaction activeTransaction() {
-        return outerTransaction == null ? scriptTransaction() : outerTransaction;
+        return externalTx == null ? scriptTransaction() : externalTx;
     }
 
     /**
@@ -70,7 +70,7 @@ public class ScriptTransactionHandler extends QueryTransactionHandler {
             SqlQueryType queryType = parsedResult.queryType();
 
             if (queryType == SqlQueryType.TX_CONTROL) {
-                if (outerTransaction != null) {
+                if (externalTx != null) {
                     throw new ExternalTransactionNotSupportedException();
                 }
 
