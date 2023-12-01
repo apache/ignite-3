@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.index;
+package org.apache.ignite.internal.table.distributed.index;
 
 import static java.util.Collections.binarySearch;
 import static java.util.Collections.unmodifiableList;
@@ -44,7 +44,7 @@ import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 
 /** Index chooser for various operations, for example for RW transactions. */
-class IndexChooser implements ManuallyCloseable {
+public class IndexChooser implements ManuallyCloseable {
     private static final Comparator<CatalogIndexDescriptor> INDEX_COMPARATOR = comparingInt(CatalogObjectDescriptor::id);
 
     private final CatalogService catalogService;
@@ -91,14 +91,14 @@ class IndexChooser implements ManuallyCloseable {
     private final AtomicBoolean closeGuard = new AtomicBoolean();
 
     /** Constructor. */
-    IndexChooser(CatalogService catalogService) {
+    public IndexChooser(CatalogService catalogService) {
         this.catalogService = catalogService;
 
         addListeners();
     }
 
     /** Recovers internal structures on node recovery. */
-    void recover() {
+    public void recover() {
         inBusyLock(busyLock, () -> {
             // It is expected that the methods will be called only on recovery, when the deploy of metastore watches has not yet occurred.
             int earliestCatalogVersion = catalogService.earliestCatalogVersion();
@@ -156,7 +156,7 @@ class IndexChooser implements ManuallyCloseable {
      * @param catalogVersion Catalog version.
      * @param tableId Table ID.
      */
-    List<CatalogIndexDescriptor> chooseForRwTxUpdateOperation(int catalogVersion, int tableId) {
+    public List<CatalogIndexDescriptor> chooseForRwTxUpdateOperation(int catalogVersion, int tableId) {
         return inBusyLock(busyLock, () -> {
             List<CatalogIndexDescriptor> tableIndexes = catalogService.indexes(catalogVersion, tableId);
 

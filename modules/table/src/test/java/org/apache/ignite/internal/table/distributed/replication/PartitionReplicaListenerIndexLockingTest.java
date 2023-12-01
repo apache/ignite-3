@@ -23,12 +23,14 @@ import static org.apache.ignite.internal.table.distributed.replication.Partition
 import static org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener.tablePartitionId;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.tx.TxState.checkTransitionCorrectness;
+import static org.apache.ignite.internal.type.NativeTypes.INT32;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.hasItem;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -45,6 +47,9 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import org.apache.ignite.distributed.TestPartitionDataStorage;
 import org.apache.ignite.internal.catalog.CatalogService;
+import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogSortedIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
@@ -78,6 +83,7 @@ import org.apache.ignite.internal.table.distributed.SortedIndexLocker;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
+import org.apache.ignite.internal.table.distributed.index.IndexChooser;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.replication.request.BinaryRowMessage;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
@@ -97,7 +103,6 @@ import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.storage.state.test.TestTxStateStorage;
 import org.apache.ignite.internal.tx.test.TestTransactionIds;
-import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.internal.util.Pair;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
@@ -140,24 +145,35 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                 .thenAnswer(invocationOnMock -> completedFuture(null));
 
         schemaDescriptor = new SchemaDescriptor(1, new Column[]{
-                new Column("id".toUpperCase(Locale.ROOT), NativeTypes.INT32, false),
+                new Column("id".toUpperCase(Locale.ROOT), INT32, false),
         }, new Column[]{
-                new Column("val".toUpperCase(Locale.ROOT), NativeTypes.INT32, false),
+                new Column("val".toUpperCase(Locale.ROOT), INT32, false),
         });
 
         row2HashKeyConverter = BinaryRowConverter.keyExtractor(schemaDescriptor);
 
         StorageHashIndexDescriptor pkIndexDescriptor = new StorageHashIndexDescriptor(
                 PK_INDEX_ID,
-                List.of(new StorageHashIndexColumnDescriptor("ID", NativeTypes.INT32, false))
+                List.of(new StorageHashIndexColumnDescriptor("ID", INT32, false))
         );
 
-        TableSchemaAwareIndexStorage hashIndexStorage = new TableSchemaAwareIndexStorage(
+        TableSchemaAwareIndexStorage pkIndexStorage = new TableSchemaAwareIndexStorage(
                 PK_INDEX_ID,
                 new TestHashIndexStorage(PART_ID, pkIndexDescriptor),
                 row2HashKeyConverter
         );
-        pkStorage = new Lazy<>(() -> hashIndexStorage);
+        pkStorage = new Lazy<>(() -> pkIndexStorage);
+
+        StorageHashIndexDescriptor hashIndexDescriptor = new StorageHashIndexDescriptor(
+                HASH_INDEX_ID,
+                List.of(new StorageHashIndexColumnDescriptor("ID", INT32, false))
+        );
+
+        TableSchemaAwareIndexStorage hashIndexStorage = new TableSchemaAwareIndexStorage(
+                HASH_INDEX_ID,
+                new TestHashIndexStorage(PART_ID, hashIndexDescriptor),
+                row2HashKeyConverter
+        );
 
         IndexLocker pkLocker = new HashIndexLocker(PK_INDEX_ID, true, LOCK_MANAGER, row2HashKeyConverter);
         IndexLocker hashIndexLocker = new HashIndexLocker(HASH_INDEX_ID, false, LOCK_MANAGER, row2HashKeyConverter);
@@ -173,7 +189,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                         new StorageSortedIndexDescriptor(
                                 SORTED_INDEX_ID,
                                 List.of(new StorageSortedIndexColumnDescriptor(
-                                        "val", NativeTypes.INT32, false, true
+                                        "val", INT32, false, true
                                 ))
                         )),
                 row2SortKeyConverter
@@ -191,7 +207,11 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
         PendingComparableValuesTracker<HybridTimestamp, Void> safeTime = new PendingComparableValuesTracker<>(CLOCK.now());
 
         IndexUpdateHandler indexUpdateHandler = new IndexUpdateHandler(
-                DummyInternalTableImpl.createTableIndexStoragesSupplier(Map.of(pkStorage.get().id(), pkStorage.get()))
+                DummyInternalTableImpl.createTableIndexStoragesSupplier(Map.of(
+                        pkIndexStorage.id(), pkIndexStorage,
+                        hashIndexStorage.id(), hashIndexStorage,
+                        sortedIndexStorage.id(), sortedIndexStorage
+                ))
         );
 
         TestPartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(TABLE_ID, PART_ID, TEST_MV_PARTITION_STORAGE);
@@ -204,6 +224,14 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
         when(catalogService.table(anyInt(), anyLong())).thenReturn(tableDescriptor);
 
         ClusterNode localNode = mock(ClusterNode.class);
+
+        List<CatalogIndexDescriptor> tableCatalogIndexDescriptors = List.of(
+                mockCatalogHashIndexDescriptor(PK_INDEX_ID),
+                mockCatalogHashIndexDescriptor(HASH_INDEX_ID),
+                mockCatalogSortedIndexDescriptor(SORTED_INDEX_ID)
+        );
+
+        when(catalogService.indexes(anyInt(), eq(TABLE_ID))).thenReturn(tableCatalogIndexDescriptors);
 
         partitionReplicaListener = new PartitionReplicaListener(
                 TEST_MV_PARTITION_STORAGE,
@@ -236,7 +264,8 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                 localNode,
                 new AlwaysSyncedSchemaSyncService(),
                 catalogService,
-                new TestPlacementDriver(localNode)
+                new TestPlacementDriver(localNode),
+                new IndexChooser(catalogService)
         );
 
         kvMarshaller = new ReflectionMarshallerFactory().create(schemaDescriptor, Integer.class, Integer.class);
@@ -525,5 +554,22 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
         public String toString() {
             return type.toString();
         }
+    }
+
+
+    private static CatalogHashIndexDescriptor mockCatalogHashIndexDescriptor(int indexId) {
+        CatalogHashIndexDescriptor indexDescriptor = mock(CatalogHashIndexDescriptor.class);
+
+        when(indexDescriptor.id()).thenReturn(indexId);
+
+        return indexDescriptor;
+    }
+
+    private static CatalogSortedIndexDescriptor mockCatalogSortedIndexDescriptor(int indexId) {
+        CatalogSortedIndexDescriptor indexDescriptor = mock(CatalogSortedIndexDescriptor.class);
+
+        when(indexDescriptor.id()).thenReturn(indexId);
+
+        return indexDescriptor;
     }
 }

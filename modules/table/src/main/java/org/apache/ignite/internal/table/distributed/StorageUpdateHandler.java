@@ -89,6 +89,7 @@ public class StorageUpdateHandler {
      * @param onApplication Callback on application.
      * @param commitTs Commit timestamp to use on autocommit.
      * @param lastCommitTs The timestamp of last known committed entry.
+     * @param indexIds IDs of indexes that will need to be updated, {@code null} for all indexes.
      */
     public void handleUpdate(
             UUID txId,
@@ -98,8 +99,13 @@ public class StorageUpdateHandler {
             boolean trackWriteIntent,
             @Nullable Runnable onApplication,
             @Nullable HybridTimestamp commitTs,
-            @Nullable HybridTimestamp lastCommitTs
+            @Nullable HybridTimestamp lastCommitTs,
+            // TODO: IGNITE-18595 You need to know the indexes for a full rebalance, i.e. null must go
+            @Nullable List<Integer> indexIds
     ) {
+        assert indexIds == null || !indexIds.isEmpty() : indexIds;
+
+        // Not the best solution, but let’s leave it for now; we need on node recovery when applying a replication log and full rebalancing.
         indexUpdateHandler.waitIndexes();
 
         storage.runConsistently(locker -> {
@@ -123,7 +129,7 @@ public class StorageUpdateHandler {
                 }
             }
 
-            indexUpdateHandler.addToIndexes(row, rowId);
+            indexUpdateHandler.addToIndexes(row, rowId, indexIds);
 
             if (trackWriteIntent) {
                 pendingRows.addPendingRowId(txId, rowId);
@@ -146,6 +152,7 @@ public class StorageUpdateHandler {
      * @param trackWriteIntent If {@code true} then write intent should be tracked.
      * @param onApplication Callback on application.
      * @param commitTs Commit timestamp to use on autocommit.
+     * @param indexIds IDs of indexes that will need to be updated, {@code null} for all indexes.
      */
     public void handleUpdateAll(
             UUID txId,
@@ -153,8 +160,13 @@ public class StorageUpdateHandler {
             TablePartitionId commitPartitionId,
             boolean trackWriteIntent,
             @Nullable Runnable onApplication,
-            @Nullable HybridTimestamp commitTs
+            @Nullable HybridTimestamp commitTs,
+            // TODO: IGNITE-18595 You need to know the indexes for a full rebalance, i.e. null must go
+            @Nullable List<Integer> indexIds
     ) {
+        assert indexIds == null || !indexIds.isEmpty() : indexIds;
+
+        // Not the best solution, but let’s leave it for now; we need on node recovery when applying a replication log and full rebalancing.
         indexUpdateHandler.waitIndexes();
 
         storage.runConsistently(locker -> {
@@ -188,7 +200,7 @@ public class StorageUpdateHandler {
                     }
 
                     rowIds.add(rowId);
-                    indexUpdateHandler.addToIndexes(row, rowId);
+                    indexUpdateHandler.addToIndexes(row, rowId, indexIds);
                 }
 
                 if (trackWriteIntent) {

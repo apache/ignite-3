@@ -168,7 +168,7 @@ public abstract class IndexBaseTest extends BaseMvStoragesTest {
     static void addWrite(StorageUpdateHandler handler, UUID rowUuid, @Nullable BinaryRow row, @Nullable HybridTimestamp lastCommitTime) {
         TablePartitionId partitionId = new TablePartitionId(333, PARTITION_ID);
 
-        handler.handleUpdate(TX_ID, rowUuid, partitionId, row, false, null, null, lastCommitTime);
+        handler.handleUpdate(TX_ID, rowUuid, partitionId, row, false, null, null, lastCommitTime, null);
     }
 
     static BinaryRow defaultRow() {
@@ -229,7 +229,7 @@ public abstract class IndexBaseTest extends BaseMvStoragesTest {
             @Override
             void addWrite(StorageUpdateHandler handler, TablePartitionId partitionId, UUID rowUuid, @Nullable BinaryRow row) {
                 // TODO: perhaps need to pass last commit time as a param
-                handler.handleUpdate(TX_ID, rowUuid, partitionId, row, true, null, null, null);
+                handler.handleUpdate(TX_ID, rowUuid, partitionId, row, true, null, null, null, null);
             }
         },
         /** Uses updateAll api. */
@@ -248,6 +248,7 @@ public abstract class IndexBaseTest extends BaseMvStoragesTest {
                         singletonMap(rowUuid, new TimedBinaryRow(rowMessage == null ? null : rowMessage.asBinaryRow(), null)),
                         partitionId,
                         true,
+                        null,
                         null,
                         null
                 );

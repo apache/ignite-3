@@ -52,6 +52,7 @@ import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
+import org.apache.ignite.internal.table.distributed.index.IndexChooser;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
 import org.apache.ignite.internal.table.distributed.replicator.TransactionStateResolver;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
@@ -140,7 +141,8 @@ public class PartitionReplicaListenerDurableUnlockTest extends IgniteAbstractTes
                 LOCAL_NODE,
                 mock(SchemaSyncService.class),
                 mock(CatalogService.class),
-                placementDriver
+                placementDriver,
+                mock(IndexChooser.class)
         );
     }
 

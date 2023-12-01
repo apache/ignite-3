@@ -25,6 +25,7 @@ import static org.apache.ignite.internal.tx.TxState.ABORTED;
 import static org.apache.ignite.internal.tx.TxState.COMMITED;
 import static org.apache.ignite.internal.tx.TxState.PENDING;
 import static org.apache.ignite.internal.util.CollectionUtils.last;
+import static org.apache.ignite.internal.util.CollectionUtils.view;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_UNEXPECTED_STATE_ERR;
 
 import java.nio.file.Path;
@@ -38,6 +39,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
+import org.apache.ignite.internal.catalog.CatalogService;
+import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.SafeTimeReorderException;
@@ -65,6 +68,7 @@ import org.apache.ignite.internal.table.distributed.command.TablePartitionIdMess
 import org.apache.ignite.internal.table.distributed.command.TxCleanupCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateAllCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateCommand;
+import org.apache.ignite.internal.table.distributed.index.IndexChooser;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
@@ -109,6 +113,11 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
     /** Is used in order to assert safe time reordering within onWrite. */
     private long maxObservableSafeTimeVerifier = -1;
 
+    /** Catalog service. */
+    private final CatalogService catalogService;
+
+    /** Choose indexes for operations. */
+    private final IndexChooser indexChooser;
 
     /**
      * The constructor.
@@ -117,6 +126,8 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
      * @param partitionDataStorage The storage.
      * @param safeTime Safe time tracker.
      * @param storageIndexTracker Storage index tracker.
+     * @param catalogService Catalog service.
+     * @param indexChooser Choose indexes for operations.
      */
     public PartitionListener(
             TxManager txManager,
@@ -124,7 +135,9 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
             StorageUpdateHandler storageUpdateHandler,
             TxStateStorage txStateStorage,
             PendingComparableValuesTracker<HybridTimestamp, Void> safeTime,
-            PendingComparableValuesTracker<Long, Void> storageIndexTracker
+            PendingComparableValuesTracker<Long, Void> storageIndexTracker,
+            CatalogService catalogService,
+            IndexChooser indexChooser
     ) {
         this.txManager = txManager;
         this.storage = partitionDataStorage;
@@ -132,6 +145,8 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
         this.txStateStorage = txStateStorage;
         this.safeTime = safeTime;
         this.storageIndexTracker = storageIndexTracker;
+        this.catalogService = catalogService;
+        this.indexChooser = indexChooser;
 
         // TODO: IGNITE-18502 Excessive full partition scan on node start
         try (PartitionTimestampCursor cursor = partitionDataStorage.scan(HybridTimestamp.MAX_VALUE)) {
@@ -264,7 +279,8 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
                         !cmd.full(),
                         () -> storage.lastApplied(commandIndex, commandTerm),
                         cmd.full() ? cmd.safeTime() : null,
-                        cmd.lastCommitTimestamp()
+                        cmd.lastCommitTimestamp(),
+                        indexIdsForRwUpdateOperation(cmd.tablePartitionId().tableId(), cmd.operationTimestamp())
                 );
             }
 
@@ -296,7 +312,8 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
                         cmd.tablePartitionId().asTablePartitionId(),
                         !cmd.full(),
                         () -> storage.lastApplied(commandIndex, commandTerm),
-                        cmd.full() ? cmd.safeTime() : null
+                        cmd.full() ? cmd.safeTime() : null,
+                        indexIdsForRwUpdateOperation(cmd.tablePartitionId().tableId(), cmd.operationTimestamp())
                 );
 
                 updateTrackerIgnoringTrackerClosedException(safeTime, cmd.safeTime());
@@ -590,5 +607,11 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
                 old == null ? null : old.commitPartitionId(),
                 commit ? commitTimestamp : null
         ));
+    }
+
+    private List<Integer> indexIdsForRwUpdateOperation(int tableId, HybridTimestamp opTs) {
+        int catalogVersion = catalogService.activeCatalogVersion(opTs.longValue());
+
+        return view(indexChooser.chooseForRwTxUpdateOperation(catalogVersion, tableId), CatalogObjectDescriptor::id);
     }
 }

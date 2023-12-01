@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.index;
+package org.apache.ignite.internal.table.distributed.index;
 
 import org.apache.ignite.internal.tostring.S;
 

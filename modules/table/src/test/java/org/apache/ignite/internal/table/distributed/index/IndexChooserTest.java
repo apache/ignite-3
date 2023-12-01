@@ -15,19 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.index;
+package org.apache.ignite.internal.table.distributed.index;
 
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.createTestCatalogManager;
-import static org.apache.ignite.internal.index.TestIndexManagementUtils.COLUMN_NAME;
-import static org.apache.ignite.internal.index.TestIndexManagementUtils.INDEX_NAME;
-import static org.apache.ignite.internal.index.TestIndexManagementUtils.NODE_NAME;
-import static org.apache.ignite.internal.index.TestIndexManagementUtils.PK_INDEX_NAME;
-import static org.apache.ignite.internal.index.TestIndexManagementUtils.TABLE_NAME;
-import static org.apache.ignite.internal.index.TestIndexManagementUtils.createTable;
-import static org.apache.ignite.internal.index.TestIndexManagementUtils.indexId;
-import static org.apache.ignite.internal.index.TestIndexManagementUtils.tableId;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.pkIndexName;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.sql.ColumnType.INT32;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -35,12 +30,15 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import java.util.List;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogManager;
+import org.apache.ignite.internal.catalog.CatalogService;
+import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.CreateHashIndexCommand;
 import org.apache.ignite.internal.catalog.commands.DropIndexCommand;
 import org.apache.ignite.internal.catalog.commands.MakeIndexAvailableCommand;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.AfterEach;
@@ -50,6 +48,16 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 /** For {@link IndexChooser} testing. */
 public class IndexChooserTest extends BaseIgniteAbstractTest {
+    private static final String NODE_NAME = "test-node";
+
+    private static final String TABLE_NAME = "test-table";
+
+    private static final String INDEX_NAME = "test-index";
+
+    private static final String PK_INDEX_NAME = pkIndexName(TABLE_NAME);
+
+    private static final String COLUMN_NAME = "test-column";
+
     private final HybridClock clock = new HybridClockImpl();
 
     private final CatalogManager catalogManager = createTestCatalogManager(NODE_NAME, clock);
@@ -220,17 +228,17 @@ public class IndexChooserTest extends BaseIgniteAbstractTest {
     }
 
     private void createIndex(String indexName) {
-        TestIndexManagementUtils.createIndex(catalogManager, TABLE_NAME, indexName, COLUMN_NAME);
+        TableTestUtils.createHashIndex(catalogManager, DEFAULT_SCHEMA_NAME, TABLE_NAME, indexName, List.of(COLUMN_NAME), false);
     }
 
     private void makeIndexAvailable(String indexName) {
         int indexId = indexId(catalogManager, indexName, clock);
 
-        TestIndexManagementUtils.makeIndexAvailable(catalogManager, indexId);
+        assertThat(catalogManager.execute(MakeIndexAvailableCommand.builder().indexId(indexId).build()), willCompleteSuccessfully());
     }
 
     private void dropIndex(String indexName) {
-        TestIndexManagementUtils.dropIndex(catalogManager, indexName);
+        TableTestUtils.dropIndex(catalogManager, DEFAULT_SCHEMA_NAME, indexName);
     }
 
     private List<CatalogIndexDescriptor> chooseForRwTxOperation(int catalogVersion) {
@@ -283,5 +291,24 @@ public class IndexChooserTest extends BaseIgniteAbstractTest {
                 .schemaName(DEFAULT_SCHEMA_NAME)
                 .indexName(indexName)
                 .build();
+    }
+
+    private static void createTable(CatalogManager catalogManager, String tableName, String columnName) {
+        TableTestUtils.createTable(
+                catalogManager,
+                DEFAULT_SCHEMA_NAME,
+                DEFAULT_ZONE_NAME,
+                tableName,
+                List.of(ColumnParams.builder().name(columnName).type(INT32).build()),
+                List.of(columnName)
+        );
+    }
+
+    private static int tableId(CatalogService catalogService, String tableName, HybridClock clock) {
+        return TableTestUtils.getTableIdStrict(catalogService, tableName, clock.nowLong());
+    }
+
+    private static int indexId(CatalogService catalogService, String indexName, HybridClock clock) {
+        return TableTestUtils.getIndexIdStrict(catalogService, indexName, clock.nowLong());
     }
 }

@@ -165,7 +165,7 @@ public class PartitionAccessImplTest extends BaseIgniteAbstractTest {
 
         verify(mvPartitionStorage, times(1)).addWrite(eq(rowId), eq(binaryRow), eq(txId), eq(commitTableId), eq(TEST_PARTITION_ID));
 
-        verify(indexUpdateHandler, times(1)).addToIndexes(eq(binaryRow), eq(rowId));
+        verify(indexUpdateHandler, times(1)).addToIndexes(eq(binaryRow), eq(rowId), eq(null));
 
         // Let's check with a null binaryRow.
         binaryRow = null;
@@ -176,7 +176,7 @@ public class PartitionAccessImplTest extends BaseIgniteAbstractTest {
 
         verify(mvPartitionStorage, times(1)).addWrite(eq(rowId), eq(binaryRow), eq(txId), eq(commitTableId), eq(TEST_PARTITION_ID));
 
-        verify(indexUpdateHandler, times(1)).addToIndexes(eq(binaryRow), eq(rowId));
+        verify(indexUpdateHandler, times(1)).addToIndexes(eq(binaryRow), eq(rowId), eq(null));
     }
 
     @Test
@@ -203,7 +203,7 @@ public class PartitionAccessImplTest extends BaseIgniteAbstractTest {
 
         verify(mvPartitionStorage, times(1)).addWriteCommitted(eq(rowId), eq(binaryRow), eq(HybridTimestamp.MAX_VALUE));
 
-        verify(indexUpdateHandler, times(1)).addToIndexes(eq(binaryRow), eq(rowId));
+        verify(indexUpdateHandler, times(1)).addToIndexes(eq(binaryRow), eq(rowId), eq(null));
 
         // Let's check with a null binaryRow.
         binaryRow = null;
@@ -214,7 +214,7 @@ public class PartitionAccessImplTest extends BaseIgniteAbstractTest {
 
         verify(mvPartitionStorage, times(1)).addWriteCommitted(eq(rowId), eq(binaryRow), eq(HybridTimestamp.MAX_VALUE));
 
-        verify(indexUpdateHandler, times(1)).addToIndexes(eq(binaryRow), eq(rowId));
+        verify(indexUpdateHandler, times(1)).addToIndexes(eq(binaryRow), eq(rowId), eq(null));
     }
 
     private static MvPartitionStorage createMvPartition(MvTableStorage tableStorage, int partitionId) {

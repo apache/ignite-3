@@ -25,8 +25,11 @@ import static org.apache.ignite.internal.util.CollectionUtils.intersect;
 import static org.apache.ignite.internal.util.CollectionUtils.last;
 import static org.apache.ignite.internal.util.CollectionUtils.setOf;
 import static org.apache.ignite.internal.util.CollectionUtils.union;
+import static org.apache.ignite.internal.util.CollectionUtils.view;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.empty;
+import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -44,6 +47,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 import java.util.Spliterators;
+import java.util.function.Function;
 import java.util.stream.StreamSupport;
 import org.junit.jupiter.api.Test;
 
@@ -290,5 +294,20 @@ public class CollectionUtilsTest {
 
         assertEquals(1, last(List.of(1)));
         assertEquals(2, last(List.of(1, 2)));
+    }
+
+    @Test
+    void testViewList() {
+        assertThat(view(List.of(), Function.identity()), empty());
+        assertThat(view(List.of(), Object::toString), empty());
+
+        assertThat(view(List.of(1, 2, 3), Function.identity()), equalTo(List.of(1, 2, 3)));
+        assertThat(view(List.of(1, 2, 3), Integer::longValue), equalTo(List.of(1L, 2L, 3L)));
+
+        List<Integer> view = view(List.of(1), Function.identity());
+
+        assertThrows(UnsupportedOperationException.class, () -> view.add(0));
+        assertThrows(UnsupportedOperationException.class, () -> view.set(0, 0));
+        assertThrows(UnsupportedOperationException.class, () -> view.remove(0));
     }
 }

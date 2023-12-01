@@ -143,7 +143,8 @@ public class PartitionAccessImpl implements PartitionAccess {
 
             mvPartitionStorage.addWrite(rowId, row, txId, commitTableId, commitPartitionId);
 
-            indexUpdateHandler.addToIndexes(row, rowId);
+            // TODO: IGNITE-18595 You need to know the indexes for a full rebalance, i.e. null must go
+            indexUpdateHandler.addToIndexes(row, rowId, null);
 
             return null;
         });
@@ -158,7 +159,8 @@ public class PartitionAccessImpl implements PartitionAccess {
 
             mvPartitionStorage.addWriteCommitted(rowId, row, commitTimestamp);
 
-            indexUpdateHandler.addToIndexes(row, rowId);
+            // TODO: IGNITE-18595 You need to know the indexes for a full rebalance, i.e. null must go
+            indexUpdateHandler.addToIndexes(row, rowId, null);
 
             return null;
         });

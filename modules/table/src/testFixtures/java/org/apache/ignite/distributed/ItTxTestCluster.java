@@ -32,6 +32,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
@@ -58,6 +59,7 @@ import java.util.stream.IntStream;
 import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.catalog.CatalogService;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
@@ -100,6 +102,7 @@ import org.apache.ignite.internal.table.distributed.IndexLocker;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
+import org.apache.ignite.internal.table.distributed.index.IndexChooser;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
@@ -440,6 +443,8 @@ public class ItTxTestCluster {
         ThreadLocalPartitionCommandsMarshaller commandsMarshaller =
                 new ThreadLocalPartitionCommandsMarshaller(cluster.get(0).serializationRegistry());
 
+        IndexChooser indexChooser = new IndexChooser(catalogService);
+
         for (int p = 0; p < assignments.size(); p++) {
             Set<String> partAssignments = assignments.get(p);
 
@@ -468,20 +473,25 @@ public class ItTxTestCluster {
 
                 ColumnsExtractor row2Tuple = BinaryRowConverter.keyExtractor(schemaDescriptor);
 
-                StorageHashIndexDescriptor pkIndexDescriptor = mock(StorageHashIndexDescriptor.class);
+                StorageHashIndexDescriptor pkStorageIndexDescriptor = mock(StorageHashIndexDescriptor.class);
 
-                when(pkIndexDescriptor.columns()).then(invocation -> Collections.nCopies(
+                when(pkStorageIndexDescriptor.columns()).then(invocation -> Collections.nCopies(
                         schemaDescriptor.keyColumns().columns().length,
                         mock(StorageHashIndexColumnDescriptor.class)
                 ));
 
                 Lazy<TableSchemaAwareIndexStorage> pkStorage = new Lazy<>(() -> new TableSchemaAwareIndexStorage(
                         indexId,
-                        new TestHashIndexStorage(partId, pkIndexDescriptor),
+                        new TestHashIndexStorage(partId, pkStorageIndexDescriptor),
                         row2Tuple
                 ));
 
                 IndexLocker pkLocker = new HashIndexLocker(indexId, true, txManagers.get(assignment).lockManager(), row2Tuple);
+
+                CatalogIndexDescriptor pkCatalogIndexDescriptor = mock(CatalogIndexDescriptor.class);
+                when(pkCatalogIndexDescriptor.id()).thenReturn(indexId);
+
+                when(catalogService.indexes(anyInt(), eq(tableId))).thenReturn(List.of(pkCatalogIndexDescriptor));
 
                 PeersAndLearners configuration = PeersAndLearners.fromConsistentIds(partAssignments);
 
@@ -514,7 +524,9 @@ public class ItTxTestCluster {
                         storageUpdateHandler,
                         txStateStorage,
                         safeTime,
-                        storageIndexTracker
+                        storageIndexTracker,
+                        catalogService,
+                        indexChooser
                 );
 
                 CompletableFuture<Void> partitionReadyFuture = raftServers.get(assignment).startRaftGroupNode(
@@ -547,7 +559,8 @@ public class ItTxTestCluster {
                                         consistentIdToNode.apply(assignment),
                                         new AlwaysSyncedSchemaSyncService(),
                                         catalogService,
-                                        placementDriver
+                                        placementDriver,
+                                        indexChooser
                                 );
 
                                 replicaManagers.get(assignment).startReplica(
@@ -643,7 +656,8 @@ public class ItTxTestCluster {
             ClusterNode localNode,
             SchemaSyncService schemaSyncService,
             CatalogService catalogService,
-            PlacementDriver placementDriver
+            PlacementDriver placementDriver,
+            IndexChooser indexChooser
     ) {
         return new PartitionReplicaListener(
                 mvDataStorage,
@@ -665,7 +679,8 @@ public class ItTxTestCluster {
                 localNode,
                 schemaSyncService,
                 catalogService,
-                placementDriver
+                placementDriver,
+                indexChooser
         );
     }
 

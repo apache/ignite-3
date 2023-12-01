@@ -23,6 +23,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -40,6 +41,8 @@ import javax.naming.OperationNotSupportedException;
 import org.apache.ignite.distributed.TestPartitionDataStorage;
 import org.apache.ignite.internal.TestHybridClock;
 import org.apache.ignite.internal.catalog.CatalogService;
+import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -75,6 +78,7 @@ import org.apache.ignite.internal.table.distributed.IndexLocker;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 import org.apache.ignite.internal.table.distributed.TableIndexStoragesSupplier;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
+import org.apache.ignite.internal.table.distributed.index.IndexChooser;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
@@ -356,8 +360,15 @@ public class DummyInternalTableImpl extends InternalTableImpl {
         CatalogService catalogService = mock(CatalogService.class);
         CatalogTableDescriptor tableDescriptor = mock(CatalogTableDescriptor.class);
 
-        lenient().when(catalogService.table(anyInt(), anyLong())).thenReturn(tableDescriptor);
         lenient().when(tableDescriptor.tableVersion()).thenReturn(1);
+        lenient().when(catalogService.table(anyInt(), anyLong())).thenReturn(tableDescriptor);
+
+        CatalogIndexDescriptor indexDescriptor = mock(CatalogHashIndexDescriptor.class);
+
+        lenient().when(indexDescriptor.id()).thenReturn(indexId);
+        lenient().when(catalogService.indexes(anyInt(), eq(tableId))).thenReturn(List.of(indexDescriptor));
+
+        IndexChooser indexChooser = new IndexChooser(catalogService);
 
         replicaListener = new PartitionReplicaListener(
                 mvPartStorage,
@@ -379,7 +390,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 LOCAL_NODE,
                 new AlwaysSyncedSchemaSyncService(),
                 catalogService,
-                TEST_PLACEMENT_DRIVER
+                TEST_PLACEMENT_DRIVER,
+                indexChooser
         );
 
         partitionListener = new PartitionListener(
@@ -388,7 +400,9 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 storageUpdateHandler,
                 txStateStorage().getOrCreateTxStateStorage(PART_ID),
                 safeTime,
-                new PendingComparableValuesTracker<>(0L)
+                new PendingComparableValuesTracker<>(0L),
+                catalogService,
+                indexChooser
         );
     }
 

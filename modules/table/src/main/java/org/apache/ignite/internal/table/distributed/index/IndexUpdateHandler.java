@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.table.distributed.index;
 
 import java.nio.ByteBuffer;
+import java.util.List;
+import java.util.Map;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
@@ -49,18 +51,38 @@ public class IndexUpdateHandler {
     /**
      * Adds a binary row to the indexes, if the tombstone then skips such operation.
      *
-     * <p>Must be called inside a {@link MvPartitionStorage#runConsistently(WriteClosure)} closure.
+     * <p>Must be called inside a {@link MvPartitionStorage#runConsistently(WriteClosure)} closure.</p>
      *
      * @param binaryRow Binary row to insert.
      * @param rowId Row ID.
+     * @param indexIds IDs of indexes that will need to be updated, {@code null} for all indexes.
      */
-    public void addToIndexes(@Nullable BinaryRow binaryRow, RowId rowId) {
+    public void addToIndexes(
+            @Nullable BinaryRow binaryRow,
+            RowId rowId,
+            // TODO: IGNITE-18595 You need to know the indexes for a full rebalance, i.e. null must go
+            @Nullable List<Integer> indexIds
+    ) {
+        assert indexIds == null || !indexIds.isEmpty() : indexIds;
+
         if (binaryRow == null) { // skip removes
             return;
         }
 
-        for (TableSchemaAwareIndexStorage index : indexes.get().values()) {
-            index.put(binaryRow, rowId);
+        Map<Integer, TableSchemaAwareIndexStorage> indexStorageByIndexId = indexes.get();
+
+        assert !indexStorageByIndexId.isEmpty();
+
+        if (indexIds == null) {
+            indexStorageByIndexId.values().forEach(indexStorage -> indexStorage.put(binaryRow, rowId));
+        } else {
+            for (Integer indexId : indexIds) {
+                TableSchemaAwareIndexStorage indexStorage = indexStorageByIndexId.get(indexId);
+
+                assert indexStorage != null : indexId;
+
+                indexStorage.put(binaryRow, rowId);
+            }
         }
     }
 
@@ -75,6 +97,7 @@ public class IndexUpdateHandler {
      * @param rowId Row id.
      * @param previousValues Cursor with previous version of the row.
      */
+    // TODO: IGNITE-20125 разобраться и с этим дерьмом
     public void tryRemoveFromIndexes(BinaryRow rowToRemove, RowId rowId, Cursor<ReadResult> previousValues) {
         TableSchemaAwareIndexStorage[] indexes = this.indexes.get().values().toArray(new TableSchemaAwareIndexStorage[0]);
 

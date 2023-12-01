@@ -81,6 +81,9 @@ import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTuplePrefixBuilder;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
+import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogSortedIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -129,6 +132,7 @@ import org.apache.ignite.internal.table.distributed.command.TablePartitionIdMess
 import org.apache.ignite.internal.table.distributed.command.TxCleanupCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateCommandImpl;
+import org.apache.ignite.internal.table.distributed.index.IndexChooser;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
 import org.apache.ignite.internal.table.distributed.replication.request.BinaryRowMessage;
@@ -429,7 +433,11 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         IndexLocker hashIndexLocker = new HashIndexLocker(hashIndexId, false, lockManager, row2Tuple);
 
         IndexUpdateHandler indexUpdateHandler = new IndexUpdateHandler(
-                DummyInternalTableImpl.createTableIndexStoragesSupplier(Map.of(pkStorage().id(), pkStorage()))
+                DummyInternalTableImpl.createTableIndexStoragesSupplier(Map.of(
+                        pkStorage().id(), pkStorage(),
+                        hashIndexStorage.id(), hashIndexStorage,
+                        sortedIndexStorage.id(), sortedIndexStorage
+                ))
         );
 
         configureTxManager(txManager);
@@ -461,6 +469,14 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
         transactionStateResolver.start();
 
+        List<CatalogIndexDescriptor> tableCatalogIndexeIndexDescriptors = List.of(
+                mockCatalogHashIndexDescriptor(pkIndexId),
+                mockCatalogSortedIndexDescriptor(sortedIndexId),
+                mockCatalogHashIndexDescriptor(hashIndexId)
+        );
+
+        when(catalogService.indexes(anyInt(), eq(TABLE_ID))).thenReturn(tableCatalogIndexeIndexDescriptors);
+
         partitionReplicaListener = new PartitionReplicaListener(
                 testMvPartitionStorage,
                 mockRaftClient,
@@ -485,7 +501,8 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 localNode,
                 schemaSyncService,
                 catalogService,
-                new TestPlacementDriver(localNode)
+                new TestPlacementDriver(localNode),
+                new IndexChooser(catalogService)
         );
 
         kvMarshaller = marshallerFor(schemaDescriptor);
@@ -2645,5 +2662,21 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     @FunctionalInterface
     private interface RoListenerInvocation {
         CompletableFuture<?> invoke(UUID targetTxId, HybridTimestamp readTimestamp, TestKey key);
+    }
+
+    private static CatalogHashIndexDescriptor mockCatalogHashIndexDescriptor(int indexId) {
+        CatalogHashIndexDescriptor indexDescriptor = mock(CatalogHashIndexDescriptor.class);
+
+        when(indexDescriptor.id()).thenReturn(indexId);
+
+        return indexDescriptor;
+    }
+
+    private static CatalogSortedIndexDescriptor mockCatalogSortedIndexDescriptor(int indexId) {
+        CatalogSortedIndexDescriptor indexDescriptor = mock(CatalogSortedIndexDescriptor.class);
+
+        when(indexDescriptor.id()).thenReturn(indexId);
+
+        return indexDescriptor;
     }
 }

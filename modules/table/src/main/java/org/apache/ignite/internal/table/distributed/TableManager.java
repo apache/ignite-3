@@ -136,6 +136,7 @@ import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.gc.GcUpdateHandler;
 import org.apache.ignite.internal.table.distributed.gc.MvGc;
+import org.apache.ignite.internal.table.distributed.index.IndexChooser;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
@@ -343,6 +344,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     /** Ends at the {@link #stop()} with an {@link NodeStoppingException}. */
     private final CompletableFuture<Void> stopManagerFuture = new CompletableFuture<>();
 
+    /** Choose indexes for operations. */
+    private final IndexChooser indexChooser;
+
     /**
      * Creates a new table manager.
      *
@@ -481,6 +485,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         );
 
         startVv = new IncrementalVersionedValue<>(registry);
+
+        indexChooser = new IndexChooser(catalogService);
     }
 
     @Override
@@ -491,6 +497,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             lowWatermark.start();
 
             transactionStateResolver.start();
+
+            indexChooser.recover();
 
             CompletableFuture<Long> recoveryFinishFuture = metaStorageMgr.recoveryFinishedFuture();
 
@@ -722,7 +730,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                                             partitionUpdateHandlers.storageUpdateHandler,
                                             txStatePartitionStorage,
                                             safeTimeTracker,
-                                            storageIndexTracker
+                                            storageIndexTracker,
+                                            catalogService,
+                                            indexChooser
                                     ),
                                     new RebalanceRaftGroupEventsListener(
                                             metaStorageMgr,
@@ -890,7 +900,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 localNode(),
                 schemaSyncService,
                 catalogService,
-                placementDriver
+                placementDriver,
+                indexChooser
         );
     }
 
@@ -978,6 +989,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         }
 
         IgniteUtils.closeAllManually(
+                indexChooser,
                 lowWatermark,
                 mvGc,
                 () -> shutdownAndAwaitTermination(rebalanceScheduler, 10, TimeUnit.SECONDS),
@@ -1810,7 +1822,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 partitionUpdateHandlers.storageUpdateHandler,
                 txStatePartitionStorage,
                 safeTimeTracker,
-                storageIndexTracker
+                storageIndexTracker,
+                catalogService,
+                indexChooser
         );
 
         RaftGroupEventsListener raftGrpEvtsLsnr = new RebalanceRaftGroupEventsListener(

@@ -17,15 +17,18 @@
 
 package org.apache.ignite.internal.table.distributed.command;
 
+import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.nullableHybridTimestamp;
 
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
 import org.apache.ignite.internal.table.distributed.replicator.TimedBinaryRow;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.network.annotations.Transferable;
+import org.apache.ignite.network.annotations.WithSetter;
 
 /**
  * State machine command for updating a batch of entries.
@@ -38,9 +41,7 @@ public interface UpdateAllCommand extends PartitionCommand {
 
     String txCoordinatorId();
 
-    /**
-     * Returns the timestamps of the last committed entries for each row.
-     */
+    /** Returns the timestamps of the last committed entries for each row. */
     default Map<UUID, TimedBinaryRow> rowsToUpdate() {
         Map<UUID, TimedBinaryRow> map = new HashMap<>();
 
@@ -52,5 +53,19 @@ public interface UpdateAllCommand extends PartitionCommand {
         }
 
         return map;
+    }
+
+    /** Returns operation timestamp. */
+    @WithSetter
+    long operationTimestampLong();
+
+    /** Setter for the operationTimestamp field. */
+    default void operationTimestampLong(long operationTime) {
+        // No-op.
+    }
+
+    /** Returns operation timestamp. */
+    default HybridTimestamp operationTimestamp() {
+        return hybridTimestamp(operationTimestampLong());
     }
 }

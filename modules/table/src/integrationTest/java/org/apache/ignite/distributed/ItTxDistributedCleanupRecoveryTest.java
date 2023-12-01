@@ -38,6 +38,7 @@ import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.table.distributed.IndexLocker;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
+import org.apache.ignite.internal.table.distributed.index.IndexChooser;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
 import org.apache.ignite.internal.table.distributed.replicator.TransactionStateResolver;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
@@ -109,7 +110,8 @@ public class ItTxDistributedCleanupRecoveryTest extends ItTxDistributedTestSingl
                     ClusterNode localNode,
                     SchemaSyncService schemaSyncService,
                     CatalogService catalogService,
-                    PlacementDriver placementDriver
+                    PlacementDriver placementDriver,
+                    IndexChooser indexChooser
             ) {
                 return new PartitionReplicaListener(
                         mvDataStorage,
@@ -131,7 +133,8 @@ public class ItTxDistributedCleanupRecoveryTest extends ItTxDistributedTestSingl
                         localNode,
                         schemaSyncService,
                         catalogService,
-                        placementDriver
+                        placementDriver,
+                        indexChooser
                 ) {
                     @Override
                     public CompletableFuture<ReplicaResult> invoke(ReplicaRequest request, String senderId) {
