@@ -91,6 +91,7 @@ import org.apache.ignite.internal.replicator.exception.ReplicationMaxRetriesExce
 import org.apache.ignite.internal.replicator.exception.ReplicationTimeoutException;
 import org.apache.ignite.internal.replicator.exception.UnsupportedReplicaRequestException;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
+import org.apache.ignite.internal.replicator.message.PrimaryReplicaRequest;
 import org.apache.ignite.internal.replicator.message.ReadOnlyDirectReplicaRequest;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
@@ -1472,10 +1473,12 @@ public class PartitionReplicaListener implements ReplicaListener {
     private static void throwIfSchemaValidationOnCommitFailed(CompatValidationResult validationResult) {
         if (!validationResult.isSuccessful()) {
             if (validationResult.isTableDropped()) {
+                // TODO: IGNITE-20966 - improve error message.
                 throw new IncompatibleSchemaAbortException(
                         format("Commit failed because a table was already dropped [tableId={}]", validationResult.failedTableId())
                 );
             } else {
+                // TODO: IGNITE-20966 - improve error message.
                 throw new IncompatibleSchemaAbortException("Commit failed because schema "
                         + validationResult.fromSchemaVersion() + " is not forward-compatible with "
                         + validationResult.toSchemaVersion() + " for table " + validationResult.failedTableId());
@@ -3355,46 +3358,32 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @return Future. The result is not {@code null} only for {@link ReadOnlyReplicaRequest}. If {@code true}, then replica is primary.
      */
     private CompletableFuture<Boolean> ensureReplicaIsPrimary(ReplicaRequest request) {
-        Long expectedTerm;
-
-        // TODO: IGNITE-20875 Add enlistment consistency token to PrimaryReplicaTestRequest interface.
-        if (request instanceof ReadWriteReplicaRequest) {
-            expectedTerm = ((ReadWriteReplicaRequest) request).term();
-
-            assert expectedTerm != null;
-        } else if (request instanceof TxFinishReplicaRequest) {
-            expectedTerm = ((TxFinishReplicaRequest) request).term();
-
-            assert expectedTerm != null;
-        } else if (request instanceof ReadOnlyDirectReplicaRequest) {
-            expectedTerm = ((ReadOnlyDirectReplicaRequest) request).enlistmentConsistencyToken();
-
-            assert expectedTerm != null;
-        } else if (request instanceof BuildIndexReplicaRequest) {
-            expectedTerm = ((BuildIndexReplicaRequest) request).enlistmentConsistencyToken();
-        } else if (request instanceof TxRecoveryMessage) {
-            expectedTerm = ((TxRecoveryMessage) request).enlistmentConsistencyToken();
-        } else {
-            expectedTerm = null;
-        }
-
         HybridTimestamp now = hybridClock.now();
 
-        if (expectedTerm != null) {
+        if (request instanceof PrimaryReplicaRequest) {
+            Long enlistmentConsistencyToken = ((PrimaryReplicaRequest) request).enlistmentConsistencyToken();
+
             return placementDriver.getPrimaryReplica(replicationGroupId, now)
                     .thenCompose(primaryReplicaMeta -> {
                         if (primaryReplicaMeta == null) {
-                            return failedFuture(new PrimaryReplicaMissException(localNode.name(), null, expectedTerm, null, null));
+                            return failedFuture(new PrimaryReplicaMissException(
+                                    localNode.name(),
+                                    null,
+                                    enlistmentConsistencyToken,
+                                    null,
+                                    null
+                            ));
                         }
 
                         long currentEnlistmentConsistencyToken = primaryReplicaMeta.getStartTime().longValue();
 
                         // TODO: https://issues.apache.org/jira/browse/IGNITE-20377
-                        if (expectedTerm != currentEnlistmentConsistencyToken || primaryReplicaMeta.getExpirationTime().before(now)) {
+                        if (enlistmentConsistencyToken != currentEnlistmentConsistencyToken
+                                || primaryReplicaMeta.getExpirationTime().before(now)) {
                             return failedFuture(new PrimaryReplicaMissException(
                                     localNode.name(),
                                     primaryReplicaMeta.getLeaseholder(),
-                                    expectedTerm,
+                                    enlistmentConsistencyToken,
                                     currentEnlistmentConsistencyToken,
                                     null
                             ));

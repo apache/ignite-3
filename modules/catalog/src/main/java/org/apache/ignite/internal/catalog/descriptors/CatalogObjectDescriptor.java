@@ -57,7 +57,6 @@ public abstract class CatalogObjectDescriptor implements Serializable {
         return type;
     }
 
-
     /**
      * Token of the update of the descriptor.
      * Updated when {@link UpdateEntry#applyUpdate(org.apache.ignite.internal.catalog.Catalog, long)} is called for the
@@ -84,7 +83,6 @@ public abstract class CatalogObjectDescriptor implements Serializable {
         this.updateToken = updateToken;
     }
 
-    /** {@inheritDoc} */
     @Override
     public String toString() {
         return S.toString(this);

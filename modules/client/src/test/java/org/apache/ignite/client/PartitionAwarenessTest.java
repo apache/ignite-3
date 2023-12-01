@@ -17,6 +17,8 @@
 
 package org.apache.ignite.client;
 
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.greaterThan;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -35,7 +37,9 @@ import org.apache.ignite.client.fakes.FakeIgniteTables;
 import org.apache.ignite.client.fakes.FakeInternalTable;
 import org.apache.ignite.client.handler.FakePlacementDriver;
 import org.apache.ignite.compute.IgniteCompute;
+import org.apache.ignite.internal.client.ReliableChannel;
 import org.apache.ignite.internal.client.tx.ClientTransaction;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -71,9 +75,9 @@ public class PartitionAwarenessTest extends AbstractClientTest {
 
     private static IgniteClient client2;
 
-    private @Nullable String lastOp;
+    private volatile @Nullable String lastOp;
 
-    private @Nullable String lastOpServerName;
+    private volatile @Nullable String lastOpServerName;
 
     private static final AtomicInteger nextTableId = new AtomicInteger(101);
 
@@ -166,6 +170,8 @@ public class PartitionAwarenessTest extends AbstractClientTest {
     @ParameterizedTest
     @ValueSource(booleans = {true, false})
     public void testClientReceivesPartitionAssignmentUpdates(boolean useHeartbeat) throws InterruptedException {
+        ReliableChannel ch = IgniteTestUtils.getFieldValue(client2, "ch");
+
         // Check default assignment.
         RecordView<Tuple> recordView = defaultTable().recordView();
 
@@ -173,19 +179,25 @@ public class PartitionAwarenessTest extends AbstractClientTest {
         assertOpOnNode(nodeKey2, "get", x -> recordView.get(null, Tuple.create().set("ID", 2L)));
 
         // Update partition assignment.
+        var oldTs = ch.partitionAssignmentTimestamp();
         initPrimaryReplicas(reversedReplicas());
 
         if (useHeartbeat) {
             // Wait for heartbeat message to receive change notification flag.
-            Thread.sleep(500);
+            assertTrue(IgniteTestUtils.waitForCondition(() -> ch.partitionAssignmentTimestamp() > oldTs, 3000));
         } else {
-            // Perform a request on the default channel to receive change notification flag.
-            // Use two requests because of round-robin.
-            client2.tables().tables();
-            client2.tables().tables();
+            // Perform requests to receive change notification flag.
+            int maxRequests = 50;
+            while (ch.partitionAssignmentTimestamp() <= oldTs && maxRequests-- > 0) {
+                client2.tables().tables();
+            }
+
+            assertThat("Failed to receive assignment update", maxRequests, greaterThan(0));
         }
 
         // Check new assignment.
+        assertThat(ch.partitionAssignmentTimestamp(), greaterThan(oldTs));
+
         assertOpOnNode(nodeKey2, "get", x -> recordView.get(null, Tuple.create().set("ID", 1L)));
         assertOpOnNode(nodeKey1, "get", x -> recordView.get(null, Tuple.create().set("ID", 2L)));
     }
@@ -611,16 +623,18 @@ public class PartitionAwarenessTest extends AbstractClientTest {
     }
 
     private static void initPrimaryReplicas(@Nullable List<String> replicas) {
-        initPrimaryReplicas(testServer.placementDriver(), replicas);
-        initPrimaryReplicas(testServer2.placementDriver(), replicas);
+        long leaseStartTime = new HybridClockImpl().nowLong();
+
+        initPrimaryReplicas(testServer.placementDriver(), replicas, leaseStartTime);
+        initPrimaryReplicas(testServer2.placementDriver(), replicas, leaseStartTime);
     }
 
-    private static void initPrimaryReplicas(FakePlacementDriver placementDriver, @Nullable List<String> replicas) {
+    private static void initPrimaryReplicas(FakePlacementDriver placementDriver, @Nullable List<String> replicas, long leaseStartTime) {
         if (replicas == null) {
             replicas = defaultReplicas();
         }
 
-        placementDriver.setReplicas(replicas, nextTableId.get() - 1);
+        placementDriver.setReplicas(replicas, nextTableId.get() - 1, leaseStartTime);
     }
 
     private static List<String> defaultReplicas() {
