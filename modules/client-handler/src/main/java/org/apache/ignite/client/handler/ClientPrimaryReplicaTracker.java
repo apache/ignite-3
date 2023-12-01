@@ -302,7 +302,7 @@ public class ClientPrimaryReplicaTracker implements EventListener<EventParameter
         TablePartitionId tablePartitionId = (TablePartitionId) primaryReplicaEvent.groupId();
         updatePrimaryReplica(tablePartitionId, primaryReplicaEvent.startTime(), primaryReplicaEvent.leaseholder());
 
-        return CompletableFuture.completedFuture(false);
+        return CompletableFuture.completedFuture(false); // false: don't remove listener.
     }
 
     private void removeTable(DropTableEventParameters dropTableEvent) {
