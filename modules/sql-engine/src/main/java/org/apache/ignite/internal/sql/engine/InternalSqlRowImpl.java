@@ -28,8 +28,8 @@ import org.jetbrains.annotations.Nullable;
  * @param <RowT> Type of the sql row.
  */
 public class InternalSqlRowImpl<RowT> implements InternalSqlRow {
-    private RowT row;
-    private RowHandler<RowT> rowHandler;
+    private final RowT row;
+    private final RowHandler<RowT> rowHandler;
 
     /**
      * Constructor.
