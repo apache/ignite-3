@@ -34,6 +34,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Consumer;
 import javax.net.ssl.SSLException;
 import org.apache.ignite.client.handler.configuration.ClientConnectorView;
 import org.apache.ignite.client.handler.requests.cluster.ClientClusterGetNodesRequest;
@@ -505,7 +506,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
             int observableTimestampIdx = out.reserveLong();
             out.packNil(); // No error.
 
-            var fut = processOperation(in, out, opCode);
+            var fut = processOperation(in, out, opCode, requestId);
 
             if (fut == null) {
                 // Operation completed synchronously.
@@ -559,7 +560,8 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
     private @Nullable CompletableFuture processOperation(
             ClientMessageUnpacker in,
             ClientMessagePacker out,
-            int opCode
+            int opCode,
+            long requestId
     ) throws IgniteInternalCheckedException {
         switch (opCode) {
             case ClientOp.HEARTBEAT:
@@ -665,7 +667,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
                 return ClientTransactionRollbackRequest.process(in, resources, metrics);
 
             case ClientOp.COMPUTE_EXECUTE:
-                return ClientComputeExecuteRequest.process(in, out, compute, clusterService);
+                return ClientComputeExecuteRequest.process(in, out, compute, clusterService, w -> sendNotification(requestId, w));
 
             case ClientOp.COMPUTE_EXECUTE_COLOCATED:
                 return ClientComputeExecuteColocatedRequest.process(in, out, compute, igniteTables);
@@ -812,6 +814,21 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
     private void closeConnection() {
         if (channelHandlerContext != null) {
             channelHandlerContext.close();
+        }
+    }
+
+    private void sendNotification(long requestId, Consumer<ClientMessagePacker> writer) {
+        var packer = getPacker(channelHandlerContext.alloc());
+
+        try {
+            packer.packInt(ServerMessageType.NOTIFICATION);
+            packer.packLong(requestId);
+            writer.accept(packer);
+
+            write(packer, channelHandlerContext);
+        } catch (Throwable t) {
+            packer.close();
+            exceptionCaught(channelHandlerContext, t);
         }
     }
 }

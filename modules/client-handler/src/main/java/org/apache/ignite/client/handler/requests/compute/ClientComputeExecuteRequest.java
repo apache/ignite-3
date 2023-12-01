@@ -21,6 +21,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.client.handler.NotificationSender;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
@@ -45,7 +46,8 @@ public class ClientComputeExecuteRequest {
             ClientMessageUnpacker in,
             ClientMessagePacker out,
             IgniteCompute compute,
-            ClusterService cluster) {
+            ClusterService cluster,
+            NotificationSender notificationSender) {
         var nodeName = in.tryUnpackNil() ? null : in.unpackString();
 
         var node = nodeName == null
