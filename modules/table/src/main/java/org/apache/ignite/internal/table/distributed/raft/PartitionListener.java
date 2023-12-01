@@ -280,7 +280,7 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
                         () -> storage.lastApplied(commandIndex, commandTerm),
                         cmd.full() ? cmd.safeTime() : null,
                         cmd.lastCommitTimestamp(),
-                        indexIdsForRwUpdateOperation(cmd.tablePartitionId().tableId(), cmd.operationTimestamp())
+                        indexIdsForRwUpdateOperation(storage.tableId(), cmd.operationTimestamp())
                 );
             }
 
@@ -313,7 +313,7 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
                         !cmd.full(),
                         () -> storage.lastApplied(commandIndex, commandTerm),
                         cmd.full() ? cmd.safeTime() : null,
-                        indexIdsForRwUpdateOperation(cmd.tablePartitionId().tableId(), cmd.operationTimestamp())
+                        indexIdsForRwUpdateOperation(storage.tableId(), cmd.operationTimestamp())
                 );
 
                 updateTrackerIgnoringTrackerClosedException(safeTime, cmd.safeTime());

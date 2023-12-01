@@ -53,6 +53,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
@@ -204,6 +205,12 @@ public class ItTxTestCluster {
 
     protected String localNodeName;
 
+    private CatalogService catalogService;
+
+    private IndexChooser indexChooser;
+
+    private final AtomicInteger globalCatalogId = new AtomicInteger();
+
     private final Function<String, ClusterNode> consistentIdToNode = consistentId -> {
         for (ClusterService service : cluster) {
             ClusterNode clusterNode = service.topologyService().localMember();
@@ -284,6 +291,10 @@ public class ItTxTestCluster {
         ClusterNode firstNode = first(cluster).topologyService().localMember();
 
         placementDriver = new TestPlacementDriver(firstNode);
+
+        catalogService = mock(CatalogService.class);
+
+        indexChooser = new IndexChooser(catalogService);
 
         LOG.info("The cluster has been started");
 
@@ -408,17 +419,17 @@ public class ItTxTestCluster {
      * Starts a table.
      *
      * @param tableName Table name.
-     * @param tableId Table id.
      * @param schemaDescriptor Schema descriptor.
      * @return Groups map.
      */
-    public TableViewInternal startTable(String tableName, int tableId, SchemaDescriptor schemaDescriptor) throws Exception {
-        CatalogService catalogService = mock(CatalogService.class);
+    public TableViewInternal startTable(String tableName, SchemaDescriptor schemaDescriptor) throws Exception {
+        int tableId = globalCatalogId.getAndIncrement();
 
         CatalogTableDescriptor tableDescriptor = mock(CatalogTableDescriptor.class);
+        when(tableDescriptor.id()).thenReturn(tableId);
         when(tableDescriptor.tableVersion()).thenReturn(SCHEMA_VERSION);
 
-        lenient().when(catalogService.table(anyInt(), anyLong())).thenReturn(tableDescriptor);
+        lenient().when(catalogService.table(eq(tableId), anyLong())).thenReturn(tableDescriptor);
 
         List<Set<Assignment>> calculatedAssignments = AffinityUtils.calculateAssignments(
                 cluster.stream().map(node -> node.topologyService().localMember().name()).collect(toList()),
@@ -438,12 +449,15 @@ public class ItTxTestCluster {
 
         List<CompletableFuture<Void>> partitionReadyFutures = new ArrayList<>();
 
-        int globalIndexId = 1;
-
         ThreadLocalPartitionCommandsMarshaller commandsMarshaller =
                 new ThreadLocalPartitionCommandsMarshaller(cluster.get(0).serializationRegistry());
 
-        IndexChooser indexChooser = new IndexChooser(catalogService);
+        int indexId = globalCatalogId.getAndIncrement();
+
+        CatalogIndexDescriptor pkCatalogIndexDescriptor = mock(CatalogIndexDescriptor.class);
+        when(pkCatalogIndexDescriptor.id()).thenReturn(indexId);
+
+        when(catalogService.indexes(anyInt(), eq(tableId))).thenReturn(List.of(pkCatalogIndexDescriptor));
 
         for (int p = 0; p < assignments.size(); p++) {
             Set<String> partAssignments = assignments.get(p);
@@ -469,8 +483,6 @@ public class ItTxTestCluster {
                     transactionStateResolver.updateAssignment(grpIds.get(part), assignments.get(part));
                 }
 
-                int indexId = globalIndexId++;
-
                 ColumnsExtractor row2Tuple = BinaryRowConverter.keyExtractor(schemaDescriptor);
 
                 StorageHashIndexDescriptor pkStorageIndexDescriptor = mock(StorageHashIndexDescriptor.class);
@@ -487,11 +499,6 @@ public class ItTxTestCluster {
                 ));
 
                 IndexLocker pkLocker = new HashIndexLocker(indexId, true, txManagers.get(assignment).lockManager(), row2Tuple);
-
-                CatalogIndexDescriptor pkCatalogIndexDescriptor = mock(CatalogIndexDescriptor.class);
-                when(pkCatalogIndexDescriptor.id()).thenReturn(indexId);
-
-                when(catalogService.indexes(anyInt(), eq(tableId))).thenReturn(List.of(pkCatalogIndexDescriptor));
 
                 PeersAndLearners configuration = PeersAndLearners.fromConsistentIds(partAssignments);
 
@@ -793,6 +800,10 @@ public class ItTxTestCluster {
             for (RaftGroupService svc : e.getValue()) {
                 svc.shutdown();
             }
+        }
+
+        if (indexChooser != null) {
+            indexChooser.close();
         }
     }
 

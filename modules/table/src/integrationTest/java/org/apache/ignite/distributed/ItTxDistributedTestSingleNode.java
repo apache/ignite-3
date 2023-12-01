@@ -64,10 +64,6 @@ import org.mockito.Mockito;
  */
 @ExtendWith(ConfigurationExtension.class)
 public class ItTxDistributedTestSingleNode extends TxAbstractTest {
-    protected static int ACC_TABLE_ID = 0;
-
-    protected static int CUST_TABLE_ID = 1;
-
     protected static final String ACC_TABLE_NAME = "accounts";
 
     protected static final String CUST_TABLE_NAME = "customers";
@@ -134,8 +130,8 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
 
         this.igniteTransactions = txTestCluster.igniteTransactions;
 
-        accounts = txTestCluster.startTable(ACC_TABLE_NAME, ACC_TABLE_ID, ACCOUNTS_SCHEMA);
-        customers = txTestCluster.startTable(CUST_TABLE_NAME, CUST_TABLE_ID, CUSTOMERS_SCHEMA);
+        accounts = txTestCluster.startTable(ACC_TABLE_NAME, ACCOUNTS_SCHEMA);
+        customers = txTestCluster.startTable(CUST_TABLE_NAME, CUSTOMERS_SCHEMA);
 
         log.info("Tables have been started");
     }

@@ -97,7 +97,7 @@ public class ItTxStateLocalMapTest extends IgniteAbstractTest {
 
         testCluster.prepareCluster();
 
-        table = testCluster.startTable("table", 1, TABLE_SCHEMA);
+        table = testCluster.startTable("table", TABLE_SCHEMA);
     }
 
     @AfterEach
