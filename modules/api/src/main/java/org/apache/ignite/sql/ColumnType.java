@@ -26,86 +26,101 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.Period;
 import java.util.BitSet;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.UUID;
 
 /**
  * Predefined column types.
  */
 public enum ColumnType {
+    /** Null. */
+    NULL(Void.class, false, false, false, 0),
+
     /** Boolean. */
-    BOOLEAN(Boolean.class, false, false, false),
+    BOOLEAN(Boolean.class, false, false, false, 1),
 
     /** 8-bit signed integer. */
-    INT8(Byte.class, false, false, false),
+    INT8(Byte.class, false, false, false, 2),
 
     /** 16-bit signed integer. */
-    INT16(Short.class, false, false, false),
+    INT16(Short.class, false, false, false, 3),
 
     /** 32-bit signed integer. */
-    INT32(Integer.class, false, false, false),
+    INT32(Integer.class, false, false, false, 4),
 
     /** 64-bit signed integer. */
-    INT64(Long.class, false, false, false),
+    INT64(Long.class, false, false, false, 5),
 
     /** 32-bit single-precision floating-point number. */
-    FLOAT(Float.class, false, false, false),
+    FLOAT(Float.class, false, false, false, 6),
 
     /**
      * 64-bit double-precision floating-point number.
      *
      * <p>SQL`16 part 2 section 6.1 syntax rule 31, implementation-defined precision
      */
-    DOUBLE(Double.class, false, false, false),
+    DOUBLE(Double.class, false, false, false, 7),
 
     /** Arbitrary-precision signed decimal number. */
-    DECIMAL(BigDecimal.class, true, true, false),
+    DECIMAL(BigDecimal.class, true, true, false, 8),
 
     /** Timezone-free date. */
-    DATE(LocalDate.class, false, false, false),
+    DATE(LocalDate.class, false, false, false, 9),
 
     /** Timezone-free time with precision. */
-    TIME(LocalTime.class, true, false, false),
+    TIME(LocalTime.class, true, false, false, 10),
 
     /** Timezone-free datetime. */
-    DATETIME(LocalDateTime.class, true, false, false),
+    DATETIME(LocalDateTime.class, true, false, false, 11),
 
     /** Point on the time-line. Number of ticks since {@code 1970-01-01T00:00:00Z}. Tick unit depends on precision. */
-    TIMESTAMP(Instant.class, true, false, false),
+    TIMESTAMP(Instant.class, true, false, false, 12),
 
     /** 128-bit UUID. */
-    UUID(UUID.class, false, false, false),
+    UUID(UUID.class, false, false, false, 13),
 
     /** Bit mask. */
-    BITMASK(BitSet.class, false, false, true),
+    BITMASK(BitSet.class, false, false, true, 14),
 
     /** String. */
-    STRING(String.class, false, false, true),
+    STRING(String.class, false, false, true, 15),
 
     /** Binary data. */
-    BYTE_ARRAY(byte[].class, false, false, true),
+    BYTE_ARRAY(byte[].class, false, false, true, 16),
 
     /** Date interval. */
-    PERIOD(Period.class, true, false, false),
+    PERIOD(Period.class, true, false, false, 17),
 
     /** Time interval. */
-    DURATION(Duration.class, true, false, false),
+    DURATION(Duration.class, true, false, false, 18),
 
     /** Number. */
-    NUMBER(BigInteger.class, true, false, false),
-
-    /** Null. */
-    NULL(Void.class, false, false, false);
+    NUMBER(BigInteger.class, true, false, false, 19);
 
     private final Class<?> javaClass;
     private final boolean precisionAllowed;
     private final boolean scaleAllowed;
     private final boolean lengthAllowed;
 
-    ColumnType(Class<?> clazz, boolean precisionDefined, boolean scaleDefined, boolean lengthDefined) {
+    private final int id;
+
+    private static final Map<Integer, ColumnType> ENUM_ID_MAP = new HashMap<>();
+
+    static {
+        for (ColumnType columnType : values()) {
+            ColumnType prevValue = ENUM_ID_MAP.put(columnType.id, columnType);
+            assert prevValue == null : "Duplicate id of ColumnType " + prevValue.id;
+        }
+
+    }
+
+    ColumnType(Class<?> clazz, boolean precisionDefined, boolean scaleDefined, boolean lengthDefined, int id) {
         javaClass = clazz;
         this.precisionAllowed = precisionDefined;
         this.scaleAllowed = scaleDefined;
         this.lengthAllowed = lengthDefined;
+        this.id = id;
     }
 
     /** Appropriate java match type. */
@@ -126,5 +141,15 @@ public enum ColumnType {
     /** If {@code true} length need to be specified, {@code false} otherwise. */
     public boolean lengthAllowed() {
         return lengthAllowed;
+    }
+
+    /** Returns id of type. */
+    public int id() {
+        return id;
+    }
+
+    /** Returns corresponding {@code ColumnType} by given id, {@code null} for unknown id. */
+    public static ColumnType getById(int id) {
+        return ENUM_ID_MAP.get(id);
     }
 }

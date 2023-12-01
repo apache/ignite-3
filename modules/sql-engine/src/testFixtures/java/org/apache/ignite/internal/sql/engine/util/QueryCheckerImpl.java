@@ -41,6 +41,7 @@ import java.util.stream.Collectors;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
+import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.QueryProperty;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
@@ -275,10 +276,10 @@ abstract class QueryCheckerImpl implements QueryChecker {
 
         if (!CollectionUtils.nullOrEmpty(planMatchers)) {
 
-            CompletableFuture<AsyncSqlCursor<List<Object>>> explainCursors = qryProc.querySingleAsync(
+            CompletableFuture<AsyncSqlCursor<InternalSqlRow>> explainCursors = qryProc.querySingleAsync(
                     PROPERTIES, transactions(), tx, "EXPLAIN PLAN FOR " + qry, params);
-            AsyncSqlCursor<List<Object>> explainCursor = await(explainCursors);
-            List<List<Object>> explainRes = getAllFromCursor(explainCursor);
+            AsyncSqlCursor<InternalSqlRow> explainCursor = await(explainCursors);
+            List<InternalSqlRow> explainRes = getAllFromCursor(explainCursor);
 
             String actualPlan = (String) explainRes.get(0).get(0);
 
@@ -289,10 +290,10 @@ abstract class QueryCheckerImpl implements QueryChecker {
             }
         }
         // Check result.
-        CompletableFuture<AsyncSqlCursor<List<Object>>> cursors =
+        CompletableFuture<AsyncSqlCursor<InternalSqlRow>> cursors =
                 qryProc.querySingleAsync(PROPERTIES, transactions(), tx, qry, params);
 
-        AsyncSqlCursor<List<Object>> cur = await(cursors);
+        AsyncSqlCursor<InternalSqlRow> cur = await(cursors);
 
         checkMetadata(cur.metadata());
 

@@ -51,6 +51,10 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.sql.engine.InternalSqlRow;
+import org.apache.ignite.internal.sql.engine.InternalSqlRowImpl;
+import org.apache.ignite.internal.sql.engine.InternalSqlRowSingleBoolean;
+import org.apache.ignite.internal.sql.engine.InternalSqlRowSingleString;
 import org.apache.ignite.internal.sql.engine.NodeLeftException;
 import org.apache.ignite.internal.sql.engine.QueryCancelledException;
 import org.apache.ignite.internal.sql.engine.QueryPrefetchCallback;
@@ -97,7 +101,7 @@ import org.apache.ignite.network.TopologyService;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * ExecutionServiceImpl. TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ * Provide ability to execute SQL query plan and retrieve results of the execution.
  */
 public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEventHandler {
     private static final int CACHE_SIZE = 1024;
@@ -110,6 +114,10 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
     private static final IgniteLogger LOG = Loggers.forClass(ExecutionServiceImpl.class);
 
     private static final SqlQueryMessagesFactory FACTORY = new SqlQueryMessagesFactory();
+
+    private static final List<InternalSqlRow> APPLIED_ANSWER = List.of(new InternalSqlRowSingleBoolean(true));
+
+    private static final List<InternalSqlRow> NOT_APPLIED_ANSWER = List.of(new InternalSqlRowSingleBoolean(false));
 
     private final MessageService messageService;
 
@@ -223,7 +231,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         messageService.register((n, m) -> onMessage(n, (ErrorMessage) m), SqlQueryMessageGroup.ERROR_MESSAGE);
     }
 
-    private AsyncCursor<List<Object>> executeQuery(
+    private AsyncCursor<InternalSqlRow> executeQuery(
             InternalTransaction tx,
             BaseQueryContext ctx,
             MultiStepPlan plan
@@ -260,7 +268,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
     /** {@inheritDoc} */
     @Override
-    public AsyncCursor<List<Object>> executePlan(
+    public AsyncCursor<InternalSqlRow> executePlan(
             InternalTransaction tx, QueryPlan plan, BaseQueryContext ctx
     ) {
         SqlQueryType queryType = plan.type();
@@ -292,9 +300,9 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         return mgr.close(true);
     }
 
-    private AsyncCursor<List<Object>> executeDdl(DdlPlan plan, @Nullable QueryPrefetchCallback callback) {
-        CompletableFuture<Iterator<List<Object>>> ret = ddlCmdHnd.handle(plan.command())
-                .thenApply(applied -> List.of(List.<Object>of(applied)).iterator())
+    private AsyncCursor<InternalSqlRow> executeDdl(DdlPlan plan, @Nullable QueryPrefetchCallback callback) {
+        CompletableFuture<Iterator<InternalSqlRow>> ret = ddlCmdHnd.handle(plan.command())
+                .thenApply(applied -> (applied ? APPLIED_ANSWER : NOT_APPLIED_ANSWER).iterator())
                 .exceptionally(th -> {
                     throw convertDdlException(th);
                 });
@@ -323,18 +331,18 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         return (e instanceof RuntimeException) ? (RuntimeException) e : new IgniteInternalException(INTERNAL_ERR, e);
     }
 
-    private AsyncCursor<List<Object>> executeExplain(ExplainPlan plan, @Nullable QueryPrefetchCallback callback) {
+    private AsyncCursor<InternalSqlRow> executeExplain(ExplainPlan plan, @Nullable QueryPrefetchCallback callback) {
         IgniteRel clonedRoot = Cloner.clone(plan.plan().root(), Commons.cluster());
 
         String planString = RelOptUtil.toString(clonedRoot, SqlExplainLevel.ALL_ATTRIBUTES);
 
-        List<List<Object>> res = List.of(List.of(planString));
+        InternalSqlRow res = new InternalSqlRowSingleString(planString);
 
         if (callback != null) {
             taskExecutor.execute(() -> callback.onPrefetchComplete(null));
         }
 
-        return new AsyncWrapper<>(res.iterator());
+        return new AsyncWrapper<>(List.of(res).iterator());
     }
 
     private void onMessage(String nodeName, QueryStartRequest msg) {
@@ -471,7 +479,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
         private final Queue<AbstractNode<RowT>> localFragments = new ConcurrentLinkedQueue<>();
 
-        private final @Nullable CompletableFuture<AsyncRootNode<RowT, List<Object>>> root;
+        private final @Nullable CompletableFuture<AsyncRootNode<RowT, InternalSqlRow>> root;
 
         private volatile Long rootFragmentId = null;
 
@@ -485,7 +493,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             this.coordinatorNodeName = coordinatorNodeName;
 
             if (coordinator) {
-                var root = new CompletableFuture<AsyncRootNode<RowT, List<Object>>>();
+                var root = new CompletableFuture<AsyncRootNode<RowT, InternalSqlRow>>();
 
                 root.exceptionally(t -> {
                     this.close(true);
@@ -578,19 +586,12 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             if (!(node instanceof Outbox)) {
                 Function<RowT, RowT> internalTypeConverter = TypeUtils.resultTypeConverter(ectx, treeRoot.getRowType());
 
-                AsyncRootNode<RowT, List<Object>> rootNode = new AsyncRootNode<>(node, inRow -> {
-                    inRow = internalTypeConverter.apply(inRow);
-
-                    int rowSize = ectx.rowHandler().columnCount(inRow);
-
-                    List<Object> res = new ArrayList<>(rowSize);
-
-                    for (int i = 0; i < rowSize; i++) {
-                        res.add(ectx.rowHandler().get(i, inRow));
-                    }
-
-                    return res;
-                });
+                AsyncRootNode<RowT, InternalSqlRow> rootNode = new AsyncRootNode<>(
+                        node,
+                        inRow -> {
+                            inRow = internalTypeConverter.apply(inRow);
+                            return new InternalSqlRowImpl<>(inRow, ectx.rowHandler());
+                        });
                 node.onRegister(rootNode);
 
                 CompletableFuture<Void> prefetchFut = rootNode.startPrefetch();
@@ -678,7 +679,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             }
         }
 
-        private AsyncCursor<List<Object>> execute(InternalTransaction tx, MultiStepPlan multiStepPlan) {
+        private AsyncCursor<InternalSqlRow> execute(InternalTransaction tx, MultiStepPlan multiStepPlan) {
             assert root != null;
 
             mappingService.map(multiStepPlan).whenCompleteAsync((mappedFragments, mappingErr) -> {
@@ -797,9 +798,9 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
             return new AsyncCursor<>() {
                 @Override
-                public CompletableFuture<BatchedResult<List<Object>>> requestNextAsync(int rows) {
+                public CompletableFuture<BatchedResult<InternalSqlRow>> requestNextAsync(int rows) {
                     return root.thenCompose(cur -> {
-                        var fut = cur.requestNextAsync(rows);
+                        CompletableFuture<BatchedResult<InternalSqlRow>> fut = cur.requestNextAsync(rows);
 
                         fut.thenAccept(batch -> {
                             if (!batch.hasMore()) {
@@ -985,7 +986,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             }
 
             if (!root.isCompletedExceptionally()) {
-                AsyncRootNode<RowT, List<Object>> node = root.getNow(null);
+                AsyncRootNode<RowT, InternalSqlRow> node = root.getNow(null);
 
                 if (cancel) {
                     node.onError(new QueryCancelledException());

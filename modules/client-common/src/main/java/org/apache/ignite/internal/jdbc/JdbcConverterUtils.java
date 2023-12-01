@@ -20,6 +20,7 @@ package org.apache.ignite.internal.jdbc;
 import java.sql.Date;
 import java.sql.Time;
 import java.sql.Timestamp;
+import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.sql.ColumnType;
 
 /**
@@ -44,4 +45,78 @@ public class JdbcConverterUtils {
                 return type.javaClass();
         }
     }
+
+    /**
+     * Derive value from BinaryTuple by given column number, column type and scale for decimal type.
+     *
+     * @param columnType Type of column in binaryTuple by index idx.
+     * @param binaryTuple BinaryTuple to extract value.
+     * @param idx Index of column in binaryTuple.
+     * @param decimalScale Scale for decimal column. If the column is of a different type, then the specific value does not matter.
+     * @return Derived value. The value can be {@code null}.
+     */
+    public static Object deriveValueFromBinaryTuple(ColumnType columnType, BinaryTuple binaryTuple, int idx, int decimalScale) {
+        switch (columnType) {
+            case INT8:
+                return binaryTuple.byteValue(idx);
+
+            case INT16:
+                return binaryTuple.shortValue(idx);
+
+            case INT32:
+                return binaryTuple.intValue(idx);
+
+            case INT64:
+                return binaryTuple.longValue(idx);
+
+            case FLOAT:
+                return binaryTuple.floatValue(idx);
+
+            case DOUBLE:
+                return binaryTuple.doubleValue(idx);
+
+            case DECIMAL:
+                return binaryTuple.decimalValue(idx, decimalScale);
+
+            case UUID:
+                return binaryTuple.uuidValue(idx);
+
+            case STRING:
+                return binaryTuple.stringValue(idx);
+
+            case BYTE_ARRAY:
+                return binaryTuple.bytesValue(idx);
+
+            case BITMASK:
+                return binaryTuple.bitmaskValue(idx);
+
+            case DATE:
+                return binaryTuple.dateValue(idx);
+
+            case TIME:
+                return binaryTuple.timeValue(idx);
+
+            case DATETIME:
+                return binaryTuple.dateTimeValue(idx);
+
+            case TIMESTAMP:
+                return binaryTuple.timestampValue(idx);
+
+            case NUMBER:
+                return binaryTuple.numberValue(idx);
+
+            case BOOLEAN:
+                return binaryTuple.booleanValue(idx);
+
+            case DURATION:
+                return binaryTuple.durationValue(idx);
+
+            case PERIOD:
+                return binaryTuple.periodValue(idx);
+
+            default:
+                throw new IllegalArgumentException("Unsupported Column type " + columnType);
+        }
+    }
+
 }

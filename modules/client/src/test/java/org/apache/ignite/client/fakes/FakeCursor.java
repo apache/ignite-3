@@ -23,13 +23,15 @@ import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
+import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
+import org.apache.ignite.internal.sql.engine.util.InternalSqlRowForList;
 import org.apache.ignite.sql.ResultSetMetadata;
 
 /**
  * Fake {@link AsyncSqlCursor}.
  */
-public class FakeCursor implements AsyncSqlCursor<List<Object>> {
+public class FakeCursor implements AsyncSqlCursor<InternalSqlRow> {
     private final Random random;
 
     FakeCursor() {
@@ -42,8 +44,8 @@ public class FakeCursor implements AsyncSqlCursor<List<Object>> {
     }
 
     @Override
-    public CompletableFuture<BatchedResult<List<Object>>> requestNextAsync(int rows) {
-        var batch = new ArrayList<List<Object>>();
+    public CompletableFuture<BatchedResult<InternalSqlRow>> requestNextAsync(int rows) {
+        var batch = new ArrayList<InternalSqlRow>();
 
         for (int i = 0; i < rows; i++) {
             List<Object> row = new ArrayList<>();
@@ -54,7 +56,7 @@ public class FakeCursor implements AsyncSqlCursor<List<Object>> {
             row.add(UUID.randomUUID().toString());
             row.add(null);
 
-            batch.add(row);
+            batch.add(new InternalSqlRowForList(row));
         }
 
         return CompletableFuture.completedFuture(new BatchedResult<>(batch, true));
@@ -76,7 +78,9 @@ public class FakeCursor implements AsyncSqlCursor<List<Object>> {
     }
 
     @Override
-    public CompletableFuture<AsyncSqlCursor<List<Object>>> nextResult() {
+    public CompletableFuture<AsyncSqlCursor<InternalSqlRow>> nextResult() {
         throw new UnsupportedOperationException();
     }
+
+
 }

@@ -28,6 +28,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.Flow.Publisher;
+import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.PartitionWithTerm;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
@@ -184,7 +185,7 @@ public class TestClusterTest extends BaseIgniteAbstractTest {
         TestNode gatewayNode = cluster.node("N1");
         QueryPlan plan = gatewayNode.prepare("SELECT * FROM t1 WHERE ID = 1");
 
-        for (List<?> row : await(gatewayNode.executePlan(plan).requestNextAsync(10_000)).items()) {
+        for (InternalSqlRow row : await(gatewayNode.executePlan(plan).requestNextAsync(10_000)).items()) {
             assertNotNull(row);
         }
 
@@ -201,7 +202,7 @@ public class TestClusterTest extends BaseIgniteAbstractTest {
         TestNode gatewayNode = cluster.node("N1");
         QueryPlan plan = gatewayNode.prepare("SELECT * FROM t1 WHERE ID > 1");
 
-        for (List<?> row : await(gatewayNode.executePlan(plan).requestNextAsync(10_000)).items()) {
+        for (InternalSqlRow row : await(gatewayNode.executePlan(plan).requestNextAsync(10_000)).items()) {
             assertNotNull(row);
         }
 
@@ -226,8 +227,8 @@ public class TestClusterTest extends BaseIgniteAbstractTest {
         TestNode gatewayNode = cluster.node("N1");
         QueryPlan plan = gatewayNode.prepare("SELECT * FROM SYSTEM.NODES, SYSTEM.NODE_N2");
 
-        BatchedResult<List<Object>> results = await(gatewayNode.executePlan(plan).requestNextAsync(10_000));
-        List<List<Object>> rows = new ArrayList<>(results.items());
+        BatchedResult<InternalSqlRow> results = await(gatewayNode.executePlan(plan).requestNextAsync(10_000));
+        List<InternalSqlRow> rows = new ArrayList<>(results.items());
 
         assertEquals(List.of(List.of(42L, "mango", "N2", 42)), rows);
     }

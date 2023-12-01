@@ -22,7 +22,7 @@ apply from: "$rootDir/buildscripts/java-junit5.gradle"
 dependencies {
     implementation project(':ignite-api')
     implementation project(':ignite-core')
-    implementation project(':ignite-binary-tuple')
+    implementation project(':ignite-schema')
     implementation libs.msgpack.core
     implementation libs.msgpack.jackson
     implementation libs.netty.common

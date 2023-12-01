@@ -18,19 +18,19 @@
 package org.apache.ignite.internal.jdbc.proto.event;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
+import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.tostring.S;
 
 /**
  * JDBC query fetch result.
  */
 public class JdbcQueryFetchResult extends Response {
-    /** Query result rows. */
-    private List<List<Object>> items;
+    /** Serialized result rows. */
+    private List<BinaryTuple> rowTuples;
 
     /** Flag indicating the query has no unfetched results. */
     private boolean last;
@@ -54,25 +54,25 @@ public class JdbcQueryFetchResult extends Response {
     /**
      * Constructor.
      *
-     * @param items Query result rows.
+     * @param rowTuples Serialized SQL result rows.
      * @param last  Flag indicating the query has no unfetched results.
      */
-    public JdbcQueryFetchResult(List<List<Object>> items, boolean last) {
-        Objects.requireNonNull(items);
+    public JdbcQueryFetchResult(List<BinaryTuple> rowTuples, boolean last) {
+        Objects.requireNonNull(rowTuples);
 
-        this.items = items;
+        this.rowTuples = rowTuples;
         this.last = last;
 
         hasResults = true;
     }
 
     /**
-     * Get the result rows.
+     * Get the serialized result rows.
      *
-     * @return Query result rows.
+     * @return Serialized query result rows.
      */
-    public List<List<Object>> items() {
-        return items;
+    public List<BinaryTuple> items() {
+        return rowTuples;
     }
 
     /**
@@ -95,10 +95,11 @@ public class JdbcQueryFetchResult extends Response {
 
         packer.packBoolean(last);
 
-        packer.packInt(items.size());
+        packer.packInt(rowTuples.size());
 
-        for (List<Object> item : items) {
-            packer.packObjectArrayAsBinaryTuple(item.toArray());
+        for (BinaryTuple item : rowTuples) {
+            packer.packInt(item.elementCount());
+            packer.packByteBuffer(item.byteBuffer());
         }
     }
 
@@ -115,10 +116,13 @@ public class JdbcQueryFetchResult extends Response {
 
         int size = unpacker.unpackInt();
 
-        items = new ArrayList<>(size);
+        rowTuples = new ArrayList<>(size);
 
         for (int i = 0; i < size; i++) {
-            items.add(Arrays.asList(unpacker.unpackObjectArrayFromBinaryTuple()));
+            int elementCount = unpacker.unpackInt();
+
+            BinaryTuple row = new BinaryTuple(elementCount, unpacker.unpackByteBufferOnHeap());
+            rowTuples.add(row);
         }
     }
 

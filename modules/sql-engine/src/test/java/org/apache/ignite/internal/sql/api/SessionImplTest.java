@@ -44,8 +44,10 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
+import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
+import org.apache.ignite.internal.sql.engine.util.InternalSqlRowForList;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -112,10 +114,10 @@ class SessionImplTest extends BaseIgniteAbstractTest {
     @Test
     @SuppressWarnings("unchecked")
     void sessionsShouldNotExpireWhenNewQueryExecuted() {
-        AsyncSqlCursor<List<Object>> result = mock(AsyncSqlCursor.class);
+        AsyncSqlCursor<InternalSqlRow> result = mock(AsyncSqlCursor.class);
 
         when(result.requestNextAsync(anyInt()))
-                .thenReturn(CompletableFuture.completedFuture(new BatchedResult<>(List.of(List.of(0L)), false)));
+                .thenReturn(CompletableFuture.completedFuture(new BatchedResult<>(List.of(new InternalSqlRowForList(List.of(0L))), false)));
 
         when(queryProcessor.querySingleAsync(any(), any(), any(), any(), any(Object[].class)))
                 .thenReturn(CompletableFuture.completedFuture(result));
@@ -152,10 +154,10 @@ class SessionImplTest extends BaseIgniteAbstractTest {
     @Test
     @SuppressWarnings("unchecked")
     void sessionsShouldNotExpireWhenResultSetAreProcessed() {
-        AsyncSqlCursor<List<Object>> result = mock(AsyncSqlCursor.class);
+        AsyncSqlCursor<InternalSqlRow> result = mock(AsyncSqlCursor.class);
 
         when(result.requestNextAsync(anyInt()))
-                .thenReturn(CompletableFuture.completedFuture(new BatchedResult<>(List.of(List.of(0L)), false)));
+                .thenReturn(CompletableFuture.completedFuture(new BatchedResult<>(List.of(new InternalSqlRowForList(List.of(0L))), false)));
         when(result.queryType())
                 .thenReturn(SqlQueryType.QUERY);
 
@@ -203,10 +205,10 @@ class SessionImplTest extends BaseIgniteAbstractTest {
     @Test
     @SuppressWarnings("unchecked")
     void resultSetCleanItselfOnClose() {
-        AsyncSqlCursor<List<Object>> result = mock(AsyncSqlCursor.class);
+        AsyncSqlCursor<InternalSqlRow> result = mock(AsyncSqlCursor.class);
 
         when(result.requestNextAsync(anyInt()))
-                .thenReturn(CompletableFuture.completedFuture(new BatchedResult<>(List.of(List.of(0L)), true)));
+                .thenReturn(CompletableFuture.completedFuture(new BatchedResult<>(List.of(new InternalSqlRowForList(List.of(0L))), true)));
         when(result.closeAsync())
                 .thenReturn(CompletableFuture.completedFuture(null));
 
@@ -308,7 +310,7 @@ class SessionImplTest extends BaseIgniteAbstractTest {
     @Test
     @SuppressWarnings("unchecked")
     void resultSetAreClosedWhenReadTillEnd() {
-        AsyncSqlCursor<List<Object>> result = mock(AsyncSqlCursor.class);
+        AsyncSqlCursor<InternalSqlRow> result = mock(AsyncSqlCursor.class);
 
         AtomicBoolean hasMore = new AtomicBoolean(true);
 
