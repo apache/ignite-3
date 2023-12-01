@@ -408,6 +408,11 @@ public class DynamicParametersTest extends AbstractPlannerTest {
                         .fails("Unable to determine type of a dynamic parameter#0"),
 
                 checkStatement()
+                        .sql("SELECT COALESCE(?, ?)", null, null)
+                        .parameterTypes(nullable(null), nullable(null))
+                        .project("CASE(IS NOT NULL(?0), ?0, ?1)"),
+
+                checkStatement()
                         .sql("SELECT COALESCE(?, 1)", Unspecified.UNKNOWN)
                         .fails("Ambiguous operator <UNKNOWN> IS NOT NULL"),
 

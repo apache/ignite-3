@@ -27,8 +27,12 @@ import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_PARSE_ERR;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.util.AbstractList;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.EnumSet;
+import java.util.HashSet;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -39,6 +43,8 @@ import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.prepare.CalciteCatalogReader;
 import org.apache.calcite.prepare.Prepare;
 import org.apache.calcite.rel.type.RelDataType;
+import org.apache.calcite.rel.type.RelDataTypeFactory;
+import org.apache.calcite.rel.type.RelDataTypeFactory.Builder;
 import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.calcite.schema.impl.ModifiableViewTable;
 import org.apache.calcite.sql.JoinConditionType;
@@ -68,6 +74,7 @@ import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.type.SqlTypeName.Limit;
 import org.apache.calcite.sql.type.SqlTypeUtil;
 import org.apache.calcite.sql.util.SqlBasicVisitor;
+import org.apache.calcite.sql.util.SqlShuttle;
 import org.apache.calcite.sql.validate.SelectScope;
 import org.apache.calcite.sql.validate.SqlValidator;
 import org.apache.calcite.sql.validate.SqlValidatorImpl;
@@ -123,6 +130,13 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
 
     /** Dynamic parameters. */
     private final DynamicParamState[] dynamicParameters;
+
+    /**
+     * The same dynamic parameter can be used in the same SQL tree multiple types after a rewrite.
+     * (E.g. COALESCE(?0, ?1) is rewritten into CASE WHEN ?0 IS NOT NULL THEN ?0 ELSE ?1 END)
+     * We store them to check that every i-th parameter has the same type.
+     */
+    private final IdentityHashMap<SqlDynamicParam, SqlDynamicParam> dynamicParamNodes = new IdentityHashMap<>();
 
     /** Literal processing. */
     private final LiteralExtractor litExtractor = new LiteralExtractor();
@@ -568,6 +582,37 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         }
     }
 
+    /** {@inheritDoc} */
+    @Override public RelDataType getParameterRowType(SqlNode sqlQuery) {
+        // We do not use calcite' version since it is contains a bug,
+        // alreadyVisited visited uses object identity, but rewrites of NULLIF, COALESCE
+        // into dynamic parameters may place the same parameter into multiple positions
+        // in SQL tree.
+        List<RelDataType> types = new ArrayList<>();
+        Set<Integer> alreadyVisited = new HashSet<>();
+        sqlQuery.accept(
+                new SqlShuttle() {
+                    @Override public SqlNode visit(SqlDynamicParam param) {
+                        if (alreadyVisited.add(param.getIndex())) {
+                            RelDataType type = getValidatedNodeType(param);
+                            types.add(type);
+                        }
+                        return param;
+                    }
+                });
+        return typeFactory.createStructType(
+                types,
+                new AbstractList<String>() {
+                    @Override public String get(int index) {
+                        return "?" + index;
+                    }
+
+                    @Override public int size() {
+                        return types.size();
+                    }
+                });
+    }
+
     /** Check appropriate type cast availability. */
     private void checkTypesInteroperability(SqlValidatorScope scope, SqlNode expr) {
         boolean castOp = expr.getKind() == SqlKind.CAST;
@@ -905,7 +950,7 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
 
     /** Derives the type of the given dynamic parameter. */
     private RelDataType deriveDynamicParamType(SqlDynamicParam dynamicParam) {
-        IgniteTypeFactory typeFactory = typeFactory();
+        dynamicParamNodes.put(dynamicParam, dynamicParam);
 
         if (isUnspecified(dynamicParam)) {
             RelDataType validatedNodeType = getValidatedNodeTypeIfKnown(dynamicParam);
@@ -919,17 +964,7 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
             }
         } else {
             Object value = getDynamicParamValue(dynamicParam);
-
-            RelDataType parameterType;
-            // IgniteCustomType: first we must check whether dynamic parameter is a custom data type.
-            // If so call createCustomType with appropriate arguments.
-            if (value instanceof UUID) {
-                parameterType = typeFactory.createCustomType(UuidType.NAME);
-            } else if (value == null) {
-                parameterType = typeFactory.createSqlType(SqlTypeName.NULL);
-            } else {
-                parameterType = typeFactory.toSql(typeFactory.createType(value.getClass()));
-            }
+            RelDataType parameterType = deriveTypeFromDynamicParamValue(value);
 
             // Dynamic parameters are always nullable.
             // Otherwise it seem to cause "Conversion to relational algebra failed to preserve datatypes" errors
@@ -940,6 +975,23 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
 
             return nullableType;
         }
+    }
+
+    private RelDataType deriveTypeFromDynamicParamValue(@Nullable Object value) {
+        IgniteTypeFactory typeFactory = typeFactory();
+
+        RelDataType parameterType;
+        // IgniteCustomType: first we must check whether dynamic parameter is a custom data type.
+        // If so call createCustomType with appropriate arguments.
+        if (value instanceof UUID) {
+            parameterType = typeFactory.createCustomType(UuidType.NAME);
+        } else if (value == null) {
+            parameterType = typeFactory.createSqlType(SqlTypeName.NULL);
+        } else {
+            parameterType = typeFactory.toSql(typeFactory.createType(value.getClass()));
+        }
+
+        return parameterType;
     }
 
     /** if dynamic parameter is not specified, set its type to the provided type, otherwise return the type of its value. */
@@ -987,18 +1039,39 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
                 throw newValidationError(paramState.node, IgniteResource.INSTANCE.unableToResolveDynamicParameterType(i));
             } else {
                 SqlDynamicParam dynamicParam = paramState.node;
-                RelDataType paramType = paramState.resolvedType;
                 RelDataType derivedType = getValidatedNodeType(dynamicParam);
 
-                // We can check for nullability, but it was set to true.
-                if (!SqlTypeUtil.equalSansNullability(derivedType, paramType)) {
-                    String message = format(
-                            "Type of dynamic parameter#{} does not match. Expected: {} derived: {}", i, paramType.getFullTypeString(),
-                            derivedType.getFullTypeString()
-                    );
+                // Ensure that derived type matches value type if it set.
+                if (paramState.value.hasValue()) {
+                    Object value = paramState.value.value();
+                    RelDataType valueType = deriveTypeFromDynamicParamValue(value);
 
-                    throw new AssertionError(message);
+                    if (!SqlTypeUtil.equalSansNullability(derivedType, valueType)) {
+                        String message = format(
+                                "Type of dynamic parameter#{} value type does not match. Expected: {} derived: {}",
+                                i, valueType.getFullTypeString(), derivedType.getFullTypeString()
+                        );
+
+                        throw new AssertionError(message);
+                    }
                 }
+            }
+        }
+
+        // Ensure that all nodes for i-th parameter have the same type.
+        for (SqlDynamicParam node : dynamicParamNodes.keySet()) {
+            int i = node.getIndex();
+            DynamicParamState state = dynamicParameters[i];
+            RelDataType derivedType = getValidatedNodeTypeIfKnown(node);
+            RelDataType paramType = state.resolvedType;
+
+            if (!Objects.equals(paramType, derivedType)) {
+                String message = format(
+                        "Type of dynamic parameter node#{} does not match. Expected: {} derived: {}", i, paramType.getFullTypeString(),
+                        derivedType != null ? derivedType.getFullTypeString() : null
+                );
+
+                throw new AssertionError(message);
             }
         }
     }
