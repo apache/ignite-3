@@ -52,7 +52,7 @@ public interface QueryProcessor extends IgniteComponent {
      * @param transaction A transaction to use for query execution. If null, an implicit transaction
      *      will be started by provided transactions facade.
      * @param qry Single statement SQL query.
-     * @param params Values of query parameters.
+     * @param params Query parameters.
      * @return Sql cursor.
      *
      * @throws IgniteException in case of an error.
@@ -74,7 +74,7 @@ public interface QueryProcessor extends IgniteComponent {
      * @param transaction A transaction to use for query execution. If null, an implicit transaction
      *      will be started by provided transactions facade.
      * @param qry Multi statement SQL query.
-     * @param params Values of query parameters.
+     * @param params Query parameters.
      * @return Sql cursor.
      *
      * @throws IgniteException in case of an error.
