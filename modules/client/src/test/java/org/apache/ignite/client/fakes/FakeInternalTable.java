@@ -18,7 +18,9 @@
 package org.apache.ignite.client.fakes;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -239,13 +241,13 @@ public class FakeInternalTable implements InternalTable {
 
         if (old == null || !old.tupleSlice().equals(oldRow.tupleSlice())) {
             onDataAccess("replace", oldRow);
-            return completedFuture(false);
+            return falseCompletedFuture();
         }
 
         upsertImpl(key, newRow);
 
         onDataAccess("replace", oldRow);
-        return completedFuture(true);
+        return trueCompletedFuture();
     }
 
     private @Nullable BinaryRow replaceImpl(BinaryTuple key, BinaryRow row, @Nullable InternalTransaction tx) {

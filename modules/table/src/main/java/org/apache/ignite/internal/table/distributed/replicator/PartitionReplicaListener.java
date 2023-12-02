@@ -33,6 +33,7 @@ import static org.apache.ignite.internal.tx.TxState.COMMITED;
 import static org.apache.ignite.internal.tx.TxState.PENDING;
 import static org.apache.ignite.internal.tx.TxState.isFinalState;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
+import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.withCause;
 import static org.apache.ignite.internal.util.IgniteUtils.findAny;
@@ -345,7 +346,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
     private CompletableFuture<Boolean> onPrimaryElected(PrimaryReplicaEventParameters evt, @Nullable Throwable exception) {
         if (!localNode.name().equals(evt.leaseholder()) || !replicationGroupId.equals(evt.groupId())) {
-            return completedFuture(false);
+            return falseCompletedFuture();
         }
 
         List<CompletableFuture<?>> cleanupFutures = new ArrayList<>();
@@ -355,7 +356,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         try {
             txs = txStateStorage.scan();
         } catch (IgniteInternalException e) {
-            return completedFuture(false);
+            return falseCompletedFuture();
         }
 
         for (IgniteBiTuple<UUID, TxMeta> tx : txs) {
@@ -382,7 +383,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         // The future returned by this event handler can't wait for all cleanups because it's not necessary and it can block
         // meta storage notification thread for a while, preventing it from delivering further updates (including leases) and therefore
         // causing deadlock on primary replica waiting.
-        return completedFuture(false);
+        return falseCompletedFuture();
     }
 
     private CompletableFuture<?> durableCleanup(UUID txId, TxMeta txMeta) {
@@ -422,7 +423,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
     private CompletableFuture<Boolean> onPrimaryExpired(PrimaryReplicaEventParameters evt, @Nullable Throwable exception) {
         if (!localNode.name().equals(evt.leaseholder()) || !replicationGroupId.equals(evt.groupId())) {
-            return completedFuture(false);
+            return falseCompletedFuture();
         }
 
         LOG.info("Primary replica expired [grp={}]", replicationGroupId);

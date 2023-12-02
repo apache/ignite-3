@@ -22,6 +22,7 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
 
 import java.util.Arrays;
 import java.util.Collection;
@@ -149,7 +150,7 @@ class PartitionReplicatorNodeRecovery {
             return performGroupRecovery(tablePartitionId, newConfiguration, localMemberAssignment);
         }
 
-        return completedFuture(true);
+        return trueCompletedFuture();
     }
 
     private static boolean mightNeedGroupRecovery(InternalTable internalTable) {

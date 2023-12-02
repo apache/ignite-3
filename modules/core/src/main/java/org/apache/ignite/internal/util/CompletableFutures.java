@@ -26,8 +26,24 @@ public class CompletableFutures {
     /** Completed future with {@code null}. */
     public static final CompletableFuture<Void> NULL_COMPLETED_FUTURE = completedFuture(null);
 
+    /** Completed future with {@code true}. */
+    public static final CompletableFuture<Boolean> TRUE_COMPLETED_FUTURE = completedFuture(true);
+
+    /** Completed future with {@code false}. */
+    public static final CompletableFuture<Boolean> FALSE_COMPLETED_FUTURE = completedFuture(false);
+
     /** Returns a completed future with {@code null} with the requested type. */
     public static <T> CompletableFuture<T> nullCompletedFuture() {
         return (CompletableFuture<T>) NULL_COMPLETED_FUTURE;
+    }
+
+    /** Returns a completed future with {@code true} with the requested type. */
+    public static CompletableFuture<Boolean> trueCompletedFuture() {
+        return TRUE_COMPLETED_FUTURE;
+    }
+
+    /** Returns a completed future with {@code false} with the requested type. */
+    public static CompletableFuture<Boolean> falseCompletedFuture() {
+        return FALSE_COMPLETED_FUTURE;
     }
 }

@@ -30,6 +30,7 @@ import static org.apache.ignite.internal.causality.IncrementalVersionedValue.dep
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.partitionAssignments;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.tableAssignments;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
+import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
@@ -743,7 +744,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                         }
                     }), ioExecutor);
                 } else {
-                    startGroupFut = completedFuture(false);
+                    startGroupFut = falseCompletedFuture();
                 }
 
                 startGroupFut
@@ -2065,7 +2066,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             stopReplicaFuture = replicaMgr.stopReplica(tablePartitionId);
         } catch (NodeStoppingException e) {
             // No-op.
-            stopReplicaFuture = completedFuture(false);
+            stopReplicaFuture = falseCompletedFuture();
         }
 
         return stopReplicaFuture

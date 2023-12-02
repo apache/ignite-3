@@ -20,6 +20,7 @@ package org.apache.ignite.internal.configuration.storage;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static org.apache.ignite.internal.configuration.util.ConfigurationSerializationUtil.fromBytes;
 import static org.apache.ignite.internal.configuration.util.ConfigurationSerializationUtil.toBytes;
+import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.StringUtils.incrementLastChar;
 
@@ -162,7 +163,7 @@ public class LocalConfigurationStorage implements ConfigurationStorage {
                     .thenCompose(v -> lastRevision())
                     .thenComposeAsync(version -> {
                         if (version != sentVersion) {
-                            return CompletableFuture.completedFuture(false);
+                            return falseCompletedFuture();
                         }
 
                         ConfigurationStorageListener lsnr = lsnrRef.get();

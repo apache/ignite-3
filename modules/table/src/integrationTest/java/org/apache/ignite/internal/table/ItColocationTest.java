@@ -22,6 +22,7 @@ import static java.util.stream.Collectors.toMap;
 import static org.apache.ignite.internal.replicator.ReplicaManager.DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS;
 import static org.apache.ignite.internal.schema.SchemaTestUtils.specToType;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
@@ -193,7 +194,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
                             .map(uuid -> new NullBinaryRow())
                             .collect(Collectors.toList()));
                 } else {
-                    return completedFuture(true);
+                    return trueCompletedFuture();
                 }
             }).when(r).run(any());
 

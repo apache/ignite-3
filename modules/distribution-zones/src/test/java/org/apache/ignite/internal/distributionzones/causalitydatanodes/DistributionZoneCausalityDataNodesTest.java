@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.distributionzones.causalitydatanodes;
 
 import static java.util.Collections.emptySet;
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_ZONE_NAME;
@@ -39,6 +38,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThr
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
+import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.startsWith;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -1287,13 +1287,13 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
             completeRevisionFuture(createZoneRevisions.remove(zoneName), parameters.causalityToken());
 
-            return completedFuture(false);
+            return falseCompletedFuture();
         });
 
         catalogManager.listen(ZONE_DROP, (parameters, exception) -> {
             completeRevisionFuture(dropZoneRevisions.remove(((DropZoneEventParameters) parameters).zoneId()), parameters.causalityToken());
 
-            return completedFuture(false);
+            return falseCompletedFuture();
         });
 
         catalogManager.listen(ZONE_ALTER, new CatalogAlterZoneEventListener(catalogManager) {

@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.replicator.LocalReplicaEvent.BEFORE_REP
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -118,8 +119,8 @@ public class ReplicaManagerTest extends BaseIgniteAbstractTest {
     ) throws NodeStoppingException {
         when(raftGroupService.unsubscribeLeader()).thenReturn(nullCompletedFuture());
 
-        when(createReplicaListener.notify(any(), any())).thenReturn(completedFuture(false));
-        when(removeReplicaListener.notify(any(), any())).thenReturn(completedFuture(false));
+        when(createReplicaListener.notify(any(), any())).thenReturn(falseCompletedFuture());
+        when(removeReplicaListener.notify(any(), any())).thenReturn(falseCompletedFuture());
 
         replicaManager.listen(AFTER_REPLICA_STARTED, createReplicaListener);
         replicaManager.listen(BEFORE_REPLICA_STOPPED, removeReplicaListener);

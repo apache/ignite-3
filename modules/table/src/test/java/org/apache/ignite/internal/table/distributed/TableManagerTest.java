@@ -25,7 +25,9 @@ import static org.apache.ignite.internal.catalog.events.CatalogEvent.TABLE_DROP;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
 import static org.apache.ignite.sql.ColumnType.INT64;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -251,7 +253,7 @@ public class TableManagerTest extends IgniteAbstractTest {
 
         when(distributionZoneManager.dataNodes(anyLong(), anyInt())).thenReturn(completedFuture(emptySet()));
 
-        when(replicaMgr.stopReplica(any())).thenReturn(completedFuture(true));
+        when(replicaMgr.stopReplica(any())).thenReturn(trueCompletedFuture());
 
         tblManagerFut = new CompletableFuture<>();
 
@@ -649,13 +651,13 @@ public class TableManagerTest extends IgniteAbstractTest {
             catalogManager.listen(TABLE_CREATE, (parameters, exception) -> {
                 phaser.arriveAndAwaitAdvance();
 
-                return completedFuture(false);
+                return falseCompletedFuture();
             });
 
             catalogManager.listen(TABLE_DROP, (parameters, exception) -> {
                 phaser.arriveAndAwaitAdvance();
 
-                return completedFuture(false);
+                return falseCompletedFuture();
             });
         }
 
