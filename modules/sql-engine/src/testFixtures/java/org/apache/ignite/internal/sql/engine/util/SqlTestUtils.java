@@ -48,11 +48,8 @@ import org.apache.ignite.lang.ErrorGroup;
 import org.apache.ignite.lang.ErrorGroups;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.SqlException;
-import org.apache.ignite.sql.SqlRow;
-import org.apache.ignite.tx.Transaction;
 import org.hamcrest.CoreMatchers;
 import org.hamcrest.StringDescription;
-import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.function.Executable;
 
 /**
