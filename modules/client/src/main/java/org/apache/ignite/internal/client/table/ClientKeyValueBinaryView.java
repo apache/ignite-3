@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.client.table;
 
 import static org.apache.ignite.internal.client.ClientUtils.sync;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.Collection;
 import java.util.Collections;
@@ -192,7 +193,7 @@ public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
         Objects.requireNonNull(pairs);
 
         if (pairs.isEmpty()) {
-            return CompletableFuture.completedFuture(null);
+            return nullCompletedFuture();
         }
 
         return tbl.doSchemaOutOpAsync(

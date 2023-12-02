@@ -25,6 +25,7 @@ import static org.apache.ignite.internal.catalog.events.CatalogEvent.TABLE_DROP;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.sql.ColumnType.INT64;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -545,7 +546,7 @@ public class TableManagerTest extends IgniteAbstractTest {
         }
 
         doReturn(mock(PartitionTimestampCursor.class)).when(mvPartitionStorage).scan(any());
-        when(txStateStorage.clear()).thenReturn(completedFuture(null));
+        when(txStateStorage.clear()).thenReturn(nullCompletedFuture());
 
         when(msm.recoveryFinishedFuture()).thenReturn(completedFuture(1L));
 
@@ -553,7 +554,7 @@ public class TableManagerTest extends IgniteAbstractTest {
         createTableManager(tblManagerFut, (mvTableStorage) -> {
             doReturn(completedFuture(mvPartitionStorage)).when(mvTableStorage).createMvPartition(anyInt());
             doReturn(mvPartitionStorage).when(mvTableStorage).getMvPartition(anyInt());
-            doReturn(completedFuture(null)).when(mvTableStorage).clearPartition(anyInt());
+            doReturn(nullCompletedFuture()).when(mvTableStorage).clearPartition(anyInt());
         }, (txStateTableStorage) -> {
             doReturn(txStateStorage).when(txStateTableStorage).getOrCreateTxStateStorage(anyInt());
             doReturn(txStateStorage).when(txStateTableStorage).getTxStateStorage(anyInt());
@@ -585,9 +586,9 @@ public class TableManagerTest extends IgniteAbstractTest {
             subscriber.onComplete();
         });
 
-        when(msm.invoke(any(), any(Operation.class), any(Operation.class))).thenReturn(completedFuture(null));
-        when(msm.invoke(any(), any(List.class), any(List.class))).thenReturn(completedFuture(null));
-        when(msm.get(any())).thenReturn(completedFuture(null));
+        when(msm.invoke(any(), any(Operation.class), any(Operation.class))).thenReturn(nullCompletedFuture());
+        when(msm.invoke(any(), any(List.class), any(List.class))).thenReturn(nullCompletedFuture());
+        when(msm.get(any())).thenReturn(nullCompletedFuture());
 
         when(msm.recoveryFinishedFuture()).thenReturn(completedFuture(1L));
 
@@ -688,8 +689,8 @@ public class TableManagerTest extends IgniteAbstractTest {
             Consumer<TxStateTableStorage> txStateTableStorageDecorator) {
         VaultManager vaultManager = mock(VaultManager.class);
 
-        when(vaultManager.get(any(ByteArray.class))).thenReturn(completedFuture(null));
-        when(vaultManager.put(any(ByteArray.class), any(byte[].class))).thenReturn(completedFuture(null));
+        when(vaultManager.get(any(ByteArray.class))).thenReturn(nullCompletedFuture());
+        when(vaultManager.put(any(ByteArray.class), any(byte[].class))).thenReturn(nullCompletedFuture());
 
         TableManager tableManager = new TableManager(
                 NODE_NAME,

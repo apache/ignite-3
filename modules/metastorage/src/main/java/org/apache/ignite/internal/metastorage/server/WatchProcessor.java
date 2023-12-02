@@ -21,6 +21,7 @@ import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -69,7 +70,7 @@ public class WatchProcessor implements ManuallyCloseable {
      * <p>Since Watches are notified concurrently, this future is used to guarantee that no Watches get notified of a new revision,
      * until all Watches have finished processing the previous revision.
      */
-    private volatile CompletableFuture<Void> notificationFuture = completedFuture(null);
+    private volatile CompletableFuture<Void> notificationFuture = nullCompletedFuture();
 
     private final EntryReader entryReader;
 
@@ -169,7 +170,7 @@ public class WatchProcessor implements ManuallyCloseable {
 
     private static CompletableFuture<Void> notifyWatches(List<WatchAndEvents> watchAndEventsList, long revision, HybridTimestamp time) {
         if (watchAndEventsList.isEmpty()) {
-            return completedFuture(null);
+            return nullCompletedFuture();
         }
 
         CompletableFuture<?>[] notifyWatchFutures = new CompletableFuture[watchAndEventsList.size()];
@@ -316,6 +317,6 @@ public class WatchProcessor implements ManuallyCloseable {
             futures.add(listener.onUpdated(newRevision));
         }
 
-        return futures.isEmpty() ? completedFuture(null) : allOf(futures.toArray(CompletableFuture[]::new));
+        return futures.isEmpty() ? nullCompletedFuture() : allOf(futures.toArray(CompletableFuture[]::new));
     }
 }

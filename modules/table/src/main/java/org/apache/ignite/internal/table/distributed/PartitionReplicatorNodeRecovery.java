@@ -21,6 +21,7 @@ import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toSet;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.Arrays;
 import java.util.Collection;
@@ -222,7 +223,7 @@ class PartitionReplicatorNodeRecovery {
         }
 
         if (peerNodesByConsistentIds.size() >= peers.size()) {
-            return completedFuture(null);
+            return nullCompletedFuture();
         }
 
         CompletableFuture<Void> allPeersAreSeenInTopology = new CompletableFuture<>();
@@ -254,7 +255,7 @@ class PartitionReplicatorNodeRecovery {
         }
 
         if (peerNodesByConsistentIds.size() >= peers.size()) {
-            return completedFuture(null);
+            return nullCompletedFuture();
         }
 
         // TODO: remove the handler after https://issues.apache.org/jira/browse/IGNITE-14519 is implemented.

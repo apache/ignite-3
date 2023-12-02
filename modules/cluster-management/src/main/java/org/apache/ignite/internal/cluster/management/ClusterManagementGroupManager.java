@@ -23,6 +23,7 @@ import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 import static java.util.stream.Collectors.toUnmodifiableSet;
 import static org.apache.ignite.internal.cluster.management.ClusterTag.clusterTag;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.cancelOrConsume;
 
 import java.util.Collection;
@@ -231,7 +232,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
     public CompletableFuture<ClusterState> clusterState() {
         CompletableFuture<CmgRaftService> serviceFuture = raftService;
 
-        return serviceFuture == null ? completedFuture(null) : serviceFuture.thenCompose(CmgRaftService::readClusterState);
+        return serviceFuture == null ? nullCompletedFuture() : serviceFuture.thenCompose(CmgRaftService::readClusterState);
     }
 
     /**
@@ -409,7 +410,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
                             .collect(toUnmodifiableSet());
 
                     // TODO: IGNITE-18681 - respect removal timeout.
-                    return nodesToRemove.isEmpty() ? completedFuture(null) : service.removeFromCluster(nodesToRemove);
+                    return nodesToRemove.isEmpty() ? nullCompletedFuture() : service.removeFromCluster(nodesToRemove);
                 })
                 .thenApply(v -> service);
     }
@@ -556,7 +557,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
         if (serviceFuture != null) {
             serviceFuture.thenCompose(service -> service.isCurrentNodeLeader().thenCompose(isLeader -> {
                 if (!isLeader) {
-                    return completedFuture(null);
+                    return nullCompletedFuture();
                 }
 
                 return service.updateLearners(term);
@@ -609,7 +610,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
                             .collect(toList());
 
                     if (recipients.isEmpty()) {
-                        return completedFuture(null);
+                        return nullCompletedFuture();
                     }
 
                     return raftService.readClusterState()

@@ -15,20 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed.schema;
+package org.apache.ignite.internal.util;
 
-import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static java.util.concurrent.CompletableFuture.completedFuture;
 
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
 
-/**
- * Test implementation of {@link SchemaSyncService} that never waits and always behaves as if the metadata was already in sync for any
- * passed ts.
- */
-public class AlwaysSyncedSchemaSyncService implements SchemaSyncService {
-    @Override
-    public CompletableFuture<Void> waitForMetadataCompleteness(HybridTimestamp ts) {
-        return nullCompletedFuture();
+/** Helper class for working with {@link CompletableFuture} contains useful constants and methods. */
+public class CompletableFutures {
+    /** Completed future with {@code null}. */
+    public static final CompletableFuture<Void> NULL_COMPLETED_FUTURE = completedFuture(null);
+
+    /** Returns a completed future with {@code null} with the requested type. */
+    public static <T> CompletableFuture<T> nullCompletedFuture() {
+        return (CompletableFuture<T>) NULL_COMPLETED_FUTURE;
     }
 }

@@ -24,6 +24,7 @@ import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.util.ByteUtils.intToBytes;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 
@@ -364,7 +365,7 @@ public class SchemaManager implements IgniteComponent {
                 .thenCompose(latestVersion -> {
                     if (latestVersion == null) {
                         // Nothing to remove.
-                        return completedFuture(null);
+                        return nullCompletedFuture();
                     }
 
                     Set<ByteArray> keysToRemove = IntStream.rangeClosed(CatalogTableDescriptor.INITIAL_TABLE_VERSION, latestVersion)

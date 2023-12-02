@@ -33,6 +33,7 @@ import static org.apache.ignite.internal.table.TableTestUtils.getTableIdStrict;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.sql.ColumnType.STRING;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -221,8 +222,8 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
         // stable partitions for tables are empty
         when(metaStorageManager.getAll(any())).thenReturn(completedFuture(Map.of()));
 
-        when(vaultManager.get(any(ByteArray.class))).thenReturn(completedFuture(null));
-        when(vaultManager.put(any(ByteArray.class), any(byte[].class))).thenReturn(completedFuture(null));
+        when(vaultManager.get(any(ByteArray.class))).thenReturn(nullCompletedFuture());
+        when(vaultManager.put(any(ByteArray.class), any(byte[].class))).thenReturn(nullCompletedFuture());
     }
 
     @AfterEach

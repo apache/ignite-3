@@ -26,6 +26,7 @@ import static org.apache.ignite.internal.table.distributed.replicator.action.Req
 import static org.apache.ignite.internal.table.distributed.replicator.action.RequestType.RW_GET;
 import static org.apache.ignite.internal.table.distributed.replicator.action.RequestType.RW_GET_ALL;
 import static org.apache.ignite.internal.table.distributed.storage.RowBatch.allResultFutures;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.withCause;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_UNAVAILABLE_ERR;
@@ -1831,7 +1832,7 @@ public class InternalTableImpl implements InternalTable {
                     return;
                 }
 
-                onClose.apply(commit, t == null ? completedFuture(null) : failedFuture(t)).handle((ignore, th) -> {
+                onClose.apply(commit, t == null ? nullCompletedFuture() : failedFuture(t)).handle((ignore, th) -> {
                     if (th != null) {
                         subscriber.onError(th);
                     } else {

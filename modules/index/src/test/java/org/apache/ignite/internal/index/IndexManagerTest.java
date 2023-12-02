@@ -32,6 +32,7 @@ import static org.apache.ignite.internal.table.TableTestUtils.createHashIndex;
 import static org.apache.ignite.internal.table.TableTestUtils.getTableIdStrict;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.aMapWithSize;
 import static org.hamcrest.Matchers.equalTo;
@@ -137,7 +138,7 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
 
         mockSchemaManager = mock(SchemaManager.class);
 
-        when(mockSchemaManager.schemaRegistry(anyLong(), anyInt())).thenReturn(completedFuture(null));
+        when(mockSchemaManager.schemaRegistry(anyLong(), anyInt())).thenReturn(nullCompletedFuture());
 
         createAndStartComponents();
 

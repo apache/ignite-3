@@ -39,6 +39,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThr
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.startsWith;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -1221,7 +1222,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
                     topologyRevisions.remove(nodeNames).complete(revision);
                 }
 
-                return completedFuture(null);
+                return nullCompletedFuture();
             }
 
             @Override
@@ -1271,7 +1272,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
                 completeRevisionFuture(zoneDataNodesRevisions.remove(zoneDataNodesKey), revision);
 
-                return completedFuture(null);
+                return nullCompletedFuture();
             }
 
             @Override
@@ -1300,21 +1301,21 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
             protected CompletableFuture<Void> onAutoAdjustScaleUpUpdate(AlterZoneEventParameters parameters, int oldAutoAdjustScaleUp) {
                 completeRevisionFuture(zoneScaleUpRevisions.remove(parameters.zoneDescriptor().id()), parameters.causalityToken());
 
-                return completedFuture(null);
+                return nullCompletedFuture();
             }
 
             @Override
             protected CompletableFuture<Void> onAutoAdjustScaleDownUpdate(AlterZoneEventParameters parameters, int oldAutoAdjustScaleDown) {
                 completeRevisionFuture(zoneScaleDownRevisions.remove(parameters.zoneDescriptor().id()), parameters.causalityToken());
 
-                return completedFuture(null);
+                return nullCompletedFuture();
             }
 
             @Override
             protected CompletableFuture<Void> onFilterUpdate(AlterZoneEventParameters parameters, String oldFilter) {
                 completeRevisionFuture(zoneChangeFilterRevisions.remove(parameters.zoneDescriptor().id()), parameters.causalityToken());
 
-                return completedFuture(null);
+                return nullCompletedFuture();
             }
         });
     }

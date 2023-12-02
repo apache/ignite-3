@@ -17,9 +17,9 @@
 
 package org.apache.ignite.internal.metastorage.server.time;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertTimeout;
@@ -85,7 +85,7 @@ public class ClusterTimeTest extends BaseIgniteAbstractTest {
     void testIdleSafeTimeScheduler(@InjectConfiguration("mock.idleSyncTimeInterval=1") MetaStorageConfiguration config) {
         SyncTimeAction action = mock(SyncTimeAction.class);
 
-        when(action.syncTime(any())).thenReturn(completedFuture(null));
+        when(action.syncTime(any())).thenReturn(nullCompletedFuture());
 
         clusterTime.startSafeTimeScheduler(action, config);
 
@@ -96,7 +96,7 @@ public class ClusterTimeTest extends BaseIgniteAbstractTest {
     void testIdleSafeTimeSchedulerStop(@InjectConfiguration("mock.idleSyncTimeInterval=1") MetaStorageConfiguration config) {
         SyncTimeAction action = mock(SyncTimeAction.class);
 
-        when(action.syncTime(any())).thenReturn(completedFuture(null));
+        when(action.syncTime(any())).thenReturn(nullCompletedFuture());
 
         clusterTime.startSafeTimeScheduler(action, config);
 
@@ -118,7 +118,7 @@ public class ClusterTimeTest extends BaseIgniteAbstractTest {
 
         SyncTimeAction action = mock(SyncTimeAction.class);
 
-        when(action.syncTime(any())).thenReturn(completedFuture(null));
+        when(action.syncTime(any())).thenReturn(nullCompletedFuture());
 
         clusterTime.startSafeTimeScheduler(action, config);
 

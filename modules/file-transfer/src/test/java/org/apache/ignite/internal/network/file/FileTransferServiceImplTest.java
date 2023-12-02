@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.network.file.messages.FileTransferError
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.emptyArray;
@@ -279,7 +280,7 @@ class FileTransferServiceImplTest extends BaseIgniteAbstractTest {
         doAnswer(invocation -> {
             // Check lifecycle state - transfer is registered.
             transferLifecycleState.compareAndSet(1, 2);
-            return completedFuture(null);
+            return nullCompletedFuture();
         }).when(messagingService).respond(anyString(), eq(FILE_TRANSFER_CHANNEL), any(FileTransferInitResponse.class), anyLong());
 
         // Create file transfer request.

@@ -18,6 +18,7 @@
 package org.apache.ignite.client.fakes;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -156,7 +157,7 @@ public class FakeInternalTable implements InternalTable {
     public CompletableFuture<Void> upsert(BinaryRowEx row, @Nullable InternalTransaction tx) {
         upsertImpl(keyExtractor.extractColumns(row), row);
 
-        return completedFuture(null);
+        return nullCompletedFuture();
     }
 
     private void upsertImpl(BinaryTuple key, BinaryRow row) {
@@ -172,7 +173,7 @@ public class FakeInternalTable implements InternalTable {
         }
 
         onDataAccess("upsertAll", rows);
-        return completedFuture(null);
+        return nullCompletedFuture();
     }
 
     @Override
