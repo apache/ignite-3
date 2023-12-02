@@ -822,6 +822,11 @@ public class DynamicParametersTest extends AbstractPlannerTest {
                         .parameterTypes(nullable(NativeTypes.UUID))
                         .project("=($t0, ?0)"),
 
+                checkStatement(setup)
+                        .sql("SELECT uuid_col IN (?) FROM t1", Unspecified.UNKNOWN)
+                        .parameterTypes(nullable(NativeTypes.UUID))
+                        .project("=($t0, ?0)"),
+
                 // CASE
 
                 checkStatement(setup)
@@ -836,6 +841,26 @@ public class DynamicParametersTest extends AbstractPlannerTest {
                         .sql("SELECT CASE RAND_UUID() WHEN ? THEN 1 WHEN ? THEN 2 ELSE 3 END", new UUID(0, 1), new UUID(0, 2))
                         .parameterTypes(nullable(NativeTypes.UUID), nullable(NativeTypes.UUID))
                         .ok(),
+
+                checkStatement(setup)
+                        .sql("SELECT CASE RAND_UUID() WHEN ? THEN 1 WHEN ? THEN 2 ELSE 3 END", new UUID(0, 1), Unspecified.UNKNOWN)
+                        .parameterTypes(nullable(NativeTypes.UUID), nullable(NativeTypes.UUID))
+                        .ok(),
+
+                checkStatement(setup)
+                        .sql("SELECT CASE RAND_UUID() WHEN ? THEN 1 WHEN ? THEN 2 ELSE 3 END", Unspecified.UNKNOWN, Unspecified.UNKNOWN)
+                        .parameterTypes(nullable(NativeTypes.UUID), nullable(NativeTypes.UUID))
+                        .ok(),
+
+                checkStatement()
+                        .sql("SELECT COALESCE(?, 'UUID'::UUID)", new UUID(0, 0))
+                        .parameterTypes(nullable(NativeTypes.UUID))
+                        .project("CASE(IS NOT NULL(?0), ?0, CAST(_UTF-8'UUID'):UUID NOT NULL)"),
+
+                checkStatement()
+                        .sql("SELECT NULLIF(?, 'UUID'::UUID)", new UUID(0, 0))
+                        .parameterTypes(nullable(NativeTypes.UUID))
+                        .project("CASE(=(?0, CAST(_UTF-8'UUID'):UUID NOT NULL), null:NULL, ?0)"),
 
                 // Set operations
 
