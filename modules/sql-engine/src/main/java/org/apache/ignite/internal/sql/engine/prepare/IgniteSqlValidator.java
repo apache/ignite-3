@@ -545,39 +545,39 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
     public RelDataType deriveType(SqlValidatorScope scope, SqlNode expr) {
         if (expr instanceof SqlDynamicParam) {
             return deriveDynamicParamType((SqlDynamicParam) expr);
-        } else {
-            checkTypesInteroperability(scope, expr);
+        }
 
-            RelDataType dataType = super.deriveType(scope, expr);
+        checkTypesInteroperability(scope, expr);
 
-            SqlKind sqlKind = expr.getKind();
-            // See the comments below.
-            if (!SqlKind.BINARY_COMPARISON.contains(sqlKind)) {
-                return dataType;
-            }
+        RelDataType dataType = super.deriveType(scope, expr);
 
-            // Comparison and arithmetic operators are SqlCalls.
-            SqlCall sqlCall = (SqlCall) expr;
-            var lhs = getValidatedNodeType(sqlCall.operand(0));
-            var rhs = getValidatedNodeType(sqlCall.operand(1));
-
-            // IgniteCustomType:
-            // Check compatibility for operands of binary comparison operation between custom data types vs built-in SQL types.
-            // We get here because in calcite ANY type can be assigned/casted to all other types.
-            // This check can be a part of some SqlOperandTypeChecker?
-
-            if (lhs instanceof IgniteCustomType || rhs instanceof IgniteCustomType) {
-                boolean lhsRhsCompatible = TypeUtils.typeFamiliesAreCompatible(typeFactory, lhs, rhs);
-                boolean rhsLhsCompatible = TypeUtils.typeFamiliesAreCompatible(typeFactory, rhs, lhs);
-
-                if (!lhsRhsCompatible && !rhsLhsCompatible) {
-                    SqlCallBinding callBinding = new SqlCallBinding(this, scope, (SqlCall) expr);
-                    throw callBinding.newValidationSignatureError();
-                }
-            }
-
+        SqlKind sqlKind = expr.getKind();
+        // See the comments below.
+        if (!SqlKind.BINARY_COMPARISON.contains(sqlKind)) {
             return dataType;
         }
+
+        // Comparison and arithmetic operators are SqlCalls.
+        SqlCall sqlCall = (SqlCall) expr;
+        var lhs = getValidatedNodeType(sqlCall.operand(0));
+        var rhs = getValidatedNodeType(sqlCall.operand(1));
+
+        // IgniteCustomType:
+        // Check compatibility for operands of binary comparison operation between custom data types vs built-in SQL types.
+        // We get here because in calcite ANY type can be assigned/casted to all other types.
+        // This check can be a part of some SqlOperandTypeChecker?
+
+        if (lhs instanceof IgniteCustomType || rhs instanceof IgniteCustomType) {
+            boolean lhsRhsCompatible = TypeUtils.typeFamiliesAreCompatible(typeFactory, lhs, rhs);
+            boolean rhsLhsCompatible = TypeUtils.typeFamiliesAreCompatible(typeFactory, rhs, lhs);
+
+            if (!lhsRhsCompatible && !rhsLhsCompatible) {
+                SqlCallBinding callBinding = new SqlCallBinding(this, scope, (SqlCall) expr);
+                throw callBinding.newValidationSignatureError();
+            }
+        }
+
+        return dataType;
     }
 
     /** {@inheritDoc} */
