@@ -108,8 +108,6 @@ public class DynamicParametersTest extends AbstractPlannerTest {
         String requireExplicitCast =
                 "Values passed to IN operator must have compatible types. Dynamic parameter requires adding explicit type cast";
 
-        String unableToDetermineParameter = "Unable to determine type of a dynamic parameter#0";
-
         return Stream.of(
                 sql("SELECT ? IN ('1', '2')", 1).parameterTypes(nullable(NativeTypes.INT32)).project("OR(=(?0, 1), =(?0, 2))"),
                 sql("SELECT ? IN (1, 2)", "1").fails(requireExplicitCast),

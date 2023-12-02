@@ -83,10 +83,6 @@ public class PrepareServiceImpl implements PrepareService {
     private static final ParameterMetadata EMPTY_PARAMETER_METADATA =
             new ParameterMetadata(Collections.emptyList());
 
-    /** Metadata result for a statement without dynamic parameters. */
-    private static final CompletableFuture<ParameterMetadata> NO_PARAMETER_METADATA_FUT =
-            CompletableFuture.completedFuture(EMPTY_PARAMETER_METADATA);
-
     /** Default planner timeout, in ms. */
     public static final long DEFAULT_PLANNER_TIMEOUT = 15000L;
 
@@ -335,10 +331,6 @@ public class PrepareServiceImpl implements PrepareService {
             // Validate
             ValidationResult validated = planner.validateAndGetTypeMetadata(sqlNode);
 
-            RelDataType parameterRowType = planner.getParameterRowType();
-
-            ParameterMetadata parameterMetadata = createParameterMetadata(parameterRowType);
-
             SqlNode validatedNode = validated.sqlNode();
 
             IgniteRel igniteRel = optimize(validatedNode, planner);
@@ -349,7 +341,7 @@ public class PrepareServiceImpl implements PrepareService {
             IgniteRel clonedTree = Cloner.clone(igniteRel, Commons.emptyCluster());
 
             return new MultiStepPlan(nextPlanId(), SqlQueryType.QUERY, clonedTree,
-                    resultSetMetadata(validated.dataType(), validated.origins(), validated.aliases()), parameterMetadata);
+                    resultSetMetadata(validated.dataType(), validated.origins(), validated.aliases()));
         }, planningPool));
 
         return planFut.thenApply(Function.identity());
@@ -372,10 +364,6 @@ public class PrepareServiceImpl implements PrepareService {
             // Validate
             SqlNode validatedNode = planner.validate(sqlNode);
 
-            // Retrieve parameter metadata
-            RelDataType parameterRowType = planner.getParameterRowType();
-            ParameterMetadata parameterMetadata = createParameterMetadata(parameterRowType);
-
             // Convert to Relational operators graph
             IgniteRel igniteRel = optimize(validatedNode, planner);
 
@@ -384,7 +372,7 @@ public class PrepareServiceImpl implements PrepareService {
             // before storing tree in plan cache
             IgniteRel clonedTree = Cloner.clone(igniteRel, Commons.emptyCluster());
 
-            return new MultiStepPlan(nextPlanId(), SqlQueryType.DML, clonedTree, DML_METADATA, parameterMetadata);
+            return new MultiStepPlan(nextPlanId(), SqlQueryType.DML, clonedTree, DML_METADATA);
         }, planningPool));
 
         return planFut.thenApply(Function.identity());
@@ -510,9 +498,5 @@ public class PrepareServiceImpl implements PrepareService {
         public SqlNode parsedTree() {
             return parsedTree;
         }
-    }
-
-    private static final class UnspecifiedValue {
-
     }
 }
