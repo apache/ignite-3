@@ -478,7 +478,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
         QueryCancel queryCancel = new QueryCancel();
 
-        CompletableFuture<AsyncSqlCursor<List<Object>>> start = new CompletableFuture<>();
+        CompletableFuture<ParameterMetadata> start = new CompletableFuture<>();
 
         CompletableFuture<ParameterMetadata> stage = start.thenCompose(ignored -> {
             ParsedResult result = parserService.parse(sql);
