@@ -20,6 +20,7 @@ package org.apache.ignite.internal.sql.engine;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.sql.engine.prepare.ParameterMetadata;
 import org.apache.ignite.internal.sql.engine.property.SqlProperties;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.lang.IgniteException;
@@ -30,6 +31,17 @@ import org.jetbrains.annotations.Nullable;
  * QueryProcessor interface.
  */
 public interface QueryProcessor extends IgniteComponent {
+
+    /**
+     * Returns parameter types for the given statement.
+     *
+     * @param properties User query properties. See {@link QueryProperty} for available properties.
+     * @param qry Single statement SQL query.
+     * @return Sql cursor.
+     *
+     */
+    CompletableFuture<ParameterMetadata> parameterTypesAsync(SqlProperties properties, String qry);
+
     /**
      * Execute the single statement query with given schema name and parameters.
      *
@@ -40,7 +52,7 @@ public interface QueryProcessor extends IgniteComponent {
      * @param transaction A transaction to use for query execution. If null, an implicit transaction
      *      will be started by provided transactions facade.
      * @param qry Single statement SQL query.
-     * @param params Query parameters.
+     * @param params Values of query parameters.
      * @return Sql cursor.
      *
      * @throws IgniteException in case of an error.
@@ -62,7 +74,7 @@ public interface QueryProcessor extends IgniteComponent {
      * @param transaction A transaction to use for query execution. If null, an implicit transaction
      *      will be started by provided transactions facade.
      * @param qry Multi statement SQL query.
-     * @param params Query parameters.
+     * @param params Values of query parameters.
      * @return Sql cursor.
      *
      * @throws IgniteException in case of an error.

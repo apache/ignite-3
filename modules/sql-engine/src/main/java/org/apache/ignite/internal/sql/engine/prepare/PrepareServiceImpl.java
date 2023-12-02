@@ -23,7 +23,7 @@ import static org.apache.ignite.internal.sql.engine.trait.TraitUtils.distributio
 import static org.apache.ignite.lang.ErrorGroups.Sql.PLANNING_TIMEOUT_ERR;
 
 import java.util.ArrayList;
-import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -78,6 +78,14 @@ public class PrepareServiceImpl implements PrepareService {
     private static final ResultSetMetadata DML_METADATA = new ResultSetMetadataImpl(List.of(
             new ColumnMetadataImpl("ROWCOUNT", ColumnType.INT64,
                     ColumnMetadata.UNDEFINED_PRECISION, ColumnMetadata.UNDEFINED_SCALE, false, null)));
+
+    /** Parameter metadata. */
+    private static final ParameterMetadata EMPTY_PARAMETER_METADATA =
+            new ParameterMetadata(Collections.emptyList());
+
+    /** Metadata result for a statement without dynamic parameters. */
+    private static final CompletableFuture<ParameterMetadata> NO_PARAMETER_METADATA_FUT =
+            CompletableFuture.completedFuture(EMPTY_PARAMETER_METADATA);
 
     /** Default planner timeout, in ms. */
     public static final long DEFAULT_PLANNER_TIMEOUT = 15000L;
@@ -181,6 +189,41 @@ public class PrepareServiceImpl implements PrepareService {
     public void stop() throws Exception {
         planningPool.shutdownNow();
         metricManager.unregisterSource(sqlPlanCacheMetricSource);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<ParameterMetadata> parameterTypesAsync(ParsedResult parsedResult, BaseQueryContext ctx) {
+        PlanningContext planningContext = PlanningContext.builder()
+                .parentContext(ctx)
+                .query(parsedResult.originalQuery())
+                .plannerTimeout(plannerTimeout)
+                .build();
+
+        try (IgnitePlanner planner = planningContext.planner()) {
+            SqlNode sqlNode = parsedResult.parsedTree();
+
+            switch (parsedResult.queryType()) {
+                case QUERY:
+                case DDL:
+                case DML:
+                case EXPLAIN:
+                    return CompletableFuture.supplyAsync(() -> {
+                        // Validate
+                        planner.validate(sqlNode);
+
+                        // Get parameters of previously validated node.
+                        RelDataType parameterRowType = planner.getParameterRowType();
+
+                        return createParameterMetadata(parameterRowType);
+                    }, planningPool);
+                default:
+                    throw new AssertionError("Unexpected queryType=" + parsedResult.queryType());
+            }
+
+        } catch (Exception e) {
+            return CompletableFuture.failedFuture(SqlExceptionMapperUtil.mapToPublicSqlException(e));
+        }
     }
 
     /** {@inheritDoc} */
@@ -292,6 +335,10 @@ public class PrepareServiceImpl implements PrepareService {
             // Validate
             ValidationResult validated = planner.validateAndGetTypeMetadata(sqlNode);
 
+            RelDataType parameterRowType = planner.getParameterRowType();
+
+            ParameterMetadata parameterMetadata = createParameterMetadata(parameterRowType);
+
             SqlNode validatedNode = validated.sqlNode();
 
             IgniteRel igniteRel = optimize(validatedNode, planner);
@@ -302,7 +349,7 @@ public class PrepareServiceImpl implements PrepareService {
             IgniteRel clonedTree = Cloner.clone(igniteRel, Commons.emptyCluster());
 
             return new MultiStepPlan(nextPlanId(), SqlQueryType.QUERY, clonedTree,
-                    resultSetMetadata(validated.dataType(), validated.origins(), validated.aliases()));
+                    resultSetMetadata(validated.dataType(), validated.origins(), validated.aliases()), parameterMetadata);
         }, planningPool));
 
         return planFut.thenApply(Function.identity());
@@ -325,6 +372,10 @@ public class PrepareServiceImpl implements PrepareService {
             // Validate
             SqlNode validatedNode = planner.validate(sqlNode);
 
+            // Retrieve parameter metadata
+            RelDataType parameterRowType = planner.getParameterRowType();
+            ParameterMetadata parameterMetadata = createParameterMetadata(parameterRowType);
+
             // Convert to Relational operators graph
             IgniteRel igniteRel = optimize(validatedNode, planner);
 
@@ -333,7 +384,7 @@ public class PrepareServiceImpl implements PrepareService {
             // before storing tree in plan cache
             IgniteRel clonedTree = Cloner.clone(igniteRel, Commons.emptyCluster());
 
-            return new MultiStepPlan(nextPlanId(), SqlQueryType.DML, clonedTree, DML_METADATA);
+            return new MultiStepPlan(nextPlanId(), SqlQueryType.DML, clonedTree, DML_METADATA, parameterMetadata);
         }, planningPool));
 
         return planFut.thenApply(Function.identity());
@@ -342,10 +393,22 @@ public class PrepareServiceImpl implements PrepareService {
     private static CacheKey createCacheKey(ParsedResult parsedResult, PlanningContext ctx) {
         boolean distributed = distributionPresent(ctx.config().getTraitDefs());
         int catalogVersion = ctx.unwrap(BaseQueryContext.class).schemaVersion();
+        DynamicParameterValue[] parameters = ctx.parameters();
 
-        Class[] paramTypes = ctx.parameters().length == 0
-                ? EMPTY_CLASS_ARRAY :
-                Arrays.stream(ctx.parameters()).map(p -> (p.value() != null) ? p.value().getClass() : Void.class).toArray(Class[]::new);
+        Class[] paramTypes;
+
+        if (parameters.length == 0) {
+            paramTypes = EMPTY_CLASS_ARRAY;
+        } else {
+            Class[] result = new Class[parameters.length];
+
+            for (int i = 0; i < parameters.length; i++) {
+                DynamicParameterValue parameter = parameters[i];
+                result[i] = parameter.value() != null ?  parameter.value().getClass() : Void.class;
+            }
+
+            paramTypes = result;
+        }
 
         return new CacheKey(catalogVersion, ctx.schemaName(), parsedResult.normalizedQuery(), distributed, paramTypes);
     }
@@ -378,6 +441,23 @@ public class PrepareServiceImpl implements PrepareService {
                     return new ResultSetMetadataImpl(fieldsMeta);
                 }
         );
+    }
+
+    private static ParameterMetadata createParameterMetadata(RelDataType parameterRowType) {
+        if (parameterRowType.getFieldCount() == 0) {
+            return EMPTY_PARAMETER_METADATA;
+        }
+
+        List<ParameterType> parameterTypes = new ArrayList<>(parameterRowType.getFieldCount());
+
+        for (int i = 0; i < parameterRowType.getFieldCount(); i++) {
+            RelDataTypeField field = parameterRowType.getFieldList().get(i);
+            ParameterType parameterType = ParameterType.fromRelDataType(field.getType());
+
+            parameterTypes.add(parameterType);
+        }
+
+        return new ParameterMetadata(parameterTypes);
     }
 
     private static class ParsedResultImpl implements ParsedResult {
@@ -430,5 +510,9 @@ public class PrepareServiceImpl implements PrepareService {
         public SqlNode parsedTree() {
             return parsedTree;
         }
+    }
+
+    private static final class UnspecifiedValue {
+
     }
 }

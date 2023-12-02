@@ -252,7 +252,11 @@ public class ExecutionContext<RowT> implements DataContext {
     public Object getParameter(String name, Type storageType) {
         assert name.startsWith("?") : name;
 
-        return TypeUtils.toInternal(params.get(name), storageType);
+        Object internal = TypeUtils.toInternal(params.get(name), storageType);
+
+        System.err.println("getParameter: " + qryId + " PARAMS " + params + " " + name + " = " + internal);
+
+        return internal;
     }
 
     /**

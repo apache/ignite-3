@@ -63,6 +63,8 @@ import org.apache.calcite.rel.RelCollationTraitDef;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.hint.HintPredicates;
 import org.apache.calcite.rel.hint.HintStrategyTable;
+import org.apache.calcite.rel.type.RelDataType;
+import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rex.RexBuilder;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlNode;
@@ -89,7 +91,6 @@ import org.apache.ignite.internal.sql.engine.hint.IgniteHint;
 import org.apache.ignite.internal.sql.engine.metadata.IgniteMetadata;
 import org.apache.ignite.internal.sql.engine.metadata.RelMetadataQueryEx;
 import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCostFactory;
-import org.apache.ignite.internal.sql.engine.prepare.DynamicParameterValue;
 import org.apache.ignite.internal.sql.engine.prepare.IgniteConvertletTable;
 import org.apache.ignite.internal.sql.engine.prepare.IgniteTypeCoercion;
 import org.apache.ignite.internal.sql.engine.prepare.PlanningContext;
@@ -176,6 +177,8 @@ public final class Commons {
             .typeSystem(IgniteTypeSystem.INSTANCE)
             .traitDefs(DISTRIBUTED_TRAITS_SET)
             .build();
+
+    private static final RelDataType EMPTY_ROW = new RelDataTypeFactory.Builder(typeFactory()).build();
 
     private Commons() {
     }
@@ -267,6 +270,10 @@ public final class Commons {
         return list;
     }
 
+    public static RelDataType emptyRowType() {
+        return EMPTY_ROW;
+    }
+
     /**
      * Extracts type factory.
      */
@@ -321,7 +328,7 @@ public final class Commons {
      * @param params Parameters.
      * @return Parameters map.
      */
-    public static Map<String, Object> parametersMap(@Nullable DynamicParameterValue[] params) {
+    public static Map<String, Object> parametersMap(@Nullable Object[] params) {
         if (ArrayUtils.nullOrEmpty(params)) {
             return Collections.emptyMap();
         } else {
@@ -339,11 +346,9 @@ public final class Commons {
      * @param dst    Map to populate.
      * @param params Parameters.
      */
-    private static void populateParameters(Map<String, Object> dst, DynamicParameterValue[] params) {
+    private static void populateParameters(Map<String, Object> dst, Object[] params) {
         for (int i = 0; i < params.length; i++) {
-            DynamicParameterValue param = params[i];
-            Object value = param.value();
-            dst.put("?" + i, value);
+            dst.put("?" + i, params[i]);
         }
     }
 

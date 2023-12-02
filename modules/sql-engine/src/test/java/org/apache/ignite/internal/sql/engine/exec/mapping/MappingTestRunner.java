@@ -41,6 +41,7 @@ import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.sql.api.ResultSetMetadataImpl;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.prepare.MultiStepPlan;
+import org.apache.ignite.internal.sql.engine.prepare.ParameterMetadata;
 import org.apache.ignite.internal.sql.engine.prepare.PlanId;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableModify;
@@ -163,8 +164,10 @@ final class MappingTestRunner {
             } else {
                 sqlQueryType = SqlQueryType.QUERY;
             }
+            PlanId planId = new PlanId(UUID.randomUUID(), 1);
             ResultSetMetadataImpl resultSetMetadata = new ResultSetMetadataImpl(Collections.emptyList());
-            MultiStepPlan multiStepPlan = new MultiStepPlan(new PlanId(UUID.randomUUID(), 1), sqlQueryType, rel, resultSetMetadata);
+            ParameterMetadata parameterMetadata = new ParameterMetadata(Collections.emptyList());
+            MultiStepPlan multiStepPlan = new MultiStepPlan(planId, sqlQueryType, rel, resultSetMetadata, parameterMetadata);
 
             String actualText = produceMapping(testDef.nodeName, targetProvider, snapshot, multiStepPlan);
 

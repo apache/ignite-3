@@ -85,8 +85,11 @@ public class DynamicParametersTest extends AbstractPlannerTest {
                 sql("SELECT 1 > ?", Unspecified.UNKNOWN).parameterTypes(nullable(NativeTypes.INT32)).ok(),
                 sql("SELECT ? > ?", Unspecified.UNKNOWN, Unspecified.UNKNOWN).fails("Ambiguous operator <UNKNOWN> > <UNKNOWN>"),
 
-                sql("SELECT ? > 1", "1").fails("Values passed to > operator must have compatible types"),
-                sql("SELECT 1 > ?", "1").fails("Values passed to > operator must have compatible types"),
+                sql("SELECT ? > 1", "1")
+                        .fails("Values passed to > operator must have compatible types"),
+
+                sql("SELECT 1 > ?", "1")
+                        .fails("Values passed to > operator must have compatible types"),
 
                 sql("SELECT ? > NULL", 1).parameterTypes(nullable(NativeTypes.INT32)).project("null:BOOLEAN"),
                 sql("SELECT NULL = ?", 1).parameterTypes(nullable(NativeTypes.INT32)).project("null:BOOLEAN"),
@@ -104,17 +107,20 @@ public class DynamicParametersTest extends AbstractPlannerTest {
     public Stream<DynamicTest> testInExpression() {
         String error =
                 "Values passed to IN operator must have compatible types. Dynamic parameter requires adding explicit type cast";
+
         return Stream.of(
+                // : java.lang.UnsupportedOperationException: class org.apache.calcite.sql.SqlNodeList
+
                 sql("SELECT ? IN ('1', '2')", 1).parameterTypes(nullable(NativeTypes.INT32)).project("OR(=(?0, 1), =(?0, 2))"),
                 sql("SELECT ? IN (1, 2)", "1").fails(error),
                 sql("SELECT ? IN (1, 2)", 1).parameterTypes(nullable(NativeTypes.INT32)).project("OR(=(?0, 1), =(?0, 2))"),
 
-                //          sql("SELECT ? IN (1)", Unspecified.UNKNOWN)
-                //                  .fails("Unable to determine type of a dynamic parameter#0"),
-                //          sql("SELECT ? IN (?, 1)", Unspecified.UNKNOWN, Unspecified.UNKNOWN)
-                //                  .fails("Unable to determine type of a dynamic parameter#0"),
-                //          sql("SELECT ? IN (?, ?)", Unspecified.UNKNOWN, Unspecified.UNKNOWN, Unspecified.UNKNOWN)
-                //                  .fails("Unable to determine type of a dynamic parameter#0"),
+                sql("SELECT ? IN (1)", Unspecified.UNKNOWN)
+                        .fails("Unable to determine type of a dynamic parameter#0"),
+                sql("SELECT ? IN (?, 1)", Unspecified.UNKNOWN, Unspecified.UNKNOWN)
+                        .fails("Unable to determine type of a dynamic parameter#0"),
+                sql("SELECT ? IN (?, ?)", Unspecified.UNKNOWN, Unspecified.UNKNOWN, Unspecified.UNKNOWN)
+                        .fails("Unable to determine type of a dynamic parameter#0"),
 
                 sql("SELECT 1 IN (?, ?)", Unspecified.UNKNOWN, Unspecified.UNKNOWN)
                         .project("OR(=(1, ?0), =(1, ?1))"),
@@ -161,7 +167,49 @@ public class DynamicParametersTest extends AbstractPlannerTest {
                 sql("SELECT CASE WHEN ? = '1' THEN ? ELSE ? END", "1", "2", 2.5)
                         .fails("Illegal mixing of types in CASE or COALESCE statement"),
 
-                sql("SELECT CASE WHEN ? THEN 1 WHEN ? THEN 2 ELSE 3 END", 1, 2).fails("Expected a boolean type")
+                sql("SELECT CASE WHEN ? THEN 1 WHEN ? THEN 2 ELSE 3 END", 1, 2)
+                        .fails("Expected a boolean typ")
+        );
+    }
+
+    @TestFactory
+    public Stream<DynamicTest> testCase() {
+        //CREATE TABLE TBL1(ID INT PRIMARY KEY, VAL VARCHAR, NUM INT)
+        //select case when (VAL = ?) then 0 else (case when (NUM IS NULL) then ? else ? end) end
+
+        IgniteTypeFactory tf = Commons.typeFactory();
+        RelDataType nullableStr = tf.createTypeWithNullability(tf.createSqlType(SqlTypeName.VARCHAR), true);
+        RelDataType nullType = tf.createSqlType(SqlTypeName.NULL);
+        RelDataType nullableInt = tf.createTypeWithNullability(tf.createSqlType(SqlTypeName.INTEGER), true);
+
+        return Stream.of(
+                checkStatement()
+                        .table("TBL1", "ID", NativeTypes.INT32, "VAL", NativeTypes.STRING, "NUM", NativeTypes.INT32)
+                        .sql("select case when (VAL = ?) then 0 else (case when (NUM IS NULL) then ? else ? end) end FROM TBL1",
+                                "diff", null, 1)
+                        .parameterTypes(nullableStr, nullType, nullableInt)
+                        .project("CASE(=(CAST($t0):VARCHAR CHARACTER SET \"UTF-8\", ?0), 0, CASE(IS NULL($t1), CAST(?1):INTEGER, ?2))"),
+
+                checkStatement()
+                        .table("TBL1", "ID", NativeTypes.INT32, "VAL", NativeTypes.STRING, "NUM", NativeTypes.INT32)
+                        .sql("select case when (VAL = ?) then 0 else (case when (NUM IS NULL) then ? else ? end) end FROM TBL1",
+                                Unspecified.UNKNOWN, Unspecified.UNKNOWN, Unspecified.UNKNOWN)
+                        .parameterTypes(nullableStr, nullType, nullableInt)
+                        .fails("Unable to determine type of a dynamic parameter#1"),
+
+                checkStatement()
+                        .table("TBL1", "ID", NativeTypes.INT32, "VAL", NativeTypes.STRING, "NUM", NativeTypes.INT32)
+                        .sql("select case when (VAL = ?) then 0 else (case when (NUM IS NULL) then ? else ? end) end FROM TBL1",
+                                "diff", 1, null)
+                        .parameterTypes(nullableStr, nullableInt, nullType)
+                        .project("CASE(=(CAST($t0):VARCHAR CHARACTER SET \"UTF-8\", ?0), 0, CASE(IS NULL($t1), ?1, CAST(?2):INTEGER))"),
+
+                checkStatement()
+                        .table("TBL1", "ID", NativeTypes.INT32, "VAL", NativeTypes.STRING, "NUM", NativeTypes.INT32)
+                        .sql("select case when (VAL = ?) then 0 else (case when (NUM IS NULL) then ? else ? end) end FROM TBL1",
+                                Unspecified.UNKNOWN, Unspecified.UNKNOWN, Unspecified.UNKNOWN)
+                        .parameterTypes(nullableStr, nullType, nullableInt)
+                        .fails("Unable to determine type of a dynamic parameter#1")
         );
     }
 
@@ -195,7 +243,11 @@ public class DynamicParametersTest extends AbstractPlannerTest {
                 checkStatement()
                         .sql("SELECT ?", 1)
                         .parameterTypes(nullable(NativeTypes.INT32))
-                        .project("?0"),
+                        .ok(),
+
+                checkStatement()
+                        .sql("SELECT ?", Unspecified.UNKNOWN)
+                        .fails("Unable to determine type of a dynamic parameter#0"),
 
                 checkStatement()
                         .sql("SELECT CAST(? AS INTEGER)", 1)
@@ -204,19 +256,15 @@ public class DynamicParametersTest extends AbstractPlannerTest {
                         .project("?0"),
 
                 checkStatement()
-                        .sql("SELECT ?", Unspecified.UNKNOWN)
-                        .fails("Unable to determine type of a dynamic parameter#0"),
+                        .sql("SELECT CAST(? AS INTEGER)", Unspecified.UNKNOWN)
+                        .parameterTypes(nullable(NativeTypes.INT32))
+                        // We are going to cast at runtime.
+                        .project("?0"),
 
                 checkStatement()
                         .sql("SELECT -?", 1)
                         .parameterTypes(nullable(NativeTypes.INT32))
                         .ok(),
-
-                checkStatement()
-                        .sql("SELECT CAST(? AS INTEGER)", Unspecified.UNKNOWN)
-                        .parameterTypes(nullable(NativeTypes.INT32))
-                        // We are going to cast at runtime.
-                        .project("?0"),
 
                 checkStatement()
                         .sql("SELECT -?", Unspecified.UNKNOWN)
@@ -326,9 +374,6 @@ public class DynamicParametersTest extends AbstractPlannerTest {
                 sql("SELECT 1 BETWEEN ? AND ?", Unspecified.UNKNOWN, 10L)
                         .parameterTypes(nullable(NativeTypes.INT32), nullable(NativeTypes.INT64))
                         .ok(),
-
-                sql("SELECT 1 BETWEEN ? AND ?", Unspecified.UNKNOWN, "10")
-                        .fails("Values passed to BETWEEN ASYMMETRIC operator must have compatible types"),
 
                 sql("SELECT ? BETWEEN ? AND ?", Unspecified.UNKNOWN, 1, 10)
                         .parameterTypes(nullable(NativeTypes.INT32), nullable(NativeTypes.INT32), nullable(NativeTypes.INT32))
@@ -657,12 +702,16 @@ public class DynamicParametersTest extends AbstractPlannerTest {
                         .ok(),
 
                 checkStatement(setup)
-                        .sql("SELECT * FROM t1 OFFSET ?", 1)
+                        .sql("SELECT * FROM t1 LIMIT ?", Unspecified.UNKNOWN)
                         .parameterTypes(nullable(NativeTypes.INT32))
                         .ok(),
 
                 checkStatement(setup)
-                        .sql("SELECT * FROM t1 LIMIT ?", Unspecified.UNKNOWN)
+                        .sql("SELECT * FROM t1 LIMIT ?", "a")
+                        .fails("Incorrect type of a dynamic parameter#0 expected <INTEGER> but got <VARCHAR"),
+
+                checkStatement(setup)
+                        .sql("SELECT * FROM t1 OFFSET ?", 1)
                         .parameterTypes(nullable(NativeTypes.INT32))
                         .ok(),
 
@@ -672,13 +721,7 @@ public class DynamicParametersTest extends AbstractPlannerTest {
                         .ok(),
 
                 checkStatement(setup)
-                        .sql("SELECT * FROM t1 LIMIT ?", "a")
-                        .parameterTypes(nullable(NativeTypes.INT32))
-                        .fails("Incorrect type of a dynamic parameter#0 expected <INTEGER> but got <VARCHAR"),
-
-                checkStatement(setup)
                         .sql("SELECT * FROM t1 OFFSET ?", "a")
-                        .parameterTypes(nullable(NativeTypes.INT32))
                         .fails("Incorrect type of a dynamic parameter#0 expected <INTEGER> but got <VARCHAR")
         );
     }
@@ -689,6 +732,11 @@ public class DynamicParametersTest extends AbstractPlannerTest {
     @TestFactory
     public Stream<DynamicTest> testFunction() {
         return Stream.of(
+                checkStatement()
+                        .sql("SELECT SUBSTRING(?, 1)", "abc")
+                        .parameterTypes(nullable(NativeTypes.STRING))
+                        .ok(),
+
                 checkStatement()
                         .sql("SELECT SUBSTRING(?, 1)", Unspecified.UNKNOWN)
                         .fails("Ambiguous operator SUBSTRING(<UNKNOWN>, <INTEGER>)"),

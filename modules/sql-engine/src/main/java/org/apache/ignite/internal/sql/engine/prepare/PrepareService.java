@@ -26,6 +26,17 @@ import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
  * Preparation service that accepts an AST of the query and returns a prepared query plan.
  */
 public interface PrepareService extends LifecycleAware {
+
+    /**
+     * Retrieves parameter metadata from the given SQL query.
+     *
+     * @param parsedResult Represent of parsed query as AST.
+     * @param ctx Query context.
+     *
+     * @return Future that contains parameter metadata.
+     */
+    CompletableFuture<ParameterMetadata> parameterTypesAsync(ParsedResult parsedResult, BaseQueryContext ctx);
+
     /**
      * Prepare query plan.
      *

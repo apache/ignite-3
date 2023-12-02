@@ -85,6 +85,7 @@ import org.apache.ignite.internal.sql.engine.exec.mapping.ExecutionTargetProvide
 import org.apache.ignite.internal.sql.engine.exec.mapping.MappingServiceImpl;
 import org.apache.ignite.internal.sql.engine.message.MessageServiceImpl;
 import org.apache.ignite.internal.sql.engine.prepare.DynamicParameterValue;
+import org.apache.ignite.internal.sql.engine.prepare.ParameterMetadata;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareService;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareServiceImpl;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
@@ -407,6 +408,21 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     /** {@inheritDoc} */
     @Override
+    public CompletableFuture<ParameterMetadata> parameterTypesAsync(SqlProperties properties, String qry) {
+
+        if (!busyLock.enterBusy()) {
+            throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
+        }
+
+        try {
+            return parameterTypesAsync0(properties, qry);
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public CompletableFuture<AsyncSqlCursor<List<Object>>> querySingleAsync(
             SqlProperties properties,
             IgniteTransactions transactions,
@@ -418,8 +434,10 @@ public class SqlQueryProcessor implements QueryProcessor {
             throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
         }
 
+        DynamicParameterValue[] parameters = DynamicParameterValue.fromValues(params);
+
         try {
-            return querySingle0(properties, transactions, transaction, qry, params);
+            return querySingle0(properties, transactions, transaction, qry, parameters);
         } finally {
             busyLock.leaveBusy();
         }
@@ -438,8 +456,10 @@ public class SqlQueryProcessor implements QueryProcessor {
             throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
         }
 
+        DynamicParameterValue[] dynamicParams = DynamicParameterValue.fromValues(params);
+
         try {
-            return queryScript0(properties, transactions, transaction, qry, params);
+            return queryScript0(properties, transactions, transaction, qry, dynamicParams);
         } finally {
             busyLock.leaveBusy();
         }
@@ -451,12 +471,48 @@ public class SqlQueryProcessor implements QueryProcessor {
         return service;
     }
 
+    private CompletableFuture<ParameterMetadata> parameterTypesAsync0(
+            SqlProperties properties,
+            String sql
+    ) {
+        SqlProperties properties0 = SqlPropertiesHelper.chain(properties, DEFAULT_PROPERTIES);
+        String schemaName = properties0.get(QueryProperty.DEFAULT_SCHEMA);
+
+        QueryCancel queryCancel = new QueryCancel();
+
+        CompletableFuture<AsyncSqlCursor<List<Object>>> start = new CompletableFuture<>();
+
+        CompletableFuture<ParameterMetadata> stage = start.thenCompose(ignored -> {
+            ParsedResult result = parserService.parse(sql);
+
+            DynamicParameterValue[] params = new DynamicParameterValue[result.dynamicParamsCount()];
+            Arrays.fill(params, DynamicParameterValue.noValue());
+
+            validateParsedStatement(properties0, result);
+
+            HybridTimestamp timestamp = clock.now();
+
+            return getParameterTypes(schemaName, result, timestamp, queryCancel, params);
+        });
+
+        // TODO IGNITE-20078 Improve (or remove) CancellationException handling.
+        stage.whenComplete((cur, ex) -> {
+            if (ex instanceof CancellationException) {
+                queryCancel.cancel();
+            }
+        });
+
+        start.completeAsync(() -> null, taskExecutor);
+
+        return stage;
+    }
+
     private CompletableFuture<AsyncSqlCursor<List<Object>>> querySingle0(
             SqlProperties properties,
             IgniteTransactions transactions,
             @Nullable InternalTransaction explicitTransaction,
             String sql,
-            Object... params
+            DynamicParameterValue[] params
     ) {
         SqlProperties properties0 = SqlPropertiesHelper.chain(properties, DEFAULT_PROPERTIES);
         String schemaName = properties0.get(QueryProperty.DEFAULT_SCHEMA);
@@ -468,7 +524,8 @@ public class SqlQueryProcessor implements QueryProcessor {
         CompletableFuture<AsyncSqlCursor<List<Object>>> stage = start.thenCompose(ignored -> {
             ParsedResult result = parserService.parse(sql);
 
-            validateParsedStatement(properties0, result, params);
+            validateParsedStatement(properties0, result);
+            validateDynamicParameters(result.dynamicParamsCount(), params, false);
 
             QueryTransactionWrapper txWrapper = wrapTxOrStartImplicit(result.queryType(), transactions, explicitTransaction);
 
@@ -492,7 +549,7 @@ public class SqlQueryProcessor implements QueryProcessor {
             IgniteTransactions transactions,
             @Nullable InternalTransaction explicitTransaction,
             String sql,
-            Object... params
+            DynamicParameterValue[] params
     ) {
         SqlProperties properties0 = SqlPropertiesHelper.chain(properties, DEFAULT_PROPERTIES);
         String schemaName = properties0.get(QueryProperty.DEFAULT_SCHEMA);
@@ -513,26 +570,43 @@ public class SqlQueryProcessor implements QueryProcessor {
         return parseFut;
     }
 
+    private CompletableFuture<ParameterMetadata> getParameterTypes(String schemaName,
+            ParsedResult parsedResult,
+            HybridTimestamp timestamp,
+            QueryCancel queryCancel,
+            DynamicParameterValue[] params) {
+
+        return waitForActualSchema(schemaName, timestamp).thenCompose(schema -> {
+            BaseQueryContext ctx = BaseQueryContext.builder()
+                    .frameworkConfig(Frameworks.newConfigBuilder(FRAMEWORK_CONFIG).defaultSchema(schema).build())
+                    .queryId(UUID.randomUUID())
+                    .cancel(queryCancel)
+                    .parameters(params)
+                    .build();
+
+            return prepareSvc.parameterTypesAsync(parsedResult, ctx);
+        });
+    }
+
     private CompletableFuture<AsyncSqlCursor<List<Object>>> executeParsedStatement(
             String schemaName,
             ParsedResult parsedResult,
             QueryTransactionWrapper txWrapper,
             QueryCancel queryCancel,
-            Object[] params,
+            DynamicParameterValue[] params,
             boolean waitForPrefetch,
             @Nullable CompletableFuture<AsyncSqlCursor<List<Object>>> nextStatement
     ) {
         return waitForActualSchema(schemaName, txWrapper.unwrap().startTimestamp())
                 .thenCompose(schema -> {
                     PrefetchCallback callback = waitForPrefetch ? new PrefetchCallback() : null;
-                    DynamicParameterValue[] dynamicParams = DynamicParameterValue.fromValues(params);
 
                     BaseQueryContext ctx = BaseQueryContext.builder()
                             .frameworkConfig(Frameworks.newConfigBuilder(FRAMEWORK_CONFIG).defaultSchema(schema).build())
                             .queryId(UUID.randomUUID())
                             .cancel(queryCancel)
                             .prefetchCallback(callback)
-                            .parameters(dynamicParams)
+                            .parameters(params)
                             .build();
 
                     CompletableFuture<AsyncSqlCursor<List<Object>>> fut = prepareSvc.prepareAsync(parsedResult, ctx)
@@ -642,8 +716,7 @@ public class SqlQueryProcessor implements QueryProcessor {
     /** Performs additional validation of a parsed statement. **/
     private static void validateParsedStatement(
             SqlProperties properties,
-            ParsedResult parsedResult,
-            Object[] params
+            ParsedResult parsedResult
     ) {
         Set<SqlQueryType> allowedTypes = properties.get(QueryProperty.ALLOWED_QUERY_TYPES);
         SqlQueryType queryType = parsedResult.queryType();
@@ -659,11 +732,11 @@ public class SqlQueryProcessor implements QueryProcessor {
 
             throw new SqlException(STMT_VALIDATION_ERR, message);
         }
-
-        validateDynamicParameters(parsedResult.dynamicParamsCount(), params);
     }
 
-    private static void validateDynamicParameters(int expectedParamsCount, Object[] params) throws SqlException {
+    private static void validateDynamicParameters(int expectedParamsCount, DynamicParameterValue[] params,
+            boolean allowUnspecified) throws SqlException {
+
         if (expectedParamsCount != params.length) {
             String message = format(
                     "Unexpected number of query parameters. Provided {} but there is only {} dynamic parameter(s).",
@@ -673,10 +746,17 @@ public class SqlQueryProcessor implements QueryProcessor {
             throw new SqlException(STMT_VALIDATION_ERR, message);
         }
 
-        for (Object param : params) {
-            if (!TypeUtils.supportParamInstance(param)) {
+        for (int i = 0; i < params.length; i++) {
+            DynamicParameterValue param = params[i];
+            if (!param.hasValue() && !allowUnspecified) {
+                String message = format("Dynamic parameter#{} has no value", i);
+
+                throw new SqlException(STMT_VALIDATION_ERR, message);
+            }
+
+            if (param.hasValue() && !TypeUtils.supportParamInstance(param.value())) {
                 String message = format(
-                        "Unsupported dynamic parameter defined. Provided '{}' is not supported.", param.getClass().getName());
+                        "Unsupported dynamic parameter defined. Provided '{}' is not supported.", param.value().getClass().getName());
 
                 throw new SqlException(STMT_VALIDATION_ERR, message);
             }
@@ -694,7 +774,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                 IgniteTransactions transactions,
                 @Nullable InternalTransaction explicitTransaction,
                 List<ParsedResult> parsedResults,
-                Object[] params
+                DynamicParameterValue[] params
         ) {
             this.schemaName = schemaName;
             this.transactions = transactions;
@@ -713,7 +793,7 @@ public class SqlQueryProcessor implements QueryProcessor {
             assert parameters != null;
 
             ParsedResult parsedResult = parameters.parsedResult;
-            Object[] dynamicParams = parameters.dynamicParams;
+            DynamicParameterValue[] dynamicParams = parameters.dynamicParams;
             CompletableFuture<AsyncSqlCursor<List<Object>>> cursorFuture = parameters.cursorFuture;
             CompletableFuture<AsyncSqlCursor<List<Object>>> nextCursorFuture = parameters.nextStatementFuture;
 
@@ -754,7 +834,9 @@ public class SqlQueryProcessor implements QueryProcessor {
         /**
          * Returns a queue. each element of which represents parameters required to execute a single statement of the script.
          */
-        private @Nullable Queue<ScriptStatementParameters> prepareStatementsQueue(List<ParsedResult> parsedResults, Object[] params) {
+        private @Nullable Queue<ScriptStatementParameters> prepareStatementsQueue(List<ParsedResult> parsedResults,
+                DynamicParameterValue[] params) {
+
             List<ParsedResult> parsedResults0 = parsedResults.stream()
                     // TODO https://issues.apache.org/jira/browse/IGNITE-20463 Integrate TX-related statements
                     .filter(res -> res.queryType() != SqlQueryType.TX_CONTROL).collect(Collectors.toList());
@@ -764,7 +846,7 @@ public class SqlQueryProcessor implements QueryProcessor {
             }
 
             int paramsCount = parsedResults0.stream().mapToInt(ParsedResult::dynamicParamsCount).sum();
-            validateDynamicParameters(paramsCount, params);
+            validateDynamicParameters(paramsCount, params, false);
 
             ScriptStatementParameters[] results = new ScriptStatementParameters[parsedResults0.size()];
 
@@ -773,7 +855,7 @@ public class SqlQueryProcessor implements QueryProcessor {
             for (int i = parsedResults0.size(); i > 0; i--) {
                 ParsedResult result = parsedResults0.get(i - 1);
 
-                Object[] params0 = Arrays.copyOfRange(params, paramsCount - result.dynamicParamsCount(), paramsCount);
+                DynamicParameterValue[] params0 = Arrays.copyOfRange(params, paramsCount - result.dynamicParamsCount(), paramsCount);
                 paramsCount -= result.dynamicParamsCount();
 
                 results[i - 1] = new ScriptStatementParameters(result, params0,
@@ -803,11 +885,11 @@ public class SqlQueryProcessor implements QueryProcessor {
             private final CompletableFuture<AsyncSqlCursor<List<Object>>> cursorFuture = new CompletableFuture<>();
             private final CompletableFuture<AsyncSqlCursor<List<Object>>> nextStatementFuture;
             private final ParsedResult parsedResult;
-            private final Object[] dynamicParams;
+            private final DynamicParameterValue[] dynamicParams;
 
             private ScriptStatementParameters(
                     ParsedResult parsedResult,
-                    Object[] dynamicParams,
+                    DynamicParameterValue[] dynamicParams,
                     @Nullable CompletableFuture<AsyncSqlCursor<List<Object>>> nextStatementFuture
             ) {
                 this.parsedResult = parsedResult;

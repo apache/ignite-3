@@ -210,9 +210,11 @@ public class IgnitePlanner implements Planner, RelOptTable.ViewExpander {
     public Pair<SqlNode, RelDataType> validateAndGetType(SqlNode sqlNode) {
         SqlNode validatedNode = validator().validate(sqlNode);
         RelDataType type = validator().getValidatedNodeType(validatedNode);
+        this.validatedSqlNode = validatedNode;
         return Pair.of(validatedNode, type);
     }
 
+    /** {@inheritDoc} */
     @Override
     public RelDataType getParameterRowType() {
         return requireNonNull(validator, "validator")
@@ -315,6 +317,8 @@ public class IgnitePlanner implements Planner, RelOptTable.ViewExpander {
                 }
             }
         }
+
+        this.validatedSqlNode = validatedNode;
 
         return new ValidationResult(validatedNode, type, origins, derived == null ? List.of() : derived);
     }

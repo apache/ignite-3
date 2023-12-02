@@ -22,7 +22,10 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.core.StringContains.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.fail;
 
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.time.Duration;
@@ -45,6 +48,11 @@ import org.apache.ignite.lang.ErrorGroup;
 import org.apache.ignite.lang.ErrorGroups;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.SqlException;
+import org.apache.ignite.sql.SqlRow;
+import org.apache.ignite.tx.Transaction;
+import org.hamcrest.CoreMatchers;
+import org.hamcrest.StringDescription;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.function.Executable;
 
 /**
@@ -87,6 +95,34 @@ public class SqlTestUtils {
         ErrorGroup expectedErrorGroup = ErrorGroups.errorGroupByCode(expectedCode);
         String expectedError = format("{}-{}", expectedErrorGroup.name(), expectedErrorCode);
         String actualError = format("{}-{}", ex.groupName(), ex.errorCode());
+
+        boolean errorMatches = expectedError.equals(actualError);
+        boolean errorMessageMatches = CoreMatchers.containsString(expectedMessage).matches(ex.getMessage());
+
+        if (!errorMatches || !errorMessageMatches) {
+            StringWriter sw = new StringWriter();
+
+            try (PrintWriter pw = new PrintWriter(sw)) {
+                StringDescription description = new StringDescription();
+
+                if (errorMatches) {
+                    description.appendText("Error code does not match. Expected: ");
+                    description.appendValue(expectedError);
+                    description.appendText(" actual: ");
+                    description.appendValue(actualError);
+                } else {
+                    description.appendText("Error message does not match. Expected to include: ");
+                    description.appendValue(expectedMessage);
+                    description.appendText(" actual: ");
+                    description.appendValue(ex.getMessage());
+                }
+
+                pw.println(description);
+                ex.printStackTrace(pw);
+            }
+
+            fail(sw.toString());
+        }
 
         assertEquals(expectedError, actualError, "Error does not match. " + ex);
         assertThat("Error message", ex.getMessage(), containsString(expectedMessage));

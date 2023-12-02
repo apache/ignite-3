@@ -121,7 +121,7 @@ public class TypeUtils {
     }
 
     /** Return {@code true} if supplied object is suitable as dynamic parameter. */
-    public static boolean supportParamInstance(Object param) {
+    public static boolean supportParamInstance(@Nullable Object param) {
         return param == null || supportedParamClasses().contains(param.getClass());
     }
 

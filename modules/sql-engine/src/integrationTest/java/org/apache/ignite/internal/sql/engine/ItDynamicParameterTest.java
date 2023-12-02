@@ -19,20 +19,33 @@ package org.apache.ignite.internal.sql.engine;
 
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
 
 import java.sql.Date;
 import java.time.LocalDate;
+import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
+import org.apache.ignite.internal.sql.engine.prepare.ParameterMetadata;
+import org.apache.ignite.internal.sql.engine.prepare.ParameterType;
+import org.apache.ignite.internal.sql.engine.property.SqlProperties;
+import org.apache.ignite.internal.sql.engine.property.SqlPropertiesHelper;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.MetadataMatcher;
+import org.apache.ignite.internal.sql.engine.util.QueryChecker;
 import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
+import org.apache.ignite.internal.sql.engine.util.TypeUtils;
+import org.apache.ignite.internal.type.NativeType;
+import org.apache.ignite.internal.type.NativeTypes;
+import org.apache.ignite.internal.util.Pair;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.AfterEach;
@@ -279,6 +292,116 @@ public class ItDynamicParameterTest extends BaseSqlIntegrationTest {
         );
     }
 
+    @ParameterizedTest
+    @MethodSource("statementsWithParameters")
+    public void testGetParameterTypesSingleStatement(String stmt, List<ColumnType> expectedTypes) {
+        ParameterMetadata parameterTypes = getParameterTypes(stmt);
+
+        List<ColumnType> columnTypes = parameterTypes.parameterTypes()
+                .stream()
+                .map(ParameterType::columnType)
+                .collect(Collectors.toList());
+
+        assertEquals(expectedTypes, columnTypes, stmt);
+    }
+
+    private static Stream<Arguments> statementsWithParameters() {
+        return Stream.of(
+                arguments("SELECT CAST(? AS BIGINT)", List.of(ColumnType.INT64)),
+                arguments("SELECT val1 + ? FROM t1 WHERE id = ?", List.of(ColumnType.INT32, ColumnType.INT32))
+        );
+    }
+
+    @Test
+    public void testGetUnspecifiedParameterTypesInInsert() {
+        List<Pair<String, NativeType>> dataTypes = columnNameAndType();
+
+        sql(createTableFoColumns("params1", dataTypes));
+
+        StringBuilder stmt = new StringBuilder("INSERT INTO params1 VALUES(1");
+        stmt.append(", ?".repeat(dataTypes.size()));
+        stmt.append(")");
+
+        log.info("INSERT from column names: {}", stmt);
+        
+        ParameterMetadata parameterTypes = getParameterTypes(stmt.toString());
+
+        List<NativeType> actualTypes = parameterTypes.parameterTypes().stream()
+                .map(p -> TypeUtils.columnType2NativeType(p.columnType(), p.precision(), p.scale(), p.precision()))
+                .collect(Collectors.toList());
+
+        assertEquals(actualTypes, dataTypes.stream().map(Pair::getSecond).collect(Collectors.toList()), "parameter types");
+    }
+
+    @Test
+    public void testGetUnspecifiedParameterTypesInUpdate() {
+        List<Pair<String, NativeType>> dataTypes = columnNameAndType();
+
+        sql(createTableFoColumns("params2", dataTypes));
+
+        StringBuilder stmt = new StringBuilder("UPDATE params2 SET ");
+        for (int i = 0; i < dataTypes.size(); i++) {
+            if (i > 0) {
+                stmt.append(", ");
+            }
+            String colName = dataTypes.get(i).getFirst();
+            stmt.append(colName);
+            stmt.append("=?");
+        }
+
+        log.info("UPDATE from column names: {}", stmt);
+
+        ParameterMetadata parameterTypes = getParameterTypes(stmt.toString());
+
+        List<NativeType> actualTypes = parameterTypes.parameterTypes().stream()
+                .map(p -> TypeUtils.columnType2NativeType(p.columnType(), p.precision(), p.scale(), p.precision()))
+                .collect(Collectors.toList());
+
+        assertEquals(actualTypes, dataTypes.stream().map(Pair::getSecond).collect(Collectors.toList()), "parameter types");
+    }
+
+    private static List<Pair<String, NativeType>> columnNameAndType() {
+        return Arrays.asList(
+                new Pair<>("bool_col", NativeTypes.BOOLEAN),
+                new Pair<>("int8_col", NativeTypes.INT8),
+                new Pair<>("int16_col", NativeTypes.INT16),
+                new Pair<>("int32_col", NativeTypes.INT32),
+                new Pair<>("int64_col", NativeTypes.INT64),
+                new Pair<>("float_col", NativeTypes.FLOAT),
+                new Pair<>("double_col", NativeTypes.DOUBLE),
+                new Pair<>("dec_col", NativeTypes.decimalOf(5, 2)),
+                new Pair<>("date_col", NativeTypes.DATE),
+                new Pair<>("datetime_col", NativeTypes.datetime(2)),
+                new Pair<>("time_col", NativeTypes.time(2)),
+                new Pair<>("string_col", NativeTypes.stringOf(10)),
+                new Pair<>("bytes_col", NativeTypes.blobOf(10)),
+                new Pair<>("uuid_col", NativeTypes.UUID)
+        );
+    }
+
+    private String createTableFoColumns(String name, List<Pair<String, NativeType>> dataTypes) {
+        IgniteTypeFactory tf = Commons.typeFactory();
+
+        StringBuilder ddl = new StringBuilder("CREATE TABLE ");
+        ddl.append(name);
+        ddl.append("(id INTEGER PRIMARY KEY");
+
+        for (Pair<String, NativeType> entry : dataTypes) {
+            RelDataType relDataType = TypeUtils.native2relationalType(tf, entry.getSecond(), true);
+
+            ddl.append(", ");
+            ddl.append(entry.getFirst());
+            ddl.append(" ");
+            ddl.append(relDataType);
+        }
+
+        ddl.append(")");
+
+        log.info("CREATE TABLE from column names: {}", ddl);
+
+        return ddl.toString();
+    }
+
     @Override
     protected int initialNodes() {
         return 1;
@@ -289,5 +412,11 @@ public class ItDynamicParameterTest extends BaseSqlIntegrationTest {
                 Sql.STMT_VALIDATION_ERR,
                 "Unexpected number of query parameters",
                 () -> assertQuery(query).withParams(params).check());
+    }
+
+    private ParameterMetadata getParameterTypes(String query) {
+        QueryProcessor qryProc = queryProcessor();
+        SqlProperties properties = SqlPropertiesHelper.emptyProperties();
+        return await(qryProc.parameterTypesAsync(properties, query));
     }
 }

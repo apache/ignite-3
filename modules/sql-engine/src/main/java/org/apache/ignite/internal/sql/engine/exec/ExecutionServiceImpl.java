@@ -629,6 +629,13 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         }
 
         private ExecutionContext<RowT> createContext(String initiatorNodeName, FragmentDescription desc, TxAttributes txAttributes) {
+            DynamicParameterValue[] parameters = ctx.parameters();
+            Object[] parameterValues = new Object[parameters.length];
+
+            for (int i = 0; i < parameters.length; i++) {
+                parameterValues[i] = parameters[i].value();
+            }
+
             return new ExecutionContext<>(
                     taskExecutor,
                     ctx.queryId(),
@@ -636,7 +643,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                     initiatorNodeName,
                     desc,
                     handler,
-                    Commons.parametersMap(ctx.parameters()),
+                    Commons.parametersMap(parameterValues),
                     txAttributes
             );
         }

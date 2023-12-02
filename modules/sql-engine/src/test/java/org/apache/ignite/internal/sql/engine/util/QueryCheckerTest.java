@@ -32,6 +32,7 @@ import org.apache.ignite.internal.sql.engine.framework.NoOpTransaction;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.framework.TestCluster;
 import org.apache.ignite.internal.sql.engine.framework.TestNode;
+import org.apache.ignite.internal.sql.engine.prepare.ParameterMetadata;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
 import org.apache.ignite.internal.sql.engine.property.SqlProperties;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
@@ -247,6 +248,11 @@ public class QueryCheckerTest extends BaseIgniteAbstractTest {
                 .check();
     }
 
+    @Test
+    public void testParameterMetadata() {
+
+    }
+
     private static QueryChecker assertQuery(String qry) {
         TestNode testNode = CLUSTER.node(NODE_NAME);
 
@@ -263,6 +269,11 @@ public class QueryCheckerTest extends BaseIgniteAbstractTest {
 
         TestQueryProcessor(TestNode node) {
             this.node = node;
+        }
+
+        @Override
+        public CompletableFuture<ParameterMetadata> parameterTypesAsync(SqlProperties properties, String qry) {
+            throw new UnsupportedOperationException();
         }
 
         @Override

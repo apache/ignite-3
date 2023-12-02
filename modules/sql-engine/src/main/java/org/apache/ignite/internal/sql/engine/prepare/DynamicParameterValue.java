@@ -73,7 +73,7 @@ public final class DynamicParameterValue {
     @Override
     public String toString() {
         if (hasValue) {
-            String str = (value != null ? value.getClass().toString() : "null");
+            String str = (value != null ? value.getClass().getName() : "null");
             return "{value: <" + str + ">}";
         } else {
             return "{no-value}";

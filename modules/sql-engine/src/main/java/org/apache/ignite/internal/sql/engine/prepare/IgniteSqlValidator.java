@@ -548,7 +548,7 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         } else {
             checkTypesInteroperability(scope, expr);
 
-            RelDataType dataType = super.deriveType(scope, expr);
+            RelDataType dataType = deriveOperatorType(scope, expr);
 
             SqlKind sqlKind = expr.getKind();
             // See the comments below.
@@ -578,6 +578,10 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
 
             return dataType;
         }
+    }
+
+    private RelDataType deriveOperatorType(SqlValidatorScope scope, SqlNode expr) {
+        return super.deriveType(scope, expr);
     }
 
     /** {@inheritDoc} */
@@ -621,13 +625,13 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
             SqlNode ret = expr0.getOperandList().get(1);
 
             RelDataType firstType;
-            RelDataType returnType = super.deriveType(scope, ret);
+            RelDataType returnType = deriveOperatorType(scope, ret);
 
             if (first instanceof SqlDynamicParam) {
                 SqlDynamicParam dynamicParam = (SqlDynamicParam) first;
                 firstType = deriveDynamicParamType(dynamicParam);
             } else {
-                firstType = super.deriveType(scope, first);
+                firstType = deriveOperatorType(scope, first);
             }
 
             boolean nullType = isNull(returnType) || isNull(firstType);
@@ -912,6 +916,18 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
 
                 throw binding.newValidationError(IgniteResource.INSTANCE.ambiguousOperator1(signature));
             }
+        } else if (node.getKind() == SqlKind.IN) {
+            // TypeInference for IN operator fails with
+            // java.lang.UnsupportedOperationException: class org.apache.calcite.sql.SqlNodeList: 1
+            // if the first operand has unknown type.
+            SqlCall call = (SqlCall) node;
+
+            if (isUnspecifiedDynamicParam(call.operand(0))) {
+                SqlDynamicParam dynamicParam = call.operand(0);
+                int index = dynamicParam.getIndex();
+
+                throw newValidationError(dynamicParam, IgniteResource.INSTANCE.unableToResolveDynamicParameterType(index));
+            }
         }
 
         if (node instanceof SqlDynamicParam) {
@@ -1035,24 +1051,6 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
                 throw new AssertionError("Dynamic parameter has not been validated: " + i);
             } else if (paramState.resolvedType == unknownType) {
                 throw newValidationError(paramState.node, IgniteResource.INSTANCE.unableToResolveDynamicParameterType(i));
-            } else {
-                SqlDynamicParam dynamicParam = paramState.node;
-                RelDataType derivedType = getValidatedNodeType(dynamicParam);
-
-                // Ensure that derived type matches value type if it set.
-                if (paramState.value.hasValue()) {
-                    Object value = paramState.value.value();
-                    RelDataType valueType = deriveTypeFromDynamicParamValue(value);
-
-                    if (!SqlTypeUtil.equalSansNullability(derivedType, valueType)) {
-                        String message = format(
-                                "Type of dynamic parameter#{} value type does not match. Expected: {} derived: {}",
-                                i, valueType.getFullTypeString(), derivedType.getFullTypeString()
-                        );
-
-                        throw new AssertionError(message);
-                    }
-                }
             }
         }
 
@@ -1060,8 +1058,25 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         for (SqlDynamicParam node : dynamicParamNodes.keySet()) {
             int i = node.getIndex();
             DynamicParamState state = dynamicParameters[i];
+
+            if (!state.value.hasValue()) {
+                continue;
+            }
+
+            Object value = state.value.value();
+            RelDataType valueType = deriveTypeFromDynamicParamValue(value);
             RelDataType derivedType = getValidatedNodeTypeIfKnown(node);
             RelDataType paramType = state.resolvedType;
+
+            // Ensure that derived type matches value type if it set.
+            if (!SqlTypeUtil.equalSansNullability(derivedType, valueType)) {
+                String message = format(
+                        "Type of dynamic parameter#{} value type does not match. Expected: {} derived: {}",
+                        i, valueType.getFullTypeString(), derivedType.getFullTypeString()
+                );
+
+                throw new AssertionError(message);
+            }
 
             if (!Objects.equals(paramType, derivedType)) {
                 String message = format(
@@ -1124,4 +1139,6 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
             return S.toString(this);
         }
     }
+
+
 }

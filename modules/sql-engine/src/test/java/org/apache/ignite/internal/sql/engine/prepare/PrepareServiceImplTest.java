@@ -22,11 +22,15 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.sameInstance;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.ignite.internal.metrics.MetricManager;
@@ -41,9 +45,15 @@ import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
 import org.apache.ignite.internal.sql.engine.util.EmptyCacheFactory;
 import org.apache.ignite.internal.sql.engine.util.cache.CaffeineCacheFactory;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypes;
+import org.apache.ignite.sql.ColumnMetadata;
+import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 /**
  * Tests to verify {@link PrepareServiceImpl}.
@@ -103,11 +113,77 @@ class PrepareServiceImplTest extends BaseIgniteAbstractTest {
         assertThat(plan.plan(), sameInstance(queryPlan));
     }
 
+    @Test
+    void parameterTypesForStatement() {
+        PrepareService service = createPlannerService();
+
+        ParameterMetadata parameterMetadata = await(service.parameterTypesAsync(
+                parse("SELECT * FROM t WHERE a = ? and c = ?"),
+                createContext(DynamicParameterValue.noValue(), DynamicParameterValue.value(1))
+        ));
+
+        List<ColumnType> parameterTypes = parameterMetadata.parameterTypes()
+                .stream()
+                .map(ParameterType::columnType)
+                .collect(Collectors.toList());
+
+        assertEquals(List.of(ColumnType.INT64, ColumnType.INT32), parameterTypes);
+    }
+
+    @ParameterizedTest
+    @MethodSource("parameterTypes")
+    public void parameterTypesForStatementAllTypes(NativeType nativeType, int precision, int scale) {
+        IgniteTable table = TestBuilders.table()
+                .name("T")
+                .addColumn("C", nativeType)
+                .distribution(IgniteDistributions.single())
+                .build();
+
+        PrepareService service = createPlannerService();
+
+        IgniteSchema schema = new IgniteSchema("PUBLIC", 0, List.of(table));
+        ParameterMetadata parameterMetadata = await(service.parameterTypesAsync(
+                parse("SELECT * FROM t WHERE c = ?"),
+                createContext(schema, DynamicParameterValue.noValue())
+        ));
+
+        ParameterType parameterType = parameterMetadata.parameterTypes().get(0);
+
+        ColumnType columnType = nativeType.spec().asColumnType();
+        assertEquals(columnType, parameterType.columnType(), "Column type does not match: " + parameterType);
+        assertEquals(precision, parameterType.precision(), "Precision does not match: " + parameterType);
+        assertEquals(scale, parameterType.scale(), "Scale does not match: " + parameterType);
+        assertTrue(parameterType.nullable(), "Nullabilty does not match: " + parameterType);
+    }
+
+    private static Stream<Arguments> parameterTypes() {
+        int noScale = ColumnMetadata.UNDEFINED_SCALE;
+        int noPrecision = ColumnMetadata.UNDEFINED_PRECISION;
+
+        return Stream.of(
+                Arguments.of(NativeTypes.BOOLEAN, noPrecision, noScale),
+                Arguments.of(NativeTypes.INT8, noPrecision, noScale),
+                Arguments.of(NativeTypes.INT16, noPrecision, noScale),
+                Arguments.of(NativeTypes.INT32, noPrecision, noScale),
+                Arguments.of(NativeTypes.INT64, noPrecision, noScale),
+                Arguments.of(NativeTypes.FLOAT, noPrecision, noScale),
+                Arguments.of(NativeTypes.DOUBLE, noPrecision, noScale),
+                Arguments.of(NativeTypes.decimalOf(10, 2), 10, 2),
+                Arguments.of(NativeTypes.stringOf(42), 42, noScale),
+                Arguments.of(NativeTypes.blobOf(42), 42, noScale),
+                Arguments.of(NativeTypes.UUID, noPrecision, noScale),
+                Arguments.of(NativeTypes.DATE, noPrecision, noScale),
+                Arguments.of(NativeTypes.time(2), 2, noScale),
+                Arguments.of(NativeTypes.datetime(2), 2, noScale),
+                Arguments.of(NativeTypes.timestamp(2), 2, noScale)
+        );
+    }
+
     private static ParsedResult parse(String query) {
         return new ParserServiceImpl(0, EmptyCacheFactory.INSTANCE).parse(query);
     }
 
-    private static BaseQueryContext createContext() {
+    private static BaseQueryContext createContext(DynamicParameterValue... params) {
         return BaseQueryContext.builder()
                 .queryId(UUID.randomUUID())
                 .frameworkConfig(
@@ -115,6 +191,19 @@ class PrepareServiceImplTest extends BaseIgniteAbstractTest {
                                 .defaultSchema(wrap(createSchema()))
                                 .build()
                 )
+                .parameters(params)
+                .build();
+    }
+
+    private static BaseQueryContext createContext(IgniteSchema schema, DynamicParameterValue... params) {
+        return BaseQueryContext.builder()
+                .queryId(UUID.randomUUID())
+                .frameworkConfig(
+                        Frameworks.newConfigBuilder(FRAMEWORK_CONFIG)
+                                .defaultSchema(wrap(schema))
+                                .build()
+                )
+                .parameters(params)
                 .build();
     }
 
@@ -129,6 +218,7 @@ class PrepareServiceImplTest extends BaseIgniteAbstractTest {
     private static IgniteSchema createSchema() {
         IgniteTable table = TestBuilders.table()
                 .name("T")
+                .addColumn("A", NativeTypes.INT64)
                 .addColumn("C", NativeTypes.INT32)
                 .distribution(IgniteDistributions.single())
                 .build();
