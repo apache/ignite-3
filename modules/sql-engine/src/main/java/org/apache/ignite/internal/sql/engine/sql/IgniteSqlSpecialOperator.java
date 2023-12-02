@@ -17,49 +17,25 @@
 
 package org.apache.ignite.internal.sql.engine.sql;
 
-import java.util.List;
 import org.apache.calcite.sql.SqlCall;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlLiteral;
 import org.apache.calcite.sql.SqlNode;
-import org.apache.calcite.sql.SqlOperator;
-import org.apache.calcite.sql.SqlWriter;
+import org.apache.calcite.sql.SqlSpecialOperator;
 import org.apache.calcite.sql.parser.SqlParserPos;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
 /**
- * Parse tree for {@code COMMIT} statement.
+ * Base class for SQL operators.
  */
-public class IgniteSqlCommitTransaction extends SqlCall {
+public abstract class IgniteSqlSpecialOperator extends SqlSpecialOperator {
 
-    /** Commit transaction operator. */
-    private static final SqlOperator OPERATOR = new IgniteSqlSpecialOperator("COMMIT", SqlKind.COMMIT) {
-        @Override
-        public SqlCall createCall(@Nullable SqlLiteral functionQualifier, SqlParserPos pos,
-                @Nullable SqlNode... operands) {
-            return new IgniteSqlCommitTransaction(pos);
-        }
-    };
-
-    public IgniteSqlCommitTransaction(SqlParserPos pos) {
-        super(pos);
+    /** Constructor. */
+    public IgniteSqlSpecialOperator(String name, SqlKind kind) {
+        super(name, kind);
     }
 
     /** {@inheritDoc} */
     @Override
-    public IgniteSqlSpecialOperator getOperator() {
-        return (IgniteSqlSpecialOperator) OPERATOR;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public List<SqlNode> getOperandList() {
-        return List.of();
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void unparse(SqlWriter writer, int leftPrec, int rightPrec) {
-        writer.keyword(getOperator().getName());
-    }
+    public abstract SqlCall createCall(@Nullable SqlLiteral functionQualifier, SqlParserPos pos, @Nullable SqlNode... operands);
 }

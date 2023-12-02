@@ -445,26 +445,26 @@ SqlNode SqlAlterColumn(Span s, SqlIdentifier tableId, boolean ifExists) :
     (
         LOOKAHEAD(2)
         <SET> <DATA> <TYPE> { s.add(this); } type = DataTypeEx() nullable = NullableOptDefaultNull() dflt = DefaultLiteralOrNull() {
-            return new IgniteSqlAlterColumn(s.end(this), ifExists, tableId, id, type, dflt, nullable == null ? null : !nullable);
+            return new IgniteSqlAlterColumn(s.end(this), ifExists, tableId, id, type, false, dflt, nullable == null ? null : !nullable);
         }
     |
         LOOKAHEAD(2)
         <SET> <NOT> <NULL> {
-            return new IgniteSqlAlterColumn(s.end(this), ifExists, tableId, id, null, null, true);
+            return new IgniteSqlAlterColumn(s.end(this), ifExists, tableId, id, null, false, null, true);
         }
     |
         LOOKAHEAD(2)
         <DROP> <NOT> <NULL> {
-            return new IgniteSqlAlterColumn(s.end(this), ifExists, tableId, id, null, null, false);
+            return new IgniteSqlAlterColumn(s.end(this), ifExists, tableId, id, null, false, null, false);
         }
     |
         <SET> <DEFAULT_> { s.add(this); } dflt = Literal()
         {
-            return new IgniteSqlAlterColumn(s.end(this), ifExists, tableId, id, null, dflt, null);
+            return new IgniteSqlAlterColumn(s.end(this), ifExists, tableId, id, null, false, dflt, null);
         }
     |
         <DROP> <DEFAULT_> {
-            return new IgniteSqlAlterColumn(s.end(this), ifExists, tableId, id, null, SqlLiteral.createNull(s.end(this)), null);
+            return new IgniteSqlAlterColumn(s.end(this), ifExists, tableId, id, null, true, SqlLiteral.createNull(s.end(this)), null);
         }
     )
 }

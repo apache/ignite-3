@@ -31,7 +31,7 @@ import org.junit.jupiter.params.provider.CsvSource;
 /**
  * Tests for transaction control SQL statements.
  */
-public class SqlTransactionControlParserTest {
+public class SqlTransactionControlParserTest extends AbstractDdlParserTest {
 
     @ParameterizedTest
     @CsvSource({
@@ -62,14 +62,7 @@ public class SqlTransactionControlParserTest {
         expectUnparsed(node, sql);
     }
 
-    private static SqlNode parseStatement(String sqlStmt) {
-        return IgniteSqlParser.parse(sqlStmt, StatementParseResult.MODE).statement();
-    }
-
-    private static void expectUnparsed(SqlNode node, String expected) {
-        SqlPrettyWriter writer = new SqlPrettyWriter();
-        node.unparse(writer, 0, 0);
-
-        assertEquals(expected, writer.toString(), "Unparse does not match");
+    private SqlNode parseStatement(String sqlStmt) {
+        return parse(sqlStmt);
     }
 }

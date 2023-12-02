@@ -21,9 +21,14 @@ import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_PARSE_ERR;
 
 import java.io.Reader;
+import java.util.List;
 import org.apache.calcite.config.Lex;
+import org.apache.calcite.sql.SqlDelete;
+import org.apache.calcite.sql.SqlKind;
+import org.apache.calcite.sql.SqlMerge;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlNodeList;
+import org.apache.calcite.sql.SqlUpdate;
 import org.apache.calcite.sql.parser.SqlAbstractParserImpl;
 import org.apache.calcite.sql.parser.SqlParseException;
 import org.apache.calcite.sql.parser.SqlParser;
@@ -94,7 +99,15 @@ public final class IgniteSqlParser  {
             Integer dynamicParamsCount = InternalIgniteSqlParser.dynamicParamCount.get();
             assert dynamicParamsCount != null : "dynamicParamCount has not been updated";
 
-            return mode.createResult(nodeList.getList(), dynamicParamsCount);
+            List<SqlNode> list = nodeList.getList();
+
+            for (int i = 0; i < list.size(); i++) {
+                SqlNode original = list.get(i);
+                SqlNode node = fixDmlNodesIfNecessary(original);
+                list.set(i, node);
+            }
+
+            return mode.createResult(list, dynamicParamsCount);
         } catch (SqlParseException e) {
             throw convertException(e);
         } finally {
@@ -244,6 +257,18 @@ public final class IgniteSqlParser  {
             } finally {
                 dynamicParamCount.set(nDynamicParams);
             }
+        }
+    }
+
+    private static SqlNode fixDmlNodesIfNecessary(SqlNode node) {
+        if (node.getKind() == SqlKind.DELETE) {
+            return new IgniteSqlDelete((SqlDelete) node);
+        } else if (node.getKind() == SqlKind.UPDATE) {
+            return new IgniteSqlUpdate((SqlUpdate) node);
+        } else if (node.getKind() == SqlKind.MERGE) {
+            return new IgniteSqlMerge((SqlMerge) node);
+        } else {
+            return node;
         }
     }
 }
