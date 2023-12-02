@@ -454,10 +454,8 @@ public class SqlQueryProcessor implements QueryProcessor {
             throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
         }
 
-        DynamicParameterValue[] dynamicParams = DynamicParameterValue.fromValues(params);
-
         try {
-            return queryScript0(properties, transactions, transaction, qry, dynamicParams);
+            return queryScript0(properties, transactions, transaction, qry, params);
         } finally {
             busyLock.leaveBusy();
         }
@@ -544,7 +542,7 @@ public class SqlQueryProcessor implements QueryProcessor {
             IgniteTransactions transactions,
             @Nullable InternalTransaction explicitTransaction,
             String sql,
-            DynamicParameterValue[] params
+            Object... params
     ) {
         SqlProperties properties0 = SqlPropertiesHelper.chain(properties, DEFAULT_PROPERTIES);
         String schemaName = properties0.get(QueryProperty.DEFAULT_SCHEMA);
@@ -764,7 +762,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                 IgniteTransactions transactions,
                 @Nullable InternalTransaction explicitTransaction,
                 List<ParsedResult> parsedResults,
-                DynamicParameterValue[] params
+                Object[] params
         ) {
             this.schemaName = schemaName;
             this.transactions = transactions;

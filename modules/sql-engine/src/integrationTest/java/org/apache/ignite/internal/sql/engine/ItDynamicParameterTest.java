@@ -348,7 +348,7 @@ public class ItDynamicParameterTest extends BaseSqlIntegrationTest {
         stmt.append(")");
 
         log.info("INSERT from column names: {}", stmt);
-        
+
         ParameterMetadata parameterTypes = getParameterTypes(stmt.toString());
 
         List<NativeType> actualTypes = parameterTypes.parameterTypes().stream()
