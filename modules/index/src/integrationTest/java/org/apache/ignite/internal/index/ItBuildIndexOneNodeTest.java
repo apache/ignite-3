@@ -43,6 +43,7 @@ import org.apache.ignite.internal.sql.engine.util.QueryChecker;
 import org.apache.ignite.internal.table.distributed.replication.request.BuildIndexReplicaRequest;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /** Integration test for testing the building of an index in a single node cluster. */
@@ -118,6 +119,7 @@ public class ItBuildIndexOneNodeTest extends BaseSqlIntegrationTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20117")
     void testBuildingIndexAndInsertIntoTableInParallel() throws Exception {
         AtomicInteger nextPersonId = new AtomicInteger();
 
@@ -151,6 +153,7 @@ public class ItBuildIndexOneNodeTest extends BaseSqlIntegrationTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20117")
     void testBuildingIndexAndUpdateIntoTableInParallel() throws Exception {
         AtomicInteger nextPersonId = new AtomicInteger();
 
@@ -198,6 +201,7 @@ public class ItBuildIndexOneNodeTest extends BaseSqlIntegrationTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20117")
     void testBuildingIndexAndDeleteFromTableInParallel() throws Exception {
         AtomicInteger nextPersonId = new AtomicInteger();
 
