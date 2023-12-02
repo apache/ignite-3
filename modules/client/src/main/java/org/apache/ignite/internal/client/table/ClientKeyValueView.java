@@ -17,9 +17,10 @@
 
 package org.apache.ignite.internal.client.table;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.client.ClientUtils.sync;
 import static org.apache.ignite.internal.client.table.ClientTable.writeTx;
+import static org.apache.ignite.internal.util.CompletableFutures.emptyCollectionCompletedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.emptyMapCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
@@ -155,7 +156,7 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
         Objects.requireNonNull(keys);
 
         if (keys.isEmpty()) {
-            return completedFuture(Collections.emptyMap());
+            return emptyMapCompletedFuture();
         }
 
         return tbl.doSchemaOutInOpAsync(
@@ -335,7 +336,7 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
         Objects.requireNonNull(keys);
 
         if (keys.isEmpty()) {
-            return completedFuture(Collections.emptyList());
+            return emptyCollectionCompletedFuture();
         }
 
         return tbl.doSchemaOutInOpAsync(

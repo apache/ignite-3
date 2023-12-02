@@ -30,6 +30,7 @@ import static org.apache.ignite.internal.causality.IncrementalVersionedValue.dep
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.partitionAssignments;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.tableAssignments;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
+import static org.apache.ignite.internal.util.CompletableFutures.emptyListCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
@@ -1335,7 +1336,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     Collection<CatalogTableDescriptor> tableDescriptors = catalogService.tables(catalogVersion);
 
                     if (tableDescriptors.isEmpty()) {
-                        return completedFuture(List.of());
+                        return emptyListCompletedFuture();
                     }
 
                     CompletableFuture<TableImpl>[] tableImplFutures = tableDescriptors.stream()

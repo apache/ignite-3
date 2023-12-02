@@ -19,31 +19,67 @@ package org.apache.ignite.internal.util;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 
+import java.util.Collection;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
-/** Helper class for working with {@link CompletableFuture} contains useful constants and methods. */
+/** Helper class for working with {@link CompletableFuture}. */
 public class CompletableFutures {
-    /** Completed future with {@code null}. */
-    public static final CompletableFuture<Void> NULL_COMPLETED_FUTURE = completedFuture(null);
+    private static final CompletableFuture<Void> NULL_COMPLETED_FUTURE = completedFuture(null);
 
-    /** Completed future with {@code true}. */
-    public static final CompletableFuture<Boolean> TRUE_COMPLETED_FUTURE = completedFuture(true);
+    private static final CompletableFuture<Boolean> TRUE_COMPLETED_FUTURE = completedFuture(true);
 
-    /** Completed future with {@code false}. */
-    public static final CompletableFuture<Boolean> FALSE_COMPLETED_FUTURE = completedFuture(false);
+    private static final CompletableFuture<Boolean> FALSE_COMPLETED_FUTURE = completedFuture(false);
+
+    private static final CompletableFuture<List<?>> EMPTY_LIST_COMPLETED_FUTURE = completedFuture(List.of());
+
+    private static final CompletableFuture<Set<?>> EMPTY_SET_COMPLETED_FUTURE = completedFuture(Set.of());
+
+    private static final CompletableFuture<Map<?, ?>> EMPTY_MAP_COMPLETED_FUTURE = completedFuture(Map.of());
 
     /** Returns a completed future with {@code null} with the requested type. */
     public static <T> CompletableFuture<T> nullCompletedFuture() {
         return (CompletableFuture<T>) NULL_COMPLETED_FUTURE;
     }
 
-    /** Returns a completed future with {@code true} with the requested type. */
+    /** Returns a completed future with {@code true}. */
     public static CompletableFuture<Boolean> trueCompletedFuture() {
         return TRUE_COMPLETED_FUTURE;
     }
 
-    /** Returns a completed future with {@code false} with the requested type. */
+    /** Returns a completed future with {@code false}. */
     public static CompletableFuture<Boolean> falseCompletedFuture() {
         return FALSE_COMPLETED_FUTURE;
+    }
+
+    /**
+     * Returns a completed future with boolean value.
+     *
+     * @param b Boolean value.
+     */
+    public static CompletableFuture<Boolean> booleanCompletedFuture(boolean b) {
+        return b ? TRUE_COMPLETED_FUTURE : FALSE_COMPLETED_FUTURE;
+    }
+
+    /** Returns a completed future with empty immutable {@link List} with the requested type. */
+    public static <T> CompletableFuture<Collection<T>> emptyCollectionCompletedFuture() {
+        return (CompletableFuture<Collection<T>>) (CompletableFuture<?>) EMPTY_LIST_COMPLETED_FUTURE;
+    }
+
+    /** Returns a completed future with empty immutable {@link Collection} with the requested type. */
+    public static <T> CompletableFuture<List<T>> emptyListCompletedFuture() {
+        return (CompletableFuture<List<T>>) (CompletableFuture<?>) EMPTY_LIST_COMPLETED_FUTURE;
+    }
+
+    /** Returns a completed future with empty immutable {@link Set} with the requested type. */
+    public static <T> CompletableFuture<Set<T>> emptySetCompletedFuture() {
+        return (CompletableFuture<Set<T>>) (CompletableFuture<?>) EMPTY_SET_COMPLETED_FUTURE;
+    }
+
+    /** Returns a completed future with empty immutable {@link Map} with the requested types. */
+    public static <K, V> CompletableFuture<Map<K, V>> emptyMapCompletedFuture() {
+        return (CompletableFuture<Map<K, V>>) (CompletableFuture<?>) EMPTY_MAP_COMPLETED_FUTURE;
     }
 }

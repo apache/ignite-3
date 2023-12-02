@@ -58,6 +58,7 @@ import org.apache.ignite.internal.network.file.messages.Identifier;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.network.ClusterNodeImpl;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NetworkMessageHandler;
@@ -273,7 +274,7 @@ class FileTransferServiceImplTest extends BaseIgniteAbstractTest {
         doAnswer(invocation -> {
             // Update transfer lifecycle state - transfer is registered.
             transferLifecycleState.compareAndSet(0, 1);
-            return (TransferredFilesCollector) () -> completedFuture(List.of());
+            return (TransferredFilesCollector) CompletableFutures::emptyListCompletedFuture;
         }).when(fileReceiver).registerTransfer(anyString(), any(UUID.class), anyList(), any(Path.class));
 
         // Set messaging service to fail to send upload response if transfer is not registered.

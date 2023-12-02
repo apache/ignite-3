@@ -24,6 +24,7 @@ import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.replicator.ReplicaManager.DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.CollectionUtils.first;
+import static org.apache.ignite.internal.util.CompletableFutures.emptySetCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.findLocalAddresses;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.waitForTopology;
@@ -321,7 +322,7 @@ public class ItTxTestCluster {
             var cmgManager = mock(ClusterManagementGroupManager.class);
 
             // This test is run without Meta storage.
-            when(cmgManager.metaStorageNodes()).thenReturn(completedFuture(Set.of()));
+            when(cmgManager.metaStorageNodes()).thenReturn(emptySetCompletedFuture());
 
             ReplicaManager replicaMgr = new ReplicaManager(
                     node.name(),

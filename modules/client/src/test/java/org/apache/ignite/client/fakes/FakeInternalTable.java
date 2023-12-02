@@ -18,6 +18,7 @@
 package org.apache.ignite.client.fakes;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.booleanCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
@@ -209,7 +210,7 @@ public class FakeInternalTable implements InternalTable {
 
         onDataAccess("insert", row);
 
-        return completedFuture(old == null);
+        return booleanCompletedFuture(old == null);
     }
 
     @Override
@@ -230,7 +231,7 @@ public class FakeInternalTable implements InternalTable {
     public CompletableFuture<Boolean> replace(BinaryRowEx row, @Nullable InternalTransaction tx) {
         BinaryTuple key = keyExtractor.extractColumns(row);
 
-        return completedFuture(replaceImpl(key, row, tx) != null);
+        return booleanCompletedFuture(replaceImpl(key, row, tx) != null);
     }
 
     @Override
@@ -286,7 +287,7 @@ public class FakeInternalTable implements InternalTable {
         }
 
         onDataAccess("delete", keyRow);
-        return completedFuture(old != null);
+        return booleanCompletedFuture(old != null);
     }
 
     @Override
@@ -303,7 +304,7 @@ public class FakeInternalTable implements InternalTable {
         }
 
         onDataAccess("deleteExact", oldRow);
-        return completedFuture(res);
+        return booleanCompletedFuture(res);
     }
 
     @Override
