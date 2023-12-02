@@ -105,20 +105,22 @@ public class DynamicParametersTest extends AbstractPlannerTest {
      */
     @TestFactory
     public Stream<DynamicTest> testInExpression() {
-        String error =
+        String requireExplicitCast =
                 "Values passed to IN operator must have compatible types. Dynamic parameter requires adding explicit type cast";
 
-        return Stream.of(
-                // : java.lang.UnsupportedOperationException: class org.apache.calcite.sql.SqlNodeList
+        String unableToDetermineParameter = "Unable to determine type of a dynamic parameter#0";
 
+        return Stream.of(
                 sql("SELECT ? IN ('1', '2')", 1).parameterTypes(nullable(NativeTypes.INT32)).project("OR(=(?0, 1), =(?0, 2))"),
-                sql("SELECT ? IN (1, 2)", "1").fails(error),
+                sql("SELECT ? IN (1, 2)", "1").fails(requireExplicitCast),
                 sql("SELECT ? IN (1, 2)", 1).parameterTypes(nullable(NativeTypes.INT32)).project("OR(=(?0, 1), =(?0, 2))"),
 
                 sql("SELECT ? IN (1)", Unspecified.UNKNOWN)
                         .fails("Unable to determine type of a dynamic parameter#0"),
+
                 sql("SELECT ? IN (?, 1)", Unspecified.UNKNOWN, Unspecified.UNKNOWN)
                         .fails("Unable to determine type of a dynamic parameter#0"),
+
                 sql("SELECT ? IN (?, ?)", Unspecified.UNKNOWN, Unspecified.UNKNOWN, Unspecified.UNKNOWN)
                         .fails("Unable to determine type of a dynamic parameter#0"),
 
@@ -137,9 +139,9 @@ public class DynamicParametersTest extends AbstractPlannerTest {
                         .parameterTypes(nullable(NativeTypes.INT32), nullable(NativeTypes.INT32))
                         .project("AND(=(?0, 1), =(?1, 2))"),
 
-                sql("SELECT (?,?) IN ((1,2))", "1", "2").fails(error),
-                sql("SELECT (?,?) IN (('1', 2))", 1, "2").fails(error),
-                sql("SELECT (?,?) IN ((1, '2'))", "1", "2").fails(error)
+                sql("SELECT (?,?) IN ((1,2))", "1", "2").fails(requireExplicitCast),
+                sql("SELECT (?,?) IN (('1', 2))", 1, "2").fails(requireExplicitCast),
+                sql("SELECT (?,?) IN ((1, '2'))", "1", "2").fails(requireExplicitCast)
         );
     }
 
@@ -168,7 +170,7 @@ public class DynamicParametersTest extends AbstractPlannerTest {
                         .fails("Illegal mixing of types in CASE or COALESCE statement"),
 
                 sql("SELECT CASE WHEN ? THEN 1 WHEN ? THEN 2 ELSE 3 END", 1, 2)
-                        .fails("Expected a boolean typ")
+                        .fails("Expected a boolean type")
         );
     }
 
