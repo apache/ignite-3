@@ -627,7 +627,7 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
                 SqlDynamicParam dynamicParam = (SqlDynamicParam) first;
                 firstType = deriveDynamicParamType(dynamicParam);
             } else {
-                firstType = super.deriveType(scope, ret);
+                firstType = super.deriveType(scope, first);
             }
 
             boolean nullType = isNull(returnType) || isNull(firstType);
