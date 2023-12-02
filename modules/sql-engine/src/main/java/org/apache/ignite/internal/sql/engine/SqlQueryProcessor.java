@@ -485,14 +485,11 @@ public class SqlQueryProcessor implements QueryProcessor {
         CompletableFuture<ParameterMetadata> stage = start.thenCompose(ignored -> {
             ParsedResult result = parserService.parse(sql);
 
-            DynamicParameterValue[] params = new DynamicParameterValue[result.dynamicParamsCount()];
-            Arrays.fill(params, DynamicParameterValue.noValue());
-
             validateParsedStatement(properties0, result);
 
             HybridTimestamp timestamp = clock.now();
 
-            return getParameterTypes(schemaName, result, timestamp, queryCancel, params);
+            return getParameterTypes(schemaName, result, timestamp, queryCancel);
         });
 
         // TODO IGNITE-20078 Improve (or remove) CancellationException handling.
@@ -573,10 +570,13 @@ public class SqlQueryProcessor implements QueryProcessor {
     private CompletableFuture<ParameterMetadata> getParameterTypes(String schemaName,
             ParsedResult parsedResult,
             HybridTimestamp timestamp,
-            QueryCancel queryCancel,
-            DynamicParameterValue[] params) {
+            QueryCancel queryCancel) {
 
         return waitForActualSchema(schemaName, timestamp).thenCompose(schema -> {
+            // Fill in unspecified parameters.
+            DynamicParameterValue[] params = new DynamicParameterValue[parsedResult.dynamicParamsCount()];
+            Arrays.fill(params, DynamicParameterValue.noValue());
+
             BaseQueryContext ctx = BaseQueryContext.builder()
                     .frameworkConfig(Frameworks.newConfigBuilder(FRAMEWORK_CONFIG).defaultSchema(schema).build())
                     .queryId(UUID.randomUUID())
