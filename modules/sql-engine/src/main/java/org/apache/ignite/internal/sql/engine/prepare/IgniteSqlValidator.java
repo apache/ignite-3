@@ -548,7 +548,7 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         } else {
             checkTypesInteroperability(scope, expr);
 
-            RelDataType dataType = deriveOperatorType(scope, expr);
+            RelDataType dataType = super.deriveType(scope, expr);
 
             SqlKind sqlKind = expr.getKind();
             // See the comments below.
@@ -578,10 +578,6 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
 
             return dataType;
         }
-    }
-
-    private RelDataType deriveOperatorType(SqlValidatorScope scope, SqlNode expr) {
-        return super.deriveType(scope, expr);
     }
 
     /** {@inheritDoc} */
@@ -625,13 +621,13 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
             SqlNode ret = expr0.getOperandList().get(1);
 
             RelDataType firstType;
-            RelDataType returnType = deriveOperatorType(scope, ret);
+            RelDataType returnType = super.deriveType(scope, ret);
 
             if (first instanceof SqlDynamicParam) {
                 SqlDynamicParam dynamicParam = (SqlDynamicParam) first;
                 firstType = deriveDynamicParamType(dynamicParam);
             } else {
-                firstType = deriveOperatorType(scope, first);
+                firstType = super.deriveType(scope, ret);
             }
 
             boolean nullType = isNull(returnType) || isNull(firstType);
