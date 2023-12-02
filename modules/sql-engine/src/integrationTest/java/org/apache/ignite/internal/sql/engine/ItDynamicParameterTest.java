@@ -313,6 +313,32 @@ public class ItDynamicParameterTest extends BaseSqlIntegrationTest {
     }
 
     @Test
+    public void testGetUnspecifiedParameterTypesInPredicate() {
+        List<Pair<String, NativeType>> dataTypes = columnNameAndType();
+
+        sql(createTableFoColumns("params0", dataTypes));
+
+        StringBuilder stmt = new StringBuilder("SELECT * FROM params0 WHERE ");
+        for (int i = 0; i < dataTypes.size(); i++) {
+            if (i > 0) {
+                stmt.append(" AND ");
+            }
+            stmt.append(dataTypes.get(i).getFirst());
+            stmt.append(" = ?");
+        }
+
+        log.info("SELECT from column names: {}", stmt);
+
+        ParameterMetadata parameterTypes = getParameterTypes(stmt.toString());
+
+        List<NativeType> actualTypes = parameterTypes.parameterTypes().stream()
+                .map(p -> TypeUtils.columnType2NativeType(p.columnType(), p.precision(), p.scale(), p.precision()))
+                .collect(Collectors.toList());
+
+        assertEquals(actualTypes, dataTypes.stream().map(Pair::getSecond).collect(Collectors.toList()), "parameter types");
+    }
+
+    @Test
     public void testGetUnspecifiedParameterTypesInInsert() {
         List<Pair<String, NativeType>> dataTypes = columnNameAndType();
 
