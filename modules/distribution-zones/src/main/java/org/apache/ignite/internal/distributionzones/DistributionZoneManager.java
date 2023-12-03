@@ -20,7 +20,6 @@ package org.apache.ignite.internal.distributionzones;
 import static java.util.Collections.emptySet;
 import static java.util.Collections.unmodifiableSet;
 import static java.util.concurrent.CompletableFuture.allOf;
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toList;
@@ -62,6 +61,8 @@ import static org.apache.ignite.internal.util.ByteUtils.bytesToLong;
 import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
 import static org.apache.ignite.internal.util.ByteUtils.longToBytes;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
+import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
@@ -336,7 +337,7 @@ public class DistributionZoneManager implements IgniteComponent {
 
         causalityDataNodesEngine.causalityOnUpdateScaleUp(causalityToken, zoneId, newScaleUp);
 
-        return completedFuture(null);
+        return nullCompletedFuture();
     }
 
     private CompletableFuture<Void> onUpdateScaleDownBusy(AlterZoneEventParameters parameters) {
@@ -378,7 +379,7 @@ public class DistributionZoneManager implements IgniteComponent {
 
         causalityDataNodesEngine.causalityOnUpdateScaleDown(causalityToken, zoneId, newScaleDown);
 
-        return completedFuture(null);
+        return nullCompletedFuture();
     }
 
     private CompletableFuture<Void> onUpdateFilter(AlterZoneEventParameters parameters) {
@@ -542,7 +543,7 @@ public class DistributionZoneManager implements IgniteComponent {
                                     revision
                             );
                         }
-                    }).thenCompose((ignored) -> completedFuture(null));
+                    }).thenCompose((ignored) -> nullCompletedFuture());
         } finally {
             busyLock.leaveBusy();
         }
@@ -582,7 +583,7 @@ public class DistributionZoneManager implements IgniteComponent {
                             LOG.debug("Failed to delete zone's dataNodes keys [zoneId = {}, revision = {}]", zoneId, revision);
                         }
                     })
-                    .thenCompose(ignored -> completedFuture(null));
+                    .thenCompose(ignored -> nullCompletedFuture());
         } finally {
             busyLock.leaveBusy();
         }
@@ -839,7 +840,7 @@ public class DistributionZoneManager implements IgniteComponent {
                     } else {
                         LOG.debug("Failed to update recoverable states for distribution zone manager [revision = {}]", revision);
                     }
-                }).thenCompose((ignored) -> completedFuture(null));
+                }).thenCompose((ignored) -> nullCompletedFuture());
     }
 
     /**
@@ -914,7 +915,7 @@ public class DistributionZoneManager implements IgniteComponent {
 
             if (zoneState == null) {
                 // Zone was deleted
-                return completedFuture(null);
+                return nullCompletedFuture();
             }
 
             Set<ByteArray> keysToGetFromMs = Set.of(
@@ -926,7 +927,7 @@ public class DistributionZoneManager implements IgniteComponent {
             return metaStorageManager.getAll(keysToGetFromMs).thenCompose(values -> inBusyLock(busyLock, () -> {
                 if (values.containsValue(null)) {
                     // Zone was deleted
-                    return completedFuture(null);
+                    return nullCompletedFuture();
                 }
 
                 Map<Node, Integer> dataNodesFromMetaStorage = extractDataNodes(values.get(zoneDataNodesKey(zoneId)));
@@ -944,7 +945,7 @@ public class DistributionZoneManager implements IgniteComponent {
                             scaleUpTriggerRevision
                     );
 
-                    return completedFuture(null);
+                    return nullCompletedFuture();
                 }
 
                 List<Node> deltaToAdd = zoneState.nodesToBeAddedToDataNodes(scaleUpTriggerRevision, revision);
@@ -994,7 +995,7 @@ public class DistributionZoneManager implements IgniteComponent {
                                 return saveDataNodesToMetaStorageOnScaleUp(zoneId, revision);
                             }
 
-                            return completedFuture(null);
+                            return nullCompletedFuture();
                         }));
             })).whenComplete((v, e) -> {
                 if (e != null) {
@@ -1024,7 +1025,7 @@ public class DistributionZoneManager implements IgniteComponent {
 
             if (zoneState == null) {
                 // Zone was deleted
-                return completedFuture(null);
+                return nullCompletedFuture();
             }
 
             Set<ByteArray> keysToGetFromMs = Set.of(
@@ -1036,7 +1037,7 @@ public class DistributionZoneManager implements IgniteComponent {
             return metaStorageManager.getAll(keysToGetFromMs).thenCompose(values -> inBusyLock(busyLock, () -> {
                 if (values.containsValue(null)) {
                     // Zone was deleted
-                    return completedFuture(null);
+                    return nullCompletedFuture();
                 }
 
                 Map<Node, Integer> dataNodesFromMetaStorage = extractDataNodes(values.get(zoneDataNodesKey(zoneId)));
@@ -1054,7 +1055,7 @@ public class DistributionZoneManager implements IgniteComponent {
                             scaleDownTriggerRevision
                     );
 
-                    return completedFuture(null);
+                    return nullCompletedFuture();
                 }
 
                 List<Node> deltaToRemove = zoneState.nodesToBeRemovedFromDataNodes(scaleDownTriggerRevision, revision);
@@ -1100,7 +1101,7 @@ public class DistributionZoneManager implements IgniteComponent {
                                 return saveDataNodesToMetaStorageOnScaleDown(zoneId, revision);
                             }
 
-                            return completedFuture(null);
+                            return nullCompletedFuture();
                         }));
             })).whenComplete((v, e) -> {
                 if (e != null) {
@@ -1393,13 +1394,13 @@ public class DistributionZoneManager implements IgniteComponent {
             CreateZoneEventParameters params = (CreateZoneEventParameters) parameters;
 
             return onCreateZone(params.zoneDescriptor(), params.causalityToken())
-                    .thenCompose((ignored) -> completedFuture(false));
+                    .thenCompose((ignored) -> falseCompletedFuture());
         }));
 
         catalogManager.listen(ZONE_DROP, (parameters, exception) -> inBusyLock(busyLock, () -> {
             assert exception == null : parameters;
 
-            return onDropZoneBusy((DropZoneEventParameters) parameters).thenCompose((ignored) -> completedFuture(false));
+            return onDropZoneBusy((DropZoneEventParameters) parameters).thenCompose((ignored) -> falseCompletedFuture());
         }));
 
         catalogManager.listen(ZONE_ALTER, new ManagerCatalogAlterZoneEventListener());

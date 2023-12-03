@@ -20,8 +20,8 @@ package org.apache.ignite.internal.index;
 import static java.util.Collections.binarySearch;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Comparator.comparingInt;
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 
@@ -199,12 +199,12 @@ class IndexChooser implements ManuallyCloseable {
             assert droppedIndexDescriptor != null : "indexId=" + parameters.indexId() + ", catalogVersion=" + previousCatalogVersion;
 
             if (!droppedIndexDescriptor.available()) {
-                return completedFuture(null);
+                return nullCompletedFuture();
             }
 
             addDroppedAvailableIndex(droppedIndexDescriptor, parameters.catalogVersion());
 
-            return completedFuture(null);
+            return nullCompletedFuture();
         });
     }
 
@@ -214,7 +214,7 @@ class IndexChooser implements ManuallyCloseable {
             // right after a table drop has been activated.
             droppedAvailableTableIndexes.entrySet().removeIf(entry -> parameters.tableId() == entry.getKey().tableId);
 
-            return completedFuture(null);
+            return nullCompletedFuture();
         });
     }
 
