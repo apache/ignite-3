@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.raft.PeersAndLearners.fromConsistentIds
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.util.CollectionUtils.first;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -449,7 +450,7 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
 
                     replicaManager.startReplica(
                             groupId,
-                            completedFuture(null),
+                            nullCompletedFuture(),
                             (request, senderId) -> {
                                 log.info("Handle request [type={}]", request.getClass().getSimpleName());
 

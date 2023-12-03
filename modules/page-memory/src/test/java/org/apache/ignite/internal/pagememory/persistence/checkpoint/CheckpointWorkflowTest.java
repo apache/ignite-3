@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_DATA;
@@ -37,6 +36,7 @@ import static org.apache.ignite.internal.pagememory.persistence.checkpoint.Check
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.pageId;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.FastTimestamps.coarseCurrentTimeMillis;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
@@ -202,7 +202,7 @@ public class CheckpointWorkflowTest extends BaseIgniteAbstractTest {
 
         doNothing().when(progressImpl).currentCheckpointPagesCount(pagesCountArgumentCaptor.capture());
 
-        when(progressImpl.futureFor(PAGES_SORTED)).thenReturn(completedFuture(null));
+        when(progressImpl.futureFor(PAGES_SORTED)).thenReturn(nullCompletedFuture());
 
         UUID checkpointId = UUID.randomUUID();
 

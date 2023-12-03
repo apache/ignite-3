@@ -17,9 +17,9 @@
 
 package org.apache.ignite.internal.distributionzones.utils;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.ZONE_ALTER;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
@@ -44,7 +44,7 @@ public class CatalogAlterZoneEventListenerTest extends BaseCatalogManagerTest {
             protected CompletableFuture<Void> onZoneUpdate(AlterZoneEventParameters parameters, CatalogZoneDescriptor oldZone) {
                 onZoneUpdateFuture.complete(null);
 
-                return completedFuture(null);
+                return nullCompletedFuture();
             }
         });
 
@@ -66,7 +66,7 @@ public class CatalogAlterZoneEventListenerTest extends BaseCatalogManagerTest {
             protected CompletableFuture<Void> onZoneUpdate(AlterZoneEventParameters parameters, CatalogZoneDescriptor oldZone) {
                 onZoneUpdateFuture.complete(null);
 
-                return completedFuture(null);
+                return nullCompletedFuture();
             }
 
             @Override
@@ -75,7 +75,7 @@ public class CatalogAlterZoneEventListenerTest extends BaseCatalogManagerTest {
 
                 onPartitionsUpdateFuture.complete(null);
 
-                return completedFuture(null);
+                return nullCompletedFuture();
             }
         });
 
@@ -99,7 +99,7 @@ public class CatalogAlterZoneEventListenerTest extends BaseCatalogManagerTest {
             protected CompletableFuture<Void> onZoneUpdate(AlterZoneEventParameters parameters, CatalogZoneDescriptor oldZone) {
                 onZoneUpdateFuture.complete(null);
 
-                return completedFuture(null);
+                return nullCompletedFuture();
             }
 
             @Override
@@ -108,7 +108,7 @@ public class CatalogAlterZoneEventListenerTest extends BaseCatalogManagerTest {
 
                 onReplicasUpdateFuture.complete(null);
 
-                return completedFuture(null);
+                return nullCompletedFuture();
             }
         });
 
@@ -131,7 +131,7 @@ public class CatalogAlterZoneEventListenerTest extends BaseCatalogManagerTest {
             protected CompletableFuture<Void> onZoneUpdate(AlterZoneEventParameters parameters, CatalogZoneDescriptor oldZone) {
                 onZoneUpdateFuture.complete(null);
 
-                return completedFuture(null);
+                return nullCompletedFuture();
             }
 
             @Override
@@ -140,7 +140,7 @@ public class CatalogAlterZoneEventListenerTest extends BaseCatalogManagerTest {
 
                 onFilterUpdateFuture.complete(null);
 
-                return completedFuture(null);
+                return nullCompletedFuture();
             }
         });
 
@@ -163,7 +163,7 @@ public class CatalogAlterZoneEventListenerTest extends BaseCatalogManagerTest {
             protected CompletableFuture<Void> onZoneUpdate(AlterZoneEventParameters parameters, CatalogZoneDescriptor oldZone) {
                 onZoneUpdateFuture.complete(null);
 
-                return completedFuture(null);
+                return nullCompletedFuture();
             }
 
             @Override
@@ -172,7 +172,7 @@ public class CatalogAlterZoneEventListenerTest extends BaseCatalogManagerTest {
 
                 onAutoAdjustUpdateFuture.complete(null);
 
-                return completedFuture(null);
+                return nullCompletedFuture();
             }
         });
 
@@ -195,7 +195,7 @@ public class CatalogAlterZoneEventListenerTest extends BaseCatalogManagerTest {
             protected CompletableFuture<Void> onZoneUpdate(AlterZoneEventParameters parameters, CatalogZoneDescriptor oldZone) {
                 onZoneUpdateFuture.complete(null);
 
-                return completedFuture(null);
+                return nullCompletedFuture();
             }
 
             @Override
@@ -204,7 +204,7 @@ public class CatalogAlterZoneEventListenerTest extends BaseCatalogManagerTest {
 
                 onAutoAdjustScaleUpUpdateFuture.complete(null);
 
-                return completedFuture(null);
+                return nullCompletedFuture();
             }
         });
 
@@ -230,7 +230,7 @@ public class CatalogAlterZoneEventListenerTest extends BaseCatalogManagerTest {
             protected CompletableFuture<Void> onZoneUpdate(AlterZoneEventParameters parameters, CatalogZoneDescriptor oldZone) {
                 onZoneUpdateFuture.complete(null);
 
-                return completedFuture(null);
+                return nullCompletedFuture();
             }
 
             @Override
@@ -239,7 +239,7 @@ public class CatalogAlterZoneEventListenerTest extends BaseCatalogManagerTest {
 
                 onAutoAdjustScaleDownUpdateFuture.complete(null);
 
-                return completedFuture(null);
+                return nullCompletedFuture();
             }
         });
 

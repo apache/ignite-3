@@ -26,6 +26,7 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
 import static org.apache.ignite.internal.tx.TxState.COMMITED;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
@@ -162,9 +163,9 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
 
     @BeforeEach
     void setUp() {
-        when(mvGc.removeStorage(any(TablePartitionId.class))).then(invocation -> completedFuture(null));
+        when(mvGc.removeStorage(any(TablePartitionId.class))).then(invocation -> nullCompletedFuture());
 
-        when(catalogService.catalogReadyFuture(anyInt())).thenReturn(completedFuture(null));
+        when(catalogService.catalogReadyFuture(anyInt())).thenReturn(nullCompletedFuture());
     }
 
     @AfterEach

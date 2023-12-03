@@ -16,7 +16,7 @@
  */
 package org.apache.ignite.raft.jraft.rpc.impl;
 
-import java.net.ConnectException;
+import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;import java.net.ConnectException;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -133,7 +133,7 @@ public abstract class AbstractClientService implements ClientService, TopologyEv
 
         // Remote node is alive and pinged, safe to continue.
         if (readyConsistentIds.contains(peerId.getConsistentId())) {
-            return CompletableFuture.completedFuture(true);
+            return trueCompletedFuture();
         }
 
         final RpcRequests.PingRequest req = rpcOptions.getRaftMessagesFactory()

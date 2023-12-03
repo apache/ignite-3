@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.distributionzones;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_FILTER;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE_TIMER_VALUE;
@@ -26,6 +25,7 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
+import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.utils.RebalanceUtil.pendingPartAssignmentsKey;
 import static org.apache.ignite.internal.utils.RebalanceUtil.stablePartAssignmentsKey;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -392,7 +392,7 @@ public class ItDistributionZonesFilterTest extends ClusterPerTestIntegrationTest
         node0.catalogManager().listen(CatalogEvent.ZONE_ALTER, (parameters, exception) -> {
             latch.countDown();
 
-            return completedFuture(false);
+            return falseCompletedFuture();
         });
 
         session.execute(null, alterZoneSql(3));

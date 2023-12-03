@@ -17,6 +17,8 @@
 
 package org.apache.ignite.client.handler;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Table.TABLE_NOT_FOUND_ERR;
 
 import java.util.ArrayList;
@@ -142,7 +144,7 @@ public class ClientPrimaryReplicaTracker implements EventListener<EventParameter
         // Check happy path: if we already have all replicas, and this.maxStartTime >= maxStartTime, return synchronously.
         PrimaryReplicasResult fastRes = primaryReplicasNoWait(tableId, maxStartTime, timestamp, false);
         if (fastRes != null) {
-            return CompletableFuture.completedFuture(fastRes);
+            return completedFuture(fastRes);
         }
 
         // Request primary for all partitions.
@@ -272,7 +274,7 @@ public class ClientPrimaryReplicaTracker implements EventListener<EventParameter
 
         try {
             if (exception != null) {
-                return CompletableFuture.completedFuture(false);
+                return falseCompletedFuture();
             }
 
             return notifyInternal(parameters);
@@ -285,24 +287,24 @@ public class ClientPrimaryReplicaTracker implements EventListener<EventParameter
         if (parameters instanceof DropTableEventParameters) {
             removeTable((DropTableEventParameters) parameters);
 
-            return CompletableFuture.completedFuture(false);
+            return falseCompletedFuture();
         }
 
         if (!(parameters instanceof PrimaryReplicaEventParameters)) {
             assert false : "Unexpected event parameters: " + parameters.getClass();
 
-            return CompletableFuture.completedFuture(false);
+            return falseCompletedFuture();
         }
 
         PrimaryReplicaEventParameters primaryReplicaEvent = (PrimaryReplicaEventParameters) parameters;
         if (!(primaryReplicaEvent.groupId() instanceof TablePartitionId)) {
-            return CompletableFuture.completedFuture(false);
+            return falseCompletedFuture();
         }
 
         TablePartitionId tablePartitionId = (TablePartitionId) primaryReplicaEvent.groupId();
         updatePrimaryReplica(tablePartitionId, primaryReplicaEvent.startTime(), primaryReplicaEvent.leaseholder());
 
-        return CompletableFuture.completedFuture(false); // false: don't remove listener.
+        return falseCompletedFuture(); // false: don't remove listener.
     }
 
     private void removeTable(DropTableEventParameters dropTableEvent) {
