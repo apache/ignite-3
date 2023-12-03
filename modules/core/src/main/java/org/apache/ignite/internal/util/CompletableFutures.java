@@ -39,23 +39,23 @@ public class CompletableFutures {
 
     private static final CompletableFuture<Map<?, ?>> EMPTY_MAP_COMPLETED_FUTURE = completedFuture(Map.of());
 
-    /** Returns a completed future with {@code null} with the requested type. */
+    /** Returns a future completed with a {@code null} value. */
     public static <T> CompletableFuture<T> nullCompletedFuture() {
         return (CompletableFuture<T>) NULL_COMPLETED_FUTURE;
     }
 
-    /** Returns a completed future with {@code true}. */
+    /** Returns a future completed with a {@code true} value. */
     public static CompletableFuture<Boolean> trueCompletedFuture() {
         return TRUE_COMPLETED_FUTURE;
     }
 
-    /** Returns a completed future with {@code false}. */
+    /** Returns a future completed with a {@code false} value. */
     public static CompletableFuture<Boolean> falseCompletedFuture() {
         return FALSE_COMPLETED_FUTURE;
     }
 
     /**
-     * Returns a completed future with boolean value.
+     * Returns a future completed with the given boolean value.
      *
      * @param b Boolean value.
      */
@@ -63,22 +63,22 @@ public class CompletableFutures {
         return b ? TRUE_COMPLETED_FUTURE : FALSE_COMPLETED_FUTURE;
     }
 
-    /** Returns a completed future with empty immutable {@link List} with the requested type. */
+    /** Returns a future completed with an empty immutable {@link Collection}. */
     public static <T> CompletableFuture<Collection<T>> emptyCollectionCompletedFuture() {
         return (CompletableFuture<Collection<T>>) (CompletableFuture<?>) EMPTY_LIST_COMPLETED_FUTURE;
     }
 
-    /** Returns a completed future with empty immutable {@link Collection} with the requested type. */
+    /** Returns a future completed with an empty immutable {@link List}. */
     public static <T> CompletableFuture<List<T>> emptyListCompletedFuture() {
         return (CompletableFuture<List<T>>) (CompletableFuture<?>) EMPTY_LIST_COMPLETED_FUTURE;
     }
 
-    /** Returns a completed future with empty immutable {@link Set} with the requested type. */
+    /** Returns a future completed with an empty immutable {@link Set}. */
     public static <T> CompletableFuture<Set<T>> emptySetCompletedFuture() {
         return (CompletableFuture<Set<T>>) (CompletableFuture<?>) EMPTY_SET_COMPLETED_FUTURE;
     }
 
-    /** Returns a completed future with empty immutable {@link Map} with the requested types. */
+    /** Returns a future completed with an empty immutable {@link Map}. */
     public static <K, V> CompletableFuture<Map<K, V>> emptyMapCompletedFuture() {
         return (CompletableFuture<Map<K, V>>) (CompletableFuture<?>) EMPTY_MAP_COMPLETED_FUTURE;
     }
