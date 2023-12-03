@@ -430,7 +430,7 @@ public class DistributionZoneManager implements IgniteComponent {
 
         causalityDataNodesEngine.onCreateOrRestoreZoneState(causalityToken, zone);
 
-        return completedFuture(null);
+        return nullCompletedFuture();
     }
 
     private CompletableFuture<Void> onCreateZone(CatalogZoneDescriptor zone, long causalityToken) {
