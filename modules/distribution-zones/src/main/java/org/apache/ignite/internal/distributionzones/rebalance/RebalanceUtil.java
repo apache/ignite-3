@@ -53,6 +53,7 @@ import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.util.ByteUtils;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Util class for methods needed for the rebalance process.
@@ -472,8 +473,13 @@ public class RebalanceUtil {
      * @param revision Revision.
      * @return Returns partition assignments from meta storage locally or {@code null} if assignments is absent.
      */
-    public static Set<Assignment> partitionAssignments(
-            MetaStorageManager metaStorageManager, int tableId, int partitionNumber, long revision) {
+    @Nullable
+    public static Set<Assignment> partitionAssignmentsGetLocally(
+            MetaStorageManager metaStorageManager,
+            int tableId,
+            int partitionNumber,
+            long revision
+    ) {
         Entry entry = metaStorageManager.getLocally(stablePartAssignmentsKey(new TablePartitionId(tableId, partitionNumber)), revision);
 
         return (entry == null || entry.empty() || entry.tombstone()) ? null : ByteUtils.fromBytes(entry.value());
@@ -515,7 +521,7 @@ public class RebalanceUtil {
     }
 
     /**
-     * Returns table assignments for all table partitions from meta storage locally.
+     * Returns table assignments for all table partitions from meta storage locally. Assignments must be present.
      *
      * @param metaStorageManager Meta storage manager.
      * @param tableId Table id.
@@ -523,7 +529,7 @@ public class RebalanceUtil {
      * @param revision Revision.
      * @return Future with table assignments as a value.
      */
-    public static List<Set<Assignment>> tableAssignments(
+    public static List<Set<Assignment>> tableAssignmentsGetLocally(
             MetaStorageManager metaStorageManager,
             int tableId,
             int numberOfPartitions,
@@ -533,7 +539,7 @@ public class RebalanceUtil {
                 .mapToObj(p -> {
                     Entry e = metaStorageManager.getLocally(stablePartAssignmentsKey(new TablePartitionId(tableId, p)), revision);
 
-                    assert !e.empty() && !e.tombstone() : e;
+                    assert e != null && !e.empty() && !e.tombstone() : e;
 
                     return (Set<Assignment>) ByteUtils.fromBytes(e.value());
                 })

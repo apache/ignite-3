@@ -452,7 +452,7 @@ public interface InternalTable extends ManuallyCloseable {
     RaftGroupService partitionRaftGroupService(int partition);
 
     /**
-     * Returns raft group client for corresponding partition.
+     * Returns {@code true} if raft group client for corresponding partition is started.
      *
      * @param partition Partition number.
      * @return Whether raft group client for corresponding partition is started.

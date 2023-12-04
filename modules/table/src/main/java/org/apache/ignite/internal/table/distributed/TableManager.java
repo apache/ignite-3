@@ -28,8 +28,8 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.causality.IncrementalVersionedValue.dependingOn;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.partitionAssignments;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.tableAssignments;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.partitionAssignmentsGetLocally;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.tableAssignmentsGetLocally;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
@@ -497,7 +497,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
             startTables(recoveryRevision);
 
-            performRebalanceOnRecovery(recoveryRevision);
+            processAssignmentsOnRecovery(recoveryRevision);
 
             metaStorageMgr.registerPrefixWatch(ByteArray.fromString(PENDING_ASSIGNMENTS_PREFIX), pendingAssignmentsRebalanceListener);
             metaStorageMgr.registerPrefixWatch(ByteArray.fromString(STABLE_ASSIGNMENTS_PREFIX), stableAssignmentsRebalanceListener);
@@ -519,17 +519,17 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         });
     }
 
-    private void performRebalanceOnRecovery(long recoveryRevision) {
+    private void processAssignmentsOnRecovery(long recoveryRevision) {
         var pendingAssignmentsPrefix = new ByteArray(PENDING_ASSIGNMENTS_PREFIX);
         var stableAssignmentsPrefix = new ByteArray(STABLE_ASSIGNMENTS_PREFIX);
 
-        startVv.update(recoveryRevision, (v, e) -> handleAssignmentsEventsOnRecovery(
+        startVv.update(recoveryRevision, (v, e) -> handleAssignmentsOnRecovery(
                 stableAssignmentsPrefix,
                 recoveryRevision,
                 (entry, rev) -> handleChangeStableAssignmentEvent(entry, rev, true),
                 "stable"
         ));
-        startVv.update(recoveryRevision, (v, e) -> handleAssignmentsEventsOnRecovery(
+        startVv.update(recoveryRevision, (v, e) -> handleAssignmentsOnRecovery(
                 pendingAssignmentsPrefix,
                 recoveryRevision,
                 (entry, rev) -> handleChangePendingAssignmentEvent(entry, localPartsByTableIdVv.get(recoveryRevision), rev, true),
@@ -537,7 +537,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         ));
     }
 
-    private CompletableFuture<Void> handleAssignmentsEventsOnRecovery(
+    private CompletableFuture<Void> handleAssignmentsOnRecovery(
             ByteArray prefix,
             long revision,
             BiFunction<Entry, Long, CompletableFuture<Void>> assignmentsEventHandler,
@@ -1103,8 +1103,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             // Check if the table already has assignments in the vault.
             // So, it means, that it is a recovery process and we should use the vault assignments instead of calculation for the new ones.
             // TODO https://issues.apache.org/jira/browse/IGNITE-20993
-            if (partitionAssignments(metaStorageMgr, tableId, 0, causalityToken) != null) {
-                assignmentsFuture = completedFuture(tableAssignments(metaStorageMgr, tableId, zoneDescriptor.partitions(), causalityToken));
+            if (partitionAssignmentsGetLocally(metaStorageMgr, tableId, 0, causalityToken) != null) {
+                assignmentsFuture = completedFuture(
+                        tableAssignmentsGetLocally(metaStorageMgr, tableId, zoneDescriptor.partitions(), causalityToken));
             } else {
                 assignmentsFuture = distributionZoneManager.dataNodes(causalityToken, zoneId)
                         .thenApply(dataNodes -> AffinityUtils.calculateAssignments(
