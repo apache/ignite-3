@@ -232,7 +232,6 @@ public class ClientSession implements AbstractSession {
             w.out().packLongNullable(defaultQueryTimeout);
             w.out().packLongNullable(defaultSessionTimeout);
 
-            // TODO: Do we need properties for scripts?
             packProperties(w, properties, null);
 
             w.out().packString(query);
