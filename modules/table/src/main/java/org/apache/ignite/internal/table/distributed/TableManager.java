@@ -418,7 +418,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 clock,
                 clusterNodeResolver,
                 topologyService::getById,
-                clusterService.messagingService()
+                clusterService.messagingService(),
+                placementDriver
         );
 
         schemaVersions = new SchemaVersionsImpl(schemaSyncService, catalogService, clock);
@@ -656,9 +657,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 PeersAndLearners newConfiguration = configurationFromAssignments(newPartAssignment);
 
                 TablePartitionId replicaGrpId = new TablePartitionId(tableId, partId);
-
-                transactionStateResolver.updateAssignment(replicaGrpId, newConfiguration.peers().stream().map(Peer::consistentId)
-                        .collect(toList()));
 
                 var safeTimeTracker = new PendingComparableValuesTracker<HybridTimestamp, Void>(
                         new HybridTimestamp(1, 0)
@@ -1661,11 +1659,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         Set<Assignment> pendingAssignments = ByteUtils.fromBytes(pendingAssignmentsEntry.value());
 
         Set<Assignment> stableAssignments = ByteUtils.fromBytes(stableAssignmentsEntry.value());
-
-        transactionStateResolver.updateAssignment(
-                replicaGrpId,
-                stableAssignments.stream().filter(Assignment::isPeer).map(Assignment::consistentId).collect(toList())
-        );
 
         // Start a new Raft node and Replica if this node has appeared in the new assignments.
         boolean shouldStartLocalServices = pendingAssignments.stream()

@@ -736,15 +736,17 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param request Transaction state request.
      * @return Result future.
      */
-    private CompletableFuture<LeaderOrTxState> processTxStateCommitPartitionRequest(TxStateCommitPartitionRequest request) {
+    private CompletableFuture<TransactionMeta> processTxStateCommitPartitionRequest(TxStateCommitPartitionRequest request) {
         return placementDriver.getPrimaryReplica(replicationGroupId, hybridClock.now())
-                .thenCompose(primaryReplicaMeta -> {
-                    if (primaryReplicaMeta == null) {
+                .thenCompose(replicaMeta -> {
+                    if (replicaMeta == null || replicaMeta.getLeaseholder() == null) {
                         return failedFuture(new PrimaryReplicaMissException(localNode.name(), null, null, null, null));
                     }
 
-                    if (!isLocalPeer(primaryReplicaMeta.getLeaseholder())) {
-                        return completedFuture(new LeaderOrTxState(primaryReplicaMeta.getLeaseholder(), null));
+                    if (!isLocalPeer(replicaMeta.getLeaseholder())) {
+                        return failedFuture(
+                                new PrimaryReplicaMissException(localNode.name(), replicaMeta.getLeaseholder(), null, null, null)
+                        );
                     }
 
                     TransactionMeta txMeta = txManager.stateMeta(request.txId());
@@ -756,7 +758,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                     // Don't wait for tx recovery, just trigger it if needed.
                     triggerTxRecoveryOnTxStateResolutionIfNeeded(request.txId(), txMeta);
 
-                    return completedFuture(new LeaderOrTxState(null, txMeta));
+                    return completedFuture(txMeta);
                 });
     }
 

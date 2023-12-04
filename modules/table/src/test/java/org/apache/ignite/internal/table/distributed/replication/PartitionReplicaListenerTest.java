@@ -40,6 +40,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.AdditionalMatchers.gt;
@@ -87,6 +88,7 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.marshaller.MarshallerException;
+import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.Peer;
@@ -96,6 +98,7 @@ import org.apache.ignite.internal.replicator.ReplicaResult;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowConverter;
 import org.apache.ignite.internal.schema.BinaryTuple;
@@ -141,7 +144,6 @@ import org.apache.ignite.internal.table.distributed.replication.request.ReadWrit
 import org.apache.ignite.internal.table.distributed.replicator.IncompatibleSchemaAbortException;
 import org.apache.ignite.internal.table.distributed.replicator.IncompatibleSchemaException;
 import org.apache.ignite.internal.table.distributed.replicator.InternalSchemaVersionMismatchException;
-import org.apache.ignite.internal.table.distributed.replicator.LeaderOrTxState;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
 import org.apache.ignite.internal.table.distributed.replicator.TransactionStateResolver;
 import org.apache.ignite.internal.table.distributed.replicator.action.RequestType;
@@ -456,7 +458,8 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 clock,
                 consistentId -> consistentId.equals(localNode.name()) ? localNode : anotherNode,
                 id -> id.equals(localNode.id()) ? localNode : anotherNode,
-                messagingService
+                messagingService,
+                mock(PlacementDriver.class)
         );
 
         transactionStateResolver.start();
@@ -531,10 +534,9 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 .txId(newTxId())
                 .build(), "senderId");
 
-        LeaderOrTxState tuple = (LeaderOrTxState) fut.get(1, TimeUnit.SECONDS).result();
+        TransactionMeta txMeta = (TransactionMeta) fut.get(1, TimeUnit.SECONDS).result();
 
-        assertNull(tuple.leaderName());
-        assertNull(tuple.txMeta());
+        assertNull(txMeta);
     }
 
     @Test
@@ -550,14 +552,12 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 .txId(txId)
                 .build(), localNode.id());
 
-        LeaderOrTxState tuple = (LeaderOrTxState) fut.get(1, TimeUnit.SECONDS).result();
+        TransactionMeta txMeta = (TransactionMeta) fut.get(1, TimeUnit.SECONDS).result();
 
-        TransactionMeta txMeta = tuple.txMeta();
         assertNotNull(txMeta);
         assertEquals(TxState.COMMITED, txMeta.txState());
         assertNotNull(txMeta.commitTimestamp());
         assertTrue(readTimestamp.compareTo(txMeta.commitTimestamp()) > 0);
-        assertNull(tuple.leaderName());
     }
 
     @Test
@@ -570,10 +570,9 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 .txId(newTxId())
                 .build(), localNode.id());
 
-        LeaderOrTxState tuple = (LeaderOrTxState) fut.get(1, TimeUnit.SECONDS).result();
-
-        assertNull(tuple.txMeta());
-        assertNotNull(tuple.leaderName());
+        assertThrows(PrimaryReplicaMissException.class, () -> {
+            fut.get(1, TimeUnit.SECONDS).result();
+        });
     }
 
     @Test

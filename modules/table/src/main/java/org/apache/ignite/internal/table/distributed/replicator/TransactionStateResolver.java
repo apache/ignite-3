@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.table.distributed.replicator;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.apache.ignite.internal.tx.TxState.ABANDONED;
 import static org.apache.ignite.internal.tx.TxState.FINISHING;
 import static org.apache.ignite.internal.tx.TxState.PENDING;
@@ -30,15 +31,19 @@ import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.placementdriver.PlacementDriver;
+import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
 import org.apache.ignite.internal.tx.TransactionMeta;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.TxStateMetaFinishing;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
@@ -58,11 +63,10 @@ public class TransactionStateResolver {
     /** Tx messages factory. */
     private static final TxMessagesFactory FACTORY = new TxMessagesFactory();
 
+    private static final int AWAIT_PRIMARY_REPLICA_TIMEOUT = 10_000;
+
     /** Network timeout. */
     private static final long RPC_TIMEOUT = 3000;
-
-    /** Assignment node names per replication group. */
-    private final Map<ReplicationGroupId, LinkedHashSet<String>> primaryReplicaMapping = new ConcurrentHashMap<>();
 
     /** Replication service. */
     private final ReplicaService replicaService;
@@ -74,6 +78,8 @@ public class TransactionStateResolver {
     // TODO we will store coordinator as ClusterNode in local tx state map.
     /** Function that resolves a node non-consistent ID to a cluster node. */
     private final Function<String, ClusterNode> clusterNodeResolverById;
+
+    private final PlacementDriver placementDriver;
 
     private final Map<UUID, CompletableFuture<TransactionMeta>> txStateFutures = new ConcurrentHashMap<>();
 
@@ -92,6 +98,7 @@ public class TransactionStateResolver {
      * @param clusterNodeResolver Cluster node resolver.
      * @param clusterNodeResolverById Cluster node resolver using non-consistent id.
      * @param messagingService Messaging service.
+     * @param placementDriver Placement driver.
      */
     public TransactionStateResolver(
             ReplicaService replicaService,
@@ -99,7 +106,8 @@ public class TransactionStateResolver {
             HybridClock clock,
             Function<String, ClusterNode> clusterNodeResolver,
             Function<String, ClusterNode> clusterNodeResolverById,
-            MessagingService messagingService
+            MessagingService messagingService,
+            PlacementDriver placementDriver
     ) {
         this.replicaService = replicaService;
         this.txManager = txManager;
@@ -107,6 +115,7 @@ public class TransactionStateResolver {
         this.clusterNodeResolver = clusterNodeResolver;
         this.clusterNodeResolverById = clusterNodeResolverById;
         this.messagingService = messagingService;
+        this.placementDriver = placementDriver;
     }
 
     /**
@@ -278,18 +287,7 @@ public class TransactionStateResolver {
     }
 
     /**
-     * Updates an assignment for the specific replication group.
-     *
-     * @param replicaGrpId Replication group id.
-     * @param nodeNames Assignment node names.
-     */
-    public void updateAssignment(ReplicationGroupId replicaGrpId, Collection<String> nodeNames) {
-        primaryReplicaMapping.put(replicaGrpId, new LinkedHashSet<>(nodeNames));
-    }
-
-    /**
      * Tries to send a request to primary replica of the replication group.
-     * If the first node turns up not a primary one the logic sends the same request to a new primary node.
      *
      * @param resFut Response future.
      * @param replicaGrp Replication group id.
@@ -300,40 +298,28 @@ public class TransactionStateResolver {
             ReplicationGroupId replicaGrp,
             TxStateCommitPartitionRequest request
     ) {
-        ClusterNode nodeToSend = primaryReplicaMapping.get(replicaGrp).stream()
-                .map(clusterNodeResolver)
-                .filter(Objects::nonNull)
-                .findFirst()
-                .orElseThrow(() -> new IgniteInternalException("All replica nodes are unavailable"));
+        HybridTimestamp now = clock.now();
 
-        replicaService.invoke(nodeToSend, request).whenComplete((resp, e) -> {
-            if (e == null) {
-                assert resp instanceof LeaderOrTxState : "Unsupported response type [type=" + resp.getClass().getSimpleName() + ']';
+        placementDriver.awaitPrimaryReplica(replicaGrp, now, AWAIT_PRIMARY_REPLICA_TIMEOUT, MILLISECONDS)
+                .thenCompose(replicaMeta -> {
+                    ClusterNode nodeToSend = clusterNodeResolver.apply(replicaMeta.getLeaseholder());
 
-                LeaderOrTxState stateOrLeader = (LeaderOrTxState) resp;
+                    return replicaService.invoke(nodeToSend, request);
+                })
+                .whenComplete((resp, e) -> {
+                    if (e == null) {
+                        assert resp instanceof TransactionMeta : "Unsupported response type [type=" + resp.getClass().getSimpleName() + ']';
 
-                String nextNodeToSend = stateOrLeader.leaderName();
-
-                if (nextNodeToSend == null) {
-                    resFut.complete(stateOrLeader.txMeta());
-                } else {
-                    LinkedHashSet<String> newAssignment = new LinkedHashSet<>();
-
-                    newAssignment.add(nextNodeToSend);
-                    newAssignment.addAll(primaryReplicaMapping.get(replicaGrp));
-
-                    primaryReplicaMapping.put(replicaGrp, newAssignment);
-
-                    sendAndRetry(resFut, replicaGrp, request);
-                }
-            } else {
-                if (e instanceof PrimaryReplicaMissException) {
-                    // TODO IGNITE-20994
-                } else {
-                    resFut.completeExceptionally(e);
-                }
-            }
-        });
+                        TransactionMeta txMeta = (TransactionMeta) resp;
+                        resFut.complete(txMeta);
+                    } else {
+                        if (e instanceof PrimaryReplicaMissException) {
+                            sendAndRetry(resFut, replicaGrp, request);
+                        } else {
+                            resFut.completeExceptionally(e);
+                        }
+                    }
+                });
     }
 
     /**

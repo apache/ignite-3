@@ -456,13 +456,10 @@ public class ItTxTestCluster {
                         clocks.get(assignment),
                         consistentIdToNode,
                         idToNode,
-                        clusterServices.get(assignment).messagingService()
+                        clusterServices.get(assignment).messagingService(),
+                        placementDriver
                 );
                 transactionStateResolver.start();
-
-                for (int part = 0; part < assignments.size(); part++) {
-                    transactionStateResolver.updateAssignment(grpIds.get(part), assignments.get(part));
-                }
 
                 int indexId = globalIndexId++;
 
@@ -832,7 +829,8 @@ public class ItTxTestCluster {
                 clientClock,
                 consistentIdToNode,
                 idToNode,
-                client.messagingService()
+                client.messagingService(),
+                placementDriver
         );
 
         clientTxStateResolver.start();
