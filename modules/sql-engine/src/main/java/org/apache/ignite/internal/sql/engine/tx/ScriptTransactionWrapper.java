@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.tx;
 
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.lang.ErrorGroups.Sql.EXECUTION_CANCELLED_ERR;
 
 import java.util.Map;
 import java.util.UUID;
@@ -28,6 +29,7 @@ import java.util.function.Function;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.AsyncCursor;
+import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.tx.Transaction;
 
 /**
@@ -46,6 +48,14 @@ class ScriptTransactionWrapper implements QueryTransactionWrapper {
     /** Transaction action (commit or rollback) that will be performed when all dependent cursors are closed. */
     private final AtomicReference<Function<InternalTransaction, CompletableFuture<Void>>> finishTxAction = new AtomicReference<>();
 
+    /** A mutex for synchronizing the start of statement execution with closing cursors in case of an error. */
+    private final Object mux = new Object();
+
+    /** Error that caused the transaction to be rolled back. */
+    private volatile Throwable rollbackCause;
+
+    private volatile CompletableFuture<Void> rollbackFut;
+
     ScriptTransactionWrapper(InternalTransaction transaction) {
         this.transaction = transaction;
     }
@@ -62,16 +72,29 @@ class ScriptTransactionWrapper implements QueryTransactionWrapper {
 
     @Override
     public CompletableFuture<Void> rollback(Throwable cause) {
-        // Close all associated cursors on error.
-        for (CompletableFuture<? extends AsyncCursor<?>> fut : openedCursors.values()) {
-            fut.whenComplete((cursor, ex) -> {
-                if (cursor != null) {
-                    cursor.closeAsync();
-                }
-            });
+        CompletableFuture<Void> rollbackFut0 = rollbackFut;
+
+        if (rollbackFut0 != null) {
+            return rollbackFut0;
         }
 
-        return transaction.rollbackAsync();
+        synchronized (mux) {
+            if (rollbackFut == null) {
+                rollbackCause = cause;
+                // Close all associated cursors on error.
+                for (CompletableFuture<? extends AsyncCursor<?>> fut : openedCursors.values()) {
+                    fut.whenComplete((cursor, ex) -> {
+                        if (cursor != null) {
+                            cursor.closeAsync();
+                        }
+                    });
+                }
+
+                rollbackFut = transaction.rollbackAsync();
+            }
+
+            return rollbackFut;
+        }
     }
 
     QueryTransactionWrapper forCommit() {
@@ -89,8 +112,15 @@ class ScriptTransactionWrapper implements QueryTransactionWrapper {
 
         assert queryType != SqlQueryType.DDL;
 
-        if (queryType != SqlQueryType.EXPLAIN) {
-            openedCursors.put(cursorId, cursorFut);
+        synchronized (mux) {
+            if (rollbackCause != null) {
+                throw new SqlException(EXECUTION_CANCELLED_ERR,
+                        "The transaction has already been rolled back due to an error in the previous statement.", rollbackCause);
+            }
+
+            if (queryType != SqlQueryType.EXPLAIN) {
+                openedCursors.put(cursorId, cursorFut);
+            }
         }
 
         return new ScriptStatementTxWrapper(cursorId);

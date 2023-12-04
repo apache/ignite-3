@@ -24,7 +24,6 @@ import org.apache.ignite.tx.IgniteTransactions;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
-import org.junit.jupiter.api.Test;
 
 /**
  * Tests for synchronous client SQL API.
@@ -54,44 +53,30 @@ public class ItSqlClientSynchronousApiTest extends ItSqlSynchronousApiTest {
         return client.transactions();
     }
 
-    @Test
     @Override
     @Disabled("IGNITE-17134")
     public void closeSession() {
         super.closeSession();
     }
 
-    @Test
     @Override
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-20598")
     public void checkTransactionsWithDml() {
         super.checkTransactionsWithDml();
     }
 
-    @Test
     @Override
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-20742")
     public void testLockIsNotReleasedAfterTxRollback() {
         super.testLockIsNotReleasedAfterTxRollback();
     }
 
-    @Test
     @Override
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-21011")
     public void runScriptThatCompletesSuccessfully() {
         super.runScriptThatCompletesSuccessfully();
     }
 
-    @Test
     @Override
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-21011")
-    public void runScriptWithTransactionThatCompletesSuccessfully() {
-        super.runScriptWithTransactionThatCompletesSuccessfully();
-    }
-
-    @Test
-    @Override
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-21011")
     public void runScriptThatFails() {
         super.runScriptThatFails();
     }
