@@ -150,6 +150,20 @@ public class CheckpointManagerTest extends BaseIgniteAbstractTest {
     }
 
     @Test
+    void testPageIndexesForDeltaFilePageStoreWithPartitionMetaPage() {
+        PersistentPageMemory pageMemory0 = mock(PersistentPageMemory.class);
+        PersistentPageMemory pageMemory1 = mock(PersistentPageMemory.class);
+
+        CheckpointDirtyPages dirtyPages = new CheckpointDirtyPages(List.of(
+                new DataRegionDirtyPages<>(pageMemory0, dirtyPageArray(0, 0, 0, 1)),
+                new DataRegionDirtyPages<>(pageMemory1, dirtyPageArray(0, 1, 0, 2, 3, 4))
+        ));
+
+        assertArrayEquals(new int[]{0, 1}, pageIndexesForDeltaFilePageStore(dirtyPages.getPartitionView(pageMemory0, 0, 0)));
+        assertArrayEquals(new int[]{0, 2, 3, 4}, pageIndexesForDeltaFilePageStore(dirtyPages.getPartitionView(pageMemory1, 0, 1)));
+    }
+
+    @Test
     void testWritePageToDeltaFilePageStore() throws Exception {
         FilePageStoreManager filePageStoreManager = mock(FilePageStoreManager.class);
 

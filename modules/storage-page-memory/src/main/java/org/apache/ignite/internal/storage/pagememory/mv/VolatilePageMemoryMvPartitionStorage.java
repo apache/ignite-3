@@ -17,10 +17,10 @@
 
 package org.apache.ignite.internal.storage.pagememory.mv;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageNotInCleanupOrRebalancedState;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageNotInProgressOfRebalance;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageNotInRunnableOrRebalanceState;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.Arrays;
 import java.util.List;
@@ -124,7 +124,7 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
         return busy(() -> {
             throwExceptionIfStorageNotInRunnableOrRebalanceState(state.get(), this::createStorageInfo);
 
-            return completedFuture(null);
+            return nullCompletedFuture();
         });
     }
 

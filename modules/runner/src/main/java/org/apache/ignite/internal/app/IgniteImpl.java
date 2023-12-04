@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.app;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
@@ -626,7 +627,8 @@ public class IgniteImpl implements Ignite {
                 schemaSyncService,
                 catalogManager,
                 metricManager,
-                systemViewManager
+                systemViewManager,
+                placementDriverMgr.placementDriver()
         );
 
         sql = new IgniteSqlImpl(name, qryEngine, new IgniteTransactionsImpl(txManager, observableTimestampTracker));
@@ -1055,7 +1057,7 @@ public class IgniteImpl implements Ignite {
         return cfgStorage.localRevision()
                 .thenComposeAsync(appliedRevision -> {
                     if (appliedRevision != 0) {
-                        return completedFuture(null);
+                        return nullCompletedFuture();
                     } else {
                         return cmgMgr.initialClusterConfigurationFuture()
                                 .thenAcceptAsync(initialConfigHocon -> {

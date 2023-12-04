@@ -33,26 +33,18 @@ import java.time.LocalTime;
 import java.time.Period;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
-import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.Iterator;
-import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 import org.apache.calcite.sql.type.SqlTypeName;
-import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.sql.engine.type.UuidType;
 import org.apache.ignite.lang.ErrorGroup;
 import org.apache.ignite.lang.ErrorGroups;
 import org.apache.ignite.sql.ColumnType;
-import org.apache.ignite.sql.ResultSet;
-import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.SqlException;
-import org.apache.ignite.sql.SqlRow;
-import org.apache.ignite.tx.Transaction;
-import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.function.Executable;
 
 /**
@@ -220,42 +212,5 @@ public class SqlTestUtils {
             default:
                 throw new IllegalArgumentException("unsupported type " + type);
         }
-    }
-
-    /**
-     * Run SQL on given Ignite instance with given transaction and parameters.
-     *
-     * @param ignite Ignite instance to run a query.
-     * @param tx Transaction to run a given query. Can be {@code null} to run within implicit transaction.
-     * @param sql Query to be run.
-     * @param args Dynamic parameters for a given query.
-     * @return List of lists, where outer list represents a rows, internal lists represents a columns.
-     */
-    public static List<List<Object>> sql(Ignite ignite, @Nullable Transaction tx, String sql, Object... args) {
-        try (
-                Session session = ignite.sql().createSession();
-                ResultSet<SqlRow> rs = session.execute(tx, sql, args)
-        ) {
-            return getAllResultSet(rs);
-        }
-    }
-
-    private static List<List<Object>> getAllResultSet(ResultSet<SqlRow> resultSet) {
-        List<List<Object>> res = new ArrayList<>();
-
-        while (resultSet.hasNext()) {
-            SqlRow sqlRow = resultSet.next();
-
-            ArrayList<Object> row = new ArrayList<>(sqlRow.columnCount());
-            for (int i = 0; i < sqlRow.columnCount(); i++) {
-                row.add(sqlRow.value(i));
-            }
-
-            res.add(row);
-        }
-
-        resultSet.close();
-
-        return res;
     }
 }

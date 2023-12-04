@@ -17,11 +17,16 @@
 
 package org.apache.ignite.internal.sql.engine;
 
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.lang.SqlExceptionMapperUtil.mapToPublicSqlException;
 import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFIG;
+import static org.apache.ignite.internal.table.distributed.storage.InternalTableImpl.AWAIT_PRIMARY_REPLICA_TIMEOUT;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.ExceptionUtils.withCause;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_UNAVAILABLE_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.EXECUTION_CANCELLED_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 
@@ -30,6 +35,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Queue;
 import java.util.Set;
 import java.util.UUID;
@@ -44,14 +50,23 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.tools.Frameworks;
+import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManager;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metrics.MetricManager;
+import org.apache.ignite.internal.placementdriver.PlacementDriver;
+import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.ReplicaService;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.sql.engine.exec.ExchangeServiceImpl;
 import org.apache.ignite.internal.sql.engine.exec.ExecutableTableRegistryImpl;
@@ -109,6 +124,9 @@ import org.jetbrains.annotations.TestOnly;
  *  TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public class SqlQueryProcessor implements QueryProcessor {
+    /** The logger. */
+    private static final IgniteLogger LOG = Loggers.forClass(SqlQueryProcessor.class);
+
     /** Size of the cache for query plans. */
     private static final int PLAN_CACHE_SIZE = 1024;
 
@@ -174,6 +192,9 @@ public class SqlQueryProcessor implements QueryProcessor {
     /** Metric manager. */
     private final MetricManager metricManager;
 
+    /** Placement driver. */
+    private final PlacementDriver placementDriver;
+
     private final ConcurrentMap<UUID, AsyncSqlCursor<?>> openedCursors = new ConcurrentHashMap<>();
 
     /** Constructor. */
@@ -190,7 +211,8 @@ public class SqlQueryProcessor implements QueryProcessor {
             SchemaSyncService schemaSyncService,
             CatalogManager catalogManager,
             MetricManager metricManager,
-            SystemViewManager systemViewManager
+            SystemViewManager systemViewManager,
+            PlacementDriver placementDriver
     ) {
         this.clusterSrvc = clusterSrvc;
         this.logicalTopologyService = logicalTopologyService;
@@ -204,6 +226,7 @@ public class SqlQueryProcessor implements QueryProcessor {
         this.catalogManager = catalogManager;
         this.metricManager = metricManager;
         this.systemViewManager = systemViewManager;
+        this.placementDriver = placementDriver;
 
         sqlSchemaManager = new SqlSchemaManagerImpl(
                 catalogManager,
@@ -260,15 +283,8 @@ public class SqlQueryProcessor implements QueryProcessor {
         var executionTargetProvider = new ExecutionTargetProvider() {
             @Override
             public CompletableFuture<ExecutionTarget> forTable(ExecutionTargetFactory factory, IgniteTable table) {
-                return tableManager.tableAsync(table.id())
-                        .thenCompose(tbl -> tbl.internalTable().primaryReplicas())
-                        .thenApply(replicas -> {
-                            List<NodeWithTerm> assignments = replicas.stream()
-                                    .map(primaryReplica -> new NodeWithTerm(primaryReplica.node().name(), primaryReplica.term()))
-                                    .collect(Collectors.toList());
-
-                            return factory.partitioned(assignments);
-                        });
+                return primaryReplicas(table.id())
+                        .thenApply(replicas -> factory.partitioned(replicas));
             }
 
             @Override
@@ -315,6 +331,59 @@ public class SqlQueryProcessor implements QueryProcessor {
         this.executionSrvc = executionSrvc;
 
         services.forEach(LifecycleAware::start);
+    }
+
+    // need to be refactored after TODO: https://issues.apache.org/jira/browse/IGNITE-20925
+    /** Get primary replicas. */
+    private CompletableFuture<List<NodeWithTerm>> primaryReplicas(int tableId) {
+        int catalogVersion = catalogManager.latestCatalogVersion();
+
+        Catalog catalog = catalogManager.catalog(catalogVersion);
+
+        CatalogTableDescriptor tblDesc = Objects.requireNonNull(catalog.table(tableId), "table");
+
+        CatalogZoneDescriptor zoneDesc = Objects.requireNonNull(catalog.zone(tblDesc.zoneId()), "zone");
+
+        int partitions = zoneDesc.partitions();
+
+        List<CompletableFuture<NodeWithTerm>> result = new ArrayList<>(partitions);
+
+        HybridTimestamp clockNow = clock.now();
+
+        // no need to wait all partitions after pruning was implemented.
+        for (int partId = 0; partId < partitions; ++partId) {
+            int partitionId = partId;
+            ReplicationGroupId partGroupId = new TablePartitionId(tableId, partitionId);
+
+            CompletableFuture<ReplicaMeta> f = placementDriver.awaitPrimaryReplica(
+                    partGroupId,
+                    clockNow,
+                    AWAIT_PRIMARY_REPLICA_TIMEOUT,
+                    SECONDS
+            );
+
+            result.add(f.handle((primaryReplica, e) -> {
+                if (e != null) {
+                    LOG.debug("Failed to retrieve primary replica for partition {}", e, partitionId);
+
+                    throw withCause(IgniteInternalException::new, REPLICA_UNAVAILABLE_ERR, "Failed to get the primary replica"
+                            + " [tablePartitionId=" + partGroupId + ']', e);
+                } else {
+                    String holder = primaryReplica.getLeaseholder();
+
+                    assert holder != null : "Unable to map query, nothing holds the lease";
+
+                    return new NodeWithTerm(holder, primaryReplica.getStartTime().longValue());
+                }
+            }));
+        }
+
+        CompletableFuture<Void> all = CompletableFuture.allOf(result.toArray(new CompletableFuture[0]));
+
+        return all.thenApply(v -> result.stream()
+                .map(CompletableFuture::join)
+                .collect(Collectors.toList())
+        );
     }
 
     /** {@inheritDoc} */
@@ -635,7 +704,7 @@ public class SqlQueryProcessor implements QueryProcessor {
         CompletableFuture<AsyncSqlCursor<List<Object>>> processNext() {
             if (statements == null) {
                 // TODO https://issues.apache.org/jira/browse/IGNITE-20463 Each tx control statement must return an empty cursor.
-                return CompletableFuture.completedFuture(null);
+                return nullCompletedFuture();
             }
 
             ScriptStatementParameters parameters = statements.poll();

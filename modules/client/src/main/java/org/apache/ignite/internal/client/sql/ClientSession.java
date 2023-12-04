@@ -19,6 +19,7 @@ package org.apache.ignite.internal.client.sql;
 
 import static org.apache.ignite.internal.client.ClientUtils.sync;
 import static org.apache.ignite.internal.client.table.ClientTable.writeTx;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.Map;
 import java.util.Map.Entry;
@@ -223,16 +224,16 @@ public class ClientSession implements AbstractSession {
 
     /** {@inheritDoc} */
     @Override
-    public void executeScript(String query, @Nullable Object... arguments) {
-        // TODO IGNITE-17060.
-        throw new UnsupportedOperationException("Not implemented yet.");
-    }
-
-    /** {@inheritDoc} */
-    @Override
     public CompletableFuture<Void> executeScriptAsync(String query, @Nullable Object... arguments) {
-        // TODO IGNITE-17060.
-        throw new UnsupportedOperationException("Not implemented yet.");
+        Objects.requireNonNull(query);
+
+        PayloadWriter payloadWriter = w -> {
+            w.out().packString(query);
+            w.out().packObjectArrayAsBinaryTuple(arguments);
+            w.out().packLong(ch.observableTimestamp());
+        };
+
+        return ch.serviceAsync(ClientOp.SQL_EXEC_SCRIPT, payloadWriter, null);
     }
 
     /** {@inheritDoc} */
@@ -279,7 +280,7 @@ public class ClientSession implements AbstractSession {
     @Override
     public CompletableFuture<Void> closeAsync() {
         // TODO IGNITE-17134 Cancel/close all active cursors, queries, futures.
-        return CompletableFuture.completedFuture(null);
+        return nullCompletedFuture();
     }
 
     /** {@inheritDoc} */
