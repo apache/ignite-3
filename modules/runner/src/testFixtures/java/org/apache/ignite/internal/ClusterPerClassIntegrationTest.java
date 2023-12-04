@@ -19,6 +19,8 @@ package org.apache.ignite.internal;
 
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Path;
@@ -27,6 +29,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
@@ -39,6 +42,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.sql.ResultSet;
@@ -156,6 +160,18 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
     }
 
     /**
+     * Creates a table.
+     *
+     * @param name Table name.
+     * @param replicas Replica factor.
+     * @param partitions Partitions count.
+     * @param engine Data storage engine name, {@code null} if use default engine.
+     */
+    protected static TableImpl createTable(String name, int replicas, int partitions, @Nullable String engine) {
+        return createZoneAndTable(zoneName(name), name, replicas, partitions, engine);
+    }
+
+    /**
      * Creates zone and table.
      *
      * @param zoneName Zone name.
@@ -163,18 +179,49 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
      * @param replicas Replica factor.
      * @param partitions Partitions count.
      */
-    protected static Table createZoneAndTable(String zoneName, String tableName, int replicas, int partitions) {
-        sql(format(
-                "CREATE ZONE IF NOT EXISTS {} WITH REPLICAS={}, PARTITIONS={};",
-                zoneName, replicas, partitions
-        ));
+    protected static TableImpl createZoneAndTable(String zoneName, String tableName, int replicas, int partitions) {
+        return createZoneAndTable(zoneName, tableName, replicas, partitions, null);
+    }
+
+    /**
+     * Creates zone and table.
+     *
+     * @param zoneName Zone name.
+     * @param tableName Table name.
+     * @param replicas Replica factor.
+     * @param partitions Partitions count.
+     * @param engine Data storage engine name, {@code null} if use default engine.
+     */
+    protected static TableImpl createZoneAndTable(
+            String zoneName,
+            String tableName,
+            int replicas,
+            int partitions,
+            @Nullable String engine
+    ) {
+        if (engine != null) {
+            sql(format(
+                    "CREATE ZONE IF NOT EXISTS {} ENGINE {} WITH REPLICAS={}, PARTITIONS={};",
+                    zoneName, engine, replicas, partitions
+            ));
+        } else {
+            sql(format(
+                    "CREATE ZONE IF NOT EXISTS {} WITH REPLICAS={}, PARTITIONS={};",
+                    zoneName, replicas, partitions
+            ));
+        }
 
         sql(format(
                 "CREATE TABLE IF NOT EXISTS {} (id INT PRIMARY KEY, name VARCHAR, salary DOUBLE) WITH PRIMARY_ZONE='{}'",
                 tableName, zoneName
         ));
 
-        return CLUSTER.node(0).tables().table(tableName);
+        // An asynchronous method is used to avoid freezing the tests.
+        CompletableFuture<Table> tableFuture = CLUSTER.node(0).tables().tableAsync(tableName);
+
+        assertThat(tableFuture, willCompleteSuccessfully());
+
+        return (TableImpl) tableFuture.join();
     }
 
     /**
@@ -185,6 +232,21 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
      */
     protected static void insertPeople(String tableName, Person... people) {
         insertData(
+                tableName,
+                List.of("ID", "NAME", "SALARY"),
+                Stream.of(people).map(person -> new Object[]{person.id, person.name, person.salary}).toArray(Object[][]::new)
+        );
+    }
+
+    /**
+     * Inserts data into the table created by {@link #createZoneAndTable(String, String, int, int)} in transaction.
+     *
+     * @param tableName Table name.
+     * @param people People to insert into the table.
+     */
+    protected static void insertPeopleInTransaction(Transaction tx, String tableName, Person... people) {
+        insertDataInTransaction(
+                tx,
                 tableName,
                 List.of("ID", "NAME", "SALARY"),
                 Stream.of(people).map(person -> new Object[]{person.id, person.name, person.salary}).toArray(Object[][]::new)
