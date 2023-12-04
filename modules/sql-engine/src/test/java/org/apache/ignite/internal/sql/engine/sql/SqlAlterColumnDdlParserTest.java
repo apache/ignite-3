@@ -71,7 +71,7 @@ public class SqlAlterColumnDdlParserTest extends AbstractDdlParserTest {
      */
     @Test
     public void testDefault() {
-        IgniteSqlAlterColumn alterColumn= parseAlterColumn("ALTER TABLE t ALTER COLUMN a DROP DEFAULT");
+        IgniteSqlAlterColumn alterColumn = parseAlterColumn("ALTER TABLE t ALTER COLUMN a DROP DEFAULT");
         checkDefaultIsNull(alterColumn.expression());
         expectUnparsed(alterColumn, "ALTER TABLE \"T\" ALTER COLUMN \"A\" DROP DEFAULT");
 

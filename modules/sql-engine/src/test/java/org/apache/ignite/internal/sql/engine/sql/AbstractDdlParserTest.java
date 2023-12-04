@@ -17,13 +17,11 @@
 
 package org.apache.ignite.internal.sql.engine.sql;
 
-import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.function.Predicate;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlWriter;
-import org.apache.calcite.sql.dialect.AnsiSqlDialect;
 import org.apache.calcite.sql.pretty.SqlPrettyWriter;
 import org.hamcrest.CustomMatcher;
 import org.hamcrest.Matcher;
