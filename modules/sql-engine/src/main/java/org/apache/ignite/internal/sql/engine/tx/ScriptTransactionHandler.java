@@ -23,13 +23,13 @@ import static org.apache.ignite.lang.ErrorGroups.Sql.RUNTIME_ERR;
 import java.util.concurrent.CompletableFuture;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
+import org.apache.ignite.internal.sql.engine.TxControlInsideExternalTxNotSupportedException;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlCommitTransaction;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlStartTransaction;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlStartTransactionMode;
 import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.AsyncCursor;
-import org.apache.ignite.sql.ExternalTransactionNotSupportedException;
 import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.tx.IgniteTransactions;
 import org.apache.ignite.tx.TransactionOptions;
@@ -46,13 +46,13 @@ public class ScriptTransactionHandler extends QueryTransactionHandler {
     /** Wraps a transaction, which is managed by SQL engine via {@link SqlQueryType#TX_CONTROL} statements. */
     private volatile @Nullable ScriptTransactionWrapper wrapper;
 
-    public ScriptTransactionHandler(IgniteTransactions transactions, @Nullable InternalTransaction externalTx) {
-        super(transactions, externalTx);
+    public ScriptTransactionHandler(IgniteTransactions transactions, @Nullable InternalTransaction tx) {
+        super(transactions, tx);
     }
 
     @Override
     protected @Nullable InternalTransaction activeTransaction() {
-        return externalTx == null ? scriptTransaction() : externalTx;
+        return tx == null ? scriptTransaction() : tx;
     }
 
     /**
@@ -70,8 +70,8 @@ public class ScriptTransactionHandler extends QueryTransactionHandler {
             SqlQueryType queryType = parsedResult.queryType();
 
             if (queryType == SqlQueryType.TX_CONTROL) {
-                if (externalTx != null) {
-                    throw new ExternalTransactionNotSupportedException();
+                if (tx != null) {
+                    throw new TxControlInsideExternalTxNotSupportedException();
                 }
 
                 return handleTxControlStatement(parsedResult.parsedTree());

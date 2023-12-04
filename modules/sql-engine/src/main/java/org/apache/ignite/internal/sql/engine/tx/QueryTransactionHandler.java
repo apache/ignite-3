@@ -31,11 +31,11 @@ import org.jetbrains.annotations.Nullable;
  */
 public class QueryTransactionHandler {
     final IgniteTransactions transactions;
-    final @Nullable InternalTransaction externalTx;
+    final @Nullable InternalTransaction tx;
 
-    public QueryTransactionHandler(IgniteTransactions transactions, @Nullable InternalTransaction externalTx) {
+    public QueryTransactionHandler(IgniteTransactions transactions, @Nullable InternalTransaction tx) {
         this.transactions = transactions;
-        this.externalTx = externalTx;
+        this.tx = tx;
     }
 
     /**
@@ -58,7 +58,7 @@ public class QueryTransactionHandler {
     }
 
     protected @Nullable InternalTransaction activeTransaction() {
-        return externalTx;
+        return tx;
     }
 
     /** Checks that the statement is allowed within an external/script transaction. */

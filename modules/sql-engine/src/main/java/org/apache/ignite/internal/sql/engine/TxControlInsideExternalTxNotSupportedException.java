@@ -15,20 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.sql;
+package org.apache.ignite.internal.sql.engine;
 
 import java.util.UUID;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 
 /**
  * The exception is thrown when an attempt is made to execute a transaction control statement
  * ({@code START TRANSACTION} or {@code COMMIT}) while an external transaction is already running.
  */
-public class ExternalTransactionNotSupportedException extends SqlException {
+public class TxControlInsideExternalTxNotSupportedException extends IgniteInternalException {
     /**
      * Default constructor.
      */
-    public ExternalTransactionNotSupportedException() {
+    public TxControlInsideExternalTxNotSupportedException() {
         super(Sql.TX_CONTROL_INSIDE_EXTERNAL_TX_ERR, "Transaction control statement cannot be executed within an external transaction.");
     }
 
@@ -36,7 +37,7 @@ public class ExternalTransactionNotSupportedException extends SqlException {
      * Constructor is required to copy this exception.
      */
     @Deprecated
-    public ExternalTransactionNotSupportedException(UUID traceId, int code, String message, Throwable cause) {
+    public TxControlInsideExternalTxNotSupportedException(UUID traceId, int code, String message, Throwable cause) {
         super(traceId, code, message, cause);
     }
 }

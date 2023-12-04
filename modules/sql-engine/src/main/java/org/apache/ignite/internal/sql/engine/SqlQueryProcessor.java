@@ -670,7 +670,7 @@ public class SqlQueryProcessor implements QueryProcessor {
     private class MultiStatementHandler {
         private final String schemaName;
         private final ScriptTransactionHandler transactionHandler;
-        private final Queue<ScriptStatementParameters> statements;
+        private final Queue<ScriptStatement> statements;
 
         MultiStatementHandler(
                 String schemaName,
@@ -686,14 +686,14 @@ public class SqlQueryProcessor implements QueryProcessor {
         /**
          * Returns a queue. each element of which represents parameters required to execute a single statement of the script.
          */
-        private Queue<ScriptStatementParameters> prepareStatementsQueue(List<ParsedResult> parsedResults, Object[] params) {
+        private Queue<ScriptStatement> prepareStatementsQueue(List<ParsedResult> parsedResults, Object[] params) {
             assert !parsedResults.isEmpty();
 
             int paramsCount = parsedResults.stream().mapToInt(ParsedResult::dynamicParamsCount).sum();
 
             validateDynamicParameters(paramsCount, params);
 
-            ScriptStatementParameters[] results = new ScriptStatementParameters[parsedResults.size()];
+            ScriptStatement[] results = new ScriptStatement[parsedResults.size()];
 
             // We fill parameters in reverse order, because each script statement
             // requires a reference to the future of the next statement.
@@ -704,7 +704,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                 Object[] params0 = Arrays.copyOfRange(params, paramsCount - result.dynamicParamsCount(), paramsCount);
                 paramsCount -= result.dynamicParamsCount();
 
-                results[i] = new ScriptStatementParameters(result, params0, prevCursorFuture);
+                results[i] = new ScriptStatement(result, params0, prevCursorFuture);
                 prevCursorFuture = results[i].cursorFuture;
             }
 
@@ -712,20 +712,22 @@ public class SqlQueryProcessor implements QueryProcessor {
         }
 
         CompletableFuture<AsyncSqlCursor<List<Object>>> processNext() {
-            ScriptStatementParameters parameters = statements.poll();
+            ScriptStatement scriptStatement = statements.poll();
 
-            assert parameters != null;
+            assert scriptStatement != null;
 
-            CompletableFuture<AsyncSqlCursor<List<Object>>> cursorFuture = parameters.cursorFuture;
+            CompletableFuture<AsyncSqlCursor<List<Object>>> cursorFuture = scriptStatement.cursorFuture;
 
             try {
                 if (cursorFuture.isDone()) {
                     return cursorFuture;
                 }
 
-                QueryTransactionWrapper txWrapper = transactionHandler.startScriptTxIfNeeded(parameters.parsedResult, cursorFuture);
+                ParsedResult parsedResult = scriptStatement.parsedResult;
 
-                executeStatement(parameters.parsedResult, txWrapper, parameters.dynamicParams, parameters.nextStatementFuture)
+                QueryTransactionWrapper txWrapper = transactionHandler.startScriptTxIfNeeded(parsedResult, cursorFuture);
+
+                executeStatement(parsedResult, txWrapper, scriptStatement.dynamicParams, scriptStatement.nextStatementFuture)
                         .whenComplete((cursor, ex) -> {
                             if (ex != null) {
                                 cursorFuture.completeExceptionally(ex);
@@ -734,7 +736,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                         })
                         .thenCompose(cursor -> txWrapper.commitImplicitAfterPrefetch()
                                 .thenApply(ignore -> {
-                                    if (parameters.nextStatementFuture == null) {
+                                    if (scriptStatement.isLastStatement()) {
                                         // Try to rollback script managed transaction, if any.
                                         txWrapper.rollback(null);
                                     } else {
@@ -785,8 +787,8 @@ public class SqlQueryProcessor implements QueryProcessor {
         }
 
         private void cancelAll(Throwable cause) {
-            for (ScriptStatementParameters parameters : statements) {
-                CompletableFuture<AsyncSqlCursor<List<Object>>> fut = parameters.cursorFuture;
+            for (ScriptStatement scriptStatement : statements) {
+                CompletableFuture<AsyncSqlCursor<List<Object>>> fut = scriptStatement.cursorFuture;
 
                 if (fut.isDone()) {
                     continue;
@@ -800,13 +802,13 @@ public class SqlQueryProcessor implements QueryProcessor {
             }
         }
 
-        private class ScriptStatementParameters {
+        private class ScriptStatement {
             private final CompletableFuture<AsyncSqlCursor<List<Object>>> cursorFuture = new CompletableFuture<>();
             private final CompletableFuture<AsyncSqlCursor<List<Object>>> nextStatementFuture;
             private final ParsedResult parsedResult;
             private final Object[] dynamicParams;
 
-            private ScriptStatementParameters(
+            private ScriptStatement(
                     ParsedResult parsedResult,
                     Object[] dynamicParams,
                     @Nullable CompletableFuture<AsyncSqlCursor<List<Object>>> nextStatementFuture
@@ -814,6 +816,10 @@ public class SqlQueryProcessor implements QueryProcessor {
                 this.parsedResult = parsedResult;
                 this.dynamicParams = dynamicParams;
                 this.nextStatementFuture = nextStatementFuture;
+            }
+
+            boolean isLastStatement() {
+                return nextStatementFuture == null;
             }
         }
     }

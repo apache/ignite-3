@@ -35,7 +35,6 @@ import java.util.List;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
-import org.apache.ignite.sql.ExternalTransactionNotSupportedException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -314,12 +313,12 @@ public class ItSqlMultiStatementTxTest extends BaseSqlMultiStatementTest {
     @Test
     void transactionControlStatementFailsWithExternalTransaction() {
         InternalTransaction tx1 = (InternalTransaction) igniteTx().begin();
-        assertThrowsExactly(ExternalTransactionNotSupportedException.class, () -> runScript("COMMIT", tx1));
+        assertThrowsExactly(TxControlInsideExternalTxNotSupportedException.class, () -> runScript("COMMIT", tx1));
         assertEquals(1, txManager().pending());
         tx1.rollback();
 
         InternalTransaction tx2 = (InternalTransaction) igniteTx().begin();
-        assertThrowsExactly(ExternalTransactionNotSupportedException.class, () -> runScript("START TRANSACTION", tx2));
+        assertThrowsExactly(TxControlInsideExternalTxNotSupportedException.class, () -> runScript("START TRANSACTION", tx2));
         assertEquals(1, txManager().pending());
         tx2.rollback();
 

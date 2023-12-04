@@ -41,7 +41,6 @@ import org.apache.ignite.internal.sql.engine.tx.QueryTransactionWrapperImpl;
 import org.apache.ignite.internal.sql.engine.tx.ScriptTransactionHandler;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.lang.ErrorGroups.Sql;
-import org.apache.ignite.sql.ExternalTransactionNotSupportedException;
 import org.apache.ignite.tx.IgniteTransactions;
 import org.apache.ignite.tx.TransactionOptions;
 import org.junit.jupiter.api.Test;
@@ -142,7 +141,7 @@ public class QueryTransactionWrapperSelfTest extends BaseIgniteAbstractTest {
 
         ScriptTransactionHandler txHandler = new ScriptTransactionHandler(transactions, new NoOpTransaction("test"));
 
-        assertThrowsExactly(ExternalTransactionNotSupportedException.class,
+        assertThrowsExactly(TxControlInsideExternalTxNotSupportedException.class,
                 () -> txHandler.startScriptTxIfNeeded(parseResult, CompletableFuture.completedFuture(null)));
     }
 
