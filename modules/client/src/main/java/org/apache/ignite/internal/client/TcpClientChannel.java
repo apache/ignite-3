@@ -712,7 +712,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         @Override public void run() {
             try {
                 if (System.currentTimeMillis() - lastSendMillis > interval) {
-                    var fut = serviceAsync(ClientOp.HEARTBEAT, null, null);
+                    var fut = serviceAsync(ClientOp.HEARTBEAT, null, null, null);
 
                     if (connectTimeout > 0) {
                         fut
