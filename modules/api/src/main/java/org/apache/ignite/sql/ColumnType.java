@@ -34,68 +34,68 @@ import org.jetbrains.annotations.Nullable;
  */
 public enum ColumnType {
     /** Null. */
-    NULL(Void.class, false, false, false, 0),
+    NULL(0, Void.class, false, false, false),
 
     /** Boolean. */
-    BOOLEAN(Boolean.class, false, false, false, 1),
+    BOOLEAN(1, Boolean.class, false, false, false),
 
     /** 8-bit signed integer. */
-    INT8(Byte.class, false, false, false, 2),
+    INT8(2, Byte.class, false, false, false),
 
     /** 16-bit signed integer. */
-    INT16(Short.class, false, false, false, 3),
+    INT16(3, Short.class, false, false, false),
 
     /** 32-bit signed integer. */
-    INT32(Integer.class, false, false, false, 4),
+    INT32(4, Integer.class, false, false, false),
 
     /** 64-bit signed integer. */
-    INT64(Long.class, false, false, false, 5),
+    INT64(5, Long.class, false, false, false),
 
     /** 32-bit single-precision floating-point number. */
-    FLOAT(Float.class, false, false, false, 6),
+    FLOAT(6, Float.class, false, false, false),
 
     /**
      * 64-bit double-precision floating-point number.
      *
      * <p>SQL`16 part 2 section 6.1 syntax rule 31, implementation-defined precision
      */
-    DOUBLE(Double.class, false, false, false, 7),
+    DOUBLE(7, Double.class, false, false, false),
 
     /** Arbitrary-precision signed decimal number. */
-    DECIMAL(BigDecimal.class, true, true, false, 8),
+    DECIMAL(8, BigDecimal.class, true, true, false),
 
     /** Timezone-free date. */
-    DATE(LocalDate.class, false, false, false, 9),
+    DATE(9, LocalDate.class, false, false, false),
 
     /** Timezone-free time with precision. */
-    TIME(LocalTime.class, true, false, false, 10),
+    TIME(10, LocalTime.class, true, false, false),
 
     /** Timezone-free datetime. */
-    DATETIME(LocalDateTime.class, true, false, false, 11),
+    DATETIME(11, LocalDateTime.class, true, false, false),
 
     /** Point on the time-line. Number of ticks since {@code 1970-01-01T00:00:00Z}. Tick unit depends on precision. */
-    TIMESTAMP(Instant.class, true, false, false, 12),
+    TIMESTAMP(12, Instant.class, true, false, false),
 
     /** 128-bit UUID. */
-    UUID(UUID.class, false, false, false, 13),
+    UUID(13, UUID.class, false, false, false),
 
     /** Bit mask. */
-    BITMASK(BitSet.class, false, false, true, 14),
+    BITMASK(14, BitSet.class, false, false, true),
 
     /** String. */
-    STRING(String.class, false, false, true, 15),
+    STRING(15, String.class, false, false, true),
 
     /** Binary data. */
-    BYTE_ARRAY(byte[].class, false, false, true, 16),
+    BYTE_ARRAY(16, byte[].class, false, false, true),
 
     /** Date interval. */
-    PERIOD(Period.class, true, false, false, 17),
+    PERIOD(17, Period.class, true, false, false),
 
     /** Time interval. */
-    DURATION(Duration.class, true, false, false, 18),
+    DURATION(18, Duration.class, true, false, false),
 
     /** Number. */
-    NUMBER(BigInteger.class, true, false, false, 19);
+    NUMBER(19, BigInteger.class, true, false, false);
 
     private final Class<?> javaClass;
     private final boolean precisionAllowed;
@@ -113,7 +113,7 @@ public enum ColumnType {
         }
     }
 
-    ColumnType(Class<?> clazz, boolean precisionDefined, boolean scaleDefined, boolean lengthDefined, int id) {
+    ColumnType(int id, Class<?> clazz, boolean precisionDefined, boolean scaleDefined, boolean lengthDefined) {
         javaClass = clazz;
         this.precisionAllowed = precisionDefined;
         this.scaleAllowed = scaleDefined;
@@ -147,8 +147,7 @@ public enum ColumnType {
     }
 
     /** Returns corresponding {@code ColumnType} by given id, {@code null} for unknown id. */
-    @Nullable
-    public static ColumnType getById(int id) {
+    public static @Nullable ColumnType getById(int id) {
         return id >= 0 && id < VALS.length ? VALS[id] : null;
     }
 }

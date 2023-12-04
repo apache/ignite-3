@@ -22,6 +22,7 @@ import java.sql.Time;
 import java.sql.Timestamp;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.sql.ColumnType;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Utils for type conversion related to JDBC.
@@ -47,15 +48,16 @@ public class JdbcConverterUtils {
     }
 
     /**
-     * Derive value from BinaryTuple by given column number, column type and scale for decimal type.
+     * Derives value from {@link BinaryTuple} by given column index, column type, and scale for decimal type.
      *
-     * @param columnType Type of column in binaryTuple by index idx.
-     * @param binaryTuple BinaryTuple to extract value.
-     * @param idx Index of column in binaryTuple.
-     * @param decimalScale Scale for decimal column. If the column is of a different type, then the specific value does not matter.
+     * @param columnType An expected type of the field.
+     * @param binaryTuple A tuple reader to derive value from.
+     * @param idx An index of a field of interest.
+     * @param decimalScale A scale for decimal field. If the field is of a different type, then the specific value does not matter.
      * @return Derived value. The value can be {@code null}.
      */
-    public static Object deriveValueFromBinaryTuple(ColumnType columnType, BinaryTupleReader binaryTuple, int idx, int decimalScale) {
+    public static @Nullable Object deriveValueFromBinaryTuple(ColumnType columnType, BinaryTupleReader binaryTuple, int idx,
+            int decimalScale) {
         switch (columnType) {
             case INT8:
                 return binaryTuple.byteValue(idx);

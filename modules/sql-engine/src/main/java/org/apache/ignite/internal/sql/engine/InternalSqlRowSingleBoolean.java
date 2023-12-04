@@ -19,14 +19,13 @@ package org.apache.ignite.internal.sql.engine;
 
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.schema.BinaryTuple;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Realization of {@code InternalSqlRow} allowing to represent a SQL row with a single boolean column.
  */
 public class InternalSqlRowSingleBoolean implements InternalSqlRow {
+    final boolean val;
     BinaryTuple row;
-    boolean val;
 
     /**
      * Constructor.
@@ -39,7 +38,6 @@ public class InternalSqlRowSingleBoolean implements InternalSqlRow {
 
     /** {@inheritDoc} */
     @Override
-    @Nullable
     public Object get(int idx) {
         assert idx == 0;
         return val;

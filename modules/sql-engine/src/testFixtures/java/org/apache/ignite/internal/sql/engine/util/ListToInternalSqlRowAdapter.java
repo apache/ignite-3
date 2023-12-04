@@ -34,10 +34,10 @@ import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.jetbrains.annotations.Nullable;
 
 /** InternalSqlRow implementation for test purposes only. */
-public class InternalSqlRowForList implements InternalSqlRow {
-    List<Object> source;
+public class ListToInternalSqlRowAdapter implements InternalSqlRow {
+    final List<Object> source;
 
-    public InternalSqlRowForList(List<Object> source) {
+    public ListToInternalSqlRowAdapter(List<Object> source) {
         this.source = source;
     }
 
@@ -63,7 +63,7 @@ public class InternalSqlRowForList implements InternalSqlRow {
         return new BinaryTuple(source.size(), binaryTupleBuilder.build());
     }
 
-    private void appendObject(BinaryTupleBuilder builder, Object obj) {
+    private static void appendObject(BinaryTupleBuilder builder, @Nullable Object obj) {
         if (obj == null) {
             builder.appendNull();
         } else if (obj instanceof Boolean) {

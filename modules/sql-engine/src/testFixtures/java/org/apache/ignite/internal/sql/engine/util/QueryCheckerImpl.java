@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.util;
 
 import static org.apache.ignite.internal.sql.engine.util.CursorUtils.getAllFromCursor;
+import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.convertSqlRows;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.util.ArrayUtils.OBJECT_EMPTY_ARRAY;
 import static org.hamcrest.CoreMatchers.equalTo;
@@ -324,14 +325,7 @@ abstract class QueryCheckerImpl implements QueryChecker {
         }
 
         List<InternalSqlRow> rows = Commons.cast(getAllFromCursor(cur));
-        List<List<?>> res = new ArrayList<>(rows.size());
-        rows.forEach(r -> {
-            List<Object> row = new ArrayList<>(r.fieldCount());
-            for (int i = 0; i < r.fieldCount(); i++) {
-                row.add(r.get(i));
-            }
-            res.add(row);
-        });
+        List<List<?>> res = convertSqlRows(rows);
 
         if (resultChecker != null) {
             resultChecker.check(res, ordered);

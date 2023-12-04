@@ -51,7 +51,7 @@ import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
-import org.apache.ignite.internal.sql.engine.util.InternalSqlRowForList;
+import org.apache.ignite.internal.sql.engine.util.ListToInternalSqlRowAdapter;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -121,7 +121,7 @@ class SessionImplTest extends BaseIgniteAbstractTest {
         AsyncSqlCursor<InternalSqlRow> result = mock(AsyncSqlCursor.class);
 
         when(result.requestNextAsync(anyInt()))
-                .thenReturn(completedFuture(new BatchedResult<>(List.of(new InternalSqlRowForList(List.of(0L))), false)));
+                .thenReturn(completedFuture(new BatchedResult<>(List.of(new ListToInternalSqlRowAdapter(List.of(0L))), false)));
 
         when(queryProcessor.querySingleAsync(any(), any(), any(), any(), any(Object[].class)))
                 .thenReturn(completedFuture(result));
@@ -161,7 +161,7 @@ class SessionImplTest extends BaseIgniteAbstractTest {
         AsyncSqlCursor<InternalSqlRow> result = mock(AsyncSqlCursor.class);
 
         when(result.requestNextAsync(anyInt()))
-                .thenReturn(completedFuture(new BatchedResult<>(List.of(new InternalSqlRowForList(List.of(0L))), false)));
+                .thenReturn(completedFuture(new BatchedResult<>(List.of(new ListToInternalSqlRowAdapter(List.of(0L))), false)));
         when(result.queryType())
                 .thenReturn(SqlQueryType.QUERY);
 
@@ -212,7 +212,7 @@ class SessionImplTest extends BaseIgniteAbstractTest {
         AsyncSqlCursor<InternalSqlRow> result = mock(AsyncSqlCursor.class);
 
         when(result.requestNextAsync(anyInt()))
-                .thenReturn(completedFuture(new BatchedResult<>(List.of(new InternalSqlRowForList(List.of(0L))), true)));
+                .thenReturn(completedFuture(new BatchedResult<>(List.of(new ListToInternalSqlRowAdapter(List.of(0L))), true)));
         when(result.closeAsync())
                 .thenReturn(nullCompletedFuture());
 
@@ -268,7 +268,7 @@ class SessionImplTest extends BaseIgniteAbstractTest {
         AsyncSqlCursor<InternalSqlRow> dummyResult = mock(AsyncSqlCursor.class);
 
         when(dummyResult.requestNextAsync(anyInt()))
-                .thenReturn(completedFuture(new BatchedResult<>(List.of(new InternalSqlRowForList(List.of(0L))), false)));
+                .thenReturn(completedFuture(new BatchedResult<>(List.of(new ListToInternalSqlRowAdapter(List.of(0L))), false)));
         when(dummyResult.closeAsync())
                 .thenReturn(nullCompletedFuture());
 
