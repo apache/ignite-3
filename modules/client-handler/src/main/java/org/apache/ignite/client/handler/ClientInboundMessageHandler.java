@@ -188,6 +188,8 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
 
     private final long connectionId;
 
+    private final AtomicReference<CompletableFuture> requestSentFutRef = new AtomicReference<>();
+
     /**
      * Constructor.
      *
@@ -508,9 +510,11 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
             int observableTimestampIdx = out.reserveLong();
             out.packNil(); // No error.
 
-            // TODO: Reuse the same AtomicReference instance for all operations.
-            AtomicReference<CompletableFuture> requestSentFutRef = new AtomicReference<>();
-            CompletableFuture fut = processOperation(in, out, opCode, requestId, requestSentFutRef);
+            // Track the future that will be completed when the response is sent.
+            // Use single AtomicReference - current method is executed by a single thread, all requests are processed sequentially.
+            requestSentFutRef.set(null);
+            CompletableFuture fut = processOperation(in, out, opCode, requestId);
+            CompletableFuture requestSentFut = requestSentFutRef.get();
 
             if (fut == null) {
                 // Operation completed synchronously.
@@ -526,8 +530,9 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
                 metrics.requestsProcessedIncrement();
                 metrics.requestsActiveDecrement();
 
-                if (requestSentFutRef.get() != null) {
-                    requestSentFutRef.get().complete(null);
+                if (requestSentFut != null) {
+                    // Allow sending notifications after the response is sent.
+                    requestSentFut.complete(null);
                 }
             } else {
                 var reqId = requestId;
@@ -569,8 +574,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
             ClientMessageUnpacker in,
             ClientMessagePacker out,
             int opCode,
-            long requestId,
-            AtomicReference<CompletableFuture> requestSentFutRef
+            long requestId
     ) throws IgniteInternalCheckedException {
         switch (opCode) {
             case ClientOp.HEARTBEAT:
@@ -676,9 +680,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
                 return ClientTransactionRollbackRequest.process(in, resources, metrics);
 
             case ClientOp.COMPUTE_EXECUTE:
-                NotificationSender notificationSender = createNotificationSender(requestId, requestSentFutRef);
-
-                return ClientComputeExecuteRequest.process(in, compute, clusterService, notificationSender);
+                return ClientComputeExecuteRequest.process(in, compute, clusterService, notificationSender(requestId));
 
             case ClientOp.COMPUTE_EXECUTE_COLOCATED:
                 return ClientComputeExecuteColocatedRequest.process(in, out, compute, igniteTables);
@@ -844,11 +846,12 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
     }
 
     @NotNull
-    private NotificationSender createNotificationSender(long requestId, AtomicReference<CompletableFuture> requestSentFutRef) {
+    private NotificationSender notificationSender(long requestId) {
         // requestSentFut ensures that the notification is not sent before the response for requestId is sent.
+        // We allocate requestSentFut only for requests that require notifications.
         CompletableFuture<Object> requestSentFut = new CompletableFuture<>();
         requestSentFutRef.set(requestSentFut);
 
-        return w -> requestSentFut.thenAccept(v -> sendNotification(requestId, w));
+        return writer -> requestSentFut.thenAccept(v -> sendNotification(requestId, writer));
     }
 }
