@@ -25,10 +25,31 @@ import org.jetbrains.annotations.Nullable;
  * Transaction state.
  */
 public enum TxState {
+    /**
+     * Active transaction that is in progress.
+     */
     PENDING,
+
+    /**
+     * This state is possible only on a transaction coordinator from the moment of start of finalization process to the moment when
+     * the coordinator receives a tx finish response from commit partition.
+     */
     FINISHING,
+
+    /**
+     * Aborted (rolled back) transaction.
+     */
     ABORTED,
+
+    /**
+     * Committed transaction.
+     */
     COMMITED,
+
+    /**
+     * State that is assigned to a transaction due to absence of coordinator. It is temporary and can be changed to {@link TxState#COMMITED}
+     * or {@link TxState#ABORTED} after recovery or successful write intent resolution.
+     */
     ABANDONED;
 
     private static final boolean[][] TRANSITION_MATRIX = {
@@ -37,7 +58,7 @@ public enum TxState {
             { false, false, false, true,  true,  true },
             { false, false, false, true,  false, true },
             { false, false, false, false, true,  true },
-            { true,  true,  true,  true,  true,  true }
+            { true,  false, false,  true,  true,  true }
     };
 
     /**

@@ -28,9 +28,11 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import java.util.List;
 import java.util.Map;
@@ -52,6 +54,7 @@ import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
+import org.apache.ignite.internal.table.distributed.command.MarkLocksReleasedCommand;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
 import org.apache.ignite.internal.table.distributed.replicator.TransactionStateResolver;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
@@ -96,6 +99,15 @@ public class PartitionReplicaListenerDurableUnlockTest extends IgniteAbstractTes
     @Mock
     private TxManager txManager;
 
+    @Mock
+    private SchemaSyncService schemaSyncService;
+
+    @Mock
+    private CatalogService catalogService;
+
+    @Mock
+    private RaftGroupService raftClient;
+
     /** Partition replication listener to test. */
     private PartitionReplicaListener partitionReplicaListener;
 
@@ -120,9 +132,26 @@ public class PartitionReplicaListenerDurableUnlockTest extends IgniteAbstractTes
             return cleanupCallback.apply(txId, partitionId);
         }).when(txManager).cleanup(anyString(), any(), any(), anyBoolean(), any());
 
+        doAnswer(invocation -> completedFuture(null)).when(schemaSyncService).waitForMetadataCompleteness(any());
+
+        doAnswer(invocation -> 1).when(catalogService).activeCatalogVersion(anyLong());
+
+        when(raftClient.run(any())).thenAnswer(invocation -> {
+            if (invocation.getArgument(0) instanceof MarkLocksReleasedCommand) {
+                MarkLocksReleasedCommand cmd = invocation.getArgument(0);
+
+                TxMeta txMeta = txStateStorage.get(cmd.txId());
+                TxMeta txMetaToSet = new TxMeta(txMeta.txState(), txMeta.enlistedPartitions(), txMeta.commitTimestamp(), true);
+
+                txStateStorage.compareAndSet(cmd.txId(), txMeta.txState(), txMetaToSet, 0, 0);
+            }
+
+            return null;
+        });
+
         partitionReplicaListener = new PartitionReplicaListener(
                 new TestMvPartitionStorage(PART_ID),
-                mock(RaftGroupService.class),
+                raftClient,
                 txManager,
                 new HeapLockManager(),
                 Runnable::run,
@@ -138,8 +167,8 @@ public class PartitionReplicaListenerDurableUnlockTest extends IgniteAbstractTes
                 mock(StorageUpdateHandler.class),
                 mock(ValidationSchemasSource.class),
                 LOCAL_NODE,
-                mock(SchemaSyncService.class),
-                mock(CatalogService.class),
+                schemaSyncService,
+                catalogService,
                 placementDriver
         );
     }

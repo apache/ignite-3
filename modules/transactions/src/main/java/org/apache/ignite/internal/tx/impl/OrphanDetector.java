@@ -37,7 +37,6 @@ import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.event.LockEvent;
 import org.apache.ignite.internal.tx.event.LockEventParameters;
-import org.apache.ignite.internal.tx.event.WriteIntentEventParameters;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
 import org.apache.ignite.internal.tx.message.TxRecoveryMessage;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -74,9 +73,6 @@ public class OrphanDetector {
 
     /** Lock conflict events listener. */
     private final EventListener<LockEventParameters> lockConflictListener = this::lockConflictListener;
-
-    /** Lock conflict events listener. */
-    private final EventListener<WriteIntentEventParameters> writeIntentEventListener = this::writeIntentEventListener;
 
     /** Hybrid clock. */
     private final HybridClock clock;
@@ -131,11 +127,6 @@ public class OrphanDetector {
                 .thenApply(v -> false);
     }
 
-    private CompletableFuture<Boolean> writeIntentEventListener(WriteIntentEventParameters params, Throwable e) {
-        return checkOrphanhood(params.creatorTransactionId())
-                .thenApply(v -> false);
-    }
-
     /**
      * Sends {@link TxRecoveryMessage} if the transaction is orphaned.
      *
@@ -165,6 +156,7 @@ public class OrphanDetector {
 
         // Transaction state for full transactions is not stored in the local map, so it can be null.
         if (txState == null
+                // TODO IGNITE-20771 Lock acquisition attempt should fail when interacting with abandoned tx.
                 || txState.txState() == TxState.ABANDONED
                 || isFinalState(txState.txState())
                 || topologyService.getById(txState.txCoordinatorId()) != null) {

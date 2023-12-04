@@ -36,6 +36,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
 import org.apache.ignite.internal.tx.TransactionMeta;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxStateMeta;
@@ -201,7 +202,8 @@ public class TransactionStateResolver {
         } else {
             assert localMeta.txState() == ABANDONED : "Unexpected transaction state [txId=" + txId + ", txStateMeta=" + localMeta + ']';
 
-            txMetaFuture.complete(localMeta);
+            // Still try to resolve the state from commit partition.
+            resolveTxStateFromCommitPartition(txId, commitGrpId, txMetaFuture);
         }
     }
 
@@ -218,18 +220,17 @@ public class TransactionStateResolver {
 
         if (coordinator == null) {
             // This means the coordinator node have either left the cluster or restarted.
+            markAbandoned(txId);
+
             resolveTxStateFromCommitPartition(txId, commitGrpId, txMetaFuture);
         } else {
             CompletableFuture<TransactionMeta> coordinatorTxMetaFuture = new CompletableFuture<>();
 
             coordinatorTxMetaFuture.whenComplete((v, e) -> {
-                assert v != null : "Unexpected result from transaction coordinator: unknown transaction state [txId=" + txId
-                        + ", transactionCoordinator=" + coordinator + ']';
-
                 if (e == null) {
                     txMetaFuture.complete(v);
                 } else {
-                    txMetaFuture.completeExceptionally(e);
+                    resolveTxStateFromCommitPartition(txId, commitGrpId, txMetaFuture);
                 }
             });
 
@@ -238,7 +239,7 @@ public class TransactionStateResolver {
                     .txId(txId)
                     .build();
 
-            sendAndRetry(coordinatorTxMetaFuture, coordinator, request);
+            send(coordinatorTxMetaFuture, coordinator, request);
         }
     }
 
@@ -255,6 +256,17 @@ public class TransactionStateResolver {
         updateLocalTxMapAfterDistributedStateResolved(txId, txMetaFuture);
 
         sendAndRetry(txMetaFuture, commitGrpId, request);
+    }
+
+    /**
+     * Marks the transaction as abandoned due to the absence of coordinator.
+     *
+     * @param txId Transaction id.
+     */
+    private void markAbandoned(UUID txId) {
+        txManager.updateTxMeta(txId, old ->
+                new TxStateMeta(ABANDONED, old.txCoordinatorId(), old.commitPartitionId(), old.commitTimestamp())
+        );
     }
 
     private void updateLocalTxMapAfterDistributedStateResolved(UUID txId, CompletableFuture<TransactionMeta> future) {
@@ -294,24 +306,32 @@ public class TransactionStateResolver {
                 .findFirst()
                 .orElseThrow(() -> new IgniteInternalException("All replica nodes are unavailable"));
 
-        replicaService.invoke(nodeToSend, request).thenAccept(resp -> {
-            assert resp instanceof LeaderOrTxState : "Unsupported response type [type=" + resp.getClass().getSimpleName() + ']';
+        replicaService.invoke(nodeToSend, request).whenComplete((resp, e) -> {
+            if (e == null) {
+                assert resp instanceof LeaderOrTxState : "Unsupported response type [type=" + resp.getClass().getSimpleName() + ']';
 
-            LeaderOrTxState stateOrLeader = (LeaderOrTxState) resp;
+                LeaderOrTxState stateOrLeader = (LeaderOrTxState) resp;
 
-            String nextNodeToSend = stateOrLeader.leaderName();
+                String nextNodeToSend = stateOrLeader.leaderName();
 
-            if (nextNodeToSend == null) {
-                resFut.complete(stateOrLeader.txMeta());
+                if (nextNodeToSend == null) {
+                    resFut.complete(stateOrLeader.txMeta());
+                } else {
+                    LinkedHashSet<String> newAssignment = new LinkedHashSet<>();
+
+                    newAssignment.add(nextNodeToSend);
+                    newAssignment.addAll(primaryReplicaMapping.get(replicaGrp));
+
+                    primaryReplicaMapping.put(replicaGrp, newAssignment);
+
+                    sendAndRetry(resFut, replicaGrp, request);
+                }
             } else {
-                LinkedHashSet<String> newAssignment = new LinkedHashSet<>();
-
-                newAssignment.add(nextNodeToSend);
-                newAssignment.addAll(primaryReplicaMapping.get(replicaGrp));
-
-                primaryReplicaMapping.put(replicaGrp, newAssignment);
-
-                sendAndRetry(resFut, replicaGrp, request);
+                if (e instanceof PrimaryReplicaMissException) {
+                    // TODO IGNITE-20994
+                } else {
+                    resFut.completeExceptionally(e);
+                }
             }
         });
     }
@@ -323,7 +343,7 @@ public class TransactionStateResolver {
      * @param node Node to send to.
      * @param request Request.
      */
-    private void sendAndRetry(CompletableFuture<TransactionMeta> resFut, ClusterNode node, TxStateCoordinatorRequest request) {
+    private void send(CompletableFuture<TransactionMeta> resFut, ClusterNode node, TxStateCoordinatorRequest request) {
         messagingService.invoke(node, request, RPC_TIMEOUT).thenAccept(resp -> {
             assert resp instanceof TxStateResponse : "Unsupported response type [type=" + resp.getClass().getSimpleName() + ']';
 

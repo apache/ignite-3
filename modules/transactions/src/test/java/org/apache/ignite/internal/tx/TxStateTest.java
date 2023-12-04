@@ -116,9 +116,11 @@ public class TxStateTest {
      */
     @Test
     void testTransitionsFromAbandoned() {
+        // Not allowed.
+        assertFalse(TxState.checkTransitionCorrectness(TxState.ABANDONED, TxState.PENDING));
+        assertFalse(TxState.checkTransitionCorrectness(TxState.ABANDONED, TxState.FINISHING));
+
         // Allowed.
-        assertTrue(TxState.checkTransitionCorrectness(TxState.ABANDONED, TxState.PENDING));
-        assertTrue(TxState.checkTransitionCorrectness(TxState.ABANDONED, TxState.FINISHING));
         assertTrue(TxState.checkTransitionCorrectness(TxState.ABANDONED, TxState.ABORTED));
         assertTrue(TxState.checkTransitionCorrectness(TxState.ABANDONED, TxState.COMMITED));
         assertTrue(TxState.checkTransitionCorrectness(TxState.ABANDONED, TxState.ABANDONED));

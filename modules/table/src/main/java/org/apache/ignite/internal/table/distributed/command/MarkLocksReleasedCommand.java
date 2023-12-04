@@ -15,19 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.tx.event;
+package org.apache.ignite.internal.table.distributed.command;
 
-import java.util.UUID;
-import org.apache.ignite.internal.event.EventParameters;
+import org.apache.ignite.internal.table.distributed.TableMessageGroup.Commands;
+import org.apache.ignite.network.annotations.Transferable;
 
-public class WriteIntentEventParameters implements EventParameters {
-    private final UUID creatorTransactionId;
-
-    public WriteIntentEventParameters(UUID creatorTransactionId) {
-        this.creatorTransactionId = creatorTransactionId;
-    }
-
-    public UUID creatorTransactionId() {
-        return creatorTransactionId;
-    }
+/**
+ * Command that is used to replicate the locks released update for tx state storage.
+ */
+@Transferable(Commands.MARK_LOCKS_RELEASED)
+public interface MarkLocksReleasedCommand extends PartitionCommand {
 }

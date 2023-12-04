@@ -61,6 +61,7 @@ import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 import org.apache.ignite.internal.table.distributed.command.BuildIndexCommand;
 import org.apache.ignite.internal.table.distributed.command.FinishTxCommand;
+import org.apache.ignite.internal.table.distributed.command.MarkLocksReleasedCommand;
 import org.apache.ignite.internal.table.distributed.command.TablePartitionIdMessage;
 import org.apache.ignite.internal.table.distributed.command.TxCleanupCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateAllCommand;
@@ -205,6 +206,8 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
                     handleSafeTimeSyncCommand((SafeTimeSyncCommand) command, commandIndex, commandTerm);
                 } else if (command instanceof BuildIndexCommand) {
                     handleBuildIndexCommand((BuildIndexCommand) command, commandIndex, commandTerm);
+                } else if (command instanceof MarkLocksReleasedCommand) {
+                    handleMarkLocksReleasedCommand((MarkLocksReleasedCommand) command, commandIndex, commandTerm);
                 } else {
                     assert false : "Command was not found [cmd=" + command + ']';
                 }
@@ -348,21 +351,7 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
         LOG.debug("Finish the transaction txId = {}, state = {}, txStateChangeRes = {}", txId, txMetaToSet, txStateChangeRes);
 
         if (!txStateChangeRes) {
-            UUID traceId = UUID.randomUUID();
-
-            String errorMsg = format("Fail to finish the transaction txId = {} because of inconsistent state = {},"
-                            + " expected state = null, state to set = {}",
-                    txId,
-                    txMetaBeforeCas,
-                    txMetaToSet
-            );
-
-            IgniteInternalException stateChangeException = new IgniteInternalException(traceId, TX_UNEXPECTED_STATE_ERR, errorMsg);
-
-            // Exception is explicitly logged because otherwise it can be lost if it did not occur on the leader.
-            LOG.error(errorMsg);
-
-            throw stateChangeException;
+            onTxStateStorageCasFail(txId, txMetaBeforeCas, txMetaToSet);
         }
     }
 
@@ -541,6 +530,56 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
                     storage.tableId(), storage.partitionId(), cmd.indexId()
             );
         }
+    }
+
+    /**
+     * Handles the {@link MarkLocksReleasedCommand}.
+     *
+     * @param cmd Command.
+     * @param commandIndex Command index.
+     * @param commandTerm Command term.
+     */
+    private void handleMarkLocksReleasedCommand(MarkLocksReleasedCommand cmd, long commandIndex, long commandTerm) {
+        UUID txId = cmd.txId();
+
+        TxMeta txMetaBeforeCas = txStateStorage.get(txId);
+
+        TxMeta txMetaToSet = new TxMeta(
+                txMetaBeforeCas.txState(),
+                txMetaBeforeCas.enlistedPartitions(),
+                txMetaBeforeCas.commitTimestamp(),
+                true
+        );
+
+        boolean txStateChangeRes = txStateStorage.compareAndSet(
+                txId,
+                null,
+                txMetaToSet,
+                commandIndex,
+                commandTerm
+        );
+
+        if (!txStateChangeRes) {
+            onTxStateStorageCasFail(txId, txMetaBeforeCas, txMetaToSet);
+        }
+    }
+
+    private static void onTxStateStorageCasFail(UUID txId, TxMeta txMetaBeforeCas, TxMeta txMetaToSet) {
+        UUID traceId = UUID.randomUUID();
+
+        String errorMsg = format("Failed to update tx state in the storage, transaction txId = {} because of inconsistent state,"
+                        + " expected state = {}, state to set = {}",
+                txId,
+                txMetaBeforeCas,
+                txMetaToSet
+        );
+
+        IgniteInternalException stateChangeException = new IgniteInternalException(traceId, TX_UNEXPECTED_STATE_ERR, errorMsg);
+
+        // Exception is explicitly logged because otherwise it can be lost if it did not occur on the leader.
+        LOG.error(errorMsg);
+
+        throw stateChangeException;
     }
 
     private static <T extends Comparable<T>> void updateTrackerIgnoringTrackerClosedException(

@@ -27,7 +27,6 @@ import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestampToLong;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
-import static org.apache.ignite.internal.tx.TxState.ABANDONED;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
 import static org.apache.ignite.internal.tx.TxState.COMMITED;
 import static org.apache.ignite.internal.tx.TxState.PENDING;
@@ -118,6 +117,7 @@ import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
 import org.apache.ignite.internal.table.distributed.command.BuildIndexCommand;
 import org.apache.ignite.internal.table.distributed.command.FinishTxCommandBuilder;
+import org.apache.ignite.internal.table.distributed.command.MarkLocksReleasedCommand;
 import org.apache.ignite.internal.table.distributed.command.TablePartitionIdMessage;
 import org.apache.ignite.internal.table.distributed.command.TimedBinaryRowMessage;
 import org.apache.ignite.internal.table.distributed.command.TimedBinaryRowMessageBuilder;
@@ -150,7 +150,6 @@ import org.apache.ignite.internal.tx.Lock;
 import org.apache.ignite.internal.tx.LockKey;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.LockMode;
-import org.apache.ignite.internal.tx.TransactionAbandonedException;
 import org.apache.ignite.internal.tx.TransactionIds;
 import org.apache.ignite.internal.tx.TransactionMeta;
 import org.apache.ignite.internal.tx.TxManager;
@@ -389,12 +388,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         return cleanup(txId, txMeta)
                 .handle((v, e) -> {
                     if (e == null) {
-                        return txManager.executeCleanupAsync(() -> markLocksReleased(
-                                txId,
-                                txMeta.enlistedPartitions(),
-                                txMeta.txState(),
-                                txMeta.commitTimestamp())
-                        );
+                        return txManager.executeCleanupAsync(() -> markLocksReleased(txId));
                     } else {
                         LOG.warn("Failed to execute cleanup on commit partition primary replica switch [txId={}, commitPartition={}]",
                                 e, txId, replicationGroupId);
@@ -409,15 +403,16 @@ public class PartitionReplicaListener implements ReplicaListener {
                 .thenCompose(f -> f);
     }
 
-    private void markLocksReleased(
-            UUID txId,
-            Collection<TablePartitionId> enlistedPartitions,
-            TxState txState,
-            @Nullable HybridTimestamp commitTimestamp
-    ) {
-        TxMeta newTxMeta = new TxMeta(txState, enlistedPartitions, commitTimestamp, true);
+    private void markLocksReleased(UUID txId) {
+        reliableCatalogVersionFor(hybridClock.now()).thenAccept(catalogVersion -> {
+            MarkLocksReleasedCommand cmd = MSG_FACTORY.markLocksReleasedCommand()
+                    .txId(txId)
+                    .safeTimeLong(hybridClock.nowLong())
+                    .requiredCatalogVersion(catalogVersion)
+                    .build();
 
-        txStateStorage.put(txId, newTxMeta);
+            raftClient.run(cmd);
+        });
     }
 
     private CompletableFuture<Boolean> onPrimaryExpired(PrimaryReplicaEventParameters evt, @Nullable Throwable exception) {
@@ -490,7 +485,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         }
 
         if (request instanceof TxRecoveryMessage) {
-            return processTxRecoveryAction((TxRecoveryMessage) request);
+            return processTxRecoveryMessage((TxRecoveryMessage) request);
         }
 
         HybridTimestamp opTsIfDirectRo = (request instanceof ReadOnlyDirectReplicaRequest) ? hybridClock.now() : null;
@@ -507,7 +502,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param request Tx recovery request.
      * @return The future is complete when the transaction state is finalized.
      */
-    private CompletableFuture<Void> processTxRecoveryAction(TxRecoveryMessage request) {
+    private CompletableFuture<Void> processTxRecoveryMessage(TxRecoveryMessage request) {
         UUID txId = request.txId();
 
         TxMeta txMeta = txStateStorage.get(txId);
@@ -521,6 +516,16 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         LOG.info("Orphan transaction has to be aborted [tx={}].", txId);
 
+        return triggerTxRecovery(txId);
+    }
+
+    /**
+     * Starts tx recovery process.
+     *
+     * @param txId Transaction id.
+     * @return Tx recovery future, or failed future if the tx recovery is not possible.
+     */
+    private CompletableFuture<Void> triggerTxRecovery(UUID txId) {
         // TODO: IGNITE-20735 Implement initiate recovery handling logic.
         return completedFuture(null);
     }
@@ -748,8 +753,36 @@ public class PartitionReplicaListener implements ReplicaListener {
                         txMeta = txStateStorage.get(request.txId());
                     }
 
+                    // Don't wait for tx recovery, just trigger it if needed.
+                    triggerTxRecoveryOnTxStateResolutionIfNeeded(request.txId(), txMeta);
+
                     return completedFuture(new LeaderOrTxState(null, txMeta));
                 });
+    }
+
+    /**
+     * Checks whether tx recovery is needed with given tx meta and triggers it of needed.
+     *
+     * @param txId Transaction id.
+     * @param txMeta Transaction meta.
+     * @return Tx recovery future, or completed future if the recovery isn't needed, or failed future if the recovery is not possible.
+     */
+    private CompletableFuture<Void> triggerTxRecoveryOnTxStateResolutionIfNeeded(UUID txId, @Nullable TransactionMeta txMeta) {
+        if (txMeta == null) {
+            // This means that primary replica for commit partition has changed, since the local node doesn't have the volatile tx state.
+            // No need to wait a finish request from tx coordinator, the transaction can't be committed at all.
+            return triggerTxRecovery(txId);
+        } else if (txMeta instanceof TxStateMeta) {
+            TxStateMeta txStateMeta = (TxStateMeta) txMeta;
+
+            // Trigger tx recovery due to tx coordinator absence.
+            // TODO IGNITE-20771 Proper lifeness check.
+            // if (isDead(txStateMeta.txCoordinatorId()))
+            return triggerTxRecovery(txId);
+        } else {
+            // Recovery is not needed.
+            return completedFuture(null);
+        }
     }
 
     /**
@@ -1545,12 +1578,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         CompletableFuture<?> changeStateFuture = finishTransaction(enlistedPartitions, txId, commit, commitTimestamp, txCoordinatorId);
 
         return cleanup(changeStateFuture, enlistedPartitions, commit, commitTimestamp, txId, ATTEMPTS_TO_CLEANUP_REPLICA)
-                .thenRun(() -> markLocksReleased(
-                        txId,
-                        enlistedPartitions,
-                        commit ? COMMITED : ABORTED,
-                        commitTimestamp)
-                );
+                .thenRun(() -> markLocksReleased(txId));
     }
 
     private CompletableFuture<Void> cleanup(UUID txId, TxMeta txMeta) {
@@ -3544,23 +3572,23 @@ public class PartitionReplicaListener implements ReplicaListener {
      * Check whether we can read write intents created by this transaction.
      *
      * @param txId Transaction id.
-     * @param txMeta Transaction metainfo.
+     * @param txMeta Transaction meta info, should have final state.
      * @param timestamp Read timestamp.
      * @return {@code true} if we can read from entries created in this transaction (when the transaction was committed and commit time <=
      *         read time).
      */
-    private static Boolean canReadFromWriteIntent(UUID txId, @Nullable TransactionMeta txMeta, @Nullable HybridTimestamp timestamp) {
-        if (txMeta == null || txMeta.txState() == ABANDONED) {
-            // TODO https://issues.apache.org/jira/browse/IGNITE-20427 make the null value returned from commit partition
-            // TODO more determined
-            throw new TransactionAbandonedException(txId, txMeta);
-        }
+    private static Boolean canReadFromWriteIntent(UUID txId, TransactionMeta txMeta, @Nullable HybridTimestamp timestamp) {
+        assert isFinalState(txMeta.txState()) || txMeta.txState() == PENDING
+                : format("Unexpected state defined by write intent resolution [txId={}, txMeta={}].", txId, txMeta);
+
         if (txMeta.txState() == COMMITED) {
             boolean readLatest = timestamp == null;
 
             return readLatest || txMeta.commitTimestamp().compareTo(timestamp) <= 0;
+        } else {
+            // Either ABORTED or PENDING.
+            return false;
         }
-        return false;
     }
 
     /**
