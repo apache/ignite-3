@@ -145,6 +145,9 @@ public class JdbcResultSet implements ResultSet {
     /** Jdbc metadata. */
     private JdbcResultSetMetadata jdbcMeta;
 
+    /** Count of columns in resultSet row. */
+    private int columnCount;
+
     /** Function to deserialize raw rows to list of objects. */
     private Function<BinaryTupleReader, List<Object>> transformer;
 
@@ -161,10 +164,11 @@ public class JdbcResultSet implements ResultSet {
      * @param autoClose   Is automatic close of server cursors enabled.
      * @param updCnt      Update count.
      * @param closeStmt   Close statement on the result set close.
+     * @param columnCount Count of columns in resultSet row.
      * @param transformer Function to deserialize raw rows to list of objects.
      */
     JdbcResultSet(JdbcQueryCursorHandler handler, JdbcStatement stmt, Long cursorId, int fetchSize, boolean finished,
-            List<BinaryTupleReader> rows, boolean isQry, boolean autoClose, long updCnt, boolean closeStmt,
+            List<BinaryTupleReader> rows, boolean isQry, boolean autoClose, long updCnt, boolean closeStmt, int columnCount,
             Function<BinaryTupleReader, List<Object>> transformer) {
         assert stmt != null;
         assert fetchSize > 0;
@@ -177,6 +181,7 @@ public class JdbcResultSet implements ResultSet {
         this.isQuery = isQry;
         this.autoClose = autoClose;
         this.closeStmt = closeStmt;
+        this.columnCount = columnCount;
         this.transformer = transformer;
 
         if (isQuery) {
@@ -221,7 +226,10 @@ public class JdbcResultSet implements ResultSet {
                     throw IgniteQueryErrorCode.createJdbcSqlException(res.err(), res.status());
                 }
 
-                rows = res.items();
+                for (ByteBuffer item : res.items()) {
+                    rows.add(new BinaryTupleReader(columnCount, item));
+                }
+
                 finished = res.last();
 
                 rowsIter = new TransformingIterator<>(rows.iterator(), transformer);

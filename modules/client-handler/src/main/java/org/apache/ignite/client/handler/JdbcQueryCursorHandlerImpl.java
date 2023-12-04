@@ -19,11 +19,11 @@ package org.apache.ignite.client.handler;
 
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
-import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.jdbc.JdbcConverterUtils;
 import org.apache.ignite.internal.jdbc.proto.JdbcQueryCursorHandler;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcColumnMeta;
@@ -82,9 +82,9 @@ public class JdbcQueryCursorHandlerImpl implements JdbcQueryCursorHandler {
                     "Failed to fetch query results [curId=" + req.cursorId() + "]. Error message:" + sw);
             }
 
-            List<BinaryTupleReader> rows = new ArrayList<>(batch.items().size());
+            List<ByteBuffer> rows = new ArrayList<>(batch.items().size());
             for (InternalSqlRow item : batch.items()) {
-                rows.add(item.asBinaryTuple());
+                rows.add(item.asBinaryTuple().byteBuffer());
             }
 
             return new JdbcQueryFetchResult(rows, !batch.hasMore());

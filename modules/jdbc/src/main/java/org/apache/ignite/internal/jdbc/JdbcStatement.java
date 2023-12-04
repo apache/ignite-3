@@ -167,13 +167,14 @@ public class JdbcStatement implements Statement {
         JdbcQueryCursorHandler handler = new JdbcClientQueryCursorHandler(result.getChannel());
 
         for (JdbcQuerySingleResult jdbcRes : executeResult.results()) {
+            int columnCount = jdbcRes.columnTypes().size();
             Function<BinaryTupleReader, List<Object>> transformer = (tuple) -> {
                 List<ColumnType> columnTypes = jdbcRes.columnTypes();
                 int[] decimalScales = jdbcRes.decimalScales();
-                List<Object> row = new ArrayList<>(columnTypes.size());
+                List<Object> row = new ArrayList<>(columnCount);
                 int decimalIdx = 0;
                 int currentDecimalScale = -1;
-                for (int colIdx = 0; colIdx < columnTypes.size(); colIdx++) {
+                for (int colIdx = 0; colIdx < columnCount; colIdx++) {
                     ColumnType type = columnTypes.get(colIdx);
                     if (type == ColumnType.DECIMAL) {
                         currentDecimalScale = decimalScales[decimalIdx++];
@@ -185,7 +186,7 @@ public class JdbcStatement implements Statement {
 
             resSets.add(new JdbcResultSet(handler, this, jdbcRes.cursorId(), pageSize,
                     jdbcRes.last(), jdbcRes.items(), jdbcRes.isQuery(), false, jdbcRes.updateCount(),
-                    closeOnCompletion, transformer));
+                    closeOnCompletion, columnCount, transformer));
         }
 
         assert !resSets.isEmpty() : "At least one results set is expected";
