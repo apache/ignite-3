@@ -38,10 +38,12 @@ public class IgniteSqlZoneOption extends SqlCall {
     /** ZONE option operator. */
     protected static class Operator extends IgniteSqlSpecialOperator {
 
+        /** Constructor. */
         protected Operator() {
             super("ZoneOption", SqlKind.OTHER);
         }
 
+        /** {@inheritDoc} */
         @Override
         public SqlCall createCall(@Nullable SqlLiteral functionQualifier, SqlParserPos pos, @Nullable SqlNode... operands) {
             return new IgniteSqlZoneOption((SqlIdentifier) operands[0], operands[1], pos);
