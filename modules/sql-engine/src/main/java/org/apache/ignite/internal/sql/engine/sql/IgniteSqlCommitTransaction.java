@@ -32,15 +32,26 @@ import org.checkerframework.checker.nullness.qual.Nullable;
  */
 public class IgniteSqlCommitTransaction extends SqlCall {
 
-    /** Commit transaction operator. */
-    private static final SqlOperator OPERATOR = new IgniteSqlSpecialOperator("COMMIT", SqlKind.COMMIT) {
+    /** COMMIT operator. */
+    protected static class Operator extends IgniteSqlSpecialOperator {
+
+        /** Constructor. */
+        protected Operator() {
+            super("COMMIT", SqlKind.COMMIT);
+        }
+
+        /** {@inheritDoc} */
         @Override
         public SqlCall createCall(@Nullable SqlLiteral functionQualifier, SqlParserPos pos,
                 @Nullable SqlNode... operands) {
             return new IgniteSqlCommitTransaction(pos);
         }
-    };
+    }
 
+    /** Commit transaction operator. */
+    private static final SqlOperator OPERATOR = new Operator();
+
+    /** Constructor. */
     public IgniteSqlCommitTransaction(SqlParserPos pos) {
         super(pos);
     }
