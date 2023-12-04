@@ -19,6 +19,7 @@ package org.apache.ignite.internal.compute.loader;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.lang.reflect.Array;
 import java.util.Arrays;
@@ -135,7 +136,7 @@ public class JobContextManager {
         return deployment.clusterStatusAsync(unit.name(), unit.version())
                 .thenCompose(clusterStatus -> {
                     if (clusterStatus == DeploymentStatus.DEPLOYED) {
-                        return completedFuture(null);
+                        return nullCompletedFuture();
                     } else if (clusterStatus == null) {
                         return failedFuture(new DeploymentUnitNotFoundException(unit.name(), unit.version()));
                     } else {
@@ -160,7 +161,7 @@ public class JobContextManager {
             return deployment.onDemandDeploy(it.name(), it.version())
                     .thenCompose(result -> {
                         if (result) {
-                            return completedFuture(null);
+                            return nullCompletedFuture();
                         } else {
                             return failedFuture(
                                     new IgniteInternalException(Compute.CLASS_LOADER_ERR, "Failed to deploy on demand unit: " + it.render())

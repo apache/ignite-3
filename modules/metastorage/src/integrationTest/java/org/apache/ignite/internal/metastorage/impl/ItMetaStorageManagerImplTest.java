@@ -27,6 +27,7 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.clusterService;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
@@ -243,7 +244,7 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
 
         RevisionUpdateListener listener = mock(RevisionUpdateListener.class);
 
-        when(listener.onUpdated(revisionCapture.capture())).thenReturn(completedFuture(null));
+        when(listener.onUpdated(revisionCapture.capture())).thenReturn(nullCompletedFuture());
 
         long revision = metaStorageManager.appliedRevision();
 

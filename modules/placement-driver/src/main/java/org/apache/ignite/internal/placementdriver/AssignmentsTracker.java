@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.placementdriver;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.StringUtils.incrementLastChar;
 import static org.apache.ignite.internal.utils.RebalanceUtil.STABLE_ASSIGNMENTS_PREFIX;
 
@@ -159,7 +159,7 @@ public class AssignmentsTracker {
                 triggerToRenewLeases();
             }
 
-            return completedFuture(null);
+            return nullCompletedFuture();
         }
 
         @Override

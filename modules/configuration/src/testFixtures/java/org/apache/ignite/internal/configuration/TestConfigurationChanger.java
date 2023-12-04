@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.configuration;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
@@ -56,7 +56,7 @@ public class TestConfigurationChanger extends ConfigurationChanger {
             @Override
             public CompletableFuture<Void> onConfigurationUpdated(@Nullable SuperRoot oldRoot, SuperRoot newRoot, long storageRevision,
                     long notificationNumber) {
-                return completedFuture(null);
+                return nullCompletedFuture();
             }
         };
     }

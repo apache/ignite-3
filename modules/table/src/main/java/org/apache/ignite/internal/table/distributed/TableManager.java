@@ -31,6 +31,9 @@ import static org.apache.ignite.internal.causality.IncrementalVersionedValue.dep
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.partitionAssignmentsGetLocally;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.tableAssignmentsGetLocally;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
+import static org.apache.ignite.internal.util.CompletableFutures.emptyListCompletedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
@@ -163,6 +166,7 @@ import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbTableStorage;
 import org.apache.ignite.internal.util.ByteUtils;
+import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -617,7 +621,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
             dropTableLocally(causalityToken, tableDescriptor, zoneDescriptor);
 
-            return completedFuture(null);
+            return nullCompletedFuture();
         });
     }
 
@@ -809,14 +813,14 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                             partitionUpdateHandlers
                     );
 
-                    return true;
-                } catch (NodeStoppingException ex) {
-                    throw new CompletionException(ex);
+                            return true;
+                        } catch (NodeStoppingException ex) {
+                            throw new CompletionException(ex);
+                        }
+                    }), ioExecutor);
+                } else {
+                    startGroupFut = falseCompletedFuture();
                 }
-            }), ioExecutor);
-        } else {
-            startGroupFut = completedFuture(false);
-        }
 
         startGroupFut
                 .thenComposeAsync(v -> inBusyLock(busyLock, () -> {
@@ -884,10 +888,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 raftGroupService
         );
 
-        CompletableFuture<Void> whenReplicaReady = allOf(
-                ((Loza) raftMgr).raftNodeReadyFuture(replicaGrpId),
-                table.pkIndexesReadyFuture()
-        );
+        CompletableFuture<Void> whenReplicaReady = table.pkIndexesReadyFuture();
 
         replicaMgr.startReplica(
                 replicaGrpId,
@@ -1412,7 +1413,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     Collection<CatalogTableDescriptor> tableDescriptors = catalogService.tables(catalogVersion);
 
                     if (tableDescriptors.isEmpty()) {
-                        return completedFuture(List.of());
+                        return emptyListCompletedFuture();
                     }
 
                     CompletableFuture<TableImpl>[] tableImplFutures = tableDescriptors.stream()
@@ -1512,7 +1513,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
                         // Check if the table has been deleted.
                         if (catalogService.table(tableId, catalogVersion) == null) {
-                            return completedFuture(null);
+                            return nullCompletedFuture();
                         }
 
                         return tableAsyncInternalBusy(tableId);
@@ -1564,7 +1565,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
                         // Check if the table has been deleted.
                         if (tableDescriptor == null) {
-                            return completedFuture(null);
+                            return nullCompletedFuture();
                         }
 
                         return tableAsyncInternalBusy(tableDescriptor.id());
@@ -1681,7 +1682,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             boolean isRecovery
     ) {
         if (pendingAssignmentsEntry.value() == null) {
-            return completedFuture(null);
+            return nullCompletedFuture();
         }
 
         int partId = extractPartitionNumber(pendingAssignmentsEntry.key());
@@ -1710,7 +1711,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                                 LOG.info("Skipping Pending Assignments update, because table {} does not exist", tblId);
                             }
 
-                            return CompletableFuture.<Void>completedFuture(null);
+                            return CompletableFutures.<Void>nullCompletedFuture();
                         }
 
                         return handleChangePendingAssignmentEvent(
@@ -1727,7 +1728,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                                     return partGrpSvc.refreshAndGetLeaderWithTerm()
                                             .thenCompose(leaderWithTerm -> {
                                                 if (!isLocalPeer(leaderWithTerm.leader())) {
-                                                    return completedFuture(null);
+                                                    return nullCompletedFuture();
                                                 }
 
                                                 // run update of raft configuration if this node is a leader
@@ -1741,7 +1742,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                                                             // Note that we start raft node before for the sake of the consistency in a
                                                             // starting and stopping raft nodes.
                                                             if (revision < latestPendingAssignmentsEntry.revision()) {
-                                                                return completedFuture(null);
+                                                                return nullCompletedFuture();
                                                             }
 
                                                             PeersAndLearners newConfiguration =
@@ -1826,7 +1827,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                             isRecovery
                     )), ioExecutor);
         } else {
-            localServicesStartFuture = completedFuture(null);
+            localServicesStartFuture = nullCompletedFuture();
         }
 
         return localServicesStartFuture;
@@ -2020,14 +2021,14 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     protected CompletableFuture<Void> handleChangeStableAssignmentEvent(WatchEvent evt) {
         if (evt.entryEvents().stream().allMatch(e -> e.oldEntry().value() == null)) {
             // It's the initial write to table stable assignments on table create event.
-            return completedFuture(null);
+            return nullCompletedFuture();
         }
 
         if (!evt.single()) {
             // If there is not a single entry, then all entries must be tombstones (this happens after table drop).
             assert evt.entryEvents().stream().allMatch(entryEvent -> entryEvent.newEntry().tombstone()) : evt;
 
-            return completedFuture(null);
+            return nullCompletedFuture();
         }
 
         // here we can receive only update from the rebalance logic
@@ -2047,7 +2048,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             boolean isRecovery
     ) {
         if (stableAssignmentsWatchEvent.value() == null) {
-            return completedFuture(null);
+            return nullCompletedFuture();
         }
 
         int partitionId = extractPartitionNumber(stableAssignmentsWatchEvent.key());
@@ -2118,7 +2119,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             stopReplicaFuture = replicaMgr.stopReplica(tablePartitionId);
         } catch (NodeStoppingException e) {
             // No-op.
-            stopReplicaFuture = completedFuture(false);
+            stopReplicaFuture = falseCompletedFuture();
         }
 
         return stopReplicaFuture
@@ -2136,7 +2137,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     private CompletableFuture<Void> destroyPartitionStorages(TablePartitionId tablePartitionId, TableImpl table) {
         // TODO: IGNITE-18703 Destroy raft log and meta
         if (table == null) {
-            return completedFuture(null);
+            return nullCompletedFuture();
         }
 
         InternalTable internalTable = table.internalTable();
