@@ -17,13 +17,24 @@
 
 package org.apache.ignite.internal.security.authentication.basic;
 
-import org.apache.ignite.configuration.annotation.NamedConfigValue;
-import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
-import org.apache.ignite.internal.security.authentication.configuration.AuthenticationProviderConfigurationSchema;
+import org.apache.ignite.configuration.annotation.Config;
+import org.apache.ignite.configuration.annotation.InjectedName;
+import org.apache.ignite.configuration.annotation.Secret;
+import org.apache.ignite.configuration.annotation.Value;
+import org.apache.ignite.configuration.validation.NotBlank;
 
-/** Basic authentication configuration. */
-@PolymorphicConfigInstance(AuthenticationProviderConfigurationSchema.TYPE_BASIC)
-public class BasicAuthenticationProviderConfigurationSchema extends AuthenticationProviderConfigurationSchema {
-    @NamedConfigValue(syntheticKeyName = "username")
-    public BasicUserConfigurationSchema users;
+/**
+ * Basic user configuration schema.
+ */
+@Config
+public class BasicUserConfigurationSchema {
+    /** Username. */
+    @InjectedName
+    public String username;
+
+    /** Password. */
+    @Secret
+    @NotBlank
+    @Value
+    public String password;
 }

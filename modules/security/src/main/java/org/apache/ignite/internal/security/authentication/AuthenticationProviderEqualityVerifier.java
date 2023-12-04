@@ -17,7 +17,10 @@
 
 package org.apache.ignite.internal.security.authentication;
 
+import java.util.Objects;
+import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.internal.security.authentication.basic.BasicAuthenticationProviderView;
+import org.apache.ignite.internal.security.authentication.basic.BasicUserView;
 import org.apache.ignite.internal.security.authentication.configuration.AuthenticationProviderView;
 import org.jetbrains.annotations.Nullable;
 
@@ -61,6 +64,21 @@ public class AuthenticationProviderEqualityVerifier {
     }
 
     private static boolean areEqual(BasicAuthenticationProviderView o1, BasicAuthenticationProviderView o2) {
-        return o1.username().equals(o2.username()) && o1.password().equals(o2.password());
+        NamedListView<? extends BasicUserView> users1 = o1.users();
+        NamedListView<? extends BasicUserView> users2 = o2.users();
+        if (users1.size() != users2.size()) {
+            return false;
+        }
+
+        for (BasicUserView basicUserView : users1) {
+            BasicUserView basicUser2View = users2.get(basicUserView.username());
+            if (basicUser2View == null) {
+                return false;
+            }
+            return Objects.equals(basicUserView.username(), basicUser2View.username())
+                    && Objects.equals(basicUserView.password(), basicUser2View.password());
+        }
+
+        return true;
     }
 }

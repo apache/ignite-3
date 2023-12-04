@@ -20,6 +20,7 @@ package org.apache.ignite.internal.security.authentication.basic;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import java.util.List;
 import org.apache.ignite.internal.security.authentication.AnonymousRequest;
 import org.apache.ignite.internal.security.authentication.UserDetails;
 import org.apache.ignite.internal.security.authentication.UsernamePasswordRequest;
@@ -28,7 +29,10 @@ import org.apache.ignite.security.exception.UnsupportedAuthenticationTypeExcepti
 import org.junit.jupiter.api.Test;
 
 class BasicAuthenticatorTest {
-    private final BasicAuthenticator authenticator = new BasicAuthenticator("basic", "admin", "password");
+    private final BasicAuthenticator authenticator = new BasicAuthenticator(
+            "basic",
+            List.of(new BasicUser("admin", "password"))
+    );
 
     @Test
     void authenticate() {
@@ -57,6 +61,8 @@ class BasicAuthenticatorTest {
                 UnsupportedAuthenticationTypeException.class,
                 () -> authenticator.authenticate(new AnonymousRequest())
         );
+
+
 
         // then
         assertEquals("Unsupported authentication type: " + AnonymousRequest.class.getName(), exception.getMessage());
