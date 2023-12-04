@@ -117,8 +117,6 @@ public class InMemoryComputeStateMachineTest {
         failJob(true);
     }
 
-
-
     private void cancelJob(boolean shouldFail) {
         if (!shouldFail) {
             stateMachine.cancelJob(jobId);
@@ -127,6 +125,7 @@ public class InMemoryComputeStateMachineTest {
             assertThrows(IllegalJobStateTransition.class, () -> stateMachine.cancelJob(jobId));
         }
     }
+
     private void cancelingJob(boolean shouldFail) {
         if (!shouldFail) {
             stateMachine.cancelingJob(jobId);
@@ -135,7 +134,6 @@ public class InMemoryComputeStateMachineTest {
             assertThrows(IllegalJobStateTransition.class, () -> stateMachine.cancelJob(jobId));
         }
     }
-
 
     private void executeJob(boolean shouldFail) {
         if (!shouldFail) {
