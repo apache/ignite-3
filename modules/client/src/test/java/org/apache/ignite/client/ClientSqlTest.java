@@ -221,6 +221,7 @@ public class ClientSqlTest extends AbstractClientTableTest {
     public void testExecuteScript() {
         Session session = client.sql().createSession();
 
+        // TODO: Test properties propagation.
         session.executeScript("foo");
         session.executeScriptAsync("bar").join();
     }
