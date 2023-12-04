@@ -17,10 +17,10 @@
 
 package org.apache.ignite.internal.table.distributed.replication;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
 import static org.apache.ignite.internal.tx.TxState.isFinalState;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -99,14 +99,14 @@ public class PartitionReplicaListenerDurableUnlockTest extends IgniteAbstractTes
     /** Partition replication listener to test. */
     private PartitionReplicaListener partitionReplicaListener;
 
-    private BiFunction<UUID, TablePartitionId, CompletableFuture<Void>> cleanupCallback = (a, b) -> completedFuture(null);
+    private BiFunction<UUID, TablePartitionId, CompletableFuture<Void>> cleanupCallback = (a, b) -> nullCompletedFuture();
 
     @BeforeEach
     public void beforeTest() {
         doAnswer(invocation -> {
             Runnable r = invocation.getArgument(0);
             r.run();
-            return completedFuture(null);
+            return nullCompletedFuture();
         }).when(txManager).executeCleanupAsync(any(Runnable.class));
 
         doAnswer(invocation -> {
@@ -160,7 +160,7 @@ public class PartitionReplicaListenerDurableUnlockTest extends IgniteAbstractTes
         cleanupCallback = (tx, partId) -> {
             assertTrue(isFinalState(txStateStorage.get(tx).txState()));
 
-            return completedFuture(null);
+            return nullCompletedFuture();
         };
 
         PrimaryReplicaEventParameters parameters = new PrimaryReplicaEventParameters(0, part0, LOCAL_NODE.name(), clock.now());
@@ -190,7 +190,7 @@ public class PartitionReplicaListenerDurableUnlockTest extends IgniteAbstractTes
                 throw new RuntimeException("test exception");
             }
 
-            return completedFuture(null);
+            return nullCompletedFuture();
         };
 
         PrimaryReplicaEventParameters parameters = new PrimaryReplicaEventParameters(0, part0, LOCAL_NODE.name(), clock.now());
@@ -208,7 +208,7 @@ public class PartitionReplicaListenerDurableUnlockTest extends IgniteAbstractTes
         TablePartitionId part0 = new TablePartitionId(TABLE_ID, PART_ID);
         txStateStorage.put(tx0, new TxMeta(TxState.COMMITED, List.of(part0), null));
 
-        cleanupCallback = (tx, partId) -> completedFuture(null);
+        cleanupCallback = (tx, partId) -> nullCompletedFuture();
 
         CompletableFuture<ReplicaMeta> primaryReplicaFuture = new CompletableFuture<>();
         placementDriver.setAwaitPrimaryReplicaFunction((groupId, timestamp) -> primaryReplicaFuture);

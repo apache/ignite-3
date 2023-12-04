@@ -21,6 +21,8 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toMap;
 import static org.apache.ignite.internal.replicator.ReplicaManager.DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS;
 import static org.apache.ignite.internal.schema.SchemaTestUtils.specToType;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
@@ -105,7 +107,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
-import org.mockito.Mockito;
 
 /**
  * Tests for data colocation.
@@ -142,11 +143,11 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
     static void beforeAllTests() {
         ClusterNode clusterNode = DummyInternalTableImpl.LOCAL_NODE;
 
-        ClusterService clusterService = Mockito.mock(ClusterService.class, RETURNS_DEEP_STUBS);
+        ClusterService clusterService = mock(ClusterService.class, RETURNS_DEEP_STUBS);
         when(clusterService.messagingService()).thenReturn(mock(MessagingService.class));
         when(clusterService.topologyService().localMember()).thenReturn(clusterNode);
 
-        ReplicaService replicaService = Mockito.mock(ReplicaService.class, RETURNS_DEEP_STUBS);
+        ReplicaService replicaService = mock(ReplicaService.class, RETURNS_DEEP_STUBS);
 
         txManager = new TxManagerImpl(
                 clusterService,
@@ -165,7 +166,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
                     Map<TablePartitionId, Long> enlistedGroups,
                     UUID txId
             ) {
-                return completedFuture(null);
+                return nullCompletedFuture();
             }
         };
         txManager.start();
@@ -176,7 +177,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
         int tblId = 1;
 
         for (int i = 0; i < PARTS; ++i) {
-            RaftGroupService r = Mockito.mock(RaftGroupService.class);
+            RaftGroupService r = mock(RaftGroupService.class);
 
             final int part = i;
             doAnswer(invocation -> {
@@ -193,7 +194,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
                             .map(uuid -> new NullBinaryRow())
                             .collect(Collectors.toList()));
                 } else {
-                    return completedFuture(true);
+                    return trueCompletedFuture();
                 }
             }).when(r).run(any());
 
@@ -258,7 +259,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
                 PARTS,
                 name -> clusterNode,
                 txManager,
-                Mockito.mock(MvTableStorage.class),
+                mock(MvTableStorage.class),
                 new TestTxStateTableStorage(),
                 replicaService,
                 new HybridClockImpl(),

@@ -17,7 +17,7 @@
 
 package org.apache.ignite.client.fakes;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.Collection;
 import java.util.Map;
@@ -110,7 +110,7 @@ public class FakeTxManager implements TxManager {
 
             @Override
             public CompletableFuture<Void> commitAsync() {
-                return completedFuture(null);
+                return nullCompletedFuture();
             }
 
             @Override
@@ -120,7 +120,7 @@ public class FakeTxManager implements TxManager {
 
             @Override
             public CompletableFuture<Void> rollbackAsync() {
-                return completedFuture(null);
+                return nullCompletedFuture();
             }
 
             @Override
@@ -188,13 +188,13 @@ public class FakeTxManager implements TxManager {
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp
     ) {
-        return completedFuture(null);
+        return nullCompletedFuture();
     }
 
     @Override
     public CompletableFuture<Void> unlock(Collection<TablePartitionId> partitions, boolean commit,
             @Nullable HybridTimestamp commitTimestamp, UUID txId) {
-        return completedFuture(null);
+        return nullCompletedFuture();
     }
 
     @Override

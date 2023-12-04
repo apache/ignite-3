@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal.tx.impl;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.tx.TxState.COMMITED;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -108,7 +108,7 @@ class ReadOnlyTransactionImpl extends IgniteAbstractTransactionImpl {
     @Override
     public CompletableFuture<Void> finish(boolean commit, HybridTimestamp executionTimestamp) {
         if (!finishGuard.compareAndSet(false, true)) {
-            return completedFuture(null);
+            return nullCompletedFuture();
         }
 
         observableTsTracker.update(executionTimestamp);

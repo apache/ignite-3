@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.client.sql;
 
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Sql.CURSOR_NO_MORE_PAGES_ERR;
 
 import java.util.ArrayList;
@@ -192,7 +193,7 @@ class ClientAsyncResultSet<T> implements AsyncResultSet<T> {
     @Override
     public CompletableFuture<Void> closeAsync() {
         if (resourceId == null || closed) {
-            return CompletableFuture.completedFuture(null);
+            return nullCompletedFuture();
         }
 
         closed = true;

@@ -17,6 +17,8 @@
 
 package org.apache.ignite.client.handler;
 
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -38,13 +40,13 @@ public class FakePlacementDriver extends AbstractEventProducer<PrimaryReplicaEve
         implements PlacementDriver {
     private final int partitions;
 
-    private final List<String> primaryReplicas;
+    private final List<ReplicaMeta> primaryReplicas;
 
     private boolean returnError;
 
     public FakePlacementDriver(int partitions) {
         this.partitions = partitions;
-        primaryReplicas = new ArrayList<>(Collections.nCopies(partitions, "s"));
+        primaryReplicas = new ArrayList<>(Collections.nCopies(partitions, getReplicaMeta("s", HybridTimestamp.MIN_VALUE.longValue())));
     }
 
     public void returnError(boolean returnError) {
@@ -54,12 +56,12 @@ public class FakePlacementDriver extends AbstractEventProducer<PrimaryReplicaEve
     /**
      * Sets all primary replicas.
      */
-    public void setReplicas(List<String> replicas, int tableId) {
+    public void setReplicas(List<String> replicas, int tableId, long leaseStartTime) {
         assert replicas.size() == partitions;
 
         for (int partition = 0; partition < replicas.size(); partition++) {
             String replica = replicas.get(partition);
-            updateReplica(replica, tableId, partition, System.currentTimeMillis());
+            updateReplica(replica, tableId, partition, leaseStartTime);
         }
     }
 
@@ -67,11 +69,11 @@ public class FakePlacementDriver extends AbstractEventProducer<PrimaryReplicaEve
      * Sets primary replica for the given partition.
      */
     public void updateReplica(String replica, int tableId, int partition, long leaseStartTime) {
-        primaryReplicas.set(partition, replica);
+        primaryReplicas.set(partition, getReplicaMeta(replica, leaseStartTime));
         TablePartitionId groupId = new TablePartitionId(tableId, partition);
 
         PrimaryReplicaEventParameters params = new PrimaryReplicaEventParameters(
-                0, groupId, replica, new HybridTimestamp(leaseStartTime, 0));
+                0, groupId, replica, HybridTimestamp.hybridTimestamp(leaseStartTime));
 
         fireEvent(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, params);
     }
@@ -83,7 +85,7 @@ public class FakePlacementDriver extends AbstractEventProducer<PrimaryReplicaEve
 
         return returnError
                 ? CompletableFuture.failedFuture(new RuntimeException("FakePlacementDriver expected error"))
-                : CompletableFuture.completedFuture(getReplicaMeta(primaryReplicas.get(id.partitionId())));
+                : CompletableFuture.completedFuture(primaryReplicas.get(id.partitionId()));
     }
 
     @Override
@@ -93,10 +95,10 @@ public class FakePlacementDriver extends AbstractEventProducer<PrimaryReplicaEve
 
     @Override
     public CompletableFuture<Void> previousPrimaryExpired(ReplicationGroupId grpId) {
-        return CompletableFuture.completedFuture(null);
+        return nullCompletedFuture();
     }
 
-    private static ReplicaMeta getReplicaMeta(String leaseholder) {
+    private static ReplicaMeta getReplicaMeta(String leaseholder, long leaseStartTime) {
         //noinspection serial
         return new ReplicaMeta() {
             @Override
@@ -111,7 +113,7 @@ public class FakePlacementDriver extends AbstractEventProducer<PrimaryReplicaEve
 
             @Override
             public HybridTimestamp getStartTime() {
-                return HybridTimestamp.MIN_VALUE;
+                return HybridTimestamp.hybridTimestamp(leaseStartTime);
             }
 
             @Override

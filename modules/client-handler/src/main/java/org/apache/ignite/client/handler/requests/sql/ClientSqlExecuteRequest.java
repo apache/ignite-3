@@ -19,6 +19,7 @@ package org.apache.ignite.client.handler.requests.sql;
 
 import static org.apache.ignite.client.handler.requests.sql.ClientSqlCommon.packCurrentPage;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTx;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.HashMap;
 import java.util.List;
@@ -141,7 +142,7 @@ public class ClientSqlExecuteRequest {
             packCurrentPage(out, asyncResultSet);
 
             return hasResource
-                    ? CompletableFuture.completedFuture(null)
+                    ? nullCompletedFuture()
                     : asyncResultSet.closeAsync().thenCompose(res -> session.closeAsync());
         } else {
             return asyncResultSet.closeAsync().thenCompose(res -> session.closeAsync());
@@ -156,7 +157,7 @@ public class ClientSqlExecuteRequest {
         return statementBuilder.build();
     }
 
-    private static Session readSession(ClientMessageUnpacker in, IgniteSql sql, IgniteTransactions transactions) {
+    static Session readSession(ClientMessageUnpacker in, IgniteSql sql, @Nullable IgniteTransactions transactions) {
         SessionBuilder sessionBuilder = sql.sessionBuilder();
 
         if (transactions != null && sessionBuilder instanceof SessionBuilderImpl) {

@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.table.distributed.replication.Partition
 import static org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener.tablePartitionId;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.tx.TxState.checkTransitionCorrectness;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.hasItem;
@@ -137,7 +138,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
         when(mockRaftClient.refreshAndGetLeaderWithTerm())
                 .thenAnswer(invocationOnMock -> completedFuture(new LeaderWithTerm(null, 1L)));
         when(mockRaftClient.run(any()))
-                .thenAnswer(invocationOnMock -> completedFuture(null));
+                .thenAnswer(invocationOnMock -> nullCompletedFuture());
 
         schemaDescriptor = new SchemaDescriptor(1, new Column[]{
                 new Column("id".toUpperCase(Locale.ROOT), NativeTypes.INT32, false),
@@ -297,7 +298,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
             case RW_GET_AND_DELETE:
                 request = TABLE_MESSAGES_FACTORY.readWriteSingleRowPkReplicaRequest()
                         .groupId(PARTITION_ID)
-                        .term(1L)
+                        .enlistmentConsistencyToken(1L)
                         .commitPartitionId(tablePartitionId(PARTITION_ID))
                         .transactionId(TRANSACTION_ID)
                         .schemaVersion(testPk.schemaVersion())
@@ -315,7 +316,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
             case RW_GET_AND_UPSERT:
                 request = TABLE_MESSAGES_FACTORY.readWriteSingleRowReplicaRequest()
                         .groupId(PARTITION_ID)
-                        .term(1L)
+                        .enlistmentConsistencyToken(1L)
                         .commitPartitionId(tablePartitionId(PARTITION_ID))
                         .transactionId(TRANSACTION_ID)
                         .schemaVersion(testBinaryRow.schemaVersion())
@@ -379,7 +380,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
             case RW_DELETE_ALL:
                 request = TABLE_MESSAGES_FACTORY.readWriteMultiRowPkReplicaRequest()
                         .groupId(PARTITION_ID)
-                        .term(1L)
+                        .enlistmentConsistencyToken(1L)
                         .commitPartitionId(tablePartitionId(PARTITION_ID))
                         .transactionId(TRANSACTION_ID)
                         .schemaVersion(pks.iterator().next().schemaVersion())
@@ -394,7 +395,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
             case RW_UPSERT_ALL:
                 request = TABLE_MESSAGES_FACTORY.readWriteMultiRowReplicaRequest()
                         .groupId(PARTITION_ID)
-                        .term(1L)
+                        .enlistmentConsistencyToken(1L)
                         .commitPartitionId(tablePartitionId(PARTITION_ID))
                         .transactionId(TRANSACTION_ID)
                         .schemaVersion(rows.iterator().next().schemaVersion())

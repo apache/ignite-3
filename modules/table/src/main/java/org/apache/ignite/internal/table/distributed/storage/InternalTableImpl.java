@@ -26,6 +26,8 @@ import static org.apache.ignite.internal.table.distributed.replicator.action.Req
 import static org.apache.ignite.internal.table.distributed.replicator.action.RequestType.RW_GET;
 import static org.apache.ignite.internal.table.distributed.replicator.action.RequestType.RW_GET_ALL;
 import static org.apache.ignite.internal.table.distributed.storage.RowBatch.allResultFutures;
+import static org.apache.ignite.internal.util.CompletableFutures.emptyListCompletedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.withCause;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_UNAVAILABLE_ERR;
@@ -42,7 +44,6 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -424,7 +425,7 @@ public class InternalTableImpl implements InternalTable {
                 .columnsToInclude(columnsToInclude)
                 .full(implicit) // Intent for one phase commit.
                 .batchSize(batchSize)
-                .term(term)
+                .enlistmentConsistencyToken(term)
                 .commitPartitionId(serializeTablePartitionId(tx.commitPartition()))
                 .build();
 
@@ -747,7 +748,7 @@ public class InternalTableImpl implements InternalTable {
                         .primaryKey(keyRow.tupleSlice())
                         .commitPartitionId(serializeTablePartitionId(txo.commitPartition()))
                         .transactionId(txo.id())
-                        .term(term)
+                        .enlistmentConsistencyToken(term)
                         .requestType(RW_GET)
                         .timestampLong(clock.nowLong())
                         .full(tx == null)
@@ -801,7 +802,7 @@ public class InternalTableImpl implements InternalTable {
     @Override
     public CompletableFuture<List<BinaryRow>> getAll(Collection<BinaryRowEx> keyRows, InternalTransaction tx) {
         if (CollectionUtils.nullOrEmpty(keyRows)) {
-            return completedFuture(Collections.emptyList());
+            return emptyListCompletedFuture();
         }
 
         if (tx == null && isSinglePartitionBatch(keyRows)) {
@@ -875,7 +876,7 @@ public class InternalTableImpl implements InternalTable {
                 .schemaVersion(rows.iterator().next().schemaVersion())
                 .primaryKeys(serializeBinaryTuples(rows))
                 .transactionId(tx.id())
-                .term(term)
+                .enlistmentConsistencyToken(term)
                 .requestType(requestType)
                 .timestampLong(clock.nowLong())
                 .full(full)
@@ -941,7 +942,7 @@ public class InternalTableImpl implements InternalTable {
                         .schemaVersion(row.schemaVersion())
                         .binaryTuple(row.tupleSlice())
                         .transactionId(txo.id())
-                        .term(term)
+                        .enlistmentConsistencyToken(term)
                         .requestType(RequestType.RW_UPSERT)
                         .timestampLong(clock.nowLong())
                         .full(tx == null)
@@ -992,7 +993,7 @@ public class InternalTableImpl implements InternalTable {
                         .schemaVersion(row.schemaVersion())
                         .binaryTuple(row.tupleSlice())
                         .transactionId(txo.id())
-                        .term(term)
+                        .enlistmentConsistencyToken(term)
                         .requestType(RequestType.RW_GET_AND_UPSERT)
                         .timestampLong(clock.nowLong())
                         .full(tx == null)
@@ -1013,7 +1014,7 @@ public class InternalTableImpl implements InternalTable {
                         .schemaVersion(row.schemaVersion())
                         .binaryTuple(row.tupleSlice())
                         .transactionId(txo.id())
-                        .term(term)
+                        .enlistmentConsistencyToken(term)
                         .requestType(RequestType.RW_INSERT)
                         .timestampLong(clock.nowLong())
                         .full(tx == null)
@@ -1061,7 +1062,7 @@ public class InternalTableImpl implements InternalTable {
                 .schemaVersion(rows.iterator().next().schemaVersion())
                 .binaryTuples(serializeBinaryTuples(rows))
                 .transactionId(tx.id())
-                .term(term)
+                .enlistmentConsistencyToken(term)
                 .requestType(requestType)
                 .timestampLong(clock.nowLong())
                 .full(full)
@@ -1080,7 +1081,7 @@ public class InternalTableImpl implements InternalTable {
                         .schemaVersion(row.schemaVersion())
                         .binaryTuple(row.tupleSlice())
                         .transactionId(txo.id())
-                        .term(term)
+                        .enlistmentConsistencyToken(term)
                         .requestType(RequestType.RW_REPLACE_IF_EXIST)
                         .timestampLong(clock.nowLong())
                         .full(tx == null)
@@ -1105,7 +1106,7 @@ public class InternalTableImpl implements InternalTable {
                         .oldBinaryTuple(oldRow.tupleSlice())
                         .newBinaryTuple(newRow.tupleSlice())
                         .transactionId(txo.id())
-                        .term(term)
+                        .enlistmentConsistencyToken(term)
                         .requestType(RequestType.RW_REPLACE)
                         .timestampLong(clock.nowLong())
                         .full(tx == null)
@@ -1126,7 +1127,7 @@ public class InternalTableImpl implements InternalTable {
                         .schemaVersion(row.schemaVersion())
                         .binaryTuple(row.tupleSlice())
                         .transactionId(txo.id())
-                        .term(term)
+                        .enlistmentConsistencyToken(term)
                         .requestType(RequestType.RW_GET_AND_REPLACE)
                         .timestampLong(clock.nowLong())
                         .full(tx == null)
@@ -1147,7 +1148,7 @@ public class InternalTableImpl implements InternalTable {
                         .schemaVersion(keyRow.schemaVersion())
                         .primaryKey(keyRow.tupleSlice())
                         .transactionId(txo.id())
-                        .term(term)
+                        .enlistmentConsistencyToken(term)
                         .requestType(RequestType.RW_DELETE)
                         .timestampLong(clock.nowLong())
                         .full(tx == null)
@@ -1168,7 +1169,7 @@ public class InternalTableImpl implements InternalTable {
                         .schemaVersion(oldRow.schemaVersion())
                         .binaryTuple(oldRow.tupleSlice())
                         .transactionId(txo.id())
-                        .term(term)
+                        .enlistmentConsistencyToken(term)
                         .requestType(RequestType.RW_DELETE_EXACT)
                         .timestampLong(clock.nowLong())
                         .full(tx == null)
@@ -1189,7 +1190,7 @@ public class InternalTableImpl implements InternalTable {
                         .schemaVersion(row.schemaVersion())
                         .primaryKey(row.tupleSlice())
                         .transactionId(txo.id())
-                        .term(term)
+                        .enlistmentConsistencyToken(term)
                         .requestType(RequestType.RW_GET_AND_DELETE)
                         .timestampLong(clock.nowLong())
                         .full(tx == null)
@@ -1426,7 +1427,7 @@ public class InternalTableImpl implements InternalTable {
                             .flags(flags)
                             .columnsToInclude(columnsToInclude)
                             .batchSize(batchSize)
-                            .term(recipient.term())
+                            .enlistmentConsistencyToken(recipient.term())
                             .full(false) // Set explicitly.
                             .commitPartitionId(serializeTablePartitionId(commitPartition))
                             .build();
@@ -1831,7 +1832,7 @@ public class InternalTableImpl implements InternalTable {
                     return;
                 }
 
-                onClose.apply(commit, t == null ? completedFuture(null) : failedFuture(t)).handle((ignore, th) -> {
+                onClose.apply(commit, t == null ? nullCompletedFuture() : failedFuture(t)).handle((ignore, th) -> {
                     if (th != null) {
                         subscriber.onError(th);
                     } else {

@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.tx.impl;
 
 import static java.util.concurrent.CompletableFuture.allOf;
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -28,6 +27,7 @@ import static org.apache.ignite.internal.tx.TxState.COMMITED;
 import static org.apache.ignite.internal.tx.TxState.PENDING;
 import static org.apache.ignite.internal.tx.TxState.checkTransitionCorrectness;
 import static org.apache.ignite.internal.tx.TxState.isFinalState;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.withCause;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
@@ -84,6 +84,7 @@ import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.TxStateMetaFinishing;
 import org.apache.ignite.internal.tx.message.TxFinishReplicaRequest;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
+import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.network.ClusterService;
@@ -326,7 +327,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             // If there are no enlisted groups, just update local state - we already marked the tx as finished.
             updateTxMeta(txId, old -> coordinatorFinalTxStateMeta(commit, commitPartition, commitTimestamp(commit)));
 
-            return completedFuture(null);
+            return nullCompletedFuture();
         }
 
         // Here we put finishing state meta into the local map, so that all concurrent operations trying to read tx state
@@ -375,7 +376,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         // given primaries are not expired or, in other words, whether commitTimestamp is less or equal to the enlisted primaries
         // expiration timestamps.
         CompletableFuture<Void> verificationFuture =
-                commit ? verifyCommitTimestamp(enlistedGroups, commitTimestamp) : completedFuture(null);
+                commit ? verifyCommitTimestamp(enlistedGroups, commitTimestamp) : nullCompletedFuture();
 
         return verificationFuture.handle(
                         (unused, throwable) -> {
@@ -461,7 +462,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                         }
                     }
 
-                    return CompletableFuture.<Void>completedFuture(null);
+                    return CompletableFutures.<Void>nullCompletedFuture();
                 })
                 .thenCompose(Function.identity()));
     }
@@ -488,7 +489,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                 // In case of verification future failure transaction will be rolled back.
                 .commit(commit)
                 .commitTimestampLong(hybridTimestampToLong(commitTimestamp))
-                .term(term)
+                .enlistmentConsistencyToken(term)
                 .build();
 
         return replicaService.invoke(primaryConsistentId, req)
@@ -786,7 +787,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         }
 
         private CompletableFuture<Void> waitReadyToFinish(boolean commit) {
-            return commit ? waitNoInflights() : completedFuture(null);
+            return commit ? waitNoInflights() : nullCompletedFuture();
         }
 
         private CompletableFuture<Void> waitNoInflights() {

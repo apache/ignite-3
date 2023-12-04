@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.catalog;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
@@ -50,6 +49,8 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
 import static org.apache.ignite.sql.ColumnType.DECIMAL;
 import static org.apache.ignite.sql.ColumnType.INT32;
 import static org.apache.ignite.sql.ColumnType.INT64;
@@ -1034,7 +1035,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
             updateHandlerCapture.getValue().handle(update, clock.now(), 0);
 
-            return completedFuture(false);
+            return falseCompletedFuture();
         });
 
         CompletableFuture<Void> createTableFut = manager.execute(simpleTable("T"));
@@ -1094,7 +1095,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
     @Test
     public void testTableEvents() {
         EventListener<CatalogEventParameters> eventListener = mock(EventListener.class);
-        when(eventListener.notify(any(), any())).thenReturn(completedFuture(false));
+        when(eventListener.notify(any(), any())).thenReturn(falseCompletedFuture());
 
         manager.listen(CatalogEvent.TABLE_CREATE, eventListener);
         manager.listen(CatalogEvent.TABLE_DROP, eventListener);
@@ -1115,7 +1116,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         CatalogCommand dropIndexCmd = DropIndexCommand.builder().schemaName(SCHEMA_NAME).indexName(INDEX_NAME).build();
 
         EventListener<CatalogEventParameters> eventListener = mock(EventListener.class);
-        when(eventListener.notify(any(), any())).thenReturn(completedFuture(false));
+        when(eventListener.notify(any(), any())).thenReturn(falseCompletedFuture());
 
         manager.listen(CatalogEvent.INDEX_CREATE, eventListener);
         manager.listen(CatalogEvent.INDEX_DROP, eventListener);
@@ -1396,7 +1397,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
                 .build();
 
         EventListener<CatalogEventParameters> eventListener = mock(EventListener.class);
-        when(eventListener.notify(any(), any())).thenReturn(completedFuture(false));
+        when(eventListener.notify(any(), any())).thenReturn(falseCompletedFuture());
 
         manager.listen(CatalogEvent.ZONE_CREATE, eventListener);
         manager.listen(CatalogEvent.ZONE_DROP, eventListener);
@@ -1418,7 +1419,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
     @Test
     public void testColumnEvents() {
         EventListener<CatalogEventParameters> eventListener = mock(EventListener.class);
-        when(eventListener.notify(any(), any())).thenReturn(completedFuture(false));
+        when(eventListener.notify(any(), any())).thenReturn(falseCompletedFuture());
 
         manager.listen(CatalogEvent.TABLE_ALTER, eventListener);
 
@@ -1479,7 +1480,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
                 result.complete(null);
 
-                return completedFuture(true);
+                return trueCompletedFuture();
             } catch (Throwable t) {
                 result.completeExceptionally(t);
 
@@ -1517,7 +1518,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
         ArgumentCaptor<DropIndexEventParameters> captor = ArgumentCaptor.forClass(DropIndexEventParameters.class);
 
-        doReturn(completedFuture(false)).when(eventListener).notify(captor.capture(), any());
+        doReturn(falseCompletedFuture()).when(eventListener).notify(captor.capture(), any());
 
         manager.listen(CatalogEvent.INDEX_DROP, eventListener);
 
@@ -1915,7 +1916,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
                 }
             }
 
-            return completedFuture(false);
+            return falseCompletedFuture();
         });
 
         assertThat(
@@ -1941,7 +1942,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
                 }
             }
 
-            return completedFuture(false);
+            return falseCompletedFuture();
         });
 
         String tableName = TABLE_NAME + "_new";
@@ -1972,7 +1973,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
                 }
             }
 
-            return completedFuture(false);
+            return falseCompletedFuture();
         });
 
         createSomeTable(TABLE_NAME);
