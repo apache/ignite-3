@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine.prepare;
 
 import java.util.Arrays;
 import java.util.Objects;
+import org.apache.ignite.sql.ColumnType;
 
 /**
  * CacheKey.
@@ -26,7 +27,7 @@ import java.util.Objects;
  * context could be schema name, dynamic parameters, and so on...
  */
 public class CacheKey {
-    static final Class<?>[] EMPTY_CLASS_ARRAY = {};
+    static final ColumnType[] EMPTY_CLASS_ARRAY = {};
 
     private final int catalogVersion;
 
@@ -48,7 +49,7 @@ public class CacheKey {
      *                   LOCAL flag)
      * @param paramTypes Types of all dynamic parameters, no any type can be {@code null}.
      */
-    public CacheKey(int catalogVersion, String schemaName, String query, Object contextKey, Object[] paramTypes) {
+    public CacheKey(int catalogVersion, String schemaName, String query, Object contextKey, ColumnType[] paramTypes) {
         this.catalogVersion = catalogVersion;
         this.schemaName = schemaName;
         this.query = query;

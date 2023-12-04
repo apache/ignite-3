@@ -1065,7 +1065,7 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
             RelDataType derivedType = getValidatedNodeTypeIfKnown(node);
             RelDataType paramType = state.resolvedType;
 
-            // Ensure that derived type matches value type if it set.
+            // Ensure that derived type matches parameter's value.
             if (!SqlTypeUtil.equalSansNullability(derivedType, valueType)) {
                 String message = format(
                         "Type of dynamic parameter#{} value type does not match. Expected: {} derived: {}",

@@ -109,7 +109,6 @@ import org.apache.ignite.internal.systemview.api.SystemViewManager;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
 import org.apache.ignite.internal.tx.InternalTransaction;
-import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.ErrorGroups.Sql;
@@ -409,14 +408,16 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<ParameterMetadata> prepareSingleAsync(SqlProperties properties, String qry, Object... params) {
+    public CompletableFuture<ParameterMetadata> prepareSingleAsync(SqlProperties properties,
+            @Nullable InternalTransaction transaction,
+            String qry, Object... params) {
 
         if (!busyLock.enterBusy()) {
             throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
         }
 
         try {
-            return prepareSingleAsync0(properties, qry, params);
+            return prepareSingleAsync0(properties, transaction, qry, params);
         } finally {
             busyLock.leaveBusy();
         }
@@ -470,6 +471,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     private CompletableFuture<ParameterMetadata> prepareSingleAsync0(
             SqlProperties properties,
+            @Nullable InternalTransaction explicitTransaction,
             String sql,
             Object... params
     ) {
@@ -486,7 +488,7 @@ public class SqlQueryProcessor implements QueryProcessor {
             validateParsedStatement(properties0, result);
             validateDynamicParameters(result.dynamicParamsCount(), params, false);
 
-            HybridTimestamp timestamp = clock.now();
+            HybridTimestamp timestamp = explicitTransaction != null ? explicitTransaction.startTimestamp() : clock.now();
 
             return prepareParsedStatement(schemaName, result, timestamp, queryCancel, params)
                     .thenApply(QueryPlan::parameterMetadata);

@@ -36,6 +36,7 @@ public interface QueryProcessor extends IgniteComponent {
      * Returns parameter metadata for the given statement. This method uses optional array of parameters to assist with type inference.
      *
      * @param properties User query properties. See {@link QueryProperty} for available properties.
+     * @param transaction A transaction to use to resolve a schema.
      * @param qry Single statement SQL query.
      * @param params Query parameters.
      * @return Parameter metadata.
@@ -43,7 +44,9 @@ public interface QueryProcessor extends IgniteComponent {
      * @throws IgniteException in case of an error.
      * @see QueryProperty
      */
-    CompletableFuture<ParameterMetadata> prepareSingleAsync(SqlProperties properties, String qry, Object... params);
+    CompletableFuture<ParameterMetadata> prepareSingleAsync(SqlProperties properties,
+            @Nullable InternalTransaction transaction,
+            String qry, Object... params);
 
     /**
      * Execute the single statement query with given schema name and parameters.

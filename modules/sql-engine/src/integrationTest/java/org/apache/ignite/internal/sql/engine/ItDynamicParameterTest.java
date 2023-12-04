@@ -307,6 +307,8 @@ public class ItDynamicParameterTest extends BaseSqlIntegrationTest {
     private static Stream<Arguments> statementsWithParameters() {
         return Stream.of(
                 arguments("SELECT CAST(? AS BIGINT)", List.of(ColumnType.INT64)),
+                arguments("INSERT INTO t1 VALUES(?, ?)", List.of(ColumnType.INT32, ColumnType.INT32)),
+                arguments("UPDATE t1 SET val1 = ? WHERE id = ?", List.of(ColumnType.INT32, ColumnType.INT32)),
                 arguments("SELECT val1 + ? FROM t1 WHERE id = ?", List.of(ColumnType.INT32, ColumnType.INT32))
         );
     }
@@ -450,6 +452,6 @@ public class ItDynamicParameterTest extends BaseSqlIntegrationTest {
     private ParameterMetadata getParameterMetadata(String query, Object... params) {
         QueryProcessor qryProc = queryProcessor();
         SqlProperties properties = SqlPropertiesHelper.emptyProperties();
-        return await(qryProc.prepareSingleAsync(properties, query, params));
+        return await(qryProc.prepareSingleAsync(properties, null, query, params));
     }
 }

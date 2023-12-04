@@ -60,6 +60,7 @@ import org.apache.ignite.internal.sql.engine.util.cache.CacheFactory;
 import org.apache.ignite.internal.sql.metrics.SqlPlanCacheMetricSource;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.sql.ColumnMetadata;
@@ -284,9 +285,16 @@ public class PrepareServiceImpl implements PrepareService {
     }
 
     private CompletableFuture<QueryPlan> prepareQuery(ParsedResult parsedResult, PlanningContext ctx) {
+        // If the caller passed all the parameters, get parameter types and check to see whether a plan future already exists.
+        CacheKey validationKey = tryCreateCacheKeyFromParameterValues(parsedResult, ctx);
+        if (validationKey != null) {
+            CompletableFuture<QueryPlan> f = cache.get(validationKey);
+            if (f != null) {
+                return f;
+            }
+        }
+
         // First validate statement
-
-
 
         CompletableFuture<ValidStatement<ValidationResult>> validFut = CompletableFuture.supplyAsync(() -> {
             IgnitePlanner planner = ctx.planner();
@@ -307,7 +315,7 @@ public class PrepareServiceImpl implements PrepareService {
 
         return validFut.thenCompose(stmt -> {
             // Use types of inferred parameters to compute key cache.
-            CacheKey key = stmt.createCacheKey(ctx);
+            CacheKey key = createCacheKeyFromInferredParameters(stmt.parsedResult, ctx, stmt.parameterMetadata);
 
             CompletableFuture<QueryPlan> planFut = cache.get(key, k -> CompletableFuture.supplyAsync(() -> {
                 IgnitePlanner planner = ctx.planner();
@@ -337,6 +345,17 @@ public class PrepareServiceImpl implements PrepareService {
     }
 
     private CompletableFuture<QueryPlan> prepareDml(ParsedResult parsedResult, PlanningContext ctx) {
+        // If the caller passed all the parameters, get parameter types and check to see whether a plan future already exists.
+        CacheKey validationKey = tryCreateCacheKeyFromParameterValues(parsedResult, ctx);
+        if (validationKey != null) {
+            CompletableFuture<QueryPlan> f = cache.get(validationKey);
+            if (f != null) {
+                return f;
+            }
+        }
+
+        // Validate plan
+
         CompletableFuture<ValidStatement<SqlNode>> validFut = CompletableFuture.supplyAsync(() -> {
             IgnitePlanner planner = ctx.planner();
 
@@ -354,8 +373,11 @@ public class PrepareServiceImpl implements PrepareService {
             return new ValidStatement<>(parsedResult, validatedNode, parameterMetadata);
         }, planningPool);
 
+        // Optimize
+
         return validFut.thenCompose(stmt -> {
-            var key = stmt.createCacheKey(ctx);
+            // Build cache key from parameters metadata.
+            CacheKey key = createCacheKeyFromInferredParameters(stmt.parsedResult, ctx, stmt.parameterMetadata);
 
             CompletableFuture<QueryPlan> planFut = cache.get(key, k -> CompletableFuture.supplyAsync(() -> {
                 IgnitePlanner planner = ctx.planner();
@@ -378,21 +400,65 @@ public class PrepareServiceImpl implements PrepareService {
         });
     }
 
-    private static CacheKey createCacheKey(ParsedResult parsedResult, PlanningContext ctx) {
-        boolean distributed = distributionPresent(ctx.config().getTraitDefs());
-        int catalogVersion = ctx.unwrap(BaseQueryContext.class).schemaVersion();
+    @Nullable
+    private static CacheKey tryCreateCacheKeyFromParameterValues(ParsedResult parsedResult, PlanningContext ctx) {
+
         DynamicParameterValue[] parameters = ctx.parameters();
 
-        Class[] paramTypes;
+        for (int i = 0; i < parameters.length; i++) {
+            DynamicParameterValue parameter = parameters[i];
+            if (!parameter.hasValue()) {
+                // Some parameters are not specified,
+                // we do not known the inferred type.
+                return null;
+            }
+        }
+
+        // If parameters type are known, they do not change and we can create a cache key.
+        // See IgniteSqlValidator::validateInferredDynamicParameters
+
+        boolean distributed = distributionPresent(ctx.config().getTraitDefs());
+        int catalogVersion = ctx.unwrap(BaseQueryContext.class).schemaVersion();
+        ColumnType[] paramTypes;
 
         if (parameters.length == 0) {
-            paramTypes = EMPTY_CLASS_ARRAY;
+            paramTypes = new ColumnType[0];
         } else {
-            Class[] result = new Class[parameters.length];
+            ColumnType[] result = new ColumnType[parameters.length];
 
             for (int i = 0; i < parameters.length; i++) {
                 DynamicParameterValue parameter = parameters[i];
-                result[i] = parameter.value() != null ?  parameter.value().getClass() : Void.class;
+                Object value = parameter.value();
+                ColumnType columnType;
+                if (value != null) {
+                    columnType = NativeTypeSpec.fromObject(value).asColumnType();
+                } else {
+                    columnType = ColumnType.NULL;
+                }
+                result[i] = columnType;
+            }
+
+            paramTypes = result;
+        }
+
+        return new CacheKey(catalogVersion, ctx.schemaName(), parsedResult.normalizedQuery(), distributed, paramTypes);
+    }
+
+    private static CacheKey createCacheKeyFromInferredParameters(ParsedResult parsedResult, PlanningContext ctx,
+            ParameterMetadata parameterMetadata) {
+
+        boolean distributed = distributionPresent(ctx.config().getTraitDefs());
+        int catalogVersion = ctx.unwrap(BaseQueryContext.class).schemaVersion();
+        DynamicParameterValue[] parameters = ctx.parameters();
+        ColumnType[] paramTypes;
+
+        if (parameterMetadata.parameterTypes().isEmpty()) {
+            paramTypes = EMPTY_CLASS_ARRAY;
+        } else {
+            ColumnType[] result = new ColumnType[parameters.length];
+
+            for (int i = 0; i < parameters.length; i++) {
+                result[i] = parameterMetadata.parameterTypes().get(i).columnType();
             }
 
             paramTypes = result;
@@ -510,27 +576,5 @@ public class PrepareServiceImpl implements PrepareService {
             this.value = value;
             this.parameterMetadata = parameterMetadata;
         }
-
-        CacheKey createCacheKey(PlanningContext ctx) {
-            boolean distributed = distributionPresent(ctx.config().getTraitDefs());
-            int catalogVersion = ctx.unwrap(BaseQueryContext.class).schemaVersion();
-            DynamicParameterValue[] parameters = ctx.parameters();
-            Object[] paramTypes;
-
-            if (parameterMetadata.parameterTypes().isEmpty()) {
-                paramTypes = EMPTY_CLASS_ARRAY;
-            } else {
-                Object[] result = new Object[parameters.length];
-
-                for (int i = 0; i < parameters.length; i++) {
-                    result[i] = parameterMetadata.parameterTypes().get(i).columnType();
-                }
-
-                paramTypes = result;
-            }
-
-            return new CacheKey(catalogVersion, ctx.schemaName(), parsedResult.normalizedQuery(), distributed, paramTypes);
-        }
     }
-
 }
