@@ -172,13 +172,13 @@ public class FakeSession implements AbstractSession {
     /** {@inheritDoc} */
     @Override
     public void executeScript(String query, @Nullable Object... arguments) {
-        throw new UnsupportedOperationException();
+        // No-op.
     }
 
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> executeScriptAsync(String query, @Nullable Object... arguments) {
-        throw new UnsupportedOperationException();
+        return nullCompletedFuture();
     }
 
     /** {@inheritDoc} */

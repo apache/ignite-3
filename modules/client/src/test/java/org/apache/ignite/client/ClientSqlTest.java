@@ -52,6 +52,7 @@ import org.junit.jupiter.api.Test;
 /**
  * SQL tests.
  */
+@SuppressWarnings("resource")
 public class ClientSqlTest extends AbstractClientTableTest {
     @Test
     public void testExecuteAsync() {
@@ -214,5 +215,13 @@ public class ClientSqlTest extends AbstractClientTableTest {
 
         assertEquals(BigInteger.valueOf(42), row.value(17));
         assertEquals(ColumnType.NUMBER, meta.columns().get(17).type());
+    }
+
+    @Test
+    public void testExecuteScript() {
+        Session session = client.sql().createSession();
+
+        session.executeScript("foo");
+        session.executeScriptAsync("bar").join();
     }
 }
