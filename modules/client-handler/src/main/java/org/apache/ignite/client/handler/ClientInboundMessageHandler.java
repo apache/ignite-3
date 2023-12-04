@@ -123,6 +123,7 @@ import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.security.AuthenticationType;
 import org.apache.ignite.security.exception.UnsupportedAuthenticationTypeException;
 import org.apache.ignite.sql.IgniteSql;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -675,12 +676,9 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
                 return ClientTransactionRollbackRequest.process(in, resources, metrics);
 
             case ClientOp.COMPUTE_EXECUTE:
-                // TODO: Extract notification ordering logic.
-                CompletableFuture<Object> requestSentFut = new CompletableFuture<>();
-                requestSentFutRef.set(requestSentFut);
+                NotificationSender notificationSender = createNotificationSender(requestId, requestSentFutRef);
 
-                return ClientComputeExecuteRequest.process(
-                        in, compute, clusterService, w -> requestSentFut.thenAccept(v -> sendNotification(requestId, w)));
+                return ClientComputeExecuteRequest.process(in, compute, clusterService, notificationSender);
 
             case ClientOp.COMPUTE_EXECUTE_COLOCATED:
                 return ClientComputeExecuteColocatedRequest.process(in, out, compute, igniteTables);
@@ -843,5 +841,14 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
             packer.close();
             exceptionCaught(channelHandlerContext, t);
         }
+    }
+
+    @NotNull
+    private NotificationSender createNotificationSender(long requestId, AtomicReference<CompletableFuture> requestSentFutRef) {
+        // requestSentFut ensures that the notification is not sent before the response for requestId is sent.
+        CompletableFuture<Object> requestSentFut = new CompletableFuture<>();
+        requestSentFutRef.set(requestSentFut);
+
+        return w -> requestSentFut.thenAccept(v -> sendNotification(requestId, w));
     }
 }
