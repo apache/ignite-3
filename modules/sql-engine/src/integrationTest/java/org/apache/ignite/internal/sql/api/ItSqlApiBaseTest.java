@@ -848,10 +848,12 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
                     "CREATE TABLE test (id INT PRIMARY KEY, step INTEGER); "
                             + "START TRANSACTION; "
                             + "INSERT INTO test VALUES(1, 0); "
+                            + "INSERT INTO test VALUES(2, 0); "
                             + "UPDATE test SET step = 1; "
                             + "SELECT * FROM test; "
                             + "UPDATE test SET step = 2; "
-                            + "COMMIT; ");
+                            + "COMMIT; "
+                            + "DELETE FROM test WHERE id = 2");
 
             ResultProcessor result = execute(session, "SELECT step FROM test");
             assertEquals(1, result.result().size());
