@@ -285,13 +285,10 @@ public class PrepareServiceImpl implements PrepareService {
     }
 
     private CompletableFuture<QueryPlan> prepareQuery(ParsedResult parsedResult, PlanningContext ctx) {
-        // If the caller passed all the parameters, get parameter types and check to see whether a plan future already exists.
-        CacheKey validationKey = tryCreateCacheKeyFromParameterValues(parsedResult, ctx);
-        if (validationKey != null) {
-            CompletableFuture<QueryPlan> f = cache.get(validationKey);
-            if (f != null) {
-                return f;
-            }
+        CompletableFuture<QueryPlan> f = getPlanIfParameterHaveValues(parsedResult, ctx);
+
+        if (f != null) {
+            return f;
         }
 
         // First validate statement
@@ -314,8 +311,8 @@ public class PrepareServiceImpl implements PrepareService {
         }, planningPool);
 
         return validFut.thenCompose(stmt -> {
-            // Use types of inferred parameters to compute key cache.
-            CacheKey key = createCacheKeyFromInferredParameters(stmt.parsedResult, ctx, stmt.parameterMetadata);
+            // Use parameter metadata to compute a cache key.
+            CacheKey key = createCacheKeyFromParameterMetadata(stmt.parsedResult, ctx, stmt.parameterMetadata);
 
             CompletableFuture<QueryPlan> planFut = cache.get(key, k -> CompletableFuture.supplyAsync(() -> {
                 IgnitePlanner planner = ctx.planner();
@@ -345,16 +342,12 @@ public class PrepareServiceImpl implements PrepareService {
     }
 
     private CompletableFuture<QueryPlan> prepareDml(ParsedResult parsedResult, PlanningContext ctx) {
-        // If the caller passed all the parameters, get parameter types and check to see whether a plan future already exists.
-        CacheKey validationKey = tryCreateCacheKeyFromParameterValues(parsedResult, ctx);
-        if (validationKey != null) {
-            CompletableFuture<QueryPlan> f = cache.get(validationKey);
-            if (f != null) {
-                return f;
-            }
+        // If a caller passes all the parameters, then get parameter types and check to see whether a plan future already exists.
+        CompletableFuture<QueryPlan> f = getPlanIfParameterHaveValues(parsedResult,
+                ctx);
+        if (f != null) {
+            return f;
         }
-
-        // Validate plan
 
         CompletableFuture<ValidStatement<SqlNode>> validFut = CompletableFuture.supplyAsync(() -> {
             IgnitePlanner planner = ctx.planner();
@@ -376,8 +369,8 @@ public class PrepareServiceImpl implements PrepareService {
         // Optimize
 
         return validFut.thenCompose(stmt -> {
-            // Build cache key from parameters metadata.
-            CacheKey key = createCacheKeyFromInferredParameters(stmt.parsedResult, ctx, stmt.parameterMetadata);
+            // Use parameter metadata to compute a cache key.
+            CacheKey key = createCacheKeyFromParameterMetadata(stmt.parsedResult, ctx, stmt.parameterMetadata);
 
             CompletableFuture<QueryPlan> planFut = cache.get(key, k -> CompletableFuture.supplyAsync(() -> {
                 IgnitePlanner planner = ctx.planner();
@@ -400,6 +393,35 @@ public class PrepareServiceImpl implements PrepareService {
         });
     }
 
+    /**
+     * Tries to find a prepared plan if all parameters are set.
+     *
+     * <p>This method relies on the fact that if parameter is specified, it's type does not change during the validation.
+     * Given the following query: SELECT * FROM t WHERE int_key = ?0, the validator assigns type {@code INTEGER} to ?0,
+     * regardless whether prepare is called with parameter values (type hints) or not:
+     * <ul>
+     *     <li>If parameter value (type hint) is int, then the validator returns the same plan</li>
+     *     <li>if type hint is not an int, then the validator return different plan with different parameter metadata.</li>
+     * </ul>
+     *
+     * <p>Because of that we can optimistically create a cache key, if all parameters are set.
+     *
+     * <p>If some parameters are not, always returns {@code null}.
+     */
+    @Nullable
+    private CompletableFuture<QueryPlan> getPlanIfParameterHaveValues(ParsedResult parsedResult, PlanningContext ctx) {
+        // If a caller passes all the parameters, then get parameter types and check to see whether a plan future already exists.
+
+        CacheKey cacheKey = tryCreateCacheKeyFromParameterValues(parsedResult, ctx);
+        if (cacheKey != null) {
+            CompletableFuture<QueryPlan> f = cache.get(cacheKey);
+            if (f != null) {
+                return f;
+            }
+        }
+        return null;
+    }
+
     @Nullable
     private static CacheKey tryCreateCacheKeyFromParameterValues(ParsedResult parsedResult, PlanningContext ctx) {
 
@@ -409,7 +431,7 @@ public class PrepareServiceImpl implements PrepareService {
             DynamicParameterValue parameter = parameters[i];
             if (!parameter.hasValue()) {
                 // Some parameters are not specified,
-                // we do not known the inferred type.
+                // we do not known the their type and we can not create a cache key.
                 return null;
             }
         }
@@ -444,7 +466,7 @@ public class PrepareServiceImpl implements PrepareService {
         return new CacheKey(catalogVersion, ctx.schemaName(), parsedResult.normalizedQuery(), distributed, paramTypes);
     }
 
-    private static CacheKey createCacheKeyFromInferredParameters(ParsedResult parsedResult, PlanningContext ctx,
+    private static CacheKey createCacheKeyFromParameterMetadata(ParsedResult parsedResult, PlanningContext ctx,
             ParameterMetadata parameterMetadata) {
 
         boolean distributed = distributionPresent(ctx.config().getTraitDefs());
