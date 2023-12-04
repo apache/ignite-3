@@ -154,7 +154,7 @@ public class ClientSession implements AbstractSession {
 
             w.out().packLongNullable(defaultSessionTimeout);
 
-            packProperties(w, clientStatement.properties());
+            packProperties(w, properties, clientStatement.properties());
 
             w.out().packString(clientStatement.query());
 
@@ -228,6 +228,12 @@ public class ClientSession implements AbstractSession {
         Objects.requireNonNull(query);
 
         PayloadWriter payloadWriter = w -> {
+            w.out().packString(defaultSchema);
+            w.out().packLongNullable(defaultQueryTimeout);
+            w.out().packLongNullable(defaultSessionTimeout);
+
+            packProperties(w, properties, null);
+
             w.out().packString(query);
             w.out().packObjectArrayAsBinaryTuple(arguments);
             w.out().packLong(ch.observableTimestamp());
@@ -303,39 +309,42 @@ public class ClientSession implements AbstractSession {
         throw new UnsupportedOperationException("Not implemented yet.");
     }
 
-    private void packProperties(PayloadOutputChannel w, Map<String, Object> props) {
+    private static void packProperties(
+            PayloadOutputChannel w,
+            @Nullable Map<String, Object> sessionProps,
+            @Nullable Map<String, Object> statementProps) {
         int size = 0;
 
-        if (props != null) {
-            size += props.size();
+        if (statementProps != null) {
+            size += statementProps.size();
         }
 
         // Statement properties override session properties.
-        if (properties != null) {
-            if (props != null) {
-                for (String k : properties.keySet()) {
-                    if (!props.containsKey(k)) {
+        if (sessionProps != null) {
+            if (statementProps != null) {
+                for (String k : sessionProps.keySet()) {
+                    if (!statementProps.containsKey(k)) {
                         size++;
                     }
                 }
             } else {
-                size += properties.size();
+                size += sessionProps.size();
             }
         }
 
         w.out().packInt(size);
         var builder = new BinaryTupleBuilder(size * 4);
 
-        if (props != null) {
-            for (Entry<String, Object> entry : props.entrySet()) {
+        if (statementProps != null) {
+            for (Entry<String, Object> entry : statementProps.entrySet()) {
                 builder.appendString(entry.getKey());
                 ClientBinaryTupleUtils.appendObject(builder, entry.getValue());
             }
         }
 
-        if (properties != null) {
-            for (Entry<String, Object> entry : properties.entrySet()) {
-                if (props == null || !props.containsKey(entry.getKey())) {
+        if (sessionProps != null) {
+            for (Entry<String, Object> entry : sessionProps.entrySet()) {
+                if (statementProps == null || !statementProps.containsKey(entry.getKey())) {
                     builder.appendString(entry.getKey());
                     ClientBinaryTupleUtils.appendObject(builder, entry.getValue());
                 }
