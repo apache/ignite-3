@@ -96,7 +96,7 @@ public class IgniteSqlCreateIndex extends SqlCreate {
 
         writer.keyword("INDEX");
 
-        if (ifNotExists) {
+        if (ifNotExists()) {
             writer.keyword("IF NOT EXISTS");
         }
 
