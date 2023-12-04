@@ -159,7 +159,15 @@ public class AsyncSqlCursorImpl<T> implements AsyncSqlCursor<T> {
                 .thenCompose(ignored -> txWrapper.commitImplicit())
                 .whenComplete((r, e) -> {
                     // Anyway run close handler.
-                    onClose.run();
+                    try {
+                        onClose.run();
+                    } catch (RuntimeException ex) {
+                        if (e == null) {
+                            e = ex;
+                        } else {
+                            e.addSuppressed(ex);
+                        }
+                    }
 
                     if (e != null) {
                         closeResult.completeExceptionally(e);
