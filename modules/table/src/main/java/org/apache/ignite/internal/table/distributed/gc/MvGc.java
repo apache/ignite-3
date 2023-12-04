@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal.table.distributed.gc;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.thread.NamedThreadFactory.threadPrefix;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 
 import java.util.concurrent.CompletableFuture;
@@ -135,12 +135,12 @@ public class MvGc implements ManuallyCloseable {
             GcStorageHandler removed = storageHandlerByPartitionId.remove(tablePartitionId);
 
             if (removed == null) {
-                return completedFuture(null);
+                return nullCompletedFuture();
             }
 
             CompletableFuture<Void> gcInProgressFuture = removed.gcInProgressFuture.get();
 
-            return gcInProgressFuture == null ? completedFuture(null) : gcInProgressFuture;
+            return gcInProgressFuture == null ? nullCompletedFuture() : gcInProgressFuture;
         });
     }
 

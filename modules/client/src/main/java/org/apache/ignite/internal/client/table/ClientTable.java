@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.client.table;
 
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Client.CONNECTION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
@@ -381,7 +382,7 @@ public class ClientTable implements Table {
 
         CompletableFuture<ClientSchema> schemaFut = getSchema(schemaVersionOverride == null ? latestSchemaVer : schemaVersionOverride);
         CompletableFuture<List<String>> partitionsFut = provider == null || !provider.isPartitionAwarenessEnabled()
-                ? CompletableFuture.completedFuture(null)
+                ? nullCompletedFuture()
                 : getPartitionAssignment();
 
         // Wait for schema and partition assignment.

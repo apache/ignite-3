@@ -17,12 +17,12 @@
 
 package org.apache.ignite.internal.metastorage.impl;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.findLocalAddresses;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
@@ -257,7 +257,7 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
 
                 latch.countDown();
 
-                return completedFuture(null);
+                return nullCompletedFuture();
             }
 
             @Override
@@ -277,7 +277,7 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
 
                 latch.countDown();
 
-                return completedFuture(null);
+                return nullCompletedFuture();
             }
 
             @Override
@@ -301,7 +301,7 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
 
                     latch.countDown();
 
-                    return completedFuture(null);
+                    return nullCompletedFuture();
                 }
 
                 @Override
@@ -359,7 +359,7 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
 
                     exactLatch.countDown();
 
-                    return completedFuture(null);
+                    return nullCompletedFuture();
                 }
 
                 @Override
@@ -384,7 +384,7 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
 
                     prefixLatch.countDown();
 
-                    return completedFuture(null);
+                    return nullCompletedFuture();
                 }
 
                 @Override
@@ -436,7 +436,7 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
                 public CompletableFuture<Void> onUpdate(WatchEvent event) {
                     seenRevisionsAndTimestamps.add(new RevisionAndTimestamp(event.revision(), event.timestamp()));
 
-                    return completedFuture(null);
+                    return nullCompletedFuture();
                 }
 
                 @Override

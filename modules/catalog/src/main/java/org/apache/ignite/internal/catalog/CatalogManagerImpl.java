@@ -27,6 +27,7 @@ import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.va
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.fromParams;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.fromParamsAndPreviousValue;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -330,7 +331,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     @Override
     public CompletableFuture<Void> execute(List<CatalogCommand> commands) {
         if (nullOrEmpty(commands)) {
-            return completedFuture(null);
+            return nullCompletedFuture();
         }
 
         return saveUpdateAndWaitForActivation(new BulkUpdateProducer(List.copyOf(commands)));

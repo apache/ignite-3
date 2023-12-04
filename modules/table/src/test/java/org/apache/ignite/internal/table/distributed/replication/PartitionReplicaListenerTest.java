@@ -30,6 +30,7 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.apache.ignite.internal.tx.TxState.checkTransitionCorrectness;
 import static org.apache.ignite.internal.util.ArrayUtils.asList;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsString;
@@ -253,7 +254,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
             });
         }
 
-        return completedFuture(null);
+        return nullCompletedFuture();
     };
 
     /** Tx messages factory. */
@@ -385,10 +386,10 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
         when(topologySrv.localMember()).thenReturn(localNode);
 
-        when(safeTimeClock.waitFor(any())).thenReturn(completedFuture(null));
+        when(safeTimeClock.waitFor(any())).thenReturn(nullCompletedFuture());
         when(safeTimeClock.current()).thenReturn(HybridTimestamp.MIN_VALUE);
 
-        when(validationSchemasSource.waitForSchemaAvailability(anyInt(), anyInt())).thenReturn(completedFuture(null));
+        when(validationSchemasSource.waitForSchemaAvailability(anyInt(), anyInt())).thenReturn(nullCompletedFuture());
 
         lenient().when(catalogService.table(anyInt(), anyLong())).thenReturn(tableDescriptor);
 
@@ -434,7 +435,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
         configureTxManager(txManager);
 
-        doAnswer(invocation -> completedFuture(null)).when(txManager).executeCleanupAsync(any(Runnable.class));
+        doAnswer(invocation -> nullCompletedFuture()).when(txManager).executeCleanupAsync(any(Runnable.class));
 
         doAnswer(invocation -> {
             Object argument = invocation.getArgument(1);
@@ -1466,7 +1467,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     }
 
     private CompletableFuture<?> beginAndAbortTx() {
-        when(txManager.cleanup(any(), any(), any(), anyBoolean(), any())).thenReturn(completedFuture(null));
+        when(txManager.cleanup(any(), any(), any(), anyBoolean(), any())).thenReturn(nullCompletedFuture());
 
         HybridTimestamp beginTimestamp = clock.now();
         UUID txId = transactionIdFor(beginTimestamp);
@@ -1528,7 +1529,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     }
 
     private CompletableFuture<?> beginAndCommitTx() {
-        when(txManager.cleanup(any(), any(), any(), anyBoolean(), any())).thenReturn(completedFuture(null));
+        when(txManager.cleanup(any(), any(), any(), anyBoolean(), any())).thenReturn(nullCompletedFuture());
 
         HybridTimestamp beginTimestamp = clock.now();
         UUID txId = transactionIdFor(beginTimestamp);
@@ -2246,7 +2247,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 .thenReturn(List.of(
                         tableSchema(CURRENT_SCHEMA_VERSION, List.of(nullableColumn("col")))
                 ));
-        when(txManager.cleanup(any(), any(), any(), anyBoolean(), any())).thenReturn(completedFuture(null));
+        when(txManager.cleanup(any(), any(), any(), anyBoolean(), any())).thenReturn(nullCompletedFuture());
 
         AtomicReference<Boolean> committed = interceptFinishTxCommand();
 

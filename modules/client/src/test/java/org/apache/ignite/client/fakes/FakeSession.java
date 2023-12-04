@@ -18,6 +18,7 @@
 package org.apache.ignite.client.fakes;
 
 import static org.apache.ignite.internal.client.ClientUtils.sync;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 
 import java.util.Map;
@@ -219,7 +220,7 @@ public class FakeSession implements AbstractSession {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> closeAsync() {
-        return CompletableFuture.completedFuture(null);
+        return nullCompletedFuture();
     }
 
     /** {@inheritDoc} */

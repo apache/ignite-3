@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.message;
 
 import static org.apache.ignite.internal.sql.engine.message.SqlQueryMessageGroup.GROUP_TYPE;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -72,14 +73,14 @@ public class MessageServiceImpl implements MessageService {
     @Override
     public CompletableFuture<Void> send(String nodeName, NetworkMessage msg) {
         if (!busyLock.enterBusy()) {
-            return CompletableFuture.completedFuture(null);
+            return nullCompletedFuture();
         }
 
         try {
             if (localNodeName.equals(nodeName)) {
                 onMessage(nodeName, msg);
 
-                return CompletableFuture.completedFuture(null);
+                return nullCompletedFuture();
             } else {
                 return messagingSrvc.send(nodeName, ChannelType.DEFAULT, msg);
             }

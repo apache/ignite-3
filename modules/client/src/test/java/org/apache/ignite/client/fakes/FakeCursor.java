@@ -17,6 +17,8 @@
 
 package org.apache.ignite.client.fakes;
 
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
@@ -40,7 +42,7 @@ public class FakeCursor implements AsyncSqlCursor<InternalSqlRow> {
 
     @Override
     public CompletableFuture<Void> closeAsync() {
-        return CompletableFuture.completedFuture(null);
+        return nullCompletedFuture();
     }
 
     @Override

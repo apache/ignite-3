@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.rocksdb.flush;
 
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.SortedMap;
@@ -184,7 +186,7 @@ public class RocksDbFlusher {
 
         synchronized (latestPersistedSequenceNumberMux) {
             if (dbSequenceNumber <= latestPersistedSequenceNumber) {
-                return CompletableFuture.completedFuture(null);
+                return nullCompletedFuture();
             }
 
             future = flushFuturesBySequenceNumber.computeIfAbsent(dbSequenceNumber, s -> new CompletableFuture<>());
