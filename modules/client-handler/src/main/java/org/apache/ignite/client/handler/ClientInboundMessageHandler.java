@@ -34,6 +34,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import javax.net.ssl.SSLException;
 import org.apache.ignite.client.handler.configuration.ClientConnectorView;
@@ -506,7 +507,9 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
             int observableTimestampIdx = out.reserveLong();
             out.packNil(); // No error.
 
-            var fut = processOperation(in, out, opCode, requestId);
+            // TODO: Reuse the same AtomicReference instance for all operations.
+            AtomicReference<CompletableFuture> requestSentFutRef = new AtomicReference<>();
+            CompletableFuture fut = processOperation(in, out, opCode, requestId, requestSentFutRef);
 
             if (fut == null) {
                 // Operation completed synchronously.
@@ -521,6 +524,10 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
 
                 metrics.requestsProcessedIncrement();
                 metrics.requestsActiveDecrement();
+
+                if (requestSentFutRef.get() != null) {
+                    requestSentFutRef.get().complete(null);
+                }
             } else {
                 var reqId = requestId;
                 var op = opCode;
@@ -561,7 +568,8 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
             ClientMessageUnpacker in,
             ClientMessagePacker out,
             int opCode,
-            long requestId
+            long requestId,
+            AtomicReference<CompletableFuture> requestSentFutRef
     ) throws IgniteInternalCheckedException {
         switch (opCode) {
             case ClientOp.HEARTBEAT:
@@ -667,7 +675,12 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
                 return ClientTransactionRollbackRequest.process(in, resources, metrics);
 
             case ClientOp.COMPUTE_EXECUTE:
-                return ClientComputeExecuteRequest.process(in, compute, clusterService, w -> sendNotification(requestId, w));
+                // TODO: Extract notification ordering logic.
+                CompletableFuture<Object> requestSentFut = new CompletableFuture<>();
+                requestSentFutRef.set(requestSentFut);
+
+                return ClientComputeExecuteRequest.process(
+                        in, compute, clusterService, w -> requestSentFut.thenAccept(v -> sendNotification(requestId, w)));
 
             case ClientOp.COMPUTE_EXECUTE_COLOCATED:
                 return ClientComputeExecuteColocatedRequest.process(in, out, compute, igniteTables);
