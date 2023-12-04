@@ -293,8 +293,8 @@ public class ItDynamicParameterTest extends BaseSqlIntegrationTest {
 
     @ParameterizedTest
     @MethodSource("statementsWithParameters")
-    public void testGetParameterTypesSimple(String stmt, List<ColumnType> expectedTypes) {
-        ParameterMetadata parameterTypes = getParameterMetadata(stmt);
+    public void testGetParameterTypesSimple(String stmt, List<ColumnType> expectedTypes, Object[] params) {
+        ParameterMetadata parameterTypes = getParameterMetadata(stmt, params);
 
         List<ColumnType> columnTypes = parameterTypes.parameterTypes()
                 .stream()
@@ -306,10 +306,13 @@ public class ItDynamicParameterTest extends BaseSqlIntegrationTest {
 
     private static Stream<Arguments> statementsWithParameters() {
         return Stream.of(
-                arguments("SELECT CAST(? AS BIGINT)", List.of(ColumnType.INT64)),
-                arguments("INSERT INTO t1 VALUES(1, ?, ?)", List.of(ColumnType.INT32, ColumnType.INT32)),
-                arguments("UPDATE t1 SET val1 = ? WHERE id = ?", List.of(ColumnType.INT32, ColumnType.INT32)),
-                arguments("SELECT val1 + ? FROM t1 WHERE id = ?", List.of(ColumnType.INT32, ColumnType.INT32))
+                arguments("SELECT CAST(? AS BIGINT)", List.of(ColumnType.INT64), new Object[0]),
+                arguments("SELECT CAST(? AS BIGINT)", List.of(ColumnType.INT32), new Object[]{1}),
+                arguments("SELECT CAST(? AS BIGINT)", List.of(ColumnType.STRING), new Object[]{"1"}),
+
+                arguments("INSERT INTO t1 VALUES(1, ?, ?)", List.of(ColumnType.INT32, ColumnType.INT32), new Object[0]),
+                arguments("UPDATE t1 SET val1 = ? WHERE id = ?", List.of(ColumnType.INT32, ColumnType.INT32), new Object[0]),
+                arguments("SELECT val1 + ? FROM t1 WHERE id = ?", List.of(ColumnType.INT32, ColumnType.INT32), new Object[0])
         );
     }
 

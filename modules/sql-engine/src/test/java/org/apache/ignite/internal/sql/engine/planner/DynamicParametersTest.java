@@ -256,6 +256,12 @@ public class DynamicParametersTest extends AbstractPlannerTest {
                         .project("?0"),
 
                 checkStatement()
+                        .sql("SELECT CAST(? AS INTEGER)", "1")
+                        .parameterTypes(nullable(NativeTypes.STRING))
+                        // We are going to cast at runtime.
+                        .project("CAST(?0):INTEGER"),
+
+                checkStatement()
                         .sql("SELECT CAST(? AS INTEGER)", Unspecified.UNKNOWN)
                         .parameterTypes(nullable(NativeTypes.INT32))
                         // We are going to cast at runtime.
