@@ -62,8 +62,6 @@ class BasicAuthenticatorTest {
                 () -> authenticator.authenticate(new AnonymousRequest())
         );
 
-
-
         // then
         assertEquals("Unsupported authentication type: " + AnonymousRequest.class.getName(), exception.getMessage());
     }

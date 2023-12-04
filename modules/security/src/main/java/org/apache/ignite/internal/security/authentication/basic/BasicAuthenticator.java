@@ -17,7 +17,11 @@
 
 package org.apache.ignite.internal.security.authentication.basic;
 
+import static java.util.function.Function.identity;
+
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 import org.apache.ignite.internal.security.authentication.AuthenticationRequest;
 import org.apache.ignite.internal.security.authentication.Authenticator;
 import org.apache.ignite.internal.security.authentication.UserDetails;
@@ -29,7 +33,7 @@ import org.apache.ignite.security.exception.UnsupportedAuthenticationTypeExcepti
 public class BasicAuthenticator implements Authenticator {
     private final String providerName;
 
-    private final List<BasicUser> users;
+    private final Map<String, BasicUser> users;
 
     /**
      * Constructor.
@@ -39,7 +43,7 @@ public class BasicAuthenticator implements Authenticator {
      */
     public BasicAuthenticator(String providerName, List<BasicUser> users) {
         this.providerName = providerName;
-        this.users = users;
+        this.users = users.stream().collect(Collectors.toMap(BasicUser::name, identity()));
     }
 
     @Override
@@ -53,10 +57,10 @@ public class BasicAuthenticator implements Authenticator {
         Object requestUsername = authenticationRequest.getIdentity();
         Object requestPassword = authenticationRequest.getSecret();
 
-        for (BasicUser user : users) {
-            String username = user.name();
-            if (username.equals(requestUsername) && user.password().equals(requestPassword)) {
-                return new UserDetails(username, providerName);
+        BasicUser basicUser = users.get(requestUsername);
+        if (basicUser != null) {
+            if (basicUser.password().equals(requestPassword)) {
+                return new UserDetails(basicUser.name(), providerName);
             }
         }
 

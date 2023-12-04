@@ -50,7 +50,7 @@ public class AuthenticationProvidersValidatorImpl implements
             return;
         }
 
-        if (checkOnlyOneBasicProvider(ctx, view)) {
+        if (!checkOnlyOneBasicProvider(ctx, view)) {
             return;
         }
 
@@ -69,11 +69,11 @@ public class AuthenticationProvidersValidatorImpl implements
             if (authenticationProviderView instanceof BasicAuthenticationProviderConfiguration) {
                 if (basicAlreadyFound) {
                     ctx.addIssue(new ValidationIssue(ctx.currentKey(), "Only one basic provider supported."));
-                    return true;
+                    return false;
                 }
                 basicAlreadyFound = true;
             }
         }
-        return false;
+        return true;
     }
 }

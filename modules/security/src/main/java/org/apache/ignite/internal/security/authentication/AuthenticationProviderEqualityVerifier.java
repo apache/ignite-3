@@ -70,13 +70,15 @@ public class AuthenticationProviderEqualityVerifier {
             return false;
         }
 
-        for (BasicUserView basicUserView : users1) {
-            BasicUserView basicUser2View = users2.get(basicUserView.username());
+        for (BasicUserView basicUser1View : users1) {
+            BasicUserView basicUser2View = users2.get(basicUser1View.username());
             if (basicUser2View == null) {
                 return false;
             }
-            return Objects.equals(basicUserView.username(), basicUser2View.username())
-                    && Objects.equals(basicUserView.password(), basicUser2View.password());
+            if (!Objects.equals(basicUser1View.username(), basicUser2View.username())
+                    || !Objects.equals(basicUser1View.password(), basicUser2View.password())) {
+                return false;
+            }
         }
 
         return true;
