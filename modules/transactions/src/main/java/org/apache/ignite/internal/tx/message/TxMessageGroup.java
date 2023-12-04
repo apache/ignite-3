@@ -63,10 +63,12 @@ public class TxMessageGroup {
      * Message type for {@link LockReleaseMessage}.
      */
     public static final short TX_UNLOCK_MSG = 7;
+
     /**
      * Message type for {@link LockReleaseMessageResponse}.
      */
     public static final short TX_UNLOCK_MSG_RESPONSE = 8;
+
     /**
      * Message type for {@link LockReleaseMessageErrorResponse}.
      */

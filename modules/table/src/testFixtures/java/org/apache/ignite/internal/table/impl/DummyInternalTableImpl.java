@@ -19,6 +19,7 @@ package org.apache.ignite.internal.table.impl;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.replicator.ReplicaManager.DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -93,10 +94,13 @@ import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.util.PendingIndependentComparableValuesTracker;
+import org.apache.ignite.network.AbstractMessagingService;
+import org.apache.ignite.network.ChannelType;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterNodeImpl;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
+import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.TopologyService;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
@@ -487,5 +491,62 @@ public class DummyInternalTableImpl extends InternalTableImpl {
             public void addIndexToWaitIfAbsent(int indexId) {
             }
         };
+    }
+
+    /**
+     * Dummy messaging service for tests purposes.
+     * It does not provide any messaging functionality, but allows to trigger events.
+     */
+    private static class DummyMessagingService extends AbstractMessagingService {
+        private final String localNodeName;
+
+        private final AtomicLong correlationIdGenerator = new AtomicLong();
+
+        DummyMessagingService(String localNodeName) {
+            this.localNodeName = localNodeName;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public void weakSend(ClusterNode recipient, NetworkMessage msg) {
+            throw new UnsupportedOperationException("Not implemented yet");
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public CompletableFuture<Void> send(ClusterNode recipient, ChannelType channelType, NetworkMessage msg) {
+            throw new UnsupportedOperationException("Not implemented yet");
+        }
+
+        @Override
+        public CompletableFuture<Void> send(String recipientConsistentId, ChannelType channelType, NetworkMessage msg) {
+            throw new UnsupportedOperationException("Not implemented yet");
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public CompletableFuture<Void> respond(ClusterNode recipient, ChannelType type, NetworkMessage msg, long correlationId) {
+            throw new UnsupportedOperationException("Not implemented yet");
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public CompletableFuture<Void> respond(String recipientConsistentId, ChannelType type, NetworkMessage msg, long correlationId) {
+            throw new UnsupportedOperationException("Not implemented yet");
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public CompletableFuture<NetworkMessage> invoke(ClusterNode recipient, ChannelType type, NetworkMessage msg, long timeout) {
+            throw new UnsupportedOperationException("Not implemented yet");
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public CompletableFuture<NetworkMessage> invoke(String recipientNodeId, ChannelType type, NetworkMessage msg, long timeout) {
+            getMessageHandlers(msg.groupType()).forEach(h -> h.onReceived(msg, localNodeName, correlationIdGenerator.getAndIncrement()));
+
+            return nullCompletedFuture();
+        }
     }
 }

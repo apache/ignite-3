@@ -21,7 +21,6 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
-import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestampToLong;
@@ -36,12 +35,10 @@ import static org.apache.ignite.internal.util.CompletableFutures.emptyCollection
 import static org.apache.ignite.internal.util.CompletableFutures.emptyListCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
-import static org.apache.ignite.internal.util.ExceptionUtils.withCause;
 import static org.apache.ignite.internal.util.IgniteUtils.findAny;
 import static org.apache.ignite.internal.util.IgniteUtils.findFirst;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
-import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_UNAVAILABLE_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_FAILED_READ_WRITE_OPERATION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_WAS_ABORTED_ERR;
 import static org.apache.ignite.raft.jraft.util.internal.ThrowUtil.hasCause;
@@ -65,7 +62,6 @@ import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.binarytuple.BinaryTupleCommon;
@@ -160,12 +156,13 @@ import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
+import org.apache.ignite.internal.tx.impl.PlacementDriverHelper;
+import org.apache.ignite.internal.tx.impl.TxCleanupProcessor;
 import org.apache.ignite.internal.tx.message.TxCleanupReplicaRequest;
 import org.apache.ignite.internal.tx.message.TxFinishReplicaRequest;
 import org.apache.ignite.internal.tx.message.TxRecoveryMessage;
 import org.apache.ignite.internal.tx.message.TxStateCommitPartitionRequest;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
-import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.CursorUtils;
 import org.apache.ignite.internal.util.ExceptionUtils;
@@ -183,8 +180,6 @@ import org.jetbrains.annotations.Nullable;
 public class PartitionReplicaListener implements ReplicaListener {
     /** Logger. */
     private static final IgniteLogger LOG = Loggers.forClass(PartitionReplicaListener.class);
-
-    private static final int AWAIT_PRIMARY_REPLICA_TIMEOUT = 10;
 
     /** Factory to create RAFT command messages. */
     private static final TableMessagesFactory MSG_FACTORY = new TableMessagesFactory();
@@ -266,6 +261,11 @@ public class PartitionReplicaListener implements ReplicaListener {
     private final PlacementDriver placementDriver;
 
     /**
+     * Cleanup processor.
+     */
+    private final TxCleanupProcessor txCleanupProcessor;
+
+    /**
      * Mutex for command processing linearization.
      * Some actions like update or updateAll require strict ordering within their application to storage on all nodes in replication group.
      * Given ordering should match corresponding command's safeTime.
@@ -334,6 +334,10 @@ public class PartitionReplicaListener implements ReplicaListener {
         this.placementDriver = placementDriver;
 
         this.replicationGroupId = new TablePartitionId(tableId, partId);
+
+        PlacementDriverHelper placementDriverHelper = new PlacementDriverHelper(placementDriver);
+
+        txCleanupProcessor = new TxCleanupProcessor(txManager, placementDriverHelper, hybridClock);
 
         cursors = new ConcurrentSkipListMap<>(IgniteUuid.globalOrderComparator());
 
@@ -1560,55 +1564,10 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         CompletableFuture<?>[] futures = enlistedPartitions.stream()
                 .map(partitionId ->
-                        cleanupWithRetry(commit, commitTimestamp, txId, partitionId, 1))
+                        txCleanupProcessor.cleanup(partitionId, txId, commit, commitTimestamp))
                 .toArray(size -> new CompletableFuture<?>[size]);
 
         return allOf(futures);
-    }
-
-    // TODO https://issues.apache.org/jira/browse/IGNITE-20681 remove attempts count.
-    private CompletableFuture<Void> cleanupWithRetry(
-            boolean commit,
-            @Nullable HybridTimestamp commitTimestamp,
-            UUID txId,
-            TablePartitionId partitionId,
-            int attempts) {
-        return findPrimaryReplica(partitionId, hybridClock.now())
-                .thenCompose(leaseHolder ->
-                        txManager.cleanup(leaseHolder, partitionId, txId, commit, commitTimestamp))
-                .handle((res, ex) -> {
-                    if (ex != null) {
-                        if (attempts > 0) {
-                            LOG.warn("Failed to perform cleanup on Tx. The operation will be retried [txId={}].", txId, ex);
-                        } else {
-                            LOG.warn("Failed to perform cleanup on Tx [txId={}].", txId, ex);
-                        }
-
-                        if (attempts > 0) {
-                            return cleanupWithRetry(commit, commitTimestamp, txId, partitionId, attempts - 1);
-                        }
-
-                        return CompletableFuture.<Void>failedFuture(ex);
-                    }
-
-                    return CompletableFutures.<Void>nullCompletedFuture();
-                })
-                .thenCompose(Function.identity());
-    }
-
-    private CompletableFuture<String> findPrimaryReplica(TablePartitionId partitionId, HybridTimestamp now) {
-        return placementDriver.awaitPrimaryReplica(partitionId, now, AWAIT_PRIMARY_REPLICA_TIMEOUT, SECONDS)
-                .handle((primaryReplica, e) -> {
-                    if (e != null) {
-                        LOG.error("Failed to retrieve primary replica for partition {}", partitionId, e);
-
-                        throw withCause(TransactionException::new, REPLICA_UNAVAILABLE_ERR,
-                                "Failed to get the primary replica"
-                                        + " [tablePartitionId=" + partitionId + ", awaitTimestamp=" + now + ']', e);
-                    }
-
-                    return primaryReplica.getLeaseholder();
-                });
     }
 
     /**

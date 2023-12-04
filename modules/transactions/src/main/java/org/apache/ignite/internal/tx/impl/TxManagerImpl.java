@@ -20,7 +20,6 @@ package org.apache.ignite.internal.tx.impl;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
-import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestampToLong;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
 import static org.apache.ignite.internal.tx.TxState.COMMITED;
@@ -28,10 +27,8 @@ import static org.apache.ignite.internal.tx.TxState.PENDING;
 import static org.apache.ignite.internal.tx.TxState.checkTransitionCorrectness;
 import static org.apache.ignite.internal.tx.TxState.isFinalState;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
-import static org.apache.ignite.internal.util.ExceptionUtils.withCause;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
-import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_UNAVAILABLE_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_READ_ONLY_TOO_OLD_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_WAS_ABORTED_ERR;
 
@@ -64,7 +61,6 @@ import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
-import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
@@ -105,8 +101,6 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     /** Hint for maximum concurrent txns. */
     private static final int MAX_CONCURRENT_TXNS = 1024;
 
-    private static final int AWAIT_PRIMARY_REPLICA_TIMEOUT = 10;
-
     /** Tx messages factory. */
     private static final TxMessagesFactory FACTORY = new TxMessagesFactory();
 
@@ -143,6 +137,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
     private final PlacementDriver placementDriver;
 
+    private final PlacementDriverHelper placementDriverHelper;
+
     private final LongSupplier idleSafeTimePropagationPeriodMsSupplier;
 
     /** Prevents double stopping of the tracker. */
@@ -161,9 +157,14 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     private String localNodeId;
 
     /**
-     * Transaction lock release manager.
+     * Server cleanup processor.
      */
-    private final TxUnlockManager txUnlockManager;
+    private final TxUnlockHandler txUnlockHandler;
+
+    /**
+     * Server cleanup processor.
+     */
+    private final TxUnlockRequestSender txUnlockRequestSender;
 
     /**
      * The constructor.
@@ -193,6 +194,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         this.placementDriver = placementDriver;
         this.idleSafeTimePropagationPeriodMsSupplier = idleSafeTimePropagationPeriodMsSupplier;
 
+        placementDriverHelper = new PlacementDriverHelper(placementDriver);
+
         int cpus = Runtime.getRuntime().availableProcessors();
 
         cleanupExecutor = new ThreadPoolExecutor(
@@ -205,7 +208,11 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
         orphanDetector = new OrphanDetector(clusterService.topologyService(), replicaService, placementDriver, lockManager, clock);
 
-        txUnlockManager = new TxUnlockManager(clusterService, this, lockManager, placementDriver, clock);
+        TxCleanupProcessor txCleanupProcessor = new TxCleanupProcessor(this, placementDriverHelper, clock);
+
+        txUnlockHandler = new TxUnlockHandler(clusterService, lockManager, clock, txCleanupProcessor);
+
+        txUnlockRequestSender = new TxUnlockRequestSender(clusterService, placementDriverHelper, clock, txCleanupProcessor);
     }
 
     @Override
@@ -280,7 +287,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     }
 
     @Override
-    public TxStateMeta updateTxMeta(UUID txId, Function<TxStateMeta, TxStateMeta> updater) {
+    public @Nullable TxStateMeta updateTxMeta(UUID txId, Function<TxStateMeta, TxStateMeta> updater) {
         return txStateMap.compute(txId, (k, oldMeta) -> {
             TxStateMeta newMeta = updater.apply(oldMeta);
 
@@ -410,7 +417,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             HybridTimestamp commitTimestamp,
             CompletableFuture<TransactionMeta> txFinishFuture
     ) {
-        return inBusyLockAsync(busyLock, () -> findPrimaryReplica(commitPartition, clock.now())
+        return inBusyLockAsync(busyLock, () -> placementDriverHelper.awaitPrimaryReplica(commitPartition, clock.now())
                 .thenCompose(meta ->
                         makeFinishRequest(
                                 observableTimestampTracker,
@@ -520,21 +527,6 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                 });
     }
 
-    private CompletableFuture<ReplicaMeta> findPrimaryReplica(TablePartitionId partitionId, HybridTimestamp now) {
-        return placementDriver.awaitPrimaryReplica(partitionId, now, AWAIT_PRIMARY_REPLICA_TIMEOUT, SECONDS)
-                .handle((primaryReplica, e) -> {
-                    if (e != null) {
-                        LOG.error("Failed to retrieve primary replica for partition {}", e, partitionId);
-
-                        throw withCause(TransactionException::new, REPLICA_UNAVAILABLE_ERR,
-                                "Failed to get the primary replica"
-                                        + " [tablePartitionId=" + partitionId + ", awaitTimestamp=" + now + ']', e);
-                    }
-
-                    return primaryReplica;
-                });
-    }
-
     @Override
     public CompletableFuture<Void> cleanup(
             String primaryConsistentId,
@@ -574,7 +566,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         localNodeId = clusterService.topologyService().localMember().id();
         clusterService.messagingService().addMessageHandler(ReplicaMessageGroup.class, this);
         orphanDetector.start(txStateMap::get);
-        txUnlockManager.start();
+        txUnlockHandler.start();
     }
 
     @Override
@@ -590,7 +582,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
         busyLock.block();
 
-        txUnlockManager.stop();
+        txUnlockHandler.stop();
 
         shutdownAndAwaitTermination(cleanupExecutor, 10, TimeUnit.SECONDS);
     }
@@ -607,7 +599,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             @Nullable HybridTimestamp commitTimestamp,
             UUID txId
     ) {
-        return txUnlockManager.unlock(partitions, commit, commitTimestamp, txId);
+        return txUnlockRequestSender.unlock(partitions, commit, commitTimestamp, txId);
     }
 
     @Override
@@ -849,4 +841,3 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         }
     }
 }
-

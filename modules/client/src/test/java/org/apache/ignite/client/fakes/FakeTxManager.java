@@ -192,8 +192,12 @@ public class FakeTxManager implements TxManager {
     }
 
     @Override
-    public CompletableFuture<Void> unlock(Collection<TablePartitionId> partitions, boolean commit,
-            @Nullable HybridTimestamp commitTimestamp, UUID txId) {
+    public CompletableFuture<Void> unlock(
+            Collection<TablePartitionId> partitions,
+            boolean commit,
+            @Nullable HybridTimestamp commitTimestamp,
+            UUID txId
+    ) {
         return nullCompletedFuture();
     }
 
