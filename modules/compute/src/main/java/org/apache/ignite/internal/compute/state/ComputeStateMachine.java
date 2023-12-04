@@ -32,7 +32,7 @@ public interface ComputeStateMachine {
     UUID initJob();
 
     /**
-     * Try to transfer Compute Job to complete state.
+     * Tries to transfer Compute Job to complete state.
      *
      * @param jobId Compute job identifier.
      * @throws IllegalJobStateTransition in case when job can't be transferred to complete state.
@@ -40,31 +40,31 @@ public interface ComputeStateMachine {
     void completeJob(UUID jobId);
 
     /**
-     * Try to transfer Compute Job to execute state.
+     * Tries to transfer Compute Job to execute state.
      *
      * @param jobId Compute job identifier.
-     * @throws IllegalJobStateTransition in case when job can't be transferred to complete state.
+     * @throws IllegalJobStateTransition in case when job can't be transferred to execute state.
      */
     void executeJob(UUID jobId);
 
     /**
-     * Try to transfer Compute Job to canceling state, it means that
+     * Tries to transfer Compute Job to canceling state, it means that execution may continue.
      *
      * @param jobId Compute job identifier.
-     * @return {@code true} in case when cancel finished fully.
-     *     {@code false} in case when cancel not finished and job execution can't finished immediately.
-     * @throws IllegalJobStateTransition in case when job can't be transferred to complete state.
+     * @throws IllegalJobStateTransition in case when job can't be transferred to canceling state.
      */
     void cancelingJob(UUID jobId);
 
     /**
+     * Tries to transfer Compute Job to cancel state, it means that execution canceled.
      *
-     * @param jobId
+     * @param jobId Compute job identifier.
+     * @throws IllegalJobStateTransition in case when job can't be transferred to canceled state.
      */
     void cancelJob(UUID jobId);
 
     /**
-     * Try to transfer Compute Job to fail state.
+     * Tries to transfer Compute Job to fail state.
      *
      * @param jobId Compute job identifier.
      * @throws IllegalJobStateTransition in case when job can't be transferred to failed state.

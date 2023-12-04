@@ -22,7 +22,7 @@ package org.apache.ignite.compute;
  */
 public enum JobState {
     /**
-     * The job was submitted and waited for execution start in queue or will executed soon.
+     * The job is submitted and waiting for an execution start.
      */
     QUEUED,
 
