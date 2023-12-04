@@ -408,14 +408,14 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<ParameterMetadata> parameterTypesAsync(SqlProperties properties, String qry) {
+    public CompletableFuture<ParameterMetadata> parametersAsync(SqlProperties properties, String qry) {
 
         if (!busyLock.enterBusy()) {
             throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
         }
 
         try {
-            return parameterTypesAsync0(properties, qry);
+            return parametersAsync0(properties, qry);
         } finally {
             busyLock.leaveBusy();
         }
@@ -467,7 +467,7 @@ public class SqlQueryProcessor implements QueryProcessor {
         return service;
     }
 
-    private CompletableFuture<ParameterMetadata> parameterTypesAsync0(
+    private CompletableFuture<ParameterMetadata> parametersAsync0(
             SqlProperties properties,
             String sql
     ) {

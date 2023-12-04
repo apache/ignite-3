@@ -33,14 +33,16 @@ import org.jetbrains.annotations.Nullable;
 public interface QueryProcessor extends IgniteComponent {
 
     /**
-     * Returns parameter types for the given statement.
+     * Returns parameter metadata for the given statement.
      *
      * @param properties User query properties. See {@link QueryProperty} for available properties.
      * @param qry Single statement SQL query.
-     * @return Sql cursor.
+     * @return Parameter metadata.
      *
+     * @throws IgniteException in case of an error.
+     * @see QueryProperty
      */
-    CompletableFuture<ParameterMetadata> parameterTypesAsync(SqlProperties properties, String qry);
+    CompletableFuture<ParameterMetadata> parametersAsync(SqlProperties properties, String qry);
 
     /**
      * Execute the single statement query with given schema name and parameters.
