@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.tx;
 
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -24,7 +26,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
-import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.AsyncCursor;
 import org.apache.ignite.tx.Transaction;
@@ -56,7 +57,7 @@ class ScriptTransactionWrapper implements QueryTransactionWrapper {
 
     @Override
     public CompletableFuture<Void> commitImplicit() {
-        return Commons.completedFuture();
+        return nullCompletedFuture();
     }
 
     @Override
@@ -100,7 +101,7 @@ class ScriptTransactionWrapper implements QueryTransactionWrapper {
             return tryCompleteTx();
         }
 
-        return Commons.completedFuture();
+        return nullCompletedFuture();
     }
 
     private CompletableFuture<Void> tryCompleteTx() {
@@ -111,7 +112,7 @@ class ScriptTransactionWrapper implements QueryTransactionWrapper {
                     .whenComplete((r, e) -> txFinishFuture.complete(null));
         }
 
-        return Commons.completedFuture();
+        return nullCompletedFuture();
     }
 
     class ScriptStatementTxWrapper implements QueryTransactionWrapper {
@@ -134,7 +135,7 @@ class ScriptTransactionWrapper implements QueryTransactionWrapper {
 
         @Override
         public CompletableFuture<Void> commitImplicitAfterPrefetch() {
-            return Commons.completedFuture();
+            return nullCompletedFuture();
         }
 
         @Override
@@ -162,12 +163,12 @@ class ScriptTransactionWrapper implements QueryTransactionWrapper {
 
         @Override
         public CompletableFuture<Void> commitImplicit() {
-            return Commons.completedFuture();
+            return nullCompletedFuture();
         }
 
         @Override
         public CompletableFuture<Void> rollback(Throwable cause) {
-            return Commons.completedFuture();
+            return nullCompletedFuture();
         }
 
         @Override

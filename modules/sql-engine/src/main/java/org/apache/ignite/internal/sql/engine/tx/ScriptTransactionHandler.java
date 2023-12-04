@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.tx;
 
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Sql.RUNTIME_ERR;
 
 import java.util.concurrent.CompletableFuture;
@@ -26,7 +27,6 @@ import org.apache.ignite.internal.sql.engine.sql.IgniteSqlCommitTransaction;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlStartTransaction;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlStartTransactionMode;
 import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
-import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.AsyncCursor;
 import org.apache.ignite.sql.ExternalTransactionNotSupportedException;
@@ -142,12 +142,12 @@ public class ScriptTransactionHandler extends QueryTransactionHandler {
 
         @Override
         public CompletableFuture<Void> commitImplicit() {
-            return Commons.completedFuture();
+            return nullCompletedFuture();
         }
 
         @Override
         public CompletableFuture<Void> rollback(Throwable cause) {
-            return Commons.completedFuture();
+            return nullCompletedFuture();
         }
     }
 }
