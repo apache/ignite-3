@@ -43,6 +43,7 @@ public class IgniteSqlCreateTableOption extends SqlCall {
             super("TableOption", SqlKind.OTHER);
         }
 
+        /** {@inheritDoc} */
         @Override
         public SqlCall createCall(@Nullable SqlLiteral functionQualifier, SqlParserPos pos, @Nullable SqlNode... operands) {
             return new IgniteSqlCreateTableOption((SqlIdentifier) operands[0], operands[1], pos);

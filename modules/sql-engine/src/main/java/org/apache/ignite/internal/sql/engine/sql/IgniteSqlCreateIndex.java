@@ -47,6 +47,7 @@ public class IgniteSqlCreateIndex extends SqlCreate {
             this.indexType = indexType;
         }
 
+        /** {@inheritDoc} */
         @Override
         public SqlCall createCall(@Nullable SqlLiteral functionQualifier, SqlParserPos pos, @Nullable SqlNode... operands) {
             return new IgniteSqlCreateIndex(pos, existFlag(), (SqlIdentifier) operands[0], (SqlIdentifier) operands[1],

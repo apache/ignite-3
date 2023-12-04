@@ -103,7 +103,7 @@ public final class IgniteSqlParser  {
 
             for (int i = 0; i < list.size(); i++) {
                 SqlNode original = list.get(i);
-                SqlNode node = fixDmlNodesIfNecessary(original);
+                SqlNode node = fixNodesIfNecessary(original);
                 list.set(i, node);
             }
 
@@ -260,7 +260,9 @@ public final class IgniteSqlParser  {
         }
     }
 
-    private static SqlNode fixDmlNodesIfNecessary(SqlNode node) {
+    private static SqlNode fixNodesIfNecessary(SqlNode node) {
+        // Create copies of DML nodes because original use incomplete implementation
+        // of SqlOperator that does not provide implementation of createCall method.
         if (node.getKind() == SqlKind.DELETE) {
             return new IgniteSqlDelete((SqlDelete) node);
         } else if (node.getKind() == SqlKind.UPDATE) {

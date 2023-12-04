@@ -43,6 +43,7 @@ public class IgniteSqlDropIndex extends SqlDrop {
             super("DROP INDEX", SqlKind.DROP_INDEX, existFlag);
         }
 
+        /** {@inheritDoc} */
         @Override
         public SqlCall createCall(@Nullable SqlLiteral functionQualifier, SqlParserPos pos, @Nullable SqlNode... operands) {
             return new IgniteSqlDropIndex(pos, existFlag(), (SqlIdentifier) operands[0]);

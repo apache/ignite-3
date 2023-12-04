@@ -32,7 +32,7 @@ import org.apache.calcite.util.ImmutableNullableList;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
 /**
- * {@code UPDATE} statement.
+ * {@code UPDATE} statement. Fixes incomplete operator of original {@link SqlUpdate}.
  */
 public class IgniteSqlUpdate extends SqlUpdate {
 

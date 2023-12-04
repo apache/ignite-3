@@ -32,7 +32,7 @@ import org.apache.calcite.sql.parser.SqlParserPos;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
 /**
- * {@code MERGE} statement.
+ * {@code MERGE} statement, Fixes incomplete operator of original {@link SqlMerge}.
  */
 public class IgniteSqlMerge extends SqlMerge {
 
