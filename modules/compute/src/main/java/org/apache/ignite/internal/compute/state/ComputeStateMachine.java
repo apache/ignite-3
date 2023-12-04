@@ -25,7 +25,7 @@ import org.apache.ignite.compute.JobState;
  */
 public interface ComputeStateMachine {
     /**
-     * Initialize Compute job in state machine. This job should have status {@link JobState.QUEUED}.
+     * Initialize Compute job in state machine. This job should have status {@link JobState#QUEUED}.
      *
      * @return Compute job identifier.
      */
@@ -48,14 +48,20 @@ public interface ComputeStateMachine {
     void executeJob(UUID jobId);
 
     /**
-     * Try to transfer Compute Job to cancel state.
+     * Try to transfer Compute Job to canceling state, it means that
      *
      * @param jobId Compute job identifier.
      * @return {@code true} in case when cancel finished fully.
      *     {@code false} in case when cancel not finished and job execution can't finished immediately.
      * @throws IllegalJobStateTransition in case when job can't be transferred to complete state.
      */
-    boolean cancelJob(UUID jobId);
+    void cancelingJob(UUID jobId);
+
+    /**
+     *
+     * @param jobId
+     */
+    void cancelJob(UUID jobId);
 
     /**
      * Try to transfer Compute Job to fail state.

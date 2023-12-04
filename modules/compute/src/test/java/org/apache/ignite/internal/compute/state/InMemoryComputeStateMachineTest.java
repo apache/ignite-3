@@ -28,7 +28,6 @@ import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.UUID;
-import org.hamcrest.Matchers;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -59,33 +58,28 @@ public class InMemoryComputeStateMachineTest {
 
     @Test
     public void testCancel() {
-        assertThat(stateMachine.cancelJob(jobId), is(true));
+        stateMachine.cancelJob(jobId);
         assertThat(stateMachine.currentState(jobId), is(CANCELED));
     }
 
     @Test
     public void testCancelFromExecuting() {
         executeJob(false);
+        cancelingJob(false);
         cancelJob(false);
-        assertThat(stateMachine.currentState(jobId), is(CANCELING));
-        cancelJob(false);
-        assertThat(stateMachine.currentState(jobId), is(CANCELED));
-
     }
 
     @Test
     public void testCompleteCanceling() {
         executeJob(false);
-        cancelJob(false);
-        assertThat(stateMachine.currentState(jobId), is(CANCELING));
+        cancelingJob(false);
         completeJob(false);
     }
 
     @Test
     public void testFailCanceling() {
         executeJob(false);
-        cancelJob(false);
-        assertThat(stateMachine.currentState(jobId), is(CANCELING));
+        cancelingJob(false);
         failJob(false);
     }
 
@@ -128,11 +122,20 @@ public class InMemoryComputeStateMachineTest {
     private void cancelJob(boolean shouldFail) {
         if (!shouldFail) {
             stateMachine.cancelJob(jobId);
-            assertThat(stateMachine.currentState(jobId), Matchers.oneOf(CANCELED, CANCELING));
+            assertThat(stateMachine.currentState(jobId), is(CANCELED));
         } else {
             assertThrows(IllegalJobStateTransition.class, () -> stateMachine.cancelJob(jobId));
         }
     }
+    private void cancelingJob(boolean shouldFail) {
+        if (!shouldFail) {
+            stateMachine.cancelingJob(jobId);
+            assertThat(stateMachine.currentState(jobId), is(CANCELING));
+        } else {
+            assertThrows(IllegalJobStateTransition.class, () -> stateMachine.cancelJob(jobId));
+        }
+    }
+
 
     private void executeJob(boolean shouldFail) {
         if (!shouldFail) {

@@ -28,7 +28,7 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
  */
 public class IllegalJobStateTransition extends IgniteInternalException {
     public IllegalJobStateTransition(UUID jobId) {
-        super(COMPUTE_JOB_STATE_TRANSITION_ERR, "Failed to transfer job state for nonexistent job" + jobId + ".");
+        super(COMPUTE_JOB_STATE_TRANSITION_ERR, "Failed to transfer job state for nonexistent job " + jobId + ".");
     }
 
     public IllegalJobStateTransition(UUID jobId, JobState prevState, JobState newState) {

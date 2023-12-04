@@ -27,7 +27,6 @@ import static org.apache.ignite.compute.JobState.QUEUED;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 import org.apache.ignite.compute.JobState;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -74,21 +73,21 @@ public class InMemoryComputeStateMachine implements ComputeStateMachine {
     }
 
     @Override
-    public boolean cancelJob(UUID jobId) {
-        AtomicBoolean result = new AtomicBoolean();
-        Function<JobState, JobState> func = currentState -> {
-            if (currentState == EXECUTING) {
-                result.set(false);
-                return CANCELING;
-            } else if (currentState == CANCELING || currentState == QUEUED) {
-                result.set(true);
+    public void cancelingJob(UUID jobId) {
+        changeState(jobId, currentState -> {
+            if (currentState == QUEUED) {
                 return CANCELED;
+            } else if (currentState == EXECUTING) {
+                return CANCELING;
             }
 
-            throw new IllegalJobStateTransition(jobId, currentState, CANCELED);
-        };
-        changeState(jobId, func);
-        return result.get();
+            throw new IllegalJobStateTransition(jobId, currentState, CANCELING);
+        });
+    }
+
+    @Override
+    public void cancelJob(UUID jobId) {
+        changeState(jobId, CANCELED, QUEUED, CANCELING);
     }
 
     private void changeState(UUID jobId, JobState newState, JobState... requiredStates) {

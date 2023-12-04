@@ -22,7 +22,7 @@ package org.apache.ignite.compute;
  */
 public enum JobState {
     /**
-     * The job was submitted and added to the queue and waiting queue for execution.
+     * The job was submitted and waited for execution start in queue or will executed soon.
      */
     QUEUED,
 
@@ -42,12 +42,12 @@ public enum JobState {
     COMPLETED,
 
     /**
-     * Job has received the cancel command, but is still running.
+     * The job has received the cancel command, but it is still running.
      */
     CANCELING,
 
     /**
-     * Job was successfully cancelled.
+     * The job was successfully cancelled.
      */
     CANCELED
 }
