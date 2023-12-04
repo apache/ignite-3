@@ -39,6 +39,7 @@ import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.sql.AbstractSession;
@@ -540,36 +541,77 @@ public class SessionImpl implements AbstractSession {
     }
 
     private class ScriptHandler {
-
         private final CompletableFuture<Void> resFut;
+
+        private final AtomicReference<Throwable> cursorCloseErrHolder = new AtomicReference<>();
 
         private ScriptHandler(CompletableFuture<Void> resFut) {
             this.resFut = resFut;
         }
 
-        void processCursor(AsyncSqlCursor<List<Object>> cursor, Throwable t) {
-            if (t != null) {
-                resFut.completeExceptionally(t);
+        void processCursor(AsyncSqlCursor<List<Object>> cursor, Throwable scriptError) {
+            if (scriptError != null) {
+                // Stop script execution.
+                completeScriptExecution(scriptError);
 
                 return;
             }
 
-            cursor.closeAsync();
-
-            if (!busyLock.enterBusy()) {
-                resFut.completeExceptionally(sessionIsClosedException());
-                return;
-            }
-
-            try {
-                if (cursor.hasNextResult()) {
-                    cursor.nextResult().whenComplete(this::processCursor);
-                } else {
-                    resFut.complete(null);
+            cursor.closeAsync().whenComplete((ignored, cursorCloseError) -> {
+                if (cursorCloseError != null) {
+                    // Just save the error for later and continue fetching cursors.
+                    saveError(cursorCloseError);
                 }
-            } finally {
-                busyLock.leaveBusy();
+
+                if (!busyLock.enterBusy()) {
+                    completeScriptExecution(sessionIsClosedException());
+                    return;
+                }
+
+                try {
+                    if (cursor.hasNextResult()) {
+                        cursor.nextResult().whenComplete(this::processCursor);
+                    } else {
+                        completeScriptExecution(null);
+                    }
+                } finally {
+                    busyLock.leaveBusy();
+                }
+            });
+        }
+
+        private void completeScriptExecution(@Nullable Throwable err) {
+            Throwable savedError = cursorCloseErrHolder.get();
+
+            if (err == null && savedError == null) {
+                resFut.complete(null);
+
+                return;
             }
+
+            if (err == null) {
+                err = savedError;
+            } else if (savedError != null) {
+                err.addSuppressed(savedError);
+            }
+
+            resFut.completeExceptionally(err);
+        }
+
+        void saveError(Throwable t) {
+            Throwable oldVal = cursorCloseErrHolder.get();
+
+            Throwable err = oldVal;
+
+            if (err == null) {
+                err = t;
+            } else {
+                err.addSuppressed(t);
+            }
+
+            boolean success = cursorCloseErrHolder.compareAndSet(oldVal, err);
+
+            assert success;
         }
     }
 }
