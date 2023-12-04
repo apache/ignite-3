@@ -779,8 +779,9 @@ public class PartitionReplicaListener implements ReplicaListener {
             // TODO IGNITE-20771 Proper lifeness check.
             // Trigger tx recovery due to tx coordinator absence.
             // if (isDead(txStateMeta.txCoordinatorId()))
-            return triggerTxRecovery(txId);
-            // else return completedFuture(txMeta);
+            //     return triggerTxRecovery(txId);
+            // else
+                 return completedFuture(txMeta);
         } else {
             // Recovery is not needed.
             return completedFuture(txMeta);
