@@ -32,7 +32,7 @@ import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.sql.SyncResultSetAdapter;
 import org.apache.ignite.internal.streamer.StreamerBatchSender;
-import org.apache.ignite.internal.table.ClosableSessionAsyncResultSet;
+import org.apache.ignite.internal.table.QueryCriteriaAsyncResultSet;
 import org.apache.ignite.internal.table.SqlSerializer;
 import org.apache.ignite.sql.ClosableCursor;
 import org.apache.ignite.sql.async.AsyncClosableCursor;
@@ -403,7 +403,7 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
         var session = tbl.sql().createSession();
 
         return session.executeAsync(tx, statement, sqlSer.getArguments())
-                .thenApply(resultSet -> new ClosableSessionAsyncResultSet<>(session, resultSet));
+                .thenApply(resultSet -> new QueryCriteriaAsyncResultSet<>(session, null, resultSet));
     }
 
     @Override

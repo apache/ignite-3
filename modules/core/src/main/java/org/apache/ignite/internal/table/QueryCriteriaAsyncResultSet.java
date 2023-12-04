@@ -17,37 +17,47 @@
 
 package org.apache.ignite.internal.table;
 
+import static org.apache.ignite.internal.util.CollectionUtils.mapIterable;
+
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.async.AsyncResultSet;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Wrapper over {@link AsyncResultSet} that close {@link Session} when {@link AsyncResultSet} is closed.
+ * Wrapper over {@link AsyncResultSet} for criteria queries.
+ * <ul>
+ * <li>Close {@link Session} when wrapped {@link AsyncResultSet} is closed</li>
+ * <li>Map objects contained by wrapped result set to target value</li>
+ * </ul>
  */
-public class ClosableSessionAsyncResultSet<T> implements AsyncResultSet<T> {
-    /** Session instance. */
+public class QueryCriteriaAsyncResultSet<T, R> implements AsyncResultSet<T> {
     private final Session session;
 
-    /** Wrapped async result set. */
-    private final AsyncResultSet<T> ars;
+    @Nullable
+    private final Function<R, T> mapper;
+
+    private final AsyncResultSet<R> ars;
 
     /**
      * Constructor.
      *
      * @param session Session instance.
+     * @param mapper Mapper.
      * @param ars Asynchronous result set.
      */
-    public ClosableSessionAsyncResultSet(Session session, AsyncResultSet<? extends T> ars) {
+    public QueryCriteriaAsyncResultSet(Session session, @Nullable Function<R, T> mapper, AsyncResultSet<R> ars) {
         this.session = session;
-        this.ars = (AsyncResultSet<T>) ars;
+        this.mapper = mapper;
+        this.ars = ars;
     }
 
     /** {@inheritDoc} */
     @Override
     public Iterable<T> currentPage() {
-        return ars.currentPage();
+        return mapIterable(ars.currentPage(), mapper, null);
     }
 
     /** {@inheritDoc} */
@@ -59,7 +69,8 @@ public class ClosableSessionAsyncResultSet<T> implements AsyncResultSet<T> {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<? extends AsyncResultSet<T>> fetchNextPage() {
-        return ars.fetchNextPage();
+        return ars.fetchNextPage()
+                .thenApply((rs) -> new QueryCriteriaAsyncResultSet<>(session, mapper, rs));
     }
 
     /** {@inheritDoc} */

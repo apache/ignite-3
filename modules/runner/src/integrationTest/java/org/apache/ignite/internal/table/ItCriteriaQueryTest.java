@@ -21,7 +21,9 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeN
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.table.criteria.CriteriaBuilder.columnName;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.aMapWithSize;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.hasEntry;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.hasProperty;
 import static org.hamcrest.Matchers.hasSize;
@@ -30,7 +32,10 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.InitParameters;
@@ -40,6 +45,7 @@ import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.sql.ClosableCursor;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
@@ -148,6 +154,22 @@ public class ItCriteriaQueryTest extends BaseIgniteAbstractTest {
         assertThat(res, not(hasItem(hasProperty(COLUMN_KEY, equalTo(2)))));
     }
 
+    @Test
+    public void testBasicQueryCriteriaKeyValueBinaryView() {
+        var view = node.tables().table(TABLE_NAME).keyValueView();
+
+        var res = toMap(view.queryCriteria(null, null));
+        assertThat(res, aMapWithSize(15));
+
+        res = toMap(view.queryCriteria(null, columnName(COLUMN_KEY).equal(2)));
+        assertThat(res, aMapWithSize(1));
+        assertThat(res, hasEntry(tupleValue(COLUMN_KEY, equalTo(2)), tupleValue("valInt", equalTo(2))));
+
+        res = toMap(view.queryCriteria(null, Criteria.not(Criteria.equal(COLUMN_KEY, 2))));
+        assertThat(res, aMapWithSize(14));
+        assertThat(res, not(hasEntry(tupleValue(COLUMN_KEY, equalTo(2)), tupleValue("valInt", equalTo(2)))));
+    }
+
     private static void startTable(Ignite node, String tableName) {
         try (Session session = node.sql().createSession()) {
             session.execute(
@@ -177,12 +199,6 @@ public class ItCriteriaQueryTest extends BaseIgniteAbstractTest {
         }
     }
 
-    /**
-     * Creates a matcher for matching tuple value.
-     *
-     * @param valueMatcher Matcher for matching tuple value.
-     * @return Matcher for matching tuple value.
-     */
     private static <T> Matcher<Tuple> tupleValue(String columnName, Matcher<T> valueMatcher) {
         return new FeatureMatcher<>(valueMatcher, "A tuple with value", "value") {
             @Override
@@ -190,6 +206,10 @@ public class ItCriteriaQueryTest extends BaseIgniteAbstractTest {
                 return actual.value(columnName);
             }
         };
+    }
+
+    private static <K, V> Map<K, V> toMap(ClosableCursor<Entry<K, V>> cursor) {
+        return cursor.stream().collect(Collectors.toMap(Entry::getKey, Entry::getValue));
     }
 
     /**

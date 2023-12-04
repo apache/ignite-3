@@ -52,9 +52,6 @@ import org.jetbrains.annotations.Nullable;
  * Record view implementation.
  */
 public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R> {
-    /** Record class mapper. */
-    private final Mapper<R> mapper;
-
     /** Marshaller factory. */
     private final Function<SchemaDescriptor, RecordMarshaller<R>> marshallerFactory;
 
@@ -72,7 +69,6 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
     public RecordViewImpl(InternalTable tbl, SchemaRegistry schemaRegistry, SchemaVersions schemaVersions, Mapper<R> mapper) {
         super(tbl, schemaVersions, schemaRegistry);
 
-        this.mapper = mapper;
         marshallerFactory = (schema) -> new RecordMarshallerImpl<>(schema, mapper);
     }
 
@@ -541,8 +537,10 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
         var statement = tbl.sql().statementBuilder().query(sqlSer.toString()).pageSize(opts.pageSize()).build();
         var session = tbl.sql().createSession();
 
-        return session.executeAsync(tx, mapper, statement, sqlSer.getArguments())
-                .thenApply(resultSet -> new ClosableSessionAsyncResultSet<>(session, resultSet));
+        // TODO: Append POJO mapper.
+
+        return session.executeAsync(tx, statement, sqlSer.getArguments())
+                .thenApply(resultSet -> new QueryCriteriaAsyncResultSet<>(session, null, resultSet));
     }
 
     /** {@inheritDoc} */

@@ -457,7 +457,7 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
         var session = tbl.sql().createSession();
 
         return session.executeAsync(tx, statement, ser.getArguments())
-                .thenApply(resultSet -> new ClosableSessionAsyncResultSet<>(session, resultSet));
+                .thenApply(resultSet -> new QueryCriteriaAsyncResultSet<>(session, null, resultSet));
     }
 
     /** {@inheritDoc} */
