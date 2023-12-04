@@ -19,10 +19,13 @@ package org.apache.ignite.internal.sql.engine.prepare;
 
 import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFIG;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
+import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.sameInstance;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 
@@ -39,6 +42,7 @@ import org.apache.ignite.internal.sql.engine.prepare.ddl.DdlSqlToCommandConverte
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
+import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
 import org.apache.ignite.internal.sql.engine.sql.ParserServiceImpl;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
@@ -47,6 +51,7 @@ import org.apache.ignite.internal.sql.engine.util.cache.CaffeineCacheFactory;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypes;
+import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.AfterEach;
@@ -114,25 +119,84 @@ class PrepareServiceImplTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void parameterTypesForStatement() {
+    void prepareReturnsQueryPlanThatDependsOnParameterTypeMatchInferred() {
         PrepareService service = createPlannerService();
 
-        ParameterMetadata parameterMetadata = await(service.parameterTypesAsync(
+        QueryPlan queryPlan1 = await(service.prepareAsync(
                 parse("SELECT * FROM t WHERE a = ? and c = ?"),
                 createContext(DynamicParameterValue.noValue(), DynamicParameterValue.value(1))
         ));
 
-        List<ColumnType> parameterTypes = parameterMetadata.parameterTypes()
+        List<ColumnType> parameterTypes = queryPlan1.parameterMetadata().parameterTypes()
                 .stream()
                 .map(ParameterType::columnType)
                 .collect(Collectors.toList());
 
         assertEquals(List.of(ColumnType.INT64, ColumnType.INT32), parameterTypes);
+
+        // Parameter types match, we should return plan1.
+        QueryPlan queryPlan2 = await(service.prepareAsync(
+                parse("SELECT * FROM t WHERE a = ? and c = ?"),
+                createContext(DynamicParameterValue.value(1L), DynamicParameterValue.value(1))
+        ));
+        assertSame(queryPlan1, queryPlan2);
+
+        // Parameter types do not match
+        QueryPlan queryPlan3 = await(service.prepareAsync(
+                parse("SELECT * FROM t WHERE a = ? and c = ?"),
+                createContext(DynamicParameterValue.value(1), DynamicParameterValue.value(1L))
+        ));
+        assertNotSame(queryPlan1, queryPlan3);
+    }
+
+    @Test
+    void prepareReturnsDmlPlanThatDependsOnParameterTypeMatchInferred() {
+        PrepareService service = createPlannerService();
+
+        QueryPlan queryPlan1 = await(service.prepareAsync(
+                parse("UPDATE t SET a = ? WHERE c = ?"),
+                createContext(DynamicParameterValue.noValue(), DynamicParameterValue.value(1))
+        ));
+
+        List<ColumnType> parameterTypes = queryPlan1.parameterMetadata().parameterTypes()
+                .stream()
+                .map(ParameterType::columnType)
+                .collect(Collectors.toList());
+
+        assertEquals(List.of(ColumnType.INT64, ColumnType.INT32), parameterTypes);
+
+        // Parameter types match, we should return plan1.
+        QueryPlan queryPlan2 = await(service.prepareAsync(
+                parse("UPDATE t SET a = ? WHERE c = ?"),
+                createContext(DynamicParameterValue.value(1L), DynamicParameterValue.value(1))
+        ));
+        assertSame(queryPlan1, queryPlan2);
+
+        // Parameter types do not match
+        QueryPlan queryPlan3 = await(service.prepareAsync(
+                parse("UPDATE t SET a = ? WHERE c = ?"),
+                createContext(DynamicParameterValue.value(1), DynamicParameterValue.value(1L))
+        ));
+        assertNotSame(queryPlan1, queryPlan3);
+    }
+
+    @Test
+    void preparePropagatesValidationError() {
+        PrepareService service = createPlannerService();
+
+        assertThrowsSqlException(Sql.STMT_VALIDATION_ERR,
+                "Ambiguous operator <UNKNOWN> + <UNKNOWN>. Dynamic parameter requires adding explicit type cast",
+                () -> {
+                    ParsedResult parsedResult = parse("SELECT ? + ?");
+                    BaseQueryContext context = createContext(DynamicParameterValue.noValue(), DynamicParameterValue.noValue());
+                    await(service.prepareAsync(parsedResult, context));
+                }
+        );
     }
 
     @ParameterizedTest
     @MethodSource("parameterTypes")
-    public void parameterTypesForStatementAllTypes(NativeType nativeType, int precision, int scale) {
+    public void prepareParamInPredicateAllTypes(NativeType nativeType, int precision, int scale) {
         IgniteTable table = TestBuilders.table()
                 .name("T")
                 .addColumn("C", nativeType)
@@ -142,12 +206,14 @@ class PrepareServiceImplTest extends BaseIgniteAbstractTest {
         PrepareService service = createPlannerService();
 
         IgniteSchema schema = new IgniteSchema("PUBLIC", 0, List.of(table));
-        ParameterMetadata parameterMetadata = await(service.parameterTypesAsync(
+        Object paramValue = SqlTestUtils.generateValueByType(nativeType.spec().asColumnType());
+
+        QueryPlan queryPlan = await(service.prepareAsync(
                 parse("SELECT * FROM t WHERE c = ?"),
-                createContext(schema, DynamicParameterValue.noValue())
+                createContext(schema, DynamicParameterValue.value(paramValue))
         ));
 
-        ParameterType parameterType = parameterMetadata.parameterTypes().get(0);
+        ParameterType parameterType = queryPlan.parameterMetadata().parameterTypes().get(0);
 
         ColumnType columnType = nativeType.spec().asColumnType();
         assertEquals(columnType, parameterType.columnType(), "Column type does not match: " + parameterType);
@@ -168,14 +234,14 @@ class PrepareServiceImplTest extends BaseIgniteAbstractTest {
                 Arguments.of(NativeTypes.INT64, noPrecision, noScale),
                 Arguments.of(NativeTypes.FLOAT, noPrecision, noScale),
                 Arguments.of(NativeTypes.DOUBLE, noPrecision, noScale),
-                Arguments.of(NativeTypes.decimalOf(10, 2), 10, 2),
-                Arguments.of(NativeTypes.stringOf(42), 42, noScale),
-                Arguments.of(NativeTypes.blobOf(42), 42, noScale),
+                Arguments.of(NativeTypes.decimalOf(10, 2), Short.MAX_VALUE, 0),
+                Arguments.of(NativeTypes.stringOf(42), -1, noScale),
+                Arguments.of(NativeTypes.blobOf(42), -1, noScale),
                 Arguments.of(NativeTypes.UUID, noPrecision, noScale),
                 Arguments.of(NativeTypes.DATE, noPrecision, noScale),
-                Arguments.of(NativeTypes.time(2), 2, noScale),
-                Arguments.of(NativeTypes.datetime(2), 2, noScale),
-                Arguments.of(NativeTypes.timestamp(2), 2, noScale)
+                Arguments.of(NativeTypes.time(2), 0, noScale),
+                Arguments.of(NativeTypes.datetime(2), 6, noScale),
+                Arguments.of(NativeTypes.timestamp(2), 6, noScale)
         );
     }
 

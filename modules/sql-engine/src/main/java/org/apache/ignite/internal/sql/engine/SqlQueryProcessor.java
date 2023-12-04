@@ -109,6 +109,7 @@ import org.apache.ignite.internal.systemview.api.SystemViewManager;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.ErrorGroups.Sql;
@@ -408,14 +409,14 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<ParameterMetadata> parametersAsync(SqlProperties properties, String qry) {
+    public CompletableFuture<ParameterMetadata> prepareSingleAsync(SqlProperties properties, String qry) {
 
         if (!busyLock.enterBusy()) {
             throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
         }
 
         try {
-            return parametersAsync0(properties, qry);
+            return prepareSingleAsync0(properties, qry);
         } finally {
             busyLock.leaveBusy();
         }
@@ -467,7 +468,7 @@ public class SqlQueryProcessor implements QueryProcessor {
         return service;
     }
 
-    private CompletableFuture<ParameterMetadata> parametersAsync0(
+    private CompletableFuture<ParameterMetadata> prepareSingleAsync0(
             SqlProperties properties,
             String sql
     ) {
@@ -485,7 +486,8 @@ public class SqlQueryProcessor implements QueryProcessor {
 
             HybridTimestamp timestamp = clock.now();
 
-            return executeGetParameters(schemaName, result, timestamp, queryCancel);
+            return prepareParsedStatement(schemaName, result, timestamp, queryCancel, ArrayUtils.OBJECT_EMPTY_ARRAY)
+                    .thenApply(QueryPlan::parameterMetadata);
         });
 
         // TODO IGNITE-20078 Improve (or remove) CancellationException handling.
@@ -563,25 +565,25 @@ public class SqlQueryProcessor implements QueryProcessor {
         return parseFut;
     }
 
-    private CompletableFuture<ParameterMetadata> executeGetParameters(String schemaName,
+    private CompletableFuture<QueryPlan> prepareParsedStatement(String schemaName,
             ParsedResult parsedResult,
             HybridTimestamp timestamp,
-            QueryCancel queryCancel) {
+            QueryCancel queryCancel,
+            Object[] params) {
 
-        return waitForActualSchema(schemaName, timestamp).thenCompose(schema -> {
-            // Fill in unspecified parameters.
-            DynamicParameterValue[] params = new DynamicParameterValue[parsedResult.dynamicParamsCount()];
-            Arrays.fill(params, DynamicParameterValue.noValue());
+        return waitForActualSchema(schemaName, timestamp)
+                .thenCompose(schema -> {
+                    DynamicParameterValue[] dynamicParams = DynamicParameterValue.fromValues(params);
 
-            BaseQueryContext ctx = BaseQueryContext.builder()
-                    .frameworkConfig(Frameworks.newConfigBuilder(FRAMEWORK_CONFIG).defaultSchema(schema).build())
-                    .queryId(UUID.randomUUID())
-                    .cancel(queryCancel)
-                    .parameters(params)
-                    .build();
+                    BaseQueryContext ctx = BaseQueryContext.builder()
+                            .frameworkConfig(Frameworks.newConfigBuilder(FRAMEWORK_CONFIG).defaultSchema(schema).build())
+                            .queryId(UUID.randomUUID())
+                            .cancel(queryCancel)
+                            .parameters(dynamicParams)
+                            .build();
 
-            return prepareSvc.parameterTypesAsync(parsedResult, ctx);
-        });
+                    return prepareSvc.prepareAsync(parsedResult, ctx);
+                });
     }
 
     private CompletableFuture<AsyncSqlCursor<List<Object>>> executeParsedStatement(

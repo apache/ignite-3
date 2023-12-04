@@ -272,7 +272,7 @@ public class QueryCheckerTest extends BaseIgniteAbstractTest {
         }
 
         @Override
-        public CompletableFuture<ParameterMetadata> parametersAsync(SqlProperties properties, String qry) {
+        public CompletableFuture<ParameterMetadata> prepareSingleAsync(SqlProperties properties, String qry) {
             throw new UnsupportedOperationException();
         }
 

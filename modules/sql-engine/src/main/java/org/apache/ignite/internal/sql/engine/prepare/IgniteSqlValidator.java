@@ -31,6 +31,7 @@ import java.util.AbstractList;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.EnumSet;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.List;
@@ -126,8 +127,8 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         HUMAN_READABLE_ALIASES_FOR = Collections.unmodifiableSet(kinds);
     }
 
-    /** Dynamic parameters. */
-    private final DynamicParamState[] dynamicParameters;
+    /** Dynamic parameters state. */
+    private final Map<Integer, DynamicParamState> dynamicParameters;
 
     /**
      * The same dynamic parameter can be used in the same SQL tree multiple types after a rewrite.
@@ -152,10 +153,10 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
             IgniteTypeFactory typeFactory, SqlValidator.Config config, DynamicParameterValue[] parameters) {
         super(opTab, catalogReader, typeFactory, config);
 
-        this.dynamicParameters = new DynamicParamState[parameters.length];
+        this.dynamicParameters = new HashMap<>();
         for (int i = 0; i < parameters.length; i++) {
             DynamicParameterValue value = parameters[i];
-            dynamicParameters[i] = new DynamicParamState(value);
+            dynamicParameters.put(i, new DynamicParamState(value));
         }
     }
 
@@ -1030,7 +1031,7 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
     @Nullable
     private Object getDynamicParamValue(SqlDynamicParam dynamicParam) {
         int index = dynamicParam.getIndex();
-        DynamicParamState paramState = dynamicParameters[index];
+        DynamicParamState paramState = dynamicParameters.computeIfAbsent(index, (i) -> new DynamicParamState());
         DynamicParameterValue value = paramState.value;
         if (!value.hasValue()) {
             throw new IllegalArgumentException(format("Value of dynamic parameter#{} is not specified", index));
@@ -1040,8 +1041,8 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
     }
 
     private void validateInferredDynamicParameters() {
-        for (int i = 0; i < dynamicParameters.length; i++) {
-            DynamicParamState paramState = dynamicParameters[i];
+        for (int i = 0; i < dynamicParameters.size(); i++) {
+            DynamicParamState paramState = dynamicParameters.get(i);
 
             if (paramState.resolvedType == null || paramState.node == null) {
                 throw new AssertionError("Dynamic parameter has not been validated: " + i);
@@ -1053,7 +1054,7 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         // Ensure that all nodes for i-th parameter have the same type.
         for (SqlDynamicParam node : dynamicParamNodes.keySet()) {
             int i = node.getIndex();
-            DynamicParamState state = dynamicParameters[i];
+            DynamicParamState state = dynamicParameters.get(i);
 
             if (!state.value.hasValue()) {
                 continue;
@@ -1087,7 +1088,7 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
 
     private void setDynamicParamResolvedType(SqlDynamicParam param, RelDataType type) {
         int index = param.getIndex();
-        DynamicParamState state = dynamicParameters[index];
+        DynamicParamState state = dynamicParameters.computeIfAbsent(index, (i) -> new DynamicParamState());
 
         state.node = param;
         state.resolvedType = type;
@@ -1095,8 +1096,15 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
 
     /** Returns {@code true} if the given dynamic parameter has no value set. */
     public boolean isUnspecified(SqlDynamicParam param) {
-        DynamicParameterValue value = dynamicParameters[param.getIndex()].value;
-        return !value.hasValue();
+        if (dynamicParameters.isEmpty()) {
+            return true;
+        } else {
+            int index = param.getIndex();
+            DynamicParamState state = dynamicParameters.computeIfAbsent(index, (i) -> new DynamicParamState());
+
+            DynamicParameterValue value = state.value;
+            return !value.hasValue();
+        }
     }
 
     /** Returns {@code true} if the given node is dynamic parameter that has no value set. */
@@ -1127,6 +1135,10 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
 
         private DynamicParamState(DynamicParameterValue value) {
             this.value = value;
+        }
+
+        private DynamicParamState() {
+            this.value = DynamicParameterValue.noValue();
         }
 
         /** {@inheritDoc} */

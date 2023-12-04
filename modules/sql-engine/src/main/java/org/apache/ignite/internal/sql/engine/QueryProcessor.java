@@ -42,7 +42,7 @@ public interface QueryProcessor extends IgniteComponent {
      * @throws IgniteException in case of an error.
      * @see QueryProperty
      */
-    CompletableFuture<ParameterMetadata> parametersAsync(SqlProperties properties, String qry);
+    CompletableFuture<ParameterMetadata> prepareSingleAsync(SqlProperties properties, String qry);
 
     /**
      * Execute the single statement query with given schema name and parameters.

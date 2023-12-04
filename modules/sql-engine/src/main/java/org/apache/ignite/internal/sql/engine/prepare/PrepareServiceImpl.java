@@ -189,41 +189,6 @@ public class PrepareServiceImpl implements PrepareService {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<ParameterMetadata> parameterTypesAsync(ParsedResult parsedResult, BaseQueryContext ctx) {
-        PlanningContext planningContext = PlanningContext.builder()
-                .parentContext(ctx)
-                .query(parsedResult.originalQuery())
-                .plannerTimeout(plannerTimeout)
-                .build();
-
-        try (IgnitePlanner planner = planningContext.planner()) {
-            SqlNode sqlNode = parsedResult.parsedTree();
-
-            switch (parsedResult.queryType()) {
-                case QUERY:
-                case DDL:
-                case DML:
-                case EXPLAIN:
-                    return CompletableFuture.supplyAsync(() -> {
-                        // Validate
-                        planner.validate(sqlNode);
-
-                        // Get parameters of previously validated node.
-                        RelDataType parameterRowType = planner.getParameterRowType();
-
-                        return createParameterMetadata(parameterRowType);
-                    }, planningPool);
-                default:
-                    throw new AssertionError("Unexpected queryType=" + parsedResult.queryType());
-            }
-
-        } catch (Exception e) {
-            return CompletableFuture.failedFuture(SqlExceptionMapperUtil.mapToPublicSqlException(e));
-        }
-    }
-
-    /** {@inheritDoc} */
-    @Override
     public CompletableFuture<QueryPlan> prepareAsync(ParsedResult parsedResult, BaseQueryContext ctx) {
         CompletableFuture<QueryPlan> result;
 
@@ -310,7 +275,7 @@ public class PrepareServiceImpl implements PrepareService {
         return result.thenApply(plan -> {
             assert plan instanceof MultiStepPlan : plan == null ? "<null>" : plan.getClass().getCanonicalName();
 
-            return new ExplainPlan(nextPlanId(), (MultiStepPlan) plan);
+            return new ExplainPlan(nextPlanId(), (MultiStepPlan) plan, plan.parameterMetadata());
         });
     }
 
@@ -319,9 +284,11 @@ public class PrepareServiceImpl implements PrepareService {
     }
 
     private CompletableFuture<QueryPlan> prepareQuery(ParsedResult parsedResult, PlanningContext ctx) {
-        CacheKey key = createCacheKey(parsedResult, ctx);
+        // First validate statement
 
-        CompletableFuture<QueryPlan> planFut = cache.get(key, k -> CompletableFuture.supplyAsync(() -> {
+
+
+        CompletableFuture<ValidStatement<ValidationResult>> validFut = CompletableFuture.supplyAsync(() -> {
             IgnitePlanner planner = ctx.planner();
 
             SqlNode sqlNode = parsedResult.parsedTree();
@@ -331,20 +298,38 @@ public class PrepareServiceImpl implements PrepareService {
             // Validate
             ValidationResult validated = planner.validateAndGetTypeMetadata(sqlNode);
 
-            SqlNode validatedNode = validated.sqlNode();
+            // Get parameter metadata.
+            RelDataType parameterRowType = planner.getParameterRowType();
+            ParameterMetadata parameterMetadata = createParameterMetadata(parameterRowType);
 
-            IgniteRel igniteRel = optimize(validatedNode, planner);
+            return new ValidStatement<>(parsedResult, validated, parameterMetadata);
+        }, planningPool);
 
-            // cluster keeps a lot of cached stuff that won't be used anymore.
-            // In order let GC collect that, let's reattach tree to an empty cluster
-            // before storing tree in plan cache
-            IgniteRel clonedTree = Cloner.clone(igniteRel, Commons.emptyCluster());
+        return validFut.thenCompose(stmt -> {
+            // Use types of inferred parameters to compute key cache.
+            CacheKey key = stmt.createCacheKey(ctx);
 
-            return new MultiStepPlan(nextPlanId(), SqlQueryType.QUERY, clonedTree,
-                    resultSetMetadata(validated.dataType(), validated.origins(), validated.aliases()));
-        }, planningPool));
+            CompletableFuture<QueryPlan> planFut = cache.get(key, k -> CompletableFuture.supplyAsync(() -> {
+                IgnitePlanner planner = ctx.planner();
 
-        return planFut.thenApply(Function.identity());
+                ValidationResult validated = stmt.value;
+                ParameterMetadata parameterMetadata = stmt.parameterMetadata;
+
+                SqlNode validatedNode = validated.sqlNode();
+
+                IgniteRel igniteRel = optimize(validatedNode, planner);
+
+                // cluster keeps a lot of cached stuff that won't be used anymore.
+                // In order let GC collect that, let's reattach tree to an empty cluster
+                // before storing tree in plan cache
+                IgniteRel clonedTree = Cloner.clone(igniteRel, Commons.emptyCluster());
+
+                ResultSetMetadata resultSetMetadata = resultSetMetadata(validated.dataType(), validated.origins(), validated.aliases());
+                return new MultiStepPlan(nextPlanId(), SqlQueryType.QUERY, clonedTree, resultSetMetadata, parameterMetadata);
+            }, planningPool));
+
+            return planFut.thenApply(Function.identity());
+        });
     }
 
     private PlanId nextPlanId() {
@@ -352,9 +337,7 @@ public class PrepareServiceImpl implements PrepareService {
     }
 
     private CompletableFuture<QueryPlan> prepareDml(ParsedResult parsedResult, PlanningContext ctx) {
-        var key = createCacheKey(parsedResult, ctx);
-
-        CompletableFuture<QueryPlan> planFut = cache.get(key, k -> CompletableFuture.supplyAsync(() -> {
+        CompletableFuture<ValidStatement<SqlNode>> validFut = CompletableFuture.supplyAsync(() -> {
             IgnitePlanner planner = ctx.planner();
 
             SqlNode sqlNode = parsedResult.parsedTree();
@@ -364,18 +347,35 @@ public class PrepareServiceImpl implements PrepareService {
             // Validate
             SqlNode validatedNode = planner.validate(sqlNode);
 
-            // Convert to Relational operators graph
-            IgniteRel igniteRel = optimize(validatedNode, planner);
+            // Get parameter metadata.
+            RelDataType parameterRowType = planner.getParameterRowType();
+            ParameterMetadata parameterMetadata = createParameterMetadata(parameterRowType);
 
-            // cluster keeps a lot of cached stuff that won't be used anymore.
-            // In order let GC collect that, let's reattach tree to an empty cluster
-            // before storing tree in plan cache
-            IgniteRel clonedTree = Cloner.clone(igniteRel, Commons.emptyCluster());
+            return new ValidStatement<>(parsedResult, validatedNode, parameterMetadata);
+        }, planningPool);
 
-            return new MultiStepPlan(nextPlanId(), SqlQueryType.DML, clonedTree, DML_METADATA);
-        }, planningPool));
+        return validFut.thenCompose(stmt -> {
+            var key = stmt.createCacheKey(ctx);
 
-        return planFut.thenApply(Function.identity());
+            CompletableFuture<QueryPlan> planFut = cache.get(key, k -> CompletableFuture.supplyAsync(() -> {
+                IgnitePlanner planner = ctx.planner();
+
+                SqlNode validatedNode = stmt.value;
+                ParameterMetadata parameterMetadata = stmt.parameterMetadata;
+
+                // Convert to Relational operators graph
+                IgniteRel igniteRel = optimize(validatedNode, planner);
+
+                // cluster keeps a lot of cached stuff that won't be used anymore.
+                // In order let GC collect that, let's reattach tree to an empty cluster
+                // before storing tree in plan cache
+                IgniteRel clonedTree = Cloner.clone(igniteRel, Commons.emptyCluster());
+
+                return new MultiStepPlan(nextPlanId(), SqlQueryType.DML, clonedTree, DML_METADATA, parameterMetadata);
+            }, planningPool));
+
+            return planFut.thenApply(Function.identity());
+        });
     }
 
     private static CacheKey createCacheKey(ParsedResult parsedResult, PlanningContext ctx) {
@@ -497,6 +497,39 @@ public class PrepareServiceImpl implements PrepareService {
         @Override
         public SqlNode parsedTree() {
             return parsedTree;
+        }
+    }
+
+    private static class ValidStatement<T> {
+        final ParsedResult parsedResult;
+        final T value;
+        final ParameterMetadata parameterMetadata;
+
+        private ValidStatement(ParsedResult parsedResult, T value, ParameterMetadata parameterMetadata) {
+            this.parsedResult = parsedResult;
+            this.value = value;
+            this.parameterMetadata = parameterMetadata;
+        }
+
+        CacheKey createCacheKey(PlanningContext ctx) {
+            boolean distributed = distributionPresent(ctx.config().getTraitDefs());
+            int catalogVersion = ctx.unwrap(BaseQueryContext.class).schemaVersion();
+            DynamicParameterValue[] parameters = ctx.parameters();
+            Object[] paramTypes;
+
+            if (parameterMetadata.parameterTypes().isEmpty()) {
+                paramTypes = EMPTY_CLASS_ARRAY;
+            } else {
+                Object[] result = new Object[parameters.length];
+
+                for (int i = 0; i < parameters.length; i++) {
+                    result[i] = parameterMetadata.parameterTypes().get(i).columnType();
+                }
+
+                paramTypes = result;
+            }
+
+            return new CacheKey(catalogVersion, ctx.schemaName(), parsedResult.normalizedQuery(), distributed, paramTypes);
         }
     }
 }

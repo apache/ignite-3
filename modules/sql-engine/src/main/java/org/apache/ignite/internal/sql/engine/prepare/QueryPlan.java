@@ -39,4 +39,9 @@ public interface QueryPlan {
      * Get fields metadata.
      */
     ResultSetMetadata metadata();
+
+    /**
+     * Returns parameters metadata.
+     */
+    ParameterMetadata parameterMetadata();
 }

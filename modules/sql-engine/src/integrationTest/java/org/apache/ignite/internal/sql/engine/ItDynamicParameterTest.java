@@ -294,7 +294,7 @@ public class ItDynamicParameterTest extends BaseSqlIntegrationTest {
     @ParameterizedTest
     @MethodSource("statementsWithParameters")
     public void testGetParameterTypesSingleStatement(String stmt, List<ColumnType> expectedTypes) {
-        ParameterMetadata parameterTypes = getParameterTypes(stmt);
+        ParameterMetadata parameterTypes = getParameterMetadata(stmt);
 
         List<ColumnType> columnTypes = parameterTypes.parameterTypes()
                 .stream()
@@ -328,7 +328,7 @@ public class ItDynamicParameterTest extends BaseSqlIntegrationTest {
 
         log.info("SELECT from column names: {}", stmt);
 
-        ParameterMetadata parameterTypes = getParameterTypes(stmt.toString());
+        ParameterMetadata parameterTypes = getParameterMetadata(stmt.toString());
 
         List<NativeType> actualTypes = parameterTypes.parameterTypes().stream()
                 .map(p -> TypeUtils.columnType2NativeType(p.columnType(), p.precision(), p.scale(), p.precision()))
@@ -349,7 +349,7 @@ public class ItDynamicParameterTest extends BaseSqlIntegrationTest {
 
         log.info("INSERT from column names: {}", stmt);
 
-        ParameterMetadata parameterTypes = getParameterTypes(stmt.toString());
+        ParameterMetadata parameterTypes = getParameterMetadata(stmt.toString());
 
         List<NativeType> actualTypes = parameterTypes.parameterTypes().stream()
                 .map(p -> TypeUtils.columnType2NativeType(p.columnType(), p.precision(), p.scale(), p.precision()))
@@ -376,7 +376,7 @@ public class ItDynamicParameterTest extends BaseSqlIntegrationTest {
 
         log.info("UPDATE from column names: {}", stmt);
 
-        ParameterMetadata parameterTypes = getParameterTypes(stmt.toString());
+        ParameterMetadata parameterTypes = getParameterMetadata(stmt.toString());
 
         List<NativeType> actualTypes = parameterTypes.parameterTypes().stream()
                 .map(p -> TypeUtils.columnType2NativeType(p.columnType(), p.precision(), p.scale(), p.precision()))
@@ -439,9 +439,9 @@ public class ItDynamicParameterTest extends BaseSqlIntegrationTest {
                 () -> assertQuery(query).withParams(params).check());
     }
 
-    private ParameterMetadata getParameterTypes(String query) {
+    private ParameterMetadata getParameterMetadata(String query) {
         QueryProcessor qryProc = queryProcessor();
         SqlProperties properties = SqlPropertiesHelper.emptyProperties();
-        return await(qryProc.parametersAsync(properties, query));
+        return await(qryProc.prepareSingleAsync(properties, query));
     }
 }

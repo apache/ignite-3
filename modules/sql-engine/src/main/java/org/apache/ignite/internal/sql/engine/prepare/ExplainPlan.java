@@ -36,10 +36,12 @@ public class ExplainPlan implements QueryPlan {
 
     private final PlanId id;
     private final MultiStepPlan plan;
+    private final ParameterMetadata parameterMetadata;
 
-    ExplainPlan(PlanId id, MultiStepPlan plan) {
+    ExplainPlan(PlanId id, MultiStepPlan plan, ParameterMetadata parameterMetadata) {
         this.id = id;
         this.plan = plan;
+        this.parameterMetadata = parameterMetadata;
     }
 
     /** {@inheritDoc} */
@@ -58,6 +60,12 @@ public class ExplainPlan implements QueryPlan {
     @Override
     public ResultSetMetadata metadata() {
         return EXPLAIN_METADATA;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public ParameterMetadata parameterMetadata() {
+        return parameterMetadata;
     }
 
     public MultiStepPlan plan() {
