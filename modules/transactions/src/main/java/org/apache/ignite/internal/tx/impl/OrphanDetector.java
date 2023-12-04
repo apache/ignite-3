@@ -17,10 +17,10 @@
 
 package org.apache.ignite.internal.tx.impl;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.tx.TxState.isFinalState;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -159,7 +159,7 @@ public class OrphanDetector {
                 || txState.txState() == TxState.ABANDONED
                 || isFinalState(txState.txState())
                 || topologyService.getById(txState.txCoordinatorId()) != null) {
-            return completedFuture(null);
+            return nullCompletedFuture();
         }
 
         LOG.info(
@@ -184,7 +184,7 @@ public class OrphanDetector {
                         txId
                 );
 
-                return completedFuture(null);
+                return nullCompletedFuture();
             }
 
             return replicaService.invoke(commitPartPrimaryNode, FACTORY.txRecoveryMessage()

@@ -17,13 +17,14 @@
 
 package org.apache.ignite.internal.index;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsIndexScan;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -267,10 +268,10 @@ public class ItBuildIndexOneNodeTest extends BaseSqlIntegrationTest {
                 if (indexName.equals(index.name())) {
                     future.complete(null);
 
-                    return completedFuture(true);
+                    return trueCompletedFuture();
                 }
 
-                return completedFuture(false);
+                return falseCompletedFuture();
             } catch (Throwable t) {
                 future.completeExceptionally(t);
 

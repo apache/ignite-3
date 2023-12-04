@@ -18,11 +18,11 @@
 package org.apache.ignite.internal.network.file;
 
 import static java.util.concurrent.CompletableFuture.allOf;
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static org.apache.ignite.internal.network.file.Channel.FILE_TRANSFER_CHANNEL;
 import static org.apache.ignite.internal.network.file.messages.FileTransferError.toException;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.io.IOException;
 import java.nio.file.Path;
@@ -160,7 +160,7 @@ class FileSender {
                             return processTransferWithNextAsync(nextTransfer);
                         } else {
                             rateLimiter.release();
-                            return completedFuture(null);
+                            return nullCompletedFuture();
                         }
                     }
                 }, executorService);
@@ -195,7 +195,7 @@ class FileSender {
      */
     private CompletableFuture<Void> sendFile(String receiverConsistentId, UUID id, Path path, AtomicBoolean shouldBeCancelled) {
         if (path.toFile().length() == 0) {
-            return completedFuture(null);
+            return nullCompletedFuture();
         } else {
             return supplyAsync(() -> {
                 try {
@@ -242,7 +242,7 @@ class FileSender {
                                 executorService
                         );
             } else {
-                return completedFuture(null);
+                return nullCompletedFuture();
             }
         } catch (IOException e) {
             return failedFuture(e);

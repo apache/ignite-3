@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.table.distributed.schema;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -29,6 +29,6 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 public class AlwaysSyncedSchemaSyncService implements SchemaSyncService {
     @Override
     public CompletableFuture<Void> waitForMetadataCompleteness(HybridTimestamp ts) {
-        return completedFuture(null);
+        return nullCompletedFuture();
     }
 }

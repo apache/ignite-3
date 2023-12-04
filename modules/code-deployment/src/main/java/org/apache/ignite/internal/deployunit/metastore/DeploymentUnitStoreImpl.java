@@ -25,6 +25,7 @@ import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.revision;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.noop;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
+import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 
 import java.util.List;
 import java.util.Objects;
@@ -233,13 +234,13 @@ public class DeploymentUnitStoreImpl implements DeploymentUnitStore {
                 .thenCompose(e -> {
                     byte[] value = e.value();
                     if (value == null) {
-                        return completedFuture(false);
+                        return falseCompletedFuture();
                     }
                     byte[] newValue = mapper.apply(value);
 
 
                     if (newValue == null) {
-                        return completedFuture(false);
+                        return falseCompletedFuture();
                     }
 
                     return metaStorage.invoke(

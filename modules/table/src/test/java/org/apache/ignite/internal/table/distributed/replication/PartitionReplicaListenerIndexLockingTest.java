@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.table.distributed.replicator.PartitionR
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.tx.TxState.checkTransitionCorrectness;
 import static org.apache.ignite.internal.type.NativeTypes.INT32;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.hasItem;
@@ -142,7 +143,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
         when(mockRaftClient.refreshAndGetLeaderWithTerm())
                 .thenAnswer(invocationOnMock -> completedFuture(new LeaderWithTerm(null, 1L)));
         when(mockRaftClient.run(any()))
-                .thenAnswer(invocationOnMock -> completedFuture(null));
+                .thenAnswer(invocationOnMock -> nullCompletedFuture());
 
         schemaDescriptor = new SchemaDescriptor(1, new Column[]{
                 new Column("id".toUpperCase(Locale.ROOT), INT32, false),
@@ -555,7 +556,6 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
             return type.toString();
         }
     }
-
 
     private static CatalogHashIndexDescriptor mockCatalogHashIndexDescriptor(int indexId) {
         CatalogHashIndexDescriptor indexDescriptor = mock(CatalogHashIndexDescriptor.class);
