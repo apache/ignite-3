@@ -20,6 +20,7 @@ package org.apache.ignite.internal.sql.api;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.cause;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.SESSION_CLOSED_ERR;
@@ -30,7 +31,11 @@ import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 import static org.hamcrest.Matchers.sameInstance;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrowsExactly;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.mock;
@@ -55,6 +60,7 @@ import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.sql.BatchedArguments;
 import org.apache.ignite.sql.Session.SessionBuilder;
+import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.sql.async.AsyncResultSet;
 import org.apache.ignite.tx.IgniteTransactions;
 import org.junit.jupiter.api.AfterEach;
@@ -391,26 +397,37 @@ class SessionImplTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void scriptIgnoresCloseCursorException() {
+    public void scriptRethrowsCloseCursorException() {
         AsyncSqlCursor<List<Object>> cursor1 = mock(AsyncSqlCursor.class, "cursor1");
         AsyncSqlCursor<List<Object>> cursor2 = mock(AsyncSqlCursor.class, "cursor2");
 
+        Exception cursorCloseException1 = new IllegalStateException("cursor1");
+        Exception cursorCloseException2 = new IllegalStateException("cursor2");
+        Exception lastCursorScriptException = new IllegalStateException("Script exception");
+
         when(cursor1.hasNextResult()).thenReturn(true);
         when(cursor1.nextResult()).thenReturn(completedFuture(cursor2));
-        when(cursor1.closeAsync()).thenReturn(CompletableFuture.failedFuture(new IllegalStateException("cursor1")));
+        when(cursor1.closeAsync()).thenReturn(CompletableFuture.failedFuture(cursorCloseException1));
 
-        when(cursor2.hasNextResult()).thenReturn(false);
-        when(cursor2.closeAsync()).thenReturn(CompletableFuture.failedFuture(new IllegalStateException("cursor2")));
+        when(cursor2.hasNextResult()).thenReturn(true);
+        when(cursor2.nextResult()).thenReturn(CompletableFuture.failedFuture(lastCursorScriptException));
+        when(cursor2.closeAsync()).thenReturn(CompletableFuture.failedFuture(cursorCloseException2));
 
         when(queryProcessor.queryScriptAsync(any(), any(), any(), any(), any(Object[].class)))
                 .thenReturn(completedFuture(cursor1));
 
         SessionImpl session = newSession(3);
 
-        Void rs = await(session.executeScriptAsync("SELECT 1; SELECT 2"));
+        SqlException sqlEx = assertThrowsExactly(SqlException.class, () -> await(session.executeScriptAsync("SELECT 1; SELECT 2")));
 
-        assertNull(rs);
-        assertThat(session.openedCursors(), empty());
+        Exception cause = cause(sqlEx, lastCursorScriptException.getClass(), lastCursorScriptException.getMessage());
+        assertNotNull(cause);
+
+        assertEquals(1, cause.getSuppressed().length);
+        assertSame(cursorCloseException1, cause.getSuppressed()[0]);
+
+        assertEquals(1, cause.getSuppressed()[0].getSuppressed().length);
+        assertSame(cursorCloseException2, cause.getSuppressed()[0].getSuppressed()[0]);
     }
 
     @Test
