@@ -516,7 +516,8 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         LOG.info("Orphan transaction has to be aborted [tx={}].", txId);
 
-        return triggerTxRecovery(txId);
+        return triggerTxRecovery(txId)
+                .thenApply(v -> null);
     }
 
     /**
@@ -525,7 +526,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param txId Transaction id.
      * @return Tx recovery future, or failed future if the tx recovery is not possible.
      */
-    private CompletableFuture<Void> triggerTxRecovery(UUID txId) {
+    private CompletableFuture<TransactionMeta> triggerTxRecovery(UUID txId) {
         // TODO: IGNITE-20735 Implement initiate recovery handling logic.
         return completedFuture(null);
     }
@@ -749,16 +750,9 @@ public class PartitionReplicaListener implements ReplicaListener {
                         );
                     }
 
-                    TransactionMeta txMeta = txManager.stateMeta(request.txId());
-
-                    if (txMeta == null) {
-                        txMeta = txStateStorage.get(request.txId());
-                    }
-
-                    // Don't wait for tx recovery, just trigger it if needed.
-                    triggerTxRecoveryOnTxStateResolutionIfNeeded(request.txId(), txMeta);
-
-                    return completedFuture(txMeta);
+                    // Try to trigger recovery, if needed. If the transaction will be aborted, the proper ABORTED state will be sent
+                    // in response.
+                    return triggerTxRecoveryOnTxStateResolutionIfNeeded(request.txId());
                 });
     }
 
@@ -766,10 +760,15 @@ public class PartitionReplicaListener implements ReplicaListener {
      * Checks whether tx recovery is needed with given tx meta and triggers it of needed.
      *
      * @param txId Transaction id.
-     * @param txMeta Transaction meta.
      * @return Tx recovery future, or completed future if the recovery isn't needed, or failed future if the recovery is not possible.
      */
-    private CompletableFuture<Void> triggerTxRecoveryOnTxStateResolutionIfNeeded(UUID txId, @Nullable TransactionMeta txMeta) {
+    private CompletableFuture<TransactionMeta> triggerTxRecoveryOnTxStateResolutionIfNeeded(UUID txId) {
+        TransactionMeta txMeta = txManager.stateMeta(txId);
+
+        if (txMeta == null) {
+            txMeta = txStateStorage.get(txId);
+        }
+
         if (txMeta == null) {
             // This means that primary replica for commit partition has changed, since the local node doesn't have the volatile tx state.
             // No need to wait a finish request from tx coordinator, the transaction can't be committed at all.
@@ -777,13 +776,14 @@ public class PartitionReplicaListener implements ReplicaListener {
         } else if (txMeta instanceof TxStateMeta) {
             TxStateMeta txStateMeta = (TxStateMeta) txMeta;
 
-            // Trigger tx recovery due to tx coordinator absence.
             // TODO IGNITE-20771 Proper lifeness check.
+            // Trigger tx recovery due to tx coordinator absence.
             // if (isDead(txStateMeta.txCoordinatorId()))
             return triggerTxRecovery(txId);
+            // else return completedFuture(txMeta);
         } else {
             // Recovery is not needed.
-            return completedFuture(null);
+            return completedFuture(txMeta);
         }
     }
 
