@@ -409,14 +409,14 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<ParameterMetadata> prepareSingleAsync(SqlProperties properties, String qry) {
+    public CompletableFuture<ParameterMetadata> prepareSingleAsync(SqlProperties properties, String qry, Object... params) {
 
         if (!busyLock.enterBusy()) {
             throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
         }
 
         try {
-            return prepareSingleAsync0(properties, qry);
+            return prepareSingleAsync0(properties, qry, params);
         } finally {
             busyLock.leaveBusy();
         }
@@ -470,7 +470,8 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     private CompletableFuture<ParameterMetadata> prepareSingleAsync0(
             SqlProperties properties,
-            String sql
+            String sql,
+            Object... params
     ) {
         SqlProperties properties0 = SqlPropertiesHelper.chain(properties, DEFAULT_PROPERTIES);
         String schemaName = properties0.get(QueryProperty.DEFAULT_SCHEMA);
@@ -483,10 +484,11 @@ public class SqlQueryProcessor implements QueryProcessor {
             ParsedResult result = parserService.parse(sql);
 
             validateParsedStatement(properties0, result);
+            validateDynamicParameters(result.dynamicParamsCount(), params, false);
 
             HybridTimestamp timestamp = clock.now();
 
-            return prepareParsedStatement(schemaName, result, timestamp, queryCancel, ArrayUtils.OBJECT_EMPTY_ARRAY)
+            return prepareParsedStatement(schemaName, result, timestamp, queryCancel, params)
                     .thenApply(QueryPlan::parameterMetadata);
         });
 
@@ -520,7 +522,7 @@ public class SqlQueryProcessor implements QueryProcessor {
             ParsedResult result = parserService.parse(sql);
 
             validateParsedStatement(properties0, result);
-            validateDynamicParameters(result.dynamicParamsCount(), params);
+            validateDynamicParameters(result.dynamicParamsCount(), params, true);
 
             QueryTransactionWrapper txWrapper = wrapTxOrStartImplicit(result.queryType(), transactions, explicitTransaction);
 
@@ -733,8 +735,8 @@ public class SqlQueryProcessor implements QueryProcessor {
         }
     }
 
-    private static void validateDynamicParameters(int expectedParamsCount, Object[] params) throws SqlException {
-        if (expectedParamsCount != params.length) {
+    private static void validateDynamicParameters(int expectedParamsCount, Object[] params, boolean exactMatch) throws SqlException {
+        if (exactMatch && expectedParamsCount != params.length || params.length > expectedParamsCount) {
             String message = format(
                     "Unexpected number of query parameters. Provided {} but there is only {} dynamic parameter(s).",
                     params.length, expectedParamsCount
@@ -834,7 +836,7 @@ public class SqlQueryProcessor implements QueryProcessor {
             }
 
             int paramsCount = parsedResults0.stream().mapToInt(ParsedResult::dynamicParamsCount).sum();
-            validateDynamicParameters(paramsCount, params);
+            validateDynamicParameters(paramsCount, params, true);
 
             ScriptStatementParameters[] results = new ScriptStatementParameters[parsedResults0.size()];
 

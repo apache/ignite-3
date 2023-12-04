@@ -33,16 +33,17 @@ import org.jetbrains.annotations.Nullable;
 public interface QueryProcessor extends IgniteComponent {
 
     /**
-     * Returns parameter metadata for the given statement.
+     * Returns parameter metadata for the given statement. This method uses optional array of parameters to assist with type inference.
      *
      * @param properties User query properties. See {@link QueryProperty} for available properties.
      * @param qry Single statement SQL query.
+     * @param params Query parameters.
      * @return Parameter metadata.
      *
      * @throws IgniteException in case of an error.
      * @see QueryProperty
      */
-    CompletableFuture<ParameterMetadata> prepareSingleAsync(SqlProperties properties, String qry);
+    CompletableFuture<ParameterMetadata> prepareSingleAsync(SqlProperties properties, String qry, Object... params);
 
     /**
      * Execute the single statement query with given schema name and parameters.

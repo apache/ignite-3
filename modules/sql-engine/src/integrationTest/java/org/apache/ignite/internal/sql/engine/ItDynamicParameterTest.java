@@ -293,7 +293,7 @@ public class ItDynamicParameterTest extends BaseSqlIntegrationTest {
 
     @ParameterizedTest
     @MethodSource("statementsWithParameters")
-    public void testGetParameterTypesSingleStatement(String stmt, List<ColumnType> expectedTypes) {
+    public void testGetParameterTypesSimple(String stmt, List<ColumnType> expectedTypes) {
         ParameterMetadata parameterTypes = getParameterMetadata(stmt);
 
         List<ColumnType> columnTypes = parameterTypes.parameterTypes()
@@ -309,6 +309,14 @@ public class ItDynamicParameterTest extends BaseSqlIntegrationTest {
                 arguments("SELECT CAST(? AS BIGINT)", List.of(ColumnType.INT64)),
                 arguments("SELECT val1 + ? FROM t1 WHERE id = ?", List.of(ColumnType.INT32, ColumnType.INT32))
         );
+    }
+
+    @Test
+    public void testRejectPrepareWithMoreParameters() {
+        assertThrowsSqlException(
+                Sql.STMT_VALIDATION_ERR,
+                "Unexpected number of query parameters",
+                () -> getParameterMetadata("SELECT ? + ?", 1, 2, 3));
     }
 
     @Test
@@ -439,9 +447,9 @@ public class ItDynamicParameterTest extends BaseSqlIntegrationTest {
                 () -> assertQuery(query).withParams(params).check());
     }
 
-    private ParameterMetadata getParameterMetadata(String query) {
+    private ParameterMetadata getParameterMetadata(String query, Object... params) {
         QueryProcessor qryProc = queryProcessor();
         SqlProperties properties = SqlPropertiesHelper.emptyProperties();
-        return await(qryProc.prepareSingleAsync(properties, query));
+        return await(qryProc.prepareSingleAsync(properties, query, params));
     }
 }
