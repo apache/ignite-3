@@ -49,6 +49,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -226,6 +227,7 @@ public class JdbcResultSet implements ResultSet {
                     throw IgniteQueryErrorCode.createJdbcSqlException(res.err(), res.status());
                 }
 
+                rows = new ArrayList<>(res.items().size());
                 for (ByteBuffer item : res.items()) {
                     rows.add(new BinaryTupleReader(columnCount, item));
                 }
