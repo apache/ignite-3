@@ -17,8 +17,9 @@
 
 package org.apache.ignite.internal.sql.engine.tx;
 
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.tx.InternalTransaction;
 
 /**
@@ -45,7 +46,7 @@ public class QueryTransactionWrapperImpl implements QueryTransactionWrapper {
             return transaction.commitAsync();
         }
 
-        return Commons.completedFuture();
+        return nullCompletedFuture();
     }
 
     @Override

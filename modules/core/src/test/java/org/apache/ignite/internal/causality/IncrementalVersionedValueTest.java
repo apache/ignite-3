@@ -25,6 +25,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThr
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runRace;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -102,7 +103,7 @@ public class IncrementalVersionedValueTest extends BaseIgniteAbstractTest {
 
         assertEquals(TEST_VALUE + incrementCount, fut.get());
 
-        assertThrows(AssertionError.class, () -> versionedValue.update(1L, (i, t) -> completedFuture(null)));
+        assertThrows(AssertionError.class, () -> versionedValue.update(1L, (i, t) -> nullCompletedFuture()));
     }
 
     /**
@@ -380,7 +381,7 @@ public class IncrementalVersionedValueTest extends BaseIgniteAbstractTest {
         //noinspection unchecked
         BiFunction<Integer, Throwable, CompletableFuture<Integer>> closure = mock(BiFunction.class);
 
-        when(closure.apply(any(), any())).thenReturn(completedFuture(null));
+        when(closure.apply(any(), any())).thenReturn(nullCompletedFuture());
 
         int token = 0;
 

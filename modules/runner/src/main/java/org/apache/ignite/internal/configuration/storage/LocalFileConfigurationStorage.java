@@ -21,6 +21,8 @@ import static java.util.stream.Collectors.toMap;
 import static org.apache.ignite.internal.configuration.util.ConfigurationFlattener.createFlattenedUpdatesMap;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.fillFromPrefixMap;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.toPrefixMap;
+import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
 
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigException;
@@ -173,14 +175,14 @@ public class LocalFileConfigurationStorage implements ConfigurationStorage {
         lock.writeLock().lock();
         try {
             if (ver != lastRevision) {
-                return CompletableFuture.completedFuture(false);
+                return falseCompletedFuture();
             }
 
             mergeAndSave(newValues);
 
             sendNotificationAsync(new Data(newValues, lastRevision));
 
-            return CompletableFuture.completedFuture(true);
+            return trueCompletedFuture();
         } finally {
             lock.writeLock().unlock();
         }

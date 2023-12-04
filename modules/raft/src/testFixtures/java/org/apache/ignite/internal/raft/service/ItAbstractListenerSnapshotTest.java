@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.raft.server.RaftGroupOptions.defaults;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -217,7 +218,7 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
                     if (service.leader() == null) {
                         return service.refreshLeader();
                     } else {
-                        return CompletableFuture.completedFuture(null);
+                        return nullCompletedFuture();
                     }
                 });
 

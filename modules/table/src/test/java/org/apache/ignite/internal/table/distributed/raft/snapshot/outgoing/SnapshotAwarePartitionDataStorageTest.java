@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing;
 
 import static java.util.Collections.singletonList;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.sameInstance;
@@ -100,7 +101,7 @@ class SnapshotAwarePartitionDataStorageTest extends BaseIgniteAbstractTest {
 
     @Test
     void delegatesFlush() {
-        CompletableFuture<Void> future = CompletableFuture.completedFuture(null);
+        CompletableFuture<Void> future = nullCompletedFuture();
 
         when(partitionStorage.flush()).thenReturn(future);
 

@@ -18,6 +18,7 @@
 package org.apache.ignite.client.handler.requests.sql;
 
 import static org.apache.ignite.client.handler.requests.sql.ClientSqlCommon.packCurrentPage;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
@@ -63,7 +64,7 @@ public class ClientSqlCursorNextPageRequest {
 
                         return resultSet.closeAsync();
                     } else {
-                        return CompletableFuture.completedFuture(null);
+                        return nullCompletedFuture();
                     }
                 })
                 .toCompletableFuture();

@@ -19,6 +19,7 @@ package org.apache.ignite.internal.client.sql;
 
 import static org.apache.ignite.internal.client.ClientUtils.sync;
 import static org.apache.ignite.internal.client.table.ClientTable.writeTx;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.Map;
 import java.util.Map.Entry;
@@ -279,7 +280,7 @@ public class ClientSession implements AbstractSession {
     @Override
     public CompletableFuture<Void> closeAsync() {
         // TODO IGNITE-17134 Cancel/close all active cursors, queries, futures.
-        return CompletableFuture.completedFuture(null);
+        return nullCompletedFuture();
     }
 
     /** {@inheritDoc} */
