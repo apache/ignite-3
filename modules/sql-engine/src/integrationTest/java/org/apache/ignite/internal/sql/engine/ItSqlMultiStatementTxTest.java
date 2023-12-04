@@ -217,7 +217,7 @@ public class ItSqlMultiStatementTxTest extends BaseSqlMultiStatementTest {
         assertThat(cursors, hasSize(4));
 
         assertEquals(1, txManager().pending());
-        cursors.forEach(AsyncSqlCursor::closeAsync);
+        cursors.forEach(c -> await(c.closeAsync()));
 
         checkNoPendingTransactionsAndOpenedCursors();
 

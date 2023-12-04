@@ -70,7 +70,7 @@ public class ItSqlClientAsynchronousApiTest extends ItSqlAsynchronousApiTest {
     }
 
     @Override
-    public void runScriptThatCompletesSuccessfully() {
+    public void runScriptWithTransactionThatCompletesSuccessfully() {
         super.runScriptThatCompletesSuccessfully();
     }
 
