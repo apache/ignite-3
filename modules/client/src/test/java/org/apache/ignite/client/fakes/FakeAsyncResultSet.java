@@ -17,6 +17,8 @@
 
 package org.apache.ignite.client.fakes;
 
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.time.Duration;
@@ -207,7 +209,7 @@ public class FakeAsyncResultSet implements AsyncResultSet {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> closeAsync() {
-        return CompletableFuture.completedFuture(null);
+        return nullCompletedFuture();
     }
 
     private SqlRow getRow(Object... vals) {

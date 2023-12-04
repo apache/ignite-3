@@ -17,9 +17,9 @@
 
 package org.apache.ignite.internal.storage.util;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -115,7 +115,7 @@ public class MvPartitionStorages<T extends MvPartitionStorage> {
 
         CompletableFuture<Void> destroyStorageFuture = storageOperation instanceof DestroyStorageOperation
                 ? ((DestroyStorageOperation) storageOperation).getDestroyFuture()
-                : completedFuture(null);
+                : nullCompletedFuture();
 
         return destroyStorageFuture.thenApply(unused -> {
             T newStorage = createStorageFunction.apply(partitionId);
@@ -153,7 +153,7 @@ public class MvPartitionStorages<T extends MvPartitionStorage> {
             return new DestroyStorageOperation();
         });
 
-        return completedFuture(null)
+        return nullCompletedFuture()
                 .thenCompose(unused -> destroyStorageFunction.apply(storageByPartitionId.getAndSet(partitionId, null)))
                 .whenComplete((unused, throwable) -> {
                     operationByPartitionId.compute(partitionId, (partId, operation) -> {
@@ -191,7 +191,7 @@ public class MvPartitionStorages<T extends MvPartitionStorage> {
             return new CleanupStorageOperation();
         });
 
-        return completedFuture(null)
+        return nullCompletedFuture()
                 .thenCompose(unused -> clearStorageFunction.apply(get(partitionId)))
                 .whenComplete((unused, throwable) ->
                         operationByPartitionId.compute(partitionId, (partId, operation) -> {
@@ -229,7 +229,7 @@ public class MvPartitionStorages<T extends MvPartitionStorage> {
                     return new StartRebalanceStorageOperation();
                 });
 
-        return completedFuture(null)
+        return nullCompletedFuture()
                 .thenCompose(unused -> {
                     CompletableFuture<Void> startRebalanceFuture = startRebalanceStorageFunction.apply(get(partitionId));
 
@@ -279,14 +279,14 @@ public class MvPartitionStorages<T extends MvPartitionStorage> {
         });
 
         CompletableFuture<?> startRebalanceFuture = storageOperation instanceof StartRebalanceStorageOperation
-                ? ((StartRebalanceStorageOperation) storageOperation).getStartRebalanceFuture() : completedFuture(null);
+                ? ((StartRebalanceStorageOperation) storageOperation).getStartRebalanceFuture() : nullCompletedFuture();
 
         return startRebalanceFuture
                 .thenCompose(unused -> {
                     CompletableFuture<Void> rebalanceFuture = rebalanceFutureByPartitionId.remove(partitionId);
 
                     if (rebalanceFuture == null) {
-                        return completedFuture(null);
+                        return nullCompletedFuture();
                     }
 
                     return rebalanceFuture
@@ -327,7 +327,7 @@ public class MvPartitionStorages<T extends MvPartitionStorage> {
             return new FinishRebalanceStorageOperation();
         });
 
-        return completedFuture(null)
+        return nullCompletedFuture()
                 .thenCompose(unused -> {
                     CompletableFuture<Void> rebalanceFuture = rebalanceFutureByPartitionId.remove(partitionId);
 

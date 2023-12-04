@@ -17,9 +17,9 @@
 
 package org.apache.ignite.internal.configuration.testframework;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.CoreMatchers.instanceOf;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -80,19 +80,19 @@ class ConfigurationExtensionTest extends BaseIgniteAbstractTest {
         fieldCfg.listen(ctx -> {
             log.add("update");
 
-            return completedFuture(null);
+            return nullCompletedFuture();
         });
 
         fieldCfg.joinTimeout().listen(ctx -> {
             log.add("join");
 
-            return completedFuture(null);
+            return nullCompletedFuture();
         });
 
         fieldCfg.failureDetectionTimeout().listen(ctx -> {
             log.add("failure");
 
-            return completedFuture(null);
+            return nullCompletedFuture();
         });
 
         fieldCfg.change(change -> change.changeJoinTimeout(1000_000)).get(1, SECONDS);

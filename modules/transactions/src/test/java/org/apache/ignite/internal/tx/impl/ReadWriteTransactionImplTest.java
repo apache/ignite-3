@@ -17,10 +17,10 @@
 
 package org.apache.ignite.internal.tx.impl;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
 import static org.apache.ignite.internal.tx.TxState.COMMITED;
 import static org.apache.ignite.internal.tx.TxState.FINISHING;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -96,7 +96,7 @@ class ReadWriteTransactionImplTest extends BaseIgniteAbstractTest {
         Mockito.when(txManager.finish(any(), any(), anyBoolean(), any(), any())).thenAnswer(invocation -> {
             finishedTxs.add(invocation.getArgument(4));
 
-            return completedFuture(null);
+            return nullCompletedFuture();
         });
 
         Mockito.when(txManager.stateMeta(any())).thenAnswer(invocation -> {

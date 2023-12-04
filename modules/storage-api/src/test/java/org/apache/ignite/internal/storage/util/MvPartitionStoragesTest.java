@@ -17,13 +17,13 @@
 
 package org.apache.ignite.internal.storage.util;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willTimeoutFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -414,7 +414,7 @@ public class MvPartitionStoragesTest extends BaseIgniteAbstractTest {
         assertThat(mvPartitionStorages.abortRebalance(0, mvStorage -> {
             invokeAbortFunction.set(true);
 
-            return completedFuture(null);
+            return nullCompletedFuture();
         }), willCompleteSuccessfully());
 
         assertFalse(invokeAbortFunction.get());
@@ -431,7 +431,7 @@ public class MvPartitionStoragesTest extends BaseIgniteAbstractTest {
         assertThat(mvPartitionStorages.abortRebalance(0, mvStorage -> {
             invokeAbortFunction.set(true);
 
-            return completedFuture(null);
+            return nullCompletedFuture();
         }), willCompleteSuccessfully());
 
         assertTrue(invokeAbortFunction.get());
@@ -699,23 +699,23 @@ public class MvPartitionStoragesTest extends BaseIgniteAbstractTest {
     }
 
     private CompletableFuture<Void> destroyMvStorage(int partitionId) {
-        return mvPartitionStorages.destroy(partitionId, mvStorage -> completedFuture(null));
+        return mvPartitionStorages.destroy(partitionId, mvStorage -> nullCompletedFuture());
     }
 
     private CompletableFuture<Void> clearMvStorage(int partitionId) {
-        return mvPartitionStorages.clear(partitionId, mvStorage -> completedFuture(null));
+        return mvPartitionStorages.clear(partitionId, mvStorage -> nullCompletedFuture());
     }
 
     private CompletableFuture<Void> startRebalanceMvStorage(int partitionId) {
-        return mvPartitionStorages.startRebalance(partitionId, mvStorage -> completedFuture(null));
+        return mvPartitionStorages.startRebalance(partitionId, mvStorage -> nullCompletedFuture());
     }
 
     private CompletableFuture<Void> abortRebalanceMvStorage(int partitionId) {
-        return mvPartitionStorages.abortRebalance(partitionId, mvStorage -> completedFuture(null));
+        return mvPartitionStorages.abortRebalance(partitionId, mvStorage -> nullCompletedFuture());
     }
 
     private CompletableFuture<Void> finishRebalanceMvStorage(int partitionId) {
-        return mvPartitionStorages.finishRebalance(partitionId, mvStorage -> completedFuture(null));
+        return mvPartitionStorages.finishRebalance(partitionId, mvStorage -> nullCompletedFuture());
     }
 
     private int getPartitionIdOutOfConfig() {
