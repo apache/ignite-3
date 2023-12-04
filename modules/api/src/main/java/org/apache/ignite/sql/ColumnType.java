@@ -29,6 +29,7 @@ import java.util.BitSet;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Predefined column types.
@@ -105,14 +106,13 @@ public enum ColumnType {
 
     private final int id;
 
-    private static final Map<Integer, ColumnType> ENUM_ID_MAP = new HashMap<>();
+    private static final ColumnType[] VALS = new ColumnType[values().length];
 
     static {
         for (ColumnType columnType : values()) {
-            ColumnType prevValue = ENUM_ID_MAP.put(columnType.id, columnType);
-            assert prevValue == null : "Duplicate id of ColumnType " + prevValue.id;
+            assert VALS[columnType.id] == null : "Found duplicate id " + columnType.id;
+            VALS[columnType.id()] = columnType;
         }
-
     }
 
     ColumnType(Class<?> clazz, boolean precisionDefined, boolean scaleDefined, boolean lengthDefined, int id) {
@@ -149,7 +149,8 @@ public enum ColumnType {
     }
 
     /** Returns corresponding {@code ColumnType} by given id, {@code null} for unknown id. */
+    @Nullable
     public static ColumnType getById(int id) {
-        return ENUM_ID_MAP.get(id);
+        return id >= 0 && id < VALS.length ? VALS[id] : null;
     }
 }
