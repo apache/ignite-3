@@ -223,6 +223,13 @@ public class ClientSqlTest extends AbstractClientTableTest {
 
         // TODO: Test properties propagation.
         session.executeScript("foo");
-        session.executeScriptAsync("bar").join();
+
+        ResultSet<SqlRow> resultSet = session.execute(null, "SELECT LAST SCRIPT");
+        SqlRow row = resultSet.next();
+
+        assertEquals(
+                "foo, arguments: , properties: , defaultPageSize=null, defaultSchema=null, "
+                        + "defaultQueryTimeout=null, defaultSessionTimeout=null",
+                row.value(0));
     }
 }
