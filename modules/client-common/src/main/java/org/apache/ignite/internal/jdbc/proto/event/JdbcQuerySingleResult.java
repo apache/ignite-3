@@ -21,9 +21,9 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
+import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
-import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.sql.ColumnType;
@@ -36,7 +36,7 @@ public class JdbcQuerySingleResult extends Response {
     private Long cursorId;
 
     /** Serialized query result rows. */
-    private List<BinaryTuple> rowTuples;
+    private List<BinaryTupleReader> rowTuples;
 
     /** Flag indicating the query has no unfetched results. */
     private boolean last;
@@ -76,7 +76,7 @@ public class JdbcQuerySingleResult extends Response {
      * @param rowTuples Serialized SQL result rows.
      * @param last     Flag indicates the query has no unfetched results.
      */
-    public JdbcQuerySingleResult(long cursorId, List<BinaryTuple> rowTuples, List<ColumnType> columnTypes, int[] decimalScales,
+    public JdbcQuerySingleResult(long cursorId, List<BinaryTupleReader> rowTuples, List<ColumnType> columnTypes, int[] decimalScales,
             boolean last) {
         super();
 
@@ -126,7 +126,7 @@ public class JdbcQuerySingleResult extends Response {
      *
      * @return Serialized query result rows.
      */
-    public List<BinaryTuple> items() {
+    public List<BinaryTupleReader> items() {
         return rowTuples;
     }
 
@@ -203,7 +203,7 @@ public class JdbcQuerySingleResult extends Response {
 
         packer.packInt(rowTuples.size());
 
-        for (BinaryTuple item : rowTuples) {
+        for (BinaryTupleReader item : rowTuples) {
             packer.packByteBuffer(item.byteBuffer());
         }
     }
@@ -239,7 +239,7 @@ public class JdbcQuerySingleResult extends Response {
 
         rowTuples = new ArrayList<>(size);
         for (int rowIdx = 0; rowIdx < size; rowIdx++) {
-            rowTuples.add(new BinaryTuple(columnTypes.size(), unpacker.readBinary()));
+            rowTuples.add(new BinaryTupleReader(columnTypes.size(), unpacker.readBinary()));
         }
 
     }

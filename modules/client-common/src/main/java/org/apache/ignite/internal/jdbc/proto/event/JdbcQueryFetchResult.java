@@ -20,9 +20,9 @@ package org.apache.ignite.internal.jdbc.proto.event;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
-import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.tostring.S;
 
 /**
@@ -30,7 +30,7 @@ import org.apache.ignite.internal.tostring.S;
  */
 public class JdbcQueryFetchResult extends Response {
     /** Serialized result rows. */
-    private List<BinaryTuple> rowTuples;
+    private List<BinaryTupleReader> rowTuples;
 
     /** Flag indicating the query has no unfetched results. */
     private boolean last;
@@ -57,7 +57,7 @@ public class JdbcQueryFetchResult extends Response {
      * @param rowTuples Serialized SQL result rows.
      * @param last  Flag indicating the query has no unfetched results.
      */
-    public JdbcQueryFetchResult(List<BinaryTuple> rowTuples, boolean last) {
+    public JdbcQueryFetchResult(List<BinaryTupleReader> rowTuples, boolean last) {
         Objects.requireNonNull(rowTuples);
 
         this.rowTuples = rowTuples;
@@ -71,7 +71,7 @@ public class JdbcQueryFetchResult extends Response {
      *
      * @return Serialized query result rows.
      */
-    public List<BinaryTuple> items() {
+    public List<BinaryTupleReader> items() {
         return rowTuples;
     }
 
@@ -97,7 +97,7 @@ public class JdbcQueryFetchResult extends Response {
 
         packer.packInt(rowTuples.size());
 
-        for (BinaryTuple item : rowTuples) {
+        for (BinaryTupleReader item : rowTuples) {
             packer.packInt(item.elementCount());
             packer.packByteBuffer(item.byteBuffer());
         }
@@ -121,7 +121,7 @@ public class JdbcQueryFetchResult extends Response {
         for (int i = 0; i < size; i++) {
             int elementCount = unpacker.unpackInt();
 
-            BinaryTuple row = new BinaryTuple(elementCount, unpacker.readBinary());
+            BinaryTupleReader row = new BinaryTupleReader(elementCount, unpacker.readBinary());
             rowTuples.add(row);
         }
     }

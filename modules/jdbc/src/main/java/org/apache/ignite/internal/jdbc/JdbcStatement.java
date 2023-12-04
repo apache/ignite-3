@@ -35,6 +35,7 @@ import java.util.Objects;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Function;
+import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.jdbc.proto.IgniteQueryErrorCode;
 import org.apache.ignite.internal.jdbc.proto.JdbcQueryCursorHandler;
 import org.apache.ignite.internal.jdbc.proto.JdbcStatementType;
@@ -45,7 +46,6 @@ import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryExecuteRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryExecuteResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQuerySingleResult;
 import org.apache.ignite.internal.jdbc.proto.event.Response;
-import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.sql.ColumnType;
@@ -167,7 +167,7 @@ public class JdbcStatement implements Statement {
         JdbcQueryCursorHandler handler = new JdbcClientQueryCursorHandler(result.getChannel());
 
         for (JdbcQuerySingleResult jdbcRes : executeResult.results()) {
-            Function<BinaryTuple, List<Object>> transformer = (tuple) -> {
+            Function<BinaryTupleReader, List<Object>> transformer = (tuple) -> {
                 List<ColumnType> columnTypes = jdbcRes.columnTypes();
                 int[] decimalScales = jdbcRes.decimalScales();
                 List<Object> row = new ArrayList<>(columnTypes.size());

@@ -59,6 +59,7 @@ import java.util.UUID;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Function;
+import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.jdbc.proto.IgniteQueryErrorCode;
 import org.apache.ignite.internal.jdbc.proto.JdbcQueryCursorHandler;
 import org.apache.ignite.internal.jdbc.proto.SqlStateCode;
@@ -69,7 +70,6 @@ import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryCloseResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryFetchRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryFetchResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryMetadataRequest;
-import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.util.TransformingIterator;
 
 /**
@@ -104,7 +104,7 @@ public class JdbcResultSet implements ResultSet {
     private Map<String, Integer> colOrder;
 
     /** Rows. */
-    private List<BinaryTuple> rows;
+    private List<BinaryTupleReader> rows;
 
     /** Rows iterator. */
     private Iterator<List<Object>> rowsIter;
@@ -146,7 +146,7 @@ public class JdbcResultSet implements ResultSet {
     private JdbcResultSetMetadata jdbcMeta;
 
     /** Function to deserialize raw rows to list of objects. */
-    private Function<BinaryTuple, List<Object>> transformer;
+    private Function<BinaryTupleReader, List<Object>> transformer;
 
     /**
      * Creates new result set.
@@ -164,8 +164,8 @@ public class JdbcResultSet implements ResultSet {
      * @param transformer Function to deserialize raw rows to list of objects.
      */
     JdbcResultSet(JdbcQueryCursorHandler handler, JdbcStatement stmt, Long cursorId, int fetchSize, boolean finished,
-            List<BinaryTuple> rows, boolean isQry, boolean autoClose, long updCnt, boolean closeStmt,
-            Function<BinaryTuple, List<Object>> transformer) {
+            List<BinaryTupleReader> rows, boolean isQry, boolean autoClose, long updCnt, boolean closeStmt,
+            Function<BinaryTupleReader, List<Object>> transformer) {
         assert stmt != null;
         assert fetchSize > 0;
 

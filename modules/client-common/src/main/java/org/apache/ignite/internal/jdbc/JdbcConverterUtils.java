@@ -20,7 +20,7 @@ package org.apache.ignite.internal.jdbc;
 import java.sql.Date;
 import java.sql.Time;
 import java.sql.Timestamp;
-import org.apache.ignite.internal.schema.BinaryTuple;
+import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.sql.ColumnType;
 
 /**
@@ -55,7 +55,7 @@ public class JdbcConverterUtils {
      * @param decimalScale Scale for decimal column. If the column is of a different type, then the specific value does not matter.
      * @return Derived value. The value can be {@code null}.
      */
-    public static Object deriveValueFromBinaryTuple(ColumnType columnType, BinaryTuple binaryTuple, int idx, int decimalScale) {
+    public static Object deriveValueFromBinaryTuple(ColumnType columnType, BinaryTupleReader binaryTuple, int idx, int decimalScale) {
         switch (columnType) {
             case INT8:
                 return binaryTuple.byteValue(idx);
