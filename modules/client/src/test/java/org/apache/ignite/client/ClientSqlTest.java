@@ -221,15 +221,36 @@ public class ClientSqlTest extends AbstractClientTableTest {
     public void testExecuteScript() {
         Session session = client.sql().createSession();
 
-        // TODO: Test properties propagation.
         session.executeScript("foo");
 
         ResultSet<SqlRow> resultSet = session.execute(null, "SELECT LAST SCRIPT");
         SqlRow row = resultSet.next();
 
         assertEquals(
-                "foo, arguments: , properties: , defaultPageSize=null, defaultSchema=null, "
+                "foo, arguments: [], properties: [], defaultPageSize=null, defaultSchema=null, "
                         + "defaultQueryTimeout=null, defaultSessionTimeout=null",
+                row.value(0));
+    }
+
+    @Test
+    public void testExecuteScriptWithPropertiesAndArguments() {
+        Session session = client.sql().sessionBuilder()
+                .property("prop1", "val1")
+                .property("prop2", -5)
+                .defaultPageSize(123)
+                .defaultQueryTimeout(456, TimeUnit.MILLISECONDS)
+                .defaultSchema("script-schema")
+                .idleTimeout(789, TimeUnit.SECONDS)
+                .build();
+
+        session.executeScript("do bar baz", "arg1", 2);
+
+        ResultSet<SqlRow> resultSet = session.execute(null, "SELECT LAST SCRIPT");
+        SqlRow row = resultSet.next();
+
+        assertEquals(
+                "do bar baz, arguments: [arg1, 2, ], properties: [prop2=-5, prop1=val1, ], defaultPageSize=null, "
+                        + "defaultSchema=script-schema, defaultQueryTimeout=456, defaultSessionTimeout=789000",
                 row.value(0));
     }
 }

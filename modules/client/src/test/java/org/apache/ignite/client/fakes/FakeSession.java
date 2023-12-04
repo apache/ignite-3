@@ -186,19 +186,23 @@ public class FakeSession implements AbstractSession {
         var sb = new StringBuilder(query);
 
         if (arguments != null) {
-            sb.append(", arguments: ");
+            sb.append(", arguments: [");
 
             for (Object arg : arguments) {
-                sb.append(arg);
+                sb.append(arg).append(", ");
             }
+
+            sb.append(']');
         }
 
         if (properties != null) {
-            sb.append(", properties: ");
+            sb.append(", properties: [");
 
             for (Map.Entry<String, Object> entry : properties.entrySet()) {
                 sb.append(entry.getKey()).append('=').append(entry.getValue()).append(", ");
             }
+
+            sb.append(']');
         }
 
         sb.append(", ").append("defaultPageSize=").append(defaultPageSize);
