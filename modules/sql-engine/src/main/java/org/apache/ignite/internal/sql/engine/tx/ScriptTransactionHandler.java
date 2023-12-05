@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.tx;
 
+import static org.apache.ignite.internal.sql.engine.tx.QueryTransactionContext.validateStatement;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Sql.RUNTIME_ERR;
 
@@ -31,7 +32,6 @@ import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.AsyncCursor;
 import org.apache.ignite.sql.SqlException;
-import org.apache.ignite.tx.IgniteTransactions;
 import org.apache.ignite.tx.TransactionOptions;
 import org.jetbrains.annotations.Nullable;
 
@@ -39,20 +39,17 @@ import org.jetbrains.annotations.Nullable;
  * Starts an implicit transaction if there is no external transaction. Supports script transaction management using
  * {@link SqlQueryType#TX_CONTROL} statements.
  */
-public class ScriptTransactionHandler extends QueryTransactionHandler {
+public class ScriptTransactionHandler {
     /** No-op transaction wrapper. */
     private static final QueryTransactionWrapper NOOP_TX_WRAPPER = new NoopTransactionWrapper();
 
+    private final QueryTransactionContext ctx;
+
     /** Wraps a transaction, which is managed by SQL engine via {@link SqlQueryType#TX_CONTROL} statements. */
-    private volatile @Nullable ScriptTransactionWrapper wrapper;
+    private volatile @Nullable ScriptTransactionWrapperImpl wrapper;
 
-    public ScriptTransactionHandler(IgniteTransactions transactions, @Nullable InternalTransaction tx) {
-        super(transactions, tx);
-    }
-
-    @Override
-    protected @Nullable InternalTransaction activeTransaction() {
-        return tx == null ? scriptTransaction() : tx;
+    public ScriptTransactionHandler(QueryTransactionContext ctx) {
+        this.ctx = ctx;
     }
 
     /**
@@ -70,24 +67,25 @@ public class ScriptTransactionHandler extends QueryTransactionHandler {
             SqlQueryType queryType = parsedResult.queryType();
 
             if (queryType == SqlQueryType.TX_CONTROL) {
-                if (tx != null) {
+                if (ctx.tx() != null) {
                     throw new TxControlInsideExternalTxNotSupportedException();
                 }
 
                 return handleTxControlStatement(parsedResult.parsedTree());
             }
 
-            ScriptTransactionWrapper wrapper = this.wrapper;
+            ScriptTransactionWrapperImpl wrapper = this.wrapper;
 
             if (wrapper == null) {
-                return startTxIfNeeded(queryType);
+                // Implicit transaction.
+                return ctx.startTxIfNeeded(parsedResult.queryType());
             }
 
             validateStatement(parsedResult.queryType(), wrapper.unwrap());
 
             return wrapper.forStatement(queryType, cursorFut);
         } catch (SqlException e) {
-            ScriptTransactionWrapper wrapper = this.wrapper;
+            ScriptTransactionWrapperImpl wrapper = this.wrapper;
 
             if (wrapper != null) {
                 wrapper.rollback(e);
@@ -97,14 +95,8 @@ public class ScriptTransactionHandler extends QueryTransactionHandler {
         }
     }
 
-    private @Nullable InternalTransaction scriptTransaction() {
-        ScriptTransactionWrapper hld = wrapper;
-
-        return hld != null ? hld.unwrap() : null;
-    }
-
     private QueryTransactionWrapper handleTxControlStatement(SqlNode node) {
-        ScriptTransactionWrapper txWrapper = this.wrapper;
+        ScriptTransactionWrapperImpl txWrapper = this.wrapper;
 
         if (node instanceof IgniteSqlCommitTransaction) {
             if (txWrapper == null) {
@@ -126,7 +118,7 @@ public class ScriptTransactionHandler extends QueryTransactionHandler {
             TransactionOptions options =
                     new TransactionOptions().readOnly(txStartNode.getMode() == IgniteSqlStartTransactionMode.READ_ONLY);
 
-            txWrapper = new ScriptTransactionWrapper((InternalTransaction) transactions.begin(options));
+            txWrapper = new ScriptTransactionWrapperImpl((InternalTransaction) ctx.transactions().begin(options));
 
             this.wrapper = txWrapper;
 

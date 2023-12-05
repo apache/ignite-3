@@ -98,7 +98,7 @@ import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
 import org.apache.ignite.internal.sql.engine.sql.ParserService;
 import org.apache.ignite.internal.sql.engine.sql.ParserServiceImpl;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
-import org.apache.ignite.internal.sql.engine.tx.QueryTransactionHandler;
+import org.apache.ignite.internal.sql.engine.tx.QueryTransactionContext;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionWrapper;
 import org.apache.ignite.internal.sql.engine.tx.ScriptTransactionHandler;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
@@ -426,7 +426,7 @@ public class SqlQueryProcessor implements QueryProcessor {
         }
 
         try {
-            return querySingle0(properties, new QueryTransactionHandler(transactions, transaction), qry, params);
+            return querySingle0(properties, new QueryTransactionContext(transactions, transaction), qry, params);
         } finally {
             busyLock.leaveBusy();
         }
@@ -446,7 +446,7 @@ public class SqlQueryProcessor implements QueryProcessor {
         }
 
         try {
-            return queryScript0(properties, new ScriptTransactionHandler(transactions, transaction), qry, params);
+            return queryScript0(properties, new QueryTransactionContext(transactions, transaction), qry, params);
         } finally {
             busyLock.leaveBusy();
         }
@@ -460,7 +460,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     private CompletableFuture<AsyncSqlCursor<List<Object>>> querySingle0(
             SqlProperties properties,
-            QueryTransactionHandler txHandler,
+            QueryTransactionContext txHandler,
             String sql,
             Object... params
     ) {
@@ -495,7 +495,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     private CompletableFuture<AsyncSqlCursor<List<Object>>> queryScript0(
             SqlProperties properties,
-            ScriptTransactionHandler transactionHandler,
+            QueryTransactionContext transactionContext,
             String sql,
             Object... params
     ) {
@@ -508,7 +508,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                 .thenApply(ignored -> parserService.parseScript(sql))
                 .thenCompose(parsedResults -> {
                     MultiStatementHandler handler = new MultiStatementHandler(
-                            schemaName, transactionHandler, parsedResults, params);
+                            schemaName, transactionContext, parsedResults, params);
 
                     return handler.processNext();
                 });
@@ -674,12 +674,12 @@ public class SqlQueryProcessor implements QueryProcessor {
 
         MultiStatementHandler(
                 String schemaName,
-                ScriptTransactionHandler transactionHandler,
+                QueryTransactionContext transactionContext,
                 List<ParsedResult> parsedResults,
                 Object[] params
         ) {
             this.schemaName = schemaName;
-            this.transactionHandler = transactionHandler;
+            this.transactionHandler = new ScriptTransactionHandler(transactionContext);
             this.statements = prepareStatementsQueue(parsedResults, params);
         }
 

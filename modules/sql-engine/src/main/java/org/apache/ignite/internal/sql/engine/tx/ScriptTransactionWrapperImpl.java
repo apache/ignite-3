@@ -36,7 +36,7 @@ import org.apache.ignite.tx.Transaction;
  * Wraps a transaction, which is managed by SQL engine via {@link SqlQueryType#TX_CONTROL} statements.
  * Responsible for tracking and releasing resources associated with this transaction.
  */
-class ScriptTransactionWrapper implements QueryTransactionWrapper {
+class ScriptTransactionWrapperImpl implements QueryTransactionWrapper {
     private final InternalTransaction transaction;
 
     /**
@@ -60,7 +60,7 @@ class ScriptTransactionWrapper implements QueryTransactionWrapper {
     /** Error that caused the transaction to be rolled back. */
     private final AtomicReference<Throwable> rollbackCause = new AtomicReference<>();
 
-    ScriptTransactionWrapper(InternalTransaction transaction) {
+    ScriptTransactionWrapperImpl(InternalTransaction transaction) {
         this.transaction = transaction;
     }
 
@@ -191,7 +191,7 @@ class ScriptTransactionWrapper implements QueryTransactionWrapper {
         @Override
         public CompletableFuture<Void> rollback(Throwable cause) {
             if (cause != null) {
-                return ScriptTransactionWrapper.this.rollback(cause);
+                return ScriptTransactionWrapperImpl.this.rollback(cause);
             } else {
                 boolean success = finishTxAction.compareAndSet(null, InternalTransaction::rollbackAsync);
 

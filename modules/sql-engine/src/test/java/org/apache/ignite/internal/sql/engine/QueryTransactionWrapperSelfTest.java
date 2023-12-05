@@ -35,7 +35,7 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.sql.engine.framework.NoOpTransaction;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlStartTransaction;
 import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
-import org.apache.ignite.internal.sql.engine.tx.QueryTransactionHandler;
+import org.apache.ignite.internal.sql.engine.tx.QueryTransactionContext;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionWrapper;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionWrapperImpl;
 import org.apache.ignite.internal.sql.engine.tx.ScriptTransactionHandler;
@@ -67,7 +67,7 @@ public class QueryTransactionWrapperSelfTest extends BaseIgniteAbstractTest {
                 }
         );
 
-        QueryTransactionHandler transactionHandler = new QueryTransactionHandler(transactions, null);
+        QueryTransactionContext transactionHandler = new QueryTransactionContext(transactions, null);
         QueryTransactionWrapper transactionWrapper = transactionHandler.startTxIfNeeded(SqlQueryType.DML);
 
         assertThat(transactionWrapper.unwrap().isReadOnly(), equalTo(false));
@@ -114,7 +114,7 @@ public class QueryTransactionWrapperSelfTest extends BaseIgniteAbstractTest {
 
     @Test
     public void throwsExceptionForDdlWithExternalTransaction() {
-        QueryTransactionHandler txHandler = new QueryTransactionHandler(transactions, new NoOpTransaction("test"));
+        QueryTransactionContext txHandler = new QueryTransactionContext(transactions, new NoOpTransaction("test"));
 
         //noinspection ThrowableNotThrown
         assertThrowsSqlException(Sql.RUNTIME_ERR, "DDL doesn't support transactions.",
@@ -125,7 +125,7 @@ public class QueryTransactionWrapperSelfTest extends BaseIgniteAbstractTest {
 
     @Test
     public void throwsExceptionForDmlWithReadOnlyExternalTransaction() {
-        QueryTransactionHandler txHandler = new QueryTransactionHandler(transactions, new NoOpTransaction("test"));
+        QueryTransactionContext txHandler = new QueryTransactionContext(transactions, new NoOpTransaction("test"));
 
         //noinspection ThrowableNotThrown
         assertThrowsSqlException(Sql.RUNTIME_ERR, "DML query cannot be started by using read only transactions.",
@@ -139,7 +139,8 @@ public class QueryTransactionWrapperSelfTest extends BaseIgniteAbstractTest {
         ParsedResult parseResult = Mockito.mock(ParsedResult.class);
         when(parseResult.queryType()).thenReturn(SqlQueryType.TX_CONTROL);
 
-        ScriptTransactionHandler txHandler = new ScriptTransactionHandler(transactions, new NoOpTransaction("test"));
+        ScriptTransactionHandler txHandler =
+                new ScriptTransactionHandler(new QueryTransactionContext(transactions, new NoOpTransaction("test")));
 
         assertThrowsExactly(TxControlInsideExternalTxNotSupportedException.class,
                 () -> txHandler.startScriptTxIfNeeded(parseResult, CompletableFuture.completedFuture(null)));
@@ -155,7 +156,7 @@ public class QueryTransactionWrapperSelfTest extends BaseIgniteAbstractTest {
 
         when(transactions.begin(any())).thenReturn(tx);
 
-        ScriptTransactionHandler txHandler = new ScriptTransactionHandler(transactions, null);
+        ScriptTransactionHandler txHandler = new ScriptTransactionHandler(new QueryTransactionContext(transactions, null));
 
         txHandler.startScriptTxIfNeeded(parseResult, CompletableFuture.completedFuture(null));
 
