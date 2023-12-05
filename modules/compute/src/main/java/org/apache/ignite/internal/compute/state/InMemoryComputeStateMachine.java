@@ -51,7 +51,7 @@ public class InMemoryComputeStateMachine implements ComputeStateMachine {
 
     private ExecutorService cleaner;
 
-    private final Set<UUID> toRemove = ConcurrentHashMap.newKeySet();
+    private final Set<UUID> toRemove = new HashSet<>();
 
     private final Set<UUID> waitToRemove = ConcurrentHashMap.newKeySet();
 
@@ -68,17 +68,14 @@ public class InMemoryComputeStateMachine implements ComputeStateMachine {
                 new NamedThreadFactory("InMemoryComputeStateMachine-pool", LOG)
         );
         result.scheduleAtFixedRate(() -> {
-            Set<UUID> nextToRemove = new HashSet<>(this.waitToRemove);
+            Set<UUID> nextToRemove = Set.of(waitToRemove.toArray(UUID[]::new));
             this.waitToRemove.removeAll(nextToRemove);
-
-            Set<UUID> toRemove = new HashSet<>(this.toRemove);
-
-            this.toRemove.clear();
-            this.toRemove.addAll(nextToRemove);
 
             for (UUID jobId : toRemove) {
                 states.remove(jobId);
             }
+            toRemove.clear();
+            toRemove.addAll(nextToRemove);
         }, lifetime, lifetime, TimeUnit.MILLISECONDS);
         cleaner = result;
     }
