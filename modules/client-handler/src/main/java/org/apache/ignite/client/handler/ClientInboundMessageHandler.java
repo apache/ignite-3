@@ -512,6 +512,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
 
             // Track the future that will be completed when the response is sent.
             // Use single AtomicReference - current method is executed by a single thread, all requests are processed sequentially.
+            // TODO: Do we really care about this guarantee? Too much complexity for nothing? Things like CQ won't use notifications anyway.
             requestSentFutRef.set(null);
             CompletableFuture fut = processOperation(in, out, opCode, requestId);
             CompletableFuture requestSentFut = requestSentFutRef.get();
