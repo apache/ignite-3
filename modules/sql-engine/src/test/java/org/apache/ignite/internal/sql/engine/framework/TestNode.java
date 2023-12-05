@@ -127,7 +127,8 @@ public class TestNode implements LifecycleAware {
                 mailboxRegistry,
                 exchangeService,
                 mappingService,
-                dependencyResolver
+                dependencyResolver,
+                0
         ));
 
         registerService(new IgniteComponentLifecycleAwareAdapter(systemViewManager));

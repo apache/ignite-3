@@ -26,22 +26,28 @@ import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Queue;
 import java.util.UUID;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.sql.SqlExplainLevel;
 import org.apache.calcite.tools.Frameworks;
@@ -49,6 +55,7 @@ import org.apache.ignite.configuration.ConfigurationChangeException;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.replicator.TablePartitionId;
@@ -134,6 +141,8 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
     private final Map<UUID, DistributedQueryManager> queryManagerMap = new ConcurrentHashMap<>();
 
+    private final long shutdownTimeout;
+
     /**
      * Creates the execution services.
      *
@@ -158,7 +167,8 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             MailboxRegistry mailboxRegistry,
             ExchangeService exchangeSrvc,
             MappingService mappingService,
-            ExecutionDependencyResolver dependencyResolver
+            ExecutionDependencyResolver dependencyResolver,
+            long shutdownTimeout
     ) {
         HashFunctionFactoryImpl<RowT> rowHashFunctionFactory = new HashFunctionFactoryImpl<>(handler);
 
@@ -176,7 +186,8 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                         rowHashFunctionFactory,
                         mailboxRegistry,
                         exchangeSrvc,
-                        deps)
+                        deps),
+                shutdownTimeout
         );
     }
 
@@ -201,7 +212,8 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             QueryTaskExecutor taskExecutor,
             RowHandler<RowT> handler,
             ExecutionDependencyResolver dependencyResolver,
-            ImplementorFactory<RowT> implementorFactory
+            ImplementorFactory<RowT> implementorFactory,
+            long shutdownTimeout
     ) {
         this.localNode = topSrvc.localMember();
         this.handler = handler;
@@ -213,6 +225,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         this.ddlCmdHnd = ddlCmdHnd;
         this.dependencyResolver = dependencyResolver;
         this.implementorFactory = implementorFactory;
+        this.shutdownTimeout = shutdownTimeout;
     }
 
     /** {@inheritDoc} */
@@ -411,8 +424,12 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
         try {
             // Using get() without a timeout to exclude situations when it's not clear whether the node has actually stopped or not.
-            f.get();
-        } catch (CancellationException e) {
+            f.get(shutdownTimeout, TimeUnit.MILLISECONDS);
+        } catch (TimeoutException e) {
+            String message = format("SQL execution service was unable to stop during specified timeout ({} ms). ", shutdownTimeout);
+
+            LOG.warn(message + collectDebugInfo());
+        } catch (InterruptedException | CancellationException e) {
             LOG.warn("The stop future was cancelled, going to proceed the stop procedure", e);
         }
     }
@@ -452,6 +469,111 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
             return new DistributedQueryManager(coordinatorNodeName, ctx);
         });
+    }
+
+    String collectDebugInfo() {
+        IgniteStringBuilder buf = new IgniteStringBuilder();
+
+        for (Map.Entry<UUID, DistributedQueryManager> e : queryManagerMap.entrySet()) {
+            UUID queryId = e.getKey();
+            DistributedQueryManager mgr = e.getValue();
+
+            Long rootFragmentId = mgr.rootFragmentId;
+
+            if (rootFragmentId == null || mgr.cancelFut.isDone()) {
+                continue;
+            }
+
+            CompletableFuture<AsyncRootNode<RowT, List<Object>>> rootNodeFut = mgr.root;;
+
+            boolean rootClosed = false;
+            Throwable rootNodeEx = null;
+
+            AsyncRootNode<RowT, List<Object>> rootNode = null;
+
+            if (rootNodeFut != null && rootNodeFut.isDone()) {
+                try {
+                    rootNode = rootNodeFut.getNow(null);
+
+                    if (rootNode != null) {
+                        rootClosed = rootNode.isClosed();
+                    }
+                } catch (CompletionException ex) {
+                    rootNodeEx = ExceptionUtils.unwrapCause(ex);
+                }
+            }
+
+            buf.nl();
+            buf.app("Debug info for query: ").app(queryId).app(" (canceled=" + mgr.cancelled.get() + ")");
+            buf.nl();
+            buf.app("  Coordinator node: ").app(mgr.coordinatorNodeName);
+            if (mgr.coordinator) {
+                buf.app(" (current node)");
+            }
+            buf.nl();
+
+            buf.app("  Root node state: ");
+            if (rootNode == null) {
+                buf.app("absent");
+            } else if (rootClosed) {
+                buf.app("closed");
+            } else if (rootNodeEx != null) {
+                buf.app("completed exceptionally: " + rootNodeEx);
+            } else {
+                buf.app("opened");
+            }
+            buf.nl().nl();
+
+            IgniteStringBuilder fragmentsBuf = new IgniteStringBuilder();
+
+            //RemoteFragmentKey::fragmentId
+            List<RemoteFragmentKey> fragmentKeys = mgr.remoteFragmentInitCompletion.entrySet().stream()
+                    .filter(entry -> !entry.getValue().isDone())
+                    .map(Entry::getKey)
+                    .sorted(Comparator.comparingLong(RemoteFragmentKey::fragmentId))
+                    .collect(Collectors.toList());
+
+            for (RemoteFragmentKey fragmentKey : fragmentKeys) {
+                fragmentsBuf.app("    id=").app(fragmentKey.fragmentId()).app(", node=" + fragmentKey.nodeName());
+                fragmentsBuf.nl();
+            }
+
+            if (fragmentsBuf.length() > 0) {
+                buf.app("  Fragments awaiting init completion:")
+                        .nl()
+                        .app(fragmentsBuf.toString())
+                        .nl();
+            }
+
+            fragmentsBuf.setLength(0);
+
+            List<AbstractNode<?>> localFragments = mgr.localFragments().stream()
+                    .sorted(Comparator.comparingLong(n -> n.context().fragmentId()))
+                    .collect(Collectors.toList());
+
+            for (AbstractNode<?> fragment : localFragments) {
+                long fragmentId = fragment.context().fragmentId();
+
+                fragmentsBuf.app("    id=").app(fragmentId)
+                        .app(", state=" + (fragment.isClosed() ? "closed" : "opened"))
+                        .app(", canceled=" + fragment.context().isCancelled())
+                        .app(", class=").app(fragment.getClass().getSimpleName());
+
+                if (fragmentId == rootFragmentId) {
+                    fragmentsBuf.app("  (root)");
+                }
+
+                fragmentsBuf.nl();
+            }
+
+            if (fragmentsBuf.length() > 0) {
+                buf.app("  Local fragments:")
+                        .nl()
+                        .app(fragmentsBuf.toString());
+            }
+        }
+
+        return buf.length() > 0 ? buf.toString() : "No debug information available.";
     }
 
     /**
@@ -522,7 +644,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                     .fragmentId(desc.fragmentId())
                     .root(serialisedFragment)
                     .fragmentDescription(desc)
-                    .parameters(ctx.parameters())
+                    .parameters(new Foo[0])
                     .txAttributes(txAttributes)
                     .schemaVersion(ctx.schemaVersion())
                     .build();
@@ -999,6 +1121,10 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
             return nullCompletedFuture();
         }
+    }
+
+    private static class Foo {
+        // No-op.
     }
 
     /**

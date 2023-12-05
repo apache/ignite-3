@@ -698,6 +698,71 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         cursor.closeAsync();
     }
 
+    @Test
+    public void testDebugInfo() throws InterruptedException {
+        ExecutionServiceImpl<?> execService = executionServices.get(0);
+        BaseQueryContext ctx = createContext();
+        QueryPlan plan = prepare("SELECT * FROM test_tbl", ctx);
+
+        InternalTransaction tx = new NoOpTransaction(nodeNames.get(0));
+        AsyncCursor<List<Object>> cursor = execService.executePlan(tx, plan, ctx);
+
+        CountDownLatch startResponse = new CountDownLatch(1);
+        CountDownLatch continueLatch = new CountDownLatch(1);
+
+        nodeNames.stream().map(testCluster::node).forEach(node -> node.interceptor((senderNodeName, msg, original) -> {
+            if (node.nodeName.equals(nodeNames.get(0))) {
+                node.taskExecutor.execute(() -> {
+                    try {
+                        if (msg instanceof QueryStartResponseImpl) {
+                            startResponse.countDown();
+                            continueLatch.await();
+                        }
+                    } catch (InterruptedException ignore) {
+                        // No-op.
+                    }
+
+                    original.onMessage(senderNodeName, msg);
+                });
+
+                return nullCompletedFuture();
+            } else {
+                original.onMessage(senderNodeName, msg);
+
+                return nullCompletedFuture();
+            }
+        }));
+
+        startResponse.await();
+
+        String debugInfo = execService.collectDebugInfo();
+
+        continueLatch.countDown();
+
+        await(cursor.closeAsync());
+
+        assertTrue(waitForCondition(
+                () -> executionServices.stream().map(es -> es.localFragments(ctx.queryId()).size())
+                        .mapToInt(i -> i).sum() == 0, TIMEOUT_IN_MS));
+
+        String expected = format("\n"
+                + "Debug info for query: {} (canceled=false)\n"
+                + "  Coordinator node: node_1 (current node)\n"
+                + "  Root node state: opened\n"
+                + "\n"
+                + "  Fragments awaiting init completion:\n"
+                + "    id=0, node=node_1\n"
+                + "    id=1, node=node_1\n"
+                + "    id=1, node=node_2\n"
+                + "    id=1, node=node_3\n"
+                + "\n"
+                + "  Local fragments:\n"
+                + "    id=0, state=opened, canceled=false, class=Inbox  (root)\n"
+                + "    id=1, state=opened, canceled=false, class=Outbox\n", ctx.queryId());
+
+        assertThat(debugInfo, equalTo(expected));
+    }
+
     /** Creates an execution service instance for the node with given consistent id. */
     public ExecutionServiceImpl<Object[]> create(String nodeName) {
         if (!nodeNames.contains(nodeName)) {
@@ -774,7 +839,8 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
                 taskExecutor,
                 ArrayRowHandler.INSTANCE,
                 dependencyResolver,
-                (ctx, deps) -> node.implementor(ctx, mailboxRegistry, exchangeService, deps)
+                (ctx, deps) -> node.implementor(ctx, mailboxRegistry, exchangeService, deps),
+                0
         );
 
         taskExecutor.start();

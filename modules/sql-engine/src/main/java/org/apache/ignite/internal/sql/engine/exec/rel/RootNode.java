@@ -123,7 +123,7 @@ public class RootNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
 
     /** {@inheritDoc} */
     @Override
-    protected boolean isClosed() {
+    public boolean isClosed() {
         return closed;
     }
 
