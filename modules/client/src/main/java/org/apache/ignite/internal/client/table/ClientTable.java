@@ -396,7 +396,8 @@ public class ClientTable implements Table {
                             w -> writer.accept(schema, w),
                             r -> readSchemaAndReadData(schema, r.in(), reader, defaultValue, responseSchemaRequired),
                             preferredNodeName,
-                            retryPolicyOverride);
+                            retryPolicyOverride,
+                            null);
                 })
 
                 // Read resulting schema and the rest of the response.

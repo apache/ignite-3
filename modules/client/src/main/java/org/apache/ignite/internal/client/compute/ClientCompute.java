@@ -214,15 +214,28 @@ public class ClientCompute implements IgniteCompute {
     }
 
     private <R> CompletableFuture<R> executeOnOneNode(ClusterNode node, List<DeploymentUnit> units, String jobClassName, Object[] args) {
-        return ch.serviceAsync(ClientOp.COMPUTE_EXECUTE, w -> {
-            if (w.clientChannel().protocolContext().clusterNode().name().equals(node.name())) {
-                w.out().packNil();
-            } else {
-                w.out().packString(node.name());
-            }
+        CompletableFuture<R> notificationFut = new CompletableFuture<>();
 
-            packJob(w.out(), units, jobClassName, args);
-        }, r -> (R) r.in().unpackObjectFromBinaryTuple(), node.name(), null);
+        var reqFut = ch.serviceAsync(
+                ClientOp.COMPUTE_EXECUTE,
+                w -> {
+                    if (w.clientChannel().protocolContext().clusterNode().name().equals(node.name())) {
+                        w.out().packNil();
+                    } else {
+                        w.out().packString(node.name());
+                    }
+
+                    packJob(w.out(), units, jobClassName, args);
+                },
+                r -> null,
+                node.name(),
+                null,
+                r -> {
+                    notificationFut.complete((R) r.in().unpackObjectFromBinaryTuple());
+                    return true; // Stop notification subscription. TODO YAGNI - remove this.
+                });
+
+        return reqFut.thenCompose(v -> notificationFut);
     }
 
     private static ClusterNode randomNode(Set<ClusterNode> nodes) {

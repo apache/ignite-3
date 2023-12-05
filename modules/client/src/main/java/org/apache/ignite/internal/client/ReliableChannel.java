@@ -205,11 +205,12 @@ public final class ReliableChannel implements AutoCloseable {
             @Nullable PayloadWriter payloadWriter,
             @Nullable PayloadReader<T> payloadReader,
             @Nullable String preferredNodeName,
-            @Nullable RetryPolicy retryPolicyOverride
+            @Nullable RetryPolicy retryPolicyOverride,
+            @Nullable NotificationHandler notificationHandler
     ) {
         return ClientFutureUtils.doWithRetryAsync(
                 () -> getChannelAsync(preferredNodeName)
-                        .thenCompose(ch -> serviceAsyncInternal(opCode, payloadWriter, payloadReader, ch)),
+                        .thenCompose(ch -> serviceAsyncInternal(opCode, payloadWriter, payloadReader, notificationHandler, ch)),
                 null,
                 ctx -> shouldRetry(opCode, ctx, retryPolicyOverride));
     }
@@ -228,7 +229,7 @@ public final class ReliableChannel implements AutoCloseable {
             PayloadWriter payloadWriter,
             @Nullable PayloadReader<T> payloadReader
     ) {
-        return serviceAsync(opCode, payloadWriter, payloadReader, null, null);
+        return serviceAsync(opCode, payloadWriter, payloadReader, null, null, null);
     }
 
     /**
@@ -240,15 +241,16 @@ public final class ReliableChannel implements AutoCloseable {
      * @return Future for the operation.
      */
     public <T> CompletableFuture<T> serviceAsync(int opCode, PayloadReader<T> payloadReader) {
-        return serviceAsync(opCode, null, payloadReader, null, null);
+        return serviceAsync(opCode, null, payloadReader, null, null, null);
     }
 
     private <T> CompletableFuture<T> serviceAsyncInternal(
             int opCode,
             @Nullable PayloadWriter payloadWriter,
             @Nullable PayloadReader<T> payloadReader,
+            @Nullable NotificationHandler notificationHandler,
             ClientChannel ch) {
-        return ch.serviceAsync(opCode, payloadWriter, payloadReader).whenComplete((res, err) -> {
+        return ch.serviceAsync(opCode, payloadWriter, payloadReader, notificationHandler).whenComplete((res, err) -> {
             if (err != null && unwrapConnectionException(err) != null) {
                 onChannelFailure(ch);
             }
