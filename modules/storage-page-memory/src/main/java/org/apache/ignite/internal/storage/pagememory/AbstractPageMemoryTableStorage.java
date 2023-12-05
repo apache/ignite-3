@@ -18,9 +18,9 @@
 package org.apache.ignite.internal.storage.pagememory;
 
 import static java.util.concurrent.CompletableFuture.allOf;
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.storage.MvPartitionStorage.REBALANCE_IN_PROGRESS;
 import static org.apache.ignite.internal.storage.util.StorageUtils.createMissingMvPartitionErrorMessage;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 
 import java.util.List;
@@ -123,7 +123,7 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
     @Override
     public CompletableFuture<Void> destroy() {
         if (!stopGuard.compareAndSet(false, true)) {
-            return completedFuture(null);
+            return nullCompletedFuture();
         }
 
         busyLock.block();
@@ -269,7 +269,7 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
 
             mvPartitionStorage.completeRebalance();
 
-            return completedFuture(null);
+            return nullCompletedFuture();
         }));
     }
 

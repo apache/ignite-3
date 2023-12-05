@@ -18,6 +18,10 @@
 package org.apache.ignite.client.fakes;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.booleanCompletedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -29,7 +33,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Flow.Publisher;
 import java.util.function.BiConsumer;
-import java.util.function.Function;
 import javax.naming.OperationNotSupportedException;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
@@ -158,7 +161,7 @@ public class FakeInternalTable implements InternalTable {
     public CompletableFuture<Void> upsert(BinaryRowEx row, @Nullable InternalTransaction tx) {
         upsertImpl(keyExtractor.extractColumns(row), row);
 
-        return completedFuture(null);
+        return nullCompletedFuture();
     }
 
     private void upsertImpl(BinaryTuple key, BinaryRow row) {
@@ -174,7 +177,7 @@ public class FakeInternalTable implements InternalTable {
         }
 
         onDataAccess("upsertAll", rows);
-        return completedFuture(null);
+        return nullCompletedFuture();
     }
 
     @Override
@@ -208,7 +211,7 @@ public class FakeInternalTable implements InternalTable {
 
         onDataAccess("insert", row);
 
-        return completedFuture(old == null);
+        return booleanCompletedFuture(old == null);
     }
 
     @Override
@@ -229,7 +232,7 @@ public class FakeInternalTable implements InternalTable {
     public CompletableFuture<Boolean> replace(BinaryRowEx row, @Nullable InternalTransaction tx) {
         BinaryTuple key = keyExtractor.extractColumns(row);
 
-        return completedFuture(replaceImpl(key, row, tx) != null);
+        return booleanCompletedFuture(replaceImpl(key, row, tx) != null);
     }
 
     @Override
@@ -240,13 +243,13 @@ public class FakeInternalTable implements InternalTable {
 
         if (old == null || !old.tupleSlice().equals(oldRow.tupleSlice())) {
             onDataAccess("replace", oldRow);
-            return completedFuture(false);
+            return falseCompletedFuture();
         }
 
         upsertImpl(key, newRow);
 
         onDataAccess("replace", oldRow);
-        return completedFuture(true);
+        return trueCompletedFuture();
     }
 
     private @Nullable BinaryRow replaceImpl(BinaryTuple key, BinaryRow row, @Nullable InternalTransaction tx) {
@@ -285,7 +288,7 @@ public class FakeInternalTable implements InternalTable {
         }
 
         onDataAccess("delete", keyRow);
-        return completedFuture(old != null);
+        return booleanCompletedFuture(old != null);
     }
 
     @Override
@@ -302,7 +305,7 @@ public class FakeInternalTable implements InternalTable {
         }
 
         onDataAccess("deleteExact", oldRow);
-        return completedFuture(res);
+        return booleanCompletedFuture(res);
     }
 
     @Override
@@ -426,11 +429,6 @@ public class FakeInternalTable implements InternalTable {
     }
 
     @Override
-    public CompletableFuture<List<PrimaryReplica>> primaryReplicas() {
-        return CompletableFuture.failedFuture(new IgniteInternalException(new OperationNotSupportedException()));
-    }
-
-    @Override
     public ClusterNode leaderAssignment(int partition) {
         throw new IgniteInternalException(new OperationNotSupportedException());
     }
@@ -476,11 +474,6 @@ public class FakeInternalTable implements InternalTable {
 
     @Override
     public @Nullable PendingComparableValuesTracker<Long, Void> getPartitionStorageIndexTracker(int partitionId) {
-        return null;
-    }
-
-    @Override
-    public Function<String, ClusterNode> getClusterNodeResolver() {
         return null;
     }
 

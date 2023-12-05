@@ -20,6 +20,7 @@ package org.apache.ignite.internal.cluster.management.raft;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toCollection;
 import static java.util.stream.Collectors.toSet;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.HashSet;
 import java.util.List;
@@ -309,7 +310,7 @@ public class CmgRaftService implements ManuallyCloseable {
                 .collect(toSet());
 
         if (currentLearnerNames.equals(newLearners)) {
-            return completedFuture(null);
+            return nullCompletedFuture();
         }
 
         PeersAndLearners newConfiguration = PeersAndLearners.fromConsistentIds(currentPeers, newLearners);

@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal.storage.pagememory;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.storage.pagememory.configuration.schema.BasePageMemoryStorageEngineConfigurationSchema.DEFAULT_DATA_REGION_NAME;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 
 import java.util.Map;
@@ -99,7 +99,7 @@ public class VolatilePageMemoryStorageEngine implements StorageEngine {
             public CompletableFuture<?> onCreate(ConfigurationNotificationEvent<VolatilePageMemoryDataRegionView> ctx) {
                 addDataRegion(ctx.newName(VolatilePageMemoryDataRegionView.class));
 
-                return completedFuture(null);
+                return nullCompletedFuture();
             }
         });
 

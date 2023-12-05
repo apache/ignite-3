@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.externalize.RelJsonReader.fromJson;
 import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFIG;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
@@ -286,7 +287,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         var mgr = queryManagerMap.get(qryId);
 
         if (mgr == null) {
-            return CompletableFuture.completedFuture(null);
+            return nullCompletedFuture();
         }
 
         return mgr.close(true);
@@ -858,10 +859,12 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                     tx.assignCommitPartition(new TablePartitionId(tableId, ThreadLocalRandom.current().nextInt(partsCnt)));
 
                     for (int p = 0; p < partsCnt; p++) {
-                        NodeWithTerm leaderWithTerm = assignments.get(p);
+                        TablePartitionId tablePartId = new TablePartitionId(tableId, p);
 
-                        tx.enlist(new TablePartitionId(tableId, p),
-                                new IgniteBiTuple<>(topSrvc.getByConsistentId(leaderWithTerm.name()), leaderWithTerm.term()));
+                        NodeWithTerm enlistmentToken = assignments.get(p);
+
+                        tx.enlist(tablePartId,
+                                new IgniteBiTuple<>(topSrvc.getByConsistentId(enlistmentToken.name()), enlistmentToken.term()));
                     }
                 }
 
@@ -994,7 +997,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                 return node.closeAsync();
             }
 
-            return Commons.completedFuture();
+            return nullCompletedFuture();
         }
     }
 

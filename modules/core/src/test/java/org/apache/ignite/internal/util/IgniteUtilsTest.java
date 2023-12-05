@@ -22,6 +22,8 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.awaitForWorkersStop;
 import static org.apache.ignite.internal.util.IgniteUtils.byteBufferToByteArray;
 import static org.apache.ignite.internal.util.IgniteUtils.copyStateTo;
@@ -129,7 +131,7 @@ class IgniteUtilsTest extends BaseIgniteAbstractTest {
 
     @Test
     void testGetUninterruptibly() throws Exception {
-        assertThat(getUninterruptibly(completedFuture(true)), equalTo(true));
+        assertThat(getUninterruptibly(trueCompletedFuture()), equalTo(true));
         assertThat(Thread.currentThread().isInterrupted(), equalTo(false));
 
         ExecutionException exception0 = assertThrows(
@@ -153,7 +155,7 @@ class IgniteUtilsTest extends BaseIgniteAbstractTest {
             try {
                 Thread.currentThread().interrupt();
 
-                getUninterruptibly(completedFuture(null));
+                getUninterruptibly(nullCompletedFuture());
 
                 assertThat(Thread.currentThread().isInterrupted(), equalTo(true));
             } catch (ExecutionException e) {

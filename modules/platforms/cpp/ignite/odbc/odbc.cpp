@@ -256,10 +256,6 @@ SQLRETURN SQLDriverConnect(SQLHDBC conn, SQLHWND windowHandle, SQLCHAR *inConnec
 
 SQLRETURN SQLConnect(SQLHDBC conn, SQLCHAR *server_name, SQLSMALLINT server_name_len, SQLCHAR *user_name,
     SQLSMALLINT user_name_len, SQLCHAR *auth, SQLSMALLINT auth_len) {
-    UNUSED_VALUE(user_name);
-    UNUSED_VALUE(user_name_len);
-    UNUSED_VALUE(auth);
-    UNUSED_VALUE(auth_len);
 
     LOG_MSG("SQLConnect called\n");
 
@@ -267,14 +263,15 @@ SQLRETURN SQLConnect(SQLHDBC conn, SQLCHAR *server_name, SQLSMALLINT server_name
     if (!connection)
         return SQL_INVALID_HANDLE;
 
-    configuration config;
-
     std::string dsn = sql_string_to_string(server_name, server_name_len);
 
     LOG_MSG("DSN: " << dsn);
     // TODO: IGNITE-19210 Add DSN support
 
-    connection->establish(config);
+    std::string auth_identity = sql_string_to_string(user_name, user_name_len);
+    std::string auth_secret = sql_string_to_string(auth, auth_len);
+
+    connection->establish({auth_identity, auth_secret});
 
     return connection->get_diagnostic_records().get_return_code();
 }
