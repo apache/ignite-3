@@ -423,8 +423,6 @@ public class DistributionZoneManager implements IgniteComponent {
             assert prevZoneState == null : "Zone's state was created twice [zoneId = " + zoneId + ']';
         }
 
-        causalityDataNodesEngine.onCreateZoneState(causalityToken, zone);
-
         return nullCompletedFuture();
     }
 
@@ -440,6 +438,8 @@ public class DistributionZoneManager implements IgniteComponent {
         assert prevZoneState == null : "Zone's state was created twice [zoneId = " + zoneId + ']';
 
         Set<Node> dataNodes = logicalTopology.stream().map(NodeWithAttributes::node).collect(toSet());
+
+        causalityDataNodesEngine.onCreateZoneState(causalityToken, zone);
 
         return initDataNodesAndTriggerKeysInMetaStorage(zoneId, causalityToken, dataNodes);
     }

@@ -350,8 +350,16 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         int zoneId = getZoneId(node, zoneName);
 
         DistributionZoneManager distributionZoneManager = getDistributionZoneManager(node);
+        CatalogManager catalogManager = getCatalogManager(node);
 
-        assertDataNodesFromManager(distributionZoneManager, metastore::appliedRevision, zoneId, Set.of(A, B, C), TIMEOUT_MILLIS);
+        assertDataNodesFromManager(
+                distributionZoneManager,
+                metastore::appliedRevision,
+                catalogManager::latestCatalogVersion,
+                zoneId,
+                Set.of(A, B, C),
+                TIMEOUT_MILLIS
+        );
 
         ConcurrentSkipListMap<Long, Augmentation> nodeAttributesBeforeRestart =
                 distributionZoneManager.zonesState().get(zoneId).topologyAugmentationMap();
