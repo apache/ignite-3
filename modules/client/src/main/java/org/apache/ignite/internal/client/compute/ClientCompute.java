@@ -230,10 +230,7 @@ public class ClientCompute implements IgniteCompute {
                 r -> null,
                 node.name(),
                 null,
-                r -> {
-                    notificationFut.complete((R) r.in().unpackObjectFromBinaryTuple());
-                    return true; // Stop notification subscription. TODO YAGNI - remove this.
-                });
+                r -> notificationFut.complete((R) r.in().unpackObjectFromBinaryTuple()));
 
         return reqFut.thenCompose(v -> notificationFut);
     }

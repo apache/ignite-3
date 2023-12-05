@@ -440,7 +440,8 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     }
 
     private void handleNotification(long id, ClientMessageUnpacker unpacker) {
-        NotificationHandler handler = notificationHandlers.get(id);
+        // One-shot notification handler - remove immediately.
+        NotificationHandler handler = notificationHandlers.remove(id);
 
         if (handler == null) {
             log.error("Unexpected notification ID [remoteAddress=" + cfg.getAddress() + "]: " + id);
@@ -449,11 +450,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         }
 
         try (var in = new PayloadInputChannel(this, unpacker)) {
-            boolean remove = handler.consume(in);
-
-            if (remove) {
-                notificationHandlers.remove(id);
-            }
+            handler.consume(in);
         } catch (Exception e) {
             log.error("Failed to deserialize server notification [remoteAddress=" + cfg.getAddress() + "]: " + e.getMessage(), e);
 

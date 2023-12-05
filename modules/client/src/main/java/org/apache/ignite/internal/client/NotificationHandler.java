@@ -26,8 +26,7 @@ public interface NotificationHandler {
      * Consumes the notification.
      *
      * @param arg Channel.
-     * @return {@code true} if the subscription should be removed, {@code false} otherwise.
      * @throws Exception on failure.
      */
-    boolean consume(PayloadInputChannel arg) throws Exception;
+    void consume(PayloadInputChannel arg) throws Exception;
 }
