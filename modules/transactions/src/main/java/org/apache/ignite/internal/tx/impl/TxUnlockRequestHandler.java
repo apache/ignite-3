@@ -37,7 +37,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Handles TX Unlock request ({@link LockReleaseMessage}).
  */
-public class TxUnlockHandler {
+public class TxUnlockRequestHandler {
 
     /** Tx messages factory. */
     private static final TxMessagesFactory FACTORY = new TxMessagesFactory();
@@ -62,7 +62,7 @@ public class TxUnlockHandler {
      * @param clock A hybrid logical clock.
      * @param txCleanupProcessor A cleanup processor.
      */
-    public TxUnlockHandler(
+    public TxUnlockRequestHandler(
             ClusterService clusterService,
             LockManager lockManager,
             HybridClock clock,

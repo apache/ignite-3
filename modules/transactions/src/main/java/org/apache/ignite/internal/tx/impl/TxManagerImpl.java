@@ -159,7 +159,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     /**
      * Server cleanup processor.
      */
-    private final TxUnlockHandler txUnlockHandler;
+    private final TxUnlockRequestHandler txUnlockRequestHandler;
 
     /**
      * Server cleanup processor.
@@ -210,7 +210,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
         TxCleanupProcessor txCleanupProcessor = new TxCleanupProcessor(this, placementDriverHelper, clock);
 
-        txUnlockHandler = new TxUnlockHandler(clusterService, lockManager, clock, txCleanupProcessor);
+        txUnlockRequestHandler = new TxUnlockRequestHandler(clusterService, lockManager, clock, txCleanupProcessor);
 
         txUnlockRequestSender = new TxUnlockRequestSender(clusterService, placementDriverHelper, clock, txCleanupProcessor);
     }
@@ -566,7 +566,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         localNodeId = clusterService.topologyService().localMember().id();
         clusterService.messagingService().addMessageHandler(ReplicaMessageGroup.class, this);
         orphanDetector.start(txStateMap::get);
-        txUnlockHandler.start();
+        txUnlockRequestHandler.start();
     }
 
     @Override
@@ -582,7 +582,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
         busyLock.block();
 
-        txUnlockHandler.stop();
+        txUnlockRequestHandler.stop();
 
         shutdownAndAwaitTermination(cleanupExecutor, 10, TimeUnit.SECONDS);
     }
