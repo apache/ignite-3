@@ -644,7 +644,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                     .fragmentId(desc.fragmentId())
                     .root(serialisedFragment)
                     .fragmentDescription(desc)
-                    .parameters(new Foo[0])
+                    .parameters(ctx.parameters())
                     .txAttributes(txAttributes)
                     .schemaVersion(ctx.schemaVersion())
                     .build();
@@ -1121,10 +1121,6 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
             return nullCompletedFuture();
         }
-    }
-
-    private static class Foo {
-        // No-op.
     }
 
     /**
