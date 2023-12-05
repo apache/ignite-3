@@ -28,6 +28,8 @@ import org.apache.ignite.sql.Statement.StatementBuilder;
  * Fake SQL implementation.
  */
 public class FakeIgniteSql implements IgniteSql {
+    String lastScript;
+
     @Override
     public Session createSession() {
         return sessionBuilder().build();
@@ -35,7 +37,7 @@ public class FakeIgniteSql implements IgniteSql {
 
     @Override
     public SessionBuilder sessionBuilder() {
-        return new FakeSessionBuilder();
+        return new FakeSessionBuilder(this);
     }
 
     @Override

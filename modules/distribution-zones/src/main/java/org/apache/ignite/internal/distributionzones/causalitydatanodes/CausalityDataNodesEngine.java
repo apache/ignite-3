@@ -28,6 +28,8 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyKey;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToLong;
 import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
+import static org.apache.ignite.internal.util.ByteUtils.toBytes;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 
 import java.util.HashSet;
@@ -151,7 +153,7 @@ public class CausalityDataNodesEngine {
                 return zonesVv.get(causalityToken);
             } catch (OutdatedTokenException e) {
                 // This exception means that the DistributionZoneManager has already processed event with the causalityToken.
-                return CompletableFuture.completedFuture(null);
+                return nullCompletedFuture();
             }
         }).thenApply(ignored -> inBusyLock(busyLock, () -> {
             CatalogZoneDescriptor zoneDescriptor = catalogManager.catalog(catalogVersion).zone(zoneId);

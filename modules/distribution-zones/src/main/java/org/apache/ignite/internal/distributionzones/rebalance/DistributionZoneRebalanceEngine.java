@@ -18,13 +18,13 @@
 package org.apache.ignite.internal.distributionzones.rebalance;
 
 import static java.util.concurrent.CompletableFuture.allOf;
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.ZONE_ALTER;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.extractZoneId;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.filterDataNodes;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.parseDataNodes;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -133,7 +133,7 @@ public class DistributionZoneRebalanceEngine {
 
                     if (dataNodes == null) {
                         //The zone was removed so data nodes was removed too.
-                        return completedFuture(null);
+                        return nullCompletedFuture();
                     }
 
                     int zoneId = extractZoneId(evt.entryEvent().newEntry().key());
@@ -145,7 +145,7 @@ public class DistributionZoneRebalanceEngine {
 
                     if (zoneDescriptor == null) {
                         // Zone has been removed.
-                        return completedFuture(null);
+                        return nullCompletedFuture();
                     }
 
                     Set<String> filteredDataNodes = filterDataNodes(
@@ -155,7 +155,7 @@ public class DistributionZoneRebalanceEngine {
                     );
 
                     if (filteredDataNodes.isEmpty()) {
-                        return completedFuture(null);
+                        return nullCompletedFuture();
                     }
 
                     List<CatalogTableDescriptor> tableDescriptors = findTablesByZoneId(zoneId, catalogVersion);
@@ -185,7 +185,7 @@ public class DistributionZoneRebalanceEngine {
             return distributionZoneManager.dataNodes(causalityToken, catalogVersion, zoneId)
                     .thenCompose(dataNodes -> {
                         if (dataNodes.isEmpty()) {
-                            return completedFuture(null);
+                            return nullCompletedFuture();
                         }
 
                         List<CatalogTableDescriptor> tableDescriptors = findTablesByZoneId(zoneId, parameters.catalogVersion());
