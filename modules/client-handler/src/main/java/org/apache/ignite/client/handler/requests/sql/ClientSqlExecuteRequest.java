@@ -157,7 +157,7 @@ public class ClientSqlExecuteRequest {
         return statementBuilder.build();
     }
 
-    static Session readSession(ClientMessageUnpacker in, IgniteSql sql, @Nullable IgniteTransactions transactions) {
+    private static Session readSession(ClientMessageUnpacker in, IgniteSql sql, @Nullable IgniteTransactions transactions) {
         SessionBuilder sessionBuilder = sql.sessionBuilder();
 
         if (transactions != null && sessionBuilder instanceof SessionBuilderImpl) {
@@ -179,14 +179,18 @@ public class ClientSqlExecuteRequest {
             sessionBuilder.idleTimeout(in.unpackLong(), TimeUnit.MILLISECONDS);
         }
 
+        readSessionProperties(in, sessionBuilder);
+
+        return sessionBuilder.build();
+    }
+
+    static void readSessionProperties(ClientMessageUnpacker in, SessionBuilder sessionBuilder) {
         var propCount = in.unpackInt();
         var reader = new BinaryTupleReader(propCount * 4, in.readBinaryUnsafe());
 
         for (int i = 0; i < propCount; i++) {
             sessionBuilder.property(reader.stringValue(i * 4), ClientBinaryTupleUtils.readObject(reader, i * 4 + 1));
         }
-
-        return sessionBuilder.build();
     }
 
     private static void packMeta(ClientMessagePacker out, @Nullable ResultSetMetadata meta) {

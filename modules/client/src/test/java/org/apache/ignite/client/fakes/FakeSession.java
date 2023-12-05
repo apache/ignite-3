@@ -58,6 +58,8 @@ public class FakeSession implements AbstractSession {
     @Nullable
     private final Map<String, Object> properties;
 
+    private final FakeIgniteSql sql;
+
     /**
      * Constructor.
      *
@@ -65,6 +67,7 @@ public class FakeSession implements AbstractSession {
      * @param defaultSchema Default schema.
      * @param defaultQueryTimeout Default timeout.
      * @param properties Properties.
+     * @param sql SQL.
      */
     @SuppressWarnings("AssignmentOrReturnOfFieldWithMutableType")
     public FakeSession(
@@ -72,12 +75,14 @@ public class FakeSession implements AbstractSession {
             @Nullable String defaultSchema,
             @Nullable Long defaultQueryTimeout,
             @Nullable Long defaultSessionTimeout,
-            @Nullable Map<String, Object> properties) {
+            @Nullable Map<String, Object> properties,
+            FakeIgniteSql sql) {
         this.defaultPageSize = defaultPageSize;
         this.defaultSchema = defaultSchema;
         this.defaultQueryTimeout = defaultQueryTimeout;
         this.defaultSessionTimeout = defaultSessionTimeout;
         this.properties = properties;
+        this.sql = sql;
     }
 
     /** {@inheritDoc} */
@@ -101,7 +106,7 @@ public class FakeSession implements AbstractSession {
             return CompletableFuture.failedFuture(new SqlException(STMT_VALIDATION_ERR, "Query failed"));
         }
 
-        return CompletableFuture.completedFuture(new FakeAsyncResultSet(this, transaction, statement, arguments));
+        return CompletableFuture.completedFuture(new FakeAsyncResultSet(this, transaction, statement, arguments, sql));
     }
 
     /** {@inheritDoc} */
@@ -178,7 +183,36 @@ public class FakeSession implements AbstractSession {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> executeScriptAsync(String query, @Nullable Object... arguments) {
-        throw new UnsupportedOperationException();
+        var sb = new StringBuilder(query);
+
+        if (arguments != null) {
+            sb.append(", arguments: [");
+
+            for (Object arg : arguments) {
+                sb.append(arg).append(", ");
+            }
+
+            sb.append(']');
+        }
+
+        if (properties != null) {
+            sb.append(", properties: [");
+
+            for (Map.Entry<String, Object> entry : properties.entrySet()) {
+                sb.append(entry.getKey()).append('=').append(entry.getValue()).append(", ");
+            }
+
+            sb.append(']');
+        }
+
+        sb.append(", ").append("defaultPageSize=").append(defaultPageSize);
+        sb.append(", ").append("defaultSchema=").append(defaultSchema);
+        sb.append(", ").append("defaultQueryTimeout=").append(defaultQueryTimeout);
+        sb.append(", ").append("defaultSessionTimeout=").append(defaultSessionTimeout);
+
+        sql.lastScript = sb.toString();
+
+        return nullCompletedFuture();
     }
 
     /** {@inheritDoc} */
