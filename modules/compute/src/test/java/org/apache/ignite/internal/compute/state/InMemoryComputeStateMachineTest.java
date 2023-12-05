@@ -28,21 +28,38 @@ import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.UUID;
+import org.apache.ignite.internal.compute.configuration.ComputeConfiguration;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Test suite for {@link InMemoryComputeStateMachine}.
  */
-public class InMemoryComputeStateMachineTest {
+@ExtendWith(ConfigurationExtension.class)
+public class InMemoryComputeStateMachineTest extends BaseIgniteAbstractTest {
     private ComputeStateMachine stateMachine;
+
+    @InjectConfiguration
+    private ComputeConfiguration configuration;
 
     private UUID jobId;
 
     @BeforeEach
     public void setup() {
-        stateMachine = new InMemoryComputeStateMachine();
+        stateMachine = new InMemoryComputeStateMachine(configuration);
+        stateMachine.start();
         jobId = stateMachine.initJob();
+    }
+
+    @AfterEach
+    public void clean() {
+        stateMachine.stop();
     }
 
     @Test
@@ -115,6 +132,37 @@ public class InMemoryComputeStateMachineTest {
 
         failJob(false);
         failJob(true);
+    }
+
+    @Test
+    public void testCleanStates() throws InterruptedException {
+        configuration.change(change -> {
+            change.changeStatesLifetimeMillis(100);
+        });
+        stateMachine = new InMemoryComputeStateMachine(configuration);
+        stateMachine.start();
+
+        jobId = stateMachine.initJob();
+        executeJob(false);
+        completeJob(false);
+        IgniteTestUtils.waitForCondition(() -> stateMachine.currentState(jobId) == null, 100);
+
+        jobId = stateMachine.initJob();
+        executeJob(false);
+        failJob(false);
+        IgniteTestUtils.waitForCondition(() -> stateMachine.currentState(jobId) == null, 100);
+
+        jobId = stateMachine.initJob();
+        cancelJob(false);
+        IgniteTestUtils.waitForCondition(() -> stateMachine.currentState(jobId) == null, 100);
+
+        jobId = stateMachine.initJob();
+        executeJob(false);
+        cancelingJob(false);
+        cancelJob(false);
+        IgniteTestUtils.waitForCondition(() -> stateMachine.currentState(jobId) == null, 100);
+
+        stateMachine.stop();
     }
 
     private void cancelJob(boolean shouldFail) {

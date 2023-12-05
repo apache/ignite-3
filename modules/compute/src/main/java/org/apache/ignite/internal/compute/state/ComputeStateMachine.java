@@ -25,6 +25,16 @@ import org.apache.ignite.compute.JobState;
  */
 public interface ComputeStateMachine {
     /**
+     * Start Compute jobs state machine. The instance can't be used before it is started.
+     */
+    void start();
+
+    /**
+     * Stop Compute jobs state machine. The instance can't be used after it is stopped.
+     */
+    void stop();
+
+    /**
      * Initialize Compute job in state machine. This job should have status {@link JobState#QUEUED}.
      *
      * @return Compute job identifier.

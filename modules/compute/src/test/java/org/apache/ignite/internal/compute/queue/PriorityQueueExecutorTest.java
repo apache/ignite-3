@@ -67,7 +67,7 @@ public class PriorityQueueExecutorTest extends BaseIgniteAbstractTest {
         priorityQueueExecutor = new PriorityQueueExecutor(
                 configuration,
                 new NamedThreadFactory(NamedThreadFactory.threadPrefix("testNode", "compute"), LOG),
-                new InMemoryComputeStateMachine()
+                new InMemoryComputeStateMachine(configuration)
         );
     }
 

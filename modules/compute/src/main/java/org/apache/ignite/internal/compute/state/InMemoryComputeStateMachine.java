@@ -23,14 +23,23 @@ import static org.apache.ignite.compute.JobState.COMPLETED;
 import static org.apache.ignite.compute.JobState.EXECUTING;
 import static org.apache.ignite.compute.JobState.FAILED;
 import static org.apache.ignite.compute.JobState.QUEUED;
+import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import org.apache.ignite.compute.JobState;
+import org.apache.ignite.internal.compute.configuration.ComputeConfiguration;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.thread.NamedThreadFactory;
 
 /**
  * In memory implementation of {@link ComputeStateMachine}.
@@ -38,7 +47,39 @@ import org.apache.ignite.internal.logger.Loggers;
 public class InMemoryComputeStateMachine implements ComputeStateMachine {
     private static final IgniteLogger LOG = Loggers.forClass(InMemoryComputeStateMachine.class);
 
+    private final ComputeConfiguration configuration;
+
+    private ExecutorService cleaner;
+
+    private final Set<UUID> toRemove = new HashSet<>();
+
     private final Map<UUID, JobState> states = new ConcurrentHashMap<>();
+
+    public InMemoryComputeStateMachine(ComputeConfiguration configuration) {
+        this.configuration = configuration;
+    }
+
+    @Override
+    public void start() {
+        Long lifetime = configuration.statesLifetimeMillis().value();
+        ScheduledExecutorService result = Executors.newSingleThreadScheduledExecutor(
+                new NamedThreadFactory("InMemoryComputeStateMachine-pool", LOG)
+        );
+        result.scheduleAtFixedRate(() -> {
+            Set<UUID> toRemove = new HashSet<>(this.toRemove);
+            this.toRemove.removeAll(toRemove);
+
+            for (UUID jobId : toRemove) {
+                states.remove(jobId);
+            }
+        }, lifetime, lifetime, TimeUnit.MILLISECONDS);
+        cleaner = result;
+    }
+
+    @Override
+    public void stop() {
+        shutdownAndAwaitTermination(cleaner, 1000, TimeUnit.MILLISECONDS);
+    }
 
     @Override
     public JobState currentState(UUID jobId) {
@@ -65,17 +106,20 @@ public class InMemoryComputeStateMachine implements ComputeStateMachine {
     @Override
     public void failJob(UUID jobId) {
         changeState(jobId, FAILED, EXECUTING, CANCELING);
+        toRemove.add(jobId);
     }
 
     @Override
     public void completeJob(UUID jobId) {
         changeState(jobId, COMPLETED, EXECUTING, CANCELING);
+        toRemove.add(jobId);
     }
 
     @Override
     public void cancelingJob(UUID jobId) {
         changeState(jobId, currentState -> {
             if (currentState == QUEUED) {
+                toRemove.add(jobId);
                 return CANCELED;
             } else if (currentState == EXECUTING) {
                 return CANCELING;
@@ -88,6 +132,7 @@ public class InMemoryComputeStateMachine implements ComputeStateMachine {
     @Override
     public void cancelJob(UUID jobId) {
         changeState(jobId, CANCELED, QUEUED, CANCELING);
+        toRemove.add(jobId);
     }
 
     private void changeState(UUID jobId, JobState newState, JobState... requiredStates) {

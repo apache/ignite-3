@@ -77,6 +77,7 @@ public class ComputeExecutorImpl implements ComputeExecutor {
 
     @Override
     public void start() {
+        stateMachine.start();
         executorService = new PriorityQueueExecutor(
                 configuration,
                 new NamedThreadFactory(NamedThreadFactory.threadPrefix(ignite.name(), "compute"), LOG),
@@ -86,6 +87,7 @@ public class ComputeExecutorImpl implements ComputeExecutor {
 
     @Override
     public void stop() {
+        stateMachine.stop();
         executorService.shutdown();
     }
 }

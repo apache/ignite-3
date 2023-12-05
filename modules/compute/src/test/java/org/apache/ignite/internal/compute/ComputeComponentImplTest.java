@@ -147,7 +147,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
                 willCompleteSuccessfully()
         );
 
-        computeExecutor = new ComputeExecutorImpl(ignite, new InMemoryComputeStateMachine(), computeConfiguration);
+        computeExecutor = new ComputeExecutorImpl(ignite, new InMemoryComputeStateMachine(computeConfiguration), computeConfiguration);
 
         computeComponent = new ComputeComponentImpl(messagingService, jobContextManager, computeExecutor);
 
