@@ -260,7 +260,6 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
                 log.trace("Sending request [opCode=" + opCode + ", remoteAddress=" + cfg.getAddress() + ']');
             }
 
-            // TODO: If notificationHandler is not null, subscribe to notifications before sending the request.
             long id = reqId.getAndIncrement();
 
             if (notificationHandler != null) {
@@ -282,17 +281,17 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
      * Sends request.
      *
      * @param opCode        Operation code.
-     * @param requestId     Request id.
+     * @param id            Request id.
      * @param payloadWriter Payload writer to stream or {@code null} if request has no payload.
      * @return Request future.
      */
-    private ClientRequestFuture send(int opCode, long requestId, @Nullable PayloadWriter payloadWriter) {
+    private ClientRequestFuture send(int opCode, long id, @Nullable PayloadWriter payloadWriter) {
         if (closed()) {
             throw new IgniteClientConnectionException(CONNECTION_ERR, "Channel is closed");
         }
 
         ClientRequestFuture fut = new ClientRequestFuture();
-        pendingReqs.put(requestId, fut);
+        pendingReqs.put(id, fut);
 
         metrics.requestsActiveIncrement();
 
@@ -302,7 +301,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             var req = payloadCh.out();
 
             req.packInt(opCode);
-            req.packLong(requestId);
+            req.packLong(id);
 
             if (payloadWriter != null) {
                 payloadWriter.accept(payloadCh);
@@ -310,12 +309,12 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
 
             write(req).addListener(f -> {
                 if (!f.isSuccess()) {
-                    String msg = "Failed to send request [id=" + requestId + ", op=" + opCode + ", remoteAddress=" + cfg.getAddress() + "]";
+                    String msg = "Failed to send request [id=" + id + ", op=" + opCode + ", remoteAddress=" + cfg.getAddress() + "]";
                     IgniteClientConnectionException ex = new IgniteClientConnectionException(CONNECTION_ERR, msg, f.cause());
                     fut.completeExceptionally(ex);
                     log.warn(msg + "]: " + f.cause().getMessage(), f.cause());
 
-                    pendingReqs.remove(requestId);
+                    pendingReqs.remove(id);
                     metrics.requestsActiveDecrement();
 
                     // Close immediately, do not wait for onDisconnected call from Netty.
@@ -327,12 +326,12 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
 
             return fut;
         } catch (Throwable t) {
-            log.warn("Failed to send request [id=" + requestId + ", op=" + opCode + ", remoteAddress=" + cfg.getAddress() + "]: "
+            log.warn("Failed to send request [id=" + id + ", op=" + opCode + ", remoteAddress=" + cfg.getAddress() + "]: "
                     + t.getMessage(), t);
 
             // Close buffer manually on fail. Successful write closes the buffer automatically.
             payloadCh.close();
-            pendingReqs.remove(requestId);
+            pendingReqs.remove(id);
 
             metrics.requestsActiveDecrement();
 
