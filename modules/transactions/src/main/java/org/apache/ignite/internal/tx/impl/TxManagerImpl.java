@@ -61,6 +61,7 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
+import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
@@ -82,6 +83,7 @@ import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.TxStateMetaFinishing;
+import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.message.TxFinishReplicaRequest;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
 import org.apache.ignite.internal.util.CompletableFutures;
@@ -110,6 +112,9 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     /** Tx messages factory. */
     private static final TxMessagesFactory FACTORY = new TxMessagesFactory();
 
+    /** Transaction configuration. */
+    private final TransactionConfiguration txConfig;
+
     private final ReplicaService replicaService;
 
     /** Lock manager. */
@@ -124,8 +129,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     /** Generates transaction IDs. */
     private final TransactionIdGenerator transactionIdGenerator;
 
-    /** The local map for tx states. */
-    private final ConcurrentHashMap<UUID, TxStateMeta> txStateMap = new ConcurrentHashMap<>();
+    /** The local state storage. */
+    private final VolatileTxStateMetaStorage txStateVolatileStorage = new VolatileTxStateMetaStorage();
 
     /** Txn contexts. */
     private final ConcurrentHashMap<UUID, TxContext> txCtxMap = new ConcurrentHashMap<>(MAX_CONCURRENT_TXNS);
@@ -163,6 +168,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     /**
      * The constructor.
      *
+     * @param txConfig Transaction configuration.
      * @param clusterService Cluster service.
      * @param replicaService Replica service.
      * @param lockManager Lock manager.
@@ -172,6 +178,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
      * @param idleSafeTimePropagationPeriodMsSupplier Used to get idle safe time propagation period in ms.
      */
     public TxManagerImpl(
+            TransactionConfiguration txConfig,
             ClusterService clusterService,
             ReplicaService replicaService,
             LockManager lockManager,
@@ -180,6 +187,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             PlacementDriver placementDriver,
             LongSupplier idleSafeTimePropagationPeriodMsSupplier
     ) {
+        this.txConfig = txConfig;
         this.replicaService = replicaService;
         this.lockManager = lockManager;
         this.clock = clock;
@@ -269,22 +277,32 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
     @Override
     public TxStateMeta stateMeta(UUID txId) {
-        return txStateMap.get(txId);
+        try {
+            return txStateVolatileStorage.state(txId);
+        } catch (NodeStoppingException e) {
+            //TODO: IGNITE-21024 Public methods of transaction manager do not have NodeStoppingException in definition.
+            throw new RuntimeException(e);
+        }
     }
 
     @Override
     public TxStateMeta updateTxMeta(UUID txId, Function<TxStateMeta, TxStateMeta> updater) {
-        return txStateMap.compute(txId, (k, oldMeta) -> {
-            TxStateMeta newMeta = updater.apply(oldMeta);
+        try {
+            return txStateVolatileStorage.updateMeta(txId, oldMeta -> {
+                TxStateMeta newMeta = updater.apply(oldMeta);
 
-            if (newMeta == null) {
-                return null;
-            }
+                if (newMeta == null) {
+                    return null;
+                }
 
-            TxState oldState = oldMeta == null ? null : oldMeta.txState();
+                TxState oldState = oldMeta == null ? null : oldMeta.txState();
 
-            return checkTransitionCorrectness(oldState, newMeta.txState()) ? newMeta : oldMeta;
-        });
+                return checkTransitionCorrectness(oldState, newMeta.txState()) ? newMeta : oldMeta;
+            });
+        } catch (NodeStoppingException e) {
+            //TODO: IGNITE-21024 Public methods of transaction manager do not have NodeStoppingException in definition.
+            throw new RuntimeException(e);
+        }
     }
 
     @Override
@@ -550,28 +568,42 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
     @Override
     public int finished() {
-        return (int) txStateMap.entrySet().stream()
-                .filter(e -> isFinalState(e.getValue().txState()))
-                .count();
+        try {
+            return (int) txStateVolatileStorage.states().stream()
+                    .filter(e -> isFinalState(e.txState()))
+                    .count();
+        } catch (NodeStoppingException e) {
+            //TODO: IGNITE-21024 Public methods of transaction manager do not have NodeStoppingException in definition.
+            throw new RuntimeException(e);
+        }
     }
 
     @Override
     public int pending() {
-        return (int) txStateMap.entrySet().stream()
-                .filter(e -> e.getValue().txState() == PENDING)
-                .count();
+        try {
+            return (int) txStateVolatileStorage.states().stream()
+                    .filter(e -> e.txState() == PENDING)
+                    .count();
+        } catch (NodeStoppingException e) {
+            //TODO: IGNITE-21024 Public methods of transaction manager do not have NodeStoppingException in definition.
+            throw new RuntimeException(e);
+        }
     }
 
     @Override
     public void start() {
         localNodeId = clusterService.topologyService().localMember().id();
         clusterService.messagingService().addMessageHandler(ReplicaMessageGroup.class, this);
-        orphanDetector.start(txStateMap::get);
+
+        txStateVolatileStorage.start();
+
+        orphanDetector.start(txStateVolatileStorage, txConfig.abandonedCheckTs());
     }
 
     @Override
     public void beforeNodeStop() {
         orphanDetector.stop();
+        txStateVolatileStorage.stop();
     }
 
     @Override

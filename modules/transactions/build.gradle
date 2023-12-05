@@ -23,6 +23,9 @@ apply from: "$rootDir/buildscripts/java-integration-test.gradle"
 
 dependencies {
     annotationProcessor project(":ignite-network-annotation-processor")
+    annotationProcessor project(":ignite-configuration-annotation-processor")
+    annotationProcessor libs.auto.service
+
     implementation project(':ignite-api')
     implementation project(':ignite-core')
     implementation project(':ignite-network-api')
@@ -34,6 +37,7 @@ dependencies {
     implementation project(':ignite-distribution-zones')
     implementation project(':ignite-configuration-api')
     implementation project(':ignite-placement-driver-api')
+    implementation libs.auto.service.annotations
     implementation libs.jetbrains.annotations
     implementation libs.fastutil.core
 

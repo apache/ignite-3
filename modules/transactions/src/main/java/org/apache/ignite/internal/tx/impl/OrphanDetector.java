@@ -17,14 +17,16 @@
 
 package org.apache.ignite.internal.tx.impl;
 
-import static java.util.concurrent.CompletableFuture.failedFuture;
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.tx.TxState.isFinalState;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.FastTimestamps.coarseCurrentTimeMillis;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.ACQUIRE_LOCK_ERR;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Function;
+import org.apache.ignite.configuration.ConfigurationValue;
 import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.lang.NodeStoppingException;
@@ -32,8 +34,8 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.replicator.ReplicaService;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.tx.LockManager;
-import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.event.LockEvent;
 import org.apache.ignite.internal.tx.event.LockEventParameters;
@@ -42,6 +44,7 @@ import org.apache.ignite.internal.tx.message.TxRecoveryMessage;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.TopologyService;
+import org.apache.ignite.tx.TransactionException;
 
 /**
  * The class detects transactions that are left without a coordinator but still hold locks. For that orphan transaction, the recovery
@@ -77,8 +80,14 @@ public class OrphanDetector {
     /** Hybrid clock. */
     private final HybridClock clock;
 
+    /**
+     * The time interval in milliseconds in which the orphan resolution sends the recovery message again, in case the transaction is still
+     * not finalized.
+     */
+    private long checkTxStateInterval;
+
     /** Local transaction state storage. */
-    private Function<UUID, TxStateMeta> txLocalStateStorage;
+    private VolatileTxStateMetaStorage txLocalStateStorage;
 
     /**
      * The constructor.
@@ -94,7 +103,8 @@ public class OrphanDetector {
             ReplicaService replicaService,
             PlacementDriver placementDriver,
             LockManager lockManager,
-            HybridClock clock) {
+            HybridClock clock
+    ) {
         this.topologyService = topologyService;
         this.replicaService = replicaService;
         this.placementDriver = placementDriver;
@@ -106,9 +116,17 @@ public class OrphanDetector {
      * Starts the detector.
      *
      * @param txLocalStateStorage Local transaction state storage.
+     * @param checkTxStateIntervalProvider Global provider of configuration check state interval.
      */
-    public void start(Function<UUID, TxStateMeta> txLocalStateStorage) {
+    public void start(VolatileTxStateMetaStorage txLocalStateStorage, ConfigurationValue<Long> checkTxStateIntervalProvider) {
         this.txLocalStateStorage = txLocalStateStorage;
+        this.checkTxStateInterval = checkTxStateIntervalProvider.value();
+
+        checkTxStateIntervalProvider.listen(ctx -> {
+            this.checkTxStateInterval = ctx.newValue();
+
+            return completedFuture(null);
+        });
 
         lockManager.listen(LockEvent.LOCK_CONFLICT, lockConflictListener);
     }
@@ -123,26 +141,30 @@ public class OrphanDetector {
     }
 
     private CompletableFuture<Boolean> lockConflictListener(LockEventParameters params, Throwable e) {
-        return handleLockHolder(params.lockHolderTx())
-                .thenApply(v -> false);
+        try {
+            handleLockHolder(params.lockHolderTx());
+        } catch (NodeStoppingException ex) {
+            throw new RuntimeException(ex);
+        }
+
+        return completedFuture(false);
     }
 
     /**
      * Sends {@link TxRecoveryMessage} if the transaction is orphaned.
      *
      * @param txId Transaction id that holds a lock.
-     * @return Future to complete.
      */
-    private CompletableFuture<Void> handleLockHolder(UUID txId) {
+    private Void handleLockHolder(UUID txId) throws NodeStoppingException {
         if (busyLock.enterBusy()) {
             try {
-                return handleLockHolderInternal(txId);
+                handleLockHolderInternal(txId);
             } finally {
                 busyLock.leaveBusy();
             }
         }
 
-        return failedFuture(new NodeStoppingException());
+        throw new NodeStoppingException();
     }
 
     /**
@@ -151,26 +173,37 @@ public class OrphanDetector {
      * @param txId Transaction id that holds a lock.
      * @return Future to complete.
      */
-    private CompletableFuture<Void> handleLockHolderInternal(UUID txId) {
-        TxStateMeta txState = txLocalStateStorage.apply(txId);
+    private void handleLockHolderInternal(UUID txId) throws NodeStoppingException {
+        TxStateMeta txState = txLocalStateStorage.state(txId);
 
         // Transaction state for full transactions is not stored in the local map, so it can be null.
-        if (txState == null
-                || txState.txState() == TxState.ABANDONED
-                || isFinalState(txState.txState())
-                || topologyService.getById(txState.txCoordinatorId()) != null) {
-            return nullCompletedFuture();
+        if (txState == null || isFinalState(txState.txState()) || isTxCoordinatorAlive(txState)) {
+            return;
         }
 
-        LOG.info(
-                "Conflict was found, and the coordinator of the transaction that holds a lock is not available "
-                        + "[txId={}, txCrd={}].",
-                txId,
-                txState.txCoordinatorId()
-        );
+        if (isRecoveryNeeded(txId, txState)) {
+            LOG.info(
+                    "Conflict was found, and the coordinator of the transaction that holds a lock is not available "
+                            + "[txId={}, txCrd={}].",
+                    txId,
+                    txState.txCoordinatorId()
+            );
 
-        return placementDriver.awaitPrimaryReplica(
-                txState.commitPartitionId(),
+            sentTxRecoveryMessage(txState.commitPartitionId(), txId);
+        }
+
+        throw new TransactionException(ACQUIRE_LOCK_ERR, "The lock is held by the abandoned transaction [tx=" + txId + "].");
+    }
+
+    /**
+     * Sends transaction recovery message to commit partition for particular transaction.
+     *
+     * @param cmpPartGrp Replication group of commit partition.
+     * @param txId Transaction id.
+     */
+    private void sentTxRecoveryMessage(ReplicationGroupId cmpPartGrp, UUID txId) {
+        placementDriver.awaitPrimaryReplica(
+                cmpPartGrp,
                 clock.now(),
                 AWAIT_PRIMARY_REPLICA_TIMEOUT_SEC,
                 SECONDS
@@ -180,7 +213,7 @@ public class OrphanDetector {
             if (commitPartPrimaryNode == null) {
                 LOG.warn(
                         "The primary replica of the commit partition is not available [commitPartGrp={}, tx={}]",
-                        txState.commitPartitionId(),
+                        cmpPartGrp,
                         txId
                 );
 
@@ -188,10 +221,56 @@ public class OrphanDetector {
             }
 
             return replicaService.invoke(commitPartPrimaryNode, FACTORY.txRecoveryMessage()
-                    .groupId(txState.commitPartitionId())
+                    .groupId(cmpPartGrp)
                     .enlistmentConsistencyToken(replicaMeta.getStartTime().longValue())
                     .txId(txId)
                     .build());
+        }).exceptionally(throwable -> {
+            if (throwable != null) {
+                LOG.warn("A recovery message for the transaction was handled with the error [tx={}].", throwable, txId);
+            }
+
+            return null;
         });
+    }
+
+    /**
+     * Does a life check for the transaction coordinator.
+     *
+     * @param txState Transaction state meta.
+     * @return True when the transaction coordinator is alive, false otherwise.
+     */
+    private boolean isTxCoordinatorAlive(TxStateMeta txState) {
+        return topologyService.getById(txState.txCoordinatorId()) != null;
+    }
+
+    /**
+     * Checks whether the recovery transaction message is required to be sent or not.
+     *
+     * @param txId Transaction id.
+     * @param txState Transaction meta state.
+     * @return True when transaction recovery is needed, false otherwise.
+     * @throws NodeStoppingException If the node is stopping.
+     */
+    private boolean isRecoveryNeeded(UUID txId, TxStateMeta txState) throws NodeStoppingException {
+        long checkTs = coarseCurrentTimeMillis();
+
+        if (txState == null
+                || isFinalState(txState.txState())
+                || txState.lastAbandonedMarkerTs() + checkTxStateInterval >= checkTs) {
+            return false;
+        }
+
+        TxStateMeta updatedTxState = txLocalStateStorage.updateMeta(txId, txStateMeta -> {
+            if (txStateMeta != null
+                    && !isFinalState(txStateMeta.txState())
+                    && txStateMeta.lastAbandonedMarkerTs() + checkTxStateInterval < checkTs) {
+                return txStateMeta.markAbandoned();
+            }
+
+            return txStateMeta;
+        });
+
+        return updatedTxState.lastAbandonedMarkerTs() > txState.lastAbandonedMarkerTs();
     }
 }

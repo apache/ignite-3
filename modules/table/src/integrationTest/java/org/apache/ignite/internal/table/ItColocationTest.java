@@ -57,6 +57,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
 import org.apache.ignite.internal.raft.Command;
@@ -89,6 +90,7 @@ import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
@@ -131,6 +133,9 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
     /** Message factory to create messages - RAFT commands.  */
     private static final TableMessagesFactory MSG_FACTORY = new TableMessagesFactory();
 
+    @InjectConfiguration
+    private static TransactionConfiguration txConfiguration;
+
     private SchemaDescriptor schema;
 
     private SchemaRegistry schemaRegistry;
@@ -150,6 +155,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
         ReplicaService replicaService = mock(ReplicaService.class, RETURNS_DEEP_STUBS);
 
         txManager = new TxManagerImpl(
+                txConfiguration,
                 clusterService,
                 replicaService,
                 new HeapLockManager(),

@@ -21,6 +21,8 @@ import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.table.distributed.schema.ConstantSchemaVersions;
@@ -28,6 +30,7 @@ import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.MessagingService;
@@ -38,10 +41,13 @@ import org.mockito.junit.jupiter.MockitoExtension;
 /**
  * Basic table operations test.
  */
-@ExtendWith(MockitoExtension.class)
+@ExtendWith({MockitoExtension.class, ConfigurationExtension.class})
 abstract class TableKvOperationsTestBase extends BaseIgniteAbstractTest {
     @Mock(answer = RETURNS_DEEP_STUBS)
     protected ReplicaService replicaService;
+
+    @InjectConfiguration
+    private TransactionConfiguration txConfiguration;
 
     protected static final int SCHEMA_VERSION = 1;
 
@@ -65,6 +71,6 @@ abstract class TableKvOperationsTestBase extends BaseIgniteAbstractTest {
     }
 
     protected final DummyInternalTableImpl createInternalTable(SchemaDescriptor schema) {
-        return new DummyInternalTableImpl(replicaService, schema);
+        return new DummyInternalTableImpl(replicaService, schema, txConfiguration);
     }
 }

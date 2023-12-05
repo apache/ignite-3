@@ -17,10 +17,13 @@
 
 package org.apache.ignite.internal.tx;
 
+import static org.apache.ignite.internal.tx.TxState.ABANDONED;
+
 import java.util.Objects;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.internal.util.FastTimestamps;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -38,6 +41,9 @@ public class TxStateMeta implements TransactionMeta {
 
     private final HybridTimestamp commitTimestamp;
 
+    /** Timestamp when the latest {@code ABANDONED} state set. If the transaction state is not {@code ABANDONED}, it is {@code 0}. */
+    private final long lastAbandonedMarkerTs;
+
     /**
      * Constructor.
      *
@@ -52,10 +58,43 @@ public class TxStateMeta implements TransactionMeta {
             @Nullable TablePartitionId commitPartitionId,
             @Nullable HybridTimestamp commitTimestamp
     ) {
+        this(txState, txCoordinatorId, commitPartitionId, commitTimestamp, 0);
+    }
+
+    /**
+     * Constructor.
+     *
+     * @param txState Transaction state.
+     * @param txCoordinatorId Transaction coordinator id.
+     * @param commitPartitionId Commit partition replication group id.
+     * @param commitTimestamp Commit timestamp.
+     * @param lastAbandonedMarkerTs Timestamp indicates when the transaction is marked as abandoned.
+     */
+    private TxStateMeta(
+            TxState txState,
+            String txCoordinatorId,
+            TablePartitionId commitPartitionId,
+            HybridTimestamp commitTimestamp,
+            long lastAbandonedMarkerTs
+    ) {
         this.txState = txState;
         this.txCoordinatorId = txCoordinatorId;
         this.commitPartitionId = commitPartitionId;
         this.commitTimestamp = commitTimestamp;
+        this.lastAbandonedMarkerTs = lastAbandonedMarkerTs;
+    }
+
+    /**
+     * Creates a transaction state for same transaction, but this one is marked abandoned.
+     *
+     * @return Transaction state meta.
+     */
+    public TxStateMeta markAbandoned() {
+        assert lastAbandonedMarkerTs == 0 || txState == ABANDONED
+                : "Transaction state is incorrect [lastAbandonedMarkerTs=" + lastAbandonedMarkerTs
+                + ", txState=" + txState + "].";
+
+        return new TxStateMeta(ABANDONED, txCoordinatorId, commitPartitionId, commitTimestamp, FastTimestamps.coarseCurrentTimeMillis());
     }
 
     @Override
@@ -76,6 +115,15 @@ public class TxStateMeta implements TransactionMeta {
         return commitTimestamp;
     }
 
+    /**
+     * The last timestamp when the transaction was marked as abandoned.
+     *
+     * @return Timestamp or {@code 0} if the transaction is in not abandoned.
+     */
+    public long lastAbandonedMarkerTs() {
+        return lastAbandonedMarkerTs;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) {
@@ -84,12 +132,16 @@ public class TxStateMeta implements TransactionMeta {
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
-
         TxStateMeta that = (TxStateMeta) o;
 
         if (txState != that.txState) {
             return false;
         }
+
+        if (lastAbandonedMarkerTs != that.lastAbandonedMarkerTs) {
+            return false;
+        }
+
         if (txCoordinatorId != null ? !txCoordinatorId.equals(that.txCoordinatorId) : that.txCoordinatorId != null) {
             return false;
         }
@@ -103,7 +155,7 @@ public class TxStateMeta implements TransactionMeta {
 
     @Override
     public int hashCode() {
-        return Objects.hash(txState, txCoordinatorId, commitPartitionId, commitTimestamp);
+        return Objects.hash(txState, txCoordinatorId, commitPartitionId, commitTimestamp, lastAbandonedMarkerTs);
     }
 
     @Override

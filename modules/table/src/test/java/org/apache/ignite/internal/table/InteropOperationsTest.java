@@ -40,6 +40,8 @@ import java.util.BitSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -50,6 +52,7 @@ import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypes;
@@ -60,7 +63,9 @@ import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Tests for different access methods:
@@ -68,29 +73,34 @@ import org.junit.jupiter.api.Test;
  * 2) Write using different API's into it (row 1 - with all values, row 2 - with nulls).
  * 3) Read data back through all possible APIs and validate it.
  */
+@ExtendWith(ConfigurationExtension.class)
 public class InteropOperationsTest extends BaseIgniteAbstractTest {
     /** Test schema. */
-    private static final SchemaDescriptor SCHEMA;
+    private static SchemaDescriptor SCHEMA;
 
     /** Table for tests. */
-    private static final TableViewInternal TABLE;
+    private static TableViewInternal TABLE;
 
     /** Dummy internal table for tests. */
-    private static final DummyInternalTableImpl INT_TABLE;
+    private static DummyInternalTableImpl INT_TABLE;
 
     /** Key value binary view for test. */
-    private static final KeyValueView<Tuple, Tuple> KV_BIN_VIEW;
+    private static KeyValueView<Tuple, Tuple> KV_BIN_VIEW;
 
     /** Key value view for test. */
-    private static final KeyValueView<Long, Value> KV_VIEW;
+    private static KeyValueView<Long, Value> KV_VIEW;
 
     /** Record view for test. */
-    private static final RecordView<Row> R_VIEW;
+    private static RecordView<Row> R_VIEW;
 
     /** Record binary view for test. */
-    private static final RecordView<Tuple> R_BIN_VIEW;
+    private static RecordView<Tuple> R_BIN_VIEW;
 
-    static {
+    @InjectConfiguration
+    private static TransactionConfiguration txConfiguration;
+
+    @BeforeAll
+    static void beforeAll() {
         NativeType[] types = {
                 NativeTypes.BOOLEAN,
                 NativeTypes.INT8, NativeTypes.INT16, NativeTypes.INT32, NativeTypes.INT64,
@@ -118,7 +128,7 @@ public class InteropOperationsTest extends BaseIgniteAbstractTest {
         ClusterService clusterService = mock(ClusterService.class, RETURNS_DEEP_STUBS);
         when(clusterService.topologyService().localMember().address()).thenReturn(DummyInternalTableImpl.ADDR);
 
-        INT_TABLE = new DummyInternalTableImpl(mock(ReplicaService.class, RETURNS_DEEP_STUBS), SCHEMA);
+        INT_TABLE = new DummyInternalTableImpl(mock(ReplicaService.class, RETURNS_DEEP_STUBS), SCHEMA, txConfiguration);
 
         SchemaRegistry schemaRegistry = new DummySchemaManagerImpl(SCHEMA);
 

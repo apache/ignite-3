@@ -126,6 +126,7 @@ import org.apache.ignite.internal.table.distributed.schema.SchemaSyncServiceImpl
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
+import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
@@ -181,6 +182,9 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
     @InjectConfiguration
     private static MetaStorageConfiguration metaStorageConfiguration;
+
+    @InjectConfiguration
+    private static TransactionConfiguration txConfiguration;
 
     /**
      * Start some of Ignite components that are able to serve as Ignite node for test purposes.
@@ -333,6 +337,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         );
 
         var txManager = new TxManagerImpl(
+                txConfiguration,
                 clusterSvc,
                 replicaService,
                 lockManager,

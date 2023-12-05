@@ -66,6 +66,8 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -119,6 +121,7 @@ import org.apache.ignite.internal.table.impl.DummyValidationSchemasSource;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
@@ -140,12 +143,17 @@ import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 import org.apache.ignite.tx.IgniteTransactions;
 import org.apache.ignite.utils.ClusterServiceTestUtils;
 import org.junit.jupiter.api.TestInfo;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Class that allows to mock a cluster for transaction tests' purposes.
  */
+@ExtendWith(ConfigurationExtension.class)
 public class ItTxTestCluster {
     private static final int SCHEMA_VERSION = 1;
+
+    @InjectConfiguration
+    private static TransactionConfiguration txConfiguration;
 
     private final List<NetworkAddress> localAddresses;
 
@@ -389,6 +397,7 @@ public class ItTxTestCluster {
             PlacementDriver placementDriver
     ) {
         return new TxManagerImpl(
+                txConfiguration,
                 clusterService,
                 replicaSvc,
                 new HeapLockManager(),
@@ -819,6 +828,7 @@ public class ItTxTestCluster {
 
     private void initializeClientTxComponents() {
         clientTxManager = new TxManagerImpl(
+                txConfiguration,
                 client,
                 clientReplicaSvc,
                 new HeapLockManager(),
