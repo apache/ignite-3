@@ -263,6 +263,8 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             long id = reqId.getAndIncrement();
 
             if (notificationHandler != null) {
+                // Notification can arrive before the response to the current request.
+                // This is fine, because we use the same id and register the handler before sending the request.
                 notificationHandlers.put(id, notificationHandler);
             }
 

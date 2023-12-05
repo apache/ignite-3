@@ -684,6 +684,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
                 return ClientComputeExecuteRequest.process(in, compute, clusterService, notificationSender(requestId));
 
             case ClientOp.COMPUTE_EXECUTE_COLOCATED:
+                // TODO: Notification sender.
                 return ClientComputeExecuteColocatedRequest.process(in, out, compute, igniteTables);
 
             case ClientOp.CLUSTER_GET_NODES:

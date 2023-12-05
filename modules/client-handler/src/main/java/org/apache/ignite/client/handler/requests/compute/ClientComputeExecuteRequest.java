@@ -59,12 +59,8 @@ public class ClientComputeExecuteRequest {
 
         List<DeploymentUnit> deploymentUnits = unpackDeploymentUnits(in);
         String jobClassName = in.unpackString();
-
         Object[] args = unpackArgs(in);
 
-        // sendNotification can be called before we send the response to the current request.
-        // This is fine, because we use client-provided requestId to match the notification with the request,
-        // so the client can set up a listener with the known id.
         compute.executeAsync(Set.of(node), deploymentUnits, jobClassName, args)
                 .thenAccept(res -> notificationSender.sendNotification(w -> w.packObjectAsBinaryTuple(res)));
 
