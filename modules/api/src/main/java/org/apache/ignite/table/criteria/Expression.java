@@ -27,10 +27,13 @@ public interface Expression {
     /**
      * Accept the visitor with the given context.
      *
-     * @param <R> return type
      * @param <C> context type
      * @param v visitor
      * @param context context of visit
      */
-    <R, C> void accept(CriteriaVisitor<C> v, @Nullable C context);
+    <C> void accept(CriteriaVisitor<C> v, @Nullable C context);
+
+    static <T> Expression equalTo(T value) {
+        return new Argument<>(value);
+    }
 }

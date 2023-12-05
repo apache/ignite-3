@@ -33,8 +33,9 @@ class Operation implements Criteria {
         this.elements = elements;
     }
 
+    /** {@inheritDoc} */
     @Override
-    public <R, C> void accept(CriteriaVisitor<C> v, @Nullable C context) {
+    public <C> void accept(CriteriaVisitor<C> v, @Nullable C context) {
         for (var element : elements) {
             element.accept(v, null);
         }

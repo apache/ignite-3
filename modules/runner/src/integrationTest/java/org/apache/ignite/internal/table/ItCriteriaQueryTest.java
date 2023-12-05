@@ -19,9 +19,9 @@ package org.apache.ignite.internal.table;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
-import static org.apache.ignite.table.criteria.CriteriaBuilder.columnName;
+import static org.apache.ignite.table.criteria.Criteria.columnValue;
+import static org.apache.ignite.table.criteria.Expression.equalTo;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.hasProperty;
 import static org.hamcrest.Matchers.hasSize;
@@ -46,6 +46,7 @@ import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.criteria.Criteria;
 import org.hamcrest.FeatureMatcher;
 import org.hamcrest.Matcher;
+import org.hamcrest.Matchers;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -122,13 +123,13 @@ public class ItCriteriaQueryTest extends BaseIgniteAbstractTest {
         var res = view.queryCriteria(null, null).getAll();
         assertThat(res, hasSize(15));
 
-        res = view.queryCriteria(null, columnName(COLUMN_KEY).equal(2)).getAll();
+        res = view.queryCriteria(null, columnValue(COLUMN_KEY, equalTo(2))).getAll();
         assertThat(res, hasSize(1));
-        assertThat(res, hasItem(tupleValue(COLUMN_KEY, equalTo(2))));
+        assertThat(res, hasItem(tupleValue(COLUMN_KEY, Matchers.equalTo(2))));
 
-        res = view.queryCriteria(null, Criteria.not(Criteria.equal(COLUMN_KEY, 2))).getAll();
+        res = view.queryCriteria(null, Criteria.not(columnValue(COLUMN_KEY, equalTo(2)))).getAll();
         assertThat(res, hasSize(14));
-        assertThat(res, not(hasItem(tupleValue(COLUMN_KEY, equalTo(2)))));
+        assertThat(res, not(hasItem(tupleValue(COLUMN_KEY, Matchers.equalTo(2)))));
     }
 
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-18695")
@@ -139,13 +140,13 @@ public class ItCriteriaQueryTest extends BaseIgniteAbstractTest {
         var res = view.queryCriteria(null, null).getAll();
         assertThat(res, hasSize(15));
 
-        res = view.queryCriteria(null, columnName(COLUMN_KEY).equal(2)).getAll();
+        res = view.queryCriteria(null, columnValue(COLUMN_KEY, equalTo(2))).getAll();
         assertThat(res, hasSize(1));
-        assertThat(res, hasItem(hasProperty(COLUMN_KEY, equalTo(2))));
+        assertThat(res, hasItem(hasProperty(COLUMN_KEY, Matchers.equalTo(2))));
 
-        res = view.queryCriteria(null, Criteria.not(Criteria.equal(COLUMN_KEY, 2))).getAll();
+        res = view.queryCriteria(null, Criteria.not(columnValue(COLUMN_KEY, equalTo(2)))).getAll();
         assertThat(res, hasSize(14));
-        assertThat(res, not(hasItem(hasProperty(COLUMN_KEY, equalTo(2)))));
+        assertThat(res, not(hasItem(hasProperty(COLUMN_KEY, Matchers.equalTo(2)))));
     }
 
     private static void startTable(Ignite node, String tableName) {

@@ -23,18 +23,24 @@ import org.jetbrains.annotations.Nullable;
  * {@code StaticText} represents a static text element.
  */
 public class StaticText implements Expression {
-    private String text;
+    private final String text;
 
-    public StaticText(String text) {
+    StaticText(String text) {
         this.text = text;
     }
 
+    /**
+     * Gets text value.
+     *
+     * @return A text.
+     */
     public String getText() {
         return text;
     }
 
+    /** {@inheritDoc} */
     @Override
-    public <R, C> void accept(CriteriaVisitor<C> v, @Nullable C context) {
+    public <C> void accept(CriteriaVisitor<C> v, @Nullable C context) {
         v.visit(this, context);
     }
 }

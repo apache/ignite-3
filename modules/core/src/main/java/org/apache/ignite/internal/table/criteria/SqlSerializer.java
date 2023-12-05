@@ -15,13 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table;
+package org.apache.ignite.internal.table.criteria;
 
 import static org.apache.ignite.internal.util.StringUtils.nullOrBlank;
 
 import java.util.LinkedList;
 import java.util.List;
-import org.apache.ignite.table.criteria.Constant;
+import org.apache.ignite.table.criteria.Argument;
 import org.apache.ignite.table.criteria.Criteria;
 import org.apache.ignite.table.criteria.CriteriaVisitor;
 import org.apache.ignite.table.criteria.StaticText;
@@ -31,6 +31,7 @@ import org.jetbrains.annotations.Nullable;
  * Serializes {@link Criteria} into into SQL.
  */
 public class SqlSerializer implements CriteriaVisitor<Void> {
+    @SuppressWarnings("StringBufferField")
     private final StringBuilder builder = new StringBuilder(128);
     private final List<Object> arguments = new LinkedList<>();
 
@@ -45,16 +46,16 @@ public class SqlSerializer implements CriteriaVisitor<Void> {
 
     /** {@inheritDoc} */
     @Override
-    public <T> void visit(Constant<T> expr, @Nullable Void context) {
+    public <T> void visit(Argument<T> argument, @Nullable Void context) {
         append("?");
 
-        arguments.add(expr.getConstant());
+        arguments.add(argument.getValue());
     }
 
     /** {@inheritDoc} */
     @Override
-    public <T> void visit(StaticText expr, @Nullable Void context) {
-        append(expr.getText());
+    public <T> void visit(StaticText text, @Nullable Void context) {
+        append(text.getText());
     }
 
     /** {@inheritDoc} */

@@ -20,24 +20,24 @@ package org.apache.ignite.table.criteria;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * {@code Visitor} defines a visitor signature for {@link Criteria} instances.
+ * {@code Visitor} defines a visitor signature for {@link Expression} instances.
  *
  * @param <C> Context type.
  */
 public interface CriteriaVisitor<C> {
     /**
-     * Visit a Constant instance with the given context.
+     * Visit a {@link Argument} instance with the given context.
      *
-     * @param expr expression to visit
+     * @param argument Argument to visit
      * @param context context of the visit or null, if not used
      */
-    <T> void visit(Constant<T> expr, @Nullable C context);
+    <T> void visit(Argument<T> argument, @Nullable C context);
 
     /**
-     * Visit a Constant instance with the given context.
+     * Visit a {@link StaticText} instance with the given context.
      *
-     * @param expr expression to visit
+     * @param text Text to visit
      * @param context context of the visit or null, if not used
      */
-    <T> void visit(StaticText expr, @Nullable C context);
+    <T> void visit(StaticText text, @Nullable C context);
 }

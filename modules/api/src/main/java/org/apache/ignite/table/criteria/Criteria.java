@@ -24,23 +24,23 @@ import java.util.List;
  */
 public interface Criteria extends Expression {
     /**
-     * Create a predicate for testing the column is equal to a given value.
+     * Creates a predicate that tests whether the column value is equal to the given value.
      *
      * @param columnName Column name.
-     * @param value Column value.
+     * @param expression Expression.
      * @return the created <b>equal</b> predicate instance.
      */
-    static <T> Criteria equal(String columnName, T value) {
-        return Operation.create("{0} = {1}", List.of(new StaticText(columnName), new Constant<>(value)));
+    static Criteria columnValue(String columnName, Expression expression) {
+        return Operation.create("{0} = {1}", List.of(new StaticText(columnName), expression));
     }
 
     /**
-     * Create a predicate for testing the column is equal to a given value.
+     * Creates the negation of the predicate.
      *
-     * @param criteria Column name.
+     * @param expression Expression.
      * @return the created <b>not</b> predicate instance.
      */
-    static <T> Criteria not(Criteria criteria) {
-        return Operation.create("not {0}", List.of(criteria));
+    static <T> Criteria not(Expression expression) {
+        return Operation.create("not {0}", List.of(expression));
     }
 }

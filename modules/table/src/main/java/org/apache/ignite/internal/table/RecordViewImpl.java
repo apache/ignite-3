@@ -34,6 +34,8 @@ import org.apache.ignite.internal.schema.marshaller.reflection.RecordMarshallerI
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.sql.SyncResultSetAdapter;
 import org.apache.ignite.internal.streamer.StreamerBatchSender;
+import org.apache.ignite.internal.table.criteria.ClosableSessionAsyncResultSet;
+import org.apache.ignite.internal.table.criteria.SqlSerializer;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.lang.MarshallerException;

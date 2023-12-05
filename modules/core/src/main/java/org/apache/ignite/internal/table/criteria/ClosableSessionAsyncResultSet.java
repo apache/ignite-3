@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table;
+package org.apache.ignite.internal.table.criteria;
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.sql.ResultSetMetadata;

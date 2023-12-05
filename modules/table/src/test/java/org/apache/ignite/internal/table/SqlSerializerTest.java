@@ -20,7 +20,9 @@ package org.apache.ignite.internal.table;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import org.apache.ignite.internal.table.criteria.SqlSerializer;
 import org.apache.ignite.table.criteria.Criteria;
+import org.apache.ignite.table.criteria.Expression;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -31,7 +33,7 @@ class SqlSerializerTest {
     void equals() {
         var ser = new SqlSerializer.Builder()
                 .tableName("test")
-                .where(Criteria.equal("a", "a"))
+                .where(Criteria.columnValue("a", Expression.equalTo("a")))
                 .build();
 
         assertEquals("SELECT * FROM test WHERE a = ?", ser.toString());
@@ -42,7 +44,7 @@ class SqlSerializerTest {
     void nonEquals() {
         var ser = new SqlSerializer.Builder()
                 .tableName("test")
-                .where(Criteria.not(Criteria.equal("a", "a")))
+                .where(Criteria.not(Criteria.columnValue("a", Expression.equalTo("a"))))
                 .build();
 
         assertEquals("SELECT * FROM test WHERE not a = ?", ser.toString());

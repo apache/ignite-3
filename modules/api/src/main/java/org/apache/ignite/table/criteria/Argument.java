@@ -20,34 +20,34 @@ package org.apache.ignite.table.criteria;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * {@code Constant} represents a general constant expression.
+ * {@code Argument} represents a general constant expression.
  *
- * @param <T> constant type
+ * @param <T> Argument type.
  */
-public class Constant<T> implements Expression {
-    private final T constant;
+public class Argument<T> implements Expression {
+    private final T value;
 
     /**
-     * Create a new Constant of the given type for the given object.
+     * Create a new argument of the given type for the given object.
      *
-     * @param constant wrapped constant.
+     * @param argument Argument value.
      */
-    Constant(T constant) {
-        this.constant = constant;
+    Argument(T argument) {
+        this.value = argument;
     }
 
     /**
-     * Get the wrapped constant.
+     * Gets argument value.
      *
-     * @return wrapped constant
+     * @return A value.
      */
-    public T getConstant() {
-        return constant;
+    public T getValue() {
+        return value;
     }
 
     /** {@inheritDoc} */
     @Override
-    public <R, C> void accept(CriteriaVisitor<C> v, @Nullable C context) {
+    public <C> void accept(CriteriaVisitor<C> v, @Nullable C context) {
         v.visit(this, context);
     }
 }
