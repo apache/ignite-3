@@ -51,7 +51,9 @@ public class InMemoryComputeStateMachine implements ComputeStateMachine {
 
     private ExecutorService cleaner;
 
-    private final Set<UUID> toRemove = new HashSet<>();
+    private final Set<UUID> toRemove = ConcurrentHashMap.newKeySet();
+
+    private final Set<UUID> waitToRemove = ConcurrentHashMap.newKeySet();
 
     private final Map<UUID, JobState> states = new ConcurrentHashMap<>();
 
@@ -66,8 +68,13 @@ public class InMemoryComputeStateMachine implements ComputeStateMachine {
                 new NamedThreadFactory("InMemoryComputeStateMachine-pool", LOG)
         );
         result.scheduleAtFixedRate(() -> {
+            Set<UUID> nextToRemove = new HashSet<>(this.waitToRemove);
+            this.waitToRemove.removeAll(nextToRemove);
+
             Set<UUID> toRemove = new HashSet<>(this.toRemove);
-            this.toRemove.removeAll(toRemove);
+
+            this.toRemove.clear();
+            this.toRemove.addAll(nextToRemove);
 
             for (UUID jobId : toRemove) {
                 states.remove(jobId);
@@ -106,20 +113,20 @@ public class InMemoryComputeStateMachine implements ComputeStateMachine {
     @Override
     public void failJob(UUID jobId) {
         changeState(jobId, FAILED, EXECUTING, CANCELING);
-        toRemove.add(jobId);
+        waitToRemove.add(jobId);
     }
 
     @Override
     public void completeJob(UUID jobId) {
         changeState(jobId, COMPLETED, EXECUTING, CANCELING);
-        toRemove.add(jobId);
+        waitToRemove.add(jobId);
     }
 
     @Override
     public void cancelingJob(UUID jobId) {
         changeState(jobId, currentState -> {
             if (currentState == QUEUED) {
-                toRemove.add(jobId);
+                waitToRemove.add(jobId);
                 return CANCELED;
             } else if (currentState == EXECUTING) {
                 return CANCELING;
@@ -132,7 +139,7 @@ public class InMemoryComputeStateMachine implements ComputeStateMachine {
     @Override
     public void cancelJob(UUID jobId) {
         changeState(jobId, CANCELED, QUEUED, CANCELING);
-        toRemove.add(jobId);
+        waitToRemove.add(jobId);
     }
 
     private void changeState(UUID jobId, JobState newState, JobState... requiredStates) {

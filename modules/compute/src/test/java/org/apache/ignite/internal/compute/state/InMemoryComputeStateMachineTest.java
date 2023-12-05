@@ -22,6 +22,7 @@ import static org.apache.ignite.compute.JobState.CANCELING;
 import static org.apache.ignite.compute.JobState.COMPLETED;
 import static org.apache.ignite.compute.JobState.EXECUTING;
 import static org.apache.ignite.compute.JobState.FAILED;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
@@ -136,9 +137,8 @@ public class InMemoryComputeStateMachineTest extends BaseIgniteAbstractTest {
 
     @Test
     public void testCleanStates() throws InterruptedException {
-        configuration.change(change -> {
-            change.changeStatesLifetimeMillis(100);
-        });
+        assertThat(configuration.change(change -> change.changeStatesLifetimeMillis(100)), willCompleteSuccessfully());
+
         stateMachine = new InMemoryComputeStateMachine(configuration);
         stateMachine.start();
 
