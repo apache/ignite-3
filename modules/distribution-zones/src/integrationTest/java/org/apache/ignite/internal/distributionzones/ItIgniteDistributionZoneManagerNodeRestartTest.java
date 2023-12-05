@@ -633,7 +633,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
     @ParameterizedTest
     @MethodSource("provideArgumentsRestartTests")
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20605")
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19955")
     public void testScaleUpTimerIsRestoredAfterRestart(String zoneName) throws Exception {
         PartialNode node = startPartialNode(0);
 
@@ -704,7 +704,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
     @ParameterizedTest
     @MethodSource("provideArgumentsRestartTests")
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20605")
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19955")
     public void testScaleUpTriggeredByFilterUpdateIsRestoredAfterRestart(String zoneName) throws Exception {
         PartialNode node = startPartialNode(0);
 
@@ -833,7 +833,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
     @ParameterizedTest
     @MethodSource("provideArgumentsRestartTests")
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20605")
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19955")
     public void testScaleDownTimerIsRestoredAfterRestart(String zoneName) throws Exception {
         PartialNode node = startPartialNode(0);
 
