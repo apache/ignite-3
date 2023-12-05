@@ -48,13 +48,8 @@ class ScriptTransactionWrapper implements QueryTransactionWrapper {
     /** Transaction action (commit or rollback) that will be performed when all dependent cursors are closed. */
     private final AtomicReference<Function<InternalTransaction, CompletableFuture<Void>>> finishTxAction = new AtomicReference<>();
 
-    /** A mutex for synchronizing the start of statement execution with closing cursors in case of an error. */
-    private final Object mux = new Object();
-
     /** Error that caused the transaction to be rolled back. */
-    private volatile Throwable rollbackCause;
-
-    private volatile CompletableFuture<Void> rollbackFut;
+    private final AtomicReference<Throwable> rollbackCause = new AtomicReference<>();
 
     ScriptTransactionWrapper(InternalTransaction transaction) {
         this.transaction = transaction;
@@ -72,29 +67,22 @@ class ScriptTransactionWrapper implements QueryTransactionWrapper {
 
     @Override
     public CompletableFuture<Void> rollback(Throwable cause) {
-        CompletableFuture<Void> rollbackFut0 = rollbackFut;
-
-        if (rollbackFut0 != null) {
-            return rollbackFut0;
-        }
-
-        synchronized (mux) {
-            if (rollbackFut == null) {
-                rollbackCause = cause;
-                // Close all associated cursors on error.
-                for (CompletableFuture<? extends AsyncCursor<?>> fut : openedCursors.values()) {
-                    fut.whenComplete((cursor, ex) -> {
-                        if (cursor != null) {
-                            cursor.closeAsync();
-                        }
-                    });
-                }
-
-                rollbackFut = transaction.rollbackAsync();
+        if (rollbackCause.compareAndSet(null, cause)) {
+            // Close all associated cursors on error.
+            for (CompletableFuture<? extends AsyncCursor<?>> fut : openedCursors.values()) {
+                closeCursor(fut);
             }
 
-            return rollbackFut;
+            transaction.rollbackAsync().whenComplete((r, e) -> {
+                if (e != null) {
+                    txFinishFuture.completeExceptionally(e);
+                } else {
+                    txFinishFuture.complete(null);
+                }
+            });
         }
+
+        return txFinishFuture;
     }
 
     QueryTransactionWrapper forCommit() {
@@ -112,15 +100,19 @@ class ScriptTransactionWrapper implements QueryTransactionWrapper {
 
         assert queryType != SqlQueryType.DDL;
 
-        synchronized (mux) {
-            if (rollbackCause != null) {
-                throw new SqlException(EXECUTION_CANCELLED_ERR,
-                        "The transaction has already been rolled back due to an error in the previous statement.", rollbackCause);
-            }
+        Throwable err = rollbackCause.get();
+        if (err != null) {
+            throwRollbackError(err);
+        }
 
-            if (queryType != SqlQueryType.EXPLAIN) {
-                openedCursors.put(cursorId, cursorFut);
-            }
+        if (queryType != SqlQueryType.EXPLAIN) {
+            openedCursors.put(cursorId, cursorFut);
+        }
+
+        err = rollbackCause.get();
+        if (err != null) {
+            closeCursor(cursorFut);
+            throwRollbackError(err);
         }
 
         return new ScriptStatementTxWrapper(cursorId);
@@ -143,6 +135,19 @@ class ScriptTransactionWrapper implements QueryTransactionWrapper {
         }
 
         return nullCompletedFuture();
+    }
+
+    private static void closeCursor(CompletableFuture<? extends AsyncCursor<?>> fut) {
+        fut.whenComplete((cursor, ex) -> {
+            if (cursor != null) {
+                cursor.closeAsync();
+            }
+        });
+    }
+
+    private static void throwRollbackError(Throwable err) {
+        throw new SqlException(EXECUTION_CANCELLED_ERR,
+                "The transaction has already been rolled back due to an error in the previous statement.", err);
     }
 
     class ScriptStatementTxWrapper implements QueryTransactionWrapper {
