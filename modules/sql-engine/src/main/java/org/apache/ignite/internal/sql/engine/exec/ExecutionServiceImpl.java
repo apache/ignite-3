@@ -426,7 +426,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             // Using get() without a timeout to exclude situations when it's not clear whether the node has actually stopped or not.
             f.get(shutdownTimeout, TimeUnit.MILLISECONDS);
         } catch (TimeoutException e) {
-            String message = format("SQL execution service was unable to stop during specified timeout ({} ms). ", shutdownTimeout);
+            String message = format("SQL execution service could not be stopped within the specified timeout ({} ms).", shutdownTimeout);
 
             LOG.warn(message + collectDebugInfo());
         } catch (InterruptedException | CancellationException e) {
