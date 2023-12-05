@@ -39,7 +39,16 @@ import org.apache.ignite.tx.Transaction;
 class ScriptTransactionWrapper implements QueryTransactionWrapper {
     private final InternalTransaction transaction;
 
-    /** Future completes when all cursors associated with the current transaction are closed. */
+    /**
+     * The future is completed after transaction started from the script is committed or rolled back.
+     *
+     * <p>It is completed in the following cases.
+     * <ol>
+     * <li>All associated cursors have been closed and there was a COMMIT statement (the transaction is committed).</li>
+     * <li>All associated cursors have been closed and we have reached the end of the script (the transaction is rolled back).</li>
+     * <li>The transaction was rolled back due to an error while reading the cursor. In this case, all associated cursors are closed.</li>
+     * </ol>
+     */
     private final CompletableFuture<Void> txFinishFuture = new CompletableFuture<>();
 
     /** Opened cursors that must be closed before the transaction can complete. */
@@ -131,7 +140,13 @@ class ScriptTransactionWrapper implements QueryTransactionWrapper {
 
         if (action != null && openedCursors.isEmpty()) {
             return action.apply(transaction)
-                    .whenComplete((r, e) -> txFinishFuture.complete(null));
+                    .whenComplete((r, e) -> {
+                        if (e != null) {
+                            txFinishFuture.completeExceptionally(e);
+                        } else {
+                            txFinishFuture.complete(null);
+                        }
+                    });
         }
 
         return nullCompletedFuture();
