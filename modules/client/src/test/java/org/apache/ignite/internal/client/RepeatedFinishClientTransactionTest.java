@@ -180,7 +180,8 @@ public class RepeatedFinishClientTransactionTest extends BaseIgniteAbstractTest 
         }
 
         @Override
-        public <T> CompletableFuture<T> serviceAsync(int opCode, PayloadWriter payloadWriter, PayloadReader<T> payloadReader) {
+        public <T> CompletableFuture<T> serviceAsync(
+                int opCode, PayloadWriter payloadWriter, PayloadReader<T> payloadReader, NotificationHandler notificationHandler) {
             txFinishStartedLatch.countDown();
 
             try {
@@ -214,7 +215,7 @@ public class RepeatedFinishClientTransactionTest extends BaseIgniteAbstractTest 
 
         @Override
         public void close() {
-
+            // No-op.
         }
     }
 }
