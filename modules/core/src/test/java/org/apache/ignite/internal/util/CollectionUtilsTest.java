@@ -304,10 +304,14 @@ public class CollectionUtilsTest {
         assertThat(view(List.of(1, 2, 3), Function.identity()), equalTo(List.of(1, 2, 3)));
         assertThat(view(List.of(1, 2, 3), Integer::longValue), equalTo(List.of(1L, 2L, 3L)));
 
-        List<Integer> view = view(List.of(1), Function.identity());
+        List<Integer> list = new ArrayList<>(List.of(1));
+        List<Integer> view = view(list, Function.identity());
 
         assertThrows(UnsupportedOperationException.class, () -> view.add(0));
         assertThrows(UnsupportedOperationException.class, () -> view.set(0, 0));
         assertThrows(UnsupportedOperationException.class, () -> view.remove(0));
+
+        list.add(2);
+        assertThat(view, equalTo(List.of(1, 2)));
     }
 }

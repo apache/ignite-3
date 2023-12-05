@@ -116,7 +116,7 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
     /** Catalog service. */
     private final CatalogService catalogService;
 
-    /** Choose indexes for operations. */
+    /** Chooses indexes for operations. */
     private final IndexChooser indexChooser;
 
     /**
@@ -127,7 +127,7 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
      * @param safeTime Safe time tracker.
      * @param storageIndexTracker Storage index tracker.
      * @param catalogService Catalog service.
-     * @param indexChooser Choose indexes for operations.
+     * @param indexChooser Chooses indexes for operations.
      */
     public PartitionListener(
             TxManager txManager,
@@ -280,7 +280,7 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
                         () -> storage.lastApplied(commandIndex, commandTerm),
                         cmd.full() ? cmd.safeTime() : null,
                         cmd.lastCommitTimestamp(),
-                        indexIdsForRwUpdateOperation(storage.tableId(), cmd.operationTimestamp())
+                        indexIdsForRwUpdateOperation(cmd.operationTimestamp())
                 );
             }
 
@@ -313,7 +313,7 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
                         !cmd.full(),
                         () -> storage.lastApplied(commandIndex, commandTerm),
                         cmd.full() ? cmd.safeTime() : null,
-                        indexIdsForRwUpdateOperation(storage.tableId(), cmd.operationTimestamp())
+                        indexIdsForRwUpdateOperation(cmd.operationTimestamp())
                 );
 
                 updateTrackerIgnoringTrackerClosedException(safeTime, cmd.safeTime());
@@ -406,7 +406,7 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
                 cmd.commit(),
                 cmd.commitTimestamp(),
                 () -> storage.lastApplied(commandIndex, commandTerm),
-                indexIdsForRwUpdateOperation(storage.tableId(), cmd.requiredCatalogVersion())
+                indexIdsForRwUpdateOperation(cmd.requiredCatalogVersion())
         );
     }
 
@@ -614,11 +614,11 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
         ));
     }
 
-    private List<Integer> indexIdsForRwUpdateOperation(int tableId, HybridTimestamp opTs) {
-        return indexIdsForRwUpdateOperation(tableId, catalogService.activeCatalogVersion(opTs.longValue()));
+    private List<Integer> indexIdsForRwUpdateOperation(HybridTimestamp opTs) {
+        return indexIdsForRwUpdateOperation(catalogService.activeCatalogVersion(opTs.longValue()));
     }
 
-    private List<Integer> indexIdsForRwUpdateOperation(int tableId, int catalogVersion) {
-        return view(indexChooser.chooseForRwTxUpdateOperation(catalogVersion, tableId), CatalogObjectDescriptor::id);
+    private List<Integer> indexIdsForRwUpdateOperation(int catalogVersion) {
+        return view(indexChooser.chooseForRwTxUpdateOperation(catalogVersion, storage.tableId()), CatalogObjectDescriptor::id);
     }
 }

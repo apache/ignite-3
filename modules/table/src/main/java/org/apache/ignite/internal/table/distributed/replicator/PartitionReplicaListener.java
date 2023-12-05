@@ -276,7 +276,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      */
     private final Object commandProcessingLinearizationMutex = new Object();
 
-    /** Choose indexes for operations. */
+    /** Chooses indexes for operations. */
     private final IndexChooser indexChooser;
 
     /**
@@ -299,7 +299,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param localNode Instance of the local node.
      * @param catalogService Catalog service.
      * @param placementDriver Placement driver.
-     * @param indexChooser Choose indexes for operations.
+     * @param indexChooser Chooses indexes for operations.
      */
     public PartitionReplicaListener(
             MvPartitionStorage mvDataStorage,
@@ -635,19 +635,15 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param opTs Operation timestamp.
      */
     private static @Nullable HybridTimestamp getTsToWaitForSchema(ReplicaRequest request, HybridTimestamp opTs) {
-        HybridTimestamp tsToWaitForSchema;
-
         if (request instanceof ReadWriteReplicaRequest) {
-            tsToWaitForSchema = TransactionIds.beginTimestamp(((ReadWriteReplicaRequest) request).transactionId());
+            return TransactionIds.beginTimestamp(((ReadWriteReplicaRequest) request).transactionId());
         } else if (request instanceof ReadOnlyReplicaRequest) {
-            tsToWaitForSchema = ((ReadOnlyReplicaRequest) request).readTimestamp();
+            return ((ReadOnlyReplicaRequest) request).readTimestamp();
         } else if (request instanceof ReadOnlyDirectReplicaRequest) {
-            tsToWaitForSchema = opTs;
+            return opTs;
         } else {
-            tsToWaitForSchema = null;
+            return null;
         }
-
-        return tsToWaitForSchema;
     }
 
     private CompletableFuture<?> processOperationRequest(
@@ -2597,6 +2593,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             List<Integer> indexIds
     ) {
         synchronized (commandProcessingLinearizationMutex) {
+            // TODO: IGNITE-20117 Start building the index only after completing all operations that are strictly before the opTs
             UpdateCommand cmd = updateCommand(
                     tablePartId,
                     rowUuid,
@@ -2732,6 +2729,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             List<Integer> indexIds
     ) {
         synchronized (commandProcessingLinearizationMutex) {
+            // TODO: IGNITE-20117 Start building the index only after completing all operations that are strictly before the opTs
             UpdateAllCommand cmd = updateAllCommand(
                     rowsToUpdate,
                     commitPartitionId,

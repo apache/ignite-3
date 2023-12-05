@@ -28,7 +28,6 @@ import org.apache.ignite.internal.table.distributed.TableMessageGroup;
 import org.apache.ignite.internal.table.distributed.replicator.TimedBinaryRow;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.network.annotations.Transferable;
-import org.apache.ignite.network.annotations.WithSetter;
 
 /**
  * State machine command for updating a batch of entries.
@@ -56,13 +55,7 @@ public interface UpdateAllCommand extends PartitionCommand {
     }
 
     /** Returns operation timestamp. */
-    @WithSetter
     long operationTimestampLong();
-
-    /** Setter for the operationTimestamp field. */
-    default void operationTimestampLong(long operationTime) {
-        // No-op.
-    }
 
     /** Returns operation timestamp. */
     default HybridTimestamp operationTimestamp() {

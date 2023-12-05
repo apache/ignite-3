@@ -25,7 +25,6 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
 import org.apache.ignite.network.annotations.Transferable;
-import org.apache.ignite.network.annotations.WithSetter;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -56,13 +55,7 @@ public interface UpdateCommand extends PartitionCommand {
     }
 
     /** Returns operation timestamp. */
-    @WithSetter
     long operationTimestampLong();
-
-    /** Setter for the operationTimestamp field. */
-    default void operationTimestampLong(long operationTime) {
-        // No-op.
-    }
 
     /** Returns operation timestamp. */
     default HybridTimestamp operationTimestamp() {

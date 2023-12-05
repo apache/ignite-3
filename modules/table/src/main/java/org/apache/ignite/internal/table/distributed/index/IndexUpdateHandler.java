@@ -72,7 +72,9 @@ public class IndexUpdateHandler {
         Map<Integer, TableSchemaAwareIndexStorage> indexStorageByIndexId = indexStorageByIndexId();
 
         if (indexIds == null) {
-            indexStorageByIndexId.values().forEach(indexStorage -> indexStorage.put(binaryRow, rowId));
+            for (TableSchemaAwareIndexStorage indexStorage : indexStorageByIndexId.values()) {
+                indexStorage.put(binaryRow, rowId);
+            }
         } else {
             for (Integer indexId : indexIds) {
                 TableSchemaAwareIndexStorage indexStorage = indexStorageByIndexId.get(indexId);

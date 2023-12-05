@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.index;
 
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.pkIndexName;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.ArgumentMatchers.any;
@@ -64,7 +65,7 @@ public class ItRwTransactionAndIndexesTest extends ClusterPerClassIntegrationTes
         TableImpl table = createTable(TABLE_NAME, 1, 1, ENGINE);
 
         setAwaitIndexAvailability(false);
-        dropBuildAllIndex();
+        dropBuildAllIndexMessages();
 
         Transaction rwTx = beginRwTransaction();
 
@@ -77,7 +78,7 @@ public class ItRwTransactionAndIndexesTest extends ClusterPerClassIntegrationTes
 
         verifyPutIntoIndexes(indexStorages);
 
-        rwTx.commit();
+        assertDoesNotThrow(rwTx::commit);
     }
 
     @Test
@@ -97,14 +98,14 @@ public class ItRwTransactionAndIndexesTest extends ClusterPerClassIntegrationTes
 
         verifyPutIntoIndexes(indexStorages);
 
-        rwTx.commit();
+        assertDoesNotThrow(rwTx::commit);
     }
 
     private static IgniteImpl node() {
         return CLUSTER.node(0);
     }
 
-    private static void dropBuildAllIndex() {
+    private static void dropBuildAllIndexMessages() {
         node().dropMessages((s, networkMessage) -> networkMessage instanceof BuildIndexReplicaRequest);
     }
 
