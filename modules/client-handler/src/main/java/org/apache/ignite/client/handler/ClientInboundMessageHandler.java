@@ -835,8 +835,12 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         var packer = getPacker(channelHandlerContext.alloc());
 
         try {
+            // Same header as regular response.
             packer.packInt(ServerMessageType.NOTIFICATION);
             packer.packLong(requestId);
+            writeFlags(packer, channelHandlerContext);
+            packer.packLong(observableTimestamp(null));
+
             writer.accept(packer);
 
             write(packer, channelHandlerContext);

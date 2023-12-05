@@ -97,6 +97,9 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     /** Pending requests. */
     private final Map<Long, ClientRequestFuture> pendingReqs = new ConcurrentHashMap<>();
 
+    /** Notification handlers. */
+    private final Map<Long, NotificationHandler> notificationHandlers = new ConcurrentHashMap<>();
+
     /** Topology change listeners. */
     private final Collection<Consumer<Long>> assignmentChangeListeners = new CopyOnWriteArrayList<>();
 
@@ -258,7 +261,13 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             }
 
             // TODO: If notificationHandler is not null, subscribe to notifications before sending the request.
-            ClientRequestFuture fut = send(opCode, payloadWriter);
+            long id = reqId.getAndIncrement();
+
+            if (notificationHandler != null) {
+                notificationHandlers.put(id, notificationHandler);
+            }
+
+            ClientRequestFuture fut = send(opCode, id, payloadWriter);
 
             return receiveAsync(fut, payloadReader);
         } catch (Throwable t) {
@@ -273,18 +282,17 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
      * Sends request.
      *
      * @param opCode        Operation code.
+     * @param requestId     Request id.
      * @param payloadWriter Payload writer to stream or {@code null} if request has no payload.
      * @return Request future.
      */
-    private ClientRequestFuture send(int opCode, @Nullable PayloadWriter payloadWriter) {
-        long id = reqId.getAndIncrement();
-
+    private ClientRequestFuture send(int opCode, long requestId, @Nullable PayloadWriter payloadWriter) {
         if (closed()) {
             throw new IgniteClientConnectionException(CONNECTION_ERR, "Channel is closed");
         }
 
         ClientRequestFuture fut = new ClientRequestFuture();
-        pendingReqs.put(id, fut);
+        pendingReqs.put(requestId, fut);
 
         metrics.requestsActiveIncrement();
 
@@ -294,7 +302,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             var req = payloadCh.out();
 
             req.packInt(opCode);
-            req.packLong(id);
+            req.packLong(requestId);
 
             if (payloadWriter != null) {
                 payloadWriter.accept(payloadCh);
@@ -302,12 +310,12 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
 
             write(req).addListener(f -> {
                 if (!f.isSuccess()) {
-                    String msg = "Failed to send request [id=" + id + ", op=" + opCode + ", remoteAddress=" + cfg.getAddress() + "]";
+                    String msg = "Failed to send request [id=" + requestId + ", op=" + opCode + ", remoteAddress=" + cfg.getAddress() + "]";
                     IgniteClientConnectionException ex = new IgniteClientConnectionException(CONNECTION_ERR, msg, f.cause());
                     fut.completeExceptionally(ex);
                     log.warn(msg + "]: " + f.cause().getMessage(), f.cause());
 
-                    pendingReqs.remove(id);
+                    pendingReqs.remove(requestId);
                     metrics.requestsActiveDecrement();
 
                     // Close immediately, do not wait for onDisconnected call from Netty.
@@ -319,12 +327,12 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
 
             return fut;
         } catch (Throwable t) {
-            log.warn("Failed to send request [id=" + id + ", op=" + opCode + ", remoteAddress=" + cfg.getAddress() + "]: "
+            log.warn("Failed to send request [id=" + requestId + ", op=" + opCode + ", remoteAddress=" + cfg.getAddress() + "]: "
                     + t.getMessage(), t);
 
             // Close buffer manually on fail. Successful write closes the buffer automatically.
             payloadCh.close();
-            pendingReqs.remove(id);
+            pendingReqs.remove(requestId);
 
             metrics.requestsActiveDecrement();
 
@@ -373,25 +381,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         }
 
         var type = unpacker.unpackInt();
-
-        if (type != ServerMessageType.RESPONSE) {
-            log.error("Unexpected message type [remoteAddress=" + cfg.getAddress() + "]: " + type);
-
-            throw new IgniteClientConnectionException(PROTOCOL_ERR, "Unexpected message type: " + type);
-        }
-
         Long resId = unpacker.unpackLong();
-
-        ClientRequestFuture pendingReq = pendingReqs.remove(resId);
-
-        if (pendingReq == null) {
-            log.error("Unexpected response ID [remoteAddress=" + cfg.getAddress() + "]: " + resId);
-
-            throw new IgniteClientConnectionException(PROTOCOL_ERR, String.format("Unexpected response ID [%s]", resId));
-        }
-
-        metrics.requestsActiveDecrement();
-
         int flags = unpacker.unpackInt();
 
         if (ResponseFlags.getPartitionAssignmentChangedFlag(flags)) {
@@ -406,10 +396,29 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         }
 
         long observableTimestamp = unpacker.unpackLong();
-
         for (Consumer<Long> listener : observableTimestampListeners) {
             listener.accept(observableTimestamp);
         }
+
+        if (type == ServerMessageType.NOTIFICATION) {
+            handleNotification(resId, unpacker);
+            return;
+        }
+
+        if (type != ServerMessageType.RESPONSE) {
+            log.error("Unexpected message type [remoteAddress=" + cfg.getAddress() + "]: " + type);
+
+            throw new IgniteClientConnectionException(PROTOCOL_ERR, "Unexpected message type: " + type);
+        }
+
+        ClientRequestFuture pendingReq = pendingReqs.remove(resId);
+        if (pendingReq == null) {
+            log.error("Unexpected response ID [remoteAddress=" + cfg.getAddress() + "]: " + resId);
+
+            throw new IgniteClientConnectionException(PROTOCOL_ERR, String.format("Unexpected response ID [%s]", resId));
+        }
+
+        metrics.requestsActiveDecrement();
 
         if (unpacker.tryUnpackNil()) {
             boolean completed = pendingReq.complete(unpacker);
