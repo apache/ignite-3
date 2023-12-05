@@ -437,6 +437,28 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         }
     }
 
+    private void handleNotification(long id, ClientMessageUnpacker unpacker) {
+        NotificationHandler handler = notificationHandlers.get(id);
+
+        if (handler == null) {
+            log.error("Unexpected notification ID [remoteAddress=" + cfg.getAddress() + "]: " + id);
+
+            throw new IgniteClientConnectionException(PROTOCOL_ERR, String.format("Unexpected notification ID [%s]", id));
+        }
+
+        try (var in = new PayloadInputChannel(this, unpacker)) {
+            boolean remove = handler.consume(in);
+
+            if (remove) {
+                notificationHandlers.remove(id);
+            }
+        } catch (Exception e) {
+            log.error("Failed to deserialize server notification [remoteAddress=" + cfg.getAddress() + "]: " + e.getMessage(), e);
+
+            throw new IgniteException(PROTOCOL_ERR, "Failed to deserialize server notification: " + e.getMessage(), e);
+        }
+    }
+
     /**
      * Unpacks request error.
      *
