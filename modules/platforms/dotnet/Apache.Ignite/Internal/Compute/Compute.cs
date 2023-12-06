@@ -314,11 +314,7 @@ namespace Apache.Ignite.Internal.Compute
 
             static T Read(in PooledBuffer buf)
             {
-                var reader = buf.GetReader();
-
-                _ = reader.ReadInt32();
-
-                return (T)reader.ReadObjectFromBinaryTuple()!;
+                return (T)buf.GetReader().ReadObjectFromBinaryTuple()!;
             }
         }
     }
