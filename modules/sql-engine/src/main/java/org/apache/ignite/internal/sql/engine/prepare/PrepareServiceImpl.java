@@ -196,7 +196,7 @@ public class PrepareServiceImpl implements PrepareService {
         PlanningContext planningContext = PlanningContext.builder()
                 .parentContext(ctx)
                 .query(parsedResult.originalQuery())
-                .plannerTimeout(1000_00000)
+                .plannerTimeout(plannerTimeout)
                 .build();
 
         result = prepareAsync0(parsedResult, planningContext);
