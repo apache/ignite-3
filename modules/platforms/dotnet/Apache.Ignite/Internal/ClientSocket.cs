@@ -692,7 +692,7 @@ namespace Apache.Ignite.Internal
             var flags = (ResponseFlags)reader.ReadInt32();
 
             HandlePartitionAssignmentChange(flags, ref reader);
-            HandleObservableTimestamp(reader);
+            HandleObservableTimestamp(ref reader);
 
             if (HandleNotification(flags, ref reader))
             {
@@ -733,7 +733,7 @@ namespace Apache.Ignite.Internal
             }
         }
 
-        private void HandleObservableTimestamp(MsgPackReader reader)
+        private void HandleObservableTimestamp(ref MsgPackReader reader)
         {
             var observableTimestamp = reader.ReadInt64();
             _listener.OnObservableTimestampChanged(observableTimestamp);
