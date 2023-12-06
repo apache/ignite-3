@@ -269,7 +269,8 @@ namespace Apache.Ignite.Internal.Compute
                     var preferredNode = await table.GetPreferredNode(colocationHash, null).ConfigureAwait(false);
                     var notificationHandler = new TaskCompletionSource<PooledBuffer>();
 
-                    using var res = await _socket.DoOutInOpAsync(ClientOp.ComputeExecuteColocated, bufferWriter, preferredNode)
+                    using var res = await _socket.DoOutInOpAsync(
+                            ClientOp.ComputeExecuteColocated, bufferWriter, preferredNode, notificationHandler)
                         .ConfigureAwait(false);
 
                     using var notificationRes = await notificationHandler.Task.ConfigureAwait(false);
