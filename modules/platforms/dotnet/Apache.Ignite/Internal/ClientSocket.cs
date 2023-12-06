@@ -325,6 +325,8 @@ namespace Apache.Ignite.Internal
                             Metrics.RequestsFailed.Add(1);
                             Metrics.RequestsActiveDecrement();
                         }
+
+                        _notificationHandlers.TryRemove(requestId, out _);
                     },
                     taskCompletionSource,
                     CancellationToken.None,
