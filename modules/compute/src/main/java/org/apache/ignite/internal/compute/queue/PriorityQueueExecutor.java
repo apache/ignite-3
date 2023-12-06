@@ -21,12 +21,14 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Compute.QUEUE_OVERFLOW_ERR;
 
 import java.util.Objects;
+import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.compute.configuration.ComputeConfiguration;
+import org.apache.ignite.internal.compute.state.ComputeStateMachine;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteException;
 
@@ -40,6 +42,8 @@ public class PriorityQueueExecutor {
 
     private final ThreadPoolExecutor executor;
 
+    private final ComputeStateMachine stateMachine;
+
     /**
      * Constructor.
      *
@@ -48,9 +52,11 @@ public class PriorityQueueExecutor {
      */
     public PriorityQueueExecutor(
             ComputeConfiguration configuration,
-            ThreadFactory threadFactory
+            ThreadFactory threadFactory,
+            ComputeStateMachine stateMachine
     ) {
         this.configuration = configuration;
+        this.stateMachine = stateMachine;
         executor = new ThreadPoolExecutor(
                 configuration.threadPoolSize().value(),
                 configuration.threadPoolSize().value(),
@@ -72,13 +78,25 @@ public class PriorityQueueExecutor {
     public <R> CompletableFuture<R> submit(Callable<R> job, int priority) {
         Objects.requireNonNull(job);
 
-        QueueEntry<R> queueEntry = new QueueEntry<>(job, priority);
+        UUID jobId = stateMachine.initJob();
+        QueueEntry<R> queueEntry = new QueueEntry<>(() -> {
+            stateMachine.executeJob(jobId);
+            return job.call();
+        }, priority);
+
         try {
             executor.execute(queueEntry);
         } catch (QueueOverflowException e) {
             return failedFuture(new IgniteException(QUEUE_OVERFLOW_ERR, e));
         }
-        return queueEntry.toFuture();
+        return queueEntry.toFuture()
+                .whenComplete((r, throwable) -> {
+                    if (throwable != null) {
+                        stateMachine.failJob(jobId);
+                    } else {
+                        stateMachine.completeJob(jobId);
+                    }
+                });
     }
 
     /**
