@@ -142,13 +142,22 @@ namespace Apache.Ignite.Internal
         /// <param name="clientOp">Client op code.</param>
         /// <param name="request">Request data.</param>
         /// <param name="preferredNode">Preferred node.</param>
+        /// <param name="notificationHandler">Notification handler.</param>
         /// <returns>Response data and socket.</returns>
         public async Task<PooledBuffer> DoOutInOpAsync(
             ClientOp clientOp,
             PooledArrayBuffer? request = null,
-            PreferredNode preferredNode = default)
+            PreferredNode preferredNode = default,
+            TaskCompletionSource<PooledBuffer>? notificationHandler = null)
         {
-            var (buffer, _) = await DoOutInOpAndGetSocketAsync(clientOp, tx: null, request, preferredNode).ConfigureAwait(false);
+            var (buffer, _) = await DoOutInOpAndGetSocketAsync(
+                    clientOp,
+                    tx: null,
+                    request,
+                    preferredNode,
+                    retryPolicyOverride: null,
+                    notificationHandler)
+                .ConfigureAwait(false);
 
             return buffer;
         }
@@ -161,13 +170,15 @@ namespace Apache.Ignite.Internal
         /// <param name="request">Request data.</param>
         /// <param name="preferredNode">Preferred node.</param>
         /// <param name="retryPolicyOverride">Retry policy.</param>
+        /// <param name="notificationHandler">Notification handler.</param>
         /// <returns>Response data and socket.</returns>
         public async Task<(PooledBuffer Buffer, ClientSocket Socket)> DoOutInOpAndGetSocketAsync(
             ClientOp clientOp,
             Transaction? tx = null,
             PooledArrayBuffer? request = null,
             PreferredNode preferredNode = default,
-            IRetryPolicy? retryPolicyOverride = null)
+            IRetryPolicy? retryPolicyOverride = null,
+            TaskCompletionSource<PooledBuffer>? notificationHandler = null)
         {
             if (tx != null)
             {
@@ -177,7 +188,7 @@ namespace Apache.Ignite.Internal
                 }
 
                 // Use tx-specific socket without retry and failover.
-                var buffer = await tx.Socket.DoOutInOpAsync(clientOp, request).ConfigureAwait(false);
+                var buffer = await tx.Socket.DoOutInOpAsync(clientOp, request, notificationHandler).ConfigureAwait(false);
                 return (buffer, tx.Socket);
             }
 
@@ -190,7 +201,7 @@ namespace Apache.Ignite.Internal
                 {
                     var socket = await GetSocketAsync(preferredNode).ConfigureAwait(false);
 
-                    var buffer = await socket.DoOutInOpAsync(clientOp, request).ConfigureAwait(false);
+                    var buffer = await socket.DoOutInOpAsync(clientOp, request, notificationHandler).ConfigureAwait(false);
 
                     return (buffer, socket);
                 }
