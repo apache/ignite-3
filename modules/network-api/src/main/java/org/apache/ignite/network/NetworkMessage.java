@@ -18,6 +18,8 @@
 package org.apache.ignite.network;
 
 import it.unimi.dsi.fastutil.ints.IntSet;
+import org.apache.ignite.network.annotations.WithSetter;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Message for exchanging information in a cluster.
@@ -60,4 +62,12 @@ public interface NetworkMessage {
     default boolean needAck() {
         return true;
     }
+
+    /** X. */
+    @WithSetter
+    @Nullable
+    String messageId();
+
+    /** X. */
+    void messageId(String id);
 }

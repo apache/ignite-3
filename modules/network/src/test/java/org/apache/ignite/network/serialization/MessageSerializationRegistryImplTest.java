@@ -25,6 +25,7 @@ import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.network.MessageSerializationRegistryImpl;
 import org.apache.ignite.network.NetworkConfigurationException;
 import org.apache.ignite.network.NetworkMessage;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -137,6 +138,16 @@ public class MessageSerializationRegistryImplTest extends BaseIgniteAbstractTest
         @Override
         public short groupType() {
             return GROUP_TYPE;
+        }
+
+        @Override
+        public @Nullable String messageId() {
+            return null;
+        }
+
+        @Override
+        public void messageId(String id) {
+
         }
     }
 

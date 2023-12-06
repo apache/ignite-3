@@ -28,6 +28,7 @@ import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.util.List;
 import java.util.Objects;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -35,6 +36,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiPredicate;
 import java.util.function.Function;
@@ -92,6 +94,26 @@ public class DefaultMessagingService extends AbstractMessagingService {
     // TODO: IGNITE-18493 - remove/move this
     @Nullable
     private volatile BiPredicate<String, NetworkMessage> dropMessagesPredicate;
+
+    private static final ConcurrentMap<ChannelKey, AtomicInteger> sent = new ConcurrentHashMap<>();
+    private static final ConcurrentMap<ChannelKey, AtomicInteger> received = new ConcurrentHashMap<>();
+    private static final ConcurrentMap<ChannelKey, AtomicInteger> inFlight = new ConcurrentHashMap<>();
+
+    private static final ConcurrentMap<String, Long> sendNanoTimes = new ConcurrentHashMap<>();
+
+    private final AtomicLong lastReceiveStart = new AtomicLong(-1);
+
+    private AtomicInteger sent(String fromConsistentId, String toConsistentId) {
+        return sent.computeIfAbsent(new ChannelKey(fromConsistentId, toConsistentId), key -> new AtomicInteger());
+    }
+
+    private AtomicInteger received(String fromConsistentId, String toConsistentId) {
+        return received.computeIfAbsent(new ChannelKey(fromConsistentId, toConsistentId), key -> new AtomicInteger());
+    }
+
+    private AtomicInteger inFlight(String fromConsistentId, String toConsistentId) {
+        return inFlight.computeIfAbsent(new ChannelKey(fromConsistentId, toConsistentId), key -> new AtomicInteger());
+    }
 
     /**
      * Constructor.
@@ -289,6 +311,26 @@ public class DefaultMessagingService extends AbstractMessagingService {
                     .thenCompose(Function.identity());
         }
 
+        assert message.messageId() == null;
+        message.messageId(UUID.randomUUID().toString());
+
+        sent(topologyService.localMember().name(), consistentId).incrementAndGet();
+        inFlight(topologyService.localMember().name(), consistentId).incrementAndGet();
+        //sentMessages.put(message.messageId(), message);
+        sendNanoTimes.put(message.messageId(), System.nanoTime());
+
+        if (message instanceof ScaleCubeMessage) {
+            ScaleCubeMessage scaleCubeMessage = (ScaleCubeMessage) message;
+            if (scaleCubeMessage.data() != null && scaleCubeMessage.data().getClass().getName().endsWith(".PingData")) {
+                LOG.info(
+                        "Sending ping to {}, cid {}, data {}",
+                        consistentId,
+                        scaleCubeMessage.headers().get("cid"),
+                        scaleCubeMessage.data()
+                );
+            }
+        }
+
         List<ClassDescriptorMessage> descriptors;
 
         try {
@@ -350,13 +392,60 @@ public class DefaultMessagingService extends AbstractMessagingService {
             return;
         }
 
+        long nowNanos = System.nanoTime();
+        long lastReceiveStartNanos = lastReceiveStart.getAndSet(nowNanos);
+        if (lastReceiveStartNanos > 0) {
+            long nanosSinceLastReceive = nowNanos - lastReceiveStartNanos;
+            long millisSinceLastReceive = TimeUnit.NANOSECONDS.toMillis(nanosSinceLastReceive);
+
+            if (millisSinceLastReceive > 1000) {
+                LOG.info("BBB {} ms since last receive, message is {}", millisSinceLastReceive, obj.message());
+            }
+        }
+
         NetworkMessage msg = obj.message();
         DescriptorRegistry registry = obj.registry();
+        long unmarshalStartedNanos = System.nanoTime();
         try {
             msg.unmarshal(marshaller, registry);
         } catch (Exception e) {
             throw new IgniteException("Failed to unmarshal message: " + e.getMessage(), e);
         }
+        long unmarshalMillis = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - unmarshalStartedNanos);
+        if (unmarshalMillis > 1000) {
+            LOG.info("CCC {} ms to unmarshal, message is {}", unmarshalMillis, msg);
+        }
+
+        assert msg.messageId() != null;
+
+        int sent = sent(obj.consistentId(), topologyService.localMember().name()).get();
+        int received = received(obj.consistentId(), topologyService.localMember().name()).incrementAndGet();
+        int inFlight = inFlight(obj.consistentId(), topologyService.localMember().name()).decrementAndGet();
+
+        Long sentNanoTime = sendNanoTimes.remove(msg.messageId());
+        assert sentNanoTime != null : "No sentNanoTime for " + msg;
+
+        long nanosPassed = System.nanoTime() - sentNanoTime;
+        long millisPassed = TimeUnit.NANOSECONDS.toMillis(nanosPassed);
+        if (millisPassed > 1000) {
+            LOG.info("AAA {} ms passed for {}", millisPassed, msg);
+        }
+
+        if (msg instanceof ScaleCubeMessage) {
+            ScaleCubeMessage scaleCubeMessage = (ScaleCubeMessage) msg;
+            if (scaleCubeMessage.data() != null && scaleCubeMessage.data().getClass().getName().endsWith(".PingData")) {
+                LOG.info(
+                        "{}/{}/{} Receiving ping from {}, cid {}, data {}",
+                        sent,
+                        received,
+                        inFlight,
+                        obj.consistentId(),
+                        scaleCubeMessage.headers().get("cid"),
+                        scaleCubeMessage.data()
+                );
+            }
+        }
+
         if (msg instanceof InvokeResponse) {
             InvokeResponse response = (InvokeResponse) msg;
             onInvokeResponse(response.message(), response.correlationId());
@@ -520,5 +609,39 @@ public class DefaultMessagingService extends AbstractMessagingService {
     @TestOnly
     public ConnectionManager connectionManager() {
         return connectionManager;
+    }
+
+    private static class ChannelKey {
+        private final String fromConsistentId;
+        private final String toConsistentId;
+
+        private ChannelKey(String fromConsistentId, String toConsistentId) {
+            this.fromConsistentId = fromConsistentId;
+            this.toConsistentId = toConsistentId;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+
+            ChannelKey that = (ChannelKey) o;
+
+            if (fromConsistentId != null ? !fromConsistentId.equals(that.fromConsistentId) : that.fromConsistentId != null) {
+                return false;
+            }
+            return toConsistentId != null ? toConsistentId.equals(that.toConsistentId) : that.toConsistentId == null;
+        }
+
+        @Override
+        public int hashCode() {
+            int result = fromConsistentId != null ? fromConsistentId.hashCode() : 0;
+            result = 31 * result + (toConsistentId != null ? toConsistentId.hashCode() : 0);
+            return result;
+        }
     }
 }

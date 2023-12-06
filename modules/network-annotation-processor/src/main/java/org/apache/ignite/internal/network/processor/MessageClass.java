@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.network.processor;
 
 import com.squareup.javapoet.ClassName;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -94,7 +96,28 @@ public class MessageClass {
                         TreeMap::new
                 ));
 
-        return List.copyOf(gettersByName.values());
+        Collection<ExecutableElement> getters = new ArrayList<>(gettersByName.values());
+
+        TreeMap<String, ExecutableElement> getters2 = typeUtils.allInterfaces(element)
+                .filter(e -> typeUtils.isSameType(e.asType(), NetworkMessage.class))
+                .flatMap(e -> e.getEnclosedElements().stream())
+                .filter(e -> e.getKind() == ElementKind.METHOD)
+                .map(ExecutableElement.class::cast)
+                .filter(e -> !e.isDefault())
+                .filter(e -> !e.getModifiers().contains(Modifier.STATIC))
+                .filter(e -> "messageId".equals(e.getSimpleName().toString()))
+                .filter(e -> e.getParameters().isEmpty())
+                // use a tree map to sort getters by name and remove duplicates
+                .collect(Collectors.toMap(
+                        e -> e.getSimpleName().toString(),
+                        Function.identity(),
+                        (e1, e2) -> e1,
+                        TreeMap::new
+                ));
+
+        getters.addAll(getters2.values());
+
+        return List.copyOf(getters);
     }
 
     /**
