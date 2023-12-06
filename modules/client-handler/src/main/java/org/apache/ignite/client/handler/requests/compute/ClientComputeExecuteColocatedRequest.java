@@ -24,6 +24,7 @@ import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.client.handler.NotificationSender;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
@@ -47,16 +48,20 @@ public class ClientComputeExecuteColocatedRequest {
             ClientMessageUnpacker in,
             ClientMessagePacker out,
             IgniteCompute compute,
-            IgniteTables tables) {
+            IgniteTables tables,
+            NotificationSender notificationSender) {
         return readTableAsync(in, tables).thenCompose(table -> {
-            return readTuple(in, table, true).thenCompose(keyTuple -> {
+            return readTuple(in, table, true).thenAccept(keyTuple -> {
                 List<DeploymentUnit> deploymentUnits = unpackDeploymentUnits(in);
                 String jobClassName = in.unpackString();
                 Object[] args = unpackArgs(in);
 
-                return compute.executeColocatedAsync(table.name(), keyTuple, deploymentUnits, jobClassName, args).thenAccept(val -> {
-                    out.packInt(table.schemaView().lastKnownSchemaVersion());
-                    out.packObjectAsBinaryTuple(val);
+                compute.executeColocatedAsync(table.name(), keyTuple, deploymentUnits, jobClassName, args)
+                        .whenComplete((val, err) -> {
+                            notificationSender.sendNotification(w -> {
+                                w.packInt(table.schemaView().lastKnownSchemaVersion());
+                                w.packObjectAsBinaryTuple(val);
+                            }, err);
                 });
             });
         });

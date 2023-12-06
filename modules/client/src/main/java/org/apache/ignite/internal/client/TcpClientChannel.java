@@ -405,6 +405,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             pendingReq.complete(unpacker);
         } else {
             metrics.requestsFailedIncrement();
+            notificationHandlers.remove(resId);
             pendingReq.completeExceptionally(err);
         }
     }
