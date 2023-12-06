@@ -43,6 +43,8 @@ public class FakeCompute implements IgniteCompute {
 
     public static volatile @Nullable CompletableFuture future;
 
+    public static volatile @Nullable RuntimeException err;
+
     public static volatile CountDownLatch latch = new CountDownLatch(0);
 
     private final String nodeName;
@@ -62,6 +64,10 @@ public class FakeCompute implements IgniteCompute {
             latch.await();
         } catch (InterruptedException e) {
             throw new RuntimeException(e);
+        }
+
+        if (err != null) {
+            throw err;
         }
 
         return future != null ? future : CompletableFuture.completedFuture((R) nodeName);

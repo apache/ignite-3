@@ -23,7 +23,6 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import org.apache.ignite.client.fakes.FakeCompute;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
@@ -39,11 +38,13 @@ import org.junit.jupiter.api.Test;
 /**
  * Tests client handler metrics. See also {@code org.apache.ignite.client.handler.ItClientHandlerMetricsTest}.
  */
-@SuppressWarnings({"AssignmentToStaticFieldFromInstanceMethod", "rawtypes", "unchecked"})
+@SuppressWarnings("AssignmentToStaticFieldFromInstanceMethod")
 public class ServerMetricsTest extends AbstractClientTest {
     @AfterEach
     public void resetCompute() {
         FakeCompute.future = null;
+        FakeCompute.latch = new CountDownLatch(0);
+        FakeCompute.err = null;
     }
 
     @BeforeEach
@@ -120,7 +121,7 @@ public class ServerMetricsTest extends AbstractClientTest {
     public void testRequestsFailed() throws Exception {
         assertEquals(0, testServer.metrics().requestsFailed());
 
-        FakeCompute.future = CompletableFuture.failedFuture(new RuntimeException("test"));
+        FakeCompute.err = new RuntimeException("test");
 
         client.compute().executeAsync(getClusterNodes("s1"), List.of(), "job");
 
