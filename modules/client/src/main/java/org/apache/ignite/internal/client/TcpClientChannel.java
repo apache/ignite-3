@@ -56,7 +56,6 @@ import org.apache.ignite.internal.client.proto.ErrorExtensions;
 import org.apache.ignite.internal.client.proto.HandshakeExtension;
 import org.apache.ignite.internal.client.proto.ProtocolVersion;
 import org.apache.ignite.internal.client.proto.ResponseFlags;
-import org.apache.ignite.internal.client.proto.ServerMessageType;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.lang.ErrorGroups.Table;
@@ -381,7 +380,6 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             return;
         }
 
-        var type = unpacker.unpackInt();
         Long resId = unpacker.unpackLong();
         int flags = unpacker.unpackInt();
 
@@ -401,15 +399,9 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             listener.accept(observableTimestamp);
         }
 
-        if (type == ServerMessageType.NOTIFICATION) {
+        if (ResponseFlags.getNotificationFlag(flags)) {
             handleNotification(resId, unpacker);
             return;
-        }
-
-        if (type != ServerMessageType.RESPONSE) {
-            log.error("Unexpected message type [remoteAddress=" + cfg.getAddress() + "]: " + type);
-
-            throw new IgniteClientConnectionException(PROTOCOL_ERR, "Unexpected message type: " + type);
         }
 
         ClientRequestFuture pendingReq = pendingReqs.remove(resId);
@@ -421,7 +413,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
 
         metrics.requestsActiveDecrement();
 
-        if (unpacker.tryUnpackNil()) {
+        if (!ResponseFlags.getErrorFlag(flags)) {
             boolean completed = pendingReq.complete(unpacker);
 
             if (!completed) {
