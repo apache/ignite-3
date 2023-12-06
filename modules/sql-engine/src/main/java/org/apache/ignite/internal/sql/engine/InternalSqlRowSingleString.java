@@ -25,8 +25,8 @@ import org.jetbrains.annotations.Nullable;
  * Realization of {@code InternalSqlRow} allowing to represent a SQL row with a single string column.
  */
 public class InternalSqlRowSingleString implements InternalSqlRow {
-    final String val;
-    BinaryTuple row;
+    private final String val;
+    private BinaryTuple row;
 
     /**
      * Constructor.

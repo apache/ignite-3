@@ -221,10 +221,10 @@ public class SqlTestUtils {
     /**
      * Converts list of {@link InternalSqlRow} to list of list of objects, where internal list represent a row with fields.
      *
-     * @param rows List
+     * @param rows List of rows to be converted.
      * @return List of converted rows.
      */
-    public static List<List<?>> convertSqlRows(List<InternalSqlRow> rows) {
+    public static List<List<Object>> convertSqlRows(List<InternalSqlRow> rows) {
         return rows.stream().map(SqlTestUtils::convertSqlRowToObjects).collect(Collectors.toList());
     }
 

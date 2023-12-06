@@ -24,8 +24,8 @@ import org.apache.ignite.internal.schema.BinaryTuple;
  * Realization of {@code InternalSqlRow} allowing to represent a SQL row with a single boolean column.
  */
 public class InternalSqlRowSingleBoolean implements InternalSqlRow {
-    final boolean val;
-    BinaryTuple row;
+    private final boolean val;
+    private BinaryTuple row;
 
     /**
      * Constructor.
@@ -53,7 +53,7 @@ public class InternalSqlRowSingleBoolean implements InternalSqlRow {
     @Override
     public BinaryTuple asBinaryTuple() {
         if (row == null) {
-            row = new BinaryTuple(1, new BinaryTupleBuilder(1).appendBoolean(val).build());
+            row = new BinaryTuple(1, new BinaryTupleBuilder(1, 1).appendBoolean(val).build());
         }
         return row;
     }

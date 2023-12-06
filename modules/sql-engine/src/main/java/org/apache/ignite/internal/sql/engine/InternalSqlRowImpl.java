@@ -22,7 +22,7 @@ import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Realization of {@code InternalSqlRow} allowing to avoid earlier unnecessary row deserialization, for example when we need to pass it to
+ * Implementation of {@code InternalSqlRow} allowing to avoid earlier unnecessary row deserialization, for example when we need to pass it to
  * wire.
  *
  * @param <RowT> Type of the sql row.
@@ -44,8 +44,7 @@ public class InternalSqlRowImpl<RowT> implements InternalSqlRow {
 
     /** {@inheritDoc} */
     @Override
-    @Nullable
-    public Object get(int idx) {
+    public @Nullable Object get(int idx) {
         return rowHandler.get(idx, row);
     }
 

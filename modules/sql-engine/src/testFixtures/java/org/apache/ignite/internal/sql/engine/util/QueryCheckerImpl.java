@@ -325,7 +325,7 @@ abstract class QueryCheckerImpl implements QueryChecker {
         }
 
         List<InternalSqlRow> rows = Commons.cast(getAllFromCursor(cur));
-        List<List<?>> res = convertSqlRows(rows);
+        List<List<Object>> res = convertSqlRows(rows);
 
         if (resultChecker != null) {
             resultChecker.check(res, ordered);
@@ -434,28 +434,28 @@ abstract class QueryCheckerImpl implements QueryChecker {
 
     @FunctionalInterface
     interface ResultChecker {
-        void check(List<List<?>> rows, boolean ordered);
+        void check(List<List<Object>> rows, boolean ordered);
     }
 
     private static class EmptyResultChecker implements ResultChecker {
         @Override
-        public void check(List<List<?>> rows, boolean ordered) {
+        public void check(List<List<Object>> rows, boolean ordered) {
             assertThat(rows, empty());
         }
     }
 
     private static class NotEmptyResultChecker implements ResultChecker {
         @Override
-        public void check(List<List<?>> rows, boolean ordered) {
+        public void check(List<List<Object>> rows, boolean ordered) {
             assertThat(rows, not(empty()));
         }
     }
 
     private static class RowByRowResultChecker implements ResultChecker {
-        private final List<List<?>> expectedResult = new ArrayList<>();
+        private final List<List<Object>> expectedResult = new ArrayList<>();
 
         @Override
-        public void check(List<List<?>> rows, boolean ordered) {
+        public void check(List<List<Object>> rows, boolean ordered) {
             if (!ordered) {
                 // Avoid arbitrary order.
                 rows.sort(new ListComparator());
@@ -474,7 +474,7 @@ abstract class QueryCheckerImpl implements QueryChecker {
         }
 
         @Override
-        public void check(List<List<?>> rows, boolean ordered) {
+        public void check(List<List<Object>> rows, boolean ordered) {
             assertThat(rows, hasSize(expRowCount));
         }
     }

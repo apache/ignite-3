@@ -60,22 +60,22 @@ public class JdbcConverterUtils {
             int decimalScale) {
         switch (columnType) {
             case INT8:
-                return binaryTuple.byteValue(idx);
+                return binaryTuple.byteValueBoxed(idx);
 
             case INT16:
-                return binaryTuple.shortValue(idx);
+                return binaryTuple.shortValueBoxed(idx);
 
             case INT32:
-                return binaryTuple.intValue(idx);
+                return binaryTuple.intValueBoxed(idx);
 
             case INT64:
-                return binaryTuple.longValue(idx);
+                return binaryTuple.longValueBoxed(idx);
 
             case FLOAT:
-                return binaryTuple.floatValue(idx);
+                return binaryTuple.floatValueBoxed(idx);
 
             case DOUBLE:
-                return binaryTuple.doubleValue(idx);
+                return binaryTuple.doubleValueBoxed(idx);
 
             case DECIMAL:
                 return binaryTuple.decimalValue(idx, decimalScale);
@@ -108,7 +108,7 @@ public class JdbcConverterUtils {
                 return binaryTuple.numberValue(idx);
 
             case BOOLEAN:
-                return binaryTuple.booleanValue(idx);
+                return binaryTuple.booleanValueBoxed(idx);
 
             case DURATION:
                 return binaryTuple.durationValue(idx);
