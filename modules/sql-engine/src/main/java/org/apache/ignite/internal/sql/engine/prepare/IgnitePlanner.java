@@ -182,18 +182,8 @@ public class IgnitePlanner implements Planner, RelOptTable.ViewExpander {
     /** {@inheritDoc} */
     @Override
     public SqlNode parse(Reader reader) throws SqlParseException {
+        // This method is only used in tests.
         StatementParseResult parseResult = IgniteSqlParser.parse(reader, StatementParseResult.MODE);
-        Map<Integer, Object> parameters = ctx.parameters();
-
-        // Parse method is only used in tests.
-        if (parameters.size() != parseResult.dynamicParamsCount()) {
-            String message = format(
-                    "Unexpected number of query parameters. Provided {} but there is only {} dynamic parameter(s).",
-                    parameters.size(), parseResult.dynamicParamsCount()
-            );
-
-            throw new SqlException(STMT_VALIDATION_ERR, message);
-        }
 
         return parseResult.statement();
     }
