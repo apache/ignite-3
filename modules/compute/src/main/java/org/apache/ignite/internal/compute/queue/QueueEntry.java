@@ -20,6 +20,9 @@ package org.apache.ignite.internal.compute.queue;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Class for queue's entries.
@@ -41,13 +44,20 @@ public class QueueEntry<R> implements Runnable, Comparable<QueueEntry<R>> {
 
     private final long seqNum;
 
+    /** Thread used to run the job, initialized once the job starts executing. */
+    private @Nullable Thread workerThread;
+
+    private final Lock lock = new ReentrantLock();
+
+    private boolean isInterrupted;
+
     /**
      * Constructor.
      *
      * @param jobAction Compute job callable.
      * @param priority Job priority.
      */
-    public QueueEntry(Callable<R> jobAction, int priority) {
+    QueueEntry(Callable<R> jobAction, int priority) {
         this.jobAction = jobAction;
         this.priority = priority;
         seqNum = seq.getAndIncrement();
@@ -55,10 +65,25 @@ public class QueueEntry<R> implements Runnable, Comparable<QueueEntry<R>> {
 
     @Override
     public void run() {
+
+        lock.lock();
+        try {
+            workerThread = Thread.currentThread();
+        } finally {
+            lock.unlock();
+        }
+
         try {
             future.complete(jobAction.call());
         } catch (Exception e) {
             future.completeExceptionally(e);
+        } finally {
+            lock.lock();
+            try {
+                workerThread = null;
+            } finally {
+                lock.unlock();
+            }
         }
     }
 
@@ -69,6 +94,31 @@ public class QueueEntry<R> implements Runnable, Comparable<QueueEntry<R>> {
      */
     CompletableFuture<R> toFuture() {
         return future;
+    }
+
+    /**
+     * Sets interrupt status of the worker thread.
+     */
+    public void interrupt() {
+        // Interrupt under the lock to prevent interrupting thread used by the pool for another task
+        lock.lock();
+        try {
+            if (workerThread != null) {
+                workerThread.interrupt();
+                isInterrupted = true;
+            }
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    /**
+     * Indicates whether the execution was interrupted externally.
+     *
+     * @return {@code true} when the execution was interrupted externally.
+     */
+    public boolean isInterrupted() {
+        return isInterrupted;
     }
 
     @Override

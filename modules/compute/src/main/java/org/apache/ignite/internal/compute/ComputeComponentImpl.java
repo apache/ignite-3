@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.compute.DeploymentUnit;
+import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.internal.compute.executor.ComputeExecutor;
 import org.apache.ignite.internal.compute.loader.JobContext;
 import org.apache.ignite.internal.compute.loader.JobContextManager;
@@ -145,10 +146,11 @@ public class ComputeComponentImpl implements ComputeComponent {
     }
 
     private <R> CompletableFuture<R> exec(JobContext context, ExecutionOptions options, String jobClassName, Object[] args) {
-        return executor.executeJob(
+        JobExecution<R> execution = executor.executeJob(
                 options,
                 ComputeUtils.jobClass(context.classLoader(), jobClassName),
                 args
         );
+        return execution.resultAsync();
     }
 }
