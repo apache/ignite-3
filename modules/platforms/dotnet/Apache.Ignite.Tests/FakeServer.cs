@@ -296,7 +296,16 @@ namespace Apache.Ignite.Tests
                     case ClientOp.ComputeExecute:
                     {
                         using var pooledArrayBuffer = ComputeExecute(reader);
-                        Send(handler, requestId, pooledArrayBuffer);
+                        Send(handler, requestId, ReadOnlyMemory<byte>.Empty);
+                        Send(handler, requestId, pooledArrayBuffer, isNotification: true);
+                        continue;
+                    }
+
+                    case ClientOp.ComputeExecuteColocated:
+                    {
+                        using var pooledArrayBuffer = ComputeExecute(reader, colocated: true);
+                        Send(handler, requestId, ReadOnlyMemory<byte>.Empty);
+                        Send(handler, requestId, pooledArrayBuffer, isNotification: true);
                         continue;
                     }
 
@@ -312,13 +321,6 @@ namespace Apache.Ignite.Tests
                         Thread.Sleep(HeartbeatDelay);
                         Send(handler, requestId, Array.Empty<byte>());
                         continue;
-
-                    case ClientOp.ComputeExecuteColocated:
-                    {
-                        using var pooledArrayBuffer = ComputeExecute(reader, colocated: true);
-                        Send(handler, requestId, pooledArrayBuffer);
-                        continue;
-                    }
                 }
 
                 // Fake error message for any other op code.
@@ -337,10 +339,10 @@ namespace Apache.Ignite.Tests
             handler.Disconnect(true);
         }
 
-        private void Send(Socket socket, long requestId, PooledArrayBuffer writer, bool isError = false)
-            => Send(socket, requestId, writer.GetWrittenMemory(), isError);
+        private void Send(Socket socket, long requestId, PooledArrayBuffer writer, bool isError = false, bool isNotification = false)
+            => Send(socket, requestId, writer.GetWrittenMemory(), isError, isNotification);
 
-        private void Send(Socket socket, long requestId, ReadOnlyMemory<byte> payload, bool isError = false)
+        private void Send(Socket socket, long requestId, ReadOnlyMemory<byte> payload, bool isError = false, bool isNotification = false)
         {
             using var header = new PooledArrayBuffer();
             var writer = new MsgPackWriter(header);
@@ -348,9 +350,15 @@ namespace Apache.Ignite.Tests
             writer.Write(requestId);
 
             var flags = (int)ResponseFlags.PartitionAssignmentChanged;
+
             if (isError)
             {
                 flags |= (int)ResponseFlags.Error;
+            }
+
+            if (isNotification)
+            {
+                flags |= (int)ResponseFlags.Notification;
             }
 
             writer.Write(flags);

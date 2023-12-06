@@ -702,6 +702,8 @@ namespace Apache.Ignite.Internal
             var requestId = reader.ReadInt64();
             var flags = (ResponseFlags)reader.ReadInt32();
 
+            _logger.LogReceivedResponseTrace(requestId, flags, ConnectionContext.ClusterNode.Address);
+
             HandlePartitionAssignmentChange(flags, ref reader);
             HandleObservableTimestamp(ref reader);
 
@@ -725,7 +727,6 @@ namespace Apache.Ignite.Internal
             }
 
             Metrics.RequestsActiveDecrement();
-            _logger.LogReceivedResponseTrace(requestId, ConnectionContext.ClusterNode.Address);
 
             if (exception != null)
             {
@@ -775,8 +776,6 @@ namespace Apache.Ignite.Internal
 
                 return;
             }
-
-            _logger.LogReceivedNotificationTrace(requestId, ConnectionContext.ClusterNode.Address);
 
             if (exception != null)
             {
