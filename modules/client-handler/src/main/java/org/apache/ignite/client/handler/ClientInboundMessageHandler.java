@@ -845,6 +845,8 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
     }
 
     private NotificationSender notificationSender(long requestId) {
+        // Notification can be sent before the response to the current request.
+        // This is fine, because the client registers a listener before sending the request.
         return (writer, err) -> sendNotification(requestId, writer, err);
     }
 }
