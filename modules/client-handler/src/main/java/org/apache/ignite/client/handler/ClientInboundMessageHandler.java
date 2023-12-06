@@ -413,6 +413,17 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         metrics.bytesSentAdd(bytes);
     }
 
+    private void writeResponseHeader(
+            ClientMessagePacker packer, long requestId, ChannelHandlerContext ctx, boolean isNotification, boolean isError) {
+        packer.packLong(requestId);
+        writeFlags(packer, ctx, isNotification, isError);
+
+        // Include server timestamp in error and notification responses as well:
+        // an operation can modify data and then throw an exception (e.g. Compute task),
+        // so we still need to update client-side timestamp to preserve causality guarantees.
+        packer.packLong(observableTimestamp(null));
+    }
+
     private void writeError(long requestId, int opCode, Throwable err, ChannelHandlerContext ctx, boolean isNotification) {
         if (isNotification) {
             LOG.warn("Error processing client notification [connectionId=" + connectionId + ", id=" + requestId
@@ -422,19 +433,12 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
                     + ", remoteAddress=" + ctx.channel().remoteAddress() + "]:" + err.getMessage(), err);
         }
 
-        var packer = getPacker(ctx.alloc());
+        ClientMessagePacker packer = getPacker(ctx.alloc());
 
         try {
             assert err != null;
 
-            packer.packLong(requestId);
-            writeFlags(packer, ctx, isNotification, true);
-
-            // Include server timestamp in error response as well:
-            // an operation can modify data and then throw an exception (e.g. Compute task),
-            // so we still need to update client-side timestamp to preserve causality guarantees.
-            packer.packLong(observableTimestamp(null));
-
+            writeResponseHeader(packer, requestId, ctx, isNotification, true);
             writeErrorCore(err, packer);
 
             write(packer, ctx);
@@ -842,10 +846,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         var packer = getPacker(channelHandlerContext.alloc());
 
         try {
-            // Same header as regular response.
-            packer.packLong(requestId);
-            writeFlags(packer, channelHandlerContext, true, false);
-            packer.packLong(observableTimestamp(null));
+            writeResponseHeader(packer, requestId, channelHandlerContext, true, false);
 
             if (writer != null) {
                 writer.accept(packer);
