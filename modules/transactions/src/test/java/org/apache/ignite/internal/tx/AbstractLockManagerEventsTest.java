@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.tx;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -57,7 +57,7 @@ public abstract class AbstractLockManagerEventsTest extends AbstractLockingTest 
     private CompletableFuture<Boolean> lockEventListener(LockEventParameters params, Throwable e) {
         eventParamsRef.set(params);
 
-        return completedFuture(false);
+        return falseCompletedFuture();
     }
 
     private void checkLockConflictEvent(UUID lockAcquirerTx, UUID lockHolderTx) {

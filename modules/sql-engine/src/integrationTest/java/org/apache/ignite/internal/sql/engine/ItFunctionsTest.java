@@ -359,7 +359,7 @@ public class ItFunctionsTest extends BaseSqlIntegrationTest {
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("integralTypes")
-    public void testIntType(ParseNum parse, MetadataMatcher matcher) {
+    public void testRoundIntTypes(ParseNum parse, MetadataMatcher matcher) {
         String v1 = parse.value("42");
         String v2 = parse.value("45");
         String v3 = parse.value("47");
@@ -393,8 +393,12 @@ public class ItFunctionsTest extends BaseSqlIntegrationTest {
     @MethodSource("nonIntegerTypes")
     public void testRoundNonIntegralTypes(ParseNum parse, MetadataMatcher round1, MetadataMatcher round2) {
         String v1 = parse.value("42.123");
-        String v2 = parse.value("45.123");
+        String v2 = parse.value("45.000");
         String v3 = parse.value("47.123");
+
+        assertQuery(format("SELECT ROUND(1.5::{})", parse.typeName))
+                .returns(parse.apply("2"))
+                .check();
 
         assertQuery(format("SELECT ROUND({}), ROUND({}, 0)", v1, v1))
                 .returns(parse.apply("42"), parse.apply("42.000"))
@@ -409,6 +413,64 @@ public class ItFunctionsTest extends BaseSqlIntegrationTest {
         String v4 = parse.value("1.123");
 
         assertQuery(format("SELECT ROUND({}, s) FROM (VALUES (-2), (-1), (0), (1), (2), (3), (4), (100) ) t(s)", v4))
+                .returns(parse.apply("0.000"))
+                .returns(parse.apply("0.000"))
+                .returns(parse.apply("1.000"))
+                .returns(parse.apply("1.100"))
+                .returns(parse.apply("1.120"))
+                .returns(parse.apply("1.123"))
+                .returns(parse.apply("1.123"))
+                .returns(parse.apply("1.123"))
+                .columnMetadata(round2)
+                .check();
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("integralTypes")
+    public void testTruncateIntTypes(ParseNum parse, MetadataMatcher matcher) {
+        String v1 = parse.value("42");
+        String v2 = parse.value("45");
+        String v3 = parse.value("47");
+
+        assertQuery(format("SELECT TRUNCATE({}), TRUNCATE({}, 0)", v1, v1))
+                .returns(parse.apply("42"), parse.apply("42"))
+                .columnMetadata(matcher, matcher)
+                .check();
+
+        String query = format(
+                "SELECT TRUNCATE({}, -2), TRUNCATE({}, -1), TRUNCATE({}, -1), TRUNCATE({}, -1)",
+                v1, v1, v2, v3);
+
+        assertQuery(query)
+                .returns(parse.apply("0"), parse.apply("40"), parse.apply("40"), parse.apply("40"))
+                .columnMetadata(matcher, matcher, matcher, matcher)
+                .check();
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("nonIntegerTypes")
+    public void testTruncateNonIntegralTypes(ParseNum parse, MetadataMatcher round1, MetadataMatcher round2) {
+        String v1 = parse.value("42.123");
+        String v2 = parse.value("45.000");
+        String v3 = parse.value("47.123");
+
+        assertQuery(format("SELECT TRUNCATE(1.6::{})", parse.typeName))
+                .returns(parse.apply("1"))
+                .check();
+
+        assertQuery(format("SELECT TRUNCATE({}), TRUNCATE({}, 0)", v1, v1))
+                .returns(parse.apply("42"), parse.apply("42.000"))
+                .columnMetadata(round1, round2)
+                .check();
+
+        assertQuery(format("SELECT TRUNCATE({}, -2), TRUNCATE({}, -1), TRUNCATE({}, -1),  TRUNCATE({}, -1)", v1, v1, v2, v3))
+                .returns(parse.apply("0.000"), parse.apply("40.000"), parse.apply("40.000"), parse.apply("40.000"))
+                .columnMetadata(round2, round2, round2, round2)
+                .check();
+
+        String v4 = parse.value("1.123");
+
+        assertQuery(format("SELECT TRUNCATE({}, s) FROM (VALUES (-2), (-1), (0), (1), (2), (3), (4), (100) ) t(s)", v4))
                 .returns(parse.apply("0.000"))
                 .returns(parse.apply("0.000"))
                 .returns(parse.apply("1.000"))

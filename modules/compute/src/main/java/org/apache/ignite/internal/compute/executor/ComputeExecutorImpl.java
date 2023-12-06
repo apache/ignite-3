@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.compute.queue;
+package org.apache.ignite.internal.compute.executor;
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.Ignite;
@@ -25,6 +25,8 @@ import org.apache.ignite.internal.compute.ComputeUtils;
 import org.apache.ignite.internal.compute.ExecutionOptions;
 import org.apache.ignite.internal.compute.JobExecutionContextImpl;
 import org.apache.ignite.internal.compute.configuration.ComputeConfiguration;
+import org.apache.ignite.internal.compute.queue.PriorityQueueExecutor;
+import org.apache.ignite.internal.compute.state.ComputeStateMachine;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
@@ -39,15 +41,33 @@ public class ComputeExecutorImpl implements ComputeExecutor {
 
     private final ComputeConfiguration configuration;
 
+    private final ComputeStateMachine stateMachine;
+
     private PriorityQueueExecutor executorService;
 
-    public ComputeExecutorImpl(Ignite ignite, ComputeConfiguration configuration) {
+    /**
+     * Constructor.
+     *
+     * @param ignite Ignite instance for public API access.
+     * @param stateMachine Compute jobs state machine.
+     * @param configuration Compute configuration.
+     */
+    public ComputeExecutorImpl(
+            Ignite ignite,
+            ComputeStateMachine stateMachine,
+            ComputeConfiguration configuration
+    ) {
         this.ignite = ignite;
         this.configuration = configuration;
+        this.stateMachine = stateMachine;
     }
 
     @Override
-    public <R> CompletableFuture<R> executeJob(ExecutionOptions options, Class<ComputeJob<R>> jobClass, Object[] args) {
+    public <R> CompletableFuture<R> executeJob(
+            ExecutionOptions options,
+            Class<ComputeJob<R>> jobClass,
+            Object[] args
+    ) {
         assert executorService != null;
 
         JobExecutionContext context = new JobExecutionContextImpl(ignite);
@@ -57,14 +77,17 @@ public class ComputeExecutorImpl implements ComputeExecutor {
 
     @Override
     public void start() {
+        stateMachine.start();
         executorService = new PriorityQueueExecutor(
                 configuration,
-                new NamedThreadFactory(NamedThreadFactory.threadPrefix(ignite.name(), "compute"), LOG)
+                new NamedThreadFactory(NamedThreadFactory.threadPrefix(ignite.name(), "compute"), LOG),
+                stateMachine
         );
     }
 
     @Override
     public void stop() {
+        stateMachine.stop();
         executorService.shutdown();
     }
 }

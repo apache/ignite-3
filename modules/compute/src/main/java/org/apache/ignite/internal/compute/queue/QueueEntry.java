@@ -35,7 +35,7 @@ public class QueueEntry<R> implements Runnable, Comparable<QueueEntry<R>> {
 
     private final CompletableFuture<R> future = new CompletableFuture<>();
 
-    private final Callable<R> job;
+    private final Callable<R> jobAction;
 
     private final int priority;
 
@@ -44,11 +44,11 @@ public class QueueEntry<R> implements Runnable, Comparable<QueueEntry<R>> {
     /**
      * Constructor.
      *
-     * @param job Compute job callable.
+     * @param jobAction Compute job callable.
      * @param priority Job priority.
      */
-    public QueueEntry(Callable<R> job, int priority) {
-        this.job = job;
+    public QueueEntry(Callable<R> jobAction, int priority) {
+        this.jobAction = jobAction;
         this.priority = priority;
         seqNum = seq.getAndIncrement();
     }
@@ -56,7 +56,7 @@ public class QueueEntry<R> implements Runnable, Comparable<QueueEntry<R>> {
     @Override
     public void run() {
         try {
-            future.complete(job.call());
+            future.complete(jobAction.call());
         } catch (Exception e) {
             future.completeExceptionally(e);
         }
