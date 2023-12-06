@@ -228,12 +228,13 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     /** {@inheritDoc} */
     @Override
     public void onMessage(ByteBuf buf) {
-        try {
-            processNextMessage(buf);
-        } catch (Throwable t) {
-            buf.release();
-            throw t;
-        }
+        asyncContinuationExecutor.execute(() -> {
+            try {
+                processNextMessage(buf);
+            } finally {
+                buf.release();
+            }
+        });
     }
 
     /** {@inheritDoc} */
@@ -348,24 +349,19 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
      * @return Future for the operation.
      */
     private <T> CompletableFuture<T> receiveAsync(ClientRequestFuture pendingReq, @Nullable PayloadReader<T> payloadReader) {
-        return pendingReq.thenApplyAsync(payload -> {
-            if (payload == null) {
+        return pendingReq.thenApply(payload -> {
+            if (payload == null || payloadReader == null) {
                 return null;
             }
 
-            if (payloadReader == null) {
-                payload.close();
-                return null;
-            }
-
-            try (var in = new PayloadInputChannel(this, payload)) {
-                return payloadReader.apply(in);
+            try {
+                return payloadReader.apply(new PayloadInputChannel(this, payload));
             } catch (Exception e) {
                 log.error("Failed to deserialize server response [remoteAddress=" + cfg.getAddress() + "]: " + e.getMessage(), e);
 
                 throw new IgniteException(PROTOCOL_ERR, "Failed to deserialize server response: " + e.getMessage(), e);
             }
-        }, asyncContinuationExecutor);
+        });
     }
 
     /**
@@ -386,13 +382,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         handlePartitionAssignmentChange(flags, unpacker);
         handleObservableTimestamp(unpacker);
 
-        Throwable err;
-        if (ResponseFlags.getErrorFlag(flags)) {
-            err = readError(unpacker);
-            unpacker.close();
-        } else {
-            err = null;
-        }
+        Throwable err = ResponseFlags.getErrorFlag(flags) ? readError(unpacker) : null;
 
         if (ResponseFlags.getNotificationFlag(flags)) {
             handleNotification(resId, unpacker, err);
@@ -409,17 +399,11 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         metrics.requestsActiveDecrement();
 
         if (err == null) {
-            boolean completed = pendingReq.complete(unpacker);
-
-            if (!completed) {
-                // Already completed (timeout, error, closing channel).
-                unpacker.close();
-            }
-
             metrics.requestsCompletedIncrement();
+            pendingReq.complete(unpacker);
         } else {
             metrics.requestsFailedIncrement();
-            asyncContinuationExecutor.execute(() -> pendingReq.completeExceptionally(err));
+            pendingReq.completeExceptionally(err);
         }
     }
 
@@ -445,26 +429,24 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     }
 
     private void handleNotification(long id, ClientMessageUnpacker unpacker, @Nullable Throwable err) {
-        try (unpacker) {
-            // One-shot notification handler - remove immediately.
-            NotificationHandler handler = notificationHandlers.remove(id);
-            if (handler == null) {
-                log.error("Unexpected notification ID [remoteAddress=" + cfg.getAddress() + "]: " + id);
+        // One-shot notification handler - remove immediately.
+        NotificationHandler handler = notificationHandlers.remove(id);
+        if (handler == null) {
+            log.error("Unexpected notification ID [remoteAddress=" + cfg.getAddress() + "]: " + id);
 
-                throw new IgniteClientConnectionException(PROTOCOL_ERR, String.format("Unexpected notification ID [%s]", id));
+            throw new IgniteClientConnectionException(PROTOCOL_ERR, String.format("Unexpected notification ID [%s]", id));
+        }
+
+        try {
+            if (err != null) {
+                handler.consume(null, err);
+            } else {
+                handler.consume(new PayloadInputChannel(this, unpacker), null);
             }
+        } catch (Exception e) {
+            log.error("Failed to handle server notification [remoteAddress=" + cfg.getAddress() + "]: " + e.getMessage(), e);
 
-            try {
-                if (err != null) {
-                    handler.consume(null, err);
-                } else {
-                    handler.consume(new PayloadInputChannel(this, unpacker), null);
-                }
-            } catch (Exception e) {
-                log.error("Failed to handle server notification [remoteAddress=" + cfg.getAddress() + "]: " + e.getMessage(), e);
-
-                throw new IgniteException(PROTOCOL_ERR, "Failed to to server notification: " + e.getMessage(), e);
-            }
+            throw new IgniteException(PROTOCOL_ERR, "Failed to to server notification: " + e.getMessage(), e);
         }
     }
 

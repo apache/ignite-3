@@ -18,6 +18,7 @@
 package org.apache.ignite.client;
 
 import org.apache.ignite.lang.IgniteException;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Indicates all the Ignite servers specified in the client configuration are no longer available.
@@ -33,7 +34,7 @@ public class IgniteClientConnectionException extends IgniteException {
      * @param msg   the detail message.
      * @param cause the cause.
      */
-    public IgniteClientConnectionException(int code, String msg, Throwable cause) {
+    public IgniteClientConnectionException(int code, String msg, @Nullable Throwable cause) {
         super(code, msg, cause);
     }
 
