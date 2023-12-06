@@ -24,6 +24,8 @@ import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.va
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateCreateZoneParams;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateDropZoneParams;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateRenameZoneParams;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_DATA_REGION;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_STORAGE_ENGINE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.fromParams;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.fromParamsAndPreviousValue;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
@@ -42,6 +44,7 @@ import java.util.concurrent.Flow.Publisher;
 import java.util.function.LongSupplier;
 import org.apache.ignite.internal.catalog.commands.AlterZoneParams;
 import org.apache.ignite.internal.catalog.commands.CreateZoneParams;
+import org.apache.ignite.internal.catalog.commands.DataStorageParams;
 import org.apache.ignite.internal.catalog.commands.DropZoneParams;
 import org.apache.ignite.internal.catalog.commands.RenameZoneParams;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
@@ -68,6 +71,7 @@ import org.apache.ignite.internal.distributionzones.DistributionZoneNotFoundExce
 import org.apache.ignite.internal.event.AbstractEventProducer;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.systemview.api.SystemView;
@@ -174,9 +178,14 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
                 INITIAL_CAUSALITY_TOKEN
         );
 
+        String storageEngine = IgniteSystemProperties.getString("storageEngine", DEFAULT_STORAGE_ENGINE);
+
         CatalogZoneDescriptor defaultZone = fromParams(
                 objectIdGen++,
-                CreateZoneParams.builder().zoneName(DEFAULT_ZONE_NAME).build()
+                CreateZoneParams.builder().dataStorage(DataStorageParams.builder()
+                                .engine(storageEngine)
+                                .dataRegion(DEFAULT_DATA_REGION)
+                        .build()).zoneName(DEFAULT_ZONE_NAME).build()
         );
 
         registerCatalog(new Catalog(0, 0L, objectIdGen, List.of(defaultZone), List.of(publicSchema, systemSchema)));
