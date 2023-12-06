@@ -697,10 +697,10 @@ namespace Apache.Ignite.Internal
             var requestId = reader.ReadInt64();
             var flags = (ResponseFlags)reader.ReadInt32();
 
-            HandlePartitionAssignmentChange(flags, reader);
+            HandlePartitionAssignmentChange(flags, ref reader);
             HandleObservableTimestamp(reader);
 
-            if (HandleNotification(flags, reader))
+            if (HandleNotification(flags, ref reader))
             {
                 return;
             }
@@ -745,7 +745,7 @@ namespace Apache.Ignite.Internal
             _listener.OnObservableTimestampChanged(observableTimestamp);
         }
 
-        private void HandlePartitionAssignmentChange(ResponseFlags flags, MsgPackReader reader)
+        private void HandlePartitionAssignmentChange(ResponseFlags flags, ref MsgPackReader reader)
         {
             if (flags.HasFlag(ResponseFlags.PartitionAssignmentChanged))
             {
@@ -757,19 +757,21 @@ namespace Apache.Ignite.Internal
             }
         }
 
-        private bool HandleNotification(ResponseFlags flags, MsgPackReader reader)
+        private bool HandleNotification(ResponseFlags flags, ref MsgPackReader reader)
         {
             if (!flags.HasFlag(ResponseFlags.Notification))
             {
                 return false;
             }
 
-            var notification = ReadNotification(ref reader);
+            // TODO
+            Console.WriteLine($"Notification received: {flags}, {reader.Consumed}, " + IsDisposed);
 
-            _logger.LogReceivedNotificationTrace(notification, ConnectionContext.ClusterNode.Address);
-
-            _listener.OnNotification(notification);
-
+            // var notification = ReadNotification(ref reader);
+            //
+            // _logger.LogReceivedNotificationTrace(notification, ConnectionContext.ClusterNode.Address);
+            //
+            // _listener.OnNotification(notification);
             return true;
         }
 
