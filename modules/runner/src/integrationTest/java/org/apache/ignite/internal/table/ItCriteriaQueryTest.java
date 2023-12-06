@@ -56,7 +56,6 @@ import org.hamcrest.Matchers;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.TestInstance;
@@ -138,7 +137,6 @@ public class ItCriteriaQueryTest extends BaseIgniteAbstractTest {
         assertThat(res, not(hasItem(tupleValue(COLUMN_KEY, Matchers.equalTo(2)))));
     }
 
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18695")
     @Test
     public void testBasicQueryCriteriaRecordPojoView() {
         RecordView<TestPojo> view = node.tables().table(TABLE_NAME).recordView(TestPojo.class);
@@ -169,6 +167,22 @@ public class ItCriteriaQueryTest extends BaseIgniteAbstractTest {
         res = toMap(view.queryCriteria(null, not(columnValue(COLUMN_KEY, equalTo(2)))));
         assertThat(res, aMapWithSize(14));
         assertThat(res, not(hasEntry(tupleValue(COLUMN_KEY, Matchers.equalTo(2)), tupleValue("valInt", Matchers.equalTo(2)))));
+    }
+
+    @Test
+    public void testBasicQueryCriteriaKeyValueView() {
+        var view = node.tables().table(TABLE_NAME).keyValueView(TestPojoKey.class, TestPojo.class);
+
+        var res = toMap(view.queryCriteria(null, null));
+        assertThat(res, aMapWithSize(15));
+
+        res = toMap(view.queryCriteria(null, columnValue(COLUMN_KEY, equalTo(2))));
+        assertThat(res, aMapWithSize(1));
+        assertThat(res, hasEntry(hasProperty(COLUMN_KEY, Matchers.equalTo(2)), hasProperty("valInt", Matchers.equalTo(2))));
+
+        res = toMap(view.queryCriteria(null, not(columnValue(COLUMN_KEY, equalTo(2)))));
+        assertThat(res, aMapWithSize(14));
+        assertThat(res, not(hasEntry(hasProperty(COLUMN_KEY, Matchers.equalTo(2)), hasProperty("valInt", Matchers.equalTo(2)))));
     }
 
     private static void startTable(Ignite node, String tableName) {
@@ -216,27 +230,46 @@ public class ItCriteriaQueryTest extends BaseIgniteAbstractTest {
     /**
      * Test class.
      */
-    private static class TestPojo {
-        public TestPojo() {
-            //No-op.
-        }
+    public static class TestPojoKey {
+        int key;
 
-        public TestPojo(int key) {
+        public void setKey(int key) {
             this.key = key;
         }
 
+        public int getKey() {
+            return key;
+        }
+    }
+
+    /**
+     * Test class.
+     */
+    public static class TestPojo {
         int key;
 
         int valInt;
 
         String valStr;
 
+        public void setKey(int key) {
+            this.key = key;
+        }
+
         public int getKey() {
             return key;
         }
 
+        public void setValInt(int valInt) {
+            this.valInt = valInt;
+        }
+
         public int getValInt() {
             return valInt;
+        }
+
+        public void setValStr(String valStr) {
+            this.valStr = valStr;
         }
 
         public String getValStr() {

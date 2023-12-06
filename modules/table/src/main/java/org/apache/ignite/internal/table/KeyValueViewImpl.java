@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.table;
 
+import static org.apache.ignite.internal.schema.marshaller.MarshallerUtil.toMarshallerColumns;
+
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -27,6 +29,8 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
 import java.util.function.Function;
+import org.apache.ignite.internal.lang.IgniteBiTuple;
+import org.apache.ignite.internal.marshaller.Marshaller;
 import org.apache.ignite.internal.marshaller.MarshallerException;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
@@ -34,16 +38,21 @@ import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.marshaller.KvMarshaller;
 import org.apache.ignite.internal.schema.marshaller.reflection.KvMarshallerImpl;
+import org.apache.ignite.internal.schema.marshaller.reflection.TupleReader;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.streamer.StreamerBatchSender;
+import org.apache.ignite.internal.table.criteria.QueryCriteriaAsyncResultSet;
+import org.apache.ignite.internal.table.criteria.SqlRowProjection;
+import org.apache.ignite.internal.table.criteria.SqlSerializer;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.NullableValue;
 import org.apache.ignite.lang.UnexpectedNullValueException;
-import org.apache.ignite.sql.ClosableCursor;
-import org.apache.ignite.sql.async.AsyncClosableCursor;
+import org.apache.ignite.sql.SqlRow;
+import org.apache.ignite.sql.async.AsyncResultSet;
 import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.criteria.Criteria;
@@ -55,7 +64,13 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Key-value view implementation.
  */
-public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValueView<K, V> {
+public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> implements KeyValueView<K, V> {
+    /** Key class mapper. */
+    private final Mapper<K> keyMapper;
+
+    /** Value class mapper. */
+    private final Mapper<V> valueMapper;
+
     /** Marshaller factory. */
     private final Function<SchemaDescriptor, KvMarshaller<K, V>> marshallerFactory;
 
@@ -79,6 +94,9 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
             Mapper<V> valueMapper
     ) {
         super(tbl, schemaVersions, schemaRegistry);
+
+        this.keyMapper = keyMapper;
+        this.valueMapper = valueMapper;
 
         marshallerFactory = (schema) -> new KvMarshallerImpl<>(schema, keyMapper, valueMapper);
     }
@@ -681,19 +699,48 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
 
     /** {@inheritDoc} */
     @Override
-    public ClosableCursor<Entry<K, V>> queryCriteria(@Nullable Transaction tx, @Nullable Criteria criteria, CriteriaQueryOptions opts) {
-        //TODO: implement custom user mapping https://issues.apache.org/jira/browse/IGNITE-16116
-        throw new UnsupportedOperationException("Not implemented yet.");
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public CompletableFuture<AsyncClosableCursor<Entry<K, V>>> queryCriteriaAsync(
+    protected CompletableFuture<AsyncResultSet<Entry<K, V>>> executeAsync(
             @Nullable Transaction tx,
             @Nullable Criteria criteria,
             CriteriaQueryOptions opts
     ) {
-        //TODO: implement custom user mapping https://issues.apache.org/jira/browse/IGNITE-16116
-        throw new UnsupportedOperationException("Not implemented yet.");
+        var sqlSer = new SqlSerializer.Builder()
+                .tableName(tbl.name())
+                .where(criteria)
+                .build();
+
+        var statement = tbl.sql().statementBuilder().query(sqlSer.toString()).pageSize(opts.pageSize()).build();
+        var session = tbl.sql().createSession();
+
+        return withSchemaSync(tx, (schemaVersion) -> {
+            return session.executeAsync(tx, statement, sqlSer.getArguments())
+                    .thenApply(resultSet -> {
+                        var metadata = resultSet.metadata();
+
+                        if (metadata == null) {
+                            throw new IllegalStateException("Metadata can't be null.");
+                        }
+
+                        var keyMarsh = Marshaller.createMarshaller(toMarshallerColumns(metadata.columns()), keyMapper, false, true);
+                        var valMarsh = Marshaller.createMarshaller(toMarshallerColumns(metadata.columns()), valueMapper, false, true);
+
+                        Function<SqlRow, Entry<K, V>> f = (row) -> {
+                            try {
+                                return new IgniteBiTuple<>(
+                                        (K) keyMarsh.readObject(new TupleReader(row), null),
+                                        (V) valMarsh.readObject(new TupleReader(row), null)
+                                );
+                            } catch (org.apache.ignite.internal.marshaller.MarshallerException e) {
+                                throw new IgniteException(
+                                        Sql.MAPPING_ERR,
+                                        "Failed to map SQL result set: " + e.getMessage(),
+                                        e
+                                );
+                            }
+                        };
+
+                        return new QueryCriteriaAsyncResultSet<>(session, f, resultSet);
+                    });
+        });
     }
 }

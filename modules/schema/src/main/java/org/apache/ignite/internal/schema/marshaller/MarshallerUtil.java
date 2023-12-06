@@ -19,6 +19,7 @@ package org.apache.ignite.internal.schema.marshaller;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.util.List;
 import org.apache.ignite.internal.binarytuple.BinaryTupleCommon;
 import org.apache.ignite.internal.marshaller.BinaryMode;
 import org.apache.ignite.internal.marshaller.MarshallerColumn;
@@ -27,6 +28,10 @@ import org.apache.ignite.internal.schema.InvalidTypeException;
 import org.apache.ignite.internal.type.DecimalNativeType;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.util.ObjectFactory;
+import org.apache.ignite.lang.ErrorGroups.Client;
+import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.sql.ColumnMetadata;
+import org.apache.ignite.sql.ColumnType;
 
 /**
  * Marshaller utility class.
@@ -134,7 +139,7 @@ public final class MarshallerUtil {
     /**
      * Converts a given {@link Column} into a {@link MarshallerColumn}.
      */
-    public static MarshallerColumn toMarshallerColumn(Column column) {
+    private static MarshallerColumn toMarshallerColumn(Column column) {
         NativeType columnType = column.type();
 
         return new MarshallerColumn(
@@ -146,6 +151,20 @@ public final class MarshallerUtil {
     }
 
     /**
+     * Converts a given {@link ColumnMetadata} into a {@link MarshallerColumn}.
+     */
+    private static MarshallerColumn toMarshallerColumn(ColumnMetadata column) {
+        var columnType = column.type();
+
+        return new MarshallerColumn(
+                column.name(),
+                mode(columnType),
+                null,
+                column.scale()
+        );
+    }
+
+    /**
      * Converts an array of {@link Column}s into an array of {@link MarshallerColumn}s.
      */
     public static MarshallerColumn[] toMarshallerColumns(Column[] columns) {
@@ -153,6 +172,19 @@ public final class MarshallerUtil {
 
         for (int i = 0; i < columns.length; i++) {
             result[i] = toMarshallerColumn(columns[i]);
+        }
+
+        return result;
+    }
+
+    /**
+     * Converts an list of {@link ColumnMetadata}s into an array of {@link MarshallerColumn}s.
+     */
+    public static MarshallerColumn[] toMarshallerColumns(List<ColumnMetadata> columns) {
+        var result = new MarshallerColumn[columns.size()];
+
+        for (int i = 0; i < columns.size(); i++) {
+            result[i] = toMarshallerColumn(columns.get(i));
         }
 
         return result;
@@ -199,6 +231,67 @@ public final class MarshallerUtil {
                 return BinaryMode.BOOLEAN;
             default:
                 throw new IllegalArgumentException("No matching mode for type " + type);
+        }
+    }
+
+    /**
+     * Converts a given {@link ColumnType} into a {@link BinaryMode}.
+     */
+    public static BinaryMode mode(ColumnType dataType) {
+        switch (dataType) {
+            case BOOLEAN:
+                return BinaryMode.BOOLEAN;
+
+            case INT8:
+                return BinaryMode.BYTE;
+
+            case INT16:
+                return BinaryMode.SHORT;
+
+            case INT32:
+                return BinaryMode.INT;
+
+            case INT64:
+                return BinaryMode.LONG;
+
+            case FLOAT:
+                return BinaryMode.FLOAT;
+
+            case DOUBLE:
+                return BinaryMode.DOUBLE;
+
+            case UUID:
+                return BinaryMode.UUID;
+
+            case STRING:
+                return BinaryMode.STRING;
+
+            case BYTE_ARRAY:
+                return BinaryMode.BYTE_ARR;
+
+            case DECIMAL:
+                return BinaryMode.DECIMAL;
+
+            case NUMBER:
+                return BinaryMode.NUMBER;
+
+            case BITMASK:
+                return BinaryMode.BITSET;
+
+            case DATE:
+                return BinaryMode.DATE;
+
+            case TIME:
+                return BinaryMode.TIME;
+
+            case DATETIME:
+                return BinaryMode.DATETIME;
+
+            case TIMESTAMP:
+                return BinaryMode.TIMESTAMP;
+
+            default:
+                throw new IgniteException(Client.PROTOCOL_ERR, "Unknown client data type: " + dataType);
         }
     }
 }

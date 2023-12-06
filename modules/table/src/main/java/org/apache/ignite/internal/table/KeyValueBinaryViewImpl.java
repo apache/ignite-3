@@ -67,7 +67,7 @@ import org.jetbrains.annotations.Nullable;
  * <p>NB: Binary view doesn't allow null tuples. Methods return either a tuple that represents the value, or {@code null} if no value
  * exists for the given key.
  */
-public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValueView<Tuple, Tuple> {
+public class KeyValueBinaryViewImpl extends AbstractTableView<Entry<Tuple, Tuple>> implements KeyValueView<Tuple, Tuple> {
     private final TupleMarshallerCache marshallerCache;
 
     /**
@@ -573,6 +573,8 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
         return rows;
     }
 
+    /** {@inheritDoc} */
+    @Override
     protected CompletableFuture<AsyncResultSet<Entry<Tuple, Tuple>>> executeAsync(
             @Nullable Transaction tx,
             @Nullable Criteria criteria,
@@ -602,27 +604,6 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
                         return new QueryCriteriaAsyncResultSet<>(session, mapper, resultSet);
                     });
         });
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public ClosableCursor<Entry<Tuple, Tuple>> queryCriteria(
-            @Nullable Transaction tx,
-            @Nullable Criteria criteria,
-            CriteriaQueryOptions opts
-    ) {
-        return new SyncResultSetAdapter<>(executeAsync(tx, criteria, opts).join());
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public CompletableFuture<AsyncClosableCursor<Entry<Tuple, Tuple>>> queryCriteriaAsync(
-            @Nullable Transaction tx,
-            @Nullable Criteria criteria,
-            CriteriaQueryOptions opts
-    ) {
-        return executeAsync(tx, criteria, opts)
-                .thenApply(Function.identity());
     }
 
     private static List<Integer> indexMapping(Columns columns, @Nullable ResultSetMetadata metadata) {

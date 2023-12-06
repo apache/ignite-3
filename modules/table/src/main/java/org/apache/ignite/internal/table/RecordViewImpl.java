@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.table;
 
+import static org.apache.ignite.internal.schema.marshaller.MarshallerUtil.toMarshallerColumns;
+
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -25,22 +27,24 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
 import java.util.function.Function;
+import org.apache.ignite.internal.marshaller.Marshaller;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.marshaller.RecordMarshaller;
 import org.apache.ignite.internal.schema.marshaller.reflection.RecordMarshallerImpl;
+import org.apache.ignite.internal.schema.marshaller.reflection.TupleReader;
 import org.apache.ignite.internal.schema.row.Row;
-import org.apache.ignite.internal.sql.SyncResultSetAdapter;
 import org.apache.ignite.internal.streamer.StreamerBatchSender;
 import org.apache.ignite.internal.table.criteria.QueryCriteriaAsyncResultSet;
 import org.apache.ignite.internal.table.criteria.SqlSerializer;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.lang.ErrorGroups.Sql;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.MarshallerException;
-import org.apache.ignite.sql.ClosableCursor;
-import org.apache.ignite.sql.async.AsyncClosableCursor;
+import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.async.AsyncResultSet;
 import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.RecordView;
@@ -53,12 +57,14 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Record view implementation.
  */
-public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R> {
+public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordView<R> {
     /** Marshaller factory. */
     private final Function<SchemaDescriptor, RecordMarshaller<R>> marshallerFactory;
 
     /** Record marshaller. */
     private volatile @Nullable RecordMarshaller<R> marsh;
+
+    private final Mapper<R> mapper;
 
     /**
      * Constructor.
@@ -72,6 +78,7 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
         super(tbl, schemaVersions, schemaRegistry);
 
         marshallerFactory = (schema) -> new RecordMarshallerImpl<>(schema, mapper);
+        this.mapper = mapper;
     }
 
     /** {@inheritDoc} */
@@ -526,7 +533,9 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
         return DataStreamer.streamData(publisher, options, batchSender, partitioner);
     }
 
-    private CompletableFuture<AsyncResultSet<R>> executeAsync(
+    /** {@inheritDoc} */
+    @Override
+    protected CompletableFuture<AsyncResultSet<R>> executeAsync(
             @Nullable Transaction tx,
             @Nullable Criteria criteria,
             CriteriaQueryOptions opts
@@ -539,26 +548,31 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
         var statement = tbl.sql().statementBuilder().query(sqlSer.toString()).pageSize(opts.pageSize()).build();
         var session = tbl.sql().createSession();
 
-        // TODO: Append POJO mapper.
+        return withSchemaSync(tx, (schemaVersion) -> {
+            return session.executeAsync(tx, statement, sqlSer.getArguments())
+                    .thenApply(resultSet -> {
+                        var metadata = resultSet.metadata();
 
-        return session.executeAsync(tx, statement, sqlSer.getArguments())
-                .thenApply(resultSet -> new QueryCriteriaAsyncResultSet<>(session, null, resultSet));
-    }
+                        if (metadata == null) {
+                            throw new IllegalStateException("Metadata can't be null.");
+                        }
 
-    /** {@inheritDoc} */
-    @Override
-    public ClosableCursor<R> queryCriteria(@Nullable Transaction tx, @Nullable Criteria criteria, CriteriaQueryOptions opts) {
-        return new SyncResultSetAdapter<>(executeAsync(tx, criteria, opts).join());
-    }
+                        var marsh = Marshaller.createMarshaller(toMarshallerColumns(metadata.columns()), mapper, false, true);
 
-    /** {@inheritDoc} */
-    @Override
-    public CompletableFuture<AsyncClosableCursor<R>> queryCriteriaAsync(
-            @Nullable Transaction tx,
-            @Nullable Criteria criteria,
-            CriteriaQueryOptions opts
-    ) {
-        return executeAsync(tx, criteria, opts)
-                .thenApply(Function.identity());
+                        Function<SqlRow, R> f = (row) -> {
+                            try {
+                                return (R) marsh.readObject(new TupleReader(row), null);
+                            } catch (org.apache.ignite.internal.marshaller.MarshallerException e) {
+                                throw new IgniteException(
+                                        Sql.MAPPING_ERR,
+                                        "Failed to map SQL result set: " + e.getMessage(),
+                                        e
+                                );
+                            }
+                        };
+
+                        return new QueryCriteriaAsyncResultSet<>(session, f, resultSet);
+                    });
+        });
     }
 }

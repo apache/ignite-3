@@ -22,22 +22,31 @@ import static java.util.function.Function.identity;
 import static org.apache.ignite.internal.lang.IgniteExceptionMapperUtil.convertToPublicFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
 
+import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.function.Function;
 import org.apache.ignite.internal.lang.IgniteExceptionMapperUtil;
 import org.apache.ignite.internal.schema.SchemaRegistry;
+import org.apache.ignite.internal.sql.SyncResultSetAdapter;
 import org.apache.ignite.internal.table.distributed.replicator.InternalSchemaVersionMismatchException;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.ExceptionUtils;
+import org.apache.ignite.sql.ClosableCursor;
+import org.apache.ignite.sql.async.AsyncClosableCursor;
+import org.apache.ignite.sql.async.AsyncResultSet;
+import org.apache.ignite.table.criteria.Criteria;
+import org.apache.ignite.table.criteria.CriteriaQueryOptions;
+import org.apache.ignite.table.criteria.CriteriaQuerySource;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Base class for Table views.
  */
-abstract class AbstractTableView {
+abstract class AbstractTableView<R> implements CriteriaQuerySource<R> {
     /** Internal table. */
     protected final InternalTable tbl;
 
@@ -125,6 +134,29 @@ abstract class AbstractTableView {
                 .thenCompose(identity());
 
         return convertToPublicFuture(future);
+    }
+
+    protected abstract CompletableFuture<AsyncResultSet<R>> executeAsync(
+            @Nullable Transaction tx,
+            @Nullable Criteria criteria,
+            CriteriaQueryOptions opts
+    );
+
+    /** {@inheritDoc} */
+    @Override
+    public ClosableCursor<R> queryCriteria(@Nullable Transaction tx, @Nullable Criteria criteria, CriteriaQueryOptions opts) {
+        return new SyncResultSetAdapter<>(executeAsync(tx, criteria, opts).join());
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<AsyncClosableCursor<R>> queryCriteriaAsync(
+            @Nullable Transaction tx,
+            @Nullable Criteria criteria,
+            CriteriaQueryOptions opts
+    ) {
+        return executeAsync(tx, criteria, opts)
+                .thenApply(Function.identity());
     }
 
     private static boolean isOrCausedBy(Class<? extends Exception> exceptionClass, @Nullable Throwable ex) {
