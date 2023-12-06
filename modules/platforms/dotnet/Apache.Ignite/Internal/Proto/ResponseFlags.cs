@@ -40,5 +40,5 @@ internal enum ResponseFlags
     /// <summary>
     /// Indicates error response.
     /// </summary>
-    Error = 4,
+    Error = 4
 }

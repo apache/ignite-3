@@ -379,11 +379,9 @@ namespace Apache.Ignite.Internal
                 throw new IgniteClientConnectionException(ErrorGroups.Client.Protocol, "Unexpected server version: " + serverVer);
             }
 
-            var exception = ReadError(ref reader);
-
-            if (exception != null)
+            if (!reader.TryReadNil())
             {
-                throw exception;
+                throw ReadError(ref reader);
             }
 
             var idleTimeoutMs = reader.ReadInt64();
@@ -402,13 +400,8 @@ namespace Apache.Ignite.Internal
                 sslInfo);
         }
 
-        private static IgniteException? ReadError(ref MsgPackReader reader)
+        private static IgniteException ReadError(ref MsgPackReader reader)
         {
-            if (reader.TryReadNil())
-            {
-                return null;
-            }
-
             Guid traceId = reader.TryReadNil() ? Guid.NewGuid() : reader.ReadGuid();
             int code = reader.TryReadNil() ? 65537 : reader.ReadInt32();
             string className = reader.ReadString();
@@ -674,6 +667,7 @@ namespace Apache.Ignite.Internal
             {
                 while (!cancellationToken.IsCancellationRequested)
                 {
+                    // TODO: This buffer is not released by some operations like TxClose?
                     PooledBuffer response = await ReadResponseAsync(_stream, messageSizeBytes, cancellationToken).ConfigureAwait(false);
 
                     // Invoke response handler in another thread to continue the receive loop.
@@ -719,10 +713,10 @@ namespace Apache.Ignite.Internal
             Metrics.RequestsActiveDecrement();
             _logger.LogReceivedResponseTrace(requestId, ConnectionContext.ClusterNode.Address);
 
-            var exception = ReadError(ref reader);
-
-            if (exception != null)
+            if (flags.HasFlag(ResponseFlags.Error))
             {
+                var exception = ReadError(ref reader);
+
                 response.Dispose();
 
                 Metrics.RequestsFailed.Add(1);
