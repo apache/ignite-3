@@ -64,10 +64,10 @@ public class InMemoryComputeStateMachine implements ComputeStateMachine {
     @Override
     public void start() {
         Long lifetime = configuration.statesLifetimeMillis().value();
-        ScheduledExecutorService result = Executors.newSingleThreadScheduledExecutor(
+        ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor(
                 new NamedThreadFactory("InMemoryComputeStateMachine-pool", LOG)
         );
-        result.scheduleAtFixedRate(() -> {
+        executor.scheduleAtFixedRate(() -> {
             Set<UUID> nextToRemove = Set.of(waitToRemove.toArray(UUID[]::new));
             this.waitToRemove.removeAll(nextToRemove);
 
@@ -77,7 +77,7 @@ public class InMemoryComputeStateMachine implements ComputeStateMachine {
             toRemove.clear();
             toRemove.addAll(nextToRemove);
         }, lifetime, lifetime, TimeUnit.MILLISECONDS);
-        cleaner = result;
+        cleaner = executor;
     }
 
     @Override
