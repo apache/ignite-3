@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.client;
 
+import org.jetbrains.annotations.Nullable;
+
 /**
  * Client notification handler.
  */
@@ -25,8 +27,9 @@ public interface NotificationHandler {
     /**
      * Consumes the notification.
      *
-     * @param arg Channel.
+     * @param input Input, or {@code null} when failed.
+     * @param err Error, or {@code null} when successful.
      * @throws Exception on failure.
      */
-    void consume(PayloadInputChannel arg) throws Exception;
+    void consume(@Nullable PayloadInputChannel input, @Nullable Throwable err) throws Exception;
 }

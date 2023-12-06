@@ -230,7 +230,13 @@ public class ClientCompute implements IgniteCompute {
                 r -> null,
                 node.name(),
                 null,
-                r -> notificationFut.complete((R) r.in().unpackObjectFromBinaryTuple()));
+                (r, err) -> {
+                    if (err != null) {
+                        notificationFut.completeExceptionally(err);
+                    } else {
+                        notificationFut.complete((R) r.in().unpackObjectFromBinaryTuple());
+                    }
+                });
 
         return reqFut.thenCompose(v -> notificationFut);
     }

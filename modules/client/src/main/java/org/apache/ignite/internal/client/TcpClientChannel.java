@@ -387,7 +387,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         handleObservableTimestamp(unpacker);
 
         if (ResponseFlags.getNotificationFlag(flags)) {
-            handleNotification(resId, unpacker);
+            handleNotification(resId, flags, unpacker);
             return;
         }
 
@@ -439,7 +439,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         }
     }
 
-    private void handleNotification(long id, ClientMessageUnpacker unpacker) {
+    private void handleNotification(long id, int flags, ClientMessageUnpacker unpacker) {
         // One-shot notification handler - remove immediately.
         NotificationHandler handler = notificationHandlers.remove(id);
 
@@ -449,12 +449,22 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             throw new IgniteClientConnectionException(PROTOCOL_ERR, String.format("Unexpected notification ID [%s]", id));
         }
 
-        try (var in = new PayloadInputChannel(this, unpacker)) {
-            handler.consume(in);
-        } catch (Exception e) {
-            log.error("Failed to deserialize server notification [remoteAddress=" + cfg.getAddress() + "]: " + e.getMessage(), e);
+        try {
+            if (ResponseFlags.getErrorFlag(flags)) {
+                Throwable err = readError(unpacker);
+                unpacker.close();
 
-            throw new IgniteException(PROTOCOL_ERR, "Failed to deserialize server notification: " + e.getMessage(), e);
+                handler.consume(null, err);
+                return;
+            }
+
+            try (var in = new PayloadInputChannel(this, unpacker)) {
+                handler.consume(in, null);
+            }
+        } catch (Exception e) {
+            log.error("Failed to handle server notification [remoteAddress=" + cfg.getAddress() + "]: " + e.getMessage(), e);
+
+            throw new IgniteException(PROTOCOL_ERR, "Failed to to server notification: " + e.getMessage(), e);
         }
     }
 
