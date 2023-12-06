@@ -15,14 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table;
+package org.apache.ignite.internal.table.criteria;
 
+import static org.apache.ignite.internal.table.criteria.Criterias.columnValue;
+import static org.apache.ignite.internal.table.criteria.Criterias.not;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import org.apache.ignite.internal.table.criteria.SqlSerializer;
-import org.apache.ignite.table.criteria.Criteria;
-import org.apache.ignite.table.criteria.Expression;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -33,7 +32,7 @@ class SqlSerializerTest {
     void equals() {
         var ser = new SqlSerializer.Builder()
                 .tableName("test")
-                .where(Criteria.columnValue("a", Expression.equalTo("a")))
+                .where(columnValue("a", CriteriaElement.equalTo("a")))
                 .build();
 
         assertEquals("SELECT * FROM test WHERE a = ?", ser.toString());
@@ -44,7 +43,7 @@ class SqlSerializerTest {
     void nonEquals() {
         var ser = new SqlSerializer.Builder()
                 .tableName("test")
-                .where(Criteria.not(Criteria.columnValue("a", Expression.equalTo("a"))))
+                .where(not(columnValue("a", CriteriaElement.equalTo("a"))))
                 .build();
 
         assertEquals("SELECT * FROM test WHERE not a = ?", ser.toString());

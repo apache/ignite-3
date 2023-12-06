@@ -21,10 +21,7 @@ import static org.apache.ignite.internal.util.StringUtils.nullOrBlank;
 
 import java.util.LinkedList;
 import java.util.List;
-import org.apache.ignite.table.criteria.Argument;
 import org.apache.ignite.table.criteria.Criteria;
-import org.apache.ignite.table.criteria.CriteriaVisitor;
-import org.apache.ignite.table.criteria.StaticText;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -116,10 +113,10 @@ public class SqlSerializer implements CriteriaVisitor<Void> {
             var ser = new SqlSerializer()
                     .append("SELECT * FROM ").append(tableName).append(" ");
 
-            if (where != null) {
+            if (where instanceof Operation) {
                 ser.append("WHERE ");
 
-                where.accept(ser, null);
+                ((Operation) where).accept(ser, null);
             }
 
             return ser;

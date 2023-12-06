@@ -17,10 +17,11 @@
 
 package org.apache.ignite.internal.table;
 
+import static org.apache.ignite.internal.table.criteria.CriteriaElement.equalTo;
+import static org.apache.ignite.internal.table.criteria.Criterias.columnValue;
+import static org.apache.ignite.internal.table.criteria.Criterias.not;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
-import static org.apache.ignite.table.criteria.Criteria.columnValue;
-import static org.apache.ignite.table.criteria.Expression.equalTo;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.hasProperty;
@@ -43,7 +44,6 @@ import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
-import org.apache.ignite.table.criteria.Criteria;
 import org.hamcrest.FeatureMatcher;
 import org.hamcrest.Matcher;
 import org.hamcrest.Matchers;
@@ -127,7 +127,7 @@ public class ItCriteriaQueryTest extends BaseIgniteAbstractTest {
         assertThat(res, hasSize(1));
         assertThat(res, hasItem(tupleValue(COLUMN_KEY, Matchers.equalTo(2))));
 
-        res = view.queryCriteria(null, Criteria.not(columnValue(COLUMN_KEY, equalTo(2)))).getAll();
+        res = view.queryCriteria(null, not(columnValue(COLUMN_KEY, equalTo(2)))).getAll();
         assertThat(res, hasSize(14));
         assertThat(res, not(hasItem(tupleValue(COLUMN_KEY, Matchers.equalTo(2)))));
     }
@@ -144,7 +144,7 @@ public class ItCriteriaQueryTest extends BaseIgniteAbstractTest {
         assertThat(res, hasSize(1));
         assertThat(res, hasItem(hasProperty(COLUMN_KEY, Matchers.equalTo(2))));
 
-        res = view.queryCriteria(null, Criteria.not(columnValue(COLUMN_KEY, equalTo(2)))).getAll();
+        res = view.queryCriteria(null, not(columnValue(COLUMN_KEY, equalTo(2)))).getAll();
         assertThat(res, hasSize(14));
         assertThat(res, not(hasItem(hasProperty(COLUMN_KEY, Matchers.equalTo(2)))));
     }

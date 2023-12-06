@@ -15,21 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.table.criteria;
+package org.apache.ignite.internal.table.criteria;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Pattern;
+import org.apache.ignite.table.criteria.Criteria;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * {@code Operation} represents an operation with operator and arguments.
  */
-class Operation implements Criteria {
+public class Operation implements Criteria, CriteriaElement {
     private static final Pattern elementPattern = Pattern.compile("\\{(\\d+)\\}");
-    private final List<Expression> elements;
+    private final List<CriteriaElement> elements;
 
-    private Operation(List<Expression> elements) {
+    private Operation(List<CriteriaElement> elements) {
         this.elements = elements;
     }
 
@@ -41,9 +42,9 @@ class Operation implements Criteria {
         }
     }
 
-    static Operation create(String template, List<Expression> arguments) {
+    static Operation create(String template, List<CriteriaElement> arguments) {
         int end = 0;
-        var elements = new ArrayList<Expression>();
+        var elements = new ArrayList<CriteriaElement>();
 
         var matcher = elementPattern.matcher(template);
 

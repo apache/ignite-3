@@ -15,15 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.table.criteria;
+package org.apache.ignite.internal.table.criteria;
 
 import org.jetbrains.annotations.Nullable;
 
 /**
- * {@code Expression} defines a general typed expression in a Query instance. The generic type parameter
- * is a reference to the type the expression is bound to.
+ * Defines a general typed expression in a Query instance. The generic type parameter is a reference to the type the expression is bound to.
  */
-public interface Expression {
+public interface CriteriaElement {
     /**
      * Accept the visitor with the given context.
      *
@@ -33,7 +32,17 @@ public interface Expression {
      */
     <C> void accept(CriteriaVisitor<C> v, @Nullable C context);
 
-    static <T> Expression equalTo(T value) {
+    /**
+     * Creates a criteria element that test the examined object is equal to the specified {@code value}.
+     * For example:
+     * <pre>
+     * columnValue("age", CriteriaElement.equalTo(35))
+     * </pre>
+     *
+     * @param <T> Value type.
+     * @param value Target value.
+     */
+    static <T> CriteriaElement equalTo(T value) {
         return new Argument<>(value);
     }
 }

@@ -15,12 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.table.criteria;
+package org.apache.ignite.internal.table.criteria;
 
 import org.jetbrains.annotations.Nullable;
 
 /**
- * {@code Visitor} defines a visitor signature for {@link Expression} instances.
+ * {@code Visitor} defines a visitor signature for {@link CriteriaElement} instances.
  *
  * @param <C> Context type.
  */

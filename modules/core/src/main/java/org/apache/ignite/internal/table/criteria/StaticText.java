@@ -15,34 +15,27 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.table.criteria;
+package org.apache.ignite.internal.table.criteria;
 
 import org.jetbrains.annotations.Nullable;
 
 /**
- * {@code Argument} represents a general constant expression.
- *
- * @param <T> Argument type.
+ * {@code StaticText} represents a static text element.
  */
-public class Argument<T> implements Expression {
-    private final T value;
+public class StaticText implements CriteriaElement {
+    private final String text;
 
-    /**
-     * Create a new argument of the given type for the given object.
-     *
-     * @param argument Argument value.
-     */
-    Argument(T argument) {
-        this.value = argument;
+    StaticText(String text) {
+        this.text = text;
     }
 
     /**
-     * Gets argument value.
+     * Gets text value.
      *
-     * @return A value.
+     * @return A text.
      */
-    public T getValue() {
-        return value;
+    String getText() {
+        return text;
     }
 
     /** {@inheritDoc} */

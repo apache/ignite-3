@@ -17,9 +17,10 @@
 
 package org.apache.ignite.internal.runner.app.client;
 
-import static org.apache.ignite.table.criteria.Criteria.columnValue;
+import static org.apache.ignite.internal.table.criteria.CriteriaElement.equalTo;
+import static org.apache.ignite.internal.table.criteria.Criterias.columnValue;
+import static org.apache.ignite.internal.table.criteria.Criterias.not;
 import static org.apache.ignite.table.criteria.CriteriaQueryOptions.builder;
-import static org.apache.ignite.table.criteria.Expression.equalTo;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.hasProperty;
@@ -32,7 +33,6 @@ import java.util.Map;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
-import org.apache.ignite.table.criteria.Criteria;
 import org.hamcrest.FeatureMatcher;
 import org.hamcrest.Matcher;
 import org.hamcrest.Matchers;
@@ -66,7 +66,7 @@ public class ItThinClientCriteriaQueryTest extends ItAbstractThinClientTest {
         assertThat(res, hasSize(1));
         assertThat(res, hasItem(tupleValue(COLUMN_KEY, Matchers.equalTo(2))));
 
-        res = view.queryCriteria(null, Criteria.not(columnValue(COLUMN_KEY, equalTo(2)))).getAll();
+        res = view.queryCriteria(null, not(columnValue(COLUMN_KEY, equalTo(2)))).getAll();
         assertThat(res, hasSize(2));
         assertThat(res, not(hasItem(tupleValue(COLUMN_KEY, Matchers.equalTo(2)))));
 
@@ -85,7 +85,7 @@ public class ItThinClientCriteriaQueryTest extends ItAbstractThinClientTest {
         assertThat(res, hasSize(1));
         assertThat(res, hasItem(hasProperty(COLUMN_KEY, Matchers.equalTo(2))));
 
-        res = view.queryCriteria(null, Criteria.not(columnValue(COLUMN_KEY, equalTo(2)))).getAll();
+        res = view.queryCriteria(null, not(columnValue(COLUMN_KEY, equalTo(2)))).getAll();
         assertThat(res, hasSize(2));
         assertThat(res, not(hasItem(hasProperty(COLUMN_KEY, Matchers.equalTo(2)))));
 
