@@ -343,8 +343,7 @@ public class PrepareServiceImpl implements PrepareService {
 
     private CompletableFuture<QueryPlan> prepareDml(ParsedResult parsedResult, PlanningContext ctx) {
         // If a caller passes all the parameters, then get parameter types and check to see whether a plan future already exists.
-        CompletableFuture<QueryPlan> f = getPlanIfParameterHaveValues(parsedResult,
-                ctx);
+        CompletableFuture<QueryPlan> f = getPlanIfParameterHaveValues(parsedResult, ctx);
         if (f != null) {
             return f;
         }
