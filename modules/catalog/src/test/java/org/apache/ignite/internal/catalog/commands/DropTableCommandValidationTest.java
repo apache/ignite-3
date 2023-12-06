@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.catalog.commands;
 
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
@@ -39,9 +39,9 @@ public class DropTableCommandValidationTest extends AbstractCommandValidationTes
         builder.tableName("TEST")
                 .schemaName(name);
 
-        assertThrowsWithCause(
-                builder::build,
+        assertThrows(
                 CatalogValidationException.class,
+                builder::build,
                 "Name of the schema can't be null or blank"
         );
     }
@@ -54,9 +54,9 @@ public class DropTableCommandValidationTest extends AbstractCommandValidationTes
         builder.schemaName("TEST")
                 .tableName(name);
 
-        assertThrowsWithCause(
-                builder::build,
+        assertThrows(
                 CatalogValidationException.class,
+                builder::build,
                 "Name of the table can't be null or blank"
         );
     }
@@ -72,9 +72,9 @@ public class DropTableCommandValidationTest extends AbstractCommandValidationTes
                 .tableName("TEST")
                 .build();
 
-        assertThrowsWithCause(
-                () -> command.get(catalog),
+        assertThrows(
                 CatalogValidationException.class,
+                () -> command.get(catalog),
                 "Schema with name 'PUBLIC_UNK' not found"
         );
     }
@@ -90,9 +90,9 @@ public class DropTableCommandValidationTest extends AbstractCommandValidationTes
                 .tableName("TEST")
                 .build();
 
-        assertThrowsWithCause(
-                () -> command.get(catalog),
+        assertThrows(
                 CatalogValidationException.class,
+                () -> command.get(catalog),
                 "Table with name 'PUBLIC.TEST' not found"
         );
     }

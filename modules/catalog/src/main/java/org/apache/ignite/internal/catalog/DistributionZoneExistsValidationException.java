@@ -15,29 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.catalog.commands;
-
-import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateIdentifier;
-
-import org.apache.ignite.internal.catalog.CatalogCommand;
-import org.apache.ignite.internal.catalog.CatalogValidationException;
+package org.apache.ignite.internal.catalog;
 
 /**
- * Abstract zone-related command.
+ * This exception is thrown when distribution zone cannot be created because another zone with
+ * the same name already exists.
  *
- * <p>Every zone-related command, disregard it going to create new zone or modify existing one,
- * should specify name of the zone to be processed.
+ * <p>This exception is used to properly handle IF NOT EXISTS flag in ddl command handler.
  */
-public abstract class AbstractZoneCommand implements CatalogCommand {
-    protected String zoneName;
-
-    AbstractZoneCommand(String zoneName) throws CatalogValidationException {
-        this.zoneName = zoneName;
-
-        validate();
-    }
-
-    private void validate() {
-        validateIdentifier(zoneName, "Name of the zone");
+public class DistributionZoneExistsValidationException extends CatalogValidationException {
+    public DistributionZoneExistsValidationException(String message) {
+        super(message);
     }
 }

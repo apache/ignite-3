@@ -17,27 +17,32 @@
 
 package org.apache.ignite.internal.catalog.commands;
 
-import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateIdentifier;
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_ZONE_NAME;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 
-import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
+import org.junit.jupiter.api.Test;
 
 /**
- * Abstract zone-related command.
- *
- * <p>Every zone-related command, disregard it going to create new zone or modify existing one,
- * should specify name of the zone to be processed.
+ * Tests to verify validation of {@link DropZoneCommand}.
  */
-public abstract class AbstractZoneCommand implements CatalogCommand {
-    protected String zoneName;
-
-    AbstractZoneCommand(String zoneName) throws CatalogValidationException {
-        this.zoneName = zoneName;
-
-        validate();
+@SuppressWarnings("ThrowableNotThrown")
+public class DropZoneCommandValidationTest extends AbstractCommandValidationTest {
+    @Test
+    void testValidateZoneNameOnDropZone() {
+        assertThrows(
+                CatalogValidationException.class,
+                () -> DropZoneCommand.builder().build(),
+                "Name of the zone can't be null or blank"
+        );
     }
 
-    private void validate() {
-        validateIdentifier(zoneName, "Name of the zone");
+    @Test
+    void testValidateDropDefaultZone() {
+        assertThrows(
+                CatalogValidationException.class,
+                () -> DropZoneCommand.builder().zoneName(DEFAULT_ZONE_NAME).build(),
+                "Default distribution zone can't be dropped"
+        );
     }
 }

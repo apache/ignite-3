@@ -35,11 +35,11 @@ import java.util.Objects;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
+import org.apache.ignite.internal.catalog.DistributionZoneExistsValidationException;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.storage.NewZoneEntry;
 import org.apache.ignite.internal.catalog.storage.ObjectIdGenUpdateEntry;
 import org.apache.ignite.internal.catalog.storage.UpdateEntry;
-import org.apache.ignite.internal.distributionzones.DistributionZoneAlreadyExistsException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -104,7 +104,7 @@ public class CreateZoneCommand extends AbstractZoneCommand {
     @Override
     public List<UpdateEntry> get(Catalog catalog) {
         if (catalog.zone(zoneName) != null) {
-            throw new DistributionZoneAlreadyExistsException(zoneName);
+            throw new DistributionZoneExistsValidationException("Distribution zone already exists [zoneName=" + zoneName + ']');
         }
 
         CatalogZoneDescriptor zoneDesc = descriptor(catalog.objectIdGenState());

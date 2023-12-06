@@ -31,6 +31,7 @@ import java.util.Set;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
+import org.apache.ignite.internal.catalog.DistributionZoneNotFoundValidationException;
 import org.apache.ignite.internal.catalog.IndexNotFoundValidationException;
 import org.apache.ignite.internal.catalog.TableNotFoundValidationException;
 import org.apache.ignite.internal.catalog.descriptors.CatalogDataStorageDescriptor;
@@ -39,7 +40,6 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
-import org.apache.ignite.internal.distributionzones.DistributionZoneNotFoundException;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.Nullable;
@@ -197,24 +197,6 @@ public class CatalogUtils {
 
         return new CatalogTableColumnDescriptor(params.name(), params.type(), params.nullable(),
                 precision, scale, length, defaultValue);
-    }
-
-    /**
-     * Returns appropriate zone descriptor.
-     *
-     * @param catalog Catalog descriptor.
-     * @param zoneName Zone name.
-     */
-    static CatalogZoneDescriptor getZone(Catalog catalog, String zoneName) {
-        zoneName = Objects.requireNonNull(zoneName, "zoneName");
-
-        CatalogZoneDescriptor zone = catalog.zone(zoneName);
-
-        if (zone == null) {
-            throw new DistributionZoneNotFoundException(zoneName);
-        }
-
-        return zone;
     }
 
     /**
@@ -445,7 +427,7 @@ public class CatalogUtils {
         CatalogZoneDescriptor zone = catalog.zone(name);
 
         if (zone == null) {
-            throw new CatalogValidationException(format("Distribution zone with name '{}' not found", name));
+            throw new DistributionZoneNotFoundValidationException(format("Distribution zone with name '{}' not found", name));
         }
 
         return zone;

@@ -19,18 +19,16 @@ package org.apache.ignite.internal.catalog.commands;
 
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateIdentifier;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_ZONE_NAME;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.zoneOrThrow;
 
 import java.util.List;
-import java.util.Objects;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
+import org.apache.ignite.internal.catalog.DistributionZoneExistsValidationException;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.storage.AlterZoneEntry;
 import org.apache.ignite.internal.catalog.storage.UpdateEntry;
-import org.apache.ignite.internal.distributionzones.DistributionZoneAlreadyExistsException;
-import org.apache.ignite.internal.distributionzones.DistributionZoneNotFoundException;
-import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.lang.ErrorGroups.DistributionZones;
 
 /**
@@ -61,17 +59,10 @@ public class RenameZoneCommand extends AbstractZoneCommand {
 
     @Override
     public List<UpdateEntry> get(Catalog catalog) {
-        CatalogZoneDescriptor zone = getZone(catalog, zoneName);
+        CatalogZoneDescriptor zone = zoneOrThrow(catalog, zoneName);
 
         if (catalog.zone(newZoneName) != null) {
-            throw new DistributionZoneAlreadyExistsException(newZoneName);
-        }
-
-        if (zone.name().equals(DEFAULT_ZONE_NAME)) {
-            throw new IgniteInternalException(
-                    DistributionZones.ZONE_RENAME_ERR,
-                    "Default distribution zone can't be renamed"
-            );
+            throw new DistributionZoneExistsValidationException("Distribution zone already exists [zoneName=" + newZoneName + ']');
         }
 
         CatalogZoneDescriptor descriptor = new CatalogZoneDescriptor(
@@ -89,20 +80,12 @@ public class RenameZoneCommand extends AbstractZoneCommand {
         return List.of(new AlterZoneEntry(descriptor));
     }
 
-    private static CatalogZoneDescriptor getZone(Catalog catalog, String zoneName) {
-        zoneName = Objects.requireNonNull(zoneName, "zoneName");
-
-        CatalogZoneDescriptor zone = catalog.zone(zoneName);
-
-        if (zone == null) {
-            throw new DistributionZoneNotFoundException(zoneName);
-        }
-
-        return zone;
-    }
-
     private void validate() {
         validateIdentifier(newZoneName, "New zone name");
+
+        if (zoneName.equals(DEFAULT_ZONE_NAME)) {
+            throw new CatalogValidationException(DistributionZones.ZONE_RENAME_ERR, "Default distribution zone can't be renamed");
+        }
     }
 
     /**

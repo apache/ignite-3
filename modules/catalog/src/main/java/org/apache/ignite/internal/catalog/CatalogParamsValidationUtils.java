@@ -18,12 +18,12 @@
 package org.apache.ignite.internal.catalog;
 
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.lang.ErrorGroups.Catalog.VALIDATION_ERR;
 
 import com.jayway.jsonpath.InvalidPathException;
 import com.jayway.jsonpath.JsonPath;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.util.StringUtils;
-import org.apache.ignite.lang.ErrorGroups.DistributionZones;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -54,7 +54,7 @@ public class CatalogParamsValidationUtils {
 
         if (value < min || (max != null && value > max)) {
             throw new CatalogValidationException(
-                    DistributionZones.ZONE_DEFINITION_ERR,
+                    VALIDATION_ERR,
                     "{}: [value={}, min={}" + (max == null ? ']' : ", max={}]"),
                     errorPrefix, value, min, max
             );
@@ -71,7 +71,7 @@ public class CatalogParamsValidationUtils {
     ) {
         if (autoAdjust != null && (scaleUp != null || scaleDown != null)) {
             throw new CatalogValidationException(
-                    DistributionZones.ZONE_DEFINITION_ERR,
+                    VALIDATION_ERR,
                     "Not compatible parameters [dataNodesAutoAdjust={}, dataNodesAutoAdjustScaleUp={}, dataNodesAutoAdjustScaleDown={}]",
                     autoAdjust, scaleUp, scaleDown
             );
@@ -92,7 +92,7 @@ public class CatalogParamsValidationUtils {
             String error = e.getMessage() == null ? "Unknown JsonPath compilation error." : e.getMessage();
 
             throw new CatalogValidationException(
-                    DistributionZones.ZONE_DEFINITION_ERR,
+                    VALIDATION_ERR,
                     "Invalid filter: [value={}, error={}]",
                     e,
                     filter, error

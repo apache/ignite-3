@@ -30,7 +30,7 @@ public interface AlterZoneCommandBuilder extends AbstractZoneCommandBuilder<Alte
     /**
      * Sets the number of partitions.
      *
-     * @param partitions Number of partitions.
+     * @param partitions Optional number of partitions, it should be in the range from 1 to {@link CatalogUtils#MAX_PARTITION_COUNT}.
      * @return This instance.
      */
     AlterZoneCommandBuilder partitions(@Nullable Integer partitions);
@@ -38,7 +38,7 @@ public interface AlterZoneCommandBuilder extends AbstractZoneCommandBuilder<Alte
     /**
      * Sets the number of replicas.
      *
-     * @param replicas Number of replicas.
+     * @param replicas Optional number of replicas.
      * @return This instance.
      */
     AlterZoneCommandBuilder replicas(@Nullable Integer replicas);
@@ -46,7 +46,7 @@ public interface AlterZoneCommandBuilder extends AbstractZoneCommandBuilder<Alte
     /**
      * Sets timeout in seconds between node added or node left topology event itself and data nodes switch.
      *
-     * @param adjust Timeout.
+     * @param adjust Optional timeout.
      * @return This instance.
      */
     AlterZoneCommandBuilder dataNodesAutoAdjust(@Nullable Integer adjust);
@@ -54,7 +54,7 @@ public interface AlterZoneCommandBuilder extends AbstractZoneCommandBuilder<Alte
     /**
      * Sets timeout in seconds between node added topology event itself and data nodes switch.
      *
-     * @param adjust Timeout.
+     * @param adjust Optional timeout.
      * @return This instance.
      */
     AlterZoneCommandBuilder dataNodesAutoAdjustScaleUp(@Nullable Integer adjust);
@@ -62,7 +62,7 @@ public interface AlterZoneCommandBuilder extends AbstractZoneCommandBuilder<Alte
     /**
      * Sets timeout in seconds between node left topology event itself and data nodes switch.
      *
-     * @param adjust Timeout in seconds between node left topology event itself and data nodes switch.
+     * @param adjust Optional timeout in seconds between node left topology event itself and data nodes switch.
      * @return This instance.
      */
     AlterZoneCommandBuilder dataNodesAutoAdjustScaleDown(@Nullable Integer adjust);
@@ -70,7 +70,7 @@ public interface AlterZoneCommandBuilder extends AbstractZoneCommandBuilder<Alte
     /**
      * Sets nodes filter.
      *
-     * @param filter Nodes' filter.
+     * @param filter Optional nodes filter.
      * @return This instance.
      */
     AlterZoneCommandBuilder filter(@Nullable String filter);
@@ -78,7 +78,7 @@ public interface AlterZoneCommandBuilder extends AbstractZoneCommandBuilder<Alte
     /**
      * Sets the data storage.
      *
-     * @param params Data storage.
+     * @param params Optional data storage params.
      * @return This instance.
      */
     AlterZoneCommandBuilder dataStorageParams(@Nullable DataStorageParams params);

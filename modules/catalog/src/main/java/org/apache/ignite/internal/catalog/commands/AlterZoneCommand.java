@@ -23,7 +23,7 @@ import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.va
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.MAX_PARTITION_COUNT;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.fromParams;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.getZone;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.zoneOrThrow;
 
 import java.util.List;
 import java.util.Objects;
@@ -96,7 +96,7 @@ public class AlterZoneCommand extends AbstractZoneCommand {
 
     @Override
     public List<UpdateEntry> get(Catalog catalog) {
-        CatalogZoneDescriptor zone = getZone(catalog, zoneName);
+        CatalogZoneDescriptor zone = zoneOrThrow(catalog, zoneName);
 
         CatalogZoneDescriptor descriptor = fromParamsAndPreviousValue(zone);
 

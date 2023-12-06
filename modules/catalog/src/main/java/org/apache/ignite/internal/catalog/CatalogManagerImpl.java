@@ -30,7 +30,6 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map.Entry;
 import java.util.NavigableMap;
-import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.Flow.Publisher;
@@ -50,7 +49,6 @@ import org.apache.ignite.internal.catalog.storage.UpdateEntry;
 import org.apache.ignite.internal.catalog.storage.UpdateLog;
 import org.apache.ignite.internal.catalog.storage.UpdateLog.OnUpdateHandler;
 import org.apache.ignite.internal.catalog.storage.VersionedUpdate;
-import org.apache.ignite.internal.distributionzones.DistributionZoneNotFoundException;
 import org.apache.ignite.internal.event.AbstractEventProducer;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
@@ -447,18 +445,6 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
                 catalog.zones(),
                 catalog.schemas()
         );
-    }
-
-    private static CatalogZoneDescriptor getZone(Catalog catalog, String zoneName) {
-        zoneName = Objects.requireNonNull(zoneName, "zoneName");
-
-        CatalogZoneDescriptor zone = catalog.zone(zoneName);
-
-        if (zone == null) {
-            throw new DistributionZoneNotFoundException(zoneName);
-        }
-
-        return zone;
     }
 
     private static class BulkUpdateProducer implements UpdateProducer {

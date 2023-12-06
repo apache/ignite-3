@@ -22,8 +22,8 @@ import org.apache.ignite.internal.catalog.CatalogCommand;
 /**
  * Abstract builder of zone-related commands.
  *
- * <p>Every table-related command, disregard it going to create new table or modify existing one,
- * should specify name of the table and namespace (schema) where to find existing/put new table.
+ * <p>Every zone-related command, disregard it going to create new zone or modify existing one,
+ * should specify name of the zone to be processed.
  */
 public interface AbstractZoneCommandBuilder<T extends AbstractZoneCommandBuilder<T>> {
     T zoneName(String zoneName);

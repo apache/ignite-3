@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.catalog.commands;
 
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_ZONE_NAME;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.getZone;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.zoneOrThrow;
 
 import java.util.Arrays;
 import java.util.List;
@@ -29,7 +29,6 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.storage.DropZoneEntry;
 import org.apache.ignite.internal.catalog.storage.UpdateEntry;
 import org.apache.ignite.internal.distributionzones.DistributionZoneBindTableException;
-import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.lang.ErrorGroups.DistributionZones;
 
 /**
@@ -49,18 +48,19 @@ public class DropZoneCommand extends AbstractZoneCommand {
      */
     private DropZoneCommand(String zoneName) throws CatalogValidationException {
         super(zoneName);
+
+        validate();
+    }
+
+    private void validate() {
+        if (zoneName.equals(DEFAULT_ZONE_NAME)) {
+            throw new CatalogValidationException(DistributionZones.ZONE_RENAME_ERR, "Default distribution zone can't be dropped");
+        }
     }
 
     @Override
     public List<UpdateEntry> get(Catalog catalog) {
-        CatalogZoneDescriptor zone = getZone(catalog, zoneName);
-
-        if (zone.name().equals(DEFAULT_ZONE_NAME)) {
-            throw new IgniteInternalException(
-                    DistributionZones.ZONE_DROP_ERR,
-                    "Default distribution zone can't be dropped"
-            );
-        }
+        CatalogZoneDescriptor zone = zoneOrThrow(catalog, zoneName);
 
         catalog.schemas().stream()
                 .flatMap(s -> Arrays.stream(s.tables()))

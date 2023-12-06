@@ -26,12 +26,12 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.function.BiFunction;
 import org.apache.ignite.internal.catalog.CatalogManager;
+import org.apache.ignite.internal.catalog.DistributionZoneExistsValidationException;
+import org.apache.ignite.internal.catalog.DistributionZoneNotFoundValidationException;
 import org.apache.ignite.internal.catalog.IndexExistsValidationException;
 import org.apache.ignite.internal.catalog.IndexNotFoundValidationException;
 import org.apache.ignite.internal.catalog.TableExistsValidationException;
 import org.apache.ignite.internal.catalog.TableNotFoundValidationException;
-import org.apache.ignite.internal.distributionzones.DistributionZoneAlreadyExistsException;
-import org.apache.ignite.internal.distributionzones.DistributionZoneNotFoundException;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterColumnCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterTableAddCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterTableDropCommand;
@@ -91,25 +91,25 @@ public class DdlCommandHandler {
     /** Handles create distribution zone command. */
     private CompletableFuture<Boolean> handleCreateZone(CreateZoneCommand cmd) {
         return catalogManager.execute(DdlToCatalogCommandConverter.convert(cmd))
-                .handle(handleModificationResult(cmd.ifNotExists(), DistributionZoneAlreadyExistsException.class));
+                .handle(handleModificationResult(cmd.ifNotExists(), DistributionZoneExistsValidationException.class));
     }
 
     /** Handles rename zone command. */
     private CompletableFuture<Boolean> handleRenameZone(AlterZoneRenameCommand cmd) {
         return catalogManager.execute(DdlToCatalogCommandConverter.convert(cmd))
-                .handle(handleModificationResult(cmd.ifExists(), DistributionZoneNotFoundException.class));
+                .handle(handleModificationResult(cmd.ifExists(), DistributionZoneExistsValidationException.class));
     }
 
     /** Handles alter zone command. */
     private CompletableFuture<Boolean> handleAlterZone(AlterZoneSetCommand cmd) {
         return catalogManager.execute(DdlToCatalogCommandConverter.convert(cmd))
-                .handle(handleModificationResult(cmd.ifExists(), DistributionZoneNotFoundException.class));
+                .handle(handleModificationResult(cmd.ifExists(), DistributionZoneNotFoundValidationException.class));
     }
 
     /** Handles drop distribution zone command. */
     private CompletableFuture<Boolean> handleDropZone(DropZoneCommand cmd) {
         return catalogManager.execute(DdlToCatalogCommandConverter.convert(cmd))
-                .handle(handleModificationResult(cmd.ifExists(), DistributionZoneNotFoundException.class));
+                .handle(handleModificationResult(cmd.ifExists(), DistributionZoneNotFoundValidationException.class));
     }
 
     /** Handles create table command. */
