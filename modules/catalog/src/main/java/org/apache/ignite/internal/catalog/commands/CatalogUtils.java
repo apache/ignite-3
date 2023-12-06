@@ -212,6 +212,79 @@ public class CatalogUtils {
     }
 
     /**
+     * Validates a column change. If something is not valid, the supplied listener is invoked with information about the exact reason.
+     *
+     * @param origin Original column definition.
+     * @param newType New type.
+     * @param newPrecision New column precision.
+     * @param newScale New column scale.
+     * @param newLength New column length.
+     * @param listener Listener to invoke on a validation failure.
+     * @return {@code true} iff the proposed change is valid.
+     */
+    static boolean validateColumnChange(
+            CatalogTableColumnDescriptor origin,
+            @Nullable ColumnType newType,
+            @Nullable Integer newPrecision,
+            @Nullable Integer newScale,
+            @Nullable Integer newLength,
+            TypeChangeValidationListener listener
+    ) {
+        if (newType != null && newType != origin.type()) {
+            if (!isSupportedColumnTypeChange(origin.type(), newType)) {
+                listener.onFailure("Changing the type from {} to {} is not allowed", origin.type(), newType);
+                return false;
+            }
+        }
+
+        if (newPrecision != null && newPrecision != origin.precision() && origin.type() != ColumnType.DECIMAL) {
+            listener.onFailure("Changing the precision for column of type '{}' is not allowed", origin.type(), newType);
+            return false;
+        }
+
+        if (newPrecision != null && newPrecision < origin.precision()) {
+            listener.onFailure("Decreasing the precision is not allowed", origin.type(), newType);
+            return false;
+        }
+
+        if (newScale != null && newScale != origin.scale()) {
+            listener.onFailure("Changing the scale is not allowed", origin.type(), newType);
+            return false;
+        }
+
+        if (newLength != null && newLength != origin.length()
+                && origin.type() != ColumnType.STRING && origin.type() != ColumnType.BYTE_ARRAY) {
+            listener.onFailure("Changing the length for column of type '{}' is not allowed", origin.type(), newType);
+            return false;
+        }
+
+        if (newLength != null && newLength < origin.length()) {
+            listener.onFailure("Decreasing the length is not allowed", origin.type(), newType);
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Returns whether the proposed column type change is supported.
+     *
+     * @param oldColumn Original column definition.
+     * @param newColumn New column definition.
+     * @return {@code true} iff the proposed change is supported.
+     */
+    public static boolean isColumnTypeChangeSupported(CatalogTableColumnDescriptor oldColumn, CatalogTableColumnDescriptor newColumn) {
+        return validateColumnChange(
+                oldColumn,
+                newColumn.type(),
+                newColumn.precision(),
+                newColumn.scale(),
+                newColumn.length(),
+                TypeChangeValidationListener.NO_OP
+        );
+    }
+
+    /**
      * Returns a list of schemas, replacing any schema with {@code newSchema} if its id equal to {@code newSchema.id()}.
      *
      * @param newSchema A schema.

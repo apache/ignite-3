@@ -17,6 +17,7 @@
 
 #include "odbc_suite.h"
 
+#include <gmock/gmock-matchers.h>
 #include <gtest/gtest.h>
 
 #include <string>
@@ -26,13 +27,96 @@ using namespace ignite;
 /**
  * Test suite.
  */
-class connection_test : public ignite::odbc_suite {};
+class connection_test : public odbc_suite, public basic_auth_test_suite {
+public:
+    /**
+     * Tear down.
+     */
+    static void TearDownTestSuite() { set_authentication_enabled(false); }
+
+    /**
+     * Get node addresses and user credentials to use for tests.
+     *
+     * @return Addresses and credentials.
+     */
+    static std::string get_auth_connection_string() {
+        return get_basic_connection_string() + "identity=" + CORRECT_USERNAME + ';' + "secret=" + CORRECT_PASSWORD
+            + ';';
+    }
+
+    /**
+     * Get node addresses and user credentials with incorrect identity to use for tests.
+     *
+     * @return Addresses and credentials.
+     */
+    static std::string get_incorrect_identity_auth_connection_string() {
+        return get_basic_connection_string() + "identity=" + INCORRECT_USERNAME + ';' + "secret=" + CORRECT_PASSWORD
+            + ';';
+    }
+
+    /**
+     * Get node addresses and user credentials with incorrect secret to use for tests.
+     *
+     * @return Addresses and credentials.
+     */
+    static std::string get_incorrect_secret_auth_connection_string() {
+        return get_basic_connection_string() + "identity=" + CORRECT_USERNAME + ';' + "secret=" + INCORRECT_PASSWORD
+            + ';';
+    }
+
+    /**
+     * Get node addresses and user credentials with incorrect identity and secret to use for tests.
+     *
+     * @return Addresses and credentials.
+     */
+    static std::string get_incorrect_auth_connection_string() {
+        return get_basic_connection_string() + "identity=" + INCORRECT_USERNAME + ';' + "secret=" + INCORRECT_PASSWORD
+            + ';';
+    }
+};
 
 TEST_F(connection_test, connection_success) {
+    set_authentication_enabled(false);
     odbc_connect(get_basic_connection_string());
 }
 
+TEST_F(connection_test, auth_connection_success) {
+    set_authentication_enabled(true);
+    EXPECT_NO_THROW(odbc_connect_throw(get_auth_connection_string()));
+}
+
+TEST_F(connection_test, auth_connection_disabled_on_server) {
+    set_authentication_enabled(false);
+    EXPECT_NO_THROW(odbc_connect_throw(get_auth_connection_string()));
+}
+
+TEST_F(connection_test, auth_connection_disabled_on_client) {
+    set_authentication_enabled(true);
+    EXPECT_THROW(
+        try { odbc_connect_throw(get_basic_connection_string()); } catch (const ignite_error &e) {
+            EXPECT_THAT(e.what_str(), testing::HasSubstr("Authentication failed"));
+            throw;
+        },
+        ignite_error);
+}
+
+TEST_F(connection_test, auth_connection_incorrect_creds) {
+    set_authentication_enabled(true);
+    auto test_conn_str = [this](const std::string &conn_str) {
+        EXPECT_THROW(
+            try { odbc_connect_throw(conn_str); } catch (const ignite_error &e) {
+                EXPECT_THAT(e.what_str(), testing::HasSubstr("Authentication failed"));
+                throw;
+            },
+            ignite_error);
+    };
+    test_conn_str(get_incorrect_identity_auth_connection_string());
+    test_conn_str(get_incorrect_secret_auth_connection_string());
+    test_conn_str(get_incorrect_auth_connection_string());
+}
+
 TEST_F(connection_test, odbc3_supported) {
+    set_authentication_enabled(false);
     // Allocate an environment handle
     SQLAllocHandle(SQL_HANDLE_ENV, SQL_NULL_HANDLE, &m_env);
 

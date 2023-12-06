@@ -17,22 +17,26 @@
 
 package org.apache.ignite.internal.tx.impl;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.tx.TxState.isFinalState;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
+import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.replicator.ReplicaService;
+import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
+import org.apache.ignite.internal.tx.event.LockEvent;
+import org.apache.ignite.internal.tx.event.LockEventParameters;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
 import org.apache.ignite.internal.tx.message.TxRecoveryMessage;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -64,9 +68,11 @@ public class OrphanDetector {
     /** Placement driver. */
     private final PlacementDriver placementDriver;
 
-    // TODO: IGNITE-20773 Uncomment this during implementation.
-    ///** Lock manager. */
-    //private final LockManager lockManager;
+    /** Lock manager. */
+    private final LockManager lockManager;
+
+    /** Lock conflict events listener. */
+    private final EventListener<LockEventParameters> lockConflictListener = this::lockConflictListener;
 
     /** Hybrid clock. */
     private final HybridClock clock;
@@ -80,18 +86,19 @@ public class OrphanDetector {
      * @param topologyService Topology service.
      * @param replicaService Replica service.
      * @param placementDriver Placement driver.
+     * @param lockManager Lock manager.
      * @param clock Clock.
      */
     public OrphanDetector(
             TopologyService topologyService,
             ReplicaService replicaService,
             PlacementDriver placementDriver,
-            //LockManager lockManager,
+            LockManager lockManager,
             HybridClock clock) {
         this.topologyService = topologyService;
         this.replicaService = replicaService;
         this.placementDriver = placementDriver;
-        //this.lockManager = lockManager;
+        this.lockManager = lockManager;
         this.clock = clock;
     }
 
@@ -102,7 +109,8 @@ public class OrphanDetector {
      */
     public void start(Function<UUID, TxStateMeta> txLocalStateStorage) {
         this.txLocalStateStorage = txLocalStateStorage;
-        // TODO: IGNITE-20773 Subscribe to lock conflicts here.
+
+        lockManager.listen(LockEvent.LOCK_CONFLICT, lockConflictListener);
     }
 
     /**
@@ -110,12 +118,17 @@ public class OrphanDetector {
      */
     public void stop() {
         busyLock.block();
-        // TODO: IGNITE-20773 Unsubscribe from lock conflicts here.
+
+        lockManager.removeListener(LockEvent.LOCK_CONFLICT, lockConflictListener);
+    }
+
+    private CompletableFuture<Boolean> lockConflictListener(LockEventParameters params, Throwable e) {
+        return handleLockHolder(params.lockHolderTx())
+                .thenApply(v -> false);
     }
 
     /**
      * Sends {@link TxRecoveryMessage} if the transaction is orphaned.
-     * TODO: IGNITE-20773 Invoke the method when the lock conflict is noted.
      *
      * @param txId Transaction id that holds a lock.
      * @return Future to complete.
@@ -141,12 +154,12 @@ public class OrphanDetector {
     private CompletableFuture<Void> handleLockHolderInternal(UUID txId) {
         TxStateMeta txState = txLocalStateStorage.apply(txId);
 
-        assert txState != null : "The transaction is undefined in the local node [txId=" + txId + "].";
-
-        if (txState.txState() == TxState.ABANDONED
+        // Transaction state for full transactions is not stored in the local map, so it can be null.
+        if (txState == null
+                || txState.txState() == TxState.ABANDONED
                 || isFinalState(txState.txState())
                 || topologyService.getById(txState.txCoordinatorId()) != null) {
-            return completedFuture(null);
+            return nullCompletedFuture();
         }
 
         LOG.info(
@@ -171,7 +184,7 @@ public class OrphanDetector {
                         txId
                 );
 
-                return completedFuture(null);
+                return nullCompletedFuture();
             }
 
             return replicaService.invoke(commitPartPrimaryNode, FACTORY.txRecoveryMessage()

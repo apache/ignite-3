@@ -17,8 +17,9 @@
 
 package org.apache.ignite.internal.client.table;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.client.ClientUtils.sync;
+import static org.apache.ignite.internal.util.CompletableFutures.emptyListCompletedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.Collection;
 import java.util.Collections;
@@ -32,8 +33,8 @@ import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.sql.SyncResultSetAdapter;
 import org.apache.ignite.internal.streamer.StreamerBatchSender;
-import org.apache.ignite.internal.table.QueryCriteriaAsyncResultSet;
-import org.apache.ignite.internal.table.SqlSerializer;
+import org.apache.ignite.internal.table.criteria.QueryCriteriaAsyncResultSet;
+import org.apache.ignite.internal.table.criteria.SqlSerializer;
 import org.apache.ignite.sql.ClosableCursor;
 import org.apache.ignite.sql.async.AsyncClosableCursor;
 import org.apache.ignite.sql.async.AsyncResultSet;
@@ -96,7 +97,7 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
         Objects.requireNonNull(keyRecs);
 
         if (keyRecs.isEmpty()) {
-            return completedFuture(Collections.emptyList());
+            return emptyListCompletedFuture();
         }
 
         return tbl.doSchemaOutInOpAsync(
@@ -138,7 +139,7 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
         Objects.requireNonNull(recs);
 
         if (recs.isEmpty()) {
-            return CompletableFuture.completedFuture(null);
+            return nullCompletedFuture();
         }
 
         return tbl.doSchemaOutOpAsync(
@@ -197,7 +198,7 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
         Objects.requireNonNull(recs);
 
         if (recs.isEmpty()) {
-            return completedFuture(Collections.emptyList());
+            return emptyListCompletedFuture();
         }
 
         return tbl.doSchemaOutInOpAsync(
@@ -334,7 +335,7 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
         Objects.requireNonNull(keyRecs);
 
         if (keyRecs.isEmpty()) {
-            return CompletableFuture.completedFuture(Collections.emptyList());
+            return emptyListCompletedFuture();
         }
 
         return tbl.doSchemaOutInOpAsync(
@@ -357,7 +358,7 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
         Objects.requireNonNull(recs);
 
         if (recs.isEmpty()) {
-            return CompletableFuture.completedFuture(Collections.emptyList());
+            return emptyListCompletedFuture();
         }
 
         return tbl.doSchemaOutInOpAsync(

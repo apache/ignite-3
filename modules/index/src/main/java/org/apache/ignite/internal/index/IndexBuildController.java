@@ -22,6 +22,7 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.index.IndexManagementUtils.isPrimaryReplica;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 
@@ -148,7 +149,7 @@ class IndexBuildController implements ManuallyCloseable {
     private CompletableFuture<?> onIndexCreate(CreateIndexEventParameters parameters) {
         return inBusyLockAsync(busyLock, () -> {
             if (parameters.indexDescriptor().available()) {
-                return completedFuture(null);
+                return nullCompletedFuture();
             }
 
             var startBuildIndexFutures = new ArrayList<CompletableFuture<?>>();
@@ -177,7 +178,7 @@ class IndexBuildController implements ManuallyCloseable {
         return inBusyLockAsync(busyLock, () -> {
             indexBuilder.stopBuildingIndexes(parameters.indexId());
 
-            return completedFuture(null);
+            return nullCompletedFuture();
         });
     }
 
@@ -204,7 +205,7 @@ class IndexBuildController implements ManuallyCloseable {
             } else {
                 stopBuildingIndexesIfPrimaryExpired(primaryReplicaId);
 
-                return completedFuture(null);
+                return nullCompletedFuture();
             }
         });
     }

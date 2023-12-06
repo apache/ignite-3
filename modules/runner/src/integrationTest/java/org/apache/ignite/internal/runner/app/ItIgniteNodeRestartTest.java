@@ -17,11 +17,12 @@
 
 package org.apache.ignite.internal.runner.app;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
+import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.defaultSerializationRegistry;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -430,7 +431,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 schemaSyncService,
                 catalogManager,
                 metricManager,
-                new SystemViewManagerImpl(name, catalogManager)
+                new SystemViewManagerImpl(name, catalogManager),
+                placementDriverManager.placementDriver()
         );
 
         // Preparing the result map.
@@ -1275,10 +1277,10 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 // That's our index.
                 latch.countDown();
 
-                return completedFuture(true);
+                return trueCompletedFuture();
             }
 
-            return completedFuture(false);
+            return falseCompletedFuture();
         }));
 
         assertTrue(latch.await(10, TimeUnit.SECONDS));

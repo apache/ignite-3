@@ -17,30 +17,9 @@
 
 package org.apache.ignite.table.criteria;
 
-import java.util.List;
-
 /**
- * Represents a predicate. Implementations of this interface are basic building blocks for performing criteria queries.
+ * Represents a predicate for performing criteria queries.
  */
-public interface Criteria extends Expression {
-    /**
-     * Create a predicate for testing the column is equal to a given value.
-     *
-     * @param columnName Column name.
-     * @param value Column value.
-     * @return the created <b>equal</b> predicate instance.
-     */
-    static <T> Criteria equal(String columnName, T value) {
-        return Operation.create("{0} = {1}", List.of(new StaticText(columnName), new Constant<>(value)));
-    }
-
-    /**
-     * Create a predicate for testing the column is equal to a given value.
-     *
-     * @param criteria Column name.
-     * @return the created <b>not</b> predicate instance.
-     */
-    static <T> Criteria not(Criteria criteria) {
-        return Operation.create("not {0}", List.of(criteria));
-    }
+public interface Criteria {
+    // No-op.
 }

@@ -17,12 +17,13 @@
 
 package org.apache.ignite.internal.table;
 
+import static org.apache.ignite.internal.table.criteria.CriteriaElement.equalTo;
+import static org.apache.ignite.internal.table.criteria.Criterias.columnValue;
+import static org.apache.ignite.internal.table.criteria.Criterias.not;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
-import static org.apache.ignite.table.criteria.CriteriaBuilder.columnName;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.aMapWithSize;
-import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasEntry;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.hasProperty;
@@ -49,9 +50,9 @@ import org.apache.ignite.sql.ClosableCursor;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
-import org.apache.ignite.table.criteria.Criteria;
 import org.hamcrest.FeatureMatcher;
 import org.hamcrest.Matcher;
+import org.hamcrest.Matchers;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -128,13 +129,13 @@ public class ItCriteriaQueryTest extends BaseIgniteAbstractTest {
         var res = view.queryCriteria(null, null).getAll();
         assertThat(res, hasSize(15));
 
-        res = view.queryCriteria(null, columnName(COLUMN_KEY).equal(2)).getAll();
+        res = view.queryCriteria(null, columnValue(COLUMN_KEY, equalTo(2))).getAll();
         assertThat(res, hasSize(1));
-        assertThat(res, hasItem(tupleValue(COLUMN_KEY, equalTo(2))));
+        assertThat(res, hasItem(tupleValue(COLUMN_KEY, Matchers.equalTo(2))));
 
-        res = view.queryCriteria(null, Criteria.not(Criteria.equal(COLUMN_KEY, 2))).getAll();
+        res = view.queryCriteria(null, not(columnValue(COLUMN_KEY, equalTo(2)))).getAll();
         assertThat(res, hasSize(14));
-        assertThat(res, not(hasItem(tupleValue(COLUMN_KEY, equalTo(2)))));
+        assertThat(res, not(hasItem(tupleValue(COLUMN_KEY, Matchers.equalTo(2)))));
     }
 
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-18695")
@@ -145,13 +146,13 @@ public class ItCriteriaQueryTest extends BaseIgniteAbstractTest {
         var res = view.queryCriteria(null, null).getAll();
         assertThat(res, hasSize(15));
 
-        res = view.queryCriteria(null, columnName(COLUMN_KEY).equal(2)).getAll();
+        res = view.queryCriteria(null, columnValue(COLUMN_KEY, equalTo(2))).getAll();
         assertThat(res, hasSize(1));
-        assertThat(res, hasItem(hasProperty(COLUMN_KEY, equalTo(2))));
+        assertThat(res, hasItem(hasProperty(COLUMN_KEY, Matchers.equalTo(2))));
 
-        res = view.queryCriteria(null, Criteria.not(Criteria.equal(COLUMN_KEY, 2))).getAll();
+        res = view.queryCriteria(null, not(columnValue(COLUMN_KEY, equalTo(2)))).getAll();
         assertThat(res, hasSize(14));
-        assertThat(res, not(hasItem(hasProperty(COLUMN_KEY, equalTo(2)))));
+        assertThat(res, not(hasItem(hasProperty(COLUMN_KEY, Matchers.equalTo(2)))));
     }
 
     @Test
@@ -161,13 +162,13 @@ public class ItCriteriaQueryTest extends BaseIgniteAbstractTest {
         var res = toMap(view.queryCriteria(null, null));
         assertThat(res, aMapWithSize(15));
 
-        res = toMap(view.queryCriteria(null, columnName(COLUMN_KEY).equal(2)));
+        res = toMap(view.queryCriteria(null, columnValue(COLUMN_KEY, equalTo(2))));
         assertThat(res, aMapWithSize(1));
-        assertThat(res, hasEntry(tupleValue(COLUMN_KEY, equalTo(2)), tupleValue("valInt", equalTo(2))));
+        assertThat(res, hasEntry(tupleValue(COLUMN_KEY, Matchers.equalTo(2)), tupleValue("valInt", Matchers.equalTo(2))));
 
-        res = toMap(view.queryCriteria(null, Criteria.not(Criteria.equal(COLUMN_KEY, 2))));
+        res = toMap(view.queryCriteria(null, not(columnValue(COLUMN_KEY, equalTo(2)))));
         assertThat(res, aMapWithSize(14));
-        assertThat(res, not(hasEntry(tupleValue(COLUMN_KEY, equalTo(2)), tupleValue("valInt", equalTo(2)))));
+        assertThat(res, not(hasEntry(tupleValue(COLUMN_KEY, Matchers.equalTo(2)), tupleValue("valInt", Matchers.equalTo(2)))));
     }
 
     private static void startTable(Ignite node, String tableName) {
