@@ -345,18 +345,18 @@ namespace Apache.Ignite.Tests
             using var header = new PooledArrayBuffer();
             var writer = new MsgPackWriter(header);
 
-            writer.Write(0); // Message type.
             writer.Write(requestId);
 
-            writer.Write((int)ResponseFlags.PartitionAssignmentChanged);
+            var flags = (int)ResponseFlags.PartitionAssignmentChanged;
+            if (isError)
+            {
+                flags |= (int)ResponseFlags.Error;
+            }
+
+            writer.Write(flags);
             writer.Write(PartitionAssignmentTimestamp);
 
             writer.Write(ObservableTimestamp); // Observable timestamp.
-
-            if (!isError)
-            {
-                writer.WriteNil(); // Success.
-            }
 
             var headerMem = header.GetWrittenMemory();
             var size = BitConverter.GetBytes(IPAddress.HostToNetworkOrder(headerMem.Length + payload.Length));
