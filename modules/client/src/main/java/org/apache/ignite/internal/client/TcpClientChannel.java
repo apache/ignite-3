@@ -200,7 +200,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     /**
      * Close the channel with cause.
      */
-    private void close(@Nullable Exception cause, boolean graceful) {
+    private void close(@Nullable Throwable cause, boolean graceful) {
         if (closed.compareAndSet(false, true)) {
             if (cause != null && (cause instanceof TimeoutException || cause.getCause() instanceof TimeoutException)) {
                 metrics.connectionsLostTimeoutIncrement();
@@ -231,6 +231,8 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         asyncContinuationExecutor.execute(() -> {
             try {
                 processNextMessage(buf);
+            } catch (Throwable t) {
+                close(t, false);
             } finally {
                 buf.release();
             }
