@@ -865,6 +865,8 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         CompletableFuture<Object> requestSentFut = new CompletableFuture<>();
         requestSentFutRef.set(requestSentFut);
 
-        return (writer, err) -> requestSentFut.thenAccept(v -> sendNotification(requestId, writer, err));
+        // TODO
+        // return (writer, err) -> requestSentFut.thenAccept(v -> sendNotification(requestId, writer, err));
+        return (writer, err) -> sendNotification(requestId, writer, err);
     }
 }

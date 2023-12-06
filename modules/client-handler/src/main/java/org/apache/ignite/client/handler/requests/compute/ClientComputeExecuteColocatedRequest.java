@@ -56,13 +56,10 @@ public class ClientComputeExecuteColocatedRequest {
                 String jobClassName = in.unpackString();
                 Object[] args = unpackArgs(in);
 
+                out.packInt(table.schemaView().lastKnownSchemaVersion());
+
                 compute.executeColocatedAsync(table.name(), keyTuple, deploymentUnits, jobClassName, args)
-                        .whenComplete((val, err) -> {
-                            notificationSender.sendNotification(w -> {
-                                w.packInt(table.schemaView().lastKnownSchemaVersion());
-                                w.packObjectAsBinaryTuple(val);
-                            }, err);
-                });
+                        .whenComplete((val, err) -> notificationSender.sendNotification(w -> w.packObjectAsBinaryTuple(val), err));
             });
         });
     }
