@@ -480,7 +480,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
         int newVersion = catalog.version() + 1;
 
         // It is quite important to preserve such behavior: we wait here for versionTracker to be updated. It is updated when all events
-        // that were triggered by this changed will be completed. That means that any Catalog update will be completed only
+        // that were triggered by this change will be completed. That means that any Catalog update will be completed only
         // after all reactions to that event will be completed through the catalog event notifications mechanism.
         // This is important for the distribution zones recovery purposes:
         // we guarantee recovery for a zones' catalog actions only if that actions were completed.
