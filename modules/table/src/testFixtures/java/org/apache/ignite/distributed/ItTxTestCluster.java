@@ -66,8 +66,6 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
-import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
-import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -143,23 +141,20 @@ import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 import org.apache.ignite.tx.IgniteTransactions;
 import org.apache.ignite.utils.ClusterServiceTestUtils;
 import org.junit.jupiter.api.TestInfo;
-import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Class that allows to mock a cluster for transaction tests' purposes.
  */
-@ExtendWith(ConfigurationExtension.class)
 public class ItTxTestCluster {
     private static final int SCHEMA_VERSION = 1;
-
-    @InjectConfiguration
-    private static TransactionConfiguration txConfiguration;
 
     private final List<NetworkAddress> localAddresses;
 
     private final NodeFinder nodeFinder;
 
     private final RaftConfiguration raftConfig;
+
+    private final TransactionConfiguration txConfiguration;
 
     private final Path workDir;
 
@@ -250,6 +245,7 @@ public class ItTxTestCluster {
     public ItTxTestCluster(
             TestInfo testInfo,
             RaftConfiguration raftConfig,
+            TransactionConfiguration txConfiguration,
             Path workDir,
             int nodes,
             int replicas,
@@ -257,6 +253,7 @@ public class ItTxTestCluster {
             HybridTimestampTracker timestampTracker
     ) {
         this.raftConfig = raftConfig;
+        this.txConfiguration = txConfiguration;
         this.workDir = workDir;
         this.nodes = nodes;
         this.replicas = replicas;

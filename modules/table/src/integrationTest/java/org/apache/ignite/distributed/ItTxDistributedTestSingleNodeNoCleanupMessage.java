@@ -93,6 +93,7 @@ public class ItTxDistributedTestSingleNodeNoCleanupMessage extends ItTxDistribut
         txTestCluster = new ItTxTestCluster(
                 testInfo,
                 raftConfiguration,
+                txConfiguration,
                 workDir,
                 nodes(),
                 replicas(),

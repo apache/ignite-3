@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.tx.impl;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.tx.TxState.isFinalState;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -144,7 +145,7 @@ public class OrphanDetector {
         try {
             handleLockHolder(params.lockHolderTx());
         } catch (NodeStoppingException ex) {
-            throw new RuntimeException(ex);
+            return failedFuture(ex);
         }
 
         return completedFuture(false);
@@ -173,7 +174,7 @@ public class OrphanDetector {
      * @param txId Transaction id that holds a lock.
      * @return Future to complete.
      */
-    private void handleLockHolderInternal(UUID txId) throws NodeStoppingException {
+    private void handleLockHolderInternal(UUID txId) {
         TxStateMeta txState = txLocalStateStorage.state(txId);
 
         // Transaction state for full transactions is not stored in the local map, so it can be null.
@@ -250,9 +251,8 @@ public class OrphanDetector {
      * @param txId Transaction id.
      * @param txState Transaction meta state.
      * @return True when transaction recovery is needed, false otherwise.
-     * @throws NodeStoppingException If the node is stopping.
      */
-    private boolean isRecoveryNeeded(UUID txId, TxStateMeta txState) throws NodeStoppingException {
+    private boolean isRecoveryNeeded(UUID txId, TxStateMeta txState) {
         long checkTs = coarseCurrentTimeMillis();
 
         if (txState == null

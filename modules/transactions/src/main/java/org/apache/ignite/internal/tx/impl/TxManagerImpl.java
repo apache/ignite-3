@@ -61,7 +61,6 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
-import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
@@ -277,32 +276,23 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
     @Override
     public TxStateMeta stateMeta(UUID txId) {
-        try {
-            return txStateVolatileStorage.state(txId);
-        } catch (NodeStoppingException e) {
-            //TODO: IGNITE-21024 Public methods of transaction manager do not have NodeStoppingException in definition.
-            throw new RuntimeException(e);
-        }
+        return txStateVolatileStorage.state(txId);
     }
 
     @Override
     public TxStateMeta updateTxMeta(UUID txId, Function<TxStateMeta, TxStateMeta> updater) {
-        try {
-            return txStateVolatileStorage.updateMeta(txId, oldMeta -> {
-                TxStateMeta newMeta = updater.apply(oldMeta);
+        return txStateVolatileStorage.updateMeta(txId, oldMeta -> {
+            TxStateMeta newMeta = updater.apply(oldMeta);
 
-                if (newMeta == null) {
-                    return null;
-                }
+            if (newMeta == null) {
+                return null;
+            }
 
-                TxState oldState = oldMeta == null ? null : oldMeta.txState();
+            TxState oldState = oldMeta == null ? null : oldMeta.txState();
 
-                return checkTransitionCorrectness(oldState, newMeta.txState()) ? newMeta : oldMeta;
-            });
-        } catch (NodeStoppingException e) {
-            //TODO: IGNITE-21024 Public methods of transaction manager do not have NodeStoppingException in definition.
-            throw new RuntimeException(e);
-        }
+            return checkTransitionCorrectness(oldState, newMeta.txState()) ? newMeta : oldMeta;
+        });
+
     }
 
     @Override
@@ -568,26 +558,16 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
     @Override
     public int finished() {
-        try {
-            return (int) txStateVolatileStorage.states().stream()
-                    .filter(e -> isFinalState(e.txState()))
-                    .count();
-        } catch (NodeStoppingException e) {
-            //TODO: IGNITE-21024 Public methods of transaction manager do not have NodeStoppingException in definition.
-            throw new RuntimeException(e);
-        }
+        return (int) txStateVolatileStorage.states().stream()
+                .filter(e -> isFinalState(e.txState()))
+                .count();
     }
 
     @Override
     public int pending() {
-        try {
-            return (int) txStateVolatileStorage.states().stream()
-                    .filter(e -> e.txState() == PENDING)
-                    .count();
-        } catch (NodeStoppingException e) {
-            //TODO: IGNITE-21024 Public methods of transaction manager do not have NodeStoppingException in definition.
-            throw new RuntimeException(e);
-        }
+        return (int) txStateVolatileStorage.states().stream()
+                .filter(e -> e.txState() == PENDING)
+                .count();
     }
 
     @Override

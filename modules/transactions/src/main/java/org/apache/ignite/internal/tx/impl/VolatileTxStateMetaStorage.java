@@ -23,7 +23,6 @@ import java.util.Collection;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
-import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -60,18 +59,19 @@ public class VolatileTxStateMetaStorage {
      * @param txId Transaction id.
      * @param updater Transaction meta updater.
      * @return Updated transaction state.
-     * @throws NodeStoppingException If the node is stopping.
      */
-    public TxStateMeta updateMeta(UUID txId, Function<TxStateMeta, TxStateMeta> updater) throws NodeStoppingException {
-        if (busyLock.enterBusy()) {
-            try {
-                return updateMetaInternal(txId, updater);
-            } finally {
-                busyLock.leaveBusy();
-            }
-        }
+    public TxStateMeta updateMeta(UUID txId, Function<TxStateMeta, TxStateMeta> updater) {
+        return updateMetaInternal(txId, updater);
 
-        throw new NodeStoppingException();
+        //TODO: IGNITE-21024 Public methods of transaction manager do not have NodeStoppingException in definition.
+        // if (busyLock.enterBusy()) {
+        //     try {
+        //         return updateMetaInternal(txId, updater);
+        //     } finally {
+        //         busyLock.leaveBusy();
+        //     }
+        // }
+        // throw new NodeStoppingException();
     }
 
     /**
@@ -100,35 +100,37 @@ public class VolatileTxStateMetaStorage {
      *
      * @param txId Transaction id.
      * @return The state meta or null if the state is unknown.
-     * @throws NodeStoppingException If the node is stopping.
      */
-    public TxStateMeta state(UUID txId) throws NodeStoppingException {
-        if (busyLock.enterBusy()) {
-            try {
-                return txStateMap.get(txId);
-            } finally {
-                busyLock.leaveBusy();
-            }
-        }
+    public TxStateMeta state(UUID txId) {
+        return txStateMap.get(txId);
 
-        throw new NodeStoppingException();
+        //TODO: IGNITE-21024 Public methods of transaction manager do not have NodeStoppingException in definition.
+        // if (busyLock.enterBusy()) {
+        //     try {
+        //         return txStateMap.get(txId);
+        //     } finally {
+        //         busyLock.leaveBusy();
+        //     }
+        // }
+        // throw new NodeStoppingException();
     }
 
     /**
      * Gets all defined transactions meta states.
      *
      * @return Collection of transaction meta states.
-     * @throws NodeStoppingException If the node is stopping.
      */
-    public Collection<TxStateMeta> states() throws NodeStoppingException {
-        if (busyLock.enterBusy()) {
-            try {
-                return txStateMap.values();
-            } finally {
-                busyLock.leaveBusy();
-            }
-        }
+    public Collection<TxStateMeta> states() {
+        return txStateMap.values();
 
-        throw new NodeStoppingException();
+        //TODO: IGNITE-21024 Public methods of transaction manager do not have NodeStoppingException in definition.
+        // if (busyLock.enterBusy()) {
+        //     try {
+        //         return txStateMap.values();
+        //     } finally {
+        //         busyLock.leaveBusy();
+        //     }
+        // }
+        // throw new NodeStoppingException();
     }
 }
