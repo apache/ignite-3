@@ -23,6 +23,8 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Semaphore;
 import java.util.stream.Collectors;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.IgniteCompute;
@@ -41,6 +43,8 @@ public class FakeCompute implements IgniteCompute {
 
     public static volatile @Nullable CompletableFuture future;
 
+    public static volatile CountDownLatch latch = new CountDownLatch(0);
+
     private final String nodeName;
 
     public FakeCompute(String nodeName) {
@@ -52,6 +56,12 @@ public class FakeCompute implements IgniteCompute {
         if (Objects.equals(jobClassName, GET_UNITS)) {
             String unitString = units.stream().map(DeploymentUnit::render).collect(Collectors.joining(","));
             return CompletableFuture.completedFuture((R) unitString);
+        }
+
+        try {
+            latch.await();
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
         }
 
         return future != null ? future : CompletableFuture.completedFuture((R) nodeName);

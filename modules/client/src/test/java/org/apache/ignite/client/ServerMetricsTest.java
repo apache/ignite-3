@@ -24,6 +24,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
 import org.apache.ignite.client.fakes.FakeCompute;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.sql.ResultSet;
@@ -89,17 +90,15 @@ public class ServerMetricsTest extends AbstractClientTest {
     public void testRequestsActive() throws Exception {
         assertEquals(0, testServer.metrics().requestsActive());
 
-        CompletableFuture computeFut = new CompletableFuture();
-        FakeCompute.future = computeFut;
+        FakeCompute.latch = new CountDownLatch(1);
 
-        client.compute().executeAsync(getClusterNodes("s1"), List.of(), "job");
         client.compute().executeAsync(getClusterNodes("s1"), List.of(), "job");
 
         assertTrue(
-                IgniteTestUtils.waitForCondition(() -> testServer.metrics().requestsActive() == 2, 1000),
+                IgniteTestUtils.waitForCondition(() -> testServer.metrics().requestsActive() == 1, 1000),
                 () -> "requestsActive: " + testServer.metrics().requestsActive());
 
-        computeFut.complete("x");
+        FakeCompute.latch.countDown();
 
         assertTrue(
                 IgniteTestUtils.waitForCondition(() -> testServer.metrics().requestsActive() == 0, 1000),
