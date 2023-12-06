@@ -383,21 +383,8 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         Long resId = unpacker.unpackLong();
         int flags = unpacker.unpackInt();
 
-        if (ResponseFlags.getPartitionAssignmentChangedFlag(flags)) {
-            if (log.isInfoEnabled()) {
-                log.info("Partition assignment change notification received [remoteAddress=" + cfg.getAddress() + "]");
-            }
-
-            long maxStartTime = unpacker.unpackLong();
-            for (Consumer<Long> listener : assignmentChangeListeners) {
-                listener.accept(maxStartTime);
-            }
-        }
-
-        long observableTimestamp = unpacker.unpackLong();
-        for (Consumer<Long> listener : observableTimestampListeners) {
-            listener.accept(observableTimestamp);
-        }
+        handlePartitionAssignmentChange(flags, unpacker);
+        handleObservableTimestamp(unpacker);
 
         if (ResponseFlags.getNotificationFlag(flags)) {
             handleNotification(resId, unpacker);
@@ -428,6 +415,27 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
 
             pendingReq.completeExceptionally(err);
             metrics.requestsFailedIncrement();
+        }
+    }
+
+    private void handleObservableTimestamp(ClientMessageUnpacker unpacker) {
+        long observableTimestamp = unpacker.unpackLong();
+
+        for (Consumer<Long> listener : observableTimestampListeners) {
+            listener.accept(observableTimestamp);
+        }
+    }
+
+    private void handlePartitionAssignmentChange(int flags, ClientMessageUnpacker unpacker) {
+        if (ResponseFlags.getPartitionAssignmentChangedFlag(flags)) {
+            if (log.isInfoEnabled()) {
+                log.info("Partition assignment change notification received [remoteAddress=" + cfg.getAddress() + "]");
+            }
+
+            long maxStartTime = unpacker.unpackLong();
+            for (Consumer<Long> listener : assignmentChangeListeners) {
+                listener.accept(maxStartTime);
+            }
         }
     }
 
