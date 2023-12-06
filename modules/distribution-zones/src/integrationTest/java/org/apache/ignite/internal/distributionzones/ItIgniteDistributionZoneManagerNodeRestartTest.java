@@ -315,8 +315,10 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         int zoneId = getZoneId(node, ZONE_NAME);
 
         DistributionZoneManager distributionZoneManager = getDistributionZoneManager(node);
+        CatalogManager catalogManager = getCatalogManager(node);
 
-        assertDataNodesFromManager(distributionZoneManager, metastore::appliedRevision, zoneId, Set.of(A, B, C), TIMEOUT_MILLIS);
+        assertDataNodesFromManager(distributionZoneManager, metastore::appliedRevision, catalogManager::latestCatalogVersion, zoneId,
+                Set.of(A, B, C), TIMEOUT_MILLIS);
 
         Map<String, Map<String, String>> nodeAttributesBeforeRestart = distributionZoneManager.nodesAttributes();
 
@@ -348,8 +350,16 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         int zoneId = getZoneId(node, zoneName);
 
         DistributionZoneManager distributionZoneManager = getDistributionZoneManager(node);
+        CatalogManager catalogManager = getCatalogManager(node);
 
-        assertDataNodesFromManager(distributionZoneManager, metastore::appliedRevision, zoneId, Set.of(A, B, C), TIMEOUT_MILLIS);
+        assertDataNodesFromManager(
+                distributionZoneManager,
+                metastore::appliedRevision,
+                catalogManager::latestCatalogVersion,
+                zoneId,
+                Set.of(A, B, C),
+                TIMEOUT_MILLIS
+        );
 
         ConcurrentSkipListMap<Long, Augmentation> nodeAttributesBeforeRestart =
                 distributionZoneManager.zonesState().get(zoneId).topologyAugmentationMap();
@@ -411,6 +421,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
                 .collect(toSet());
 
         DistributionZoneManager distributionZoneManager = getDistributionZoneManager(node);
+        CatalogManager catalogManager = getCatalogManager(node);
         DistributionZoneManager finalDistributionZoneManager = distributionZoneManager;
 
         assertTrue(waitForCondition(() -> logicalTopology.equals(finalDistributionZoneManager.logicalTopology()), TIMEOUT_MILLIS));
@@ -419,7 +430,14 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
         int zoneId = getZoneId(node, DEFAULT_ZONE_NAME);
 
-        assertDataNodesFromManager(distributionZoneManager, metastore::appliedRevision, zoneId, Set.of(A, B), TIMEOUT_MILLIS);
+        assertDataNodesFromManager(
+                distributionZoneManager,
+                metastore::appliedRevision,
+                catalogManager::latestCatalogVersion,
+                zoneId,
+                Set.of(A, B),
+                TIMEOUT_MILLIS
+        );
 
         metastore = findComponent(node.startedComponents(), MetaStorageManager.class);
 
@@ -444,12 +462,20 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         node = startPartialNode(0);
 
         distributionZoneManager = getDistributionZoneManager(node);
+        catalogManager = getCatalogManager(node);
 
         assertEquals(newLogicalTopology, distributionZoneManager.logicalTopology());
 
         assertValueInStorage(metastore, zonesLastHandledTopology(), ByteUtils::fromBytes, newLogicalTopology, TIMEOUT_MILLIS);
 
-        assertDataNodesFromManager(distributionZoneManager, metastore::appliedRevision, zoneId, Set.of(A, B, C), TIMEOUT_MILLIS);
+        assertDataNodesFromManager(
+                distributionZoneManager,
+                metastore::appliedRevision,
+                catalogManager::latestCatalogVersion,
+                zoneId,
+                Set.of(A, B, C),
+                TIMEOUT_MILLIS
+        );
     }
 
     @Test
@@ -486,6 +512,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         node = startPartialNode(0);
 
         distributionZoneManager = getDistributionZoneManager(node);
+        CatalogManager catalogManager = getCatalogManager(node);
 
         assertEquals(newLogicalTopology, distributionZoneManager.logicalTopology());
 
@@ -493,7 +520,14 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
         int zoneId = getZoneId(node, DEFAULT_ZONE_NAME);
 
-        assertDataNodesFromManager(distributionZoneManager, metastore::appliedRevision, zoneId, Set.of(C), TIMEOUT_MILLIS);
+        assertDataNodesFromManager(
+                distributionZoneManager,
+                metastore::appliedRevision,
+                catalogManager::latestCatalogVersion,
+                zoneId,
+                Set.of(C),
+                TIMEOUT_MILLIS
+        );
     }
 
     @Test
@@ -573,12 +607,15 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         int zoneId = getZoneId(node, zoneName);
 
         DistributionZoneManager distributionZoneManager = getDistributionZoneManager(node);
+        CatalogManager catalogManager = getCatalogManager(node);
 
-        assertDataNodesFromManager(distributionZoneManager, metastore::appliedRevision, zoneId, Set.of(A, B), TIMEOUT_MILLIS);
+        assertDataNodesFromManager(distributionZoneManager, metastore::appliedRevision, catalogManager::latestCatalogVersion, zoneId,
+                Set.of(A, B), TIMEOUT_MILLIS);
 
         node.logicalTopology().removeNodes(Set.of(B));
 
-        assertDataNodesFromManager(distributionZoneManager, metastore::appliedRevision, zoneId, Set.of(A), TIMEOUT_MILLIS);
+        assertDataNodesFromManager(distributionZoneManager, metastore::appliedRevision, catalogManager::latestCatalogVersion, zoneId,
+                Set.of(A), TIMEOUT_MILLIS);
 
         long revisionBeforeRestart = metastore.appliedRevision();
 
@@ -588,13 +625,15 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
         distributionZoneManager = getDistributionZoneManager(node);
 
-        assertDataNodesFromManager(distributionZoneManager, metastore::appliedRevision, zoneId, Set.of(A), TIMEOUT_MILLIS);
-        assertDataNodesFromManager(distributionZoneManager, () -> revisionBeforeRestart, zoneId, Set.of(A), TIMEOUT_MILLIS);
+        assertDataNodesFromManager(distributionZoneManager, metastore::appliedRevision, catalogManager::latestCatalogVersion, zoneId,
+                Set.of(A), TIMEOUT_MILLIS);
+        assertDataNodesFromManager(distributionZoneManager, () -> revisionBeforeRestart, catalogManager::latestCatalogVersion, zoneId,
+                Set.of(A), TIMEOUT_MILLIS);
     }
 
     @ParameterizedTest
     @MethodSource("provideArgumentsRestartTests")
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20604")
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19955")
     public void testScaleUpTimerIsRestoredAfterRestart(String zoneName) throws Exception {
         PartialNode node = startPartialNode(0);
 
@@ -614,10 +653,12 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         int zoneId = getZoneId(node, zoneName);
 
         DistributionZoneManager distributionZoneManager = getDistributionZoneManager(node);
+        CatalogManager catalogManager = getCatalogManager(node);
 
         assertDataNodesFromManager(
                 distributionZoneManager,
                 metastore::appliedRevision,
+                catalogManager::latestCatalogVersion,
                 zoneId,
                 Set.of(A, B),
                 TIMEOUT_MILLIS
@@ -645,7 +686,10 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
         distributionZoneManager = getDistributionZoneManager(node);
 
-        assertDataNodesFromManager(distributionZoneManager, metastore::appliedRevision, zoneId, Set.of(A, C), TIMEOUT_MILLIS);
+        catalogManager = getCatalogManager(node);
+
+        assertDataNodesFromManager(distributionZoneManager, metastore::appliedRevision, catalogManager::latestCatalogVersion, zoneId,
+                Set.of(A, C), TIMEOUT_MILLIS);
 
         metastore = findComponent(node.startedComponents(), MetaStorageManager.class);
 
@@ -660,7 +704,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
     @ParameterizedTest
     @MethodSource("provideArgumentsRestartTests")
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20604")
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19955")
     public void testScaleUpTriggeredByFilterUpdateIsRestoredAfterRestart(String zoneName) throws Exception {
         PartialNode node = startPartialNode(0);
 
@@ -671,14 +715,17 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         node.logicalTopology().putNode(A);
 
         DistributionZoneManager distributionZoneManager = getDistributionZoneManager(node);
+        CatalogManager catalogManager = getCatalogManager(node);
 
-        assertDataNodesFromManager(distributionZoneManager, metastore::appliedRevision, zoneId, Set.of(A), TIMEOUT_MILLIS);
+        assertDataNodesFromManager(distributionZoneManager, metastore::appliedRevision, catalogManager::latestCatalogVersion, zoneId,
+                Set.of(A), TIMEOUT_MILLIS);
 
         alterZone(node, zoneName, INFINITE_TIMER_VALUE, null, null);
 
         node.logicalTopology().putNode(B);
 
-        assertDataNodesFromManager(distributionZoneManager, metastore::appliedRevision, zoneId, Set.of(A), TIMEOUT_MILLIS);
+        assertDataNodesFromManager(distributionZoneManager, metastore::appliedRevision, catalogManager::latestCatalogVersion, zoneId,
+                Set.of(A), TIMEOUT_MILLIS);
 
         startScaleUpBlocking = true;
 
@@ -703,7 +750,8 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
         distributionZoneManager = getDistributionZoneManager(node);
 
-        assertDataNodesFromManager(distributionZoneManager, metastore::appliedRevision, zoneId, Set.of(B), TIMEOUT_MILLIS);
+        assertDataNodesFromManager(distributionZoneManager, metastore::appliedRevision, catalogManager::latestCatalogVersion, zoneId,
+                Set.of(B), TIMEOUT_MILLIS);
     }
 
     @ParameterizedTest
@@ -719,8 +767,10 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         int zoneId = getZoneId(node, zoneName);
 
         DistributionZoneManager distributionZoneManager = getDistributionZoneManager(node);
+        CatalogManager catalogManager = getCatalogManager(node);
 
-        assertDataNodesFromManager(distributionZoneManager, metastore::appliedRevision, zoneId, Set.of(A), TIMEOUT_MILLIS);
+        assertDataNodesFromManager(distributionZoneManager, metastore::appliedRevision, catalogManager::latestCatalogVersion, zoneId,
+                Set.of(A), TIMEOUT_MILLIS);
 
         startScaleUpBlocking = true;
 
@@ -728,7 +778,8 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
         node.logicalTopology().putNode(B);
 
-        assertDataNodesFromManager(distributionZoneManager, metastore::appliedRevision, zoneId, Set.of(A), TIMEOUT_MILLIS);
+        assertDataNodesFromManager(distributionZoneManager, metastore::appliedRevision, catalogManager::latestCatalogVersion, zoneId,
+                Set.of(A), TIMEOUT_MILLIS);
 
         // Only Node B and C passes the filter
         String filter = "$[?(@.dataRegionSize > 10)]";
@@ -756,7 +807,8 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         distributionZoneManager = getDistributionZoneManager(node);
 
         // Immediate timer triggered by filter update
-        assertDataNodesFromManager(distributionZoneManager, metastore::appliedRevision, zoneId, Set.of(B), TIMEOUT_MILLIS);
+        assertDataNodesFromManager(distributionZoneManager, metastore::appliedRevision, catalogManager::latestCatalogVersion, zoneId,
+                Set.of(B), TIMEOUT_MILLIS);
 
         ZoneState zoneState = distributionZoneManager.zonesState().get(zoneId);
 
@@ -765,7 +817,8 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
         alterZone(node, zoneName, IMMEDIATE_TIMER_VALUE, null, null);
 
-        assertDataNodesFromManager(distributionZoneManager, () -> metastore.appliedRevision(), zoneId, Set.of(B, C), TIMEOUT_MILLIS);
+        assertDataNodesFromManager(distributionZoneManager, metastore::appliedRevision, catalogManager::latestCatalogVersion, zoneId,
+                Set.of(B, C), TIMEOUT_MILLIS);
 
         metastore = findComponent(node.startedComponents(), MetaStorageManager.class);
 
@@ -780,7 +833,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
     @ParameterizedTest
     @MethodSource("provideArgumentsRestartTests")
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20604")
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19955")
     public void testScaleDownTimerIsRestoredAfterRestart(String zoneName) throws Exception {
         PartialNode node = startPartialNode(0);
 
@@ -810,9 +863,11 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
         node = startPartialNode(0);
 
+        CatalogManager catalogManager = getCatalogManager(node);
+
         assertDataNodesFromManager(
                 getDistributionZoneManager(node),
-                metastore::appliedRevision,
+                metastore::appliedRevision, catalogManager::latestCatalogVersion,
                 zoneId,
                 Set.of(A, C),
                 TIMEOUT_MILLIS

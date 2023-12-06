@@ -251,7 +251,7 @@ public class TableManagerTest extends IgniteAbstractTest {
 
         distributionZoneManager = mock(DistributionZoneManager.class);
 
-        when(distributionZoneManager.dataNodes(anyLong(), anyInt())).thenReturn(emptySetCompletedFuture());
+        when(distributionZoneManager.dataNodes(anyLong(), anyInt(), anyInt())).thenReturn(emptySetCompletedFuture());
 
         when(replicaMgr.stopReplica(any())).thenReturn(trueCompletedFuture());
 
