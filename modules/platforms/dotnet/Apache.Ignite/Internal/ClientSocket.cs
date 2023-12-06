@@ -667,7 +667,6 @@ namespace Apache.Ignite.Internal
             {
                 while (!cancellationToken.IsCancellationRequested)
                 {
-                    // TODO: This buffer is not released by some operations like TxClose?
                     PooledBuffer response = await ReadResponseAsync(_stream, messageSizeBytes, cancellationToken).ConfigureAwait(false);
 
                     // Invoke response handler in another thread to continue the receive loop.
