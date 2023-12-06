@@ -34,7 +34,6 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import javax.net.ssl.SSLException;
 import org.apache.ignite.client.handler.configuration.ClientConnectorView;
@@ -122,7 +121,6 @@ import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.security.AuthenticationType;
 import org.apache.ignite.security.exception.UnsupportedAuthenticationTypeException;
 import org.apache.ignite.sql.IgniteSql;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -186,8 +184,6 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
     private final SchemaVersions schemaVersions;
 
     private final long connectionId;
-
-    private final AtomicReference<CompletableFuture> requestSentFutRef = new AtomicReference<>();
 
     /**
      * Constructor.
@@ -515,12 +511,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
             // Observable timestamp should be calculated after the operation is processed; reserve space, write later.
             int observableTimestampIdx = out.reserveLong();
 
-            // Track the future that will be completed when the response is sent.
-            // Use single AtomicReference - current method is executed by a single thread, all requests are processed sequentially.
-            // TODO: Do we really care about this guarantee? Too much complexity for nothing? Things like CQ won't use notifications anyway.
-            requestSentFutRef.set(null);
             CompletableFuture fut = processOperation(in, out, opCode, requestId);
-            CompletableFuture requestSentFut = requestSentFutRef.get();
 
             if (fut == null) {
                 // Operation completed synchronously.
@@ -535,11 +526,6 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
 
                 metrics.requestsProcessedIncrement();
                 metrics.requestsActiveDecrement();
-
-                if (requestSentFut != null) {
-                    // Allow sending notifications after the response is sent.
-                    requestSentFut.complete(null);
-                }
             } else {
                 var reqId = requestId;
                 var op = opCode;
@@ -858,15 +844,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         }
     }
 
-    @NotNull
     private NotificationSender notificationSender(long requestId) {
-        // requestSentFut ensures that the notification is not sent before the response for requestId is sent.
-        // We allocate requestSentFut only for requests that require notifications.
-        CompletableFuture<Object> requestSentFut = new CompletableFuture<>();
-        requestSentFutRef.set(requestSentFut);
-
-        // TODO
-        // return (writer, err) -> requestSentFut.thenAccept(v -> sendNotification(requestId, writer, err));
         return (writer, err) -> sendNotification(requestId, writer, err);
     }
 }
