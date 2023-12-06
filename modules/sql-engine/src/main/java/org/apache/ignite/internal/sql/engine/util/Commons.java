@@ -328,8 +328,8 @@ public final class Commons {
      * @param params Parameters.
      * @return Parameters map.
      */
-    public static Map<String, Object> parametersMap(@Nullable Object[] params) {
-        if (ArrayUtils.nullOrEmpty(params)) {
+    public static Map<String, Object> parametersMap(Map<Integer, Object> params) {
+        if (params.isEmpty()) {
             return Collections.emptyMap();
         } else {
             HashMap<String, Object> res = new HashMap<>();
@@ -341,14 +341,35 @@ public final class Commons {
     }
 
     /**
+     * Creates an array from the given map in which array indices become map keys. e.g: [1, null, "3"] -> {0: 1, 1: null, 2: "3"}.
+     * If the given array is null, this method returns an empty map.
+     *
+     * @param params Array of values.
+     * @return Map of values.
+     */
+    public static Map<Integer, Object> arrayToMap(@Nullable Object[] params) {
+        if (ArrayUtils.nullOrEmpty(params)) {
+            return Collections.emptyMap();
+        } else {
+            HashMap<Integer, Object> res = new HashMap<>();
+
+            for (int i = 0; i < params.length; i++) {
+                res.put(i, params[i]);
+            }
+
+            return res;
+        }
+    }
+
+    /**
      * Populates a provided map with given parameters.
      *
      * @param dst    Map to populate.
      * @param params Parameters.
      */
-    private static void populateParameters(Map<String, Object> dst, Object[] params) {
-        for (int i = 0; i < params.length; i++) {
-            dst.put("?" + i, params[i]);
+    private static void populateParameters(Map<String, Object> dst, Map<Integer, Object> params) {
+        for (Map.Entry<Integer, Object> e : params.entrySet()) {
+            dst.put("?" + e.getKey(), e.getValue());
         }
     }
 

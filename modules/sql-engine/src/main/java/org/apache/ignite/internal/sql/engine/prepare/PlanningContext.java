@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.prepare;
 
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 import org.apache.calcite.plan.Context;
@@ -82,7 +83,7 @@ public final class PlanningContext implements Context {
     }
 
     /** Get query parameters. */
-    public DynamicParameterValue[] parameters() {
+    public Map<Integer, Object> parameters() {
         return unwrap(BaseQueryContext.class).parameters();
     }
 

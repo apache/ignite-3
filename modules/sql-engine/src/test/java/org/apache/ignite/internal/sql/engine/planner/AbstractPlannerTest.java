@@ -33,9 +33,11 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
@@ -81,7 +83,6 @@ import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders.HashIndexBuilder;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders.SortedIndexBuilder;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders.TableBuilder;
-import org.apache.ignite.internal.sql.engine.prepare.DynamicParameterValue;
 import org.apache.ignite.internal.sql.engine.prepare.Fragment;
 import org.apache.ignite.internal.sql.engine.prepare.IgnitePlanner;
 import org.apache.ignite.internal.sql.engine.prepare.PlannerHelper;
@@ -270,15 +271,14 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
             relConvCfg = relConvCfg.withHintStrategyTable(hintStrategies);
         }
 
-        DynamicParameterValue[] dynamicParams = Arrays.stream(params)
-                .map(v -> {
-                    if (v == Unspecified.UNKNOWN) {
-                        return DynamicParameterValue.noValue();
-                    } else {
-                        return DynamicParameterValue.value(v);
-                    }
-                })
-                .toArray(DynamicParameterValue[]::new);
+        Map<Integer, Object> paramValues = new HashMap<>();
+        for (int i = 0; i < params.length; i++) {
+            Object value = params[i];
+
+            if (value != Unspecified.UNKNOWN) {
+                paramValues.put(i, value);
+            }
+        }
 
         return BaseQueryContext.builder()
                 .queryId(UUID.randomUUID())
@@ -288,7 +288,7 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
                                 .sqlToRelConverterConfig(relConvCfg)
                                 .build()
                 )
-                .parameters(dynamicParams)
+                .parameters(paramValues)
                 .build();
     }
 

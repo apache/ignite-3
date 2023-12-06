@@ -19,6 +19,8 @@ package org.apache.ignite.internal.sql.engine.util;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import java.util.HashMap;
+import java.util.Map;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.calcite.util.mapping.Mapping;
 import org.apache.calcite.util.mapping.Mappings;
@@ -37,6 +39,17 @@ public class CommonsTest {
         expectMapped(mapping, ImmutableBitSet.of(1, 7), ImmutableBitSet.of(0, 3));
         expectMapped(mapping, ImmutableBitSet.of(3), ImmutableBitSet.of(1));
         expectMapped(mapping, ImmutableBitSet.of(1, 4, 3, 7), ImmutableBitSet.of(0, 1, 2, 3));
+    }
+
+    @Test
+    public void testArrayToMap() {
+        assertEquals(Map.of(), Commons.arrayToMap(null));
+
+        HashMap<Integer, Object> vals = new HashMap<>();
+        vals.put(0, 1);
+        vals.put(1, null);
+        vals.put(2, "3");
+        assertEquals(vals, Commons.arrayToMap(new Object[]{1, null, "3"}));
     }
 
     private static void expectMapped(Mapping mapping, ImmutableBitSet bitSet, ImmutableBitSet expected) {

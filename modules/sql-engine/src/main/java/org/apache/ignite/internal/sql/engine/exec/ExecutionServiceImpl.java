@@ -70,7 +70,6 @@ import org.apache.ignite.internal.sql.engine.message.QueryStartResponse;
 import org.apache.ignite.internal.sql.engine.message.SqlQueryMessageGroup;
 import org.apache.ignite.internal.sql.engine.message.SqlQueryMessagesFactory;
 import org.apache.ignite.internal.sql.engine.prepare.DdlPlan;
-import org.apache.ignite.internal.sql.engine.prepare.DynamicParameterValue;
 import org.apache.ignite.internal.sql.engine.prepare.ExplainPlan;
 import org.apache.ignite.internal.sql.engine.prepare.Fragment;
 import org.apache.ignite.internal.sql.engine.prepare.IgniteRelShuttle;
@@ -241,11 +240,9 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
     }
 
     private BaseQueryContext createQueryContext(UUID queryId, int schemaVersion, Object[] params) {
-        DynamicParameterValue[] parameters = DynamicParameterValue.fromValues(params);
-
         return BaseQueryContext.builder()
                 .queryId(queryId)
-                .parameters(parameters)
+                .parameters(Commons.arrayToMap(params))
                 .frameworkConfig(
                         Frameworks.newConfigBuilder(FRAMEWORK_CONFIG)
                                 .defaultSchema(sqlSchemaManager.schema(schemaVersion))
@@ -519,11 +516,13 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         private CompletableFuture<Void> sendFragment(
                 String targetNodeName, String serialisedFragment, FragmentDescription desc, TxAttributes txAttributes
         ) {
-            DynamicParameterValue[] parameters = ctx.parameters();
-            Object[] parameterValues = new Object[parameters.length];
+            Object[] parameterValues = new Object[ctx.parameters().size()];
 
-            for (int i = 0; i < parameters.length; i++) {
-                parameterValues[i] = parameters[i].value();
+            for (int i = 0; i < parameterValues.length; i++) {
+                assert ctx.parameters().containsKey(i) : "Parameter has not been specified#" + i;
+
+                Object param = ctx.parameters().get(i);
+                parameterValues[i] = param;
             }
 
             QueryStartRequest request = FACTORY.queryStartRequest()
@@ -629,13 +628,6 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         }
 
         private ExecutionContext<RowT> createContext(String initiatorNodeName, FragmentDescription desc, TxAttributes txAttributes) {
-            DynamicParameterValue[] parameters = ctx.parameters();
-            Object[] parameterValues = new Object[parameters.length];
-
-            for (int i = 0; i < parameters.length; i++) {
-                parameterValues[i] = parameters[i].value();
-            }
-
             return new ExecutionContext<>(
                     taskExecutor,
                     ctx.queryId(),
@@ -643,7 +635,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                     initiatorNodeName,
                     desc,
                     handler,
-                    Commons.parametersMap(parameterValues),
+                    Commons.parametersMap(ctx.parameters()),
                     txAttributes
             );
         }

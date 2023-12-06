@@ -196,7 +196,7 @@ public class PrepareServiceImpl implements PrepareService {
         PlanningContext planningContext = PlanningContext.builder()
                 .parentContext(ctx)
                 .query(parsedResult.originalQuery())
-                .plannerTimeout(plannerTimeout)
+                .plannerTimeout(1000_00000)
                 .build();
 
         result = prepareAsync0(parsedResult, planningContext);
@@ -276,7 +276,7 @@ public class PrepareServiceImpl implements PrepareService {
         return result.thenApply(plan -> {
             assert plan instanceof MultiStepPlan : plan == null ? "<null>" : plan.getClass().getCanonicalName();
 
-            return new ExplainPlan(nextPlanId(), (MultiStepPlan) plan, plan.parameterMetadata());
+            return new ExplainPlan(nextPlanId(), (MultiStepPlan) plan);
         });
     }
 
@@ -425,11 +425,15 @@ public class PrepareServiceImpl implements PrepareService {
     @Nullable
     private static CacheKey tryCreateCacheKeyFromParameterValues(ParsedResult parsedResult, PlanningContext ctx) {
 
-        DynamicParameterValue[] parameters = ctx.parameters();
+        Map<Integer, Object> parameters = ctx.parameters();
 
-        for (int i = 0; i < parameters.length; i++) {
-            DynamicParameterValue parameter = parameters[i];
-            if (!parameter.hasValue()) {
+        int maxParamNum = 0;
+        for (Integer key : parameters.keySet()) {
+            maxParamNum = Math.max(maxParamNum, key);
+        }
+
+        for (int i = 0; i < maxParamNum; i++) {
+            if (!parameters.containsKey(i)) {
                 // Some parameters are not specified,
                 // we do not known the their type and we can not create a cache key.
                 return null;
@@ -443,21 +447,20 @@ public class PrepareServiceImpl implements PrepareService {
         int catalogVersion = ctx.unwrap(BaseQueryContext.class).schemaVersion();
         ColumnType[] paramTypes;
 
-        if (parameters.length == 0) {
+        if (parameters.isEmpty()) {
             paramTypes = new ColumnType[0];
         } else {
-            ColumnType[] result = new ColumnType[parameters.length];
+            ColumnType[] result = new ColumnType[parameters.size()];
 
-            for (int i = 0; i < parameters.length; i++) {
-                DynamicParameterValue parameter = parameters[i];
-                Object value = parameter.value();
+            for (Map.Entry<Integer, Object> entry : parameters.entrySet()) {
+                Object value = entry.getValue();
                 ColumnType columnType;
                 if (value != null) {
                     columnType = NativeTypeSpec.fromObject(value).asColumnType();
                 } else {
                     columnType = ColumnType.NULL;
                 }
-                result[i] = columnType;
+                result[entry.getKey()] = columnType;
             }
 
             paramTypes = result;
@@ -471,16 +474,16 @@ public class PrepareServiceImpl implements PrepareService {
 
         boolean distributed = distributionPresent(ctx.config().getTraitDefs());
         int catalogVersion = ctx.unwrap(BaseQueryContext.class).schemaVersion();
-        DynamicParameterValue[] parameters = ctx.parameters();
         ColumnType[] paramTypes;
 
-        if (parameterMetadata.parameterTypes().isEmpty()) {
+        List<ParameterType> parameterTypes = parameterMetadata.parameterTypes();
+        if (parameterTypes.isEmpty()) {
             paramTypes = EMPTY_CLASS_ARRAY;
         } else {
-            ColumnType[] result = new ColumnType[parameters.length];
+            ColumnType[] result = new ColumnType[parameterTypes.size()];
 
-            for (int i = 0; i < parameters.length; i++) {
-                result[i] = parameterMetadata.parameterTypes().get(i).columnType();
+            for (int i = 0; i < parameterTypes.size(); i++) {
+                result[i] = parameterTypes.get(i).columnType();
             }
 
             paramTypes = result;

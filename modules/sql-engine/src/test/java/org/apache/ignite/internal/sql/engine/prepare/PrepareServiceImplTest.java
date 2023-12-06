@@ -31,6 +31,7 @@ import static org.mockito.Mockito.mock;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -124,7 +125,7 @@ class PrepareServiceImplTest extends BaseIgniteAbstractTest {
 
         QueryPlan queryPlan1 = await(service.prepareAsync(
                 parse("SELECT * FROM t WHERE a = ? and c = ?"),
-                createContext(DynamicParameterValue.noValue(), DynamicParameterValue.value(1))
+                createContext(Map.of(1, 1))
         ));
 
         List<ColumnType> parameterTypes = queryPlan1.parameterMetadata().parameterTypes()
@@ -137,14 +138,14 @@ class PrepareServiceImplTest extends BaseIgniteAbstractTest {
         // Parameter types match, we should return plan1.
         QueryPlan queryPlan2 = await(service.prepareAsync(
                 parse("SELECT * FROM t WHERE a = ? and c = ?"),
-                createContext(DynamicParameterValue.value(1L), DynamicParameterValue.value(1))
+                createContext(Map.of(0, 1L, 1, 1))
         ));
         assertSame(queryPlan1, queryPlan2);
 
         // Parameter types do not match
         QueryPlan queryPlan3 = await(service.prepareAsync(
                 parse("SELECT * FROM t WHERE a = ? and c = ?"),
-                createContext(DynamicParameterValue.value(1), DynamicParameterValue.value(1L))
+                createContext(Map.of(0, 1, 1, 1L))
         ));
         assertNotSame(queryPlan1, queryPlan3);
     }
@@ -155,7 +156,7 @@ class PrepareServiceImplTest extends BaseIgniteAbstractTest {
 
         QueryPlan queryPlan1 = await(service.prepareAsync(
                 parse("UPDATE t SET a = ? WHERE c = ?"),
-                createContext(DynamicParameterValue.noValue(), DynamicParameterValue.value(1))
+                createContext(Map.of(1, 1))
         ));
 
         List<ColumnType> parameterTypes = queryPlan1.parameterMetadata().parameterTypes()
@@ -168,14 +169,14 @@ class PrepareServiceImplTest extends BaseIgniteAbstractTest {
         // Parameter types match, we should return plan1.
         QueryPlan queryPlan2 = await(service.prepareAsync(
                 parse("UPDATE t SET a = ? WHERE c = ?"),
-                createContext(DynamicParameterValue.value(1L), DynamicParameterValue.value(1))
+                createContext(Map.of(0, 1L, 1, 1))
         ));
         assertSame(queryPlan1, queryPlan2);
 
         // Parameter types do not match
         QueryPlan queryPlan3 = await(service.prepareAsync(
                 parse("UPDATE t SET a = ? WHERE c = ?"),
-                createContext(DynamicParameterValue.value(1), DynamicParameterValue.value(1L))
+                createContext(Map.of(0, 1, 1, 1L))
         ));
         assertNotSame(queryPlan1, queryPlan3);
     }
@@ -188,7 +189,7 @@ class PrepareServiceImplTest extends BaseIgniteAbstractTest {
                 "Ambiguous operator <UNKNOWN> + <UNKNOWN>. Dynamic parameter requires adding explicit type cast",
                 () -> {
                     ParsedResult parsedResult = parse("SELECT ? + ?");
-                    BaseQueryContext context = createContext(DynamicParameterValue.noValue(), DynamicParameterValue.noValue());
+                    BaseQueryContext context = createContext(Map.of());
                     await(service.prepareAsync(parsedResult, context));
                 }
         );
@@ -210,7 +211,7 @@ class PrepareServiceImplTest extends BaseIgniteAbstractTest {
 
         QueryPlan queryPlan = await(service.prepareAsync(
                 parse("SELECT * FROM t WHERE c = ?"),
-                createContext(schema, DynamicParameterValue.value(paramValue))
+                createContext(schema, Map.of(0, paramValue))
         ));
 
         ParameterType parameterType = queryPlan.parameterMetadata().parameterTypes().get(0);
@@ -249,7 +250,11 @@ class PrepareServiceImplTest extends BaseIgniteAbstractTest {
         return new ParserServiceImpl(0, EmptyCacheFactory.INSTANCE).parse(query);
     }
 
-    private static BaseQueryContext createContext(DynamicParameterValue... params) {
+    private static BaseQueryContext createContext() {
+        return createContext(Map.of());
+    }
+
+    private static BaseQueryContext createContext(Map<Integer, Object> params) {
         return BaseQueryContext.builder()
                 .queryId(UUID.randomUUID())
                 .frameworkConfig(
@@ -261,7 +266,7 @@ class PrepareServiceImplTest extends BaseIgniteAbstractTest {
                 .build();
     }
 
-    private static BaseQueryContext createContext(IgniteSchema schema, DynamicParameterValue... params) {
+    private static BaseQueryContext createContext(IgniteSchema schema, Map<Integer, Object> params) {
         return BaseQueryContext.builder()
                 .queryId(UUID.randomUUID())
                 .frameworkConfig(
