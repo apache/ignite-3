@@ -28,7 +28,7 @@ public class ResponseFlags {
     private static final int NOTIFICATION_FLAG = 2;
 
     /** Error flag. */
-    private static final int ERROR_FLAG = 3;
+    private static final int ERROR_FLAG = 4;
 
     /**
      * Gets flags as int.
