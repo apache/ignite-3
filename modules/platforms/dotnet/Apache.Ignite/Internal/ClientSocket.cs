@@ -694,15 +694,16 @@ namespace Apache.Ignite.Internal
         {
             var reader = response.GetReader();
 
-            var responseType = (ServerMessageType)reader.ReadInt32();
+            var requestId = reader.ReadInt64();
+            var flags = (ResponseFlags)reader.ReadInt32();
 
-            if (responseType != ServerMessageType.Response)
+            HandlePartitionAssignmentChange(flags, reader);
+            HandleObservableTimestamp(reader);
+
+            if (HandleNotification(flags, reader))
             {
-                // Notifications are not used for now.
                 return;
             }
-
-            var requestId = reader.ReadInt64();
 
             if (!_requests.TryRemove(requestId, out var taskCompletionSource))
             {
@@ -717,20 +718,6 @@ namespace Apache.Ignite.Internal
 
             Metrics.RequestsActiveDecrement();
             _logger.LogReceivedResponseTrace(requestId, ConnectionContext.ClusterNode.Address);
-
-            var flags = (ResponseFlags)reader.ReadInt32();
-
-            if (flags.HasFlag(ResponseFlags.PartitionAssignmentChanged))
-            {
-                long timestamp = reader.ReadInt64();
-
-                _logger.LogPartitionAssignmentChangeNotificationInfo(ConnectionContext.ClusterNode.Address, timestamp);
-
-                _listener.OnAssignmentChanged(timestamp);
-            }
-
-            var observableTimestamp = reader.ReadInt64();
-            _listener.OnObservableTimestampChanged(observableTimestamp);
 
             var exception = ReadError(ref reader);
 
@@ -750,6 +737,40 @@ namespace Apache.Ignite.Internal
 
                 taskCompletionSource.SetResult(resultBuffer);
             }
+        }
+
+        private void HandleObservableTimestamp(MsgPackReader reader)
+        {
+            var observableTimestamp = reader.ReadInt64();
+            _listener.OnObservableTimestampChanged(observableTimestamp);
+        }
+
+        private void HandlePartitionAssignmentChange(ResponseFlags flags, MsgPackReader reader)
+        {
+            if (flags.HasFlag(ResponseFlags.PartitionAssignmentChanged))
+            {
+                long timestamp = reader.ReadInt64();
+
+                _logger.LogPartitionAssignmentChangeNotificationInfo(ConnectionContext.ClusterNode.Address, timestamp);
+
+                _listener.OnAssignmentChanged(timestamp);
+            }
+        }
+
+        private bool HandleNotification(ResponseFlags flags, MsgPackReader reader)
+        {
+            if (!flags.HasFlag(ResponseFlags.Notification))
+            {
+                return false;
+            }
+
+            var notification = ReadNotification(ref reader);
+
+            _logger.LogReceivedNotificationTrace(notification, ConnectionContext.ClusterNode.Address);
+
+            _listener.OnNotification(notification);
+
+            return true;
         }
 
         /// <summary>
