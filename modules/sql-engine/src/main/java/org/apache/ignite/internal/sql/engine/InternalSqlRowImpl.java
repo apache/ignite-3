@@ -22,8 +22,8 @@ import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Implementation of {@code InternalSqlRow} allowing to avoid earlier unnecessary row deserialization, for example when we need to pass it to
- * wire.
+ * Implementation of {@code InternalSqlRow} allowing to avoid earlier unnecessary row deserialization, for example when we need to pass it
+ * to wire.
  *
  * @param <RowT> Type of the sql row.
  */
