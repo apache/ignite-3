@@ -63,6 +63,9 @@ namespace Apache.Ignite.Internal
         /** Current async operations, map from request id. */
         private readonly ConcurrentDictionary<long, TaskCompletionSource<PooledBuffer>> _requests = new();
 
+        /** Current notification handlers, map from request id. */
+        private readonly ConcurrentDictionary<long, TaskCompletionSource<PooledBuffer>> _notificationHandlers = new();
+
         /** Requests can be sent by one thread at a time.  */
         [SuppressMessage(
             "Microsoft.Design",
@@ -257,8 +260,12 @@ namespace Apache.Ignite.Internal
         /// </summary>
         /// <param name="clientOp">Client op code.</param>
         /// <param name="request">Request data.</param>
+        /// <param name="notificationHandler">Notification handler.</param>
         /// <returns>Response data.</returns>
-        public Task<PooledBuffer> DoOutInOpAsync(ClientOp clientOp, PooledArrayBuffer? request = null)
+        public Task<PooledBuffer> DoOutInOpAsync(
+            ClientOp clientOp,
+            PooledArrayBuffer? request = null,
+            TaskCompletionSource<PooledBuffer>? notificationHandler = null)
         {
             var ex = _exception;
 
@@ -281,6 +288,11 @@ namespace Apache.Ignite.Internal
             var requestId = Interlocked.Increment(ref _requestId);
             var taskCompletionSource = new TaskCompletionSource<PooledBuffer>();
             _requests[requestId] = taskCompletionSource;
+
+            if (notificationHandler != null)
+            {
+                _notificationHandlers[requestId] = notificationHandler;
+            }
 
             Metrics.RequestsActiveIncrement();
 
@@ -693,8 +705,11 @@ namespace Apache.Ignite.Internal
             HandlePartitionAssignmentChange(flags, ref reader);
             HandleObservableTimestamp(ref reader);
 
-            if (HandleNotification(flags, ref reader))
+            var exception = flags.HasFlag(ResponseFlags.Error) ? ReadError(ref reader) : null;
+
+            if (flags.HasFlag(ResponseFlags.Notification))
             {
+                HandleNotification(requestId, exception, response, reader.Consumed);
                 return;
             }
 
@@ -712,10 +727,8 @@ namespace Apache.Ignite.Internal
             Metrics.RequestsActiveDecrement();
             _logger.LogReceivedResponseTrace(requestId, ConnectionContext.ClusterNode.Address);
 
-            if (flags.HasFlag(ResponseFlags.Error))
+            if (exception != null)
             {
-                var exception = ReadError(ref reader);
-
                 response.Dispose();
 
                 Metrics.RequestsFailed.Add(1);
@@ -750,22 +763,29 @@ namespace Apache.Ignite.Internal
             }
         }
 
-        private bool HandleNotification(ResponseFlags flags, ref MsgPackReader reader)
+        private void HandleNotification(long requestId, Exception? exception, PooledBuffer response, int consumed)
         {
-            if (!flags.HasFlag(ResponseFlags.Notification))
+            if (!_notificationHandlers.TryRemove(requestId, out var notificationHandler))
             {
-                return false;
+                var message = $"Unexpected notification ID ({requestId}) received from the server " +
+                              $"[remoteAddress={ConnectionContext.ClusterNode.Address}], closing the socket.";
+
+                _logger.LogUnexpectedResponseIdError(null, message);
+                Dispose(new IgniteClientConnectionException(ErrorGroups.Client.Protocol, message));
+
+                return;
             }
 
-            // TODO
-            Console.WriteLine($"Notification received: {flags}, {reader.Consumed}, " + IsDisposed);
+            _logger.LogReceivedNotificationTrace(requestId, ConnectionContext.ClusterNode.Address);
 
-            // var notification = ReadNotification(ref reader);
-            //
-            // _logger.LogReceivedNotificationTrace(notification, ConnectionContext.ClusterNode.Address);
-            //
-            // _listener.OnNotification(notification);
-            return true;
+            if (exception != null)
+            {
+                notificationHandler.SetException(exception);
+            }
+            else
+            {
+                notificationHandler.SetResult(response.Slice(consumed));
+            }
         }
 
         /// <summary>
