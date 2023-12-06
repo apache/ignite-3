@@ -530,6 +530,54 @@ public class SqlDdlParserTest extends AbstractDdlParserTest {
     }
 
     @Test
+    public void dropTable() {
+        var query = "drop table my_table";
+
+        SqlNode node = parse(query);
+
+        assertThat(node, instanceOf(IgniteSqlDropTable.class));
+
+        var dropIndex = (IgniteSqlDropTable) node;
+
+        assertThat(dropIndex.ifExists(), is(false));
+        assertThat(dropIndex.name().names, is(List.of("MY_TABLE")));
+
+        expectUnparsed(node, "DROP TABLE \"MY_TABLE\"");
+    }
+
+    @Test
+    public void dropTableSchemaSpecified() {
+        var query = "drop table my_schema.my_table";
+
+        SqlNode node = parse(query);
+
+        assertThat(node, instanceOf(IgniteSqlDropTable.class));
+
+        var dropIndex = (IgniteSqlDropTable) node;
+
+        assertThat(dropIndex.ifExists(), is(false));
+        assertThat(dropIndex.name().names, is(List.of("MY_SCHEMA", "MY_TABLE")));
+
+        expectUnparsed(node, "DROP TABLE \"MY_SCHEMA\".\"MY_TABLE\"");
+    }
+
+    @Test
+    public void dropTableIfExists() {
+        var query = "drop table if exists my_table";
+
+        SqlNode node = parse(query);
+
+        assertThat(node, instanceOf(IgniteSqlDropTable.class));
+
+        var dropIndex = (IgniteSqlDropTable) node;
+
+        assertThat(dropIndex.ifExists(), is(true));
+        assertThat(dropIndex.name().names, is(List.of("MY_TABLE")));
+
+        expectUnparsed(node, "DROP TABLE IF EXISTS \"MY_TABLE\"");
+    }
+
+    @Test
     public void dropIndexSimpleCase() {
         var query = "drop index my_index";
 
