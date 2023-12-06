@@ -43,7 +43,6 @@ import org.jetbrains.annotations.Nullable;
  * Sends TX Unlock request.
  */
 public class TxUnlockRequestSender {
-
     /** Network timeout. */
     private static final long RPC_TIMEOUT = 3000;
 
@@ -74,7 +73,8 @@ public class TxUnlockRequestSender {
             ClusterService clusterService,
             PlacementDriverHelper placementDriverHelper,
             HybridClock clock,
-            TxCleanupProcessor txCleanupProcessor) {
+            TxCleanupProcessor txCleanupProcessor
+    ) {
         this.clusterService = clusterService;
         this.placementDriverHelper = placementDriverHelper;
         this.hybridClock = clock;
@@ -143,7 +143,8 @@ public class TxUnlockRequestSender {
             @Nullable HybridTimestamp commitTimestamp,
             UUID txId,
             String node,
-            Collection<TablePartitionId> partitions) {
+            Collection<TablePartitionId> partitions
+    ) {
         Collection<ReplicationGroupId> enlistedPartitions = (Collection<ReplicationGroupId>) (Collection<?>) partitions;
 
         LockReleaseMessage build = FACTORY.lockReleaseMessage()

@@ -33,7 +33,6 @@ import org.jetbrains.annotations.Nullable;
  * A wrapper above {@link TxManager} that is able to send TX cleanup requests in a durable manner (with retries).
  */
 public class TxCleanupProcessor {
-
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(TxCleanupProcessor.class);
 
@@ -81,7 +80,8 @@ public class TxCleanupProcessor {
             TablePartitionId partitionId,
             UUID txId,
             boolean commit,
-            @Nullable HybridTimestamp commitTimestamp) {
+            @Nullable HybridTimestamp commitTimestamp
+    ) {
         return cleanupWithRetry(commit, commitTimestamp, txId, partitionId, 0);
     }
 
@@ -92,7 +92,8 @@ public class TxCleanupProcessor {
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp,
             UUID txId,
-            TablePartitionId partitionId) {
+            TablePartitionId partitionId
+    ) {
         return cleanupWithRetry(commit, commitTimestamp, txId, partitionId, ATTEMPTS_TO_CLEANUP_REPLICA);
     }
 
@@ -102,7 +103,8 @@ public class TxCleanupProcessor {
             @Nullable HybridTimestamp commitTimestamp,
             UUID txId,
             TablePartitionId partitionId,
-            int attempts) {
+            int attempts
+    ) {
         return placementDriverHelper.awaitPrimaryReplica(partitionId, hybridClock.now())
                 .thenCompose(leaseHolder ->
                         cleanup(leaseHolder.getLeaseholder(), partitionId, txId, commit, commitTimestamp))

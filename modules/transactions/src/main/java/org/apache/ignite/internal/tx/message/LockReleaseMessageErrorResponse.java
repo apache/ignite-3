@@ -25,7 +25,6 @@ import org.apache.ignite.network.annotations.Transferable;
  */
 @Transferable(TxMessageGroup.TX_UNLOCK_MSG_ERR_RESPONSE)
 public interface LockReleaseMessageErrorResponse extends LockReleaseMessageResponse {
-
     /**
      * Returns a {@link Throwable} that was thrown during handling a lock release message.
      *
