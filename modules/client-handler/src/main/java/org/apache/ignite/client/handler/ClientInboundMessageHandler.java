@@ -504,7 +504,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
 
             out.packInt(ServerMessageType.RESPONSE);
             out.packLong(requestId);
-            writeFlags(out, ctx);
+            writeFlags(out, ctx); // TODO: Pack response type as a flag.
 
             // Observable timestamp should be calculated after the operation is processed; reserve space, write later.
             int observableTimestampIdx = out.reserveLong();
