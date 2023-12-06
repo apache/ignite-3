@@ -41,7 +41,7 @@ public class IgniteSqlCreateZone extends SqlCreate {
 
         /** Constructor. */
         protected Operator(boolean existFlag) {
-            super("ALTER ZONE", SqlKind.OTHER_DDL, existFlag);
+            super("CREATE ZONE", SqlKind.OTHER_DDL, existFlag);
         }
 
         /** {@inheritDoc} */
@@ -95,7 +95,7 @@ public class IgniteSqlCreateZone extends SqlCreate {
     public void unparse(SqlWriter writer, int leftPrec, int rightPrec) {
         writer.keyword("CREATE");
         writer.keyword("ZONE");
-        if (ifNotExists) {
+        if (ifNotExists()) {
             writer.keyword("IF NOT EXISTS");
         }
 
