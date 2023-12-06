@@ -1139,12 +1139,5 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
             this.value = null;
             this.hasValue = false;
         }
-
-        /** {@inheritDoc} */
-        @Override
-        public String toString() {
-            return S.toString(this);
-        }
     }
-
 }

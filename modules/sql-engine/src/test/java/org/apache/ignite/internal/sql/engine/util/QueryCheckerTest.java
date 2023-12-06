@@ -248,11 +248,6 @@ public class QueryCheckerTest extends BaseIgniteAbstractTest {
                 .check();
     }
 
-    @Test
-    public void testParameterMetadata() {
-
-    }
-
     private static QueryChecker assertQuery(String qry) {
         TestNode testNode = CLUSTER.node(NODE_NAME);
 
