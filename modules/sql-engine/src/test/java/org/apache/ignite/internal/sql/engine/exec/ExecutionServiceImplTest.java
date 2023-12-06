@@ -47,7 +47,6 @@ import static org.mockito.Mockito.when;
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
@@ -60,6 +59,7 @@ import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
@@ -149,6 +149,9 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
 
     /** Timeout in ms for SQL planning phase. */
     public static final long PLANNING_TIMEOUT = 5_000;
+
+    /** Timeout in ms for stopping execution service.*/
+    private static final long SHUTDOWN_TIMEOUT = 5_000;
 
     private static final int SCHEMA_VERSION = -1;
 
@@ -698,26 +701,26 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         cursor.closeAsync();
     }
 
+    /**
+     * Test checks the format of the debugging information dump obtained during query execution.
+     * To obtain verifiable results, all response messages are blocked while debugging information is obtained.
+     */
     @Test
-    public void testDebugInfo() throws InterruptedException {
+    public void testDebugInfoFormat() throws InterruptedException {
         ExecutionServiceImpl<?> execService = executionServices.get(0);
         BaseQueryContext ctx = createContext();
         QueryPlan plan = prepare("SELECT * FROM test_tbl", ctx);
 
-        InternalTransaction tx = new NoOpTransaction(nodeNames.get(0));
-        AsyncCursor<List<Object>> cursor = execService.executePlan(tx, plan, ctx);
-
-        CountDownLatch startResponse = new CountDownLatch(1);
+        CountDownLatch startResponseLatch = new CountDownLatch(4);
         CountDownLatch continueLatch = new CountDownLatch(1);
 
         nodeNames.stream().map(testCluster::node).forEach(node -> node.interceptor((senderNodeName, msg, original) -> {
-            if (node.nodeName.equals(nodeNames.get(0))) {
-                node.taskExecutor.execute(() -> {
+            if (msg instanceof QueryStartResponseImpl) {
+                startResponseLatch.countDown();
+
+                ForkJoinPool.commonPool().execute(() -> {
                     try {
-                        if (msg instanceof QueryStartResponseImpl) {
-                            startResponse.countDown();
-                            continueLatch.await();
-                        }
+                        continueLatch.await(TIMEOUT_IN_MS, TimeUnit.MILLISECONDS);
                     } catch (InterruptedException ignore) {
                         // No-op.
                     }
@@ -733,9 +736,12 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
             }
         }));
 
-        startResponse.await();
+        InternalTransaction tx = new NoOpTransaction(nodeNames.get(0));
+        AsyncCursor<List<Object>> cursor = execService.executePlan(tx, plan, ctx);
 
-        String debugInfo = execService.collectDebugInfo();
+        startResponseLatch.await(TIMEOUT_IN_MS, TimeUnit.MILLISECONDS);
+
+        String debugInfo = execService.dumpDebugInfo();
 
         continueLatch.countDown();
 
@@ -745,20 +751,22 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
                 () -> executionServices.stream().map(es -> es.localFragments(ctx.queryId()).size())
                         .mapToInt(i -> i).sum() == 0, TIMEOUT_IN_MS));
 
-        String expected = format("\n"
-                + "Debug info for query: {} (canceled=false)\n"
-                + "  Coordinator node: node_1 (current node)\n"
-                + "  Root node state: opened\n"
-                + "\n"
-                + "  Fragments awaiting init completion:\n"
-                + "    id=0, node=node_1\n"
-                + "    id=1, node=node_1\n"
-                + "    id=1, node=node_2\n"
-                + "    id=1, node=node_3\n"
-                + "\n"
-                + "  Local fragments:\n"
-                + "    id=0, state=opened, canceled=false, class=Inbox  (root)\n"
-                + "    id=1, state=opened, canceled=false, class=Outbox\n", ctx.queryId());
+        String nl = System.lineSeparator();
+
+        String expected = format(nl
+                + "Debug info for query: {} (canceled=false, stopped=false)" + nl
+                + "  Coordinator node: node_1 (current node)" + nl
+                + "  Root node state: opened" + nl
+                + nl
+                + "  Fragments awaiting init completion:" + nl
+                + "    id=0, node=node_1" + nl
+                + "    id=1, node=node_1" + nl
+                + "    id=1, node=node_2" + nl
+                + "    id=1, node=node_3" + nl
+                + nl
+                + "  Local fragments:" + nl
+                + "    id=0, state=opened, canceled=false, class=Inbox  (root)" + nl
+                + "    id=1, state=opened, canceled=false, class=Outbox" + nl, ctx.queryId());
 
         assertThat(debugInfo, equalTo(expected));
     }
@@ -840,7 +848,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
                 ArrayRowHandler.INSTANCE,
                 dependencyResolver,
                 (ctx, deps) -> node.implementor(ctx, mailboxRegistry, exchangeService, deps),
-                0
+                SHUTDOWN_TIMEOUT
         );
 
         taskExecutor.start();
@@ -1103,8 +1111,8 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
     private static class CapturingMailboxRegistry implements MailboxRegistry {
         private final MailboxRegistry delegate;
 
-        private final Set<Inbox<?>> inboxes = Collections.newSetFromMap(new ConcurrentHashMap<>());
-        private final Set<Outbox<?>> outboxes = Collections.newSetFromMap(new ConcurrentHashMap<>());
+        private final Set<Inbox<?>> inboxes = ConcurrentHashMap.newKeySet();
+        private final Set<Outbox<?>> outboxes = ConcurrentHashMap.newKeySet();
 
         CapturingMailboxRegistry(MailboxRegistry delegate) {
             this.delegate = delegate;

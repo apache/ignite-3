@@ -428,9 +428,13 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         } catch (TimeoutException e) {
             String message = format("SQL execution service could not be stopped within the specified timeout ({} ms).", shutdownTimeout);
 
-            LOG.warn(message + collectDebugInfo());
-        } catch (InterruptedException | CancellationException e) {
+            LOG.warn(message + dumpDebugInfo());
+        } catch (CancellationException e) {
             LOG.warn("The stop future was cancelled, going to proceed the stop procedure", e);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+
+            LOG.warn("The stop future was interrupted, going to proceed the stop procedure", e);
         }
     }
 
@@ -471,41 +475,47 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         });
     }
 
-    String collectDebugInfo() {
+    /**
+     * Collects debug information about current state of execution.
+     *
+     *<p>This information has the following format:
+     *
+     *<pre>
+     *Debug info for query: [uuid] (canceled=[true/false], stopped=[true/false])
+     *  Coordinator node: [nodeName] [(current node)]
+     *  Root node state: [opened/closed/absent/exception]
+     *
+     *  Fragments awaiting init completion:
+     *    id=[id], node=[nodeName]"
+     *    ...
+     *
+     *  Local fragments:
+     *    id=[id], state=[opened/closed], canceled=[true/false], class=[SimpleClassName]  [(root)]
+     *    ...
+     *
+     *...
+     *</pre>
+     *
+     * @return String containing debugging information.
+     */
+    String dumpDebugInfo() {
         IgniteStringBuilder buf = new IgniteStringBuilder();
 
-        for (Map.Entry<UUID, DistributedQueryManager> e : queryManagerMap.entrySet()) {
-            UUID queryId = e.getKey();
-            DistributedQueryManager mgr = e.getValue();
+        for (Map.Entry<UUID, DistributedQueryManager> entry : queryManagerMap.entrySet()) {
+            UUID queryId = entry.getKey();
+            DistributedQueryManager mgr = entry.getValue();
 
             Long rootFragmentId = mgr.rootFragmentId;
 
-            if (rootFragmentId == null || mgr.cancelFut.isDone()) {
+            if (rootFragmentId == null) {
                 continue;
             }
 
-            CompletableFuture<AsyncRootNode<RowT, List<Object>>> rootNodeFut = mgr.root;;
-
-            boolean rootClosed = false;
-            Throwable rootNodeEx = null;
-
-            AsyncRootNode<RowT, List<Object>> rootNode = null;
-
-            if (rootNodeFut != null && rootNodeFut.isDone()) {
-                try {
-                    rootNode = rootNodeFut.getNow(null);
-
-                    if (rootNode != null) {
-                        rootClosed = rootNode.isClosed();
-                    }
-                } catch (CompletionException ex) {
-                    rootNodeEx = ExceptionUtils.unwrapCause(ex);
-                }
-            }
-
             buf.nl();
-            buf.app("Debug info for query: ").app(queryId).app(" (canceled=" + mgr.cancelled.get() + ")");
+            buf.app("Debug info for query: ").app(queryId)
+                    .app(" (canceled=").app(mgr.cancelled.get()).app(", stopped=").app(mgr.cancelFut.isDone()).app(")");
             buf.nl();
+
             buf.app("  Coordinator node: ").app(mgr.coordinatorNodeName);
             if (mgr.coordinator) {
                 buf.app(" (current node)");
@@ -513,63 +523,66 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             buf.nl();
 
             buf.app("  Root node state: ");
-            if (rootNode == null) {
-                buf.app("absent");
-            } else if (rootClosed) {
-                buf.app("closed");
-            } else if (rootNodeEx != null) {
-                buf.app("completed exceptionally: " + rootNodeEx);
-            } else {
-                buf.app("opened");
+            CompletableFuture<AsyncRootNode<RowT, List<Object>>> rootNodeFut = mgr.root;
+            if (rootNodeFut != null && rootNodeFut.isDone()) {
+                try {
+                    AsyncRootNode<RowT, List<Object>> rootNode = rootNodeFut.getNow(null);
+
+                    if (rootNode != null) {
+                        if (rootNode.isClosed()) {
+                            buf.app("closed");
+                        } else {
+                            buf.app("opened");
+                        }
+                    } else {
+                        buf.app("absent");
+                    }
+                } catch (CompletionException ex) {
+                    buf.app("completed exceptionally ").app('(').app(ExceptionUtils.unwrapCause(ex)).app(')');
+                } catch (CancellationException ex) {
+                    buf.app("canceled");
+                }
             }
             buf.nl().nl();
 
-            IgniteStringBuilder fragmentsBuf = new IgniteStringBuilder();
-
-            //RemoteFragmentKey::fragmentId
-            List<RemoteFragmentKey> fragmentKeys = mgr.remoteFragmentInitCompletion.entrySet().stream()
-                    .filter(entry -> !entry.getValue().isDone())
+            List<RemoteFragmentKey> initFragments = mgr.remoteFragmentInitCompletion.entrySet().stream()
+                    .filter(entry0 -> !entry0.getValue().isDone())
                     .map(Entry::getKey)
                     .sorted(Comparator.comparingLong(RemoteFragmentKey::fragmentId))
                     .collect(Collectors.toList());
 
-            for (RemoteFragmentKey fragmentKey : fragmentKeys) {
-                fragmentsBuf.app("    id=").app(fragmentKey.fragmentId()).app(", node=" + fragmentKey.nodeName());
-                fragmentsBuf.nl();
-            }
+            if (!initFragments.isEmpty()) {
+                buf.app("  Fragments awaiting init completion:").nl();
 
-            if (fragmentsBuf.length() > 0) {
-                buf.app("  Fragments awaiting init completion:")
-                        .nl()
-                        .app(fragmentsBuf.toString())
-                        .nl();
-            }
+                for (RemoteFragmentKey fragmentKey : initFragments) {
+                    buf.app("    id=").app(fragmentKey.fragmentId()).app(", node=").app(fragmentKey.nodeName());
+                    buf.nl();
+                }
 
-            fragmentsBuf.setLength(0);
+                buf.nl();
+            }
 
             List<AbstractNode<?>> localFragments = mgr.localFragments().stream()
                     .sorted(Comparator.comparingLong(n -> n.context().fragmentId()))
                     .collect(Collectors.toList());
 
-            for (AbstractNode<?> fragment : localFragments) {
-                long fragmentId = fragment.context().fragmentId();
+            if (!localFragments.isEmpty()) {
+                buf.app("  Local fragments:").nl();
 
-                fragmentsBuf.app("    id=").app(fragmentId)
-                        .app(", state=" + (fragment.isClosed() ? "closed" : "opened"))
-                        .app(", canceled=" + fragment.context().isCancelled())
-                        .app(", class=").app(fragment.getClass().getSimpleName());
+                for (AbstractNode<?> fragment : localFragments) {
+                    long fragmentId = fragment.context().fragmentId();
 
-                if (fragmentId == rootFragmentId) {
-                    fragmentsBuf.app("  (root)");
+                    buf.app("    id=").app(fragmentId)
+                            .app(", state=").app(fragment.isClosed() ? "closed" : "opened")
+                            .app(", canceled=").app(fragment.context().isCancelled())
+                            .app(", class=").app(fragment.getClass().getSimpleName());
+
+                    if (fragmentId == rootFragmentId) {
+                        buf.app("  (root)");
+                    }
+
+                    buf.nl();
                 }
-
-                fragmentsBuf.nl();
-            }
-
-            if (fragmentsBuf.length() > 0) {
-                buf.app("  Local fragments:")
-                        .nl()
-                        .app(fragmentsBuf.toString());
             }
         }
 
