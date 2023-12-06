@@ -193,10 +193,14 @@ namespace Apache.Ignite.Internal.Compute
             using var writer = ProtoCommon.GetMessageWriter();
             Write();
 
-            using var res = await _socket.DoOutInOpAsync(ClientOp.ComputeExecute, writer, PreferredNode.FromName(node.Name))
+            var notificationHandler = new TaskCompletionSource<PooledBuffer>();
+
+            using var res = await _socket.DoOutInOpAsync(
+                    ClientOp.ComputeExecute, writer, PreferredNode.FromName(node.Name), notificationHandler)
                 .ConfigureAwait(false);
 
-            return Read(res);
+            using var notificationRes = await notificationHandler.Task.ConfigureAwait(false);
+            return Read(notificationRes);
 
             void Write()
             {
@@ -263,11 +267,13 @@ namespace Apache.Ignite.Internal.Compute
                     using var bufferWriter = ProtoCommon.GetMessageWriter();
                     var colocationHash = Write(bufferWriter, table, schema);
                     var preferredNode = await table.GetPreferredNode(colocationHash, null).ConfigureAwait(false);
+                    var notificationHandler = new TaskCompletionSource<PooledBuffer>();
 
                     using var res = await _socket.DoOutInOpAsync(ClientOp.ComputeExecuteColocated, bufferWriter, preferredNode)
                         .ConfigureAwait(false);
 
-                    return Read(res);
+                    using var notificationRes = await notificationHandler.Task.ConfigureAwait(false);
+                    return Read(notificationRes);
                 }
                 catch (IgniteException e) when (e.Code == ErrorGroups.Client.TableIdNotFound)
                 {
