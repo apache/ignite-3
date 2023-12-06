@@ -263,6 +263,9 @@ public class ClientCompute implements IgniteCompute {
             List<DeploymentUnit> units,
             String jobClassName,
             Object[] args) {
+        // TODO: Notification handler
+        CompletableFuture<R> notificationFut = new CompletableFuture<>();
+
         return t.doSchemaOutOpAsync(
                 ClientOp.COMPUTE_EXECUTE_COLOCATED,
                 (schema, outputChannel) -> {
