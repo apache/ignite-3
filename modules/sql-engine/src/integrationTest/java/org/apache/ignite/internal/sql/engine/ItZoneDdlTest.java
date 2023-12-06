@@ -18,8 +18,8 @@
 package org.apache.ignite.internal.sql.engine;
 
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
-import org.apache.ignite.internal.distributionzones.DistributionZoneAlreadyExistsException;
-import org.apache.ignite.internal.distributionzones.DistributionZoneNotFoundException;
+import org.apache.ignite.internal.catalog.DistributionZoneExistsValidationException;
+import org.apache.ignite.internal.catalog.DistributionZoneNotFoundValidationException;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -41,7 +41,7 @@ public class ItZoneDdlTest extends ClusterPerClassIntegrationTest {
 
         IgniteTestUtils.assertThrowsWithCause(
                 () -> tryToCreateZone(ZONE_NAME, true),
-                DistributionZoneAlreadyExistsException.class,
+                DistributionZoneExistsValidationException.class,
                 String.format("Distribution zone already exists [zoneName=%s]", ZONE_NAME)
         );
 
@@ -56,8 +56,8 @@ public class ItZoneDdlTest extends ClusterPerClassIntegrationTest {
 
         IgniteTestUtils.assertThrowsWithCause(
                 () -> tryToDropZone(ZONE_NAME, true),
-                DistributionZoneNotFoundException.class,
-                String.format("Distribution zone is not found [zoneName=%s]", ZONE_NAME)
+                DistributionZoneNotFoundValidationException.class,
+                String.format("Distribution zone with name '%s' not found", ZONE_NAME)
         );
 
         tryToDropZone(ZONE_NAME, false);
@@ -72,8 +72,8 @@ public class ItZoneDdlTest extends ClusterPerClassIntegrationTest {
 
         IgniteTestUtils.assertThrowsWithCause(
                 () -> tryToRenameZone("not_existing_" + ZONE_NAME, "another_" + ZONE_NAME, true),
-                DistributionZoneNotFoundException.class,
-                String.format("Distribution zone is not found [zoneName=%s]", ("not_existing_" + ZONE_NAME).toUpperCase())
+                DistributionZoneNotFoundValidationException.class,
+                String.format("Distribution zone with name '%s' not found", ("not_existing_" + ZONE_NAME).toUpperCase())
         );
 
         tryToRenameZone("not_existing_" + ZONE_NAME, "another_" + ZONE_NAME, false);
@@ -86,13 +86,13 @@ public class ItZoneDdlTest extends ClusterPerClassIntegrationTest {
 
         IgniteTestUtils.assertThrowsWithCause(
                 () -> tryToRenameZone(ZONE_NAME, ZONE_NAME + "_2", true),
-                DistributionZoneAlreadyExistsException.class,
+                DistributionZoneExistsValidationException.class,
                 String.format("Distribution zone already exists [zoneName=%s]", ZONE_NAME + "_2")
         );
 
         IgniteTestUtils.assertThrowsWithCause(
                 () -> tryToRenameZone(ZONE_NAME, ZONE_NAME + "_2", false),
-                DistributionZoneAlreadyExistsException.class,
+                DistributionZoneExistsValidationException.class,
                 String.format("Distribution zone already exists [zoneName=%s]", ZONE_NAME + "_2")
         );
     }
@@ -105,8 +105,8 @@ public class ItZoneDdlTest extends ClusterPerClassIntegrationTest {
 
         IgniteTestUtils.assertThrowsWithCause(
                 () -> tryToAlterZone("not_existing_" + ZONE_NAME, 200, true),
-                DistributionZoneNotFoundException.class,
-                String.format("Distribution zone is not found [zoneName=%s]", ("not_existing_" + ZONE_NAME).toUpperCase())
+                DistributionZoneNotFoundValidationException.class,
+                String.format("Distribution zone with name '%s' not found", ("not_existing_" + ZONE_NAME).toUpperCase())
         );
 
         tryToAlterZone("not_existing_" + ZONE_NAME, 200, false);

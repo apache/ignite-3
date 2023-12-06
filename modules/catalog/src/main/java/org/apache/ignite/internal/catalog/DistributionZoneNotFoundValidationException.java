@@ -20,7 +20,7 @@ package org.apache.ignite.internal.catalog;
 /**
  * This exception is thrown when zone not found in the catalog.
  *
- * <p>This exception is used to properly handle IF NOT EXISTS flag in ddl command handler.
+ * <p>This exception is used to properly handle IF EXISTS flag in ddl command handler.
  */
 public class DistributionZoneNotFoundValidationException extends CatalogValidationException {
     public DistributionZoneNotFoundValidationException(String message) {

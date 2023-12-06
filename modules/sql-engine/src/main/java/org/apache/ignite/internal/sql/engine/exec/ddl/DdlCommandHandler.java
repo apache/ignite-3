@@ -97,7 +97,7 @@ public class DdlCommandHandler {
     /** Handles rename zone command. */
     private CompletableFuture<Boolean> handleRenameZone(AlterZoneRenameCommand cmd) {
         return catalogManager.execute(DdlToCatalogCommandConverter.convert(cmd))
-                .handle(handleModificationResult(cmd.ifExists(), DistributionZoneExistsValidationException.class));
+                .handle(handleModificationResult(cmd.ifExists(), DistributionZoneNotFoundValidationException.class));
     }
 
     /** Handles alter zone command. */

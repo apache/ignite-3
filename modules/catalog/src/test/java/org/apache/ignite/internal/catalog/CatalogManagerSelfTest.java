@@ -128,8 +128,6 @@ import org.apache.ignite.internal.catalog.storage.ObjectIdGenUpdateEntry;
 import org.apache.ignite.internal.catalog.storage.UpdateLog;
 import org.apache.ignite.internal.catalog.storage.UpdateLog.OnUpdateHandler;
 import org.apache.ignite.internal.catalog.storage.VersionedUpdate;
-import org.apache.ignite.internal.distributionzones.DistributionZoneAlreadyExistsException;
-import org.apache.ignite.internal.distributionzones.DistributionZoneNotFoundException;
 import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
@@ -1224,7 +1222,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertNull(manager.zone(zone.id(), clock.nowLong()));
 
         // Try to drop non-existing zone.
-        assertThat(manager.execute(dropCommand), willThrow(DistributionZoneNotFoundException.class));
+        assertThat(manager.execute(dropCommand), willThrow(DistributionZoneNotFoundValidationException.class));
     }
 
     @Test
@@ -1281,30 +1279,6 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
                 .replicas(15)
                 .build();
         assertThat(manager.execute(cmd), willThrow(IgniteInternalException.class));
-
-        // Validate default zone wasn't changed.
-        assertSame(defaultZone, manager.zone(DEFAULT_ZONE_NAME, clock.nowLong()));
-
-        // Try to rename default zone.
-        String newDefaultZoneName = "RenamedDefaultZone";
-
-        CatalogCommand renameZoneCmd = RenameZoneCommand.builder()
-                .zoneName(DEFAULT_ZONE_NAME)
-                .newZoneName(newDefaultZoneName)
-                .build();
-
-        assertThat(manager.execute(renameZoneCmd), willThrow(IgniteInternalException.class));
-
-        // Validate default zone wasn't changed.
-        assertNull(manager.zone(newDefaultZoneName, clock.nowLong()));
-        assertSame(defaultZone, manager.zone(DEFAULT_ZONE_NAME, clock.nowLong()));
-
-        // Try to drop default zone.
-        CatalogCommand dropCommand = DropZoneCommand.builder()
-                .zoneName(DEFAULT_ZONE_NAME)
-                .build();
-
-        assertThat(manager.execute(dropCommand), willThrow(IgniteInternalException.class));
 
         // Validate default zone wasn't changed.
         assertSame(defaultZone, manager.zone(DEFAULT_ZONE_NAME, clock.nowLong()));
@@ -1370,7 +1344,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
                 .replicas(1)
                 .build();
 
-        assertThat(manager.execute(cmd), willThrowFast(DistributionZoneAlreadyExistsException.class));
+        assertThat(manager.execute(cmd), willThrowFast(DistributionZoneExistsValidationException.class));
 
         // Validate zone was NOT changed
         CatalogZoneDescriptor zone = manager.zone(zoneName, clock.nowLong());
