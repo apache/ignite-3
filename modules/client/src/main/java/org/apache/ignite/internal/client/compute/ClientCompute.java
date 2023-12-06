@@ -263,10 +263,9 @@ public class ClientCompute implements IgniteCompute {
             List<DeploymentUnit> units,
             String jobClassName,
             Object[] args) {
-        // TODO: Notification handler
         CompletableFuture<R> notificationFut = new CompletableFuture<>();
 
-        return t.doSchemaOutOpAsync(
+        var reqFut = t.doSchemaOutOpAsync(
                 ClientOp.COMPUTE_EXECUTE_COLOCATED,
                 (schema, outputChannel) -> {
                     ClientMessagePacker w = outputChannel.out();
@@ -278,8 +277,17 @@ public class ClientCompute implements IgniteCompute {
 
                     packJob(w, units, jobClassName, args);
                 },
-                r -> (R) r.unpackObjectFromBinaryTuple(),
-                ClientTupleSerializer.getPartitionAwarenessProvider(null, keyMapper, key));
+                r -> null,
+                ClientTupleSerializer.getPartitionAwarenessProvider(null, keyMapper, key),
+                (r, err) -> {
+                    if (err != null) {
+                        notificationFut.completeExceptionally(err);
+                    } else {
+                        notificationFut.complete((R) r.in().unpackObjectFromBinaryTuple());
+                    }
+                });
+
+        return reqFut.thenCompose(v -> notificationFut);
     }
 
     private static <R> CompletableFuture<R> executeColocatedTupleKey(
@@ -288,7 +296,10 @@ public class ClientCompute implements IgniteCompute {
             List<DeploymentUnit> units,
             String jobClassName,
             Object[] args) {
-        return t.doSchemaOutOpAsync(
+        CompletableFuture<R> notificationFut = new CompletableFuture<>();
+
+        // TODO: Deduplicate with above method.
+        var reqFut = t.doSchemaOutOpAsync(
                 ClientOp.COMPUTE_EXECUTE_COLOCATED,
                 (schema, outputChannel) -> {
                     ClientMessagePacker w = outputChannel.out();
@@ -300,8 +311,17 @@ public class ClientCompute implements IgniteCompute {
 
                     packJob(w, units, jobClassName, args);
                 },
-                r -> (R) r.unpackObjectFromBinaryTuple(),
-                ClientTupleSerializer.getPartitionAwarenessProvider(null, key));
+                r -> null,
+                ClientTupleSerializer.getPartitionAwarenessProvider(null, key),
+                (r, err) -> {
+                    if (err != null) {
+                        notificationFut.completeExceptionally(err);
+                    } else {
+                        notificationFut.complete((R) r.in().unpackObjectFromBinaryTuple());
+                    }
+                });
+
+        return reqFut.thenCompose(v -> notificationFut);
     }
 
     private CompletableFuture<ClientTable> getTable(String tableName) {

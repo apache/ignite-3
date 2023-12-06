@@ -316,6 +316,36 @@ public class ClientTable implements Table {
      * @param writer Writer.
      * @param reader Reader.
      * @param provider Partition awareness provider.
+     * @param notificationHandler Notification handler.
+     * @param <T> Result type.
+     * @return Future representing pending completion of the operation.
+     */
+    @SuppressWarnings("ClassEscapesDefinedScope")
+    public <T> CompletableFuture<T> doSchemaOutOpAsync(
+            int opCode,
+            BiConsumer<ClientSchema, PayloadOutputChannel> writer,
+            Function<ClientMessageUnpacker, T> reader,
+            @Nullable PartitionAwarenessProvider provider,
+            @Nullable NotificationHandler notificationHandler) {
+        return doSchemaOutInOpAsync(
+                opCode,
+                writer,
+                (schema, unpacker) -> reader.apply(unpacker),
+                null,
+                false,
+                provider,
+                null,
+                null,
+                notificationHandler);
+    }
+
+    /**
+     * Performs a schema-based operation.
+     *
+     * @param opCode Op code.
+     * @param writer Writer.
+     * @param reader Reader.
+     * @param provider Partition awareness provider.
      * @param <T> Result type.
      * @return Future representing pending completion of the operation.
      */
