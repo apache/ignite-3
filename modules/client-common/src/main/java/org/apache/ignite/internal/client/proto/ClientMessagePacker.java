@@ -262,7 +262,7 @@ public class ClientMessagePacker implements AutoCloseable {
      *
      * @param v the value to be written.
      */
-    public void packLongNullable(Long v) {
+    public void packLongNullable(@Nullable Long v) {
         if (v == null) {
             packNil();
         } else {

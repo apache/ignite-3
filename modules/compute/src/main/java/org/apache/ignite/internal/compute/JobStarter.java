@@ -15,19 +15,30 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.compute.queue;
+package org.apache.ignite.internal.compute;
 
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.compute.ComputeJob;
-import org.apache.ignite.internal.compute.ExecutionOptions;
+import org.apache.ignite.compute.DeploymentUnit;
 
 /**
- * Executor of Compute jobs.
+ * Compute job starter interface.
  */
-public interface ComputeExecutor {
-    <R> CompletableFuture<R> executeJob(ExecutionOptions options, Class<ComputeJob<R>> jobClass, Object[] args);
-
-    void start();
-
-    void stop();
+public interface JobStarter {
+    /**
+     * Start compute job.
+     *
+     * @param options Compute job execution options.
+     * @param units Deployment units. Can be empty.
+     * @param jobClassName Name of the job class to execute.
+     * @param args Arguments of the job.
+     * @param <R> Job result type.
+     * @return CompletableFuture Job result.
+     */
+    <R> CompletableFuture<R> start(
+            ExecutionOptions options,
+            List<DeploymentUnit> units,
+            String jobClassName,
+            Object... args
+    );
 }
