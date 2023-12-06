@@ -68,14 +68,4 @@ public class ItSqlClientAsynchronousApiTest extends ItSqlAsynchronousApiTest {
     public void testLockIsNotReleasedAfterTxRollback() {
         super.testLockIsNotReleasedAfterTxRollback();
     }
-
-    @Override
-    public void runScriptThatCompletesSuccessfully() {
-        super.runScriptThatCompletesSuccessfully();
-    }
-
-    @Override
-    public void runScriptThatFails() {
-        super.runScriptThatFails();
-    }
 }

@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.api;
 
 import static org.apache.ignite.internal.lang.SqlExceptionMapperUtil.mapToPublicSqlException;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.SESSION_CLOSED_ERR;
@@ -49,7 +50,6 @@ import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.property.Property;
 import org.apache.ignite.internal.sql.engine.property.SqlProperties;
 import org.apache.ignite.internal.sql.engine.property.SqlPropertiesHelper;
-import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.AsyncCursor;
@@ -299,7 +299,7 @@ public class SessionImpl implements AbstractSession {
                     .build();
 
             var counters = new LongArrayList(batch.size());
-            CompletableFuture<?> tail = CompletableFuture.completedFuture(null);
+            CompletableFuture<?> tail = nullCompletedFuture();
             ArrayList<CompletableFuture<?>> batchFuts = new ArrayList<>(batch.size());
 
             for (int i = 0; i < batch.size(); ++i) {
@@ -335,7 +335,7 @@ public class SessionImpl implements AbstractSession {
 
                                                     counters.add((long) page.items().get(0).get(0));
 
-                                                    return CompletableFuture.completedFuture(null);
+                                                    return nullCompletedFuture();
                                                 }).thenCompose(Function.identity());
                                     } finally {
                                         busyLock.leaveBusy();
@@ -462,7 +462,7 @@ public class SessionImpl implements AbstractSession {
         try {
             closeInternal();
 
-            return Commons.completedFuture();
+            return nullCompletedFuture();
         } catch (Exception e) {
             return CompletableFuture.failedFuture(mapToPublicSqlException(e));
         }

@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.network.file.messages.FileTransferError
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.emptyArray;
@@ -57,6 +58,7 @@ import org.apache.ignite.internal.network.file.messages.Identifier;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.network.ClusterNodeImpl;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NetworkMessageHandler;
@@ -272,14 +274,14 @@ class FileTransferServiceImplTest extends BaseIgniteAbstractTest {
         doAnswer(invocation -> {
             // Update transfer lifecycle state - transfer is registered.
             transferLifecycleState.compareAndSet(0, 1);
-            return (TransferredFilesCollector) () -> completedFuture(List.of());
+            return (TransferredFilesCollector) CompletableFutures::emptyListCompletedFuture;
         }).when(fileReceiver).registerTransfer(anyString(), any(UUID.class), anyList(), any(Path.class));
 
         // Set messaging service to fail to send upload response if transfer is not registered.
         doAnswer(invocation -> {
             // Check lifecycle state - transfer is registered.
             transferLifecycleState.compareAndSet(1, 2);
-            return completedFuture(null);
+            return nullCompletedFuture();
         }).when(messagingService).respond(anyString(), eq(FILE_TRANSFER_CHANNEL), any(FileTransferInitResponse.class), anyLong());
 
         // Create file transfer request.

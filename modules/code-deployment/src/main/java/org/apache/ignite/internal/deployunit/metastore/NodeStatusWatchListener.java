@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.deployunit.metastore;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
@@ -81,7 +81,7 @@ public class NodeStatusWatchListener implements WatchListener {
                     .thenComposeAsync(status -> deploymentUnitStore.getAllNodeStatuses(status.id(), status.version()), executor)
                     .thenAccept(nodes -> callback.onUpdate(nodeStatus, nodes));
         }
-        return completedFuture(null);
+        return nullCompletedFuture();
     }
 
     @Override

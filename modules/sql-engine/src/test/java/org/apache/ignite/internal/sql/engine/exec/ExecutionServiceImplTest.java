@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.exec;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFIG;
@@ -24,6 +25,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_LEFT_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
@@ -316,7 +318,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
                 original.onMessage(nodeName, msg);
             }
 
-            return CompletableFuture.completedFuture(null);
+            return nullCompletedFuture();
         });
 
         InternalTransaction tx = new NoOpTransaction(nodeNames.get(0));
@@ -499,11 +501,11 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
                     original.onMessage(senderNodeName, msg);
                 });
 
-                return CompletableFuture.completedFuture(null);
+                return nullCompletedFuture();
             } else {
                 original.onMessage(senderNodeName, msg);
 
-                return CompletableFuture.completedFuture(null);
+                return nullCompletedFuture();
             }
         }));
 
@@ -558,7 +560,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
                     original.onMessage(senderNodeName, msg);
                 });
 
-                return CompletableFuture.completedFuture(null);
+                return nullCompletedFuture();
             } else {
                 // On other nodes, simulate that the node has already gone.
                 return CompletableFuture.failedFuture(new NodeLeftException(node.nodeName));
@@ -685,7 +687,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
                 original.onMessage(nodeName, msg);
             }
 
-            return CompletableFuture.completedFuture(null);
+            return nullCompletedFuture();
         });
 
         QueryPlan plan = prepare("SELECT * FROM test_tbl", ctx);
@@ -727,7 +729,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
 
         when(topologyService.localMember()).thenReturn(clusterNode);
 
-        when(schemaManagerMock.schemaReadyFuture(isA(int.class))).thenReturn(CompletableFuture.completedFuture(null));
+        when(schemaManagerMock.schemaReadyFuture(isA(int.class))).thenReturn(nullCompletedFuture());
 
         NoOpExecutableTableRegistry executableTableRegistry = new NoOpExecutableTableRegistry();
 
@@ -746,7 +748,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
                     return CompletableFuture.failedFuture(mappingException);
                 }
 
-                return CompletableFuture.completedFuture(factory.allOf(nodeNames));
+                return completedFuture(factory.allOf(nodeNames));
             }
 
             @Override
@@ -989,7 +991,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
 
                 original.onMessage(senderNodeName, message);
 
-                return CompletableFuture.completedFuture(null);
+                return nullCompletedFuture();
             }
         }
 

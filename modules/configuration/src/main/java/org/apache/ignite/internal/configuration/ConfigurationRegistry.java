@@ -17,10 +17,10 @@
 
 package org.apache.ignite.internal.configuration;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.configuration.notifications.ConfigurationNotifier.notifyListeners;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.checkConfigurationType;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.innerNodeVisitor;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.lang.reflect.Field;
 import java.util.ArrayList;
@@ -209,7 +209,7 @@ public class ConfigurationRegistry implements IgniteComponent {
 
             private CompletableFuture<Void> combineFutures(Collection<CompletableFuture<?>> futures) {
                 if (futures.isEmpty()) {
-                    return completedFuture(null);
+                    return nullCompletedFuture();
                 }
 
                 CompletableFuture<?>[] resultFutures = futures.stream()

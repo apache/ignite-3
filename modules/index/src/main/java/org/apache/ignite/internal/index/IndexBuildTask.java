@@ -17,10 +17,10 @@
 
 package org.apache.ignite.internal.index;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 
 import java.util.ArrayList;
@@ -151,7 +151,7 @@ class IndexBuildTask {
 
     private CompletableFuture<Void> handleNextBatch() {
         if (!enterBusy()) {
-            return completedFuture(null);
+            return nullCompletedFuture();
         }
 
         try {
@@ -167,7 +167,7 @@ class IndexBuildTask {
                                 listener.onBuildCompletion(taskId.getIndexId(), taskId.getTableId(), taskId.getPartitionId());
                             }
 
-                            return completedFuture(null);
+                            return nullCompletedFuture();
                         }
 
                         return handleNextBatch();

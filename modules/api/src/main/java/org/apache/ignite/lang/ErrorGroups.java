@@ -516,6 +516,9 @@ public class ErrorGroups {
 
         /** Compute execution queue overflow error. */
         public static final int QUEUE_OVERFLOW_ERR = COMPUTE_ERR_GROUP.registerErrorCode((short) 4);
+
+        /** Compute job state transfer error. */
+        public static final int COMPUTE_JOB_STATE_TRANSITION_ERR = COMPUTE_ERR_GROUP.registerErrorCode((short) 5);
     }
 
     /** Catalog error group. */

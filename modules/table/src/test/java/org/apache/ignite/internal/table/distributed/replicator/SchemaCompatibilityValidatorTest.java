@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.table.distributed.replicator;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.groupingBy;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
@@ -25,6 +24,7 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_L
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PRECISION;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_SCALE;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.sql.ColumnType.BITMASK;
 import static org.apache.ignite.sql.ColumnType.BOOLEAN;
 import static org.apache.ignite.sql.ColumnType.BYTE_ARRAY;
@@ -354,7 +354,7 @@ class SchemaCompatibilityValidatorTest extends BaseIgniteAbstractTest {
     private void assertChangeIsNotBackwardCompatible(SchemaChangeSource changeSource) {
         when(schemasSource.tableSchemaVersionsBetween(TABLE_ID, beginTimestamp, 2))
                 .thenReturn(changeSource.schemaVersions());
-        when(schemasSource.waitForSchemaAvailability(anyInt(), anyInt())).thenReturn(completedFuture(null));
+        when(schemasSource.waitForSchemaAvailability(anyInt(), anyInt())).thenReturn(nullCompletedFuture());
 
         CompletableFuture<CompatValidationResult> resultFuture = validator.validateBackwards(2, TABLE_ID, txId);
 
