@@ -21,6 +21,7 @@ import static java.util.Collections.emptySet;
 import static java.util.Collections.unmodifiableSet;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
@@ -119,6 +120,8 @@ import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.thread.StripedScheduledThreadPoolExecutor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.vault.VaultManager;
+import org.apache.ignite.lang.ErrorGroups.Common;
+import org.apache.ignite.lang.IgniteException;
 import org.jetbrains.annotations.TestOnly;
 
 /**
@@ -127,6 +130,12 @@ import org.jetbrains.annotations.TestOnly;
 public class DistributionZoneManager implements IgniteComponent {
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(DistributionZoneManager.class);
+
+    /**
+     * Timeout for async operations to be performed in the manager start.
+     * TODO: temporary solution, must be removed in https://issues.apache.org/jira/browse/IGNITE-20477
+     */
+    private static final long START_TIMEOUT = 10_000L;
 
     /** Meta Storage manager. */
     private final MetaStorageManager metaStorageManager;
@@ -262,9 +271,18 @@ public class DistributionZoneManager implements IgniteComponent {
 
             restoreGlobalStateFromLocalMetastorage(recoveryRevision);
 
-            createOrRestoreZonesStates(recoveryRevision);
+            List<CompletableFuture<Void>> futures = new ArrayList<>();
 
-            restoreLogicalTopologyChangeEventAndStartTimers(recoveryRevision);
+            futures.add(createOrRestoreZonesStates(recoveryRevision));
+
+            futures.add(restoreLogicalTopologyChangeEventAndStartTimers(recoveryRevision));
+
+            try {
+                // TODO: return this futures to start method https://issues.apache.org/jira/browse/IGNITE-20477
+                allOf(futures.toArray(CompletableFuture[]::new)).get(START_TIMEOUT, MILLISECONDS);
+            } catch (Exception e) {
+                throw new IgniteException(Common.COMPONENT_NOT_STARTED_ERR, e);
+            }
 
             rebalanceEngine.start();
         });
@@ -1399,14 +1417,17 @@ public class DistributionZoneManager implements IgniteComponent {
         catalogManager.listen(ZONE_ALTER, new ManagerCatalogAlterZoneEventListener());
     }
 
-    private void createOrRestoreZonesStates(long recoveryRevision) {
+    private CompletableFuture<Void> createOrRestoreZonesStates(long recoveryRevision) {
         int catalogVersion = catalogManager.latestCatalogVersion();
+
+        List<CompletableFuture<Void>> futures = new ArrayList<>();
 
         // TODO: IGNITE-20287 Clean up abandoned resources for dropped zones from volt and metastore
         for (CatalogZoneDescriptor zone : catalogManager.zones(catalogVersion)) {
-            // TODO: return this futures https://issues.apache.org/jira/browse/IGNITE-20477
-            restoreZoneStateBusy(zone, recoveryRevision);
+            futures.add(restoreZoneStateBusy(zone, recoveryRevision));
         }
+
+        return allOf(futures.toArray(CompletableFuture[]::new));
     }
 
     /**
@@ -1414,8 +1435,9 @@ public class DistributionZoneManager implements IgniteComponent {
      * Also start scale up/scale down timers.
      *
      * @param recoveryRevision Revision of the Meta Storage after its recovery.
+     * @return Future that represents the pending completion of the operations.
      */
-    private void restoreLogicalTopologyChangeEventAndStartTimers(long recoveryRevision) {
+    private CompletableFuture<Void> restoreLogicalTopologyChangeEventAndStartTimers(long recoveryRevision) {
         Entry topologyEntry = metaStorageManager.getLocally(zonesLogicalTopologyKey(), recoveryRevision);
 
         if (topologyEntry.value() != null) {
@@ -1429,13 +1451,13 @@ public class DistributionZoneManager implements IgniteComponent {
             Entry lastUpdateRevisionEntry = metaStorageManager.getLocally(zonesRecoverableStateRevision(), recoveryRevision);
 
             if (lastUpdateRevisionEntry.value() == null || topologyRevision > bytesToLong(lastUpdateRevisionEntry.value())) {
-                // TODO: return this futures https://issues.apache.org/jira/browse/IGNITE-20477
-                onLogicalTopologyUpdate(newLogicalTopology, recoveryRevision, catalogVersion);
+                return onLogicalTopologyUpdate(newLogicalTopology, recoveryRevision, catalogVersion);
             } else {
-                // TODO: return this futures https://issues.apache.org/jira/browse/IGNITE-20477
-                restoreTimers(catalogVersion);
+                return restoreTimers(catalogVersion);
             }
         }
+
+        return nullCompletedFuture();
     }
 
     private class ManagerCatalogAlterZoneEventListener extends CatalogAlterZoneEventListener {
