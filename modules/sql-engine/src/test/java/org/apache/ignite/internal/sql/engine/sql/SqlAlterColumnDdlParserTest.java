@@ -50,8 +50,6 @@ public class SqlAlterColumnDdlParserTest extends AbstractDdlParserTest {
         assertThat(alterColumn.notNull(), is(true));
         expectUnparsed(alterColumn, "ALTER TABLE \"T\" ALTER COLUMN \"A\" SET NOT NULL");
 
-        assertThat(alterColumn.notNull(), is(true));
-
         alterColumn = parseAlterColumn("ALTER TABLE t ALTER COLUMN a DROP NOT NULL");
         assertThat(alterColumn.notNull(), is(false));
         expectUnparsed(alterColumn, "ALTER TABLE \"T\" ALTER COLUMN \"A\" DROP NOT NULL");

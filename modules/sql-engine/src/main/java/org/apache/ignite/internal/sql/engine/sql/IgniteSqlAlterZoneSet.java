@@ -40,7 +40,7 @@ public class IgniteSqlAlterZoneSet extends IgniteAbstractSqlAlterZone {
 
         /** Constructor. */
         private Operator(boolean existFlag) {
-            super("ALTER ZONE", SqlKind.OTHER_DDL, existFlag);
+            super("CREATE ZONE", SqlKind.OTHER_DDL, existFlag);
         }
 
         /** {@inheritDoc} */
