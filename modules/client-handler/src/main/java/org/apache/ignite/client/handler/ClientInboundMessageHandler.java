@@ -91,7 +91,6 @@ import org.apache.ignite.internal.client.proto.ErrorExtensions;
 import org.apache.ignite.internal.client.proto.HandshakeExtension;
 import org.apache.ignite.internal.client.proto.ProtocolVersion;
 import org.apache.ignite.internal.client.proto.ResponseFlags;
-import org.apache.ignite.internal.client.proto.ServerMessageType;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.jdbc.proto.JdbcQueryCursorHandler;
@@ -414,7 +413,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         metrics.bytesSentAdd(bytes);
     }
 
-    private void writeError(long requestId, int opCode, Throwable err, ChannelHandlerContext ctx) {
+    private void writeError(long requestId, int opCode, Throwable err, ChannelHandlerContext ctx, boolean isNotification) {
         LOG.warn("Error processing client request [connectionId=" + connectionId + ", id=" + requestId + ", op=" + opCode
                 + ", remoteAddress=" + ctx.channel().remoteAddress() + "]:" + err.getMessage(), err);
 
@@ -423,9 +422,8 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         try {
             assert err != null;
 
-            packer.packInt(ServerMessageType.RESPONSE);
             packer.packLong(requestId);
-            writeFlags(packer, ctx);
+            writeFlags(packer, ctx, isNotification, true);
 
             // Include server timestamp in error response as well:
             // an operation can modify data and then throw an exception (e.g. Compute task),
@@ -502,13 +500,11 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
                         + ", remoteAddress=" + ctx.channel().remoteAddress() + "]");
             }
 
-            out.packInt(ServerMessageType.RESPONSE);
             out.packLong(requestId);
-            writeFlags(out, ctx); // TODO: Pack response type as a flag.
+            writeFlags(out, ctx, false, false);
 
             // Observable timestamp should be calculated after the operation is processed; reserve space, write later.
             int observableTimestampIdx = out.reserveLong();
-            out.packNil(); // No error.
 
             // Track the future that will be completed when the response is sent.
             // Use single AtomicReference - current method is executed by a single thread, all requests are processed sequentially.
@@ -545,7 +541,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
 
                     if (err != null) {
                         out.close();
-                        writeError(reqId, op, (Throwable) err, ctx);
+                        writeError(reqId, op, (Throwable) err, ctx, false);
 
                         metrics.requestsFailedIncrement();
                     } else {
@@ -565,7 +561,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
             in.close();
             out.close();
 
-            writeError(requestId, opCode, t, ctx);
+            writeError(requestId, opCode, t, ctx, false);
 
             metrics.requestsFailedIncrement();
         }
@@ -713,7 +709,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         }
     }
 
-    private void writeFlags(ClientMessagePacker out, ChannelHandlerContext ctx) {
+    private void writeFlags(ClientMessagePacker out, ChannelHandlerContext ctx, boolean isNotification, boolean isError) {
         // Notify the client about primary replica change that happened for ANY table since the last request.
         // We can't assume that the client only uses uses a particular table (e.g. the one present in the replica tracker), because
         // the client can be connected to multiple nodes.
@@ -727,7 +723,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
                     + ctx.channel().remoteAddress() + ']');
         }
 
-        int flags = ResponseFlags.getFlags(primaryReplicasUpdated);
+        int flags = ResponseFlags.getFlags(primaryReplicasUpdated, isNotification, isError);
         out.packInt(flags);
 
         if (primaryReplicasUpdated) {
@@ -837,9 +833,8 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
 
         try {
             // Same header as regular response.
-            packer.packInt(ServerMessageType.NOTIFICATION);
             packer.packLong(requestId);
-            writeFlags(packer, channelHandlerContext);
+            writeFlags(packer, channelHandlerContext, true, false);
             packer.packLong(observableTimestamp(null));
 
             writer.accept(packer);
