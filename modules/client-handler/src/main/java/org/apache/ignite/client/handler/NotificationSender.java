@@ -19,11 +19,12 @@ package org.apache.ignite.client.handler;
 
 import java.util.function.Consumer;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Client notification sender.
  */
 @FunctionalInterface
 public interface NotificationSender {
-    void sendNotification(Consumer<ClientMessagePacker> writer);
+    void sendNotification(@Nullable Consumer<ClientMessagePacker> writer, @Nullable Throwable err);
 }

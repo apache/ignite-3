@@ -414,8 +414,13 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
     }
 
     private void writeError(long requestId, int opCode, Throwable err, ChannelHandlerContext ctx, boolean isNotification) {
-        LOG.warn("Error processing client request [connectionId=" + connectionId + ", id=" + requestId + ", op=" + opCode
-                + ", remoteAddress=" + ctx.channel().remoteAddress() + "]:" + err.getMessage(), err);
+        if (isNotification) {
+            LOG.warn("Error processing client notification [connectionId=" + connectionId + ", id=" + requestId
+                    + ", remoteAddress=" + ctx.channel().remoteAddress() + "]:" + err.getMessage(), err);
+        } else {
+            LOG.warn("Error processing client request [connectionId=" + connectionId + ", id=" + requestId + ", op=" + opCode
+                    + ", remoteAddress=" + ctx.channel().remoteAddress() + "]:" + err.getMessage(), err);
+        }
 
         var packer = getPacker(ctx.alloc());
 
@@ -828,7 +833,12 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         }
     }
 
-    private void sendNotification(long requestId, Consumer<ClientMessagePacker> writer) {
+    private void sendNotification(long requestId, @Nullable Consumer<ClientMessagePacker> writer, @Nullable Throwable err) {
+        if (err != null) {
+            writeError(requestId, -1, err, channelHandlerContext, true);
+            return;
+        }
+
         var packer = getPacker(channelHandlerContext.alloc());
 
         try {
@@ -837,7 +847,9 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
             writeFlags(packer, channelHandlerContext, true, false);
             packer.packLong(observableTimestamp(null));
 
-            writer.accept(packer);
+            if (writer != null) {
+                writer.accept(packer);
+            }
 
             write(packer, channelHandlerContext);
         } catch (Throwable t) {
@@ -853,6 +865,6 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         CompletableFuture<Object> requestSentFut = new CompletableFuture<>();
         requestSentFutRef.set(requestSentFut);
 
-        return writer -> requestSentFut.thenAccept(v -> sendNotification(requestId, writer));
+        return (writer, err) -> requestSentFut.thenAccept(v -> sendNotification(requestId, writer, err));
     }
 }

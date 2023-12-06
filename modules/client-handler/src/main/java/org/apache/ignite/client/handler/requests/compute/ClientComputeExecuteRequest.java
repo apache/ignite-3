@@ -62,10 +62,7 @@ public class ClientComputeExecuteRequest {
         Object[] args = unpackArgs(in);
 
         compute.executeAsync(Set.of(node), deploymentUnits, jobClassName, args)
-                .whenComplete((res, err) -> {
-                    // TODO: Handle error. Send error to the client in the same format.
-                    notificationSender.sendNotification(w -> w.packObjectAsBinaryTuple(res));
-                });
+                .whenComplete((res, err) -> notificationSender.sendNotification(w -> w.packObjectAsBinaryTuple(res), err));
 
         return null;
     }
