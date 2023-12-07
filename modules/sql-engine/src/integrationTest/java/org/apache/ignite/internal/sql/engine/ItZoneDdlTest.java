@@ -42,7 +42,7 @@ public class ItZoneDdlTest extends ClusterPerClassIntegrationTest {
         IgniteTestUtils.assertThrowsWithCause(
                 () -> tryToCreateZone(ZONE_NAME, true),
                 DistributionZoneExistsValidationException.class,
-                String.format("Distribution zone already exists [zoneName=%s]", ZONE_NAME)
+                String.format("Distribution zone with name '%s' already exists", ZONE_NAME)
         );
 
         tryToCreateZone(ZONE_NAME, false);
@@ -87,13 +87,13 @@ public class ItZoneDdlTest extends ClusterPerClassIntegrationTest {
         IgniteTestUtils.assertThrowsWithCause(
                 () -> tryToRenameZone(ZONE_NAME, ZONE_NAME + "_2", true),
                 DistributionZoneExistsValidationException.class,
-                String.format("Distribution zone already exists [zoneName=%s]", ZONE_NAME + "_2")
+                String.format("Distribution zone with name '%s' already exists", ZONE_NAME + "_2")
         );
 
         IgniteTestUtils.assertThrowsWithCause(
                 () -> tryToRenameZone(ZONE_NAME, ZONE_NAME + "_2", false),
                 DistributionZoneExistsValidationException.class,
-                String.format("Distribution zone already exists [zoneName=%s]", ZONE_NAME + "_2")
+                String.format("Distribution zone with name '%s' already exists", ZONE_NAME + "_2")
         );
     }
 

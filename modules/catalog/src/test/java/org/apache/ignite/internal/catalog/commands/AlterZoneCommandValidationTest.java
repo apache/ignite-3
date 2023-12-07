@@ -30,6 +30,8 @@ import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
 /**
  * Tests to verify validation of {@link AlterZoneCommand}.
@@ -38,11 +40,12 @@ import org.junit.jupiter.api.Test;
 public class AlterZoneCommandValidationTest extends AbstractCommandValidationTest {
     private static final String ZONE_NAME = "test_zone";
 
-    @Test
-    void testValidateZoneNameOnAlterZone() {
+    @ParameterizedTest(name = "[{index}] ''{argumentsWithNames}''")
+    @MethodSource("nullAndBlankStrings")
+    void testValidateZoneNameOnAlterZone(String zone) {
         assertThrows(
                 CatalogValidationException.class,
-                () -> AlterZoneCommand.builder().build(),
+                () -> AlterZoneCommand.builder().zoneName(zone).build(),
                 "Name of the zone can't be null or blank"
         );
     }

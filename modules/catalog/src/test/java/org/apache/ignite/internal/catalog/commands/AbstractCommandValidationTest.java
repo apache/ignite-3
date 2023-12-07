@@ -79,6 +79,18 @@ abstract class AbstractCommandValidationTest extends BaseIgniteAbstractTest {
         return catalog(builder.build());
     }
 
+    static Catalog catalogWithZone(String name) {
+        return catalog(
+                createZoneCommand(name)
+        );
+    }
+
+    static Catalog catalogWithZones(String zone1, String zone2) {
+        return catalog(
+                List.of(createZoneCommand(zone1), createZoneCommand(zone2))
+        );
+    }
+
     static Catalog catalogWithIndex(String name) {
         return catalog(List.of(
                 createTableCommand(TABLE_NAME),
@@ -104,6 +116,12 @@ abstract class AbstractCommandValidationTest extends BaseIgniteAbstractTest {
                         ColumnParams.builder().name("VAL").type(INT32).build()
                 ))
                 .primaryKeyColumns(List.of("ID"))
+                .build();
+    }
+
+    private static CatalogCommand createZoneCommand(String zoneName) {
+        return CreateZoneCommand.builder()
+                .zoneName(zoneName)
                 .build();
     }
 

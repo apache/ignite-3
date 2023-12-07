@@ -29,6 +29,7 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.MAX_PARTITION_COUNT;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.fromParams;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
 import java.util.List;
 import java.util.Objects;
@@ -104,7 +105,7 @@ public class CreateZoneCommand extends AbstractZoneCommand {
     @Override
     public List<UpdateEntry> get(Catalog catalog) {
         if (catalog.zone(zoneName) != null) {
-            throw new DistributionZoneExistsValidationException("Distribution zone already exists [zoneName=" + zoneName + ']');
+            throw new DistributionZoneExistsValidationException(format("Distribution zone with name '{}' already exists", zoneName));
         }
 
         CatalogZoneDescriptor zoneDesc = descriptor(catalog.objectIdGenState());

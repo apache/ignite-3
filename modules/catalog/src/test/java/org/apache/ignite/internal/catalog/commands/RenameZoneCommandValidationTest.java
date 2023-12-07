@@ -20,8 +20,12 @@ package org.apache.ignite.internal.catalog.commands;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 
+import org.apache.ignite.internal.catalog.Catalog;
+import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
 /**
  * Tests to verify validation of {@link RenameZoneCommand}.
@@ -29,18 +33,22 @@ import org.junit.jupiter.api.Test;
 public class RenameZoneCommandValidationTest extends AbstractCommandValidationTest {
     private static final String ZONE_NAME = "test_zone";
 
-    @Test
-    void testValidateZoneNamesOnRenameZone() {
+    @ParameterizedTest(name = "[{index}] ''{argumentsWithNames}''")
+    @MethodSource("nullAndBlankStrings")
+    void testValidateZoneNamesOnRenameZone(String zone) {
         assertThrows(
                 CatalogValidationException.class,
-                () -> RenameZoneCommand.builder().build(),
+                () -> RenameZoneCommand.builder().zoneName(zone).build(),
                 "Name of the zone can't be null or blank");
 
         assertThrows(
                 CatalogValidationException.class,
-                () -> RenameZoneCommand.builder().zoneName(ZONE_NAME).build(),
+                () -> RenameZoneCommand.builder().zoneName(ZONE_NAME).newZoneName(zone).build(),
                 "New zone name can't be null or blank");
+    }
 
+    @Test
+    void testRenameDefaultZone() {
         assertThrows(
                 CatalogValidationException.class,
                 () -> RenameZoneCommand.builder().zoneName(DEFAULT_ZONE_NAME).newZoneName("some").build(),
@@ -48,5 +56,41 @@ public class RenameZoneCommandValidationTest extends AbstractCommandValidationTe
 
         // Let's check the success cases.
         RenameZoneCommand.builder().zoneName(ZONE_NAME).newZoneName(ZONE_NAME + 0).build();
+    }
+
+    @Test
+    void exceptionIsThrownIfZoneWithGivenNameNotFound() {
+        RenameZoneCommandBuilder builder = RenameZoneCommand.builder();
+
+        Catalog catalog = emptyCatalog();
+
+        CatalogCommand command = builder
+                .zoneName("some_zone")
+                .newZoneName("some_zone1")
+                .build();
+
+        assertThrows(
+                CatalogValidationException.class,
+                () -> command.get(catalog),
+                "Distribution zone with name 'some_zone' not found"
+        );
+    }
+
+    @Test
+    void exceptionIsThrownIfZoneToRenameAlreadyExist() {
+        RenameZoneCommandBuilder builder = RenameZoneCommand.builder();
+
+        Catalog catalog = catalogWithZones("some_zone", "some_zone1");
+
+        CatalogCommand command = builder
+                .zoneName("some_zone")
+                .newZoneName("some_zone1")
+                .build();
+
+        assertThrows(
+                CatalogValidationException.class,
+                () -> command.get(catalog),
+                "Distribution zone with name 'some_zone1' already exists"
+        );
     }
 }

@@ -26,21 +26,25 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.MAX_PARTITION_COUNT;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 
+import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
 /**
  * Tests to verify validation of {@link CreateZoneCommand}.
  */
 @SuppressWarnings("ThrowableNotThrown")
 public class CreateZoneCommandValidationTest extends AbstractCommandValidationTest {
-    @Test
-    void testValidateZoneNameOnCreateZone() {
+    @ParameterizedTest(name = "[{index}] ''{argumentsWithNames}''")
+    @MethodSource("nullAndBlankStrings")
+    void testValidateZoneNameOnCreateZone(String zone) {
         assertThrows(
                 CatalogValidationException.class,
-                () -> CreateZoneCommand.builder().build(),
+                () -> CreateZoneCommand.builder().zoneName(zone).build(),
                 "Name of the zone can't be null or blank"
         );
     }
@@ -222,6 +226,23 @@ public class CreateZoneCommandValidationTest extends AbstractCommandValidationTe
         // Let's check the success cases.
         createZoneBuilder(ZONE_NAME + 0).filter("['nodeAttributes'][?(@.['region'] == 'EU')]").build();
         createZoneBuilder(ZONE_NAME + 1).filter(DEFAULT_FILTER).build();
+    }
+
+    @Test
+    void exceptionIsThrownIfZoneAlreadyExist() {
+        CreateZoneCommandBuilder builder = CreateZoneCommand.builder();
+
+        Catalog catalog = catalogWithZone("some_zone");
+
+        CatalogCommand command = builder
+                .zoneName("some_zone")
+                .build();
+
+        assertThrows(
+                CatalogValidationException.class,
+                () -> command.get(catalog),
+                "Distribution zone with name 'some_zone' already exists"
+        );
     }
 
     private static CatalogCommand createZoneParams(@Nullable Integer autoAdjust, @Nullable Integer scaleUp, @Nullable Integer scaleDown) {

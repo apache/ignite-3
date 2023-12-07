@@ -20,19 +20,24 @@ package org.apache.ignite.internal.catalog.commands;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 
+import org.apache.ignite.internal.catalog.Catalog;
+import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
 /**
  * Tests to verify validation of {@link DropZoneCommand}.
  */
 @SuppressWarnings("ThrowableNotThrown")
 public class DropZoneCommandValidationTest extends AbstractCommandValidationTest {
-    @Test
-    void testValidateZoneNameOnDropZone() {
+    @ParameterizedTest(name = "[{index}] ''{argumentsWithNames}''")
+    @MethodSource("nullAndBlankStrings")
+    void testValidateZoneNameOnDropZone(String zone) {
         assertThrows(
                 CatalogValidationException.class,
-                () -> DropZoneCommand.builder().build(),
+                () -> DropZoneCommand.builder().zoneName(zone).build(),
                 "Name of the zone can't be null or blank"
         );
     }
@@ -43,6 +48,23 @@ public class DropZoneCommandValidationTest extends AbstractCommandValidationTest
                 CatalogValidationException.class,
                 () -> DropZoneCommand.builder().zoneName(DEFAULT_ZONE_NAME).build(),
                 "Default distribution zone can't be dropped"
+        );
+    }
+
+    @Test
+    void exceptionIsThrownIfZoneWithGivenNameNotFound() {
+        DropZoneCommandBuilder builder = DropZoneCommand.builder();
+
+        Catalog catalog = emptyCatalog();
+
+        CatalogCommand command = builder
+                .zoneName("some_zone")
+                .build();
+
+        assertThrows(
+                CatalogValidationException.class,
+                () -> command.get(catalog),
+                "Distribution zone with name 'some_zone' not found"
         );
     }
 }

@@ -26,6 +26,7 @@ import org.apache.ignite.internal.catalog.CatalogCommand;
  * should specify name of the zone to be processed.
  */
 public interface AbstractZoneCommandBuilder<T extends AbstractZoneCommandBuilder<T>> {
+    /** Zone name all inheritor will processed with. */
     T zoneName(String zoneName);
 
     /** Returns a command with specified parameters. */
