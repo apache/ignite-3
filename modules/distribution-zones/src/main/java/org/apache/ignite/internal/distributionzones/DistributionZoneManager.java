@@ -21,6 +21,7 @@ import static java.util.Collections.emptySet;
 import static java.util.Collections.unmodifiableSet;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
@@ -86,6 +87,7 @@ import java.util.function.LongFunction;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.events.AlterZoneEventParameters;
+import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.events.CreateZoneEventParameters;
 import org.apache.ignite.internal.catalog.events.DropZoneEventParameters;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
@@ -118,6 +120,8 @@ import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.thread.StripedScheduledThreadPoolExecutor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.vault.VaultManager;
+import org.apache.ignite.lang.ErrorGroups.Common;
+import org.apache.ignite.lang.IgniteException;
 import org.jetbrains.annotations.TestOnly;
 
 /**
@@ -126,6 +130,12 @@ import org.jetbrains.annotations.TestOnly;
 public class DistributionZoneManager implements IgniteComponent {
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(DistributionZoneManager.class);
+
+    /**
+     * Timeout for async operations to be performed in the manager start.
+     * TODO: temporary solution, must be removed in https://issues.apache.org/jira/browse/IGNITE-20477
+     */
+    private static final long START_TIMEOUT = 10_000L;
 
     /** Meta Storage manager. */
     private final MetaStorageManager metaStorageManager;
@@ -237,9 +247,9 @@ public class DistributionZoneManager implements IgniteComponent {
                 busyLock,
                 registry,
                 metaStorageManager,
-                vaultMgr,
                 zonesState,
-                this
+                this,
+                catalogManager
         );
     }
 
@@ -261,9 +271,18 @@ public class DistributionZoneManager implements IgniteComponent {
 
             restoreGlobalStateFromLocalMetastorage(recoveryRevision);
 
-            createOrRestoreZonesStates(recoveryRevision);
+            List<CompletableFuture<Void>> futures = new ArrayList<>();
 
-            restoreLogicalTopologyChangeEventAndStartTimers(recoveryRevision);
+            futures.add(createOrRestoreZonesStates(recoveryRevision));
+
+            futures.add(restoreLogicalTopologyChangeEventAndStartTimers(recoveryRevision));
+
+            try {
+                // TODO: return this futures to start method https://issues.apache.org/jira/browse/IGNITE-20477
+                allOf(futures.toArray(CompletableFuture[]::new)).get(START_TIMEOUT, MILLISECONDS);
+            } catch (Exception e) {
+                throw new IgniteException(Common.COMPONENT_NOT_STARTED_ERR, e);
+            }
 
             rebalanceEngine.start();
         });
@@ -287,15 +306,25 @@ public class DistributionZoneManager implements IgniteComponent {
     }
 
     /**
-     * Returns the data nodes of the specified zone.
-     * See {@link CausalityDataNodesEngine#dataNodes(long, int)}.
+     * Gets data nodes of the zone using causality token and catalog version. {@code causalityToken} must be agreed
+     * with the {@code catalogVersion}, meaning that for the provided {@code causalityToken} actual {@code catalogVersion} must be provided.
+     * For example, if you are in the meta storage watch thread and {@code causalityToken} is the revision of the watch event, it is
+     * safe to take {@link CatalogManager#latestCatalogVersion()} as a {@code catalogVersion},
+     * because {@link CatalogManager#latestCatalogVersion()} won't be updated in a watch thread.
+     * The same is applied for {@link CatalogEventParameters}, it is safe to take {@link CatalogEventParameters#causalityToken()}
+     * as a {@code causalityToken} and {@link CatalogEventParameters#catalogVersion()} as a {@code catalogVersion}.
+     *
+     * <p>Return data nodes or throw the exception:
+     * {@link IllegalArgumentException} if causalityToken or zoneId is not valid.
+     * {@link DistributionZoneNotFoundException} if the zone with the provided zoneId does not exist.
      *
      * @param causalityToken Causality token.
+     * @param catalogVersion Catalog version.
      * @param zoneId Zone id.
-     * @return The future which will be completed with data nodes for the zoneId or with exception.
+     * @return The future with data nodes for the zoneId.
      */
-    public CompletableFuture<Set<String>> dataNodes(long causalityToken, int zoneId) {
-        return causalityDataNodesEngine.dataNodes(causalityToken, zoneId);
+    public CompletableFuture<Set<String>> dataNodes(long causalityToken, int catalogVersion, int zoneId) {
+        return causalityDataNodesEngine.dataNodes(causalityToken, catalogVersion, zoneId);
     }
 
     private CompletableFuture<Void> onUpdateScaleUpBusy(AlterZoneEventParameters parameters) {
@@ -306,11 +335,7 @@ public class DistributionZoneManager implements IgniteComponent {
         long causalityToken = parameters.causalityToken();
 
         if (newScaleUp == IMMEDIATE_TIMER_VALUE) {
-            return saveDataNodesToMetaStorageOnScaleUp(zoneId, causalityToken).thenRun(() -> {
-                // TODO: causalityOnUpdateScaleUp will be removed https://issues.apache.org/jira/browse/IGNITE-20604,
-                // catalog must be used instead
-                causalityDataNodesEngine.causalityOnUpdateScaleUp(causalityToken, zoneId, IMMEDIATE_TIMER_VALUE);
-            });
+            return saveDataNodesToMetaStorageOnScaleUp(zoneId, causalityToken);
         }
 
         // It is safe to zonesTimers.get(zoneId) in term of NPE because meta storage notifications are one-threaded
@@ -335,8 +360,6 @@ public class DistributionZoneManager implements IgniteComponent {
             zoneState.stopScaleUp();
         }
 
-        causalityDataNodesEngine.causalityOnUpdateScaleUp(causalityToken, zoneId, newScaleUp);
-
         return nullCompletedFuture();
     }
 
@@ -348,11 +371,7 @@ public class DistributionZoneManager implements IgniteComponent {
         long causalityToken = parameters.causalityToken();
 
         if (newScaleDown == IMMEDIATE_TIMER_VALUE) {
-            return saveDataNodesToMetaStorageOnScaleDown(zoneId, causalityToken).thenRun(() -> {
-                // TODO: causalityOnUpdateScaleDown will be removed https://issues.apache.org/jira/browse/IGNITE-20604,
-                // catalog must be used instead
-                causalityDataNodesEngine.causalityOnUpdateScaleDown(causalityToken, zoneId, IMMEDIATE_TIMER_VALUE);
-            });
+            return saveDataNodesToMetaStorageOnScaleDown(zoneId, causalityToken);
         }
 
         // It is safe to zonesTimers.get(zoneId) in term of NPE because meta storage notifications are one-threaded
@@ -377,19 +396,13 @@ public class DistributionZoneManager implements IgniteComponent {
             zoneState.stopScaleDown();
         }
 
-        causalityDataNodesEngine.causalityOnUpdateScaleDown(causalityToken, zoneId, newScaleDown);
-
         return nullCompletedFuture();
     }
 
     private CompletableFuture<Void> onUpdateFilter(AlterZoneEventParameters parameters) {
         int zoneId = parameters.zoneDescriptor().id();
 
-        String newFilter = parameters.zoneDescriptor().filter();
-
         long causalityToken = parameters.causalityToken();
-
-        causalityDataNodesEngine.onUpdateFilter(causalityToken, zoneId, newFilter);
 
         return saveDataNodesToMetaStorageOnScaleUp(zoneId, causalityToken);
     }
@@ -428,8 +441,6 @@ public class DistributionZoneManager implements IgniteComponent {
             assert prevZoneState == null : "Zone's state was created twice [zoneId = " + zoneId + ']';
         }
 
-        causalityDataNodesEngine.onCreateOrRestoreZoneState(causalityToken, zone);
-
         return nullCompletedFuture();
     }
 
@@ -446,7 +457,7 @@ public class DistributionZoneManager implements IgniteComponent {
 
         Set<Node> dataNodes = logicalTopology.stream().map(NodeWithAttributes::node).collect(toSet());
 
-        causalityDataNodesEngine.onCreateOrRestoreZoneState(causalityToken, zone);
+        causalityDataNodesEngine.onCreateZoneState(causalityToken, zone);
 
         return initDataNodesAndTriggerKeysInMetaStorage(zoneId, causalityToken, dataNodes);
     }
@@ -1406,14 +1417,17 @@ public class DistributionZoneManager implements IgniteComponent {
         catalogManager.listen(ZONE_ALTER, new ManagerCatalogAlterZoneEventListener());
     }
 
-    private void createOrRestoreZonesStates(long recoveryRevision) {
+    private CompletableFuture<Void> createOrRestoreZonesStates(long recoveryRevision) {
         int catalogVersion = catalogManager.latestCatalogVersion();
+
+        List<CompletableFuture<Void>> futures = new ArrayList<>();
 
         // TODO: IGNITE-20287 Clean up abandoned resources for dropped zones from volt and metastore
         for (CatalogZoneDescriptor zone : catalogManager.zones(catalogVersion)) {
-            // TODO: return this futures https://issues.apache.org/jira/browse/IGNITE-20477
-            restoreZoneStateBusy(zone, recoveryRevision);
+            futures.add(restoreZoneStateBusy(zone, recoveryRevision));
         }
+
+        return allOf(futures.toArray(CompletableFuture[]::new));
     }
 
     /**
@@ -1421,8 +1435,9 @@ public class DistributionZoneManager implements IgniteComponent {
      * Also start scale up/scale down timers.
      *
      * @param recoveryRevision Revision of the Meta Storage after its recovery.
+     * @return Future that represents the pending completion of the operations.
      */
-    private void restoreLogicalTopologyChangeEventAndStartTimers(long recoveryRevision) {
+    private CompletableFuture<Void> restoreLogicalTopologyChangeEventAndStartTimers(long recoveryRevision) {
         Entry topologyEntry = metaStorageManager.getLocally(zonesLogicalTopologyKey(), recoveryRevision);
 
         if (topologyEntry.value() != null) {
@@ -1436,13 +1451,13 @@ public class DistributionZoneManager implements IgniteComponent {
             Entry lastUpdateRevisionEntry = metaStorageManager.getLocally(zonesRecoverableStateRevision(), recoveryRevision);
 
             if (lastUpdateRevisionEntry.value() == null || topologyRevision > bytesToLong(lastUpdateRevisionEntry.value())) {
-                // TODO: return this futures https://issues.apache.org/jira/browse/IGNITE-20477
-                onLogicalTopologyUpdate(newLogicalTopology, recoveryRevision, catalogVersion);
+                return onLogicalTopologyUpdate(newLogicalTopology, recoveryRevision, catalogVersion);
             } else {
-                // TODO: return this futures https://issues.apache.org/jira/browse/IGNITE-20477
-                restoreTimers(catalogVersion);
+                return restoreTimers(catalogVersion);
             }
         }
+
+        return nullCompletedFuture();
     }
 
     private class ManagerCatalogAlterZoneEventListener extends CatalogAlterZoneEventListener {
