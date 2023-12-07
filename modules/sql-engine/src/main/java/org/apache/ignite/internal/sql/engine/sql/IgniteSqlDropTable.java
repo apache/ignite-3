@@ -18,65 +18,74 @@
 package org.apache.ignite.internal.sql.engine.sql;
 
 import java.util.List;
-import java.util.Objects;
 import org.apache.calcite.sql.SqlCall;
+import org.apache.calcite.sql.SqlDrop;
 import org.apache.calcite.sql.SqlIdentifier;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlLiteral;
 import org.apache.calcite.sql.SqlNode;
-import org.apache.calcite.sql.SqlNodeList;
 import org.apache.calcite.sql.SqlWriter;
 import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.util.ImmutableNullableList;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
 /**
- * Parse tree for {@code ALTER TABLE ... DROP COLUMN} statement.
+ * Parse tree for {@code DROP TABLE} statement.
  */
-public class IgniteSqlAlterTableDropColumn extends IgniteAbstractSqlAlterTable {
+public class IgniteSqlDropTable extends SqlDrop {
 
-    /** ALTER TABLE operator. */
+    /** DROP TABLE operator. */
     protected static class Operator extends IgniteDdlOperator {
 
         /** Constructor. */
-        protected Operator(boolean existFlag) {
-            super("ALTER TABLE", SqlKind.ALTER_TABLE, existFlag);
+        public Operator(boolean existFlag) {
+            super("DROP TABLE", SqlKind.DROP_TABLE, existFlag);
         }
 
         /** {@inheritDoc} */
         @Override
-        public SqlCall createCall(@Nullable SqlLiteral functionQualifier, SqlParserPos pos, @Nullable SqlNode... operands) {
-            return new IgniteSqlAlterTableDropColumn(pos, existFlag(), (SqlIdentifier) operands[0], (SqlNodeList) operands[1]);
+        public SqlCall createCall(@Nullable SqlLiteral functionQualifier, SqlParserPos pos,
+                @Nullable SqlNode... operands) {
+            return new IgniteSqlDropTable(pos, existFlag(), (SqlIdentifier) operands[0]);
         }
     }
 
-    /** Columns to drop. */
-    private final SqlNodeList columns;
+    private final SqlIdentifier name;
 
     /** Constructor. */
-    public IgniteSqlAlterTableDropColumn(SqlParserPos pos, boolean ifExists, SqlIdentifier tblName,
-            SqlNodeList columns) {
-        super(new Operator(ifExists), pos, tblName);
-        this.columns = Objects.requireNonNull(columns, "columns list");
+    public IgniteSqlDropTable(SqlParserPos pos, boolean ifExists, SqlIdentifier name) {
+        super(new Operator(ifExists), pos, ifExists);
+
+        this.name = name;
     }
 
     /** {@inheritDoc} */
     @Override
     public List<SqlNode> getOperandList() {
-        return ImmutableNullableList.of(name, columns);
+        return ImmutableNullableList.of(name);
+    }
+
+    /** Returns table name. */
+    public SqlIdentifier name() {
+        return name;
+    }
+
+    /** Whether "IF EXISTS" was specified. */
+    public boolean ifExists() {
+        IgniteDdlOperator operator = (IgniteDdlOperator) getOperator();
+        return operator.existFlag();
     }
 
     /** {@inheritDoc} */
     @Override
-    protected void unparseAlterTableOperation(SqlWriter writer, int leftPrec, int rightPrec) {
+    public void unparse(SqlWriter writer, int leftPrec, int rightPrec) {
         writer.keyword("DROP");
-        writer.keyword("COLUMN");
+        writer.keyword("TABLE");
 
-        columns.unparse(writer, leftPrec, rightPrec);
-    }
+        if (ifExists()) {
+            writer.keyword("IF EXISTS");
+        }
 
-    /** Processing columns definition. */
-    public SqlNodeList columns() {
-        return columns;
+        name.unparse(writer, leftPrec, rightPrec);
     }
 }

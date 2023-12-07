@@ -18,65 +18,63 @@
 package org.apache.ignite.internal.sql.engine.sql;
 
 import java.util.List;
-import java.util.Objects;
 import org.apache.calcite.sql.SqlCall;
+import org.apache.calcite.sql.SqlDelete;
 import org.apache.calcite.sql.SqlIdentifier;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlLiteral;
 import org.apache.calcite.sql.SqlNode;
-import org.apache.calcite.sql.SqlNodeList;
-import org.apache.calcite.sql.SqlWriter;
+import org.apache.calcite.sql.SqlOperator;
+import org.apache.calcite.sql.SqlSelect;
+import org.apache.calcite.sql.SqlSpecialOperator;
 import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.util.ImmutableNullableList;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
 /**
- * Parse tree for {@code ALTER TABLE ... DROP COLUMN} statement.
+ * {@code DELETE} statement. Fixes incomplete operator of original {@link SqlDelete}.
  */
-public class IgniteSqlAlterTableDropColumn extends IgniteAbstractSqlAlterTable {
+public class IgniteSqlDelete extends SqlDelete {
 
-    /** ALTER TABLE operator. */
-    protected static class Operator extends IgniteDdlOperator {
+    /** DELETE operator. */
+    private static final class Operator extends SqlSpecialOperator {
 
-        /** Constructor. */
-        protected Operator(boolean existFlag) {
-            super("ALTER TABLE", SqlKind.ALTER_TABLE, existFlag);
+        private Operator() {
+            super("DELETE", SqlKind.DELETE);
         }
 
         /** {@inheritDoc} */
         @Override
         public SqlCall createCall(@Nullable SqlLiteral functionQualifier, SqlParserPos pos, @Nullable SqlNode... operands) {
-            return new IgniteSqlAlterTableDropColumn(pos, existFlag(), (SqlIdentifier) operands[0], (SqlNodeList) operands[1]);
+            return new IgniteSqlDelete(pos, operands[0], operands[1], (SqlSelect) operands[2], (SqlIdentifier) operands[3]);
         }
     }
 
-    /** Columns to drop. */
-    private final SqlNodeList columns;
+    private static final SqlOperator OPERATOR = new Operator();
 
     /** Constructor. */
-    public IgniteSqlAlterTableDropColumn(SqlParserPos pos, boolean ifExists, SqlIdentifier tblName,
-            SqlNodeList columns) {
-        super(new Operator(ifExists), pos, tblName);
-        this.columns = Objects.requireNonNull(columns, "columns list");
+    public IgniteSqlDelete(SqlParserPos pos, SqlNode targetTable,
+            @Nullable SqlNode condition,
+            @Nullable SqlSelect sourceSelect,
+            @Nullable SqlIdentifier alias) {
+        super(pos, targetTable, condition, sourceSelect, alias);
+    }
+
+    /** Constructor. */
+    public IgniteSqlDelete(SqlDelete node) {
+        this(node.getParserPosition(), node.getTargetTable(), node.getCondition(), node.getSourceSelect(), node.getAlias());
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public SqlOperator getOperator() {
+        return OPERATOR;
     }
 
     /** {@inheritDoc} */
     @Override
     public List<SqlNode> getOperandList() {
-        return ImmutableNullableList.of(name, columns);
+        return ImmutableNullableList.of(getTargetTable(), getCondition(), getSourceSelect(), getAlias());
     }
 
-    /** {@inheritDoc} */
-    @Override
-    protected void unparseAlterTableOperation(SqlWriter writer, int leftPrec, int rightPrec) {
-        writer.keyword("DROP");
-        writer.keyword("COLUMN");
-
-        columns.unparse(writer, leftPrec, rightPrec);
-    }
-
-    /** Processing columns definition. */
-    public SqlNodeList columns() {
-        return columns;
-    }
 }
