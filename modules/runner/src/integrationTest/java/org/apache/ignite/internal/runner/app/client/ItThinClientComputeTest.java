@@ -49,6 +49,7 @@ import java.util.concurrent.CompletionException;
 import java.util.stream.Collectors;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.client.IgniteClient.Builder;
+import org.apache.ignite.client.IgniteClientConnectionException;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.JobExecutionContext;
@@ -307,7 +308,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
             Thread.sleep(10);
             client.close();
 
-            assertThat(jobFut, willThrowFast(CompletionException.class, "Connection is closed"));
+            assertThat(jobFut, willThrowFast(IgniteClientConnectionException.class, "Channel is closed"));
         }
     }
 

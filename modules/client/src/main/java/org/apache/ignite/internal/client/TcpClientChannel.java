@@ -219,9 +219,16 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
                 sock.close();
             }
 
-            // TODO: Complete all notification listeners; add a test.
             for (ClientRequestFuture pendingReq : pendingReqs.values()) {
                 pendingReq.completeExceptionally(new IgniteClientConnectionException(CONNECTION_ERR, "Channel is closed", cause));
+            }
+
+            for (NotificationHandler handler : notificationHandlers.values()) {
+                try {
+                    handler.consume(null, new IgniteClientConnectionException(CONNECTION_ERR, "Channel is closed", cause));
+                } catch (Exception ignored) {
+                    // Ignore.
+                }
             }
         }
     }
