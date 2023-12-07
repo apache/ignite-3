@@ -1652,14 +1652,17 @@ public class PartitionReplicaListener implements ReplicaListener {
                         HybridTimestamp commandTimestamp = hybridClock.now();
 
                         return reliableCatalogVersionFor(commandTimestamp)
-                                .thenCompose(catalogVersion ->
-                                        applyWriteIntentSwitchCommand(
-                                                request.txId(),
-                                                request.commit(),
-                                                request.commitTimestamp(),
-                                                request.commitTimestampLong(),
-                                                catalogVersion
-                                        ));
+                                .thenCompose(catalogVersion -> {
+                                    applyWriteIntentSwitchCommand(
+                                            request.txId(),
+                                            request.commit(),
+                                            request.commitTimestamp(),
+                                            request.commitTimestampLong(),
+                                            catalogVersion
+                                    );
+
+                                    return nullCompletedFuture();
+                                });
                     } else {
                         return nullCompletedFuture();
                     }
