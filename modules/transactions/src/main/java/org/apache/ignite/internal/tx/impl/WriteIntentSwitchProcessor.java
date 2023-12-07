@@ -35,7 +35,7 @@ public class WriteIntentSwitchProcessor {
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(WriteIntentSwitchProcessor.class);
 
-    private static final int ATTEMPTS_TO_CLEANUP_REPLICA = 5;
+    private static final int ATTEMPTS_TO_SWITCH_WI = 5;
 
     /** Placement driver helper. */
     private final PlacementDriverHelper placementDriverHelper;
@@ -85,7 +85,7 @@ public class WriteIntentSwitchProcessor {
             UUID txId,
             TablePartitionId partitionId
     ) {
-        return switchWriteIntentsWithRetry(commit, commitTimestamp, txId, partitionId, ATTEMPTS_TO_CLEANUP_REPLICA);
+        return switchWriteIntentsWithRetry(commit, commitTimestamp, txId, partitionId, ATTEMPTS_TO_SWITCH_WI);
     }
 
     // TODO https://issues.apache.org/jira/browse/IGNITE-20681 remove attempts count.
@@ -102,9 +102,9 @@ public class WriteIntentSwitchProcessor {
                 .handle((res, ex) -> {
                     if (ex != null) {
                         if (attempts > 0) {
-                            LOG.warn("Failed to perform cleanup on Tx. The operation will be retried [txId={}].", txId, ex);
+                            LOG.warn("Failed to switch write intents for Tx. The operation will be retried [txId={}].", txId, ex);
                         } else {
-                            LOG.warn("Failed to perform cleanup on Tx [txId={}].", txId, ex);
+                            LOG.warn("Failed to switch write intents for Tx [txId={}].", txId, ex);
                         }
 
                         if (attempts > 0) {

@@ -1701,7 +1701,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             long commitTimestampLong,
             int catalogVersion
     ) {
-        WriteIntentSwitchCommand txCleanupCmd = MSG_FACTORY.writeIntentSwitchCommand()
+        WriteIntentSwitchCommand wiSwitchCmd = MSG_FACTORY.writeIntentSwitchCommand()
                 .txId(transactionId)
                 .commit(commit)
                 .commitTimestampLong(commitTimestampLong)
@@ -1714,7 +1714,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         CompletableFuture<Object> resultFuture = new CompletableFuture<>();
 
-        applyCmdWithRetryOnSafeTimeReorderException(txCleanupCmd, resultFuture);
+        applyCmdWithRetryOnSafeTimeReorderException(wiSwitchCmd, resultFuture);
 
         return resultFuture
                 .exceptionally(e -> {
