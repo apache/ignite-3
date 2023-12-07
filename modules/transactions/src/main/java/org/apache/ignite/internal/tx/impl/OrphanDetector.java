@@ -20,6 +20,7 @@ package org.apache.ignite.internal.tx.impl;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.apache.ignite.internal.tx.TxState.ABANDONED;
 import static org.apache.ignite.internal.tx.TxState.isFinalState;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.FastTimestamps.coarseCurrentTimeMillis;
@@ -38,6 +39,7 @@ import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxStateMeta;
+import org.apache.ignite.internal.tx.TxStateMetaAbandoned;
 import org.apache.ignite.internal.tx.event.LockEvent;
 import org.apache.ignite.internal.tx.event.LockEventParameters;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
@@ -193,7 +195,7 @@ public class OrphanDetector {
             sentTxRecoveryMessage(txState.commitPartitionId(), txId);
         }
 
-        throw new TransactionException(ACQUIRE_LOCK_ERR, "The lock is held by the abandoned transaction [tx=" + txId + "].");
+        throw new TransactionException(ACQUIRE_LOCK_ERR, "The lock is held by the abandoned transaction [abandonedTx=" + txId + "].");
     }
 
     /**
@@ -253,24 +255,42 @@ public class OrphanDetector {
      * @return True when transaction recovery is needed, false otherwise.
      */
     private boolean isRecoveryNeeded(UUID txId, TxStateMeta txState) {
-        long checkTs = coarseCurrentTimeMillis();
-
         if (txState == null
                 || isFinalState(txState.txState())
-                || txState.lastAbandonedMarkerTs() + checkTxStateInterval >= checkTs) {
+                || isTxAbandonedNotLong(txState)) {
             return false;
         }
+
+        TxStateMetaAbandoned txAbandonedState = txState.markAbandoned();
 
         TxStateMeta updatedTxState = txLocalStateStorage.updateMeta(txId, txStateMeta -> {
             if (txStateMeta != null
                     && !isFinalState(txStateMeta.txState())
-                    && txStateMeta.lastAbandonedMarkerTs() + checkTxStateInterval < checkTs) {
-                return txStateMeta.markAbandoned();
+                    && (txStateMeta.txState() != ABANDONED || isTxAbandonedNotLong(txStateMeta))) {
+                return txAbandonedState;
             }
 
             return txStateMeta;
         });
 
-        return updatedTxState.lastAbandonedMarkerTs() > txState.lastAbandonedMarkerTs();
+        return txAbandonedState == updatedTxState;
+    }
+
+    /**
+     * Checks whether the transaction state is recently marked as abandoned or not.
+     *
+     * @param txState Transaction state metadata.
+     * @return True if the state recently updated to {@link org.apache.ignite.internal.tx.TxState#ABANDONED}.
+     */
+    private boolean isTxAbandonedNotLong(TxStateMeta txState) {
+        if (txState.txState() != ABANDONED) {
+            return false;
+        }
+
+        assert txState instanceof TxStateMetaAbandoned : "The transaction state does not match the metadata [mata=" + txState + "].";
+
+        var txStateAbandoned = (TxStateMetaAbandoned) txState;
+
+        return txStateAbandoned.lastAbandonedMarkerTs() + checkTxStateInterval >= coarseCurrentTimeMillis();
     }
 }

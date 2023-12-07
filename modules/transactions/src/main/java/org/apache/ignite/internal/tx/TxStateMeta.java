@@ -18,12 +18,13 @@
 package org.apache.ignite.internal.tx;
 
 import static org.apache.ignite.internal.tx.TxState.ABANDONED;
+import static org.apache.ignite.internal.tx.TxState.FINISHING;
+import static org.apache.ignite.internal.tx.TxState.checkTransitionCorrectness;
 
 import java.util.Objects;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.tostring.S;
-import org.apache.ignite.internal.util.FastTimestamps;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -40,9 +41,6 @@ public class TxStateMeta implements TransactionMeta {
     private final TablePartitionId commitPartitionId;
 
     private final HybridTimestamp commitTimestamp;
-
-    /** Timestamp when the latest {@code ABANDONED} state set. If the transaction state is not {@code ABANDONED}, it is {@code 0}. */
-    private final long lastAbandonedMarkerTs;
 
     /**
      * Constructor.
@@ -81,20 +79,28 @@ public class TxStateMeta implements TransactionMeta {
         this.txCoordinatorId = txCoordinatorId;
         this.commitPartitionId = commitPartitionId;
         this.commitTimestamp = commitTimestamp;
-        this.lastAbandonedMarkerTs = lastAbandonedMarkerTs;
     }
 
     /**
-     * Creates a transaction state for same transaction, but this one is marked abandoned.
+     * Creates a transaction state for the same transaction, but this one is marked abandoned.
      *
      * @return Transaction state meta.
      */
-    public TxStateMeta markAbandoned() {
-        assert lastAbandonedMarkerTs == 0 || txState == ABANDONED
-                : "Transaction state is incorrect [lastAbandonedMarkerTs=" + lastAbandonedMarkerTs
-                + ", txState=" + txState + "].";
+    public TxStateMetaAbandoned markAbandoned() {
+        assert checkTransitionCorrectness(txState, ABANDONED) : "Transaction state is incorrect [txState=" + txState + "].";
 
-        return new TxStateMeta(ABANDONED, txCoordinatorId, commitPartitionId, commitTimestamp, FastTimestamps.coarseCurrentTimeMillis());
+        return new TxStateMetaAbandoned(txCoordinatorId, commitPartitionId);
+    }
+
+    /**
+     * Creates a transaction state for the same transaction, but this one is marked finishing.
+     *
+     * @return Transaction state meta.
+     */
+    public TxStateMetaFinishing markFinishing() {
+        assert checkTransitionCorrectness(txState, FINISHING) : "Transaction state is incorrect [txState=" + txState + "].";
+
+        return new TxStateMetaFinishing(txCoordinatorId, commitPartitionId);
     }
 
     @Override
@@ -115,15 +121,6 @@ public class TxStateMeta implements TransactionMeta {
         return commitTimestamp;
     }
 
-    /**
-     * The last timestamp when the transaction was marked as abandoned.
-     *
-     * @return Timestamp or {@code 0} if the transaction is in not abandoned.
-     */
-    public long lastAbandonedMarkerTs() {
-        return lastAbandonedMarkerTs;
-    }
-
     @Override
     public boolean equals(Object o) {
         if (this == o) {
@@ -135,10 +132,6 @@ public class TxStateMeta implements TransactionMeta {
         TxStateMeta that = (TxStateMeta) o;
 
         if (txState != that.txState) {
-            return false;
-        }
-
-        if (lastAbandonedMarkerTs != that.lastAbandonedMarkerTs) {
             return false;
         }
 
@@ -155,7 +148,7 @@ public class TxStateMeta implements TransactionMeta {
 
     @Override
     public int hashCode() {
-        return Objects.hash(txState, txCoordinatorId, commitPartitionId, commitTimestamp, lastAbandonedMarkerTs);
+        return Objects.hash(txState, txCoordinatorId, commitPartitionId, commitTimestamp);
     }
 
     @Override

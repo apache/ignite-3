@@ -76,25 +76,25 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @ExtendWith(ConfigurationExtension.class)
 public class InteropOperationsTest extends BaseIgniteAbstractTest {
     /** Test schema. */
-    private static SchemaDescriptor SCHEMA;
+    private static SchemaDescriptor schema;
 
     /** Table for tests. */
-    private static TableViewInternal TABLE;
+    private static TableViewInternal table;
 
     /** Dummy internal table for tests. */
-    private static DummyInternalTableImpl INT_TABLE;
+    private static DummyInternalTableImpl intTable;
 
     /** Key value binary view for test. */
-    private static KeyValueView<Tuple, Tuple> KV_BIN_VIEW;
+    private static KeyValueView<Tuple, Tuple> kvBinView;
 
     /** Key value view for test. */
-    private static KeyValueView<Long, Value> KV_VIEW;
+    private static KeyValueView<Long, Value> kvView;
 
     /** Record view for test. */
-    private static RecordView<Row> R_VIEW;
+    private static RecordView<Row> rView;
 
     /** Record binary view for test. */
-    private static RecordView<Tuple> R_BIN_VIEW;
+    private static RecordView<Tuple> rBinView;
 
     @InjectConfiguration
     private static TransactionConfiguration txConfiguration;
@@ -120,7 +120,7 @@ public class InteropOperationsTest extends BaseIgniteAbstractTest {
 
         int schemaVersion = 1;
 
-        SCHEMA = new SchemaDescriptor(schemaVersion,
+        schema = new SchemaDescriptor(schemaVersion,
                 new Column[]{new Column("ID", NativeTypes.INT64, false)},
                 valueCols.toArray(Column[]::new)
         );
@@ -128,27 +128,27 @@ public class InteropOperationsTest extends BaseIgniteAbstractTest {
         ClusterService clusterService = mock(ClusterService.class, RETURNS_DEEP_STUBS);
         when(clusterService.topologyService().localMember().address()).thenReturn(DummyInternalTableImpl.ADDR);
 
-        INT_TABLE = new DummyInternalTableImpl(mock(ReplicaService.class, RETURNS_DEEP_STUBS), SCHEMA, txConfiguration);
+        intTable = new DummyInternalTableImpl(mock(ReplicaService.class, RETURNS_DEEP_STUBS), schema, txConfiguration);
 
-        SchemaRegistry schemaRegistry = new DummySchemaManagerImpl(SCHEMA);
+        SchemaRegistry schemaRegistry = new DummySchemaManagerImpl(schema);
 
         when(clusterService.messagingService()).thenReturn(mock(MessagingService.class, RETURNS_DEEP_STUBS));
 
         SchemaVersions schemaVersions = new ConstantSchemaVersions(schemaVersion);
 
-        TABLE = new TableImpl(INT_TABLE, schemaRegistry, new HeapLockManager(), schemaVersions);
-        KV_BIN_VIEW = new KeyValueBinaryViewImpl(INT_TABLE, schemaRegistry, schemaVersions);
+        table = new TableImpl(intTable, schemaRegistry, new HeapLockManager(), schemaVersions);
+        kvBinView = new KeyValueBinaryViewImpl(intTable, schemaRegistry, schemaVersions);
 
-        KV_VIEW = new KeyValueViewImpl<>(
-                INT_TABLE,
+        kvView = new KeyValueViewImpl<>(
+                intTable,
                 schemaRegistry,
                 schemaVersions,
                 Mapper.of(Long.class, "id"),
                 Mapper.of(Value.class)
         );
 
-        R_BIN_VIEW = TABLE.recordView();
-        R_VIEW = TABLE.recordView(Mapper.of(Row.class));
+        rBinView = table.recordView();
+        rView = table.recordView(Mapper.of(Row.class));
     }
 
     /**
@@ -156,13 +156,13 @@ public class InteropOperationsTest extends BaseIgniteAbstractTest {
      */
     @Test
     public void ensureAllTypesTested() {
-        SchemaTestUtils.ensureAllTypesChecked(Arrays.stream(SCHEMA.valueColumns().columns()));
+        SchemaTestUtils.ensureAllTypesChecked(Arrays.stream(schema.valueColumns().columns()));
     }
 
     @AfterEach
     public void clearTable() {
-        TABLE.recordView().delete(null, Tuple.create().set("id", 1L));
-        TABLE.recordView().delete(null, Tuple.create().set("id", 2L));
+        table.recordView().delete(null, Tuple.create().set("id", 1L));
+        table.recordView().delete(null, Tuple.create().set("id", 2L));
     }
 
     /**
@@ -240,7 +240,7 @@ public class InteropOperationsTest extends BaseIgniteAbstractTest {
         Tuple k = Tuple.create().set("id", (long) id);
         Tuple v = createTuple(id, nulls);
 
-        KV_BIN_VIEW.put(null, k, v);
+        kvBinView.put(null, k, v);
     }
 
     /**
@@ -252,8 +252,8 @@ public class InteropOperationsTest extends BaseIgniteAbstractTest {
     private boolean readKeyValueBinary(int id, boolean nulls) {
         Tuple k = Tuple.create().set("id", (long) id);
 
-        Tuple v = KV_BIN_VIEW.get(null, k);
-        boolean contains = KV_BIN_VIEW.contains(null, k);
+        Tuple v = kvBinView.get(null, k);
+        boolean contains = kvBinView.contains(null, k);
 
         assertEquals((v != null), contains);
 
@@ -277,7 +277,7 @@ public class InteropOperationsTest extends BaseIgniteAbstractTest {
     private void writeRecord(int id, boolean nulls) {
         Row r1 = new Row(id, nulls);
 
-        assertTrue(R_VIEW.insert(null, r1));
+        assertTrue(rView.insert(null, r1));
     }
 
     /**
@@ -290,7 +290,7 @@ public class InteropOperationsTest extends BaseIgniteAbstractTest {
     private boolean readRecord(int id, boolean nulls) {
         Row expected = new Row(id, nulls);
 
-        Row actual = R_VIEW.get(null, expected);
+        Row actual = rView.get(null, expected);
 
         if (actual == null) {
             return false;
@@ -311,7 +311,7 @@ public class InteropOperationsTest extends BaseIgniteAbstractTest {
         Tuple t1 = createTuple(id, nulls);
         t1.set("id", (long) id);
 
-        assertTrue(R_BIN_VIEW.insert(null, t1));
+        assertTrue(rBinView.insert(null, t1));
     }
 
     /**
@@ -324,7 +324,7 @@ public class InteropOperationsTest extends BaseIgniteAbstractTest {
     private boolean readRecordBinary(int id, boolean nulls) {
         Tuple k = Tuple.create().set("id", (long) id);
 
-        Tuple res = R_BIN_VIEW.get(null, k);
+        Tuple res = rBinView.get(null, k);
 
         if (res == null) {
             return false;
@@ -342,7 +342,7 @@ public class InteropOperationsTest extends BaseIgniteAbstractTest {
      * @param nulls If {@code true} - nullable fields will be filled, if {@code false} - otherwise.
      */
     private void writeKewVal(int id, boolean nulls) {
-        KV_VIEW.put(null, (long) id, new Value(id, nulls));
+        kvView.put(null, (long) id, new Value(id, nulls));
     }
 
     /**
@@ -353,7 +353,7 @@ public class InteropOperationsTest extends BaseIgniteAbstractTest {
      * @return {@code true} if read successfully, {@code false} - otherwise.
      */
     private boolean readKeyValue(int id, boolean nulls) {
-        Value res = KV_VIEW.get(null, Long.valueOf(id));
+        Value res = kvView.get(null, Long.valueOf(id));
 
         if (res == null) {
             return false;
@@ -376,7 +376,7 @@ public class InteropOperationsTest extends BaseIgniteAbstractTest {
     private Tuple createTuple(int id, boolean nulls) {
         Tuple res = Tuple.create();
 
-        for (Column col : SCHEMA.valueColumns().columns()) {
+        for (Column col : schema.valueColumns().columns()) {
             if (!nulls && col.nullable()) {
                 continue;
             }
@@ -443,7 +443,7 @@ public class InteropOperationsTest extends BaseIgniteAbstractTest {
         Tuple expected = createTuple(id, nulls);
         expected.set("id", (long) id);
 
-        for (Column col : SCHEMA.valueColumns().columns()) {
+        for (Column col : schema.valueColumns().columns()) {
             if (!nulls && col.nullable()) {
                 continue;
             }

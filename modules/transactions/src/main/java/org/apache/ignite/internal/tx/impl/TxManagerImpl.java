@@ -292,7 +292,6 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
             return checkTransitionCorrectness(oldState, newMeta.txState()) ? newMeta : oldMeta;
         });
-
     }
 
     @Override
@@ -337,8 +336,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         // than all the read timestamps processed before.
         // Every concurrent operation will now use a finish future from the finishing state meta and get only final transaction
         // state after the transaction is finished.
-        TxStateMetaFinishing finishingStateMeta = (TxStateMetaFinishing) updateTxMeta(txId, old ->
-                new TxStateMetaFinishing(localNodeId, old == null ? null : old.commitPartitionId()));
+        TxStateMetaFinishing finishingStateMeta = (TxStateMetaFinishing) updateTxMeta(txId, TxStateMeta::markFinishing);
 
         TxContext tuple = txCtxMap.compute(txId, (uuid, tuple0) -> {
             if (tuple0 == null) {
