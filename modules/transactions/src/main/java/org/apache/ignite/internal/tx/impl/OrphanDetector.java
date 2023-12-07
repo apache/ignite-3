@@ -195,7 +195,7 @@ public class OrphanDetector {
             sentTxRecoveryMessage(txState.commitPartitionId(), txId);
         }
 
-        throw new TransactionException(ACQUIRE_LOCK_ERR, "The lock is held by the abandoned transaction [abandonedTx=" + txId + "].");
+        throw new TransactionException(ACQUIRE_LOCK_ERR, "The lock is held by the abandoned transaction [abandonedTxId=" + txId + "].");
     }
 
     /**
@@ -261,7 +261,7 @@ public class OrphanDetector {
             return false;
         }
 
-        TxStateMetaAbandoned txAbandonedState = txState.markAbandoned();
+        TxStateMetaAbandoned txAbandonedState = txState.abandoned();
 
         TxStateMeta updatedTxState = txLocalStateStorage.updateMeta(txId, txStateMeta -> {
             if (txStateMeta != null

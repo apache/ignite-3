@@ -86,7 +86,7 @@ public class TxStateMeta implements TransactionMeta {
      *
      * @return Transaction state meta.
      */
-    public TxStateMetaAbandoned markAbandoned() {
+    public TxStateMetaAbandoned abandoned() {
         assert checkTransitionCorrectness(txState, ABANDONED) : "Transaction state is incorrect [txState=" + txState + "].";
 
         return new TxStateMetaAbandoned(txCoordinatorId, commitPartitionId);
@@ -97,7 +97,7 @@ public class TxStateMeta implements TransactionMeta {
      *
      * @return Transaction state meta.
      */
-    public TxStateMetaFinishing markFinishing() {
+    public TxStateMetaFinishing finishing() {
         assert checkTransitionCorrectness(txState, FINISHING) : "Transaction state is incorrect [txState=" + txState + "].";
 
         return new TxStateMetaFinishing(txCoordinatorId, commitPartitionId);
