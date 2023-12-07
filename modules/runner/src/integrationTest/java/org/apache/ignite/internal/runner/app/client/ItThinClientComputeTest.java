@@ -53,7 +53,6 @@ import org.apache.ignite.client.IgniteClientConnectionException;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.JobExecutionContext;
-import org.apache.ignite.internal.catalog.CatalogValidationException;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Tuple;
