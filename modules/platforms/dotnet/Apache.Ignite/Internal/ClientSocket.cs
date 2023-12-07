@@ -862,10 +862,6 @@ namespace Apache.Ignite.Internal
                     }
                 }
 
-                // TODO: Add a test for this scenario specifically;
-                // Add a test in Java too.
-                // TODO: How to deal with retries in this case? In the future, we should be able to get the task by id from another node?
-                // Check proposal.
                 while (!_notificationHandlers.IsEmpty)
                 {
                     foreach (var reqId in _notificationHandlers.Keys.ToArray())

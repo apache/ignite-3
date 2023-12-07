@@ -56,6 +56,8 @@ namespace Apache.Ignite.Tests.Compute
 
         private const string ExceptionJob = PlatformTestNodeRunner + "$ExceptionJob";
 
+        private const string SleepJob = PlatformTestNodeRunner + "$SleepJob";
+
         private static readonly IList<DeploymentUnit> Units = Array.Empty<DeploymentUnit>();
 
         [Test]
@@ -434,6 +436,24 @@ namespace Apache.Ignite.Tests.Compute
                 async () => await Client.Compute.ExecuteAsync<string>(await GetNodeAsync(1), deploymentUnits, NodeNameJob));
 
             Assert.AreEqual("The value cannot be an empty string. (Parameter 'unit.Version')", ex!.Message);
+        }
+
+        [Test]
+        public async Task TestDelayedJobExecutionThrowsWhenConnectionFails()
+        {
+            // Compute jobs are completed with a notification message.
+            // In this test, the job execution starts, but we drop the client connection, so notification can't be received.
+            using var client = await IgniteClient.StartAsync(GetConfig());
+
+            const int sleepMs = 3000;
+            var jobTask = client.Compute.ExecuteAsync<string>(await GetNodeAsync(1), Units, SleepJob, sleepMs);
+
+            // Wait a bit and close the connection.
+            await Task.Delay(10);
+            client.Dispose();
+
+            var ex = Assert.ThrowsAsync<IgniteClientConnectionException>(async () => await jobTask);
+            Assert.AreEqual("Connection closed.", ex!.Message);
         }
 
         private async Task<List<IClusterNode>> GetNodeAsync(int index) =>
