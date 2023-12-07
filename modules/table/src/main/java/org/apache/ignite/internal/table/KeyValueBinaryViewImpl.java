@@ -570,10 +570,9 @@ public class KeyValueBinaryViewImpl extends AbstractTableView<Entry<Tuple, Tuple
             Statement statement,
             @Nullable Object... arguments
     ) {
-        var session = tbl.sql().createSession();
-
         return withSchemaSync(tx, (schemaVersion) -> {
             var schema = rowConverter.registry().schema(schemaVersion);
+            var session = tbl.sql().createSession();
 
             return session.executeAsync(tx, statement, arguments)
                     .thenApply(resultSet -> {

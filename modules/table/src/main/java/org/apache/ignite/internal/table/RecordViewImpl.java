@@ -28,13 +28,13 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
 import java.util.function.Function;
 import org.apache.ignite.internal.marshaller.Marshaller;
+import org.apache.ignite.internal.marshaller.TupleReader;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.marshaller.RecordMarshaller;
 import org.apache.ignite.internal.schema.marshaller.reflection.RecordMarshallerImpl;
-import org.apache.ignite.internal.schema.marshaller.reflection.TupleReader;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.streamer.StreamerBatchSender;
 import org.apache.ignite.internal.table.criteria.QueryCriteriaAsyncResultSet;
@@ -540,15 +540,15 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
             Statement statement,
             @Nullable Object... arguments
     ) {
-        var session = tbl.sql().createSession();
-
         return withSchemaSync(tx, (schemaVersion) -> {
-            var schema = rowConverter.registry().schema(schemaVersion);
-            var valCols = ArrayUtils.concat(schema.keyColumns().columns(), schema.valueColumns().columns());
+            var session = tbl.sql().createSession();
 
             return session.executeAsync(tx, statement, arguments)
                     .thenApply(resultSet -> {
                         var metadata = resultSet.metadata();
+
+                        var schema = rowConverter.registry().schema(schemaVersion);
+                        var valCols = ArrayUtils.concat(schema.keyColumns().columns(), schema.valueColumns().columns());
                         var valIdxMapping = indexMapping(valCols, metadata);
 
                         var marsh = Marshaller.createMarshaller(toMarshallerColumns(valCols), mapper, false, true);

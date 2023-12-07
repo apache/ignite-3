@@ -34,6 +34,7 @@ import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
+import java.util.function.Function;
 import org.apache.ignite.client.RetryLimitPolicy;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
@@ -41,20 +42,25 @@ import org.apache.ignite.internal.client.PayloadOutputChannel;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.proto.TuplePart;
+import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.marshaller.ClientMarshallerReader;
 import org.apache.ignite.internal.marshaller.ClientMarshallerWriter;
 import org.apache.ignite.internal.marshaller.Marshaller;
 import org.apache.ignite.internal.marshaller.MarshallerException;
+import org.apache.ignite.internal.marshaller.TupleReader;
 import org.apache.ignite.internal.streamer.StreamerBatchSender;
+import org.apache.ignite.internal.table.criteria.QueryCriteriaAsyncResultSet;
+import org.apache.ignite.internal.table.criteria.SqlRowProjection;
+import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.NullableValue;
 import org.apache.ignite.lang.UnexpectedNullValueException;
-import org.apache.ignite.sql.ClosableCursor;
-import org.apache.ignite.sql.async.AsyncClosableCursor;
+import org.apache.ignite.sql.SqlException;
+import org.apache.ignite.sql.SqlRow;
+import org.apache.ignite.sql.Statement;
+import org.apache.ignite.sql.async.AsyncResultSet;
 import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.KeyValueView;
-import org.apache.ignite.table.criteria.Criteria;
-import org.apache.ignite.table.criteria.CriteriaQueryOptions;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
@@ -62,10 +68,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Client key-value view implementation.
  */
-public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
-    /** Underlying table. */
-    private final ClientTable tbl;
-
+public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> implements KeyValueView<K, V> {
     /** Key serializer.  */
     private final ClientRecordSerializer<K> keySer;
 
@@ -80,11 +83,10 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
      * @param valMapper value mapper.
      */
     public ClientKeyValueView(ClientTable tbl, Mapper<K> keyMapper, Mapper<V> valMapper) {
-        assert tbl != null;
+        super(tbl);
+
         assert keyMapper != null;
         assert valMapper != null;
-
-        this.tbl = tbl;
 
         keySer = new ClientRecordSerializer<>(tbl.tableId(), keyMapper);
         valSer = new ClientRecordSerializer<>(tbl.tableId(), valMapper);
@@ -548,20 +550,48 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
         return ClientDataStreamer.streamData(publisher, opts, batchSender, provider, tbl);
     }
 
+    /**
+     * Criteria query over cache entries.
+     *
+     * @param tx Transaction to execute the query within or {@code null}.
+     * @param statement SQL statement to execute.
+     * @param arguments Arguments for the statement.
+     * @throws SqlException If failed.
+     */
     @Override
-    public ClosableCursor<Entry<K, V>> queryCriteria(@Nullable Transaction tx, @Nullable Criteria criteria, CriteriaQueryOptions opts) {
-        //TODO: implement custom user mapping https://issues.apache.org/jira/browse/IGNITE-16116
-        throw new UnsupportedOperationException("Not implemented yet.");
-    }
-
-    @Override
-    public CompletableFuture<AsyncClosableCursor<Entry<K, V>>> queryCriteriaAsync(
+    CompletableFuture<AsyncResultSet<Entry<K, V>>> executeQueryAsync(
             @Nullable Transaction tx,
-            @Nullable Criteria criteria,
-            CriteriaQueryOptions opts
+            Statement statement,
+            @Nullable Object... arguments
     ) {
-        //TODO: implement custom user mapping https://issues.apache.org/jira/browse/IGNITE-16116
-        throw new UnsupportedOperationException("Not implemented yet.");
+        return tbl.getLatestSchema()
+                .thenCompose((schema) -> {
+                    var session = tbl.sql().createSession();
+
+                    return session.executeAsync(tx, statement, arguments)
+                            .thenApply(resultSet -> {
+                                var metadata = resultSet.metadata();
+
+                                var keyMapping = indexMapping(schema.columns(), 0, schema.keyColumnCount(), metadata);
+                                var valMapping = indexMapping(schema.columns(), schema.keyColumnCount(), schema.columns().length, metadata);
+
+                                var keyMarsh = schema.getMarshaller(keySer.mapper(), TuplePart.KEY, true);
+                                var valMarsh = schema.getMarshaller(valSer.mapper(), TuplePart.VAL, true);
+
+                                Function<SqlRow, Entry<K, V>> mapper = (row) -> {
+                                    try {
+                                        return new IgniteBiTuple<>(
+                                                (K) keyMarsh.readObject(new TupleReader(new SqlRowProjection(row, keyMapping)), null),
+                                                (V) valMarsh.readObject(new TupleReader(new SqlRowProjection(row, valMapping)), null)
+                                        );
+                                    } catch (MarshallerException e) {
+                                        throw new IgniteException(Sql.RUNTIME_ERR, "Failed to map SQL result set: " + e.getMessage(), e);
+                                    }
+                                };
+
+                                return new QueryCriteriaAsyncResultSet<>(session, mapper, resultSet);
+                            });
+                });
     }
 
     private static <T> T throwIfNull(T obj) {

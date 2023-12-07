@@ -29,19 +29,23 @@ import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
+import java.util.function.Function;
 import org.apache.ignite.client.RetryLimitPolicy;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
+import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.streamer.StreamerBatchSender;
+import org.apache.ignite.internal.table.criteria.QueryCriteriaAsyncResultSet;
+import org.apache.ignite.internal.table.criteria.SqlRowProjection;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.NullableValue;
-import org.apache.ignite.sql.ClosableCursor;
-import org.apache.ignite.sql.async.AsyncClosableCursor;
+import org.apache.ignite.sql.SqlException;
+import org.apache.ignite.sql.SqlRow;
+import org.apache.ignite.sql.Statement;
+import org.apache.ignite.sql.async.AsyncResultSet;
 import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Tuple;
-import org.apache.ignite.table.criteria.Criteria;
-import org.apache.ignite.table.criteria.CriteriaQueryOptions;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 
@@ -51,10 +55,7 @@ import org.jetbrains.annotations.Nullable;
  * <p>NB: Binary view doesn't allow null tuples. Methods return either a tuple that represents the value, or {@code null} if no value
  * exists for the given key.
  */
-public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
-    /** Underlying table. */
-    private final ClientTable tbl;
-
+public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tuple>> implements KeyValueView<Tuple, Tuple> {
     /** Tuple serializer. */
     private final ClientTupleSerializer ser;
 
@@ -64,9 +65,8 @@ public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
      * @param tbl Table.
      */
     public ClientKeyValueBinaryView(ClientTable tbl) {
-        assert tbl != null;
+        super(tbl);
 
-        this.tbl = tbl;
         ser = new ClientTupleSerializer(tbl.tableId());
     }
 
@@ -468,23 +468,39 @@ public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
         return ClientDataStreamer.streamData(publisher, opts, batchSender, provider, tbl);
     }
 
+    /**
+     * Criteria query over cache entries.
+     *
+     * @param tx Transaction to execute the query within or {@code null}.
+     * @param statement SQL statement to execute.
+     * @param arguments Arguments for the statement.
+     * @throws SqlException If failed.
+     */
     @Override
-    public ClosableCursor<Entry<Tuple, Tuple>> queryCriteria(
+    CompletableFuture<AsyncResultSet<Entry<Tuple, Tuple>>> executeQueryAsync(
             @Nullable Transaction tx,
-            @Nullable Criteria criteria,
-            CriteriaQueryOptions opts
+            Statement statement,
+            @Nullable Object... arguments
     ) {
-        //TODO: implement custom user mapping https://issues.apache.org/jira/browse/IGNITE-16116
-        throw new UnsupportedOperationException("Not implemented yet.");
-    }
+        return tbl.getLatestSchema()
+                .thenCompose((schema) -> {
+                    var session = tbl.sql().createSession();
 
-    @Override
-    public CompletableFuture<AsyncClosableCursor<Entry<Tuple, Tuple>>> queryCriteriaAsync(
-            @Nullable Transaction tx,
-            @Nullable Criteria criteria,
-            CriteriaQueryOptions opts
-    ) {
-        //TODO: implement custom user mapping https://issues.apache.org/jira/browse/IGNITE-16116
-        throw new UnsupportedOperationException("Not implemented yet.");
+                    return session.executeAsync(tx, statement, arguments)
+                            .thenApply(resultSet -> {
+                                var metadata = resultSet.metadata();
+
+                                var keyMapping = indexMapping(schema.columns(), 0, schema.keyColumnCount(), metadata);
+                                var valMapping = indexMapping(schema.columns(), schema.keyColumnCount(), schema.columns().length, metadata);
+
+                                Function<SqlRow, Entry<Tuple, Tuple>> mapper = (row) ->
+                                        new IgniteBiTuple<>(
+                                                new SqlRowProjection(row, keyMapping),
+                                                new SqlRowProjection(row, valMapping)
+                                        );
+
+                                return new QueryCriteriaAsyncResultSet<>(session, mapper, resultSet);
+                            });
+                });
     }
 }

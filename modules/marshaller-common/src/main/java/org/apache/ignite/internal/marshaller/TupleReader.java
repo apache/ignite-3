@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.schema.marshaller.reflection;
+package org.apache.ignite.internal.marshaller;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -25,7 +25,6 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.BitSet;
 import java.util.UUID;
-import org.apache.ignite.internal.marshaller.MarshallerReader;
 import org.apache.ignite.table.Tuple;
 
 /**
