@@ -24,7 +24,9 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
+import java.net.InetAddress;
 import java.net.URI;
+import java.net.UnknownHostException;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpRequest.BodyPublishers;
@@ -186,8 +188,8 @@ public class ItAuthenticationTest extends ClusterPerTestIntegrationTest {
         }
     }
 
-    private void updateClusterConfiguration(NetworkAddress baseUrl, String username, String password, String configToApply) {
-        URI updateClusterConfigUri = URI.create("http://" + baseUrl + "/management/v1/configuration/cluster/");
+    private void updateClusterConfiguration(NetworkAddress address, String username, String password, String configToApply) {
+        URI updateClusterConfigUri = URI.create("http://" + hostUrl(address) + "/management/v1/configuration/cluster/");
         HttpRequest updateClusterConfigRequest = HttpRequest.newBuilder(updateClusterConfigUri)
                 .header("content-type", "text/plain")
                 .header("Authorization", basicAuthenticationHeader(username, password))
@@ -201,8 +203,8 @@ public class ItAuthenticationTest extends ClusterPerTestIntegrationTest {
         return !isRestAvailable(baseUrl, username, password);
     }
 
-    private boolean isRestAvailable(NetworkAddress baseUrl, String username, String password) {
-        URI clusterConfigUri = URI.create("http://" + baseUrl + "/management/v1/configuration/cluster/");
+    private boolean isRestAvailable(NetworkAddress address, String username, String password) {
+        URI clusterConfigUri = URI.create("http://" + hostUrl(address) + "/management/v1/configuration/cluster/");
         HttpRequest clusterConfigRequest = HttpRequest.newBuilder(clusterConfigUri)
                 .header("Authorization", basicAuthenticationHeader(username, password))
                 .build();
@@ -213,7 +215,16 @@ public class ItAuthenticationTest extends ClusterPerTestIntegrationTest {
         } else if (code == 401) {
             return false;
         } else {
-            throw new IllegalStateException("Unexpected response code: " + code +  ", body: " + response.body());
+            throw new IllegalStateException("Unexpected response code: " + code + ", body: " + response.body());
+        }
+    }
+
+    private static String hostUrl(NetworkAddress networkAddress) {
+        try {
+            InetAddress host = InetAddress.getByName(networkAddress.host());
+            return host.getHostAddress() + ":" + networkAddress.port();
+        } catch (UnknownHostException e) {
+            throw new RuntimeException(e);
         }
     }
 
