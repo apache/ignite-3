@@ -293,12 +293,6 @@ namespace Apache.Ignite.Internal
             {
                 _notificationHandlers[requestId] = notificationHandler;
             }
-            else
-            {
-                Debug.Assert(
-                    clientOp != ClientOp.ComputeExecute && clientOp != ClientOp.ComputeExecuteColocated,
-                    "Notification handler should be provided for Compute ops.");
-            }
 
             Metrics.RequestsActiveIncrement();
 
