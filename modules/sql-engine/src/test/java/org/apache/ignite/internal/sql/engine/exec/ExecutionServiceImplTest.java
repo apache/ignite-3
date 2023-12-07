@@ -741,7 +741,9 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
 
         startResponseLatch.await(TIMEOUT_IN_MS, TimeUnit.MILLISECONDS);
 
-        String debugInfo = execService.dumpDebugInfo();
+        String debugInfoCoordinator = executionServices.get(0).dumpDebugInfo();
+        String debugInfo2 = executionServices.get(1).dumpDebugInfo();
+        String debugInfo3 = executionServices.get(2).dumpDebugInfo();
 
         continueLatch.countDown();
 
@@ -753,7 +755,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
 
         String nl = System.lineSeparator();
 
-        String expected = format(nl
+        String expectedOnCoordinator = format(nl
                 + "Debug info for query: {} (canceled=false, stopped=false)" + nl
                 + "  Coordinator node: node_1 (current node)" + nl
                 + "  Root node state: opened" + nl
@@ -768,7 +770,17 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
                 + "    id=0, state=opened, canceled=false, class=Inbox  (root)" + nl
                 + "    id=1, state=opened, canceled=false, class=Outbox" + nl, ctx.queryId());
 
-        assertThat(debugInfo, equalTo(expected));
+        assertThat(debugInfoCoordinator, equalTo(expectedOnCoordinator));
+
+        String expectedOnNonCoordinator = format(nl
+                + "Debug info for query: {} (canceled=false, stopped=false)" + nl
+                + "  Coordinator node: node_1" + nl
+                + nl
+                + "  Local fragments:" + nl
+                + "    id=1, state=opened, canceled=false, class=Outbox" + nl, ctx.queryId());
+
+        assertThat(debugInfo2, equalTo(expectedOnNonCoordinator));
+        assertThat(debugInfo3, equalTo(expectedOnNonCoordinator));
     }
 
     /** Creates an execution service instance for the node with given consistent id. */

@@ -423,7 +423,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         );
 
         try {
-            // Using get() without a timeout to exclude situations when it's not clear whether the node has actually stopped or not.
+            // If the service was unable to stop within the provided timeout, debugging information will be output to the log.
             f.get(shutdownTimeout, TimeUnit.MILLISECONDS);
         } catch (TimeoutException e) {
             String message = format("SQL execution service could not be stopped within the specified timeout ({} ms).", shutdownTimeout);
@@ -505,12 +505,6 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             UUID queryId = entry.getKey();
             DistributedQueryManager mgr = entry.getValue();
 
-            Long rootFragmentId = mgr.rootFragmentId;
-
-            if (rootFragmentId == null) {
-                continue;
-            }
-
             buf.nl();
             buf.app("Debug info for query: ").app(queryId)
                     .app(" (canceled=").app(mgr.cancelled.get()).app(", stopped=").app(mgr.cancelFut.isDone()).app(")");
@@ -522,12 +516,11 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             }
             buf.nl();
 
-            buf.app("  Root node state: ");
             CompletableFuture<AsyncRootNode<RowT, List<Object>>> rootNodeFut = mgr.root;
-            if (rootNodeFut != null && rootNodeFut.isDone()) {
+            if (rootNodeFut != null) {
+                buf.app("  Root node state: ");
                 try {
                     AsyncRootNode<RowT, List<Object>> rootNode = rootNodeFut.getNow(null);
-
                     if (rootNode != null) {
                         if (rootNode.isClosed()) {
                             buf.app("closed");
@@ -542,8 +535,10 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                 } catch (CancellationException ex) {
                     buf.app("canceled");
                 }
+                buf.nl();
             }
-            buf.nl().nl();
+
+            buf.nl();
 
             List<RemoteFragmentKey> initFragments = mgr.remoteFragmentInitCompletion.entrySet().stream()
                     .filter(entry0 -> !entry0.getValue().isDone())
@@ -577,7 +572,9 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                             .app(", canceled=").app(fragment.context().isCancelled())
                             .app(", class=").app(fragment.getClass().getSimpleName());
 
-                    if (fragmentId == rootFragmentId) {
+                    Long rootFragmentId = mgr.rootFragmentId;
+
+                    if (rootFragmentId != null && rootFragmentId == fragmentId) {
                         buf.app("  (root)");
                     }
 
