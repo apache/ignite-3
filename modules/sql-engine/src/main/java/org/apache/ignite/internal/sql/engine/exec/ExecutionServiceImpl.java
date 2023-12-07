@@ -478,23 +478,23 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
     /**
      * Collects debug information about current state of execution.
      *
-     *<p>This information has the following format:
+     * <p>This information has the following format:
      *
-     *<pre>
-     *Debug info for query: [uuid] (canceled=[true/false], stopped=[true/false])
-     *  Coordinator node: [nodeName] [(current node)]
-     *  Root node state: [opened/closed/absent/exception]
+     * <pre>
+     * Debug info for query: [uuid] (canceled=[true/false], stopped=[true/false])
+     *   Coordinator node: [nodeName] [(current node)]
+     *   Root node state: [opened/closed/absent/exception]
      *
-     *  Fragments awaiting init completion:
-     *    id=[id], node=[nodeName]"
-     *    ...
+     *   Fragments awaiting init completion:
+     *     id=[id], node=[nodeName]"
+     *     ...
      *
-     *  Local fragments:
-     *    id=[id], state=[opened/closed], canceled=[true/false], class=[SimpleClassName]  [(root)]
-     *    ...
+     *   Local fragments:
+     *     id=[id], state=[opened/closed], canceled=[true/false], class=[SimpleClassName]  [(root)]
+     *     ...
      *
-     *...
-     *</pre>
+     * ...
+     * </pre>
      *
      * @return String containing debugging information.
      */
