@@ -2220,6 +2220,10 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      * @param future Future.
      */
     private <T> CompletableFuture<T> orStopManagerFuture(CompletableFuture<T> future) {
+        if (future.isDone()) {
+            return future;
+        }
+
         return anyOf(future, stopManagerFuture).thenApply(o -> (T) o);
     }
 }
