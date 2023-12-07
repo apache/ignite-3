@@ -39,6 +39,7 @@ import org.apache.ignite.internal.catalog.events.CreateIndexEventParameters;
 import org.apache.ignite.internal.catalog.events.DropIndexEventParameters;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.PrimaryReplicaAwaitTimeoutException;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
@@ -157,7 +158,7 @@ class IndexBuildController implements ManuallyCloseable {
             for (TablePartitionId primaryReplicaId : primaryReplicaIds) {
                 if (primaryReplicaId.tableId() == parameters.indexDescriptor().tableId()) {
                     CompletableFuture<?> startBuildIndexFuture = getMvTableStorageFuture(parameters.causalityToken(), primaryReplicaId)
-                            .thenCompose(mvTableStorage -> awaitPrimaryReplicaForNow(primaryReplicaId)
+                            .thenCompose(mvTableStorage -> awaitPrimaryReplica(primaryReplicaId, clock.now())
                                     .thenAccept(replicaMeta -> tryScheduleBuildIndex(
                                             primaryReplicaId,
                                             parameters.indexDescriptor(),
@@ -194,7 +195,7 @@ class IndexBuildController implements ManuallyCloseable {
                 int catalogVersion = catalogService.latestCatalogVersion();
 
                 return getMvTableStorageFuture(parameters.causalityToken(), primaryReplicaId)
-                        .thenCompose(mvTableStorage -> awaitPrimaryReplicaForNow(primaryReplicaId)
+                        .thenCompose(mvTableStorage -> awaitPrimaryReplica(primaryReplicaId, parameters.startTime())
                                 .thenAccept(replicaMeta -> tryScheduleBuildIndexesForNewPrimaryReplica(
                                         catalogVersion,
                                         primaryReplicaId,
@@ -267,15 +268,15 @@ class IndexBuildController implements ManuallyCloseable {
         return indexManager.getMvTableStorage(causalityToken, replicaId.tableId());
     }
 
-    private CompletableFuture<ReplicaMeta> awaitPrimaryReplicaForNow(TablePartitionId replicaId) {
+    private CompletableFuture<ReplicaMeta> awaitPrimaryReplica(TablePartitionId replicaId, HybridTimestamp timestamp) {
         return placementDriver
-                .awaitPrimaryReplica(replicaId, clock.now(), AWAIT_PRIMARY_REPLICA_TIMEOUT_SEC, SECONDS)
+                .awaitPrimaryReplica(replicaId, timestamp, AWAIT_PRIMARY_REPLICA_TIMEOUT_SEC, SECONDS)
                 .handle((replicaMeta, throwable) -> {
                     if (throwable != null) {
                         Throwable unwrapThrowable = ExceptionUtils.unwrapCause(throwable);
 
                         if (unwrapThrowable instanceof PrimaryReplicaAwaitTimeoutException) {
-                            return awaitPrimaryReplicaForNow(replicaId);
+                            return awaitPrimaryReplica(replicaId, timestamp);
                         } else {
                             return CompletableFuture.<ReplicaMeta>failedFuture(unwrapThrowable);
                         }
