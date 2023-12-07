@@ -290,6 +290,30 @@ public class DistributionZonesTestUtil {
     }
 
     /**
+     * Asserts {@link DistributionZonesUtil#zonesLogicalTopologyKey()} value in Meta Storage.
+     *
+     * @param clusterNodes Expected cluster nodes.
+     * @param metaStorageManager Meta Storage manager.
+     * @throws InterruptedException If thread was interrupted.
+     */
+    public static void assertLogicalTopologyInMetastorage(
+            @Nullable Set<LogicalNode> clusterNodes,
+            MetaStorageManager metaStorageManager
+    ) throws InterruptedException {
+        Set<NodeWithAttributes> nodes = clusterNodes == null
+                ? null
+                : clusterNodes.stream().map(n -> new NodeWithAttributes(n.name(), n.id(), n.userAttributes())).collect(toSet());
+
+        assertValueInStorage(
+                metaStorageManager,
+                zonesLogicalTopologyKey(),
+                ByteUtils::fromBytes,
+                nodes,
+                1000
+        );
+    }
+
+    /**
      * Asserts {@link DistributionZonesUtil#zonesLogicalTopologyVersionKey()} value.
      *
      * @param topVer Topology version.

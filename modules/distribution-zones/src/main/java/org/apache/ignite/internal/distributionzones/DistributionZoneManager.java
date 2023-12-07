@@ -638,13 +638,13 @@ public class DistributionZoneManager implements IgniteComponent {
                             newTopology.version()
                     );
                 } else if (res.getAsBoolean()) {
-                    LOG.debug(
+                    LOG.info(
                             "Distribution zones' logical topology and version keys were updated [topology = {}, version = {}]",
                             Arrays.toString(logicalTopology.toArray()),
                             newTopology.version()
                     );
                 } else {
-                    LOG.debug(
+                    LOG.info(
                             "Failed to update distribution zones' logical topology and version keys [topology = {}, version = {}]",
                             Arrays.toString(logicalTopology.toArray()),
                             newTopology.version()

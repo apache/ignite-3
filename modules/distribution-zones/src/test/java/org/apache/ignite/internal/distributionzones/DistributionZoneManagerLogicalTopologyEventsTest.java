@@ -17,24 +17,17 @@
 
 package org.apache.ignite.internal.distributionzones;
 
-import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl.LOGICAL_TOPOLOGY_KEY;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertDataNodesForZone;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertLogicalTopology;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertLogicalTopologyVersion;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.mockZonesLogicalTopologyAndAttributes;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyVersionKey;
-import static org.apache.ignite.internal.util.ByteUtils.toBytes;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import java.util.Collections;
 import java.util.Set;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.util.ByteUtils;
-import org.apache.ignite.network.ClusterNodeImpl;
 import org.apache.ignite.network.NetworkAddress;
 import org.junit.jupiter.api.Test;
 
@@ -203,24 +196,5 @@ public class DistributionZoneManagerLogicalTopologyEventsTest extends BaseDistri
         assertLogicalTopology(clusterNodes, keyValueStorage);
 
         assertLogicalTopologyVersion(11L, keyValueStorage);
-    }
-
-    //TODO: IGNITE-19955 Check if this test is needed.
-    @Test
-    void testStaleVaultRevisionOnZoneManagerStart() throws Exception {
-        int defaultZoneId = getZoneId(DEFAULT_ZONE_NAME);
-
-        keyValueStorage.put(zoneDataNodesKey(defaultZoneId).bytes(), toBytes(Collections.emptyMap()), HybridTimestamp.MIN_VALUE);
-
-        Set<LogicalNode> nodes = Set.of(
-                new LogicalNode(new ClusterNodeImpl("node1", "node1", NetworkAddress.from("127.0.0.1:127")), Collections.emptyMap()),
-                new LogicalNode(new ClusterNodeImpl("node2", "node2", NetworkAddress.from("127.0.0.1:127")), Collections.emptyMap())
-        );
-
-        mockZonesLogicalTopologyAndAttributes(nodes, metaStorageManager);
-
-        startDistributionZoneManager();
-
-        assertDataNodesForZone(defaultZoneId, Collections.emptySet(), keyValueStorage);
     }
 }
