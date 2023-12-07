@@ -92,13 +92,11 @@ public class TxCleanupRequestSender {
             UUID txId,
             Set<TablePartitionId> noPrimaryFound
     ) {
-        if (!noPrimaryFound.isEmpty()) {
-            for (TablePartitionId partition : noPrimaryFound) {
-                // Okay, no primary found for that partition.
-                // Means the old one is no longer primary thus the locks were released.
-                // All we need to do is to wait for the new primary to appear and cleanup write intents.
-                writeIntentSwitchProcessor.switchWriteIntentsWithRetry(commit, commitTimestamp, txId, partition);
-            }
+        for (TablePartitionId partition : noPrimaryFound) {
+            // Okay, no primary found for that partition.
+            // Means the old one is no longer primary thus the locks were released.
+            // All we need to do is to wait for the new primary to appear and cleanup write intents.
+            writeIntentSwitchProcessor.switchWriteIntentsWithRetry(commit, commitTimestamp, txId, partition);
         }
     }
 
