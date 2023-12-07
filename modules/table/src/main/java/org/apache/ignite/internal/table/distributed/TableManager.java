@@ -21,7 +21,6 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Collections.emptyMap;
 import static java.util.Collections.unmodifiableMap;
 import static java.util.concurrent.CompletableFuture.allOf;
-import static java.util.concurrent.CompletableFuture.anyOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.CompletableFuture.runAsync;
@@ -347,6 +346,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     /** Ends at the {@link #stop()} with an {@link NodeStoppingException}. */
     private final CompletableFuture<Void> stopManagerFuture = new CompletableFuture<>();
 
+    /** Contains current ongoing futures, that will be completed by {@link #stopManagerFuture}. */
+    private final Set<CompletableFuture<?>> stopFutures = ConcurrentHashMap.newKeySet();
+
     /**
      * Creates a new table manager.
      *
@@ -485,6 +487,14 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         );
 
         startVv = new IncrementalVersionedValue<>(registry);
+
+        stopManagerFuture.whenComplete((unused, nodeStoppingException) -> {
+            assert nodeStoppingException != null;
+
+            for (CompletableFuture<?> stopFuture : stopFutures) {
+                stopFuture.completeExceptionally(nodeStoppingException);
+            }
+        });
     }
 
     @Override
@@ -2220,6 +2230,17 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      * @param future Future.
      */
     private <T> CompletableFuture<T> orStopManagerFuture(CompletableFuture<T> future) {
-        return anyOf(future, stopManagerFuture).thenApply(o -> (T) o);
+        if (!future.isDone()) {
+            stopFutures.add(future);
+
+            future.whenComplete((t, throwable) -> stopFutures.remove(future));
+
+            if (stopManagerFuture.isDone()) {
+                // Here we reuse the same exception. You can't just get that exception via getter.
+                stopManagerFuture.whenComplete((unused, nodeStoppingException) -> future.completeExceptionally(nodeStoppingException));
+            }
+        }
+
+        return future;
     }
 }
