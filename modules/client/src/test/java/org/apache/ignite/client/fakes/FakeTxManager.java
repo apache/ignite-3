@@ -177,22 +177,11 @@ public class FakeTxManager implements TxManager {
             Map<TablePartitionId, Long> enlistedGroups,
             UUID txId
     ) {
-        return null;
-    }
-
-    @Override
-    public CompletableFuture<Void> cleanup(
-            String primaryConsistentId,
-            TablePartitionId tablePartitionId,
-            UUID txId,
-            boolean commit,
-            @Nullable HybridTimestamp commitTimestamp
-    ) {
         return nullCompletedFuture();
     }
 
     @Override
-    public CompletableFuture<Void> unlock(
+    public CompletableFuture<Void> cleanup(
             Collection<TablePartitionId> partitions,
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp,

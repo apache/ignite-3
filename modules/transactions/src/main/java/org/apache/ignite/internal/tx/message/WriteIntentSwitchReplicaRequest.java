@@ -15,39 +15,50 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed.command;
+package org.apache.ignite.internal.tx.message;
 
 import static org.apache.ignite.internal.hlc.HybridTimestamp.nullableHybridTimestamp;
 
+import java.util.UUID;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.table.distributed.TableMessageGroup;
+import org.apache.ignite.internal.replicator.message.ReplicaRequest;
+import org.apache.ignite.internal.replicator.message.TimestampAware;
 import org.apache.ignite.network.annotations.Transferable;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * State machine command to cleanup on a transaction commit.
+ * A replica request that either triggers the conversion of all pending entries(writeIntents) to regular values(TxState.COMMITED)
+ * or removes them (TxState.ABORTED).
  */
-@Transferable(TableMessageGroup.Commands.TX_CLEANUP)
-public interface TxCleanupCommand extends PartitionCommand {
+@Transferable(TxMessageGroup.WRITE_INTENT_SWITCH_REQUEST)
+public interface WriteIntentSwitchReplicaRequest extends ReplicaRequest, TimestampAware {
     /**
-     * Returns a commit or a rollback state.
+     * Returns transaction Id.
+     *
+     * @return Transaction id.
+     */
+    UUID txId();
+
+    /**
+     * Returns {@code True} if a commit request.
+     *
+     * @return {@code True} to commit.
      */
     boolean commit();
 
     /**
      * Returns a transaction commit timestamp.
+     *
+     * @return Commit timestamp.
      */
     long commitTimestampLong();
 
     /**
      * Returns a transaction commit timestamp.
+     *
+     * @return Commit timestamp.
      */
     default @Nullable HybridTimestamp commitTimestamp() {
         return nullableHybridTimestamp(commitTimestampLong());
     }
-
-    /**
-     * Transaction coordinator id.
-     */
-    String txCoordinatorId();
 }

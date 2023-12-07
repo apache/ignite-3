@@ -18,7 +18,7 @@
 package org.apache.ignite.distributed;
 
 import java.util.concurrent.atomic.AtomicInteger;
-import org.apache.ignite.internal.tx.message.LockReleaseMessage;
+import org.apache.ignite.internal.tx.message.TxCleanupMessage;
 import org.apache.ignite.network.DefaultMessagingService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.TestInfo;
@@ -69,7 +69,7 @@ public class ItTxDistributedCleanupRecoveryTest extends ItTxDistributedTestSingl
         txTestCluster.cluster.forEach(clusterService -> {
             DefaultMessagingService messagingService = (DefaultMessagingService) clusterService.messagingService();
             messagingService.dropMessages((s, networkMessage) -> {
-                if (networkMessage instanceof LockReleaseMessage && defaultRetryCount.getAndDecrement() > 0) {
+                if (networkMessage instanceof TxCleanupMessage && defaultRetryCount.getAndDecrement() > 0) {
                     logger().info("Dropping unlock request: {}", networkMessage);
 
                     return true;

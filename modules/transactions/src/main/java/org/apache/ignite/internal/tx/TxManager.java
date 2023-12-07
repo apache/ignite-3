@@ -130,25 +130,7 @@ public interface TxManager extends IgniteComponent {
     );
 
     /**
-     * Sends cleanup request to the specified primary replica.
-     *
-     * @param primaryConsistentId  A consistent id of the primary replica node.
-     * @param tablePartitionId Table partition id.
-     * @param txId Transaction id.
-     * @param commit {@code true} if a commit requested.
-     * @param commitTimestamp Commit timestamp ({@code null} if it's an abort).
-     * @return Completable future of Void.
-     */
-    CompletableFuture<Void> cleanup(
-            String primaryConsistentId,
-            TablePartitionId tablePartitionId,
-            UUID txId,
-            boolean commit,
-            @Nullable HybridTimestamp commitTimestamp
-    );
-
-    /**
-     * Sends unlock request to the primary nodes of each one of {@code partitions}.
+     * Sends cleanup request to the primary nodes of each one of {@code partitions}.
      *
      * @param partitions Enlisted partition groups.
      * @param commit {@code true} if a commit requested.
@@ -156,7 +138,7 @@ public interface TxManager extends IgniteComponent {
      * @param txId Transaction id.
      * @return Completable future of Void.
      */
-    CompletableFuture<Void> unlock(
+    CompletableFuture<Void> cleanup(
             Collection<TablePartitionId> partitions,
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp,

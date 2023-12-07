@@ -35,9 +35,9 @@ public class TxMessageGroup {
     public static final short TX_FINISH_RESPONSE = 1;
 
     /**
-     * Message type for {@link TxCleanupReplicaRequest}.
+     * Message type for {@link WriteIntentSwitchReplicaRequest}.
      */
-    public static final short TX_CLEANUP_REQUEST = 2;
+    public static final short WRITE_INTENT_SWITCH_REQUEST = 2;
 
     /**
      * Message type for {@link TxStateCommitPartitionRequest}.
@@ -60,9 +60,9 @@ public class TxMessageGroup {
     public static final short TX_RECOVERY_MSG = 6;
 
     /**
-     * Message type for {@link LockReleaseMessage}.
+     * Message type for {@link TxCleanupMessage}.
      */
-    public static final short TX_UNLOCK_MSG = 7;
+    public static final short TX_CLEANUP_MSG = 7;
 
     /**
      * Message type for {@link LockReleaseMessageResponse}.

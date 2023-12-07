@@ -20,94 +20,99 @@ package org.apache.ignite.internal.tx.impl;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
-import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.util.CompletableFutures;
+import org.apache.ignite.network.ClusterService;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * A wrapper above {@link TxManager} that is able to send TX cleanup requests in a durable manner (with retries).
+ * A wrapper above {@link TxManager} that is able to send switch write intent requests in a durable manner (with retries).
  */
-public class TxCleanupProcessor {
+public class WriteIntentSwitchProcessor {
     /** The logger. */
-    private static final IgniteLogger LOG = Loggers.forClass(TxCleanupProcessor.class);
+    private static final IgniteLogger LOG = Loggers.forClass(WriteIntentSwitchProcessor.class);
 
     private static final int ATTEMPTS_TO_CLEANUP_REPLICA = 5;
-
-    /** Transaction manager. */
-    private final TxManager txManager;
 
     /** Placement driver helper. */
     private final PlacementDriverHelper placementDriverHelper;
 
-    /** Hybrid clock. */
-    private final HybridClock hybridClock;
+    private final TxMessageSender messageCreator;
+
+    /** Cluster service. */
+    private final ClusterService clusterService;
 
     /**
      * The constructor.
      *
-     * @param txManager Transaction manager.
      * @param placementDriverHelper Placement driver helper.
-     * @param clock A hybrid logical clock.
+     * @param messageCreator Transaction message creator.
+     * @param clusterService Cluster service.
      */
-    public TxCleanupProcessor(TxManager txManager, PlacementDriverHelper placementDriverHelper, HybridClock clock) {
-        this.txManager = txManager;
+    public WriteIntentSwitchProcessor(
+            PlacementDriverHelper placementDriverHelper,
+            TxMessageSender messageCreator,
+            ClusterService clusterService
+    ) {
         this.placementDriverHelper = placementDriverHelper;
-        this.hybridClock = clock;
+        this.messageCreator = messageCreator;
+        this.clusterService = clusterService;
     }
 
     /**
-     * Run cleanup on the provided node.
+     * Run switch write intent on the provided node.
      */
-    CompletableFuture<Void> cleanup(
+    public CompletableFuture<Void> switchLocalWriteIntents(
+            TablePartitionId tablePartitionId,
+            UUID txId,
+            boolean commit,
+            @Nullable HybridTimestamp commitTimestamp
+    ) {
+        String localNodeName = clusterService.topologyService().localMember().name();
+
+        return switchWriteIntents(localNodeName, tablePartitionId, txId, commit, commitTimestamp);
+    }
+
+    /**
+     * Run switch write intent on the provided node.
+     */
+    private CompletableFuture<Void> switchWriteIntents(
             String primaryConsistentId,
             TablePartitionId tablePartitionId,
             UUID txId,
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp
     ) {
-        return txManager.cleanup(primaryConsistentId, tablePartitionId, txId, commit, commitTimestamp);
+        return messageCreator.switchWriteIntents(primaryConsistentId, tablePartitionId, txId, commit, commitTimestamp);
     }
 
     /**
-     * Run cleanup on the primary node of the provided partition.
+     * Run switch write intent on the primary node of the provided partition in a durable manner.
      */
-    public CompletableFuture<Void> cleanup(
-            TablePartitionId partitionId,
-            UUID txId,
-            boolean commit,
-            @Nullable HybridTimestamp commitTimestamp
-    ) {
-        return cleanupWithRetry(commit, commitTimestamp, txId, partitionId, 0);
-    }
-
-    /**
-     * Run cleanup on the primary node of the provided partition in a durable manner.
-     */
-    CompletableFuture<Void> cleanupWithRetry(
+    public CompletableFuture<Void> switchWriteIntentsWithRetry(
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp,
             UUID txId,
             TablePartitionId partitionId
     ) {
-        return cleanupWithRetry(commit, commitTimestamp, txId, partitionId, ATTEMPTS_TO_CLEANUP_REPLICA);
+        return switchWriteIntentsWithRetry(commit, commitTimestamp, txId, partitionId, ATTEMPTS_TO_CLEANUP_REPLICA);
     }
 
     // TODO https://issues.apache.org/jira/browse/IGNITE-20681 remove attempts count.
-    private CompletableFuture<Void> cleanupWithRetry(
+    private CompletableFuture<Void> switchWriteIntentsWithRetry(
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp,
             UUID txId,
             TablePartitionId partitionId,
             int attempts
     ) {
-        return placementDriverHelper.awaitPrimaryReplica(partitionId, hybridClock.now())
+        return placementDriverHelper.awaitPrimaryReplica(partitionId)
                 .thenCompose(leaseHolder ->
-                        cleanup(leaseHolder.getLeaseholder(), partitionId, txId, commit, commitTimestamp))
+                        switchWriteIntents(leaseHolder.getLeaseholder(), partitionId, txId, commit, commitTimestamp))
                 .handle((res, ex) -> {
                     if (ex != null) {
                         if (attempts > 0) {
@@ -117,7 +122,7 @@ public class TxCleanupProcessor {
                         }
 
                         if (attempts > 0) {
-                            return cleanupWithRetry(commit, commitTimestamp, txId, partitionId, attempts - 1);
+                            return switchWriteIntentsWithRetry(commit, commitTimestamp, txId, partitionId, attempts - 1);
                         }
 
                         return CompletableFuture.<Void>failedFuture(ex);

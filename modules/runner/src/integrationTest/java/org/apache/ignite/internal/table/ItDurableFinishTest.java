@@ -41,8 +41,8 @@ import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxMeta;
-import org.apache.ignite.internal.tx.message.TxCleanupReplicaRequest;
 import org.apache.ignite.internal.tx.message.TxFinishReplicaRequest;
+import org.apache.ignite.internal.tx.message.WriteIntentSwitchReplicaRequest;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.DefaultMessagingService;
@@ -242,7 +242,7 @@ public class ItDurableFinishTest extends ClusterPerTestIntegrationTest {
         // Make sure the finish message is prepared, i.e. the outcome, commit timestamp, primary node, etc. have been set,
         // and then temporarily block the messaging to simulate network issues.
         primaryMessaging.dropMessages((s, networkMessage) -> {
-            if (networkMessage instanceof TxCleanupReplicaRequest && !messageHandled.get()) {
+            if (networkMessage instanceof WriteIntentSwitchReplicaRequest && !messageHandled.get()) {
                 messageHandled.set(true);
 
                 try {

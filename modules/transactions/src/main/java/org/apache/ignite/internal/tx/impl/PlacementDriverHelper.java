@@ -29,6 +29,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -49,24 +50,30 @@ public class PlacementDriverHelper {
     /** Placement driver. */
     private final PlacementDriver placementDriver;
 
+    /** A hybrid logical clock. */
+    private final HybridClock clock;
+
     /**
      * Constructor.
      *
      * @param placementDriver Placement driver.
+     * @param clock A hybrid logical clock.
      */
-    public PlacementDriverHelper(PlacementDriver placementDriver) {
+    public PlacementDriverHelper(PlacementDriver placementDriver, HybridClock clock) {
         this.placementDriver = placementDriver;
+        this.clock = clock;
     }
 
     /**
      * Wait for primary replica to appear for the provided partition.
      *
      * @param partitionId Partition id.
-     * @param timestamp CLOCK_SKEW aware timestamp reference value.
      * @return Future that completes with node id that is a primary for the provided partition, or completes with exception if no primary
      *         appeared during the await timeout.
      */
-    public CompletableFuture<ReplicaMeta> awaitPrimaryReplica(TablePartitionId partitionId, HybridTimestamp timestamp) {
+    public CompletableFuture<ReplicaMeta> awaitPrimaryReplica(TablePartitionId partitionId) {
+        HybridTimestamp timestamp = clock.now();
+
         return placementDriver.awaitPrimaryReplica(partitionId, timestamp, AWAIT_PRIMARY_REPLICA_TIMEOUT, SECONDS)
                 .handle((primaryReplica, e) -> {
                     if (e != null) {
@@ -85,11 +92,12 @@ public class PlacementDriverHelper {
      * Get primary replicas for the provided partitions.
      *
      * @param partitions A collection of partitions.
-     * @param timestamp CLOCK_SKEW aware timestamp reference value.
      * @return A future that completes with a map of node to the partitions the node is primary for and a collection of partitions that we
      *         failed to find the primary for.
      */
-    public CompletableFuture<PartitionData> findPrimaryReplicas(Collection<TablePartitionId> partitions, HybridTimestamp timestamp) {
+    public CompletableFuture<PartitionData> findPrimaryReplicas(Collection<TablePartitionId> partitions) {
+        HybridTimestamp timestamp = clock.now();
+
         Map<TablePartitionId, CompletableFuture<ReplicaMeta>> primaryReplicaFutures = new HashMap<>();
 
         // Please note that we are using `get primary replica` instead of `await primary replica`.

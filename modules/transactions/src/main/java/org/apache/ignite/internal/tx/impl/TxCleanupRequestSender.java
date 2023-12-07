@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.tx.impl;
 
 import static java.util.concurrent.CompletableFuture.allOf;
-import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestampToLong;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -28,61 +27,44 @@ import java.util.Map.Entry;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl.TransactionFailureHandler;
-import org.apache.ignite.internal.tx.message.LockReleaseMessage;
-import org.apache.ignite.internal.tx.message.TxMessagesFactory;
 import org.apache.ignite.internal.util.CompletableFutures;
-import org.apache.ignite.network.ClusterService;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Sends TX Unlock request.
  */
-public class TxUnlockRequestSender {
-    /** Network timeout. */
-    private static final long RPC_TIMEOUT = 3000;
-
-    /** Tx messages factory. */
-    private static final TxMessagesFactory FACTORY = new TxMessagesFactory();
-
-    /** Cluster service. */
-    private final ClusterService clusterService;
-
+public class TxCleanupRequestSender {
     /** Placement driver helper. */
     private final PlacementDriverHelper placementDriverHelper;
 
-    /** Hybrid clock. */
-    private final HybridClock hybridClock;
-
     /** Cleanup processor. */
-    private final TxCleanupProcessor txCleanupProcessor;
+    private final WriteIntentSwitchProcessor writeIntentSwitchProcessor;
+
+    private final TxMessageSender txMessageSender;
 
     /**
      * The constructor.
      *
-     * @param clusterService Cluster service.
+     * @param txMessageSender Message sender.
      * @param placementDriverHelper Placement driver helper.
-     * @param clock A hybrid logical clock.
-     * @param txCleanupProcessor A cleanup processor.
+     * @param writeIntentSwitchProcessor A cleanup processor.
      */
-    public TxUnlockRequestSender(
-            ClusterService clusterService,
+    public TxCleanupRequestSender(
+            TxMessageSender txMessageSender,
             PlacementDriverHelper placementDriverHelper,
-            HybridClock clock,
-            TxCleanupProcessor txCleanupProcessor
+            WriteIntentSwitchProcessor writeIntentSwitchProcessor
     ) {
-        this.clusterService = clusterService;
+        this.txMessageSender = txMessageSender;
         this.placementDriverHelper = placementDriverHelper;
-        this.hybridClock = clock;
-        this.txCleanupProcessor = txCleanupProcessor;
+        this.writeIntentSwitchProcessor = writeIntentSwitchProcessor;
     }
 
     /**
-     * Sends unlock request to the primary nodes of each one of {@code partitions}.
+     * Sends cleanup request to the primary nodes of each one of {@code partitions}.
      *
      * @param partitions Enlisted partition groups.
      * @param commit {@code true} if a commit requested.
@@ -90,21 +72,21 @@ public class TxUnlockRequestSender {
      * @param txId Transaction id.
      * @return Completable future of Void.
      */
-    public CompletableFuture<Void> unlock(
+    public CompletableFuture<Void> cleanup(
             Collection<TablePartitionId> partitions,
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp,
             UUID txId
     ) {
-        return placementDriverHelper.findPrimaryReplicas(partitions, hybridClock.now())
+        return placementDriverHelper.findPrimaryReplicas(partitions)
                 .thenCompose(partitionData -> {
-                    durableCleanupPartitionsWithNoPrimary(commit, commitTimestamp, txId, partitionData.partitionsWithoutPrimary);
+                    switchWriteIntentsOnPartitions(commit, commitTimestamp, txId, partitionData.partitionsWithoutPrimary);
 
-                    return unlockPartitions(partitionData.partitionsByNode, commit, commitTimestamp, txId);
+                    return cleanupPartitions(partitionData.partitionsByNode, commit, commitTimestamp, txId);
                 });
     }
 
-    private void durableCleanupPartitionsWithNoPrimary(
+    private void switchWriteIntentsOnPartitions(
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp,
             UUID txId,
@@ -113,32 +95,32 @@ public class TxUnlockRequestSender {
         if (!noPrimaryFound.isEmpty()) {
             for (TablePartitionId partition : noPrimaryFound) {
                 // Okay, no primary found for that partition.
-                // Switch to the durable cleanup that will wait for the primary to appear.
-                // Also no need to wait on this future - if the primary has expired, the locks are already released.
-                txCleanupProcessor.cleanupWithRetry(commit, commitTimestamp, txId, partition);
+                // Means the old one is no longer primary thus the locks were released.
+                // All we need to do is to wait for the new primary to appear and cleanup write intents.
+                writeIntentSwitchProcessor.switchWriteIntentsWithRetry(commit, commitTimestamp, txId, partition);
             }
         }
     }
 
-    private CompletableFuture<Void> unlockPartitions(
+    private CompletableFuture<Void> cleanupPartitions(
             Map<String, Set<TablePartitionId>> partitionsByNode,
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp,
             UUID txId
     ) {
-        List<CompletableFuture<Void>> unlockFutures = new ArrayList<>();
+        List<CompletableFuture<Void>> cleanupFutures = new ArrayList<>();
 
         for (Entry<String, Set<TablePartitionId>> entry : partitionsByNode.entrySet()) {
             String node = entry.getKey();
             Set<TablePartitionId> nodePartitions = entry.getValue();
 
-            unlockFutures.add(sendUnlockMessageWithRetries(commit, commitTimestamp, txId, node, nodePartitions));
+            cleanupFutures.add(sendCleanupMessageWithRetries(commit, commitTimestamp, txId, node, nodePartitions));
         }
 
-        return allOf(unlockFutures.toArray(new CompletableFuture<?>[0]));
+        return allOf(cleanupFutures.toArray(new CompletableFuture<?>[0]));
     }
 
-    private CompletableFuture<Void> sendUnlockMessageWithRetries(
+    private CompletableFuture<Void> sendCleanupMessageWithRetries(
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp,
             UUID txId,
@@ -147,19 +129,11 @@ public class TxUnlockRequestSender {
     ) {
         Collection<ReplicationGroupId> enlistedPartitions = (Collection<ReplicationGroupId>) (Collection<?>) partitions;
 
-        LockReleaseMessage build = FACTORY.lockReleaseMessage()
-                .txId(txId)
-                .commit(commit)
-                .commitTimestampLong(hybridTimestampToLong(commitTimestamp))
-                .timestampLong(hybridClock.nowLong())
-                .groups(enlistedPartitions)
-                .build();
-
-        return clusterService.messagingService().invoke(node, build, RPC_TIMEOUT)
+        return txMessageSender.cleanup(node, enlistedPartitions, txId, commit, commitTimestamp)
                 .handle((networkMessage, throwable) -> {
                     if (throwable != null) {
                         if (TransactionFailureHandler.isRecoverable(throwable)) {
-                            return sendUnlockMessageWithRetries(commit, commitTimestamp, txId, node, partitions);
+                            return sendCleanupMessageWithRetries(commit, commitTimestamp, txId, node, partitions);
                         }
 
                         return CompletableFuture.<Void>failedFuture(throwable);

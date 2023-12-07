@@ -22,12 +22,13 @@ import static java.util.concurrent.CompletableFuture.allOf;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.tx.LockManager;
-import org.apache.ignite.internal.tx.message.LockReleaseMessage;
+import org.apache.ignite.internal.tx.message.TxCleanupMessage;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
 import org.apache.ignite.network.ClusterService;
@@ -35,9 +36,9 @@ import org.apache.ignite.network.NetworkMessage;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Handles TX Unlock request ({@link LockReleaseMessage}).
+ * Handles TX Cleanup request ({@link TxCleanupMessage}).
  */
-public class TxUnlockRequestHandler {
+public class TxCleanupRequestHandler {
     /** Tx messages factory. */
     private static final TxMessagesFactory FACTORY = new TxMessagesFactory();
 
@@ -51,7 +52,7 @@ public class TxUnlockRequestHandler {
     private final HybridClock hybridClock;
 
     /** Cleanup processor. */
-    private final TxCleanupProcessor txCleanupProcessor;
+    private final WriteIntentSwitchProcessor writeIntentSwitchProcessor;
 
     /**
      * The constructor.
@@ -59,18 +60,18 @@ public class TxUnlockRequestHandler {
      * @param clusterService Cluster service.
      * @param lockManager Lock manager.
      * @param clock A hybrid logical clock.
-     * @param txCleanupProcessor A cleanup processor.
+     * @param writeIntentSwitchProcessor A cleanup processor.
      */
-    public TxUnlockRequestHandler(
+    public TxCleanupRequestHandler(
             ClusterService clusterService,
             LockManager lockManager,
             HybridClock clock,
-            TxCleanupProcessor txCleanupProcessor
+            WriteIntentSwitchProcessor writeIntentSwitchProcessor
     ) {
         this.clusterService = clusterService;
         this.lockManager = lockManager;
         this.hybridClock = clock;
-        this.txCleanupProcessor = txCleanupProcessor;
+        this.writeIntentSwitchProcessor = writeIntentSwitchProcessor;
     }
 
     /**
@@ -78,8 +79,8 @@ public class TxUnlockRequestHandler {
      */
     public void start() {
         clusterService.messagingService().addMessageHandler(TxMessageGroup.class, (msg, sender, correlationId) -> {
-            if (msg instanceof LockReleaseMessage) {
-                processLockRelease((LockReleaseMessage) msg, sender, correlationId);
+            if (msg instanceof TxCleanupMessage) {
+                processTxCleanup((TxCleanupMessage) msg, sender, correlationId);
             }
         });
     }
@@ -87,21 +88,18 @@ public class TxUnlockRequestHandler {
     public void stop() {
     }
 
-    private void processLockRelease(LockReleaseMessage lockReleaseMsg, String senderId, @Nullable Long correlationId) {
+    private void processTxCleanup(TxCleanupMessage lockReleaseMsg, String senderId, @Nullable Long correlationId) {
         assert correlationId != null;
 
-        String node = clusterService.topologyService().localMember().name();
-
-        Map<TablePartitionId, CompletableFuture<?>> cleanups = new HashMap<>();
+        Map<TablePartitionId, CompletableFuture<?>> writeIntentSwitches = new HashMap<>();
 
         // These cleanups will all be local.
         Collection<ReplicationGroupId> groups = lockReleaseMsg.groups();
 
         if (groups != null) {
             for (ReplicationGroupId group : groups) {
-                cleanups.put((TablePartitionId) group,
-                        txCleanupProcessor.cleanup(
-                                node,
+                writeIntentSwitches.put((TablePartitionId) group,
+                        writeIntentSwitchProcessor.switchLocalWriteIntents(
                                 (TablePartitionId) group,
                                 lockReleaseMsg.txId(),
                                 lockReleaseMsg.commit(),
@@ -111,8 +109,8 @@ public class TxUnlockRequestHandler {
         }
         // First trigger the cleanup to properly release the locks if we know all affected partitions on this node.
         // If the partition collection is empty (likely to be the recovery case)- just run 'release locks'.
-        allOf(cleanups.values().toArray(new CompletableFuture<?>[0]))
-                .thenRun(() -> lockManager.locks(lockReleaseMsg.txId()).forEachRemaining(lockManager::release))
+        allOf(writeIntentSwitches.values().toArray(new CompletableFuture<?>[0]))
+                .thenRun(() -> releaseTxLocks(lockReleaseMsg.txId()))
                 .whenComplete((unused, ex) -> {
                     NetworkMessage msg;
                     if (ex == null) {
@@ -122,9 +120,9 @@ public class TxUnlockRequestHandler {
 
                         // Run durable cleanup for the partitions that we failed to cleanup properly.
                         // No need to wait on this future.
-                        cleanups.forEach((groupId, future) -> {
+                        writeIntentSwitches.forEach((groupId, future) -> {
                             if (future.isCompletedExceptionally()) {
-                                txCleanupProcessor.cleanupWithRetry(
+                                writeIntentSwitchProcessor.switchWriteIntentsWithRetry(
                                         lockReleaseMsg.commit(),
                                         lockReleaseMsg.commitTimestamp(),
                                         lockReleaseMsg.txId(),
@@ -136,6 +134,10 @@ public class TxUnlockRequestHandler {
 
                     clusterService.messagingService().respond(senderId, msg, correlationId);
                 });
+    }
+
+    private void releaseTxLocks(UUID txId) {
+        lockManager.locks(txId).forEachRemaining(lockManager::release);
     }
 
     private NetworkMessage prepareResponse() {

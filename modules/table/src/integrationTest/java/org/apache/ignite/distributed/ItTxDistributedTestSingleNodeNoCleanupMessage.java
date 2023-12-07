@@ -54,7 +54,7 @@ import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
-import org.apache.ignite.internal.tx.message.TxCleanupReplicaRequest;
+import org.apache.ignite.internal.tx.message.WriteIntentSwitchReplicaRequest;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
@@ -169,11 +169,11 @@ public class ItTxDistributedTestSingleNodeNoCleanupMessage extends ItTxDistribut
                 ) {
                     @Override
                     public CompletableFuture<ReplicaResult> invoke(ReplicaRequest request, String senderId) {
-                        if (request instanceof TxCleanupReplicaRequest) {
+                        if (request instanceof WriteIntentSwitchReplicaRequest) {
                             logger().info("Dropping cleanup request: {}", request);
 
                             releaseTxLocks(
-                                    ((TxCleanupReplicaRequest) request).txId(),
+                                    ((WriteIntentSwitchReplicaRequest) request).txId(),
                                     txManager.lockManager()
                             );
 

@@ -19,29 +19,36 @@ package org.apache.ignite.internal.tx.message;
 
 import static org.apache.ignite.internal.hlc.HybridTimestamp.nullableHybridTimestamp;
 
+import java.util.Collection;
 import java.util.UUID;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.replicator.message.ReplicaRequest;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.message.TimestampAware;
+import org.apache.ignite.network.annotations.Marshallable;
 import org.apache.ignite.network.annotations.Transferable;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Transaction cleanup replica request that will trigger following actions processing.
- *
- *  <ol>
- *      <li>Convert all pending entries(writeIntents) to either regular values(TxState.COMMITED) or remove them (TxState.ABORTED).</li>
- *      <li>Release all locks that were held on local replica by given transaction.</li>
- *  </ol>
+ * Release transaction locks message.
  */
-@Transferable(TxMessageGroup.TX_CLEANUP_REQUEST)
-public interface TxCleanupReplicaRequest extends ReplicaRequest, TimestampAware {
+@Transferable(TxMessageGroup.TX_CLEANUP_MSG)
+public interface TxCleanupMessage extends TimestampAware {
     /**
-     * Returns transaction Id.
+     * Gets a transaction id to resolve.
      *
      * @return Transaction id.
      */
     UUID txId();
+
+    /**
+     * Returns replication groups aggregated by expected primary replica nodes.
+     * Null when this message is sent at recovery.
+     *
+     * @return Replication groups aggregated by expected primary replica nodes.
+     */
+    @Marshallable
+    @Nullable
+    Collection<ReplicationGroupId> groups();
 
     /**
      * Returns {@code True} if a commit request.
