@@ -29,7 +29,7 @@ import org.apache.ignite.network.annotations.Transferable;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Release transaction locks message.
+ * Cleanup transaction message.
  */
 @Transferable(TxMessageGroup.TX_CLEANUP_MSG)
 public interface TxCleanupMessage extends TimestampAware {

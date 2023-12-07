@@ -143,14 +143,14 @@ public class TxCleanupRequestHandler {
 
     private NetworkMessage prepareResponse() {
         return FACTORY
-                .lockReleaseMessageResponse()
+                .txCleanupMessageResponse()
                 .timestampLong(hybridClock.nowLong())
                 .build();
     }
 
     private NetworkMessage prepareErrorResponse(Throwable th) {
         return FACTORY
-                .lockReleaseMessageErrorResponse()
+                .txCleanupMessageErrorResponse()
                 .throwable(th)
                 .timestampLong(hybridClock.nowLong())
                 .build();

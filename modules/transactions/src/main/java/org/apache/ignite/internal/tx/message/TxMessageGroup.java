@@ -65,12 +65,12 @@ public class TxMessageGroup {
     public static final short TX_CLEANUP_MSG = 7;
 
     /**
-     * Message type for {@link LockReleaseMessageResponse}.
+     * Message type for {@link TxCleanupMessageResponse}.
      */
-    public static final short TX_UNLOCK_MSG_RESPONSE = 8;
+    public static final short TX_CLEANUP_MSG_RESPONSE = 8;
 
     /**
-     * Message type for {@link LockReleaseMessageErrorResponse}.
+     * Message type for {@link TxCleanupMessageErrorResponse}.
      */
-    public static final short TX_UNLOCK_MSG_ERR_RESPONSE = 9;
+    public static final short TX_CLEANUP_MSG_ERR_RESPONSE = 9;
 }

@@ -17,19 +17,12 @@
 
 package org.apache.ignite.internal.tx.message;
 
-import org.apache.ignite.network.annotations.Marshallable;
+import org.apache.ignite.internal.replicator.message.TimestampAware;
 import org.apache.ignite.network.annotations.Transferable;
 
 /**
- * Release transaction locks message response.
+ * Cleanup transaction message response.
  */
-@Transferable(TxMessageGroup.TX_UNLOCK_MSG_ERR_RESPONSE)
-public interface LockReleaseMessageErrorResponse extends LockReleaseMessageResponse {
-    /**
-     * Returns a {@link Throwable} that was thrown during handling a lock release message.
-     *
-     * @return {@link Throwable} that was thrown during handling a lock release message.
-     */
-    @Marshallable
-    Throwable throwable();
+@Transferable(TxMessageGroup.TX_CLEANUP_MSG_RESPONSE)
+public interface TxCleanupMessageResponse extends TimestampAware {
 }
