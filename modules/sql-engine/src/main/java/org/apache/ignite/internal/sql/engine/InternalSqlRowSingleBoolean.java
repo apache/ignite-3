@@ -21,7 +21,7 @@ import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.schema.BinaryTuple;
 
 /**
- * Realization of {@code InternalSqlRow} allowing to represent a SQL row with a single boolean column.
+ * Implementation of {@code InternalSqlRow} allowing to represent a SQL row with a single boolean column.
  */
 public class InternalSqlRowSingleBoolean implements InternalSqlRow {
     private final boolean val;

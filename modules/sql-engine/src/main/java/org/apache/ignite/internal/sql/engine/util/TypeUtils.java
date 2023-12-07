@@ -38,6 +38,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -52,8 +53,6 @@ import org.apache.calcite.sql.type.IntervalSqlType;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.type.SqlTypeUtil;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
-import org.apache.ignite.internal.sql.engine.exec.RowHandler;
-import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowBuilder;
 import org.apache.ignite.internal.sql.engine.exec.row.BaseTypeSpec;
 import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
 import org.apache.ignite.internal.sql.engine.exec.row.RowSchemaTypes;
@@ -165,37 +164,27 @@ public class TypeUtils {
     }
 
     /**
-     * Function.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Provide a function to convert internal representation of sql results into external types.
+     *
+     * @param ectx SQL execution context.
+     * @param resultType Type of result.
+     *
+     * @return Function for two arguments. First argument is an index of column to convert. Second argument is a value to be converted
      */
-    public static <RowT> Function<RowT, RowT> resultTypeConverter(ExecutionContext<RowT> ectx, RelDataType resultType) {
+    public static BiFunction<Integer, Object, Object> resultTypeConverter(ExecutionContext<?> ectx, RelDataType resultType) {
         assert resultType.isStruct();
 
         if (hasConvertableFields(resultType)) {
-            RowHandler<RowT> handler = ectx.rowHandler();
             List<RelDataType> types = RelOptUtil.getFieldTypeList(resultType);
-            RowSchema rowSchema = rowSchemaFromRelTypes(types);
-            RowHandler.RowFactory<RowT> factory = handler.factory(rowSchema);
             List<Function<Object, Object>> converters = transform(types, t -> fieldConverter(ectx, t));
-            return r -> {
-                assert handler.columnCount(r) == converters.size();
 
-                RowBuilder<RowT> rowBuilder = factory.rowBuilder();
-
-                for (int i = 0; i < converters.size(); i++) {
-                    Object converted = converters.get(i).apply(handler.get(i, r));
-                    rowBuilder.addField(converted);
-                }
-
-                RowT newRow = rowBuilder.buildAndReset();
-
-                assert handler.columnCount(newRow) == converters.size();
-
-                return newRow;
+            return (idx, r) -> {
+                assert idx >= 0 && idx < converters.size();
+                return converters.get(idx).apply(r);
             };
         }
 
-        return Function.identity();
+        return (idx, r) -> r;
     }
 
     private static Function<Object, Object> fieldConverter(ExecutionContext<?> ectx, RelDataType fieldType) {

@@ -17,12 +17,13 @@
 
 package org.apache.ignite.internal.sql.engine;
 
+import java.nio.ByteBuffer;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Realization of {@code InternalSqlRow} allowing to represent a SQL row with a single string column.
+ * Implementation of {@code InternalSqlRow} allowing to represent a SQL row with a single string column.
  */
 public class InternalSqlRowSingleString implements InternalSqlRow {
     private final String val;
@@ -39,8 +40,7 @@ public class InternalSqlRowSingleString implements InternalSqlRow {
 
     /** {@inheritDoc} */
     @Override
-    @Nullable
-    public String get(int idx) {
+    public @Nullable String get(int idx) {
         assert idx == 0;
         return val;
     }
@@ -55,7 +55,11 @@ public class InternalSqlRowSingleString implements InternalSqlRow {
     @Override
     public BinaryTuple asBinaryTuple() {
         if (row == null) {
-            row = new BinaryTuple(1, new BinaryTupleBuilder(1).appendString(val).build());
+            int estimatedSize = val == null ? 0 : val.length();
+            boolean exactEstimate = val == null;
+
+            ByteBuffer buffer = new BinaryTupleBuilder(1, estimatedSize, exactEstimate).appendString(val).build();
+            row = new BinaryTuple(1, buffer);
         }
         return row;
     }
