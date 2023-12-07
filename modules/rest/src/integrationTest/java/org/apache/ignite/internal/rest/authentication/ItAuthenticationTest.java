@@ -58,29 +58,31 @@ public class ItAuthenticationTest extends ClusterPerTestIntegrationTest {
 
     @BeforeEach
     @Override
-    public void setup(TestInfo testInfo) throws Exception {
-        super.setup(testInfo);
+    public void setup(TestInfo testInfo) {
         client = HttpClient.newBuilder()
                 .build();
     }
 
     @Override
     protected void customizeInitParameters(InitParametersBuilder builder) {
-        builder.clusterConfiguration("security.enabled: " + enableAuth + ",\n"
-                + "security.authentication.providers.default: [{"
-                + "    type: basic,\n"
-                + "    users: [{\n"
-                + "        username: " + username + ",\n"
-                + "        password: " + password + "\n"
-                + "    }]\n"
-                + "}]");
+        String config = "security.enabled=" + enableAuth;
+
+        if (username != null && password != null) {
+            config += ",\n"
+                    + "security.authentication.providers.default={"
+                    + "type=basic,"
+                    + "users=[{username=" + username
+                    + ",password=" + password
+                    + "}]}";
+        }
+
+        builder.clusterConfiguration(config);
     }
 
     @Test
     public void disabledAuthentication(TestInfo testInfo) throws Exception {
         enableAuth = false;
-        tearDown();
-        setup(testInfo);
+        super.setup(testInfo);
 
         // Then.
         cluster.runningNodes().forEach(node ->
@@ -89,7 +91,11 @@ public class ItAuthenticationTest extends ClusterPerTestIntegrationTest {
     }
 
     @Test
-    public void defaultUser(TestInfo testInfo) throws InterruptedException {
+    public void defaultUser(TestInfo testInfo) throws Exception {
+        username = null;
+        password = null;
+        super.setup(testInfo);
+
         // Authentication is enabled.
         Set<IgniteImpl> nodes = cluster.runningNodes().collect(Collectors.toSet());
         for (IgniteImpl node : nodes) {
@@ -104,7 +110,8 @@ public class ItAuthenticationTest extends ClusterPerTestIntegrationTest {
     }
 
     @Test
-    public void changeCredentials(TestInfo testInfo) throws InterruptedException {
+    public void changeCredentials(TestInfo testInfo) throws Exception {
+        super.setup(testInfo);
         Set<IgniteImpl> nodes = cluster.runningNodes().collect(Collectors.toSet());
 
         // Then.
@@ -125,7 +132,7 @@ public class ItAuthenticationTest extends ClusterPerTestIntegrationTest {
         }
 
         // Change credentials.
-        String updateRestAuthConfigBody = "security.authentication.providers.default.users.password=new-password";
+        String updateRestAuthConfigBody = "security.authentication.providers.default.users.admin.password=new-password";
 
         updateClusterConfiguration(node(0).restHttpAddress(), "admin", "password", updateRestAuthConfigBody);
 
@@ -142,7 +149,8 @@ public class ItAuthenticationTest extends ClusterPerTestIntegrationTest {
     }
 
     @Test
-    public void enableAuthenticationAndRestartNode(TestInfo testInfo) throws InterruptedException {
+    public void enableAuthenticationAndRestartNode(TestInfo testInfo) throws Exception {
+        super.setup(testInfo);
         Set<IgniteImpl> nodes = cluster.runningNodes().collect(Collectors.toSet());
 
         // Then.
@@ -179,7 +187,7 @@ public class ItAuthenticationTest extends ClusterPerTestIntegrationTest {
     }
 
     private void updateClusterConfiguration(NetworkAddress baseUrl, String username, String password, String configToApply) {
-        URI updateClusterConfigUri = URI.create(baseUrl + "/management/v1/configuration/cluster/");
+        URI updateClusterConfigUri = URI.create("http://" + baseUrl + "/management/v1/configuration/cluster/");
         HttpRequest updateClusterConfigRequest = HttpRequest.newBuilder(updateClusterConfigUri)
                 .header("content-type", "text/plain")
                 .header("Authorization", basicAuthenticationHeader(username, password))
@@ -194,7 +202,7 @@ public class ItAuthenticationTest extends ClusterPerTestIntegrationTest {
     }
 
     private boolean isRestAvailable(NetworkAddress baseUrl, String username, String password) {
-        URI clusterConfigUri = URI.create(baseUrl + "/management/v1/configuration/cluster/");
+        URI clusterConfigUri = URI.create("http://" + baseUrl + "/management/v1/configuration/cluster/");
         HttpRequest clusterConfigRequest = HttpRequest.newBuilder(clusterConfigUri)
                 .header("Authorization", basicAuthenticationHeader(username, password))
                 .build();

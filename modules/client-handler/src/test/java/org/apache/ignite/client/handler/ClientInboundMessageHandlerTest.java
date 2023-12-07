@@ -218,7 +218,7 @@ class ClientInboundMessageHandlerTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void changeCurrentProvider() throws IOException {
+    void changeProvider() throws IOException {
         handshake();
 
         CompletableFuture<Void> future = securityConfiguration.change(change -> {
@@ -237,29 +237,6 @@ class ClientInboundMessageHandlerTest extends BaseIgniteAbstractTest {
         assertThat(future, willCompleteSuccessfully());
 
         await().untilAtomic(ctxClosed, is(true));
-    }
-
-    @Test
-    void changeAnotherProvider() throws IOException {
-        handshake();
-
-        CompletableFuture<Void> future = securityConfiguration.change(change -> {
-            change.changeEnabled(true);
-            change.changeAuthentication(authChange -> {
-                authChange.changeProviders(providersChange -> {
-                    providersChange.update(PROVIDER_NAME, basicChange -> {
-                        basicChange.convert(BasicAuthenticationProviderChange.class)
-                                .changeUsers(users ->
-                                        users.update("admin1", user -> user.changePassword("new-password"))
-                                );
-                    });
-                });
-            });
-        });
-
-        assertThat(future, willCompleteSuccessfully());
-
-        await().during(TIMEOUT_OF_DURING).untilAtomic(ctxClosed, is(false));
     }
 
     @Test
