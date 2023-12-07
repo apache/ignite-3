@@ -55,4 +55,30 @@ public class TxStateMetaFinishing extends TxStateMeta {
     public @Nullable HybridTimestamp commitTimestamp() {
         throw new UnsupportedOperationException("Can't get commit timestamp from FINISHING transaction state meta.");
     }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        if (!super.equals(o)) {
+            return false;
+        }
+
+        TxStateMetaFinishing that = (TxStateMetaFinishing) o;
+
+        return txFinishFuture.equals(that.txFinishFuture);
+    }
+
+    @Override
+    public int hashCode() {
+        int result = super.hashCode();
+
+        result = 31 * result + txFinishFuture.hashCode();
+
+        return result;
+    }
 }
