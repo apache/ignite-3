@@ -39,7 +39,7 @@ public class SqlTransactionControlParserTest extends AbstractDdlParserTest {
             "START TRANSACTION,IMPLICIT_READ_WRITE",
     })
     public void testStartTx(String sqlStmt, IgniteSqlStartTransactionMode mode) {
-        SqlNode node = parseStatement(sqlStmt);
+        SqlNode node = parse(sqlStmt);
         IgniteSqlStartTransaction start = assertInstanceOf(IgniteSqlStartTransaction.class, node);
         assertEquals(mode, start.getMode());
 
@@ -48,20 +48,16 @@ public class SqlTransactionControlParserTest extends AbstractDdlParserTest {
 
     @Test
     public void testStartRejectInvalid() {
-        assertThrowsSqlException(Sql.STMT_PARSE_ERR, " Encountered \"XY\"", () -> parseStatement("START TRANSACTION XY"));
+        assertThrowsSqlException(Sql.STMT_PARSE_ERR, " Encountered \"XY\"", () -> parse("START TRANSACTION XY"));
     }
 
     @Test
     public void testCommit() {
         String sql = "COMMIT";
 
-        SqlNode node = parseStatement(sql);
+        SqlNode node = parse(sql);
         assertInstanceOf(IgniteSqlCommitTransaction.class, node);
 
         expectUnparsed(node, sql);
-    }
-
-    private SqlNode parseStatement(String sqlStmt) {
-        return parse(sqlStmt);
     }
 }
