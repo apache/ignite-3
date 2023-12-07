@@ -606,11 +606,6 @@ namespace Apache.Ignite.Tests
             var arrayBufferWriter = new PooledArrayBuffer();
             var writer = new MsgPackWriter(arrayBufferWriter);
 
-            if (colocated)
-            {
-                writer.Write(1); // Latest schema.
-            }
-
             writer.Write(builder.Build().Span);
 
             return arrayBufferWriter;
