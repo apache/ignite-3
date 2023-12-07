@@ -379,7 +379,13 @@ public class PartitionReplicaListener implements ReplicaListener {
     }
 
     private CompletableFuture<?> durableCleanup(UUID txId, TxMeta txMeta) {
-        return cleanup(txId, txMeta)
+        Collection<TablePartitionId> enlistedPartitions = txMeta.enlistedPartitions();
+
+        boolean commit = txMeta.txState() == COMMITED;
+
+        HybridTimestamp commitTimestamp = txMeta.commitTimestamp();
+
+        return txManager.cleanup(enlistedPartitions, commit, commitTimestamp, txId)
                 .handle((v, e) -> {
                     if (e == null) {
                         return txManager.executeCleanupAsync(() -> markLocksReleased(
@@ -1544,14 +1550,6 @@ public class PartitionReplicaListener implements ReplicaListener {
                                 commit ? COMMITED : ABORTED,
                                 commitTimestamp)
                 );
-    }
-
-    private CompletableFuture<Void> cleanup(UUID txId, TxMeta txMeta) {
-        Collection<TablePartitionId> enlistedPartitions = txMeta.enlistedPartitions();
-        boolean commit = txMeta.txState() == COMMITED;
-        HybridTimestamp commitTimestamp = txMeta.commitTimestamp();
-
-        return txManager.cleanup(enlistedPartitions, commit, commitTimestamp, txId);
     }
 
     /**

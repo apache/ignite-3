@@ -154,13 +154,14 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     private final TxCleanupRequestHandler txCleanupRequestHandler;
 
     /**
-     * Server cleanup processor.
+     * Cleanup request sender.
      */
     private final TxCleanupRequestSender txCleanupRequestSender;
 
+    /**
+     * Transaction message sender.
+     */
     private final TxMessageSender txMessageSender;
-
-    private final WriteIntentSwitchProcessor writeIntentSwitchProcessor;
 
     /**
      * The constructor.
@@ -205,7 +206,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
         txMessageSender = new TxMessageSender(clusterService, replicaService, clock);
 
-        writeIntentSwitchProcessor = new WriteIntentSwitchProcessor(placementDriverHelper, txMessageSender, clusterService);
+        WriteIntentSwitchProcessor writeIntentSwitchProcessor =
+                new WriteIntentSwitchProcessor(placementDriverHelper, txMessageSender, clusterService);
 
         txCleanupRequestHandler = new TxCleanupRequestHandler(clusterService, lockManager, clock, writeIntentSwitchProcessor);
 

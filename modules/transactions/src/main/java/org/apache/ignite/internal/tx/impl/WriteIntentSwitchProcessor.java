@@ -24,13 +24,12 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.replicator.TablePartitionId;
-import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.network.ClusterService;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * A wrapper above {@link TxManager} that is able to send switch write intent requests in a durable manner (with retries).
+ * Sends requests to switch write intents (to normal value for a commit and remove for an abort).
  */
 public class WriteIntentSwitchProcessor {
     /** The logger. */
@@ -41,7 +40,7 @@ public class WriteIntentSwitchProcessor {
     /** Placement driver helper. */
     private final PlacementDriverHelper placementDriverHelper;
 
-    private final TxMessageSender messageCreator;
+    private final TxMessageSender txMessageSender;
 
     /** Cluster service. */
     private final ClusterService clusterService;
@@ -50,16 +49,16 @@ public class WriteIntentSwitchProcessor {
      * The constructor.
      *
      * @param placementDriverHelper Placement driver helper.
-     * @param messageCreator Transaction message creator.
+     * @param txMessageSender Transaction message creator.
      * @param clusterService Cluster service.
      */
     public WriteIntentSwitchProcessor(
             PlacementDriverHelper placementDriverHelper,
-            TxMessageSender messageCreator,
+            TxMessageSender txMessageSender,
             ClusterService clusterService
     ) {
         this.placementDriverHelper = placementDriverHelper;
-        this.messageCreator = messageCreator;
+        this.txMessageSender = txMessageSender;
         this.clusterService = clusterService;
     }
 
@@ -74,20 +73,7 @@ public class WriteIntentSwitchProcessor {
     ) {
         String localNodeName = clusterService.topologyService().localMember().name();
 
-        return switchWriteIntents(localNodeName, tablePartitionId, txId, commit, commitTimestamp);
-    }
-
-    /**
-     * Run switch write intent on the provided node.
-     */
-    private CompletableFuture<Void> switchWriteIntents(
-            String primaryConsistentId,
-            TablePartitionId tablePartitionId,
-            UUID txId,
-            boolean commit,
-            @Nullable HybridTimestamp commitTimestamp
-    ) {
-        return messageCreator.switchWriteIntents(primaryConsistentId, tablePartitionId, txId, commit, commitTimestamp);
+        return txMessageSender.switchWriteIntents(localNodeName, tablePartitionId, txId, commit, commitTimestamp);
     }
 
     /**
@@ -112,7 +98,7 @@ public class WriteIntentSwitchProcessor {
     ) {
         return placementDriverHelper.awaitPrimaryReplica(partitionId)
                 .thenCompose(leaseHolder ->
-                        switchWriteIntents(leaseHolder.getLeaseholder(), partitionId, txId, commit, commitTimestamp))
+                        txMessageSender.switchWriteIntents(leaseHolder.getLeaseholder(), partitionId, txId, commit, commitTimestamp))
                 .handle((res, ex) -> {
                     if (ex != null) {
                         if (attempts > 0) {

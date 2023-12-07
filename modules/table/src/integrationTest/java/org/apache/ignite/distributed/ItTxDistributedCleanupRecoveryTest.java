@@ -70,7 +70,7 @@ public class ItTxDistributedCleanupRecoveryTest extends ItTxDistributedTestSingl
             DefaultMessagingService messagingService = (DefaultMessagingService) clusterService.messagingService();
             messagingService.dropMessages((s, networkMessage) -> {
                 if (networkMessage instanceof TxCleanupMessage && defaultRetryCount.getAndDecrement() > 0) {
-                    logger().info("Dropping unlock request: {}", networkMessage);
+                    logger().info("Dropping cleanup request: {}", networkMessage);
 
                     return true;
                 }
@@ -78,7 +78,6 @@ public class ItTxDistributedCleanupRecoveryTest extends ItTxDistributedTestSingl
             });
         });
 
-        log.info("Tables have been started ");
+        log.info("Tables have been started");
     }
-
 }

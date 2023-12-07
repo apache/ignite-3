@@ -35,7 +35,7 @@ import org.apache.ignite.internal.util.CompletableFutures;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Sends TX Unlock request.
+ * Sends TX Cleanup request.
  */
 public class TxCleanupRequestSender {
     /** Placement driver helper. */
