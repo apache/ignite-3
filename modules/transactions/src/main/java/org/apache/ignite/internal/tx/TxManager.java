@@ -130,7 +130,7 @@ public interface TxManager extends IgniteComponent {
     );
 
     /**
-     * Sends cleanup request to the primary nodes of each one of {@code partitions}.
+     * Sends cleanup request to the cluster nodes that hosts primary replicas for the enlisted partitions.
      *
      * @param partitions Enlisted partition groups.
      * @param commit {@code true} if a commit requested.

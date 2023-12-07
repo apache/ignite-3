@@ -422,7 +422,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             HybridTimestamp commitTimestamp,
             CompletableFuture<TransactionMeta> txFinishFuture
     ) {
-        return inBusyLockAsync(busyLock, () -> placementDriverHelper.awaitPrimaryReplica(commitPartition)
+        return inBusyLockAsync(busyLock, () -> placementDriverHelper.awaitPrimaryReplicaWithExceptionHandling(commitPartition)
                 .thenCompose(meta ->
                         makeFinishRequest(
                                 observableTimestampTracker,

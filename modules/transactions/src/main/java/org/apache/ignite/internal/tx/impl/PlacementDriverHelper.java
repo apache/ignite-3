@@ -71,13 +71,13 @@ public class PlacementDriverHelper {
      * @return Future that completes with node id that is a primary for the provided partition, or completes with exception if no primary
      *         appeared during the await timeout.
      */
-    public CompletableFuture<ReplicaMeta> awaitPrimaryReplica(TablePartitionId partitionId) {
+    public CompletableFuture<ReplicaMeta> awaitPrimaryReplicaWithExceptionHandling(TablePartitionId partitionId) {
         HybridTimestamp timestamp = clock.now();
 
         return placementDriver.awaitPrimaryReplica(partitionId, timestamp, AWAIT_PRIMARY_REPLICA_TIMEOUT, SECONDS)
                 .handle((primaryReplica, e) -> {
                     if (e != null) {
-                        LOG.error("Failed to retrieve primary replica for partition {}", partitionId, e);
+                        LOG.debug("Failed to retrieve primary replica for partition {}", partitionId, e);
 
                         throw withCause(TransactionException::new, REPLICA_UNAVAILABLE_ERR,
                                 "Failed to get the primary replica"

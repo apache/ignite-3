@@ -96,7 +96,7 @@ public class WriteIntentSwitchProcessor {
             TablePartitionId partitionId,
             int attempts
     ) {
-        return placementDriverHelper.awaitPrimaryReplica(partitionId)
+        return placementDriverHelper.awaitPrimaryReplicaWithExceptionHandling(partitionId)
                 .thenCompose(leaseHolder ->
                         txMessageSender.switchWriteIntents(leaseHolder.getLeaseholder(), partitionId, txId, commit, commitTimestamp))
                 .handle((res, ex) -> {
