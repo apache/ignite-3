@@ -31,8 +31,6 @@ import org.junit.jupiter.api.Disabled;
 public class ItSqlClientSynchronousApiTest extends ItSqlSynchronousApiTest {
     private IgniteClient client;
 
-    private static final int ROW_COUNT = 16;
-
     @BeforeAll
     public void startClient() {
         client = IgniteClient.builder().addresses(getClientAddresses(List.of(CLUSTER.aliveNode())).get(0)).build();
@@ -69,15 +67,5 @@ public class ItSqlClientSynchronousApiTest extends ItSqlSynchronousApiTest {
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-20742")
     public void testLockIsNotReleasedAfterTxRollback() {
         super.testLockIsNotReleasedAfterTxRollback();
-    }
-
-    @Override
-    public void runScriptThatCompletesSuccessfully() {
-        super.runScriptThatCompletesSuccessfully();
-    }
-
-    @Override
-    public void runScriptThatFails() {
-        super.runScriptThatFails();
     }
 }
