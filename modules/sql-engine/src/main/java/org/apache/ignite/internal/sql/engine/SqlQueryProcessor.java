@@ -86,6 +86,7 @@ import org.apache.ignite.internal.sql.engine.exec.mapping.ExecutionTargetProvide
 import org.apache.ignite.internal.sql.engine.exec.mapping.MappingServiceImpl;
 import org.apache.ignite.internal.sql.engine.message.MessageServiceImpl;
 import org.apache.ignite.internal.sql.engine.prepare.ParameterMetadata;
+import org.apache.ignite.internal.sql.engine.prepare.ParameterType;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareService;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareServiceImpl;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
@@ -100,7 +101,6 @@ import org.apache.ignite.internal.sql.engine.sql.ParserService;
 import org.apache.ignite.internal.sql.engine.sql.ParserServiceImpl;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
-import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.sql.engine.util.cache.CacheFactory;
 import org.apache.ignite.internal.sql.engine.util.cache.CaffeineCacheFactory;
@@ -578,13 +578,11 @@ public class SqlQueryProcessor implements QueryProcessor {
 
         return waitForActualSchema(schemaName, timestamp)
                 .thenCompose(schema -> {
-                    Map<Integer, Object> dynamicParams = Commons.arrayToMap(params);
-
                     BaseQueryContext ctx = BaseQueryContext.builder()
                             .frameworkConfig(Frameworks.newConfigBuilder(FRAMEWORK_CONFIG).defaultSchema(schema).build())
                             .queryId(UUID.randomUUID())
                             .cancel(queryCancel)
-                            .parameters(dynamicParams)
+                            .parameters(params)
                             .build();
 
                     return prepareSvc.prepareAsync(parsedResult, ctx);
@@ -603,14 +601,13 @@ public class SqlQueryProcessor implements QueryProcessor {
         return waitForActualSchema(schemaName, txWrapper.unwrap().startTimestamp())
                 .thenCompose(schema -> {
                     PrefetchCallback callback = waitForPrefetch ? new PrefetchCallback() : null;
-                    Map<Integer, Object> dynamicParams = Commons.arrayToMap(params);
 
                     BaseQueryContext ctx = BaseQueryContext.builder()
                             .frameworkConfig(Frameworks.newConfigBuilder(FRAMEWORK_CONFIG).defaultSchema(schema).build())
                             .queryId(UUID.randomUUID())
                             .cancel(queryCancel)
                             .prefetchCallback(callback)
-                            .parameters(dynamicParams)
+                            .parameters(params)
                             .build();
 
                     CompletableFuture<AsyncSqlCursor<List<Object>>> fut = prepareSvc.prepareAsync(parsedResult, ctx)
@@ -649,13 +646,14 @@ public class SqlQueryProcessor implements QueryProcessor {
             QueryTransactionWrapper txWrapper,
             BaseQueryContext ctx,
             QueryPlan plan,
-            @Nullable CompletableFuture<AsyncSqlCursor<List<Object>>> nextStatement
-    ) {
+            @Nullable CompletableFuture<AsyncSqlCursor<List<Object>>> nextStatement) {
         if (!busyLock.enterBusy()) {
             throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
         }
 
         try {
+            validateDynamicParametersValues(ctx, plan);
+
             var dataCursor = executionSrvc.executePlan(txWrapper.unwrap(), plan, ctx);
 
             SqlQueryType queryType = plan.type();
@@ -677,6 +675,21 @@ public class SqlQueryProcessor implements QueryProcessor {
             return cursor;
         } finally {
             busyLock.leaveBusy();
+        }
+    }
+
+    private static void validateDynamicParametersValues(BaseQueryContext ctx, QueryPlan plan) {
+        var parameterMetadata = plan.parameterMetadata();
+
+        for (int i = 0; i < parameterMetadata.parameterTypes().size(); i++) {
+            ParameterType parameterType = parameterMetadata.parameterTypes().get(i);
+            try {
+                Object value = ctx.parameters()[i];
+                TypeUtils.convertValue(value, parameterType.columnType(), parameterType.precision(), parameterType.scale());
+            } catch (RuntimeException e) {
+                String message = "Unable to determine type of a dynamic parameter#{}. Dynamic parameter requires explicit cast.";
+                throw new SqlException(Sql.RUNTIME_ERR, format(message, i), e);
+            }
         }
     }
 

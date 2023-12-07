@@ -42,8 +42,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -97,7 +99,6 @@ public class CastResolutionTest extends AbstractPlannerTest {
     private static final String BINARY_TEMPLATE = "SELECT CAST(X'01'::%s AS %s)";
 
     static {
-        NUMERIC_NAMES.add("NUMERIC");
         NUMERIC_NAMES.addAll(EXACT_NUMERIC);
         NUMERIC_NAMES.addAll(FRACTIONAL_NAMES);
 
@@ -107,7 +108,6 @@ public class CastResolutionTest extends AbstractPlannerTest {
         ALL_BESIDES_BINARY_NAMES.addAll(DT_NAMES);
         ALL_BESIDES_BINARY_NAMES.addAll(YM_INTERVAL);
         ALL_BESIDES_BINARY_NAMES.addAll(DAY_INTERVAL);
-        ALL_BESIDES_BINARY_NAMES.add("NUMERIC");
         ALL_BESIDES_BINARY_NAMES.add(UuidType.NAME);
 
         CHAR_NUMERIC_AND_INTERVAL_NAMES.addAll(NUMERIC_NAMES);
@@ -127,12 +127,10 @@ public class CastResolutionTest extends AbstractPlannerTest {
         CHAR_EXACT_AND_YM_INTERVAL.addAll(List.of(INTERVAL_YEAR.getName(), INTERVAL_MONTH.getName()));
         CHAR_EXACT_AND_YM_INTERVAL.addAll(CHAR_NAMES);
         CHAR_EXACT_AND_YM_INTERVAL.addAll(EXACT_NUMERIC);
-        CHAR_EXACT_AND_YM_INTERVAL.add("NUMERIC");
 
         CHAR_EXACT_AND_DAY_INTERVAL.addAll(List.of(INTERVAL_HOUR.getName(), INTERVAL_MINUTE.getName()));
         CHAR_EXACT_AND_DAY_INTERVAL.addAll(CHAR_NAMES);
         CHAR_EXACT_AND_DAY_INTERVAL.addAll(EXACT_NUMERIC);
-        CHAR_EXACT_AND_DAY_INTERVAL.add("NUMERIC");
     }
 
     /** Test CAST possibility for different supported types. */
@@ -164,8 +162,7 @@ public class CastResolutionTest extends AbstractPlannerTest {
 
             testItems.add(checkStatement().sql(format(INTERVAL_TEMPLATE, "NULL", makeUsableIntervalToType(fromInitial))).ok());
 
-            String finalFrom = from;
-            Set<String> deprecatedCastTypes = allTypes.stream().filter(t -> !toTypes.contains(t) && !t.equals(finalFrom))
+            Set<String> deprecatedCastTypes = allTypes.stream().filter(t -> !toTypes.contains(t) && !t.equals(from))
                     .collect(Collectors.toSet());
 
             for (String toType : deprecatedCastTypes) {
@@ -307,7 +304,8 @@ public class CastResolutionTest extends AbstractPlannerTest {
         return typeName.replace("_", " 1 ");
     }
 
-    private enum CastMatrix {
+    /** Defines legal casts. */
+    public enum CastMatrix {
         BOOLEAN(SqlTypeName.BOOLEAN.getName(), CHAR_NAMES),
 
         INT8(SqlTypeName.TINYINT.getName(), CHAR_NUMERIC_AND_INTERVAL_NAMES),
@@ -326,9 +324,9 @@ public class CastResolutionTest extends AbstractPlannerTest {
 
         FLOAT(SqlTypeName.FLOAT.getName(), CHAR_AND_NUMERIC_NAMES),
 
-        NUMERIC("NUMERIC", CHAR_NUMERIC_AND_INTERVAL_NAMES),
-
-        UUID(UuidType.NAME, new HashSet<>(CHAR_NAMES)),
+        UUID(UuidType.NAME,
+                Stream.concat(new HashSet<>(CHAR_NAMES).stream(), Set.of(UuidType.NAME).stream()).collect(Collectors.toSet())
+        ),
 
         VARCHAR(SqlTypeName.VARCHAR.getName(), ALL_BESIDES_BINARY_NAMES),
 
@@ -338,15 +336,19 @@ public class CastResolutionTest extends AbstractPlannerTest {
 
         BINARY(SqlTypeName.BINARY.getName(), BINARY_NAMES),
 
-        DATE(SqlTypeName.DATE.getName(), CHAR_AND_TS),
+        DATE(SqlTypeName.DATE.getName(), Set.of(
+                SqlTypeName.TIMESTAMP.getName(), SqlTypeName.VARCHAR.getName(), SqlTypeName.CHAR.getName()
+        )),
 
-        TIME(SqlTypeName.TIME.getName(), CHAR_AND_TS),
+        TIME(SqlTypeName.TIME.getName(), Set.of(
+                SqlTypeName.TIMESTAMP.getName(), SqlTypeName.VARCHAR.getName(), SqlTypeName.CHAR.getName()
+        )),
 
-        TIMESTAMP(SqlTypeName.TIMESTAMP.getName(), CHAR_AND_DT),
+        TIMESTAMP(SqlTypeName.TIMESTAMP.getName(), Set.of(
+                SqlTypeName.DATE.getName(), SqlTypeName.TIME.getName(), SqlTypeName.VARCHAR.getName(), SqlTypeName.CHAR.getName()
+        )),
 
-        INTERVAL_YEAR(SqlTypeName.INTERVAL_YEAR.getName(), CHAR_EXACT_AND_YM_INTERVAL),
-
-        INTERVAL_HOUR(SqlTypeName.INTERVAL_HOUR.getName(), CHAR_EXACT_AND_DAY_INTERVAL);
+        INTERVAL_YEAR(SqlTypeName.INTERVAL_YEAR.getName(), CHAR_EXACT_AND_YM_INTERVAL);
 
         // TODO: https://issues.apache.org/jira/browse/IGNITE-19274
         //TIMESTAMP_TS(SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE.getName(), charAndDt);
@@ -357,6 +359,37 @@ public class CastResolutionTest extends AbstractPlannerTest {
         CastMatrix(String from, Set<String> toTypes) {
             this.from = from;
             this.toTypes = toTypes;
+        }
+
+        /** Type name. */
+        public String fromType() {
+            return from;
+        }
+
+        /** A set of names of type, that can be converted to {@code fromType}. */
+        public Set<String> toTypes() {
+            return toTypes;
+        }
+
+        /** Returns illegal casts for each type. */
+        public static Map<String, Set<String>> illegalCasts() {
+            Set<String> allTypes = Arrays.stream(values()).map(v -> v.from).collect(Collectors.toSet());
+
+            Map<String, Set<String>> casts = new HashMap<>();
+
+            for (CastMatrix fromTo : values()) {
+                Set<String> toTypes = new HashSet<>();
+
+                for (String t : allTypes) {
+                    if (!fromTo.toTypes.contains(t) && !t.equals(fromTo.from)) {
+                        toTypes.add(t);
+                    }
+                }
+
+                casts.put(fromTo.from, toTypes);
+            }
+
+            return casts;
         }
     }
 }

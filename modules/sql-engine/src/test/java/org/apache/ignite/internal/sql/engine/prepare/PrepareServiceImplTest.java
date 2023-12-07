@@ -24,14 +24,12 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.sameInstance;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -120,12 +118,12 @@ class PrepareServiceImplTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void prepareReturnsQueryPlanThatDependsOnParameterTypeMatchInferred() {
+    void prepareReturnsQueryPlanThatDependsThatDependsPreviouslyInferredTypes() {
         PrepareService service = createPlannerService();
 
         QueryPlan queryPlan1 = await(service.prepareAsync(
                 parse("SELECT * FROM t WHERE a = ? and c = ?"),
-                createContext(Map.of(1, 1))
+                createContext()
         ));
 
         List<ColumnType> parameterTypes = queryPlan1.parameterMetadata().parameterTypes()
@@ -138,25 +136,25 @@ class PrepareServiceImplTest extends BaseIgniteAbstractTest {
         // Parameter types match, we should return plan1.
         QueryPlan queryPlan2 = await(service.prepareAsync(
                 parse("SELECT * FROM t WHERE a = ? and c = ?"),
-                createContext(Map.of(0, 1L, 1, 1))
-        ));
+                createContext(1L, 1))
+        );
         assertSame(queryPlan1, queryPlan2);
 
         // Parameter types do not match
         QueryPlan queryPlan3 = await(service.prepareAsync(
                 parse("SELECT * FROM t WHERE a = ? and c = ?"),
-                createContext(Map.of(0, 1, 1, 1L))
+                createContext(1, 1L)
         ));
-        assertNotSame(queryPlan1, queryPlan3);
+        assertSame(queryPlan1, queryPlan3);
     }
 
     @Test
-    void prepareReturnsDmlPlanThatDependsOnParameterTypeMatchInferred() {
+    void prepareReturnsDmlPlanThatDependsPreviouslyInferredTypes() {
         PrepareService service = createPlannerService();
 
         QueryPlan queryPlan1 = await(service.prepareAsync(
                 parse("UPDATE t SET a = ? WHERE c = ?"),
-                createContext(Map.of(1, 1))
+                createContext()
         ));
 
         List<ColumnType> parameterTypes = queryPlan1.parameterMetadata().parameterTypes()
@@ -169,16 +167,16 @@ class PrepareServiceImplTest extends BaseIgniteAbstractTest {
         // Parameter types match, we should return plan1.
         QueryPlan queryPlan2 = await(service.prepareAsync(
                 parse("UPDATE t SET a = ? WHERE c = ?"),
-                createContext(Map.of(0, 1L, 1, 1))
+                createContext(1L, 1)
         ));
         assertSame(queryPlan1, queryPlan2);
 
-        // Parameter types do not match
+        // Parameter types do not match, also use the same plan
         QueryPlan queryPlan3 = await(service.prepareAsync(
                 parse("UPDATE t SET a = ? WHERE c = ?"),
-                createContext(Map.of(0, 1, 1, 1L))
+                createContext(1, 1L)
         ));
-        assertNotSame(queryPlan1, queryPlan3);
+        assertSame(queryPlan1, queryPlan3);
     }
 
     @Test
@@ -189,7 +187,7 @@ class PrepareServiceImplTest extends BaseIgniteAbstractTest {
                 "Ambiguous operator <UNKNOWN> + <UNKNOWN>. Dynamic parameter requires adding explicit type cast",
                 () -> {
                     ParsedResult parsedResult = parse("SELECT ? + ?");
-                    BaseQueryContext context = createContext(Map.of());
+                    BaseQueryContext context = createContext();
                     await(service.prepareAsync(parsedResult, context));
                 }
         );
@@ -211,7 +209,7 @@ class PrepareServiceImplTest extends BaseIgniteAbstractTest {
 
         QueryPlan queryPlan = await(service.prepareAsync(
                 parse("SELECT * FROM t WHERE c = ?"),
-                createContext(schema, Map.of(0, paramValue))
+                createContext(schema, paramValue)
         ));
 
         ParameterType parameterType = queryPlan.parameterMetadata().parameterTypes().get(0);
@@ -250,11 +248,7 @@ class PrepareServiceImplTest extends BaseIgniteAbstractTest {
         return new ParserServiceImpl(0, EmptyCacheFactory.INSTANCE).parse(query);
     }
 
-    private static BaseQueryContext createContext() {
-        return createContext(Map.of());
-    }
-
-    private static BaseQueryContext createContext(Map<Integer, Object> params) {
+    private static BaseQueryContext createContext(Object... params) {
         return BaseQueryContext.builder()
                 .queryId(UUID.randomUUID())
                 .frameworkConfig(
@@ -266,7 +260,7 @@ class PrepareServiceImplTest extends BaseIgniteAbstractTest {
                 .build();
     }
 
-    private static BaseQueryContext createContext(IgniteSchema schema, Map<Integer, Object> params) {
+    private static BaseQueryContext createContext(IgniteSchema schema, Object... params) {
         return BaseQueryContext.builder()
                 .queryId(UUID.randomUUID())
                 .frameworkConfig(

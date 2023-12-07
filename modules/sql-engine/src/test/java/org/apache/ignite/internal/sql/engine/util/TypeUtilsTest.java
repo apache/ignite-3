@@ -21,15 +21,28 @@ import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.lang.reflect.Array;
 import java.lang.reflect.Type;
+import java.math.BigDecimal;
+import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.EnumMap;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
 import java.util.UUID;
+import java.util.function.Predicate;
 import java.util.stream.Stream;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
@@ -42,18 +55,26 @@ import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
 import org.apache.ignite.internal.sql.engine.exec.row.RowSchemaTypes;
 import org.apache.ignite.internal.sql.engine.exec.row.RowType;
 import org.apache.ignite.internal.sql.engine.exec.row.TypeSpec;
+import org.apache.ignite.internal.sql.engine.planner.CastResolutionTest.CastMatrix;
 import org.apache.ignite.internal.sql.engine.type.IgniteCustomType;
 import org.apache.ignite.internal.sql.engine.type.IgniteCustomTypeSpec;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.type.UuidType;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.type.NativeTypes;
+import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.sql.ColumnType;
+import org.apache.ignite.sql.SqlException;
+import org.jetbrains.annotations.Nullable;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DynamicTest;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestFactory;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.EnumSource.Mode;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -75,6 +96,142 @@ public class TypeUtilsTest extends BaseIgniteAbstractTest {
     private static final BaseTypeSpec STRING = RowSchemaTypes.nativeType(NativeTypes.STRING);
     private static final BaseTypeSpec BYTES = RowSchemaTypes.nativeType(NativeTypes.BYTES);
     private static final BaseTypeSpec UUID = RowSchemaTypes.nativeType(NativeTypes.UUID);
+
+    private static final Predicate<String> EXCLUDED = (typeName) -> typeName.contains("INTERVAL") || typeName.contains("LOCAL_TIME");
+
+    private static final Clock FIXED_CLOCK = Clock.fixed(Instant.ofEpochMilli(1000000000), ZoneId.of("UTC"));
+
+    private static final Map<ColumnType, ValueMapping<?>> VALUES = new EnumMap<>(ColumnType.class);
+
+    @BeforeAll
+    public static void initValues() {
+        VALUES.put(ColumnType.BOOLEAN, new ValueMapping<Boolean>()
+                .put(ColumnType.BOOLEAN, true, true)
+                .put(ColumnType.STRING, "true", true)
+        );
+
+        VALUES.put(ColumnType.STRING, new ValueMapping<String>()
+                .put(ColumnType.BOOLEAN, true, "true")
+                .put(ColumnType.STRING, "abc", "abc")
+                .put(ColumnType.UUID, new UUID(0, 0), new UUID(0, 0).toString())
+                .put(ColumnType.INT8, (byte) 1, "1")
+                .put(ColumnType.INT16, (short) 1, "1")
+                .put(ColumnType.INT32, 1, "1")
+                .put(ColumnType.INT64, 1L, "1")
+                .put(ColumnType.FLOAT, 1.0f, "1.0")
+                .put(ColumnType.DOUBLE, 1.0d, "1.0")
+                .put(ColumnType.DECIMAL, new BigDecimal("1.000"), "1.000")
+                .put(ColumnType.TIME, LocalTime.of(1, 2, 3), "01:02:03")
+                .put(ColumnType.DATE, LocalDate.of(1970, 2, 3), "1970-02-03")
+                .put(ColumnType.DATETIME, Instant.ofEpochSecond(50_000), "1970-01-01T13:53:20Z")
+                .put(ColumnType.TIMESTAMP, LocalDateTime.of(1970, 1, 2, 3, 4, 5), "1970-01-02T03:04:05")
+        );
+
+        VALUES.put(ColumnType.INT8, new ValueMapping<Byte>()
+                .put(ColumnType.STRING, "1", (byte) 1)
+                .put(ColumnType.INT8, (byte) 1, (byte) 1)
+                .put(ColumnType.INT16, (short) 1, (byte) 1)
+                .put(ColumnType.INT32, 1, (byte) 1)
+                .put(ColumnType.INT64, 1L, (byte) 1)
+                .put(ColumnType.FLOAT, 1.0f, (byte) 1)
+                .put(ColumnType.DOUBLE, 1.0d, (byte) 1)
+                .put(ColumnType.DECIMAL, BigDecimal.ONE, (byte) 1)
+        );
+
+        VALUES.put(ColumnType.INT16, new ValueMapping<Short>()
+                .put(ColumnType.STRING, "1", (short) 1)
+                .put(ColumnType.INT8, (byte) 1, (short) 1)
+                .put(ColumnType.INT16, (short) 1, (short) 1)
+                .put(ColumnType.INT32, 1, (short) 1)
+                .put(ColumnType.INT64, 1L, (short) 1)
+                .put(ColumnType.FLOAT, 1.0f, (short) 1)
+                .put(ColumnType.DOUBLE, 1.0d, (short) 1)
+                .put(ColumnType.DECIMAL, BigDecimal.ONE, (short) 1)
+        );
+
+        VALUES.put(ColumnType.INT32, new ValueMapping<Integer>()
+                .put(ColumnType.STRING, "1", 1)
+                .put(ColumnType.INT8, (byte) 1, 1)
+                .put(ColumnType.INT16, (short) 1, 1)
+                .put(ColumnType.INT32, 1, 1)
+                .put(ColumnType.INT64, 1L, 1)
+                .put(ColumnType.FLOAT, 1.0f, 1)
+                .put(ColumnType.DOUBLE, 1.0d, 1)
+                .put(ColumnType.DECIMAL, BigDecimal.ONE, 1)
+        );
+
+        VALUES.put(ColumnType.INT64, new ValueMapping<Long>()
+                .put(ColumnType.STRING, "1", 1L)
+                .put(ColumnType.INT8, (byte) 1, 1L)
+                .put(ColumnType.INT16, (short) 1, 1L)
+                .put(ColumnType.INT32, 1, 1L)
+                .put(ColumnType.INT64, 1L, 1L)
+                .put(ColumnType.FLOAT, 1.0f, 1L)
+                .put(ColumnType.DOUBLE, 1.0d, 1L)
+                .put(ColumnType.DECIMAL, BigDecimal.ONE, 1L)
+        );
+
+        VALUES.put(ColumnType.FLOAT, new ValueMapping<Float>()
+                .put(ColumnType.STRING, "1.0", 1.0f)
+                .put(ColumnType.INT8, (byte) 1, 1.0f)
+                .put(ColumnType.INT16, (short) 1, 1.0f)
+                .put(ColumnType.INT32, 1, 1.0f)
+                .put(ColumnType.INT64, 1L, 1.0f)
+                .put(ColumnType.FLOAT, 1.0f, 1.0f)
+                .put(ColumnType.DOUBLE, 1.0d, 1.0f)
+                .put(ColumnType.DECIMAL, BigDecimal.ONE, 1.0f)
+        );
+
+        VALUES.put(ColumnType.DOUBLE, new ValueMapping<Double>()
+                .put(ColumnType.STRING, "1.0", 1.0d)
+                .put(ColumnType.INT8, (byte) 1, 1.0d)
+                .put(ColumnType.INT16, (short) 1, 1.0d)
+                .put(ColumnType.INT32, 1, 1.0d)
+                .put(ColumnType.INT64, 1L, 1.0d)
+                .put(ColumnType.FLOAT, 1.0f, 1.0d)
+                .put(ColumnType.DOUBLE, 1.0d, 1.0d)
+                .put(ColumnType.DECIMAL, BigDecimal.ONE, 1.0d)
+        );
+
+        VALUES.put(ColumnType.DECIMAL, new ValueMapping<BigDecimal>()
+                .put(ColumnType.STRING, "1.000", new BigDecimal("1.000"))
+                .put(ColumnType.INT8, (byte) 1, new BigDecimal("1.000"))
+                .put(ColumnType.INT16, (short) 1, new BigDecimal("1.000"))
+                .put(ColumnType.INT32, 1, new BigDecimal("1.000"))
+                .put(ColumnType.INT64, 1L, new BigDecimal("1.000"))
+                .put(ColumnType.FLOAT, 1.0f, new BigDecimal("1.000"))
+                .put(ColumnType.DOUBLE, 1.0d, new BigDecimal("1.000"))
+                .put(ColumnType.DECIMAL, BigDecimal.ONE, new BigDecimal("1.000"))
+        );
+
+        VALUES.put(ColumnType.UUID, new ValueMapping<UUID>()
+                .put(ColumnType.STRING, "00000000-0000-0000-0000-000000000000", new UUID(0, 0))
+                .put(ColumnType.UUID, new UUID(0, 0), new UUID(0, 0)));
+
+        VALUES.put(ColumnType.BYTE_ARRAY, new ValueMapping<byte[]>()
+                .put(ColumnType.BYTE_ARRAY, new byte[]{1, 2, 3}, new byte[]{1, 2, 3})
+        );
+
+        VALUES.put(ColumnType.DATE, new ValueMapping<LocalDate>()
+                .put(ColumnType.DATE, LocalDate.of(1970, 1, 2), LocalDate.of(1970, 1, 2))
+                .put(ColumnType.STRING, "1970-01-02", LocalDate.of(1970, 1, 2))
+                .put(ColumnType.DATETIME, Instant.ofEpochSecond(150_000), LocalDate.of(1970, 1, 2))
+        );
+
+        VALUES.put(ColumnType.TIME, new ValueMapping<LocalTime>()
+                .put(ColumnType.STRING, "01:02:03", LocalTime.of(1, 2, 3))
+                .put(ColumnType.TIME, LocalTime.of(1, 2, 3, 0), LocalTime.of(1, 2, 3, 0))
+                .put(ColumnType.DATETIME, Instant.ofEpochSecond(150_300, 30_010_000_000L), LocalTime.of(17, 45, 30, 10_000_000))
+        );
+
+        VALUES.put(ColumnType.DATETIME, new ValueMapping<Instant>()
+                .put(ColumnType.STRING, "1970-01-02T17:45:30.010Z", Instant.ofEpochSecond(150_300, 30_010_000_000L))
+                .put(ColumnType.DATETIME, Instant.ofEpochSecond(1000), Instant.ofEpochSecond(1000))
+                .put(ColumnType.TIME, LocalTime.of(1, 2, 3, 111111111), Instant.ofEpochSecond(954123, 3723111111111L))
+                .put(ColumnType.DATE, LocalDate.of(1970, 1, 2), Instant.ofEpochSecond(86400))
+        );
+    }
+
 
     /**
      * Checks that conversions to and from internal types is consistent.
@@ -388,6 +545,113 @@ public class TypeUtilsTest extends BaseIgniteAbstractTest {
                 TypeSpec actualType = schema.fields().get(0);
                 assertEquals(expected, actualType, input.getFullTypeString());
             });
+        }
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = ColumnType.class, names = {"NUMBER", "BITMASK", "PERIOD", "DURATION"}, mode = Mode.EXCLUDE)
+    public void testToFromColumnType(ColumnType columnType) {
+        // toSqlType matches toColumnType
+        String typeNameString = TypeUtils.toSqlType(columnType);
+        ColumnType actualColumnType = TypeUtils.toColumnTypeFromSqlName(typeNameString);
+
+        assertEquals(columnType, actualColumnType);
+    }
+
+    @Test
+    public void testNullToNull() {
+        assertNull(TypeUtils.convertValue(null, ColumnType.NULL, 5, 3));
+    }
+
+    @ParameterizedTest
+    @MethodSource("fromTypes")
+    public void testEveryTypeToNull(String from) {
+        ColumnType fromType = TypeUtils.toColumnTypeFromSqlName(from);
+
+        // Type to null type
+        Entry<Object, Object> mapping = VALUES.get(fromType).mapping(fromType);
+        Object value = mapping.getValue();
+
+        // NULL type is treated as unknown type, we should not be able to cast to it.
+        assertThrows(SqlException.class, () -> {
+            TypeUtils.convertValue(value, ColumnType.NULL, 5, 3);
+        });
+
+        // It is perfectly legal to convert null value to any type.
+        assertNull(TypeUtils.convertValue(null, fromType, 5, 3));
+    }
+
+    private static Stream<String> fromTypes() {
+        return Arrays.stream(CastMatrix.values())
+                .map(CastMatrix::fromType)
+                .filter(t -> EXCLUDED.negate().test(t));
+    }
+
+    @ParameterizedTest
+    @MethodSource("fromToLegalTypes")
+    public void testLegalCasts(String from, String to) {
+        ColumnType fromType = TypeUtils.toColumnTypeFromSqlName(from);
+        ColumnType toType = TypeUtils.toColumnTypeFromSqlName(to);
+
+        Entry<Object, Object> mapping = VALUES.get(fromType).mapping(toType);
+
+        Object actualValue = TypeUtils.convertValue(mapping.getValue(), fromType, 5, 3, FIXED_CLOCK);
+
+        if (mapping.getKey().getClass().isArray()) {
+            compareArrays(mapping.getKey(), actualValue);
+        } else {
+            assertEquals(mapping.getKey(), actualValue);
+        }
+    }
+
+    private static Stream<Arguments> fromToLegalTypes() {
+        return Arrays.stream(CastMatrix.values())
+                .filter(fromTo -> EXCLUDED.negate().test(fromTo.fromType()))
+                .flatMap(fromTo -> fromTo.toTypes().stream()
+                        .filter(name -> EXCLUDED.negate().test(name))
+                        .map(name -> Arguments.of(fromTo.fromType(), name))
+                );
+    }
+
+    @ParameterizedTest
+    @MethodSource("fromToInvalidTypes")
+    public void testInvalidCasts(String from, String to) {
+        ColumnType fromType = TypeUtils.toColumnTypeFromSqlName(from);
+        ColumnType toType = TypeUtils.toColumnTypeFromSqlName(to);
+
+        Object fromValue = VALUES.get(fromType).mapping.get(fromType).getKey();
+
+        String errorMessage = format("Cannot convert", from, to);
+        SqlTestUtils.assertThrowsSqlException(Sql.RUNTIME_ERR, errorMessage, () -> TypeUtils.convertValue(fromValue, toType, 5, 3));
+    }
+
+    private static Stream<Arguments> fromToInvalidTypes() {
+        return CastMatrix.illegalCasts().entrySet().stream()
+                .filter(e -> EXCLUDED.negate().test(e.getKey()))
+                .flatMap(e -> e.getValue().stream()
+                        .filter(name -> EXCLUDED.negate().test(name))
+                        .map(to -> Arguments.of(e.getKey(), to)));
+    }
+
+    private static void compareArrays(Object expected, @Nullable Object actual) {
+        int expectedLength = Array.getLength(expected);
+        assertEquals(expectedLength, Array.getLength(actual), "Array length does not match");
+        for (int i = 0; i < expectedLength; i++) {
+            assertEquals(Array.get(expected, i), Array.get(actual, i), "Element does not match. Index: " + i);
+        }
+    }
+
+    private static final class ValueMapping<T> {
+
+        private final Map<ColumnType, Map.Entry<Object, Object>> mapping = new HashMap<>();
+
+        ValueMapping<T> put(ColumnType columnType, Object from, T to) {
+            mapping.put(columnType, Map.entry(to, from));
+            return this;
+        }
+
+        Map.Entry<Object, Object> mapping(ColumnType toType) {
+            return mapping.get(toType);
         }
     }
 }

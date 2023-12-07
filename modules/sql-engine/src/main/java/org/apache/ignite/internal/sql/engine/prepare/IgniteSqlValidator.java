@@ -86,6 +86,7 @@ import org.apache.ignite.internal.sql.engine.schema.IgniteDataSource;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSystemView;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
+import org.apache.ignite.internal.sql.engine.sql.fun.IgniteSqlOperatorTable;
 import org.apache.ignite.internal.sql.engine.type.IgniteCustomType;
 import org.apache.ignite.internal.sql.engine.type.IgniteCustomTypeCoercionRules;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
@@ -545,6 +546,16 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
     public RelDataType deriveType(SqlValidatorScope scope, SqlNode expr) {
         if (expr instanceof SqlDynamicParam) {
             return deriveDynamicParamType((SqlDynamicParam) expr);
+        }
+
+        // Reject TYPEOF(?)
+        if (expr instanceof SqlCall) {
+            SqlCall call = (SqlCall) expr;
+            if (call.getOperator() == IgniteSqlOperatorTable.TYPEOF && !call.getOperandList().isEmpty()) {
+                if (call.operand(0).getKind() == SqlKind.DYNAMIC_PARAM) {
+                    throw newValidationError(call.operand(0), RESOURCE.dynamicParamIllegal());
+                }
+            }
         }
 
         checkTypesInteroperability(scope, expr);
@@ -1131,7 +1142,7 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
 
         private DynamicParamState(@Nullable Object value) {
             this.value = value;
-            this.hasValue = true;
+            this.hasValue = value != null;
         }
 
         private DynamicParamState() {

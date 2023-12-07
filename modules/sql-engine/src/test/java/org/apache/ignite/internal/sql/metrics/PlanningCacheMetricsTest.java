@@ -56,20 +56,20 @@ public class PlanningCacheMetricsTest extends AbstractPlannerTest {
         MetricSet metricSet = metricManager.enable(SqlPlanCacheMetricSource.NAME);
 
         try {
-            checkCachePlanStatistics("SELECT * FROM T", prepareService, metricSet, 0, 2);
-            checkCachePlanStatistics("SELECT * FROM T", prepareService, metricSet, 1, 2);
+            checkCachePlanStatistics("SELECT * FROM T", prepareService, metricSet, 0, 1);
+            checkCachePlanStatistics("SELECT * FROM T", prepareService, metricSet, 1, 1);
 
-            checkCachePlanStatistics("SELECT * FROM T t1, T t2", prepareService, metricSet, 1, 4);
-            checkCachePlanStatistics("SELECT * FROM T t1, T t2", prepareService, metricSet, 2, 4);
-            checkCachePlanStatistics("SELECT * FROM T t1, T t2", prepareService, metricSet, 3, 4);
+            checkCachePlanStatistics("SELECT * FROM T t1, T t2", prepareService, metricSet, 1, 2);
+            checkCachePlanStatistics("SELECT * FROM T t1, T t2", prepareService, metricSet, 2, 2);
+            checkCachePlanStatistics("SELECT * FROM T t1, T t2", prepareService, metricSet, 3, 2);
 
-            checkCachePlanStatistics("SELECT * FROM T", prepareService, metricSet, 4, 4);
+            checkCachePlanStatistics("SELECT * FROM T", prepareService, metricSet, 4, 2);
 
-            checkCachePlanStatistics("SELECT * FROM T t1, T t2, T t3", prepareService, metricSet, 4, 6);
+            checkCachePlanStatistics("SELECT * FROM T t1, T t2, T t3", prepareService, metricSet, 4, 3);
 
             // Here, the very first plan has been evicted from cache.
-            checkCachePlanStatistics("SELECT * FROM T", prepareService, metricSet, 4, 8);
-            checkCachePlanStatistics("SELECT * FROM T", prepareService, metricSet, 5, 8);
+            checkCachePlanStatistics("SELECT * FROM T", prepareService, metricSet, 4, 4);
+            checkCachePlanStatistics("SELECT * FROM T", prepareService, metricSet, 5, 4);
         } finally {
             prepareService.stop();
         }

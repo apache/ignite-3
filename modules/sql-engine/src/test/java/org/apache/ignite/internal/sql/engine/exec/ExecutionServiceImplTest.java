@@ -807,7 +807,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
     private QueryPlan prepare(String query, BaseQueryContext ctx) {
         ParsedResult parsedResult = parserService.parse(query);
 
-        assertEquals(ctx.parameters().size(), parsedResult.dynamicParamsCount(), "Invalid number of dynamic parameters");
+        assertEquals(ctx.parameters().length, parsedResult.dynamicParamsCount(), "Invalid number of dynamic parameters");
 
         return await(prepareService.prepareAsync(parsedResult, ctx));
     }

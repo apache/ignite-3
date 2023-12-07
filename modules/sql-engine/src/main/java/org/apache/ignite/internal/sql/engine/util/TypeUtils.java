@@ -23,12 +23,14 @@ import static org.apache.ignite.internal.sql.engine.util.Commons.transform;
 import java.lang.reflect.Type;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
+import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.Period;
+import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -37,6 +39,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -54,6 +57,7 @@ import org.apache.calcite.sql.type.SqlTypeUtil;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowBuilder;
+import org.apache.ignite.internal.sql.engine.exec.exp.IgniteSqlFunctions;
 import org.apache.ignite.internal.sql.engine.exec.row.BaseTypeSpec;
 import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
 import org.apache.ignite.internal.sql.engine.exec.row.RowSchemaTypes;
@@ -70,8 +74,11 @@ import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.type.NumberNativeType;
 import org.apache.ignite.internal.type.TemporalNativeType;
 import org.apache.ignite.internal.type.VarlenNativeType;
+import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.sql.ColumnType;
+import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * TypeUtils.
@@ -115,6 +122,25 @@ public class TypeUtils {
             supportedParamClasses.add(double.class);
         }
     }
+
+    private static final Set<ColumnType> NUMERIC_COLUMN_TYPES = Set.of(
+            ColumnType.INT8,
+            ColumnType.INT16,
+            ColumnType.INT32,
+            ColumnType.INT64,
+            ColumnType.FLOAT,
+            ColumnType.DOUBLE,
+            ColumnType.DECIMAL
+    );
+
+    private static final Set<ColumnType> TIME_COLUMN_TYPES = Set.of(
+            ColumnType.DATE,
+            ColumnType.DATETIME,
+            ColumnType.TIME,
+            ColumnType.TIMESTAMP
+    );
+
+    private static final ZoneId UTC = ZoneId.of("UTC");
 
     private static Set<Class<?>> supportedParamClasses() {
         return SupportedParamClassesHolder.supportedParamClasses;
@@ -658,5 +684,365 @@ public class TypeUtils {
         } else {
             throw new IllegalArgumentException("Unexpected type: " + type);
         }
+    }
+
+    /**
+     * Convert {@link ColumnType} to string representation of SQL type.
+     *
+     * @param columnType Ignite type column.
+     * @return String representation of SQL type.
+     */
+    public static String toSqlType(ColumnType columnType) {
+        switch (columnType) {
+            case BOOLEAN:
+                return SqlTypeName.BOOLEAN.getName();
+            case INT8:
+                return SqlTypeName.TINYINT.getName();
+            case INT16:
+                return SqlTypeName.SMALLINT.getName();
+            case INT32:
+                return SqlTypeName.INTEGER.getName();
+            case INT64:
+                return SqlTypeName.BIGINT.getName();
+            case FLOAT:
+                return SqlTypeName.REAL.getName();
+            case DOUBLE:
+                return SqlTypeName.DOUBLE.getName();
+            case DECIMAL:
+                return SqlTypeName.DECIMAL.getName();
+            case DATE:
+                return SqlTypeName.DATE.getName();
+            case TIME:
+                return SqlTypeName.TIME.getName();
+            case DATETIME:
+                return SqlTypeName.TIMESTAMP.getName();
+            case TIMESTAMP:
+                return SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE.getName();
+            case UUID:
+                return UuidType.NAME;
+            case STRING:
+                return SqlTypeName.VARCHAR.getName();
+            case BYTE_ARRAY:
+                return SqlTypeName.VARBINARY.getName();
+            case NUMBER:
+                return SqlTypeName.INTEGER.getName();
+            case NULL:
+                return SqlTypeName.NULL.getName();
+            default:
+                throw new IllegalArgumentException("Unsupported type " + columnType);
+        }
+    }
+
+    /**
+     * Converts an SQL type name of a builtin type ({@link SqlTypeName#getName()}) or an SQL name of a custom data type to a ColumnType.
+     *
+     * @param name SQL type name.
+     * @return Column type.
+     */
+    public static ColumnType toColumnTypeFromSqlName(String name) {
+        if (SqlTypeName.ALL_TYPES.stream().anyMatch(n -> n.getName().equals(name))) {
+            SqlTypeName sqlTypeName = SqlTypeName.valueOf(name);
+            switch (sqlTypeName) {
+                case BOOLEAN:
+                    return ColumnType.BOOLEAN;
+                case TINYINT:
+                    return ColumnType.INT8;
+                case SMALLINT:
+                    return ColumnType.INT16;
+                case INTEGER:
+                    return ColumnType.INT32;
+                case BIGINT:
+                    return ColumnType.INT64;
+                case DECIMAL:
+                    return ColumnType.DECIMAL;
+                case FLOAT:
+                case REAL:
+                    return ColumnType.FLOAT;
+                case DOUBLE:
+                    return ColumnType.DOUBLE;
+                case DATE:
+                    return ColumnType.DATE;
+                case TIME:
+                    return ColumnType.TIME;
+                case TIMESTAMP:
+                    return ColumnType.DATETIME;
+                case TIMESTAMP_WITH_LOCAL_TIME_ZONE:
+                    return ColumnType.TIMESTAMP;
+                case CHAR:
+                case VARCHAR:
+                    return ColumnType.STRING;
+                case BINARY:
+                case VARBINARY:
+                    return ColumnType.BYTE_ARRAY;
+                case NULL:
+                    return ColumnType.NULL;
+                default:
+                    throw new IllegalArgumentException("Unsupported type: " + sqlTypeName);
+            }
+        } else if (UuidType.NAME.equals(name)) {
+            // IgniteCustomType: Add string name to ColumnType conversion.
+            return ColumnType.UUID;
+        } else {
+            throw new IllegalArgumentException("Unsupported type: " + name);
+        }
+    }
+
+    /**
+     *  Converts the given value to the specified target type.
+     *
+     *  <p>This function is performs conversion iif cast operation from SQL type of the given value  to
+     *  SQL type of the target type is possible. Otherwise  {@link SqlException} with {@link Sql#RUNTIME_ERR RUNTIME_ERR} is thrown.
+     */
+    public static @Nullable Object convertValue(@Nullable Object value, ColumnType targetType, int precision, int scale) {
+        return doConvert(value, targetType, precision, scale, Clock.systemDefaultZone());
+    }
+
+    @TestOnly
+    public static @Nullable Object convertValue(@Nullable Object value, ColumnType targetType, int precision, int scale, Clock clock) {
+        return doConvert(value, targetType, precision, scale, clock);
+    }
+
+    private static @Nullable Object doConvert(@Nullable Object value, ColumnType targetType, int precision, int scale, Clock clock) {
+        // Return NULL if value is null.
+        if (value == null) {
+            return null;
+        }
+
+        // Convert to another type
+
+        NativeTypeSpec spec = NativeTypeSpec.fromObject(value);
+        assert spec != null : "No spec: " + value;
+
+        ColumnType sourceType = spec.asColumnType();
+
+        if (targetType == ColumnType.NULL) {
+            throw canNotConvert(sourceType, ColumnType.NULL);
+        }
+
+        switch (targetType) {
+            case BOOLEAN:
+                return convertToBoolean(value, sourceType, targetType);
+            case INT8:
+            case INT16:
+            case INT32:
+            case INT64:
+            case FLOAT:
+            case DOUBLE:
+            case DECIMAL:
+                if (value instanceof String) {
+                    return convertFromStringToNumeric((String) value, targetType, precision, scale);
+                } else if (value instanceof Number) {
+                    return convertFromNumericToNumeric((Number) value, sourceType, targetType, precision, scale);
+                } else {
+                    throw canNotConvert(sourceType, targetType);
+                }
+            case DATE:
+                return convertToDate(value, targetType, sourceType);
+            case TIME:
+                return convertToTime(value, targetType, sourceType);
+            case DATETIME:
+                return convertToDatetime(value, targetType, clock, sourceType);
+            case TIMESTAMP:
+                return convertToTimestamp(value, targetType, sourceType);
+            case UUID:
+                if (sourceType == ColumnType.STRING) {
+                    return UUID.fromString(value.toString());
+                } else if (sourceType == ColumnType.UUID) {
+                    return value;
+                } else {
+                    throw canNotConvert(sourceType, targetType);
+                }
+            case BITMASK:
+                if (sourceType == ColumnType.BITMASK) {
+                    return value;
+                } else {
+                    throw canNotConvert(sourceType, targetType);
+                }
+            case STRING:
+                return convertToString(value, targetType, sourceType, precision);
+            case BYTE_ARRAY:
+                return convertToByteArray(value, targetType, sourceType, precision);
+            case PERIOD:
+                if (sourceType == ColumnType.PERIOD) {
+                    return value;
+                } else {
+                    throw canNotConvert(sourceType, targetType);
+                }
+            case DURATION:
+                if (sourceType == ColumnType.DURATION) {
+                    return value;
+                } else {
+                    throw canNotConvert(sourceType, targetType);
+                }
+            case NULL:
+                return value;
+            case NUMBER:
+            default:
+                throw new IllegalArgumentException("Unexpected type: " + targetType);
+        }
+    }
+
+    private static Object convertFromStringToNumeric(String value, ColumnType targetType, int precision, int scale) {
+        switch (targetType) {
+            case INT8:
+                return Byte.valueOf(value);
+            case INT16:
+                return Short.valueOf(value);
+            case INT32:
+                return Integer.valueOf(value);
+            case INT64:
+                return Long.valueOf(value);
+            case FLOAT:
+                return Float.valueOf(value);
+            case DOUBLE:
+                return Double.valueOf(value);
+            case DECIMAL:
+                return IgniteSqlFunctions.toBigDecimal(value, precision, scale);
+            default:
+                throw canNotConvert(ColumnType.STRING, targetType);
+        }
+    }
+
+    private static String convertToString(Object value, ColumnType targetType, ColumnType sourceType, int precision) {
+        if (sourceType == ColumnType.STRING
+                || NUMERIC_COLUMN_TYPES.contains(sourceType)
+                || TIME_COLUMN_TYPES.contains(sourceType)
+                || sourceType == ColumnType.BOOLEAN
+                || sourceType == ColumnType.UUID
+        ) {
+            String str = value.toString();
+            if (precision < 0 || precision > str.length() || sourceType != ColumnType.STRING) {
+                return str;
+            } else {
+                return str.substring(0, precision);
+            }
+        } else {
+            throw canNotConvert(sourceType, targetType);
+        }
+    }
+
+    private static Object convertToBoolean(Object value, ColumnType sourceType, ColumnType targetType) {
+        if (value instanceof Boolean) {
+            return value;
+        } else if (value instanceof String) {
+            String str = (String) value;
+            if ("true".equalsIgnoreCase(str)) {
+                return Boolean.TRUE;
+            } else if ("false".equalsIgnoreCase(str)) {
+                return Boolean.FALSE;
+            } else {
+                throw canNotConvert(sourceType, targetType);
+            }
+        } else {
+            throw canNotConvert(sourceType, targetType);
+        }
+    }
+
+    private static Object convertFromNumericToNumeric(Number value, ColumnType sourceType,
+            ColumnType targetType, int precision, int scale) {
+
+        switch (targetType) {
+            case INT8:
+                return IgniteMath.convertToByteExact(value.longValue());
+            case INT16:
+                return IgniteMath.convertToShortExact(value.longValue());
+            case INT32:
+                return IgniteMath.convertToIntExact(value.longValue());
+            case INT64:
+                return IgniteMath.convertToLongExact(value.toString());
+            case FLOAT:
+                return value.floatValue();
+            case DOUBLE:
+                return value.doubleValue();
+            case DECIMAL:
+                BigDecimal rs = IgniteSqlFunctions.toBigDecimal(value, precision, scale);
+                assert rs != null : "Never returns null";
+                return rs;
+            default:
+                throw new AssertionError("Unexpected type for numeric conversion: " + sourceType);
+        }
+    }
+
+    private static Object convertToByteArray(Object value, ColumnType targetType, ColumnType sourceType, int precision) {
+        if (sourceType == ColumnType.BYTE_ARRAY) {
+            byte[] bytes = (byte[]) value;
+            if (precision < 0 || precision > bytes.length) {
+                return bytes;
+            } else {
+                return Arrays.copyOf(bytes, precision);
+            }
+        } else {
+            throw canNotConvert(sourceType, targetType);
+        }
+    }
+
+    private static Object convertToTime(Object value, ColumnType targetType, ColumnType sourceType) {
+        if (sourceType == ColumnType.TIME) {
+            return value;
+        } else if (sourceType == ColumnType.TIMESTAMP) {
+            Instant instant = (Instant) value;
+            return LocalTime.ofInstant(instant, UTC);
+        } else if (sourceType == ColumnType.STRING) {
+            return LocalTime.parse((CharSequence) value);
+        } else {
+            throw canNotConvert(sourceType, targetType);
+        }
+    }
+
+    private static Object convertToDate(Object value, ColumnType targetType, ColumnType sourceType) {
+        if (sourceType == ColumnType.DATE) {
+            return value;
+        } else if (sourceType == ColumnType.TIMESTAMP) {
+            Instant instant = (Instant) value;
+            return LocalDate.ofInstant(instant, UTC);
+        } else if (sourceType == ColumnType.STRING) {
+            return LocalDate.parse((CharSequence) value);
+        } else {
+            throw canNotConvert(sourceType, targetType);
+        }
+    }
+
+    private static Object convertToTimestamp(Object value, ColumnType targetType, ColumnType sourceType) {
+        if (sourceType == ColumnType.TIMESTAMP) {
+            return value;
+        } else if (sourceType == ColumnType.TIME) {
+            Instant instant = (Instant) value;
+            return LocalTime.ofInstant(instant, UTC);
+        } else if (sourceType == ColumnType.DATE) {
+            Instant instant = (Instant) value;
+            return LocalDate.ofInstant(instant, UTC);
+        } else if (sourceType == ColumnType.STRING) {
+            return Instant.parse((CharSequence) value);
+        } else {
+            throw canNotConvert(sourceType, targetType);
+        }
+    }
+
+    private static Object convertToDatetime(Object value, ColumnType targetType, Clock clock, ColumnType sourceType) {
+        if (sourceType == ColumnType.DATETIME) {
+            return value;
+        } else if (sourceType == ColumnType.STRING) {
+            return Instant.parse(value.toString());
+        } else if (sourceType == ColumnType.DATE) {
+            LocalDate localDate = (LocalDate) value;
+            long epochSecond = localDate.toEpochSecond(LocalTime.MIDNIGHT, ZoneOffset.UTC);
+
+            return Instant.ofEpochSecond(epochSecond);
+        } else if (sourceType == ColumnType.TIME) {
+            LocalTime localTime = (LocalTime) value;
+            long epochSecond = localTime.toEpochSecond(LocalDate.now(clock), ZoneOffset.UTC);
+            long nanoOfDay = localTime.toNanoOfDay();
+
+            return Instant.ofEpochSecond(epochSecond, nanoOfDay);
+        } else {
+            throw canNotConvert(sourceType, targetType);
+        }
+    }
+
+    private static SqlException canNotConvert(ColumnType sourceType, ColumnType targetType) {
+        String fromTypeName = toSqlType(sourceType);
+        String toTypeName = toSqlType(targetType);
+
+        return new SqlException(Sql.RUNTIME_ERR, format("Cannot convert from {} to {}", fromTypeName, toTypeName));
     }
 }

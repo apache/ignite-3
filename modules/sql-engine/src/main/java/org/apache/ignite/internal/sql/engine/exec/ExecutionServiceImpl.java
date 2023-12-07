@@ -26,6 +26,7 @@ import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -75,6 +76,8 @@ import org.apache.ignite.internal.sql.engine.prepare.ExplainPlan;
 import org.apache.ignite.internal.sql.engine.prepare.Fragment;
 import org.apache.ignite.internal.sql.engine.prepare.IgniteRelShuttle;
 import org.apache.ignite.internal.sql.engine.prepare.MultiStepPlan;
+import org.apache.ignite.internal.sql.engine.prepare.ParameterMetadata;
+import org.apache.ignite.internal.sql.engine.prepare.ParameterType;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
@@ -229,7 +232,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             BaseQueryContext ctx,
             MultiStepPlan plan
     ) {
-        DistributedQueryManager queryManager = new DistributedQueryManager(localNode.name(), true, ctx);
+        DistributedQueryManager queryManager = new DistributedQueryManager(localNode.name(), true, ctx, plan.parameterMetadata());
 
         DistributedQueryManager old = queryManagerMap.put(ctx.queryId(), queryManager);
 
@@ -243,7 +246,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
     private BaseQueryContext createQueryContext(UUID queryId, int schemaVersion, Object[] params) {
         return BaseQueryContext.builder()
                 .queryId(queryId)
-                .parameters(Commons.arrayToMap(params))
+                .parameters(params)
                 .frameworkConfig(
                         Frameworks.newConfigBuilder(FRAMEWORK_CONFIG)
                                 .defaultSchema(sqlSchemaManager.schema(schemaVersion))
@@ -476,14 +479,19 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
         private volatile Long rootFragmentId = null;
 
+        // Not null on initiator.
+        private final @Nullable ParameterMetadata parameterMetadata;
+
         private DistributedQueryManager(
                 String coordinatorNodeName,
                 boolean coordinator,
-                BaseQueryContext ctx
+                BaseQueryContext ctx,
+                ParameterMetadata parameterMetadata
         ) {
             this.ctx = ctx;
             this.coordinator = coordinator;
             this.coordinatorNodeName = coordinatorNodeName;
+            this.parameterMetadata = parameterMetadata;
 
             if (coordinator) {
                 var root = new CompletableFuture<AsyncRootNode<RowT, List<Object>>>();
@@ -507,7 +515,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         }
 
         private DistributedQueryManager(String coordinatorNodeName, BaseQueryContext ctx) {
-            this(coordinatorNodeName, false, ctx);
+            this(coordinatorNodeName, false, ctx, null);
         }
 
         private List<AbstractNode<?>> localFragments() {
@@ -517,13 +525,16 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         private CompletableFuture<Void> sendFragment(
                 String targetNodeName, String serialisedFragment, FragmentDescription desc, TxAttributes txAttributes
         ) {
-            Object[] parameterValues = new Object[ctx.parameters().size()];
+            assert parameterMetadata != null;
+            Object[] newParams = new Object[ctx.parameters().length];
 
-            for (int i = 0; i < parameterValues.length; i++) {
-                assert ctx.parameters().containsKey(i) : "Parameter has not been specified#" + i;
+            for (int i = 0; i < newParams.length; i++) {
+                ParameterType parameterType = parameterMetadata.parameterTypes().get(i);
+                Object value = ctx.parameters()[i];
+                Object newValue = TypeUtils.convertValue(value,
+                        parameterType.columnType(), parameterType.precision(), parameterType.scale());
 
-                Object param = ctx.parameters().get(i);
-                parameterValues[i] = param;
+                newParams[i] = newValue;
             }
 
             QueryStartRequest request = FACTORY.queryStartRequest()
@@ -531,7 +542,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                     .fragmentId(desc.fragmentId())
                     .root(serialisedFragment)
                     .fragmentDescription(desc)
-                    .parameters(parameterValues)
+                    .parameters(newParams)
                     .txAttributes(txAttributes)
                     .schemaVersion(ctx.schemaVersion())
                     .build();
@@ -646,8 +657,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                 int schemaVersion,
                 String fragmentString,
                 FragmentDescription desc,
-                TxAttributes txAttributes
-        ) {
+                TxAttributes txAttributes) {
             // Because fragment execution runs on specific thread selected by taskExecutor,
             // we should complete dependency resolution on the same thread
             // that is going to be used for fragment execution.
