@@ -736,7 +736,7 @@ namespace Apache.Ignite.Internal
 
                 Metrics.RequestsFailed.Add(1);
 
-                taskCompletionSource.SetException(exception);
+                taskCompletionSource.TrySetException(exception);
             }
             else
             {
@@ -744,7 +744,7 @@ namespace Apache.Ignite.Internal
 
                 Metrics.RequestsCompleted.Add(1);
 
-                taskCompletionSource.SetResult(resultBuffer);
+                taskCompletionSource.TrySetResult(resultBuffer);
             }
         }
 
@@ -781,11 +781,11 @@ namespace Apache.Ignite.Internal
 
             if (exception != null)
             {
-                notificationHandler.SetException(exception);
+                notificationHandler.TrySetException(exception);
             }
             else
             {
-                notificationHandler.SetResult(response.Slice(consumed));
+                notificationHandler.TrySetResult(response.Slice(consumed));
             }
         }
 
