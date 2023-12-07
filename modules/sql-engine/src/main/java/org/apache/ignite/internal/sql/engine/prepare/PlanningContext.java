@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.prepare;
 
+import java.util.Collections;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
@@ -196,7 +197,7 @@ public final class PlanningContext implements Context {
 
         private long plannerTimeout;
 
-        private Map<Integer, Object> parameters;
+        private Map<Integer, Object> parameters = Collections.emptyMap();
 
         /** Parent context. */
         public Builder parentContext(Context parentCtx) {
