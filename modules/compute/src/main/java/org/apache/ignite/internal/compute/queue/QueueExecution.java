@@ -21,7 +21,7 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.compute.JobState;
 
 /**
- * Represents a task running on the {@link PriorityQueueExecutor}.
+ * Provides information about the task executing on the {@link PriorityQueueExecutor}, allows cancelling the task.
  *
  * @param <R> Job result type.
  */

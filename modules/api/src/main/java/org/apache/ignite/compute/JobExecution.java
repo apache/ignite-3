@@ -20,7 +20,7 @@ package org.apache.ignite.compute;
 import java.util.concurrent.CompletableFuture;
 
 /**
- * Represents job's execution.
+ * Job control object, provides information about the job execution process and result, allows cancelling the job.
  *
  * @param <R> Job result type.
  */
@@ -33,6 +33,7 @@ public interface JobExecution<R> {
     CompletableFuture<R> resultAsync();
 
     /**
+     * TODO https://issues.apache.org/jira/browse/IGNITE-20841
      * Returns job's current state.
      *
      * @return Job's state.
