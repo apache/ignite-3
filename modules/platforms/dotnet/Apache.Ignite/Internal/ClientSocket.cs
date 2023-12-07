@@ -862,6 +862,17 @@ namespace Apache.Ignite.Internal
                     }
                 }
 
+                while (!_notificationHandlers.IsEmpty)
+                {
+                    foreach (var reqId in _notificationHandlers.Keys.ToArray())
+                    {
+                        if (_notificationHandlers.TryRemove(reqId, out var notificationHandler))
+                        {
+                            notificationHandler.TrySetException(ex);
+                        }
+                    }
+                }
+
                 Metrics.ConnectionsActiveDecrement();
             }
         }
