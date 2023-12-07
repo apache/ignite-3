@@ -131,7 +131,14 @@ public class TxCleanupRequestSender {
                 .handle((networkMessage, throwable) -> {
                     if (throwable != null) {
                         if (TransactionFailureHandler.isRecoverable(throwable)) {
-                            return sendCleanupMessageWithRetries(commit, commitTimestamp, txId, node, partitions);
+                            // In the case of a failure we repeat the process, but start with finding correct primary replicas
+                            // for this subset of partitions. If nothing changed in terms of the nodes and primaries
+                            // we eventually will call ourselves with the same parameters.
+                            // On the other hand (for example if this node has died) we will
+                            //  either have a new mapping of primary to its partitions
+                            // or will run `switchWriteIntentsOnPartitions` for partitions with no primary.
+                            // At the end of the day all write intents will be properly converted.
+                            return cleanup(partitions, commit, commitTimestamp, txId);
                         }
 
                         return CompletableFuture.<Void>failedFuture(throwable);
