@@ -93,7 +93,6 @@ import org.apache.ignite.internal.sql.engine.type.UuidType;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.IgniteResource;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
-import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
 
