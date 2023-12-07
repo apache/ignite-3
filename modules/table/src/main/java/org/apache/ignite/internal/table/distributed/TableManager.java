@@ -754,14 +754,14 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                             partitionUpdateHandlers
                     );
 
-                            return true;
-                        } catch (NodeStoppingException ex) {
-                            throw new CompletionException(ex);
-                        }
-                    }), ioExecutor);
-                } else {
-                    startGroupFut = falseCompletedFuture();
+                    return true;
+                } catch (NodeStoppingException ex) {
+                    throw new CompletionException(ex);
                 }
+            }), ioExecutor);
+        } else {
+            startGroupFut = falseCompletedFuture();
+        }
 
         startGroupFut
                 .thenComposeAsync(v -> inBusyLock(busyLock, () -> {
