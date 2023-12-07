@@ -1989,6 +1989,11 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         // these updates always processing only 1 partition, so, only 1 stable partition key.
         assert evt.single() : evt;
 
+        if (evt.entryEvent().oldEntry() == null) {
+            // This means it's an event on table creation.
+            return nullCompletedFuture();
+        }
+
         Entry stableAssignmentsWatchEvent = evt.entryEvent().newEntry();
 
         long revision = evt.revision();
