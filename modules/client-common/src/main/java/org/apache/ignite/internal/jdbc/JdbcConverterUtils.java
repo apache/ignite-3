@@ -48,7 +48,7 @@ public class JdbcConverterUtils {
     }
 
     /**
-     * Derives value from {@link BinaryTuple} by given column index, column type, and scale for decimal type.
+     * Derives value from {@link BinaryTupleReader} by given column index, column type, and scale for decimal type.
      *
      * @param columnType An expected type of the field.
      * @param binaryTuple A tuple reader to derive value from.
