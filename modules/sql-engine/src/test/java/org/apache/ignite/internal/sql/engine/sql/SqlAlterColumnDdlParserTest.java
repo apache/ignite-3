@@ -121,9 +121,9 @@ public class SqlAlterColumnDdlParserTest extends AbstractDdlParserTest {
         expectDataType(alterColumn, "INTEGER", true, -1);
         expectUnparsed(alterColumn, "ALTER TABLE \"T\" ALTER COLUMN \"C\" SET DATA TYPE INTEGER NOT NULL DEFAULT -1");
 
-        alterColumn = parseAlterColumn("ALTER TABLE t ALTER COLUMN c SET DATA TYPE INTEGER NOT NULL DEFAULT -1");
-        expectDataType(alterColumn, "INTEGER", true, -1);
-        expectUnparsed(alterColumn, "ALTER TABLE \"T\" ALTER COLUMN \"C\" SET DATA TYPE INTEGER NOT NULL DEFAULT -1");
+        alterColumn = parseAlterColumn("ALTER TABLE t ALTER COLUMN c SET DATA TYPE INTEGER DEFAULT NULL");
+        expectDataType(alterColumn, "INTEGER", null, null);
+        expectUnparsed(alterColumn, "ALTER TABLE \"T\" ALTER COLUMN \"C\" SET DATA TYPE INTEGER DEFAULT NULL");
 
         alterColumn = parseAlterColumn("ALTER TABLE t ALTER COLUMN c SET DATA TYPE INTEGER NULL DEFAULT NULL");
         expectDataType(alterColumn, "INTEGER", false, null);
