@@ -100,7 +100,6 @@ import org.apache.ignite.internal.sql.engine.sql.ParserService;
 import org.apache.ignite.internal.sql.engine.sql.ParserServiceImpl;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
-import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.sql.engine.util.cache.CacheFactory;
 import org.apache.ignite.internal.sql.engine.util.cache.CaffeineCacheFactory;
@@ -578,13 +577,11 @@ public class SqlQueryProcessor implements QueryProcessor {
 
         return waitForActualSchema(schemaName, timestamp)
                 .thenCompose(schema -> {
-                    Map<Integer, Object> dynamicParams = Commons.arrayToMap(params);
-
                     BaseQueryContext ctx = BaseQueryContext.builder()
                             .frameworkConfig(Frameworks.newConfigBuilder(FRAMEWORK_CONFIG).defaultSchema(schema).build())
                             .queryId(UUID.randomUUID())
                             .cancel(queryCancel)
-                            .parameters(dynamicParams)
+                            .parameters(params)
                             .build();
 
                     return prepareSvc.prepareAsync(parsedResult, ctx);
@@ -603,14 +600,13 @@ public class SqlQueryProcessor implements QueryProcessor {
         return waitForActualSchema(schemaName, txWrapper.unwrap().startTimestamp())
                 .thenCompose(schema -> {
                     PrefetchCallback callback = waitForPrefetch ? new PrefetchCallback() : null;
-                    Map<Integer, Object> dynamicParams = Commons.arrayToMap(params);
 
                     BaseQueryContext ctx = BaseQueryContext.builder()
                             .frameworkConfig(Frameworks.newConfigBuilder(FRAMEWORK_CONFIG).defaultSchema(schema).build())
                             .queryId(UUID.randomUUID())
                             .cancel(queryCancel)
                             .prefetchCallback(callback)
-                            .parameters(dynamicParams)
+                            .parameters(params)
                             .build();
 
                     CompletableFuture<AsyncSqlCursor<List<Object>>> fut = prepareSvc.prepareAsync(parsedResult, ctx)

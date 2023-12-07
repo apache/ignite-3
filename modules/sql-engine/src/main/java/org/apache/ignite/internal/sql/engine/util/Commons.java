@@ -321,8 +321,8 @@ public final class Commons {
      * @param params Parameters.
      * @return Parameters map.
      */
-    public static Map<String, Object> parametersMap(Map<Integer, Object> params) {
-        if (params.isEmpty()) {
+    public static Map<String, Object> parametersMap(@Nullable Object[] params) {
+        if (ArrayUtils.nullOrEmpty(params)) {
             return Collections.emptyMap();
         } else {
             HashMap<String, Object> res = new HashMap<>();
@@ -360,9 +360,9 @@ public final class Commons {
      * @param dst    Map to populate.
      * @param params Parameters.
      */
-    private static void populateParameters(Map<String, Object> dst, Map<Integer, Object> params) {
-        for (Map.Entry<Integer, Object> e : params.entrySet()) {
-            dst.put("?" + e.getKey(), e.getValue());
+    private static void populateParameters(Map<String, Object> dst, Object[] params) {
+        for (int i = 0; i < params.length; i++) {
+            dst.put("?" + i, params[i]);
         }
     }
 

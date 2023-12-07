@@ -235,9 +235,19 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
             List<Object> params,
             String... disabledRules
     ) {
+
+        Map<Integer, Object> paramsMap = new HashMap<>();
+        for (int i = 0; i < params.size(); i++) {
+            Object value = params.get(i);
+            if (value != Unspecified.UNKNOWN) {
+                paramsMap.put(i, value);
+            }
+        }
+
         PlanningContext ctx = PlanningContext.builder()
                 .parentContext(baseQueryContext(schemas, hintStrategies, params.toArray()))
                 .query(sql)
+                .parameters(paramsMap)
                 .build();
 
         IgnitePlanner planner = ctx.planner();
@@ -271,14 +281,6 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
             relConvCfg = relConvCfg.withHintStrategyTable(hintStrategies);
         }
 
-        Map<Integer, Object> paramValues = new HashMap<>();
-        for (int i = 0; i < params.length; i++) {
-            Object value = params[i];
-
-            if (value != Unspecified.UNKNOWN) {
-                paramValues.put(i, value);
-            }
-        }
 
         return BaseQueryContext.builder()
                 .queryId(UUID.randomUUID())
@@ -288,7 +290,7 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
                                 .sqlToRelConverterConfig(relConvCfg)
                                 .build()
                 )
-                .parameters(paramValues)
+                .parameters(params)
                 .build();
     }
 

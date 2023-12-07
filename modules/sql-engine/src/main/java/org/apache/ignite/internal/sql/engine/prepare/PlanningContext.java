@@ -59,17 +59,21 @@ public final class PlanningContext implements Context {
     /** Flag indicated if planning has been canceled due to timeout. */
     private boolean timeouted = false;
 
+    private final Map<Integer, Object> parameters;
+
     /** Private constructor, used by a builder. */
     private PlanningContext(
             Context parentCtx,
             String qry,
-            long plannerTimeout
+            long plannerTimeout,
+            Map<Integer, Object> parameters
     ) {
         this.qry = qry;
         this.parentCtx = parentCtx;
 
         startTs = FastTimestamps.coarseCurrentTimeMillis();
         this.plannerTimeout = plannerTimeout;
+        this.parameters = parameters;
     }
 
     /** Get framework config. */
@@ -84,7 +88,7 @@ public final class PlanningContext implements Context {
 
     /** Get query parameters. */
     public Map<Integer, Object> parameters() {
-        return unwrap(BaseQueryContext.class).parameters();
+        return parameters;
     }
 
     // Helper methods
@@ -192,18 +196,29 @@ public final class PlanningContext implements Context {
 
         private long plannerTimeout;
 
+        private Map<Integer, Object> parameters;
+
+        /** Parent context. */
         public Builder parentContext(Context parentCtx) {
             this.parentCtx = parentCtx;
             return this;
         }
 
+        /** SQL statement. */
         public Builder query(String qry) {
             this.qry = qry;
             return this;
         }
 
+        /** Planner timeout. */
         public Builder plannerTimeout(long plannerTimeout) {
             this.plannerTimeout = plannerTimeout;
+            return this;
+        }
+
+        /** Values of dynamic parameters to assist with type inference. */
+        public Builder parameters(Map<Integer, Object> parameters) {
+            this.parameters = parameters;
             return this;
         }
 
@@ -213,7 +228,7 @@ public final class PlanningContext implements Context {
          * @return Planner context.
          */
         public PlanningContext build() {
-            return new PlanningContext(parentCtx, qry, plannerTimeout);
+            return new PlanningContext(parentCtx, qry, plannerTimeout, parameters);
         }
     }
 }

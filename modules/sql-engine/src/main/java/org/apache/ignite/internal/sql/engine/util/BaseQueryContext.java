@@ -24,7 +24,6 @@ import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFI
 import com.google.common.collect.Multimap;
 import java.lang.reflect.Method;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Properties;
 import java.util.UUID;
@@ -55,6 +54,7 @@ import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCostFactory;
 import org.apache.ignite.internal.sql.engine.rex.IgniteRexBuilder;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
+import org.apache.ignite.internal.util.ArrayUtils;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -66,7 +66,6 @@ public final class BaseQueryContext implements Context {
     public static final RelOptCluster CLUSTER;
 
     private static final IgniteCostFactory COST_FACTORY = new IgniteCostFactory();
-    private static final Map<Integer, Object> NO_DYNAMIC_PARAMETERS = Map.of();
 
     static {
         Properties props = new Properties();
@@ -139,7 +138,7 @@ public final class BaseQueryContext implements Context {
 
     private final UUID queryId;
 
-    private final Map<Integer, Object> parameters;
+    private final Object[] parameters;
 
     private final QueryPrefetchCallback prefetchCallback;
 
@@ -152,7 +151,7 @@ public final class BaseQueryContext implements Context {
             UUID queryId,
             FrameworkConfig cfg,
             QueryCancel cancel,
-            Map<Integer, Object> parameters,
+            Object[] parameters,
             QueryPrefetchCallback prefetchCallback
     ) {
         this.parentCtx = Contexts.chain(cfg.getContext());
@@ -183,7 +182,7 @@ public final class BaseQueryContext implements Context {
         return queryId;
     }
 
-    public Map<Integer, Object> parameters() {
+    public Object[] parameters() {
         return parameters;
     }
 
@@ -245,7 +244,7 @@ public final class BaseQueryContext implements Context {
 
         private UUID queryId;
 
-        private Map<Integer, Object> parameters = NO_DYNAMIC_PARAMETERS;
+        private Object[] parameters = ArrayUtils.OBJECT_EMPTY_ARRAY;
 
         private QueryPrefetchCallback prefetchCallback;
 
@@ -269,7 +268,7 @@ public final class BaseQueryContext implements Context {
             return this;
         }
 
-        public Builder parameters(Map<Integer, Object> parameters) {
+        public Builder parameters(Object... parameters) {
             this.parameters = Objects.requireNonNull(parameters);
             return this;
         }

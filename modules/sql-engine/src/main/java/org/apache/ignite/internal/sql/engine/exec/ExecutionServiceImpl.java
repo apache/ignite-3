@@ -243,7 +243,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
     private BaseQueryContext createQueryContext(UUID queryId, int schemaVersion, Object[] params) {
         return BaseQueryContext.builder()
                 .queryId(queryId)
-                .parameters(Commons.arrayToMap(params))
+                .parameters(params)
                 .frameworkConfig(
                         Frameworks.newConfigBuilder(FRAMEWORK_CONFIG)
                                 .defaultSchema(sqlSchemaManager.schema(schemaVersion))
@@ -517,21 +517,12 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         private CompletableFuture<Void> sendFragment(
                 String targetNodeName, String serialisedFragment, FragmentDescription desc, TxAttributes txAttributes
         ) {
-            Object[] parameterValues = new Object[ctx.parameters().size()];
-
-            for (int i = 0; i < parameterValues.length; i++) {
-                assert ctx.parameters().containsKey(i) : "Parameter has not been specified#" + i;
-
-                Object param = ctx.parameters().get(i);
-                parameterValues[i] = param;
-            }
-
             QueryStartRequest request = FACTORY.queryStartRequest()
                     .queryId(ctx.queryId())
                     .fragmentId(desc.fragmentId())
                     .root(serialisedFragment)
                     .fragmentDescription(desc)
-                    .parameters(parameterValues)
+                    .parameters(ctx.parameters())
                     .txAttributes(txAttributes)
                     .schemaVersion(ctx.schemaVersion())
                     .build();
