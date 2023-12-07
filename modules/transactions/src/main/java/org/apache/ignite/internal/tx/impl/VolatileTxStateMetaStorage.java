@@ -50,7 +50,8 @@ public class VolatileTxStateMetaStorage {
     public void stop() {
         busyLock.block();
 
-        txStateMap.clear();
+        // TODO: IGNITE-21024 There is no possibility to clean this map because it can be used after the node has been stopped.
+        // txStateMap.clear();
     }
 
     /**
@@ -63,7 +64,7 @@ public class VolatileTxStateMetaStorage {
     public TxStateMeta updateMeta(UUID txId, Function<TxStateMeta, TxStateMeta> updater) {
         return updateMetaInternal(txId, updater);
 
-        //TODO: IGNITE-21024 Public methods of transaction manager do not have NodeStoppingException in definition.
+        // TODO: IGNITE-21024 Public methods of transaction manager do not have NodeStoppingException in definition.
         // if (busyLock.enterBusy()) {
         //     try {
         //         return updateMetaInternal(txId, updater);
@@ -104,7 +105,7 @@ public class VolatileTxStateMetaStorage {
     public TxStateMeta state(UUID txId) {
         return txStateMap.get(txId);
 
-        //TODO: IGNITE-21024 Public methods of transaction manager do not have NodeStoppingException in definition.
+        // TODO: IGNITE-21024 Public methods of transaction manager do not have NodeStoppingException in definition.
         // if (busyLock.enterBusy()) {
         //     try {
         //         return txStateMap.get(txId);
@@ -123,7 +124,7 @@ public class VolatileTxStateMetaStorage {
     public Collection<TxStateMeta> states() {
         return txStateMap.values();
 
-        //TODO: IGNITE-21024 Public methods of transaction manager do not have NodeStoppingException in definition.
+        // TODO: IGNITE-21024 Public methods of transaction manager do not have NodeStoppingException in definition.
         // if (busyLock.enterBusy()) {
         //     try {
         //         return txStateMap.values();
