@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.testframework;
 
-import static java.util.stream.Collectors.toSet;
 import static org.junit.jupiter.api.extension.ExtensionContext.Namespace;
 
 import java.io.IOException;
@@ -28,17 +27,17 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
-import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 import org.apache.ignite.internal.lang.IgniteSystemProperties;
+import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.OperatingSystem;
+import org.apache.logging.log4j.core.config.Configurator;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.extension.AfterAllCallback;
@@ -46,6 +45,7 @@ import org.junit.jupiter.api.extension.AfterEachCallback;
 import org.junit.jupiter.api.extension.BeforeAllCallback;
 import org.junit.jupiter.api.extension.BeforeEachCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
+import org.junit.jupiter.api.extension.ExtensionContext.Store;
 import org.junit.jupiter.api.extension.ParameterContext;
 import org.junit.jupiter.api.extension.ParameterResolutionException;
 import org.junit.jupiter.api.extension.ParameterResolver;
@@ -81,9 +81,12 @@ public class WorkDirectoryExtension
      * System property that can be used to provide a comma-separated list of test names whose work directories should be preserved after
      * test execution. Test name consists of test class name, a dot and a test method name. In case if work directory is injected into the
      * static field and is shared between different tests, only test class name should be put into the list.
-     * <br>
-     * Example: {@code "FooBarTest.test1,FooBarTest.test2,StaticWorkDirectoryFieldTest,FooBarTest.test3"}.
-     * Default value is {@code null}.
+     *
+     * <p>Special value of {@code ALL} can be used to include all work folders in a given test class.
+     *
+     * <p>Example: {@code "FooBarTest.test1,FooBarTest.test2,StaticWorkDirectoryFieldTest,FooBarTest.test3"}.
+     *
+     * <p>Default value is {@code null}.
      */
     public static final String KEEP_WORK_DIR_PROPERTY = "KEEP_WORK_DIR";
 
@@ -94,13 +97,16 @@ public class WorkDirectoryExtension
     public static final String ARTIFACT_DIR_PROPERTY = "ARTIFACT_DIR";
 
     /** Base path for all temporary folders in a module. */
-    private static final Path BASE_PATH = getBasePath();
+    private static final Path BASE_PATH = Path.of("build", "work");
 
     /** Name of the work directory that will be injected into {@link BeforeAll} methods or static members. */
     private static final String STATIC_FOLDER_NAME = "static";
 
     /** Pattern for the {@link #KEEP_WORK_DIR_PROPERTY}. */
     private static final Pattern PATTERN = Pattern.compile("\\b\\w+(?:\\.\\w+)?(?:,\\b\\w+(?:\\.\\w+)?)*\\b");
+
+    /** System property used to substitute the path to the log file used by {@link IgniteLogger}. */
+    private static final String LOG_FOLDER_PROPERTY_NAME = "logFolder";
 
     /**
      * Creates and injects a temporary directory into a static field.
@@ -190,36 +196,46 @@ public class WorkDirectoryExtension
      * Creates a temporary folder for the given test method.
      */
     private static Path createWorkDir(ExtensionContext context) throws IOException {
-        Path existingDir = context.getStore(NAMESPACE).get(context.getUniqueId(), Path.class);
+        Store store = context.getStore(NAMESPACE);
+
+        Path existingDir = store.get(context.getUniqueId(), Path.class);
 
         if (existingDir != null) {
             return existingDir;
         }
 
-        Path workDir;
+        Path workDir = generateWorkDirPath(context);
 
+        Files.createDirectories(workDir);
+
+        store.put(context.getUniqueId(), workDir);
+
+        setLogFolderProperty(context, store, workDir);
+
+        return workDir;
+    }
+
+    private static Path generateWorkDirPath(ExtensionContext context) {
         Path testClassDir = getTestClassDir(context);
 
         String testMethodName = context.getTestMethod()
                 .map(Method::getName)
                 .orElse(STATIC_FOLDER_NAME);
 
-        if (OperatingSystem.current() == OperatingSystem.WINDOWS) {
-            testMethodName = IgniteTestUtils.shortTestMethodName(testMethodName);
-
-            do {
-                // Due to the fact that in the Windows operating system the path length limit is 260 characters.
-                workDir = testClassDir.resolve(testMethodName + "_" + ThreadLocalRandom.current().nextInt(Short.MAX_VALUE));
-            } while (Files.exists(workDir));
-        } else {
+        if (OperatingSystem.current() != OperatingSystem.WINDOWS) {
             // Not using currentTimeMillis because some tests can have the same name (e.g. repeated tests) and execute in less than a
             // millisecond, which will result in identical paths being generated.
-            workDir = testClassDir.resolve(testMethodName + '_' + System.nanoTime());
+            return testClassDir.resolve(testMethodName + '_' + System.nanoTime());
         }
 
-        Files.createDirectories(workDir);
+        testMethodName = IgniteTestUtils.shortTestMethodName(testMethodName);
 
-        context.getStore(NAMESPACE).put(context.getUniqueId(), workDir);
+        Path workDir;
+
+        do {
+            // Due to the fact that in the Windows operating system the path length limit is 260 characters.
+            workDir = testClassDir.resolve(testMethodName + "_" + ThreadLocalRandom.current().nextInt(Short.MAX_VALUE));
+        } while (Files.exists(workDir));
 
         return workDir;
     }
@@ -234,77 +250,80 @@ public class WorkDirectoryExtension
     /**
      * Removes a previously created work directory.
      */
-    private static void cleanupWorkDir(ExtensionContext context) {
-        Path workDir = context.getStore(NAMESPACE).remove(context.getUniqueId(), Path.class);
+    private static void cleanupWorkDir(ExtensionContext context) throws IOException {
+        Store store = context.getStore(NAMESPACE);
+
+        Path workDir = store.remove(context.getUniqueId(), Path.class);
+
+        if (workDir == null) {
+            return;
+        }
 
         String testClassName = context.getRequiredTestClass().getSimpleName();
 
         String testName = context.getTestMethod().map(method -> testClassName + "." + method.getName()).orElse(testClassName);
 
-        if (workDir != null) {
-            if (shouldKeepWorkDir(testName)) {
-                String artifactDir = IgniteSystemProperties.getString(ARTIFACT_DIR_PROPERTY);
+        if (shouldKeepWorkDir(testName)) {
+            String artifactDir = IgniteSystemProperties.getString(ARTIFACT_DIR_PROPERTY);
 
-                if (artifactDir != null) {
-                    Path artifactDirPath = Paths.get(artifactDir, testName + ".zip");
+            if (artifactDir != null) {
+                Path artifactDirPath = Paths.get(artifactDir, testName + ".zip");
 
-                    zipDirectory(workDir, artifactDirPath);
+                zipDirectory(workDir, artifactDirPath);
 
-                    IgniteUtils.deleteIfExists(workDir);
-                }
-            } else {
                 IgniteUtils.deleteIfExists(workDir);
             }
+        } else {
+            IgniteUtils.deleteIfExists(workDir);
         }
+
+        restoreLogFolderProperty(context, store);
     }
 
     private static boolean shouldKeepWorkDir(String testName) {
         String keepWorkDirStr = IgniteSystemProperties.getString(KEEP_WORK_DIR_PROPERTY);
 
-        Set<String> keepWorkDirForTests;
-
-        if (keepWorkDirStr != null) {
-            if (!keepWorkDirPropertyValid(keepWorkDirStr)) {
-                throw new IllegalArgumentException(KEEP_WORK_DIR_PROPERTY + " value " + keepWorkDirStr + " doesn't match pattern");
-            }
-
-            keepWorkDirForTests = Arrays.stream(keepWorkDirStr.split(",")).collect(toSet());
-        } else {
-            keepWorkDirForTests = Collections.emptySet();
+        if (keepWorkDirStr == null) {
+            return false;
         }
 
-        return keepWorkDirForTests.contains(testName);
+        if ("ALL".equals(keepWorkDirStr)) {
+            return true;
+        }
+
+        if (!keepWorkDirPropertyValid(keepWorkDirStr)) {
+            throw new IllegalArgumentException(KEEP_WORK_DIR_PROPERTY + " value " + keepWorkDirStr + " doesn't match pattern");
+        }
+
+        return Arrays.asList(keepWorkDirStr.split(",")).contains(testName);
     }
 
     static boolean keepWorkDirPropertyValid(String property) {
         return PATTERN.matcher(property).matches();
     }
 
-    private static void zipDirectory(Path source, Path target) {
-        try {
-            Files.createDirectories(target.getParent());
+    private static void zipDirectory(Path source, Path target) throws IOException {
+        Files.createDirectories(target.getParent());
 
-            Files.createFile(target);
+        Files.createFile(target);
 
-            try (var zs = new ZipOutputStream(Files.newOutputStream(target))) {
-                try (Stream<Path> filesStream = Files.walk(source)) {
-                    filesStream.filter(path -> !Files.isDirectory(path))
-                            .forEach(path -> {
-                                var zipEntry = new ZipEntry(source.relativize(path).toString());
-                                try {
-                                    zs.putNextEntry(zipEntry);
+        try (
+                var zs = new ZipOutputStream(Files.newOutputStream(target));
+                Stream<Path> filesStream = Files.walk(source)
+        ) {
+            filesStream.filter(path -> !Files.isDirectory(path))
+                    .forEach(path -> {
+                        var zipEntry = new ZipEntry(source.relativize(path).toString());
+                        try {
+                            zs.putNextEntry(zipEntry);
 
-                                    Files.copy(path, zs);
+                            Files.copy(path, zs);
 
-                                    zs.closeEntry();
-                                } catch (IOException e) {
-                                    throw new RuntimeException(e);
-                                }
-                            });
-                }
-            }
-        } catch (IOException e) {
-            throw new RuntimeException(e);
+                            zs.closeEntry();
+                        } catch (IOException e) {
+                            throw new RuntimeException(e);
+                        }
+                    });
         }
     }
 
@@ -351,7 +370,32 @@ public class WorkDirectoryExtension
         }
     }
 
-    private static Path getBasePath() {
-        return Path.of("build", "work");
+    /**
+     * Sets the {@link #LOG_FOLDER_PROPERTY_NAME} system property, so that all logs produced by {@link IgniteLogger} will go to
+     * the {@code workDir}.
+     */
+    private static void setLogFolderProperty(ExtensionContext context, Store store, Path workDir) {
+        String prevProperty = System.setProperty(LOG_FOLDER_PROPERTY_NAME, workDir.toString());
+
+        Configurator.reconfigure();
+
+        if (prevProperty != null) {
+            store.put(context.getUniqueId() + "." + LOG_FOLDER_PROPERTY_NAME, prevProperty);
+        }
+    }
+
+    /**
+     * Restores the {@link #LOG_FOLDER_PROPERTY_NAME} system property to the state before {@link #setLogFolderProperty} was called.
+     */
+    private static void restoreLogFolderProperty(ExtensionContext context, Store store) {
+        String prevProperty = store.remove(context.getUniqueId() + "." + LOG_FOLDER_PROPERTY_NAME, String.class);
+
+        if (prevProperty == null) {
+            System.clearProperty(LOG_FOLDER_PROPERTY_NAME);
+        } else {
+            System.setProperty(LOG_FOLDER_PROPERTY_NAME, prevProperty);
+        }
+
+        Configurator.reconfigure();
     }
 }

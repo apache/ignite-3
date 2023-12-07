@@ -38,8 +38,8 @@
 
     <RollingFile name="FILE"
       append="true"
-      fileName="build/ignite.log"
-      filePattern="build/ignite.log.%i">
+      fileName="${sys:logFolder:-build/work}/ignite.log"
+      filePattern="${sys:logFolder:-build/work}/ignite.log.%i">
       <PatternLayout pattern="[%d{ISO8601}][%-5p][%t][%c{1}]%notEmpty{[%markerSimpleName]} %m%n"/>
       <Policies>
         <OnStartupTriggeringPolicy />
