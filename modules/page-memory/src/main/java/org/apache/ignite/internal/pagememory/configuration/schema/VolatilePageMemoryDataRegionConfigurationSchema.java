@@ -34,7 +34,7 @@ public class VolatilePageMemoryDataRegionConfigurationSchema extends BasePageMem
      * 256 MiB, if system was unable to retrieve physical memory size.
      */
     @SuppressWarnings("NumericCastThatLosesPrecision")
-    public static final long DFLT_DATA_REGION_INITIAL_SIZE = Math.max(256 * MiB, (long) (0.2 * getTotalMemoryAvailable()));
+    public static final long DFLT_DATA_REGION_INITIAL_SIZE = 256 * MiB;//Math.max(256 * MiB, (long) (0.2 * getTotalMemoryAvailable()));
 
     /** Default max size, matches {@link #DFLT_DATA_REGION_INITIAL_SIZE}. */
     public static final long DFLT_DATA_REGION_MAX_SIZE = DFLT_DATA_REGION_INITIAL_SIZE;
