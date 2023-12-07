@@ -862,6 +862,8 @@ namespace Apache.Ignite.Internal
                     }
                 }
 
+                // TODO: Add a test for this scenario specifically;
+                // Add a test in Java too.
                 while (!_notificationHandlers.IsEmpty)
                 {
                     foreach (var reqId in _notificationHandlers.Keys.ToArray())
