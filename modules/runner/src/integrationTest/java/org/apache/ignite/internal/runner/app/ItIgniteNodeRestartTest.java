@@ -17,11 +17,12 @@
 
 package org.apache.ignite.internal.runner.app;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
+import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.defaultSerializationRegistry;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -125,6 +126,7 @@ import org.apache.ignite.internal.table.distributed.schema.SchemaSyncServiceImpl
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
+import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
@@ -180,6 +182,9 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
     @InjectConfiguration
     private static MetaStorageConfiguration metaStorageConfiguration;
+
+    @InjectConfiguration
+    private static TransactionConfiguration txConfiguration;
 
     /**
      * Start some of Ignite components that are able to serve as Ignite node for test purposes.
@@ -332,6 +337,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         );
 
         var txManager = new TxManagerImpl(
+                txConfiguration,
                 clusterSvc,
                 replicaService,
                 lockManager,
@@ -1273,10 +1279,10 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 // That's our index.
                 latch.countDown();
 
-                return completedFuture(true);
+                return trueCompletedFuture();
             }
 
-            return completedFuture(false);
+            return falseCompletedFuture();
         }));
 
         assertTrue(latch.await(10, TimeUnit.SECONDS));

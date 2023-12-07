@@ -19,6 +19,7 @@ package org.apache.ignite.network;
 
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.network.serialization.PerSessionSerializationService.createClassDescriptorsMessages;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.network.NettyBootstrapFactory.isInNetworkThread;
 
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
@@ -202,7 +203,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
 
         // TODO: IGNITE-18493 - remove/move this
         if (shouldDropMessage(recipient, msg)) {
-            return CompletableFuture.completedFuture(null);
+            return nullCompletedFuture();
         }
 
         InetSocketAddress recipientAddress = new InetSocketAddress(recipient.address().host(), recipient.address().port());
@@ -214,7 +215,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
                 sendToSelf(msg, null);
             }
 
-            return CompletableFuture.completedFuture(null);
+            return nullCompletedFuture();
         }
 
         NetworkMessage message = correlationId != null ? responseFromMessage(msg, correlationId) : msg;

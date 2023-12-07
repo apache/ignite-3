@@ -17,10 +17,19 @@
 
 package org.apache.ignite.internal.compute;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Compute.CLASS_INITIALIZATION_ERR;
 
 import java.lang.reflect.Constructor;
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 import org.apache.ignite.compute.ComputeJob;
+import org.apache.ignite.compute.DeploymentUnit;
+import org.apache.ignite.compute.version.Version;
+import org.apache.ignite.internal.compute.message.DeploymentUnitMsg;
+import org.apache.ignite.internal.compute.message.ExecuteResponse;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteException;
 
@@ -28,6 +37,8 @@ import org.apache.ignite.lang.IgniteException;
  * Utility class for compute.
  */
 public class ComputeUtils {
+    private static final ComputeMessagesFactory MESSAGES_FACTORY = new ComputeMessagesFactory();
+
     /**
      * Instantiate compute job via provided class loader by provided job class name.
      *
@@ -78,5 +89,46 @@ public class ComputeUtils {
                     e
             );
         }
+    }
+
+    /**
+     * Transform deployment unit object to message {@link DeploymentUnitMsg}.
+     *
+     * @param unit Deployment unit.
+     * @return Deployment unit message.
+     */
+    public static DeploymentUnitMsg toDeploymentUnitMsg(DeploymentUnit unit) {
+        return MESSAGES_FACTORY.deploymentUnitMsg()
+                .name(unit.name())
+                .version(unit.version().toString())
+                .build();
+    }
+
+    /**
+     * Extract Compute job result from execute response.
+     *
+     * @param executeResponse Execution message response.
+     * @param <R> Compute job return type.
+     * @return Completable future with result.
+     */
+    public static <R> CompletableFuture<R> resultFromExecuteResponse(ExecuteResponse executeResponse) {
+        Throwable throwable = executeResponse.throwable();
+        if (throwable != null) {
+            return failedFuture(throwable);
+        }
+
+        return completedFuture((R) executeResponse.result());
+    }
+
+    /**
+     * Transform list of deployment unit messages to list of deployment units.
+     *
+     * @param unitMsgs Deployment units messages.
+     * @return Deployment units.
+     */
+    public static List<DeploymentUnit> toDeploymentUnit(List<DeploymentUnitMsg> unitMsgs) {
+        return unitMsgs.stream()
+                .map(it -> new DeploymentUnit(it.name(), Version.parseVersion(it.version())))
+                .collect(Collectors.toList());
     }
 }

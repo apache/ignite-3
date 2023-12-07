@@ -17,9 +17,9 @@
 
 package org.apache.ignite.internal.sql.engine.framework;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.function.Function.identity;
 import static org.apache.ignite.internal.util.CollectionUtils.toIntMapCollector;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
@@ -82,7 +82,7 @@ public class PredefinedSchemaManager implements SqlSchemaManager {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> schemaReadyFuture(int version) {
-        return completedFuture(null);
+        return nullCompletedFuture();
     }
 
     @Override

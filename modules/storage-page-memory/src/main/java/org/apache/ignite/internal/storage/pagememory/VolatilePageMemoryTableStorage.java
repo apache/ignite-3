@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal.storage.pagememory;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_AUX;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
@@ -175,7 +175,7 @@ public class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStora
                 createGarbageCollectionTree(partitionId)
         );
 
-        return completedFuture(null);
+        return nullCompletedFuture();
     }
 
     @Override
@@ -188,6 +188,6 @@ public class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStora
         // we don't care when it finishes.
         volatilePartitionStorage.destroyStructures();
 
-        return completedFuture(null);
+        return nullCompletedFuture();
     }
 }

@@ -24,6 +24,8 @@ import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.replicator.ReplicaManager.DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.CollectionUtils.first;
+import static org.apache.ignite.internal.util.CompletableFutures.emptySetCompletedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.findLocalAddresses;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.waitForTopology;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -117,6 +119,7 @@ import org.apache.ignite.internal.table.impl.DummyValidationSchemasSource;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
@@ -150,6 +153,8 @@ public class ItTxTestCluster {
     private final NodeFinder nodeFinder;
 
     private final RaftConfiguration raftConfig;
+
+    private final TransactionConfiguration txConfiguration;
 
     private final Path workDir;
 
@@ -240,6 +245,7 @@ public class ItTxTestCluster {
     public ItTxTestCluster(
             TestInfo testInfo,
             RaftConfiguration raftConfig,
+            TransactionConfiguration txConfiguration,
             Path workDir,
             int nodes,
             int replicas,
@@ -247,6 +253,7 @@ public class ItTxTestCluster {
             HybridTimestampTracker timestampTracker
     ) {
         this.raftConfig = raftConfig;
+        this.txConfiguration = txConfiguration;
         this.workDir = workDir;
         this.nodes = nodes;
         this.replicas = replicas;
@@ -320,7 +327,7 @@ public class ItTxTestCluster {
             var cmgManager = mock(ClusterManagementGroupManager.class);
 
             // This test is run without Meta storage.
-            when(cmgManager.metaStorageNodes()).thenReturn(completedFuture(Set.of()));
+            when(cmgManager.metaStorageNodes()).thenReturn(emptySetCompletedFuture());
 
             ReplicaManager replicaMgr = new ReplicaManager(
                     node.name(),
@@ -387,6 +394,7 @@ public class ItTxTestCluster {
             PlacementDriver placementDriver
     ) {
         return new TxManagerImpl(
+                txConfiguration,
                 clusterService,
                 replicaSvc,
                 new HeapLockManager(),
@@ -549,7 +557,7 @@ public class ItTxTestCluster {
 
                                 replicaManagers.get(assignment).startReplica(
                                         new TablePartitionId(tableId, partId),
-                                        completedFuture(null),
+                                        nullCompletedFuture(),
                                         listener,
                                         raftSvc,
                                         storageIndexTracker
@@ -814,6 +822,7 @@ public class ItTxTestCluster {
 
     private void initializeClientTxComponents() {
         clientTxManager = new TxManagerImpl(
+                txConfiguration,
                 client,
                 clientReplicaSvc,
                 new HeapLockManager(),

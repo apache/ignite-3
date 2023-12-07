@@ -33,6 +33,7 @@ import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.es
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.fillFromPrefixMap;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.findEx;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.toPrefixMap;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.io.Serializable;
 import java.lang.reflect.Field;
@@ -613,7 +614,7 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
             Map<String, Serializable> allChanges = createFlattenedUpdatesMap(localRoots.rootsWithoutDefaults, changes);
             if (allChanges.isEmpty() && onStartup) {
                 // We don't want an empty storage update if this is the initialization changer.
-                return CompletableFuture.completedFuture(null);
+                return nullCompletedFuture();
             }
 
             dropNulls(changes);

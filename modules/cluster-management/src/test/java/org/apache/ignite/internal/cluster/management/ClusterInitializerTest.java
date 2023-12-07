@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.cluster.management;
 
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.isA;
@@ -157,7 +158,7 @@ public class ClusterInitializerTest extends BaseIgniteAbstractTest {
                 });
 
         when(messagingService.send(any(ClusterNode.class), any(CancelInitMessage.class)))
-                .thenReturn(CompletableFuture.completedFuture(null));
+                .thenReturn(nullCompletedFuture());
 
         CompletableFuture<Void> initFuture = clusterInitializer.initCluster(
                 List.of(metastorageNode.name()),

@@ -17,9 +17,9 @@
 
 package org.apache.ignite.internal.pagememory.persistence.compaction;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.stream.Collectors.toCollection;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -418,7 +418,7 @@ public class Compactor extends IgniteWorker {
     public CompletableFuture<Void> prepareToDestroyPartition(GroupPartitionId groupPartitionId) {
         CompletableFuture<Void> partitionProcessingFuture = partitionCompactionInProgressMap.getProcessedPartitionFuture(groupPartitionId);
 
-        return partitionProcessingFuture == null ? completedFuture(null) : partitionProcessingFuture;
+        return partitionProcessingFuture == null ? nullCompletedFuture() : partitionProcessingFuture;
     }
 
     private static ByteBuffer getThreadLocalBuffer(int pageSize) {

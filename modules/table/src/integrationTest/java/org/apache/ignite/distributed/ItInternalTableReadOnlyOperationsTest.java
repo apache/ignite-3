@@ -40,6 +40,8 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -60,6 +62,7 @@ import org.apache.ignite.internal.table.distributed.replication.request.ReadOnly
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.tx.TransactionException;
@@ -74,13 +77,16 @@ import org.mockito.junit.jupiter.MockitoExtension;
 /**
  * Tests for {@link InternalTable} read-only operations.
  */
-@ExtendWith(MockitoExtension.class)
+@ExtendWith({MockitoExtension.class, ConfigurationExtension.class})
 public class ItInternalTableReadOnlyOperationsTest extends IgniteAbstractTest {
     private static final SchemaDescriptor SCHEMA = new SchemaDescriptor(
             1,
             new Column[]{new Column("key", NativeTypes.INT64, false)},
             new Column[]{new Column("value", NativeTypes.INT64, false)}
     );
+
+    @InjectConfiguration
+    private TransactionConfiguration txConfiguration;
 
     private static final HybridClock CLOCK = new HybridClockImpl();
 
@@ -114,7 +120,7 @@ public class ItInternalTableReadOnlyOperationsTest extends IgniteAbstractTest {
     public void setUp(TestInfo testInfo) {
         when(mockStorage.scan(any(HybridTimestamp.class))).thenReturn(mock(PartitionTimestampCursor.class));
 
-        internalTbl = new DummyInternalTableImpl(replicaService, mockStorage, SCHEMA);
+        internalTbl = new DummyInternalTableImpl(replicaService, mockStorage, SCHEMA, txConfiguration);
 
         lenient().when(readOnlyTx.isReadOnly()).thenReturn(true);
         lenient().when(readOnlyTx.readTimestamp()).thenReturn(CLOCK.now());
