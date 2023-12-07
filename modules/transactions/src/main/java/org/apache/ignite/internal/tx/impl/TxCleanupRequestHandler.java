@@ -88,30 +88,31 @@ public class TxCleanupRequestHandler {
     public void stop() {
     }
 
-    private void processTxCleanup(TxCleanupMessage lockReleaseMsg, String senderId, @Nullable Long correlationId) {
+    private void processTxCleanup(TxCleanupMessage txCleanupMessage, String senderId, @Nullable Long correlationId) {
         assert correlationId != null;
 
         Map<TablePartitionId, CompletableFuture<?>> writeIntentSwitches = new HashMap<>();
 
         // These cleanups will all be local.
-        Collection<ReplicationGroupId> groups = lockReleaseMsg.groups();
+        Collection<ReplicationGroupId> groups = txCleanupMessage.groups();
 
         if (groups != null) {
             for (ReplicationGroupId group : groups) {
                 writeIntentSwitches.put((TablePartitionId) group,
                         writeIntentSwitchProcessor.switchLocalWriteIntents(
                                 (TablePartitionId) group,
-                                lockReleaseMsg.txId(),
-                                lockReleaseMsg.commit(),
-                                lockReleaseMsg.commitTimestamp()
+                                txCleanupMessage.txId(),
+                                txCleanupMessage.commit(),
+                                txCleanupMessage.commitTimestamp()
                         ));
             }
         }
         // First trigger the cleanup to properly release the locks if we know all affected partitions on this node.
         // If the partition collection is empty (likely to be the recovery case)- just run 'release locks'.
         allOf(writeIntentSwitches.values().toArray(new CompletableFuture<?>[0]))
-                .thenRun(() -> releaseTxLocks(lockReleaseMsg.txId()))
                 .whenComplete((unused, ex) -> {
+                    releaseTxLocks(txCleanupMessage.txId());
+
                     NetworkMessage msg;
                     if (ex == null) {
                         msg = prepareResponse();
@@ -123,9 +124,9 @@ public class TxCleanupRequestHandler {
                         writeIntentSwitches.forEach((groupId, future) -> {
                             if (future.isCompletedExceptionally()) {
                                 writeIntentSwitchProcessor.switchWriteIntentsWithRetry(
-                                        lockReleaseMsg.commit(),
-                                        lockReleaseMsg.commitTimestamp(),
-                                        lockReleaseMsg.txId(),
+                                        txCleanupMessage.commit(),
+                                        txCleanupMessage.commitTimestamp(),
+                                        txCleanupMessage.txId(),
                                         groupId
                                 );
                             }
