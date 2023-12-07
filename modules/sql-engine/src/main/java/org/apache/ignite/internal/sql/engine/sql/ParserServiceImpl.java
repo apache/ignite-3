@@ -64,7 +64,7 @@ public class ParserServiceImpl implements ParserService {
                 query,
                 parsedTree.toString(),
                 parsedStatement.dynamicParamsCount(),
-                () -> IgniteSqlParser.parse(query, StatementParseResult.MODE).statement()
+                () -> parsedTree.clone(parsedTree.getParserPosition())
         );
 
         if (shouldBeCached(queryType)) {
