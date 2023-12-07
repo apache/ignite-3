@@ -22,19 +22,27 @@ import static java.util.function.Function.identity;
 import static org.apache.ignite.internal.lang.IgniteExceptionMapperUtil.convertToPublicFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
 
-import java.util.Map.Entry;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import java.util.function.Function;
+import java.util.stream.Collectors;
 import org.apache.ignite.internal.lang.IgniteExceptionMapperUtil;
+import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.sql.SyncResultSetAdapter;
+import org.apache.ignite.internal.table.criteria.SqlSerializer;
 import org.apache.ignite.internal.table.distributed.replicator.InternalSchemaVersionMismatchException;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.ExceptionUtils;
+import org.apache.ignite.lang.ErrorGroups.Sql;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.ClosableCursor;
+import org.apache.ignite.sql.ResultSetMetadata;
+import org.apache.ignite.sql.SqlException;
+import org.apache.ignite.sql.Statement;
 import org.apache.ignite.sql.async.AsyncClosableCursor;
 import org.apache.ignite.sql.async.AsyncResultSet;
 import org.apache.ignite.table.criteria.Criteria;
@@ -136,16 +144,31 @@ abstract class AbstractTableView<R> implements CriteriaQuerySource<R> {
         return convertToPublicFuture(future);
     }
 
-    protected abstract CompletableFuture<AsyncResultSet<R>> executeAsync(
+    /**
+     * Criteria query over cache entries.
+     *
+     * @param tx Transaction to execute the query within or {@code null}.
+     * @param statement SQL statement to execute.
+     * @param arguments Arguments for the statement.
+     * @throws SqlException If failed.
+     */
+    protected abstract CompletableFuture<AsyncResultSet<R>> executeQueryAsync(
             @Nullable Transaction tx,
-            @Nullable Criteria criteria,
-            CriteriaQueryOptions opts
+            Statement statement,
+            @Nullable Object... arguments
     );
 
     /** {@inheritDoc} */
     @Override
     public ClosableCursor<R> queryCriteria(@Nullable Transaction tx, @Nullable Criteria criteria, CriteriaQueryOptions opts) {
-        return new SyncResultSetAdapter<>(executeAsync(tx, criteria, opts).join());
+        var ser = new SqlSerializer.Builder()
+                .tableName(tbl.name())
+                .where(criteria)
+                .build();
+
+        var statement = tbl.sql().statementBuilder().query(ser.toString()).pageSize(opts.pageSize()).build();
+
+        return new SyncResultSetAdapter<>(executeQueryAsync(tx, statement, ser.getArguments()).join());
     }
 
     /** {@inheritDoc} */
@@ -155,8 +178,41 @@ abstract class AbstractTableView<R> implements CriteriaQuerySource<R> {
             @Nullable Criteria criteria,
             CriteriaQueryOptions opts
     ) {
-        return executeAsync(tx, criteria, opts)
-                .thenApply(Function.identity());
+        var ser = new SqlSerializer.Builder()
+                .tableName(tbl.name())
+                .where(criteria)
+                .build();
+
+        var statement = tbl.sql().statementBuilder().query(ser.toString()).pageSize(opts.pageSize()).build();
+
+        return executeQueryAsync(tx, statement, ser.getArguments())
+                .thenApply(identity());
+    }
+
+    /**
+     * Get index mapping.
+     *
+     * @param columns Columns to map.
+     * @param metadata Metadata for query results.
+     * @return Index mapping.
+     */
+    protected static List<Integer> indexMapping(Column[] columns, @Nullable ResultSetMetadata metadata) {
+        if (metadata == null) {
+            throw new IllegalStateException("Metadata can't be null.");
+        }
+
+        return Arrays.stream(columns)
+                .map(Column::name)
+                .map((columnName) -> {
+                    var rowIdx = metadata.indexOf(columnName);
+
+                    if (rowIdx == -1) {
+                        throw new IgniteException(Sql.RUNTIME_ERR, "Missing required column in query results: " + columnName);
+                    }
+
+                    return rowIdx;
+                })
+                .collect(Collectors.toList());
     }
 
     private static boolean isOrCausedBy(Class<? extends Exception> exceptionClass, @Nullable Throwable ex) {

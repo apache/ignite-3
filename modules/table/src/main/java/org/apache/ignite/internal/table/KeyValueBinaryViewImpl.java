@@ -27,37 +27,27 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
 import java.util.function.Function;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
-import org.apache.ignite.internal.schema.Columns;
-import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
 import org.apache.ignite.internal.schema.row.Row;
-import org.apache.ignite.internal.sql.SyncResultSetAdapter;
 import org.apache.ignite.internal.streamer.StreamerBatchSender;
 import org.apache.ignite.internal.table.criteria.QueryCriteriaAsyncResultSet;
 import org.apache.ignite.internal.table.criteria.SqlRowProjection;
-import org.apache.ignite.internal.table.criteria.SqlSerializer;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.MarshallerException;
 import org.apache.ignite.lang.NullableValue;
-import org.apache.ignite.sql.ClosableCursor;
-import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.SqlRow;
-import org.apache.ignite.sql.async.AsyncClosableCursor;
+import org.apache.ignite.sql.Statement;
 import org.apache.ignite.sql.async.AsyncResultSet;
 import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Tuple;
-import org.apache.ignite.table.criteria.Criteria;
-import org.apache.ignite.table.criteria.CriteriaQueryOptions;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 
@@ -575,44 +565,31 @@ public class KeyValueBinaryViewImpl extends AbstractTableView<Entry<Tuple, Tuple
 
     /** {@inheritDoc} */
     @Override
-    protected CompletableFuture<AsyncResultSet<Entry<Tuple, Tuple>>> executeAsync(
+    protected CompletableFuture<AsyncResultSet<Entry<Tuple, Tuple>>> executeQueryAsync(
             @Nullable Transaction tx,
-            @Nullable Criteria criteria,
-            CriteriaQueryOptions opts
+            Statement statement,
+            @Nullable Object... arguments
     ) {
-        var ser = new SqlSerializer.Builder()
-                .tableName(tbl.name())
-                .where(criteria)
-                .build();
-
-        var statement = tbl.sql().statementBuilder().query(ser.toString()).pageSize(opts.pageSize()).build();
         var session = tbl.sql().createSession();
 
         return withSchemaSync(tx, (schemaVersion) -> {
-            SchemaDescriptor schema = rowConverter.registry().schema(schemaVersion);
+            var schema = rowConverter.registry().schema(schemaVersion);
 
-            return session.executeAsync(tx, statement, ser.getArguments())
+            return session.executeAsync(tx, statement, arguments)
                     .thenApply(resultSet -> {
-                        var meta = resultSet.metadata();
+                        var metadata = resultSet.metadata();
+
+                        var keyIndexMapping = indexMapping(schema.keyColumns().columns(), metadata);
+                        var valIndexMapping = indexMapping(schema.valueColumns().columns(), metadata);
 
                         Function<SqlRow, Entry<Tuple, Tuple>> mapper = (row) ->
                                 new IgniteBiTuple<>(
-                                        new SqlRowProjection(row, indexMapping(schema.keyColumns(), meta)),
-                                        new SqlRowProjection(row, indexMapping(schema.valueColumns(), meta))
+                                        new SqlRowProjection(row, keyIndexMapping),
+                                        new SqlRowProjection(row, valIndexMapping)
                                 );
 
                         return new QueryCriteriaAsyncResultSet<>(session, mapper, resultSet);
                     });
         });
-    }
-
-    private static List<Integer> indexMapping(Columns columns, @Nullable ResultSetMetadata metadata) {
-        if (metadata == null) {
-            throw new IllegalStateException("Metadata can't be null.");
-        }
-
-        return IntStream.range(0, columns.length())
-                .mapToObj((idx) -> metadata.indexOf(columns.column(idx).name()))
-                .collect(Collectors.toList());
     }
 }

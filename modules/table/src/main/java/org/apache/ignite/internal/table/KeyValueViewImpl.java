@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table;
 
+import static org.apache.ignite.internal.marshaller.Marshaller.createMarshaller;
 import static org.apache.ignite.internal.schema.marshaller.MarshallerUtil.toMarshallerColumns;
 
 import java.util.ArrayList;
@@ -30,7 +31,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
 import java.util.function.Function;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
-import org.apache.ignite.internal.marshaller.Marshaller;
 import org.apache.ignite.internal.marshaller.MarshallerException;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
@@ -43,7 +43,6 @@ import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.streamer.StreamerBatchSender;
 import org.apache.ignite.internal.table.criteria.QueryCriteriaAsyncResultSet;
 import org.apache.ignite.internal.table.criteria.SqlRowProjection;
-import org.apache.ignite.internal.table.criteria.SqlSerializer;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -52,11 +51,10 @@ import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.NullableValue;
 import org.apache.ignite.lang.UnexpectedNullValueException;
 import org.apache.ignite.sql.SqlRow;
+import org.apache.ignite.sql.Statement;
 import org.apache.ignite.sql.async.AsyncResultSet;
 import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.KeyValueView;
-import org.apache.ignite.table.criteria.Criteria;
-import org.apache.ignite.table.criteria.CriteriaQueryOptions;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
@@ -699,47 +697,41 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
 
     /** {@inheritDoc} */
     @Override
-    protected CompletableFuture<AsyncResultSet<Entry<K, V>>> executeAsync(
+    protected CompletableFuture<AsyncResultSet<Entry<K, V>>> executeQueryAsync(
             @Nullable Transaction tx,
-            @Nullable Criteria criteria,
-            CriteriaQueryOptions opts
+            Statement statement,
+            @Nullable Object... arguments
     ) {
-        var sqlSer = new SqlSerializer.Builder()
-                .tableName(tbl.name())
-                .where(criteria)
-                .build();
-
-        var statement = tbl.sql().statementBuilder().query(sqlSer.toString()).pageSize(opts.pageSize()).build();
         var session = tbl.sql().createSession();
 
         return withSchemaSync(tx, (schemaVersion) -> {
-            return session.executeAsync(tx, statement, sqlSer.getArguments())
+            var schema = rowConverter.registry().schema(schemaVersion);
+
+            var keyCols = schema.keyColumns().columns();
+            var valCols = schema.valueColumns().columns();
+
+            return session.executeAsync(tx, statement, arguments)
                     .thenApply(resultSet -> {
                         var metadata = resultSet.metadata();
 
-                        if (metadata == null) {
-                            throw new IllegalStateException("Metadata can't be null.");
-                        }
+                        var keyIndexMapping = indexMapping(schema.keyColumns().columns(), metadata);
+                        var valIndexMapping = indexMapping(schema.valueColumns().columns(), metadata);
 
-                        var keyMarsh = Marshaller.createMarshaller(toMarshallerColumns(metadata.columns()), keyMapper, false, true);
-                        var valMarsh = Marshaller.createMarshaller(toMarshallerColumns(metadata.columns()), valueMapper, false, true);
+                        var keyMarsh = createMarshaller(toMarshallerColumns(keyCols), keyMapper, false, true);
+                        var valMarsh = createMarshaller(toMarshallerColumns(valCols), valueMapper, false, true);
 
-                        Function<SqlRow, Entry<K, V>> f = (row) -> {
+                        Function<SqlRow, Entry<K, V>> mapper = (row) -> {
                             try {
                                 return new IgniteBiTuple<>(
-                                        (K) keyMarsh.readObject(new TupleReader(row), null),
-                                        (V) valMarsh.readObject(new TupleReader(row), null)
+                                        (K) keyMarsh.readObject(new TupleReader(new SqlRowProjection(row, keyIndexMapping)), null),
+                                        (V) valMarsh.readObject(new TupleReader(new SqlRowProjection(row, valIndexMapping)), null)
                                 );
                             } catch (org.apache.ignite.internal.marshaller.MarshallerException e) {
-                                throw new IgniteException(
-                                        Sql.MAPPING_ERR,
-                                        "Failed to map SQL result set: " + e.getMessage(),
-                                        e
-                                );
+                                throw new IgniteException(Sql.RUNTIME_ERR, "Failed to map SQL result set: " + e.getMessage(), e);
                             }
                         };
 
-                        return new QueryCriteriaAsyncResultSet<>(session, f, resultSet);
+                        return new QueryCriteriaAsyncResultSet<>(session, mapper, resultSet);
                     });
         });
     }
