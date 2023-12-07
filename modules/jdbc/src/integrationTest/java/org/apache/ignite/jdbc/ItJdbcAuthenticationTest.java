@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.jdbc;
+package org.apache.ignite.jdbc;
 
 import java.nio.file.Path;
 import java.sql.Connection;
@@ -34,7 +34,7 @@ import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.TestInstance.Lifecycle;
 
-class ItJdbcTest extends IgniteIntegrationTest {
+class ItJdbcAuthenticationTest extends IgniteIntegrationTest {
     private Cluster cluster;
 
     @Nested

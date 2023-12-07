@@ -27,6 +27,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.compute.configuration.ComputeConfiguration;
+import org.apache.ignite.internal.compute.state.InMemoryComputeStateMachine;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -65,7 +66,8 @@ public class PriorityQueueExecutorTest extends BaseIgniteAbstractTest {
 
         priorityQueueExecutor = new PriorityQueueExecutor(
                 configuration,
-                new NamedThreadFactory(NamedThreadFactory.threadPrefix("testNode", "compute"), LOG)
+                new NamedThreadFactory(NamedThreadFactory.threadPrefix("testNode", "compute"), LOG),
+                new InMemoryComputeStateMachine(configuration)
         );
     }
 
