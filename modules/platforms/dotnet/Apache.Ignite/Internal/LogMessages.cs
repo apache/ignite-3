@@ -200,7 +200,7 @@ internal static partial class LogMessages
         this ILogger logger, string retrying, int op, ClientOp opType, int attempt, string lastErrorMessage);
 
     [LoggerMessage(
-        Message = "Received response [requestId={RequestId}, flags={Flags} remoteAddress={RemoteAddress}]",
+        Message = "Received response [requestId={RequestId}, flags={Flags}, remoteAddress={RemoteAddress}]",
         Level = LogLevel.Trace,
         EventId = 1027)]
     internal static partial void LogReceivedResponseTrace(
