@@ -23,6 +23,7 @@ import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static org.apache.ignite.internal.util.CompletableFutures.emptyListCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -187,26 +188,6 @@ public class WatchProcessor implements ManuallyCloseable {
         return newFuture;
     }
 
-    private static void maybeLogLongProcessing(List<Entry> updatedEntries, long startTimeNanos) {
-        long durationMillis = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTimeNanos);
-
-        if (durationMillis > WATCH_EVENT_PROCESSING_LOG_THRESHOLD_MILLIS) {
-            String keysHead = updatedEntries.stream()
-                    .limit(WATCH_EVENT_PROCESSING_LOG_KEYS)
-                    .map(entry -> new String(entry.key()))
-                    .collect(Collectors.joining(", "));
-
-            String keysTail = updatedEntries.size() > WATCH_EVENT_PROCESSING_LOG_KEYS ? ", ..." : "";
-
-            LOG.warn(
-                    "Watch event processing has been too long [duration={}, keys=[{}{}]]",
-                    durationMillis,
-                    keysHead,
-                    keysTail
-            );
-        }
-    }
-
     private static CompletableFuture<Void> notifyWatches(List<WatchAndEvents> watchAndEventsList, long revision, HybridTimestamp time) {
         if (watchAndEventsList.isEmpty()) {
             return nullCompletedFuture();
@@ -245,6 +226,26 @@ public class WatchProcessor implements ManuallyCloseable {
         }
 
         return allOf(notifyWatchFutures);
+    }
+
+    private static void maybeLogLongProcessing(List<Entry> updatedEntries, long startTimeNanos) {
+        long durationMillis = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTimeNanos);
+
+        if (durationMillis > WATCH_EVENT_PROCESSING_LOG_THRESHOLD_MILLIS) {
+            String keysHead = updatedEntries.stream()
+                    .limit(WATCH_EVENT_PROCESSING_LOG_KEYS)
+                    .map(entry -> new String(entry.key(), StandardCharsets.UTF_8))
+                    .collect(Collectors.joining(", "));
+
+            String keysTail = updatedEntries.size() > WATCH_EVENT_PROCESSING_LOG_KEYS ? ", ..." : "";
+
+            LOG.warn(
+                    "Watch event processing has been too long [duration={}, keys=[{}{}]]",
+                    durationMillis,
+                    keysHead,
+                    keysTail
+            );
+        }
     }
 
     private CompletableFuture<List<WatchAndEvents>> collectWatchesAndEvents(List<Entry> updatedEntries, long revision) {
