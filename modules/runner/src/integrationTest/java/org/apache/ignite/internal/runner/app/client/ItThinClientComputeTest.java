@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.runner.app.client;
 
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Table.COLUMN_ALREADY_EXISTS_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -46,9 +47,12 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.stream.Collectors;
+import org.apache.ignite.client.IgniteClient;
+import org.apache.ignite.client.IgniteClient.Builder;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.JobExecutionContext;
+import org.apache.ignite.internal.catalog.CatalogValidationException;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Tuple;
@@ -292,6 +296,22 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     }
 
     @Test
+    void testDelayedJobExecutionThrowsWhenConnectionFails() throws Exception {
+        Builder builder = IgniteClient.builder().addresses(getClientAddresses().toArray(new String[0]));
+        try (IgniteClient client = builder.build()) {
+            int delayMs = 3000;
+            CompletableFuture<String> jobFut = client.compute().executeAsync(
+                    Set.of(node(0)), List.of(), SleepJob.class.getName(), delayMs);
+
+            // Wait a bit and close the connection.
+            Thread.sleep(10);
+            client.close();
+
+            assertThat(jobFut, willThrowFast(CompletionException.class, "Connection is closed"));
+        }
+    }
+
+    @Test
     void testAllSupportedArgTypes() {
         testEchoArg(Byte.MAX_VALUE);
         testEchoArg(Short.MAX_VALUE);
@@ -375,6 +395,19 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
             }
 
             return args[0];
+        }
+    }
+
+    private static class SleepJob implements ComputeJob<Void> {
+        @Override
+        public Void execute(JobExecutionContext context, Object... args) {
+            try {
+                Thread.sleep((Integer) args[0]);
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+
+            return null;
         }
     }
 

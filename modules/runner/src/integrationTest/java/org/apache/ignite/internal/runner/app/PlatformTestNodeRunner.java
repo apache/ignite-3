@@ -728,18 +728,4 @@ public class PlatformTestNodeRunner {
             return null;
         }
     }
-
-    @SuppressWarnings("unused") // Used by platform tests.
-    private static class SleepJob implements ComputeJob<Void> {
-        @Override
-        public Void execute(JobExecutionContext context, Object... args) {
-            try {
-                Thread.sleep((Integer) args[0]);
-            } catch (InterruptedException e) {
-                throw new RuntimeException(e);
-            }
-
-            return null;
-        }
-    }
 }

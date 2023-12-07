@@ -48,6 +48,8 @@ namespace Apache.Ignite.Tests.Compute
 
         private const string EchoJob = ItThinClientComputeTest + "$EchoJob";
 
+        private const string SleepJob = ItThinClientComputeTest + "$SleepJob";
+
         private const string PlatformTestNodeRunner = "org.apache.ignite.internal.runner.app.PlatformTestNodeRunner";
 
         private const string CreateTableJob = PlatformTestNodeRunner + "$CreateTableJob";
@@ -55,8 +57,6 @@ namespace Apache.Ignite.Tests.Compute
         private const string DropTableJob = PlatformTestNodeRunner + "$DropTableJob";
 
         private const string ExceptionJob = PlatformTestNodeRunner + "$ExceptionJob";
-
-        private const string SleepJob = PlatformTestNodeRunner + "$SleepJob";
 
         private static readonly IList<DeploymentUnit> Units = Array.Empty<DeploymentUnit>();
 
