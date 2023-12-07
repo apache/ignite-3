@@ -128,7 +128,7 @@ public class OrphanDetector {
         checkTxStateIntervalProvider.listen(ctx -> {
             this.checkTxStateInterval = ctx.newValue();
 
-            return completedFuture(null);
+            return nullCompletedFuture();
         });
 
         lockManager.listen(LockEvent.LOCK_CONFLICT, lockConflictListener);
