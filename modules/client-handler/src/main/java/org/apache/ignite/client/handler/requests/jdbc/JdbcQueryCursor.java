@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Supplier;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.sql.ResultSetMetadata;
@@ -75,6 +76,12 @@ public class JdbcQueryCursor<T> implements AsyncSqlCursor<T> {
     @Override 
     public CompletableFuture<Void> closeAsync() {
         return cur.closeAsync();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void onClose(Supplier<CompletableFuture<Void>> supplier) {
+        cur.onClose(supplier);
     }
 
     /** {@inheritDoc} */

@@ -22,8 +22,8 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrowsExactly;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -31,14 +31,12 @@ import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 import java.util.EnumSet;
-import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.sql.engine.framework.NoOpTransaction;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlStartTransaction;
-import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
-import org.apache.ignite.internal.sql.engine.tx.QueryTransactionHandler;
+import org.apache.ignite.internal.sql.engine.tx.QueryTransactionContext;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionWrapper;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionWrapperImpl;
-import org.apache.ignite.internal.sql.engine.tx.ScriptTransactionHandler;
+import org.apache.ignite.internal.sql.engine.tx.ScriptTransactionContext;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.tx.IgniteTransactions;
@@ -46,7 +44,6 @@ import org.apache.ignite.tx.TransactionOptions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
-import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 /**
@@ -67,7 +64,7 @@ public class QueryTransactionWrapperSelfTest extends BaseIgniteAbstractTest {
                 }
         );
 
-        QueryTransactionHandler transactionHandler = new QueryTransactionHandler(transactions, null);
+        QueryTransactionContext transactionHandler = new QueryTransactionContext(transactions, null);
         QueryTransactionWrapper transactionWrapper = transactionHandler.startTxIfNeeded(SqlQueryType.DML);
 
         assertThat(transactionWrapper.unwrap().isReadOnly(), equalTo(false));
@@ -114,7 +111,7 @@ public class QueryTransactionWrapperSelfTest extends BaseIgniteAbstractTest {
 
     @Test
     public void throwsExceptionForDdlWithExternalTransaction() {
-        QueryTransactionHandler txHandler = new QueryTransactionHandler(transactions, new NoOpTransaction("test"));
+        QueryTransactionContext txHandler = new QueryTransactionContext(transactions, new NoOpTransaction("test"));
 
         //noinspection ThrowableNotThrown
         assertThrowsSqlException(Sql.RUNTIME_ERR, "DDL doesn't support transactions.",
@@ -125,7 +122,7 @@ public class QueryTransactionWrapperSelfTest extends BaseIgniteAbstractTest {
 
     @Test
     public void throwsExceptionForDmlWithReadOnlyExternalTransaction() {
-        QueryTransactionHandler txHandler = new QueryTransactionHandler(transactions, new NoOpTransaction("test"));
+        QueryTransactionContext txHandler = new QueryTransactionContext(transactions, new NoOpTransaction("test"));
 
         //noinspection ThrowableNotThrown
         assertThrowsSqlException(Sql.RUNTIME_ERR, "DML query cannot be started by using read only transactions.",
@@ -136,33 +133,22 @@ public class QueryTransactionWrapperSelfTest extends BaseIgniteAbstractTest {
 
     @Test
     public void throwsExceptionForTxControlStatementInsideExternalTransaction() {
-        ParsedResult parseResult = Mockito.mock(ParsedResult.class);
-        when(parseResult.queryType()).thenReturn(SqlQueryType.TX_CONTROL);
+        ScriptTransactionContext txCtx = new ScriptTransactionContext(
+                new QueryTransactionContext(transactions, new NoOpTransaction("test")));
 
-        ScriptTransactionHandler txHandler = new ScriptTransactionHandler(transactions, new NoOpTransaction("test"));
-
-        assertThrowsExactly(TxControlInsideExternalTxNotSupportedException.class,
-                () -> txHandler.startScriptTxIfNeeded(parseResult, CompletableFuture.completedFuture(null)));
+        assertThrowsExactly(TxControlInsideExternalTxNotSupportedException.class, () -> txCtx.handleTxControl(null));
     }
 
     @Test
     public void throwsExceptionForNestedScriptTransaction() {
-        ParsedResult parseResult = Mockito.mock(ParsedResult.class);
-        when(parseResult.queryType()).thenReturn(SqlQueryType.TX_CONTROL);
-        when(parseResult.parsedTree()).thenReturn(Mockito.mock(IgniteSqlStartTransaction.class));
+        ScriptTransactionContext txCtx = new ScriptTransactionContext(new QueryTransactionContext(transactions, null));
+        IgniteSqlStartTransaction txStartStmt = mock(IgniteSqlStartTransaction.class);
 
-        NoOpTransaction tx = new NoOpTransaction("test");
+        when(transactions.begin(any())).thenReturn(new NoOpTransaction("test"));
 
-        when(transactions.begin(any())).thenReturn(tx);
-
-        ScriptTransactionHandler txHandler = new ScriptTransactionHandler(transactions, null);
-
-        txHandler.startScriptTxIfNeeded(parseResult, CompletableFuture.completedFuture(null));
+        txCtx.handleTxControl(txStartStmt);
 
         //noinspection ThrowableNotThrown
-        assertThrowsSqlException(Sql.RUNTIME_ERR, "Nested transactions are not supported.",
-                () -> txHandler.startScriptTxIfNeeded(parseResult, CompletableFuture.completedFuture(null)));
-
-        assertTrue(tx.rollbackFuture().isDone());
+        assertThrowsSqlException(Sql.RUNTIME_ERR, "Nested transactions are not supported.", () -> txCtx.handleTxControl(txStartStmt));
     }
 }

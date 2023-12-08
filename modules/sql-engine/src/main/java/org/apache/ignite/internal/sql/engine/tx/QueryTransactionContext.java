@@ -29,11 +29,11 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Starts an implicit transaction if there is no external transaction.
  */
-public class QueryTransactionHandler {
-    final IgniteTransactions transactions;
-    final @Nullable InternalTransaction tx;
+public class QueryTransactionContext {
+    private final IgniteTransactions transactions;
+    private final @Nullable InternalTransaction tx;
 
-    public QueryTransactionHandler(IgniteTransactions transactions, @Nullable InternalTransaction tx) {
+    public QueryTransactionContext(IgniteTransactions transactions, @Nullable InternalTransaction tx) {
         this.transactions = transactions;
         this.tx = tx;
     }
@@ -45,19 +45,26 @@ public class QueryTransactionHandler {
      * @return Transaction wrapper.
      */
     public QueryTransactionWrapper startTxIfNeeded(SqlQueryType queryType) {
-        InternalTransaction activeTx = activeTransaction();
+        InternalTransaction outerTx = tx;
 
-        if (activeTx == null) {
+        if (outerTx == null) {
             return new QueryTransactionWrapperImpl((InternalTransaction) transactions.begin(
                     new TransactionOptions().readOnly(queryType != SqlQueryType.DML)), true);
         }
 
-        validateStatement(queryType, activeTx);
+        validateStatement(queryType, outerTx);
 
-        return new QueryTransactionWrapperImpl(activeTx, false);
+        return new QueryTransactionWrapperImpl(outerTx, false);
     }
 
-    protected @Nullable InternalTransaction activeTransaction() {
+
+    /** Returns transactions facade. */
+    IgniteTransactions transactions() {
+        return transactions;
+    }
+
+    /** Returns the external transaction if one has been started. */
+    @Nullable InternalTransaction transaction() {
         return tx;
     }
 

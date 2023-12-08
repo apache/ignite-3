@@ -24,6 +24,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import org.apache.ignite.internal.lang.SqlExceptionMapperUtil;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionWrapper;
 import org.apache.ignite.internal.util.AsyncCursor;
@@ -46,6 +47,7 @@ public class AsyncSqlCursorImpl<T> implements AsyncSqlCursor<T> {
     private final AsyncCursor<T> dataCursor;
     private final Runnable onClose;
     private final CompletableFuture<AsyncSqlCursor<T>> nextStatement;
+    private volatile Supplier<CompletableFuture<Void>> closeHnd;
 
     /**
      * Constructor.
@@ -177,6 +179,14 @@ public class AsyncSqlCursorImpl<T> implements AsyncSqlCursor<T> {
                 });
 
         return closeResult;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void onClose(Supplier<CompletableFuture<Void>> supplier) {
+        closeResult.whenComplete((r, e) -> {
+            supplier.get();
+        });
     }
 
     private static Throwable wrapIfNecessary(Throwable t) {

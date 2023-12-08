@@ -160,8 +160,6 @@ public class ItSqlMultiStatementTxTest extends BaseSqlMultiStatementTest {
         {
             runScript(startTxStatement);
 
-            // Transaction does not depend on the START TRANSACTION statement cursor,
-            // so it rolls back without waiting for this cursor to close.
             verifyFinishedTxCount(1);
         }
 
@@ -185,7 +183,7 @@ public class ItSqlMultiStatementTxTest extends BaseSqlMultiStatementTest {
     }
 
     @Test
-    void dmlScriptRollsBackImplicitly() {
+    void dmlScriptRollsBackImplicitly() throws InterruptedException {
         AsyncSqlCursor<List<Object>> cur = runScript("START TRANSACTION READ WRITE;"
                 + "INSERT INTO test VALUES(0);"
                 + "INSERT INTO test VALUES(1);"
@@ -216,12 +214,14 @@ public class ItSqlMultiStatementTxTest extends BaseSqlMultiStatementTest {
         assertThat(cursors, hasSize(4));
 
         assertEquals(1, txManager().pending());
-        cursors.forEach(c -> await(c.closeAsync()));
 
-        checkNoPendingTransactionsAndOpenedCursors();
+        // Rollback is performed asynchronously.
+        cursors.forEach(c -> await(c.closeAsync()));
 
         // 1 COMMIT + 1 ROLLBACK.
         verifyFinishedTxCount(2);
+
+        waitForCondition(() -> txManager().lockManager().isEmpty(), 2_000);
 
         // Make sure that the last transaction was rolled back.
         assertQuery("select count(id) from test")

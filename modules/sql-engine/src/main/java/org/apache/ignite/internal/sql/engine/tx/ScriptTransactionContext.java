@@ -1,0 +1,163 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.ignite.internal.sql.engine.tx;
+
+import static org.apache.ignite.internal.sql.engine.tx.QueryTransactionContext.validateStatement;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.lang.ErrorGroups.Sql.RUNTIME_ERR;
+
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import org.apache.calcite.sql.SqlNode;
+import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
+import org.apache.ignite.internal.sql.engine.SqlQueryType;
+import org.apache.ignite.internal.sql.engine.TxControlInsideExternalTxNotSupportedException;
+import org.apache.ignite.internal.sql.engine.sql.IgniteSqlCommitTransaction;
+import org.apache.ignite.internal.sql.engine.sql.IgniteSqlStartTransaction;
+import org.apache.ignite.internal.sql.engine.sql.IgniteSqlStartTransactionMode;
+import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.sql.SqlException;
+import org.apache.ignite.tx.TransactionOptions;
+
+/**
+ * TODO blah blah.
+ */
+public class ScriptTransactionContext {
+    private static final QueryTransactionWrapper NOOP_TX_WRAPPER = new NoopTransactionWrapper();
+
+    private final QueryTransactionContext queryTxCtx;
+
+    private volatile ScriptTransactionWrapperImpl wrapper;
+
+    public ScriptTransactionContext(QueryTransactionContext queryTxCtx) {
+        this.queryTxCtx = queryTxCtx;
+    }
+
+    /**
+     * Starts a new transaction if there is no external or script-driven transaction.
+     *
+     * @param queryType Query type.
+     * @return Transaction wrapper.
+     */
+    public QueryTransactionWrapper startTxIfNeeded(SqlQueryType queryType) {
+        if (queryType == SqlQueryType.TX_CONTROL) {
+            return NOOP_TX_WRAPPER;
+        }
+
+        QueryTransactionWrapper wrapper = this.wrapper;
+
+        try {
+            if (wrapper == null) {
+                // Implicit transaction.
+                return queryTxCtx.startTxIfNeeded(queryType);
+            }
+
+            validateStatement(queryType, wrapper.unwrap());
+
+            return wrapper;
+        } catch (SqlException e) {
+            if (wrapper != null) {
+                wrapper.rollback(e);
+            }
+
+            throw e;
+        }
+    }
+
+    /** TODO blah-blah-blah. */
+    public CompletableFuture<Void> handleTxControl(SqlNode node) {
+        if (queryTxCtx.transaction() != null) {
+            throw new TxControlInsideExternalTxNotSupportedException();
+        }
+
+        ScriptTransactionWrapperImpl txWrapper = wrapper;
+
+        if (node instanceof IgniteSqlStartTransaction) {
+            if (txWrapper != null) {
+                throw new SqlException(RUNTIME_ERR, "Nested transactions are not supported.");
+            }
+
+            boolean readOnly = ((IgniteSqlStartTransaction) node).getMode() == IgniteSqlStartTransactionMode.READ_ONLY;
+            InternalTransaction tx = (InternalTransaction) queryTxCtx.transactions().begin(new TransactionOptions().readOnly(readOnly));
+
+            this.wrapper = new ScriptTransactionWrapperImpl(tx);
+
+            return nullCompletedFuture();
+        } else {
+            assert node instanceof IgniteSqlCommitTransaction : node == null ? "null" : node.getClass().getName();
+
+            if (txWrapper == null) {
+                return nullCompletedFuture();
+            }
+
+            wrapper = null;
+
+            return txWrapper.commit();
+        }
+    }
+
+    /** TODO blah-blah-blah. */
+    public void registerCursor(SqlQueryType queryType, CompletableFuture<AsyncSqlCursor<List<Object>>> cursorFut) {
+        assert queryType != SqlQueryType.DDL;
+
+        if (queryType == SqlQueryType.TX_CONTROL || queryType == SqlQueryType.EXPLAIN) {
+            return;
+        }
+
+        ScriptTransactionWrapperImpl txWrapper = wrapper;
+
+        if (txWrapper != null) {
+            wrapper.registerCursor(cursorFut);
+        }
+    }
+
+    /** TODO blah-blah-blah. */
+    public void onScriptEnd() {
+        ScriptTransactionWrapperImpl txWrapper = wrapper;
+
+        if (txWrapper != null) {
+            txWrapper.rollbackWhenCursorsClosed();
+        }
+    }
+
+    /** TODO blah-blah-blah. */
+    public void onError(Throwable t) {
+        ScriptTransactionWrapperImpl txWrapper = wrapper;
+
+        if (txWrapper != null) {
+            txWrapper.rollback(t);
+        }
+    }
+
+    private static class NoopTransactionWrapper implements QueryTransactionWrapper {
+        @Override
+        public InternalTransaction unwrap() {
+            return null;
+        }
+
+        @Override
+        public CompletableFuture<Void> commitImplicit() {
+            return nullCompletedFuture();
+        }
+
+        @Override
+        public CompletableFuture<Void> rollback(Throwable cause) {
+            return nullCompletedFuture();
+        }
+    }
+}
