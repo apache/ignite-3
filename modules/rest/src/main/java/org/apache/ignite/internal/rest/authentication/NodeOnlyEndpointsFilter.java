@@ -30,6 +30,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.ClusterState;
+import org.apache.ignite.internal.rest.RestManager;
 import org.apache.ignite.internal.rest.api.Problem;
 import org.apache.ignite.internal.rest.constants.HttpCode;
 import org.apache.ignite.internal.rest.problem.HttpProblemResponse;
@@ -42,32 +43,19 @@ import org.reactivestreams.Publisher;
 @Requires(property = "ignite.endpoints.filter-non-initialized", value = "true", defaultValue = "false")
 // TODO: https://issues.apache.org/jira/browse/IGNITE-19365
 public class NodeOnlyEndpointsFilter implements HttpServerFilter {
-    private static final String[] ENABLED_ENDPOINTS = {
-            "/management/v1/configuration/node",
-            "/management/v1/cluster/init",
-            "/management/v1/cluster/topology/physical",
-            "/management/v1/node"
-    };
-
     private final ClusterManagementGroupManager cmgMgr;
 
-    public NodeOnlyEndpointsFilter(ClusterManagementGroupManager cmgMgr) {
-        this.cmgMgr = cmgMgr;
-    }
+    private final RestManager restManager;
 
-    private static boolean pathDisabledForNotInitializedCluster(String path) {
-        for (String enabledPath : ENABLED_ENDPOINTS) {
-            if (path.startsWith(enabledPath)) {
-                return false;
-            }
-        }
-        return true;
+    public NodeOnlyEndpointsFilter(ClusterManagementGroupManager cmgMgr, RestManager restManager) {
+        this.cmgMgr = cmgMgr;
+        this.restManager = restManager;
     }
 
     @Override
     public Publisher<MutableHttpResponse<?>> doFilter(HttpRequest<?> request, ServerFilterChain chain) {
         try {
-            if (clusterNotInitialized() && pathDisabledForNotInitializedCluster(request.getPath())) {
+            if (clusterNotInitialized() && restManager.pathDisabledForNotInitializedCluster(request.getPath())) {
                 return Publishers.just(HttpProblemResponse.from(
                         Problem.fromHttpCode(HttpCode.CONFLICT)
                                 .detail("Cluster is not initialized. Call /management/v1/cluster/init in order to initialize cluster.")

@@ -69,7 +69,11 @@ public class RestComponent implements IgniteComponent {
     /** Factories that produce beans needed for REST controllers. */
     private final List<Supplier<RestFactory>> restFactories;
 
+    /** Rest configuration. */
     private final RestConfiguration restConfiguration;
+
+    /** Rest manager. */
+    private final RestManagerProvider restManagerProvider;
 
     /** Micronaut application context. */
     private volatile ApplicationContext context;
@@ -83,9 +87,14 @@ public class RestComponent implements IgniteComponent {
     /**
      * Creates a new instance of REST module.
      */
-    public RestComponent(List<Supplier<RestFactory>> restFactories, RestConfiguration restConfiguration) {
+    public RestComponent(
+            List<Supplier<RestFactory>> restFactories,
+            RestManagerProvider restManagerProvider,
+            RestConfiguration restConfiguration
+    ) {
         this.restFactories = restFactories;
         this.restConfiguration = restConfiguration;
+        this.restManagerProvider = restManagerProvider;
     }
 
     /** {@inheritDoc} */
@@ -109,6 +118,26 @@ public class RestComponent implements IgniteComponent {
         LOG.error(msg);
 
         throw new IgniteException(Common.COMPONENT_NOT_STARTED_ERR, msg);
+    }
+
+    /**
+     * Disable REST component.
+     */
+    public void disable() {
+        RestManager restManager = restManagerProvider.restManager();
+        if (restManager != null) {
+            restManager.enabled(false);
+        }
+    }
+
+    /**
+     * Enable REST component.
+     */
+    public void enable() {
+        RestManager restManager = restManagerProvider.restManager();
+        if (restManager != null) {
+            restManager.enabled(true);
+        }
     }
 
     /** Starts Micronaut application using the provided ports.
@@ -144,7 +173,7 @@ public class RestComponent implements IgniteComponent {
     }
 
     private void logSuccessRestStart(boolean sslEnabled, boolean dualProtocol) {
-        String successReportMsg = null;
+        String successReportMsg;
 
         if (sslEnabled && dualProtocol) {
             successReportMsg = "[httpPort=" + httpPort + "], [httpsPort=" + httpsPort + "]";
@@ -182,6 +211,7 @@ public class RestComponent implements IgniteComponent {
     }
 
     private void setFactories(Micronaut micronaut) {
+        micronaut.singletons(restManagerProvider.restManager());
         for (var factory : restFactories) {
             micronaut.singletons(factory.get());
         }
