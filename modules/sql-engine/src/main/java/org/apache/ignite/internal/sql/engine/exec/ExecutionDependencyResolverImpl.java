@@ -145,8 +145,7 @@ public class ExecutionDependencyResolverImpl implements ExecutionDependencyResol
                 .thenApply(r -> {
                     Map<Integer, ExecutableTable> map = tableMap.entrySet()
                             .stream()
-                            .map(e -> Map.entry(e.getKey(), e.getValue().join()))
-                            .collect(Collectors.toMap(Entry::getKey, Entry::getValue));
+                            .collect(Collectors.toMap(Entry::getKey, e -> e.getValue().join()));
 
                     return new ResolvedDependencies(map, dataSources);
                 });

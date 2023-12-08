@@ -466,14 +466,14 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
 
         session.execute(null, insertData);
 
-        var resultSet = session.execute(null, "SELECT * FROM testAllColumnTypes");
+        var resultSet = session.execute(null, "SELECT *, NULL FROM testAllColumnTypes");
         assertTrue(resultSet.hasRowSet());
 
         var row = resultSet.next();
         var meta = resultSet.metadata();
 
         assertNotNull(meta);
-        assertEquals(14, meta.columns().size());
+        assertEquals(15, meta.columns().size());
 
         assertEquals(1, row.intValue(0));
         assertEquals(1, row.byteValue(1));
@@ -489,6 +489,7 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
         assertEquals(LocalDateTime.of(2020, 1, 1, 12, 0, 0), row.value(11));
         assertEquals(UUID.fromString("10000000-2000-3000-4000-500000000000"), row.value(12));
         assertArrayEquals(new byte[]{0x42}, row.value(13));
+        assertNull(row.value(14));
 
         assertEquals(ColumnType.INT8, meta.columns().get(1).type());
         assertEquals(ColumnType.INT16, meta.columns().get(2).type());
@@ -503,6 +504,7 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
         assertEquals(ColumnType.DATETIME, meta.columns().get(11).type());
         assertEquals(ColumnType.UUID, meta.columns().get(12).type());
         assertEquals(ColumnType.BYTE_ARRAY, meta.columns().get(13).type());
+        assertEquals(ColumnType.NULL, meta.columns().get(14).type());
     }
 
     private static class Pojo {

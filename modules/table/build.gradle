@@ -92,6 +92,8 @@ dependencies {
     testFixturesImplementation project(':ignite-catalog')
     testFixturesImplementation project(':ignite-raft')
     testFixturesImplementation project(':ignite-affinity')
+    testFixturesImplementation project(':ignite-configuration-api')
+    testFixturesImplementation(testFixtures(project(':ignite-configuration')))
     testFixturesImplementation(testFixtures(project(':ignite-core')))
     testFixturesImplementation(testFixtures(project(':ignite-storage-api')))
     testFixturesImplementation(testFixtures(project(':ignite-transactions')))

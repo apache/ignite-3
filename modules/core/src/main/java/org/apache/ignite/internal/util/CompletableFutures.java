@@ -19,6 +19,7 @@ package org.apache.ignite.internal.util;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -81,5 +82,28 @@ public class CompletableFutures {
     /** Returns a future completed with an empty immutable {@link Map}. */
     public static <K, V> CompletableFuture<Map<K, V>> emptyMapCompletedFuture() {
         return (CompletableFuture<Map<K, V>>) (CompletableFuture<?>) EMPTY_MAP_COMPLETED_FUTURE;
+    }
+
+    /**
+     * Returns a future that is completed when all provided futures complete (the behavior is identical to {@link CompletableFuture#allOf}).
+     *
+     * <p>If the future completes successfully, it aggregates the results of the source futures into a {@code List}.
+     *
+     * @param cfs Source futures.
+     * @param <T> Type of the result of the source futures.
+     * @return Future that completes with a list of results from the source futures.
+     */
+    @SafeVarargs
+    public static <T> CompletableFuture<List<T>> allOf(CompletableFuture<T>... cfs) {
+        return CompletableFuture.allOf(cfs)
+                .thenApply(v -> {
+                    var result = new ArrayList<T>(cfs.length);
+
+                    for (CompletableFuture<T> future : cfs) {
+                        result.add(future.join());
+                    }
+
+                    return result;
+                });
     }
 }

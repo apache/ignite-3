@@ -21,10 +21,10 @@ import static org.apache.ignite.internal.sql.engine.tx.QueryTransactionContext.v
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Sql.RUNTIME_ERR;
 
-import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
+import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.TxControlInsideExternalTxNotSupportedException;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlCommitTransaction;
@@ -112,10 +112,10 @@ public class ScriptTransactionContext {
     }
 
     /** TODO blah-blah-blah. */
-    public void registerCursor(SqlQueryType queryType, CompletableFuture<AsyncSqlCursor<List<Object>>> cursorFut) {
-        assert queryType != SqlQueryType.DDL;
-
-        if (queryType == SqlQueryType.TX_CONTROL || queryType == SqlQueryType.EXPLAIN) {
+    public void registerCursor(SqlQueryType queryType, CompletableFuture<AsyncSqlCursor<InternalSqlRow>> cursorFut) {
+        if (queryType == SqlQueryType.DDL
+                || queryType == SqlQueryType.TX_CONTROL
+                || queryType == SqlQueryType.EXPLAIN) {
             return;
         }
 

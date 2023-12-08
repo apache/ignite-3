@@ -19,6 +19,8 @@ package org.apache.ignite.client.handler;
 
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.nio.ByteBuffer;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
@@ -34,6 +36,7 @@ import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryMetadataRequest;
 import org.apache.ignite.internal.jdbc.proto.event.Response;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
+import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ResultSetMetadata;
 
@@ -56,7 +59,7 @@ public class JdbcQueryCursorHandlerImpl implements JdbcQueryCursorHandler {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<JdbcQueryFetchResult> fetchAsync(JdbcQueryFetchRequest req) {
-        AsyncSqlCursor<List<Object>> asyncSqlCursor = null;
+        AsyncSqlCursor<InternalSqlRow> asyncSqlCursor;
         try {
             asyncSqlCursor = resources.get(req.cursorId()).get(AsyncSqlCursor.class);
         } catch (IgniteInternalCheckedException e) {
@@ -79,14 +82,19 @@ public class JdbcQueryCursorHandlerImpl implements JdbcQueryCursorHandler {
                     "Failed to fetch query results [curId=" + req.cursorId() + "]. Error message:" + sw);
             }
 
-            return new JdbcQueryFetchResult(batch.items(), !batch.hasMore());
+            List<ByteBuffer> rows = new ArrayList<>(batch.items().size());
+            for (InternalSqlRow item : batch.items()) {
+                rows.add(item.asBinaryTuple().byteBuffer());
+            }
+
+            return new JdbcQueryFetchResult(rows, !batch.hasMore());
         }).toCompletableFuture();
     }
 
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<JdbcQueryCloseResult> closeAsync(JdbcQueryCloseRequest req) {
-        AsyncSqlCursor<List<Object>> asyncSqlCursor = null;
+        AsyncSqlCursor<List<Object>> asyncSqlCursor;
         try {
             asyncSqlCursor = resources.remove(req.cursorId()).get(AsyncSqlCursor.class);
         } catch (IgniteInternalCheckedException e) {

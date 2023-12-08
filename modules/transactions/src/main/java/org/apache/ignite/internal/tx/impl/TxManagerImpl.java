@@ -29,6 +29,7 @@ import static org.apache.ignite.internal.tx.TxState.checkTransitionCorrectness;
 import static org.apache.ignite.internal.tx.TxState.isFinalState;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.withCause;
+import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_UNAVAILABLE_ERR;
@@ -82,6 +83,7 @@ import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.TxStateMetaFinishing;
+import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.message.TxFinishReplicaRequest;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
 import org.apache.ignite.internal.util.CompletableFutures;
@@ -110,6 +112,9 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     /** Tx messages factory. */
     private static final TxMessagesFactory FACTORY = new TxMessagesFactory();
 
+    /** Transaction configuration. */
+    private final TransactionConfiguration txConfig;
+
     private final ReplicaService replicaService;
 
     /** Lock manager. */
@@ -124,8 +129,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     /** Generates transaction IDs. */
     private final TransactionIdGenerator transactionIdGenerator;
 
-    /** The local map for tx states. */
-    private final ConcurrentHashMap<UUID, TxStateMeta> txStateMap = new ConcurrentHashMap<>();
+    /** The local state storage. */
+    private final VolatileTxStateMetaStorage txStateVolatileStorage = new VolatileTxStateMetaStorage();
 
     /** Txn contexts. */
     private final ConcurrentHashMap<UUID, TxContext> txCtxMap = new ConcurrentHashMap<>(MAX_CONCURRENT_TXNS);
@@ -163,6 +168,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     /**
      * The constructor.
      *
+     * @param txConfig Transaction configuration.
      * @param clusterService Cluster service.
      * @param replicaService Replica service.
      * @param lockManager Lock manager.
@@ -172,6 +178,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
      * @param idleSafeTimePropagationPeriodMsSupplier Used to get idle safe time propagation period in ms.
      */
     public TxManagerImpl(
+            TransactionConfiguration txConfig,
             ClusterService clusterService,
             ReplicaService replicaService,
             LockManager lockManager,
@@ -180,6 +187,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             PlacementDriver placementDriver,
             LongSupplier idleSafeTimePropagationPeriodMsSupplier
     ) {
+        this.txConfig = txConfig;
         this.replicaService = replicaService;
         this.lockManager = lockManager;
         this.clock = clock;
@@ -269,12 +277,12 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
     @Override
     public TxStateMeta stateMeta(UUID txId) {
-        return txStateMap.get(txId);
+        return inBusyLock(busyLock, () -> txStateVolatileStorage.state(txId));
     }
 
     @Override
     public TxStateMeta updateTxMeta(UUID txId, Function<TxStateMeta, TxStateMeta> updater) {
-        return txStateMap.compute(txId, (k, oldMeta) -> {
+        return inBusyLock(busyLock, () -> txStateVolatileStorage.updateMeta(txId, oldMeta -> {
             TxStateMeta newMeta = updater.apply(oldMeta);
 
             if (newMeta == null) {
@@ -284,7 +292,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             TxState oldState = oldMeta == null ? null : oldMeta.txState();
 
             return checkTransitionCorrectness(oldState, newMeta.txState()) ? newMeta : oldMeta;
-        });
+        }));
     }
 
     @Override
@@ -329,8 +337,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         // than all the read timestamps processed before.
         // Every concurrent operation will now use a finish future from the finishing state meta and get only final transaction
         // state after the transaction is finished.
-        TxStateMetaFinishing finishingStateMeta = (TxStateMetaFinishing) updateTxMeta(txId, old ->
-                new TxStateMetaFinishing(localNodeId, old == null ? null : old.commitPartitionId()));
+        TxStateMetaFinishing finishingStateMeta = (TxStateMetaFinishing) updateTxMeta(txId, TxStateMeta::finishing);
 
         TxContext tuple = txCtxMap.compute(txId, (uuid, tuple0) -> {
             if (tuple0 == null) {
@@ -550,28 +557,32 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
     @Override
     public int finished() {
-        return (int) txStateMap.entrySet().stream()
-                .filter(e -> isFinalState(e.getValue().txState()))
-                .count();
+        return inBusyLock(busyLock, () -> (int) txStateVolatileStorage.states().stream()
+                .filter(e -> isFinalState(e.txState()))
+                .count());
     }
 
     @Override
     public int pending() {
-        return (int) txStateMap.entrySet().stream()
-                .filter(e -> e.getValue().txState() == PENDING)
-                .count();
+        return inBusyLock(busyLock, () -> (int) txStateVolatileStorage.states().stream()
+                .filter(e -> e.txState() == PENDING)
+                .count());
     }
 
     @Override
     public void start() {
         localNodeId = clusterService.topologyService().localMember().id();
         clusterService.messagingService().addMessageHandler(ReplicaMessageGroup.class, this);
-        orphanDetector.start(txStateMap::get);
+
+        txStateVolatileStorage.start();
+
+        orphanDetector.start(txStateVolatileStorage, txConfig.abandonedCheckTs());
     }
 
     @Override
     public void beforeNodeStop() {
         orphanDetector.stop();
+        txStateVolatileStorage.stop();
     }
 
     @Override
@@ -806,8 +817,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         );
 
         /**
-         * Check if the provided exception is recoverable.
-         * A recoverable transaction is the one that we can send a 'retry' request for.
+         * Check if the provided exception is recoverable. A recoverable transaction is the one that we can send a 'retry' request for.
          *
          * @param throwable Exception to test.
          * @return {@code true} if recoverable, {@code false} otherwise.

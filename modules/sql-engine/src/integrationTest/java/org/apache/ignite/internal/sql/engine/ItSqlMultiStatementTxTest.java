@@ -75,12 +75,12 @@ public class ItSqlMultiStatementTxTest extends BaseSqlMultiStatementTest {
 
     @Test
     void emptyTransactionControlStatement() {
-        List<AsyncSqlCursor<List<Object>>> cursors = fetchAllCursors(
+        List<AsyncSqlCursor<InternalSqlRow>> cursors = fetchAllCursors(
                 runScript("START TRANSACTION; COMMIT"));
 
         assertThat(cursors, hasSize(2));
 
-        AsyncSqlCursor<List<Object>> cur = cursors.get(0);
+        AsyncSqlCursor<InternalSqlRow> cur = cursors.get(0);
         assertTrue(cur.hasNextResult());
         validateSingleResult(cur);
 
@@ -122,24 +122,24 @@ public class ItSqlMultiStatementTxTest extends BaseSqlMultiStatementTest {
                 + "SELECT id FROM big;"
                 + "COMMIT;", txOptions, specificStatement);
 
-        AsyncSqlCursor<List<Object>> cursor = runScript(query);
+        AsyncSqlCursor<InternalSqlRow> cursor = runScript(query);
 
         assertTrue(cursor.hasNextResult());
 
-        AsyncSqlCursor<List<Object>> updateCursor = await(cursor.nextResult());
+        AsyncSqlCursor<InternalSqlRow> updateCursor = await(cursor.nextResult());
         assertNotNull(updateCursor);
         validateSingleResult(updateCursor, 1L);
         assertTrue(updateCursor.hasNextResult());
 
-        AsyncSqlCursor<List<Object>> selectCursor0 = await(updateCursor.nextResult());
+        AsyncSqlCursor<InternalSqlRow> selectCursor0 = await(updateCursor.nextResult());
         assertNotNull(selectCursor0);
 
-        BatchedResult<List<Object>> res = await(selectCursor0.requestNextAsync(BIG_TABLE_ROWS_COUNT / 2));
+        BatchedResult<InternalSqlRow> res = await(selectCursor0.requestNextAsync(BIG_TABLE_ROWS_COUNT / 2));
         assertNotNull(res);
         assertThat(res.items(), hasSize(BIG_TABLE_ROWS_COUNT / 2));
         assertEquals(1, txManager().pending(), "Transaction must not finished until the cursor is closed.");
 
-        AsyncSqlCursor<List<Object>> selectCursor1 = await(selectCursor0.nextResult());
+        AsyncSqlCursor<InternalSqlRow> selectCursor1 = await(selectCursor0.nextResult());
         assertNotNull(selectCursor1);
 
         res = await(selectCursor1.requestNextAsync(BIG_TABLE_ROWS_COUNT * 2));
@@ -164,7 +164,7 @@ public class ItSqlMultiStatementTxTest extends BaseSqlMultiStatementTest {
         }
 
         {
-            List<AsyncSqlCursor<List<Object>>> cursors = fetchAllCursors(
+            List<AsyncSqlCursor<InternalSqlRow>> cursors = fetchAllCursors(
                     runScript(startTxStatement
                             + "SELECT * FROM TEST;"
                             + "SELECT * FROM TEST;"
@@ -184,7 +184,7 @@ public class ItSqlMultiStatementTxTest extends BaseSqlMultiStatementTest {
 
     @Test
     void dmlScriptRollsBackImplicitly() throws InterruptedException {
-        AsyncSqlCursor<List<Object>> cur = runScript("START TRANSACTION READ WRITE;"
+        AsyncSqlCursor<InternalSqlRow> cur = runScript("START TRANSACTION READ WRITE;"
                 + "INSERT INTO test VALUES(0);"
                 + "INSERT INTO test VALUES(1);"
                 + "COMMIT;"
@@ -194,7 +194,7 @@ public class ItSqlMultiStatementTxTest extends BaseSqlMultiStatementTest {
                 + "INSERT INTO test VALUES(2);"
         );
 
-        List<AsyncSqlCursor<List<Object>>> cursors = fetchCursors(cur, 3, false);
+        List<AsyncSqlCursor<InternalSqlRow>> cursors = fetchCursors(cur, 3, false);
         assertThat(cursors, hasSize(3));
 
         // Set last cursor.
@@ -231,7 +231,7 @@ public class ItSqlMultiStatementTxTest extends BaseSqlMultiStatementTest {
     @Test
     void openedScriptTransactionRollsBackOnError() {
         {
-            AsyncSqlCursor<List<Object>> cursor = runScript(
+            AsyncSqlCursor<InternalSqlRow> cursor = runScript(
                     "START TRANSACTION READ WRITE;"
                     + "INSERT INTO test VALUES(2);"
                     + "INSERT INTO test VALUES(2/0);"
@@ -250,7 +250,7 @@ public class ItSqlMultiStatementTxTest extends BaseSqlMultiStatementTest {
 
     @Test
     void commitWithoutOpenTransactionDoesNothing() {
-        List<AsyncSqlCursor<List<Object>>> cursors = fetchAllCursors(
+        List<AsyncSqlCursor<InternalSqlRow>> cursors = fetchAllCursors(
                 runScript("COMMIT; COMMIT; COMMIT;"));
 
         assertThat(cursors, hasSize(3));
@@ -284,9 +284,9 @@ public class ItSqlMultiStatementTxTest extends BaseSqlMultiStatementTest {
 
     @Test
     void nestedTransactionStartFails() {
-        AsyncSqlCursor<List<Object>> cursor = runScript("START TRANSACTION; SELECT 1; START TRANSACTION;");
+        AsyncSqlCursor<InternalSqlRow> cursor = runScript("START TRANSACTION; SELECT 1; START TRANSACTION;");
 
-        AsyncSqlCursor<List<Object>> startTxCur = await(cursor.nextResult());
+        AsyncSqlCursor<InternalSqlRow> startTxCur = await(cursor.nextResult());
         assertNotNull(startTxCur);
 
         assertThrowsSqlException(RUNTIME_ERR, "Nested transactions are not supported.", () -> await(startTxCur.nextResult()));
@@ -296,12 +296,12 @@ public class ItSqlMultiStatementTxTest extends BaseSqlMultiStatementTest {
 
     @Test
     void dmlFailsOnReadOnlyTransaction() {
-        AsyncSqlCursor<List<Object>> cursor = runScript("START TRANSACTION READ ONLY;"
+        AsyncSqlCursor<InternalSqlRow> cursor = runScript("START TRANSACTION READ ONLY;"
                 + "SELECT 1;"
                 + "INSERT INTO test VALUES(0);"
                 + "COMMIT;");
 
-        AsyncSqlCursor<List<Object>> insCur = await(cursor.nextResult());
+        AsyncSqlCursor<InternalSqlRow> insCur = await(cursor.nextResult());
         assertNotNull(insCur);
 
         assertThrowsSqlException(RUNTIME_ERR, "DML query cannot be started by using read only transactions.",

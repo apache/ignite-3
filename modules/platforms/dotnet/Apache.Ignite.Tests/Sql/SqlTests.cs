@@ -405,5 +405,22 @@ namespace Apache.Ignite.Tests.Sql
                 "ColumnMetadata { Name = STR, Type = String, Precision = 5, Scale = -2147483648, Nullable = False, Origin =  } ] } }",
                 resultSet.ToString());
         }
+
+        [Test]
+        public async Task TestSelectNull()
+        {
+            await using IResultSet<IIgniteTuple> resultSet = await Client.Sql.ExecuteAsync(null, "select null");
+
+            var rows = await resultSet.ToListAsync();
+
+            Assert.AreEqual(1, rows.Count);
+            Assert.IsNull(rows[0][0]);
+
+            Assert.AreEqual(
+                "ResultSet`1[IIgniteTuple] { HasRowSet = True, AffectedRows = -1, WasApplied = False, " +
+                "Metadata = ResultSetMetadata { Columns = [ " +
+                "ColumnMetadata { Name = NULL, Type = Null, Precision = -1, Scale = -2147483648, Nullable = True, Origin =  } ] } }",
+                resultSet.ToString());
+        }
     }
 }

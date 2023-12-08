@@ -20,7 +20,6 @@ package org.apache.ignite.internal.sql.engine.tx;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Sql.EXECUTION_CANCELLED_ERR;
 
-import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -28,6 +27,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
+import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.AsyncCursor;
@@ -133,7 +133,7 @@ class ScriptTransactionWrapperImpl implements QueryTransactionWrapper {
         tryCompleteTx();
     }
 
-    void registerCursor(CompletableFuture<AsyncSqlCursor<List<Object>>> cursorFut) {
+    void registerCursor(CompletableFuture<AsyncSqlCursor<InternalSqlRow>> cursorFut) {
         UUID cursorId = UUID.randomUUID();
 
         synchronized (mux) {

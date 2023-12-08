@@ -34,6 +34,8 @@ import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
+import java.util.function.Function;
+import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.jdbc.proto.IgniteQueryErrorCode;
 import org.apache.ignite.internal.jdbc.proto.JdbcQueryCursorHandler;
 import org.apache.ignite.internal.jdbc.proto.JdbcStatementType;
@@ -46,6 +48,7 @@ import org.apache.ignite.internal.jdbc.proto.event.JdbcQuerySingleResult;
 import org.apache.ignite.internal.jdbc.proto.event.Response;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.CollectionUtils;
+import org.apache.ignite.sql.ColumnType;
 
 /**
  * Jdbc statement implementation.
@@ -164,12 +167,37 @@ public class JdbcStatement implements Statement {
         JdbcQueryCursorHandler handler = new JdbcClientQueryCursorHandler(result.getChannel());
 
         for (JdbcQuerySingleResult jdbcRes : executeResult.results()) {
+            List<ColumnType> columnTypes = jdbcRes.columnTypes();
+            int[] decimalScales = jdbcRes.decimalScales();
+
+            Function<BinaryTupleReader, List<Object>> transformer = createTransformer(columnTypes, decimalScales);
+
             resSets.add(new JdbcResultSet(handler, this, jdbcRes.cursorId(), pageSize,
                     jdbcRes.last(), jdbcRes.items(), jdbcRes.isQuery(), false, jdbcRes.updateCount(),
-                    closeOnCompletion));
+                    closeOnCompletion, columnTypes.size(), transformer));
         }
 
         assert !resSets.isEmpty() : "At least one results set is expected";
+    }
+
+    private static Function<BinaryTupleReader, List<Object>> createTransformer(List<ColumnType> columnTypes, int[] decimalScales) {
+        return (tuple) -> {
+            int columnCount = columnTypes.size();
+            List<Object> row = new ArrayList<>(columnCount);
+            int decimalIdx = 0;
+            int currentDecimalScale = -1;
+
+            for (int colIdx = 0; colIdx < columnCount; colIdx++) {
+                ColumnType type = columnTypes.get(colIdx);
+                if (type == ColumnType.DECIMAL) {
+                    currentDecimalScale = decimalScales[decimalIdx++];
+                }
+
+                row.add(JdbcConverterUtils.deriveValueFromBinaryTuple(type, tuple, colIdx, currentDecimalScale));
+            }
+
+            return row;
+        };
     }
 
     /** {@inheritDoc} */

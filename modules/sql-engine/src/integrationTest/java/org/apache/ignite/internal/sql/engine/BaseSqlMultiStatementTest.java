@@ -22,7 +22,6 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
-import static org.hamcrest.Matchers.equalTo;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -62,24 +61,24 @@ public abstract class BaseSqlMultiStatementTest extends BaseSqlIntegrationTest {
     }
 
     /** Initiates multi-statements query execution. */
-    AsyncSqlCursor<List<Object>> runScript(String query) {
+    AsyncSqlCursor<InternalSqlRow> runScript(String query) {
         return runScript(query, null);
     }
 
-    AsyncSqlCursor<List<Object>> runScript(String query, @Nullable InternalTransaction tx, Object ... params) {
-        AsyncSqlCursor<List<Object>> cursor = await(
+    AsyncSqlCursor<InternalSqlRow> runScript(String query, @Nullable InternalTransaction tx, Object ... params) {
+        AsyncSqlCursor<InternalSqlRow> cursor = await(
                 queryProcessor().queryScriptAsync(emptyProperties(), igniteTx(), tx, query, params)
         );
 
         return Objects.requireNonNull(cursor);
     }
 
-    static List<AsyncSqlCursor<List<Object>>> fetchAllCursors(AsyncSqlCursor<List<Object>> cursor) {
+    static List<AsyncSqlCursor<InternalSqlRow>> fetchAllCursors(AsyncSqlCursor<InternalSqlRow> cursor) {
         return fetchCursors(cursor, -1, false);
     }
 
-    static List<AsyncSqlCursor<List<Object>>> fetchCursors(AsyncSqlCursor<List<Object>> cursor, int count, boolean close) {
-        List<AsyncSqlCursor<List<Object>>> cursors = new ArrayList<>();
+    static List<AsyncSqlCursor<InternalSqlRow>> fetchCursors(AsyncSqlCursor<InternalSqlRow> cursor, int count, boolean close) {
+        List<AsyncSqlCursor<InternalSqlRow>> cursors = new ArrayList<>();
 
         cursors.add(cursor);
 
@@ -102,14 +101,24 @@ public abstract class BaseSqlMultiStatementTest extends BaseSqlIntegrationTest {
         return cursors;
     }
 
-    static void validateSingleResult(AsyncSqlCursor<List<Object>> cursor, Object... expected) {
-        BatchedResult<List<Object>> res = await(cursor.requestNextAsync(1));
+    static void validateSingleResult(AsyncSqlCursor<InternalSqlRow> cursor, Object... expected) {
+        BatchedResult<InternalSqlRow> res = await(cursor.requestNextAsync(1));
         assertNotNull(res);
 
         if (expected.length == 0) {
             assertThat(res.items(), empty());
         } else {
-            assertThat(res.items(), equalTo(List.of(List.of(expected))));
+            List<InternalSqlRow> items = res.items();
+            List<Object> rows = new ArrayList<>(items.size());
+            for (InternalSqlRow item : items) {
+                List<Object> row = new ArrayList<>(item.fieldCount());
+                for (int i = 0; i < item.fieldCount(); i++) {
+                    row.add(item.get(i));
+                }
+                rows.add(row);
+            }
+
+            assertEquals(List.of(List.of(expected)), rows);
         }
 
         assertFalse(res.hasMore());
