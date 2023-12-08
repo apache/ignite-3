@@ -74,6 +74,7 @@ class ObjectMarshallerCodeGenerator implements MarshallerCodeGenerator {
 
             var fldNames = flds.values().stream().map(Field::getName).sorted().collect(Collectors.toList());
 
+            // TODO: Exclude static and transient fields from the list.
             throw new IllegalArgumentException(
                     "Fields " + fldNames + " of type " + targetClass.getName() + " are not mapped to columns");
         }
