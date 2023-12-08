@@ -102,12 +102,10 @@ import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.TopologyService;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
-import org.jetbrains.annotations.TestOnly;
 
 /**
  * Dummy table storage implementation.
  */
-@TestOnly
 public class DummyInternalTableImpl extends InternalTableImpl {
     public static final IgniteLogger LOG = Loggers.forClass(DummyInternalTableImpl.class);
 

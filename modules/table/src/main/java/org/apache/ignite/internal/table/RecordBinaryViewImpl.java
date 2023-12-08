@@ -24,7 +24,6 @@ import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
-import java.util.function.Consumer;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.SchemaRegistry;
@@ -430,18 +429,8 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
         Objects.requireNonNull(publisher);
 
         var partitioner = new TupleStreamerPartitionAwarenessProvider(rowConverter.registry(), tbl.partitions());
-        StreamerBatchSender<Tuple, Integer> batchSender = (partitionId, items) -> withSchemaSync(null, (schemaVersion) -> {
-            return this.tbl.upsertAll(mapToBinary(items, schemaVersion, false), partitionId).thenAccept(new Consumer<Void>() {
-                @Override
-                public void accept(Void unused) {
-                    try {
-                        Thread.sleep(500);
-                    } catch (InterruptedException e) {
-                        throw new RuntimeException(e);
-                    }
-                }
-            });
-        });
+        StreamerBatchSender<Tuple, Integer> batchSender = (partitionId, items) -> withSchemaSync(null,
+                (schemaVersion) -> this.tbl.upsertAll(mapToBinary(items, schemaVersion, false), partitionId));
 
         return DataStreamer.streamData(publisher, options, batchSender, partitioner);
     }

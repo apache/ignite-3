@@ -56,7 +56,7 @@ public interface LockManager extends EventProducer<LockEvent, LockEventParameter
     void release(UUID txId, LockKey lockKey, LockMode lockMode);
 
     /**
-     * Retrieves all waiters for the specified transaction id.
+     * Retrieves all locks for the specified transaction id.
      *
      * @param txId Transaction Id.
      * @return An iterator over a collection of locks.

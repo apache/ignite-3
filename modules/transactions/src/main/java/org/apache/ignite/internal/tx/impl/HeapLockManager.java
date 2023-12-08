@@ -73,7 +73,7 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
     /**
      * Table size. TODO make it configurable IGNITE-20694
      */
-    public static final int SLOTS = 131072; //16536;
+    public static final int SLOTS = 131072;
 
     /**
      * Empty slots.
