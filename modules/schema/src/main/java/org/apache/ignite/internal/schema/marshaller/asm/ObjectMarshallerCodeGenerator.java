@@ -67,7 +67,7 @@ class ObjectMarshallerCodeGenerator implements MarshallerCodeGenerator {
         Map<String, Field> flds = new HashMap<>();
         for (String fieldName : mapper.fields()) {
             try {
-                Field field = mapper.getClass().getDeclaredField(fieldName);
+                Field field = mapper.targetType().getDeclaredField(fieldName);
                 flds.put(fieldName.toUpperCase(), field);
             } catch (NoSuchFieldException e) {
                 throw new RuntimeException(e);
