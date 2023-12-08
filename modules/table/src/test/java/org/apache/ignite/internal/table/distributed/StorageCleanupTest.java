@@ -167,7 +167,7 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
 
         assertEquals(3, storage.rowsCount());
 
-        storageUpdateHandler.handleTransactionCleanup(txUuid, false, null);
+        storageUpdateHandler.switchWriteIntents(txUuid, false, null);
 
         assertEquals(0, storage.rowsCount());
     }
@@ -192,7 +192,7 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
         // We have three writes to the storage.
         verify(storage, times(3)).addWrite(any(), any(), any(), anyInt(), anyInt());
 
-        storageUpdateHandler.handleTransactionCleanup(txUuid, true, commitTs);
+        storageUpdateHandler.switchWriteIntents(txUuid, true, commitTs);
 
         assertEquals(3, storage.rowsCount());
         // Those writes resulted in three commits.
@@ -202,7 +202,7 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
         clearInvocations(storage);
 
         // And run cleanup again for the same transaction.
-        storageUpdateHandler.handleTransactionCleanup(txUuid, true, commitTs);
+        storageUpdateHandler.switchWriteIntents(txUuid, true, commitTs);
 
         assertEquals(3, storage.rowsCount());
         // And no invocation after, meaning idempotence of the cleanup.
@@ -240,7 +240,7 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
         // We have three writes to the storage.
         verify(storage, times(3)).addWrite(any(), any(), any(), anyInt(), anyInt());
 
-        storageUpdateHandler.handleTransactionCleanup(txUuid, true, commitTs);
+        storageUpdateHandler.switchWriteIntents(txUuid, true, commitTs);
 
         assertEquals(3, storage.rowsCount());
         // Those writes resulted in three commits.
@@ -250,7 +250,7 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
         clearInvocations(storage);
 
         // And run cleanup again for the same transaction.
-        storageUpdateHandler.handleTransactionCleanup(txUuid, true, commitTs);
+        storageUpdateHandler.switchWriteIntents(txUuid, true, commitTs);
 
         assertEquals(3, storage.rowsCount());
         // And no invocation after, meaning idempotence of the cleanup.
@@ -279,7 +279,7 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
         verify(storage, times(2)).addWrite(any(), any(), any(), anyInt(), anyInt());
 
         // And run cleanup again for the same transaction.
-        storageUpdateHandler.handleTransactionCleanup(txUuid, true, commitTs);
+        storageUpdateHandler.switchWriteIntents(txUuid, true, commitTs);
 
         ReadResult resultAfterDelete1 = storage.read(new RowId(partitionId.partitionId(), id1), HybridTimestamp.MAX_VALUE);
         assertEquals(row1, resultAfterDelete1.binaryRow());
@@ -315,7 +315,7 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
         assertEquals(3, storage.rowsCount());
 
         // Now run cleanup.
-        storageUpdateHandler.handleTransactionCleanup(txUuid, true, commitTs);
+        storageUpdateHandler.switchWriteIntents(txUuid, true, commitTs);
 
         // But the loss of the state results in no cleanup, and the entries are still write intents.
         verify(storage, never()).commitWrite(any(), any());
@@ -326,7 +326,7 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
         storageUpdateHandler.handleWriteIntentRead(txUuid, new RowId(PARTITION_ID, row1Id));
 
         // Run the cleanup.
-        storageUpdateHandler.handleTransactionCleanup(txUuid, true, commitTs);
+        storageUpdateHandler.switchWriteIntents(txUuid, true, commitTs);
 
         // Only the discovered write intent was committed, the other two are still write intents.
         verify(storage, times(1)).commitWrite(any(), any());
@@ -346,7 +346,7 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
         clearInvocations(storage);
 
         // Run cleanup for the original transaction
-        storageUpdateHandler.handleTransactionCleanup(txUuid, true, commitTs);
+        storageUpdateHandler.switchWriteIntents(txUuid, true, commitTs);
 
         // Only those two entries will be affected.
         verify(storage, times(2)).commitWrite(any(), any());
@@ -384,7 +384,7 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
         assertEquals(3, storage.rowsCount());
 
         // Now run cleanup.
-        storageUpdateHandler.handleTransactionCleanup(txUuid, true, commitTs);
+        storageUpdateHandler.switchWriteIntents(txUuid, true, commitTs);
 
         // But the loss of the state results in no cleanup, and the entries are still write intents.
         verify(storage, never()).commitWrite(any(), any());
@@ -395,7 +395,7 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
         storageUpdateHandler.handleWriteIntentRead(txUuid, new RowId(PARTITION_ID, row1Id));
 
         // Run the cleanup.
-        storageUpdateHandler.handleTransactionCleanup(txUuid, true, commitTs);
+        storageUpdateHandler.switchWriteIntents(txUuid, true, commitTs);
 
         // Only the discovered write intent was committed, the other two are still write intents.
         verify(storage, times(1)).commitWrite(any(), any());
@@ -420,7 +420,7 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
         clearInvocations(storage);
 
         // Run cleanup for the original transaction
-        storageUpdateHandler.handleTransactionCleanup(txUuid, true, commitTs);
+        storageUpdateHandler.switchWriteIntents(txUuid, true, commitTs);
 
         // Only those two entries will be affected.
         verify(storage, times(2)).commitWrite(any(), any());
@@ -461,7 +461,7 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
 
         storageUpdateHandler.handleUpdate(committedTx, rowId, partitionId, row1, true, null, null, null);
 
-        storageUpdateHandler.handleTransactionCleanup(committedTx, true, commitTs);
+        storageUpdateHandler.switchWriteIntents(committedTx, true, commitTs);
 
         assertEquals(1, storage.rowsCount());
 
@@ -502,7 +502,7 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
 
         storageUpdateHandler.handleUpdateAll(committedTx, rowsToUpdate, partitionId, true, null, null);
 
-        storageUpdateHandler.handleTransactionCleanup(committedTx, true, commitTs);
+        storageUpdateHandler.switchWriteIntents(committedTx, true, commitTs);
 
         assertEquals(1, storage.rowsCount());
 
@@ -712,7 +712,7 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
 
         storageUpdateHandler.handleUpdate(committed1, rowId, partitionId, row1, true, null, null, null);
 
-        storageUpdateHandler.handleTransactionCleanup(committed1, true, commitTs);
+        storageUpdateHandler.switchWriteIntents(committed1, true, commitTs);
 
         assertEquals(1, storage.rowsCount());
 
@@ -768,7 +768,7 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
 
         storageUpdateHandler.handleUpdateAll(committed1, rowsToUpdate, partitionId, true, null, null);
 
-        storageUpdateHandler.handleTransactionCleanup(committed1, true, commitTs);
+        storageUpdateHandler.switchWriteIntents(committed1, true, commitTs);
 
         assertEquals(1, storage.rowsCount());
 
@@ -828,7 +828,7 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
 
         storageUpdateHandler.handleUpdate(committed1, rowId, partitionId, row1, true, null, null, null);
 
-        storageUpdateHandler.handleTransactionCleanup(committed1, true, commitTs);
+        storageUpdateHandler.switchWriteIntents(committed1, true, commitTs);
 
         assertEquals(1, storage.rowsCount());
 
@@ -886,7 +886,7 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
 
         storageUpdateHandler.handleUpdateAll(committed1, rowsToUpdate, partitionId, true, null, null);
 
-        storageUpdateHandler.handleTransactionCleanup(committed1, true, commitTs);
+        storageUpdateHandler.switchWriteIntents(committed1, true, commitTs);
 
         assertEquals(1, storage.rowsCount());
 
@@ -948,7 +948,7 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
 
         storageUpdateHandler.handleUpdate(committed1, rowId, partitionId, row1, true, null, null, null);
 
-        storageUpdateHandler.handleTransactionCleanup(committed1, true, commitTs);
+        storageUpdateHandler.switchWriteIntents(committed1, true, commitTs);
 
         assertEquals(1, storage.rowsCount());
 

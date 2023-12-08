@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.table.distributed.replication;
 
+import static java.util.concurrent.CompletableFuture.allOf;
+import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
 import static org.apache.ignite.internal.tx.TxState.isFinalState;
@@ -24,14 +26,13 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -44,7 +45,6 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
-import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
@@ -115,10 +115,12 @@ public class PartitionReplicaListenerDurableUnlockTest extends IgniteAbstractTes
         }).when(txManager).executeCleanupAsync(any(Supplier.class));
 
         doAnswer(invocation -> {
-            UUID txId = invocation.getArgument(2);
-            TablePartitionId partitionId = invocation.getArgument(1);
-            return cleanupCallback.apply(txId, partitionId);
-        }).when(txManager).cleanup(anyString(), any(), any(), anyBoolean(), any());
+            UUID txId = invocation.getArgument(3);
+            Collection<TablePartitionId> partitions = invocation.getArgument(0);
+            return allOf(partitions.stream()
+                    .map(partitionId -> cleanupCallback.apply(txId, partitionId))
+                    .toArray(size -> new CompletableFuture<?>[size]));
+        }).when(txManager).cleanup(any(), anyBoolean(), any(), any());
 
         partitionReplicaListener = new PartitionReplicaListener(
                 new TestMvPartitionStorage(PART_ID),
@@ -187,7 +189,7 @@ public class PartitionReplicaListenerDurableUnlockTest extends IgniteAbstractTes
             assertThat(exceptionCounter.get(), greaterThan(0));
 
             if (exceptionCounter.decrementAndGet() > 0) {
-                throw new RuntimeException("test exception");
+                return failedFuture(new RuntimeException("test exception"));
             }
 
             return nullCompletedFuture();
@@ -200,34 +202,5 @@ public class PartitionReplicaListenerDurableUnlockTest extends IgniteAbstractTes
         assertTrue(txStateStorage.get(tx0).locksReleased());
 
         assertEquals(0, exceptionCounter.get());
-    }
-
-    @Test
-    public void testCantGetPrimaryReplicaForEnlistedPartition() throws InterruptedException {
-        UUID tx0 = TestTransactionIds.newTransactionId();
-        TablePartitionId part0 = new TablePartitionId(TABLE_ID, PART_ID);
-        txStateStorage.put(tx0, new TxMeta(TxState.COMMITED, List.of(part0), null));
-
-        cleanupCallback = (tx, partId) -> nullCompletedFuture();
-
-        CompletableFuture<ReplicaMeta> primaryReplicaFuture = new CompletableFuture<>();
-        placementDriver.setAwaitPrimaryReplicaFunction((groupId, timestamp) -> primaryReplicaFuture);
-
-        PrimaryReplicaEventParameters parameters = new PrimaryReplicaEventParameters(0, part0, LOCAL_NODE.name(), clock.now());
-        assertThat(placementDriver.fireEvent(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, parameters), willSucceedIn(1, SECONDS));
-
-        assertFalse(txStateStorage.get(tx0).locksReleased());
-
-        Thread primaryReplicaFutureCompleteThread =
-                new Thread(() -> primaryReplicaFuture.completeExceptionally(new RuntimeException("test exception")));
-        primaryReplicaFutureCompleteThread.start();
-
-        assertFalse(txStateStorage.get(tx0).locksReleased());
-
-        placementDriver.setAwaitPrimaryReplicaFunction(null);
-
-        primaryReplicaFutureCompleteThread.join();
-
-        assertTrue(txStateStorage.get(tx0).locksReleased());
     }
 }
