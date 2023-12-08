@@ -222,8 +222,7 @@ public class TransactionStateResolver {
 
         if (coordinator == null) {
             // This means the coordinator node have either left the cluster or restarted.
-            // TODO IGNITE-20994
-            // markAbandoned(txId);
+            markAbandoned(txId);
 
             resolveTxStateFromCommitPartition(txId, commitGrpId, txMetaFuture);
         } else {

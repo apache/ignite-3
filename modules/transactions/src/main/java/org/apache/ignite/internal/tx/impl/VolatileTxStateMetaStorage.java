@@ -26,6 +26,7 @@ import java.util.function.Function;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * The class represents volatile transaction state storage that stores a transaction state meta until the node stops.
@@ -61,7 +62,8 @@ public class VolatileTxStateMetaStorage {
      * @param updater Transaction meta updater.
      * @return Updated transaction state.
      */
-    public TxStateMeta updateMeta(UUID txId, Function<TxStateMeta, TxStateMeta> updater) {
+    @Nullable
+    public <T extends TxStateMeta> T updateMeta(UUID txId, Function<TxStateMeta, TxStateMeta> updater) {
         return updateMetaInternal(txId, updater);
 
         // TODO: IGNITE-21024 Public methods of transaction manager do not have NodeStoppingException in definition.
@@ -82,8 +84,9 @@ public class VolatileTxStateMetaStorage {
      * @param updater Transaction meta updater.
      * @return Updated transaction state.
      */
-    private TxStateMeta updateMetaInternal(UUID txId, Function<TxStateMeta, TxStateMeta> updater) {
-        return txStateMap.compute(txId, (k, oldMeta) -> {
+    @Nullable
+    private <T extends TxStateMeta> T updateMetaInternal(UUID txId, Function<TxStateMeta, TxStateMeta> updater) {
+        return (T) txStateMap.compute(txId, (k, oldMeta) -> {
             TxStateMeta newMeta = updater.apply(oldMeta);
 
             if (newMeta == null) {

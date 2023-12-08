@@ -238,7 +238,7 @@ public class OrphanDetector {
     }
 
     /**
-     * Does a life check for the transaction coordinator.
+     * Performs a life check for the transaction coordinator.
      *
      * @param txState Transaction state meta.
      * @return True when the transaction coordinator is alive, false otherwise.
@@ -257,7 +257,7 @@ public class OrphanDetector {
     private boolean isRecoveryNeeded(UUID txId, TxStateMeta txState) {
         if (txState == null
                 || isFinalState(txState.txState())
-                || isTxAbandonedNotLong(txState)) {
+                || isTxAbandonedRecently(txState)) {
             return false;
         }
 
@@ -266,7 +266,7 @@ public class OrphanDetector {
         TxStateMeta updatedTxState = txLocalStateStorage.updateMeta(txId, txStateMeta -> {
             if (txStateMeta != null
                     && !isFinalState(txStateMeta.txState())
-                    && (txStateMeta.txState() != ABANDONED || isTxAbandonedNotLong(txStateMeta))) {
+                    && (txStateMeta.txState() != ABANDONED || isTxAbandonedRecently(txStateMeta))) {
                 return txAbandonedState;
             }
 
@@ -277,12 +277,12 @@ public class OrphanDetector {
     }
 
     /**
-     * Checks whether the transaction state is recently marked as abandoned or not.
+     * Checks whether the transaction state is marked as abandoned recently (less than {@link #checkTxStateInterval} millis ago).
      *
      * @param txState Transaction state metadata.
      * @return True if the state recently updated to {@link org.apache.ignite.internal.tx.TxState#ABANDONED}.
      */
-    private boolean isTxAbandonedNotLong(TxStateMeta txState) {
+    private boolean isTxAbandonedRecently(TxStateMeta txState) {
         if (txState.txState() != ABANDONED) {
             return false;
         }

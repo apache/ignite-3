@@ -2015,9 +2015,6 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         // Read-only.
         Transaction readOnlyTx = igniteTransactions.begin(new TransactionOptions().readOnly(true));
         assertEquals(100., accounts.recordView().get(readOnlyTx, makeKey(1)).doubleValue("balance"));
-
-        // Commit pending tx.
-        tx.commit();
     }
 
     @Test

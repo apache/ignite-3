@@ -26,6 +26,7 @@ import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestampToLong;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.tx.TxState.ABANDONED;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
 import static org.apache.ignite.internal.tx.TxState.COMMITED;
 import static org.apache.ignite.internal.tx.TxState.PENDING;
@@ -527,14 +528,24 @@ public class PartitionReplicaListener implements ReplicaListener {
     }
 
     /**
-     * Starts tx recovery process.
+     * Starts tx recovery process. Returns the future containing transaction meta with its final state that completes
+     * when the recovery is completed.
      *
      * @param txId Transaction id.
      * @return Tx recovery future, or failed future if the tx recovery is not possible.
      */
     private CompletableFuture<TransactionMeta> triggerTxRecovery(UUID txId) {
-        // TODO: IGNITE-20735 Implement initiate recovery handling logic.
-        return completedFuture(txManager.stateMeta(txId));
+        // TODO: IGNITE-20735 Implement initiate recovery handling logic. This part has to be fully rewritten.
+        TxStateMeta txStateMeta = txManager.stateMeta(txId);
+
+        if (txStateMeta.txState() == ABANDONED) {
+            txStateStorage.put(txId, new TxMeta(ABORTED, List.of(), null));
+            return completedFuture(
+                    txManager.updateTxMeta(txId, old -> new TxStateMeta(ABORTED, old.txCoordinatorId(), old.commitPartitionId(), null))
+            );
+        } else {
+            return completedFuture(txStateMeta);
+        }
     }
 
     /**
@@ -784,25 +795,15 @@ public class PartitionReplicaListener implements ReplicaListener {
             TxStateMeta txStateMeta = (TxStateMeta) txMeta;
 
             // Trigger tx recovery due to tx coordinator absence.
-            if (isTxCoordinatorAlive(txStateMeta.txCoordinatorId())) {
-                return completedFuture(txMeta);
-            } else {
+            if (txStateMeta.txState() == ABANDONED || clusterNodeByIdResolver.apply(txStateMeta.txCoordinatorId()) == null) {
                 return triggerTxRecovery(txId);
+            } else {
+                return completedFuture(txMeta);
             }
         } else {
             // Recovery is not needed.
             return completedFuture(txMeta);
         }
-    }
-
-    /**
-     * Does a life check for the transaction coordinator.
-     *
-     * @param txCoordinatorId Non-consistent id of the transaction coordinator.
-     * @return True when the transaction coordinator is alive, false otherwise.
-     */
-    private boolean isTxCoordinatorAlive(String txCoordinatorId) {
-        return clusterNodeByIdResolver.apply(txCoordinatorId) != null;
     }
 
     /**
