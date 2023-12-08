@@ -15,19 +15,26 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.compute.queue;
-
-import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.compute.ComputeJob;
-import org.apache.ignite.internal.compute.ExecutionOptions;
+package org.apache.ignite.internal.security.authentication.basic;
 
 /**
- * Executor of Compute jobs.
+ * Data class for user information.
  */
-public interface ComputeExecutor {
-    <R> CompletableFuture<R> executeJob(ExecutionOptions options, Class<ComputeJob<R>> jobClass, Object[] args);
+public class BasicUser {
+    private final String name;
 
-    void start();
+    private final String password;
 
-    void stop();
+    public BasicUser(String name, String password) {
+        this.name = name;
+        this.password = password;
+    }
+
+    public String name() {
+        return name;
+    }
+
+    public String password() {
+        return password;
+    }
 }
