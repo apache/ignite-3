@@ -196,9 +196,9 @@ abstract class AbstractTableView<R> implements CriteriaQuerySource<R> {
      * @param metadata Metadata for query results.
      * @return Index mapping.
      */
-    protected static List<Integer> indexMapping(Column[] columns, @Nullable ResultSetMetadata metadata) {
+    static List<Integer> indexMapping(Column[] columns, @Nullable ResultSetMetadata metadata) {
         if (metadata == null) {
-            throw new IllegalStateException("Metadata can't be null.");
+            throw new IgniteException(Sql.RUNTIME_ERR, "Metadata can't be null.");
         }
 
         return Arrays.stream(columns)

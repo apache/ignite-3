@@ -62,14 +62,21 @@ abstract class AbstractClientView<R> implements CriteriaQuerySource<R> {
      *
      * @param columns Columns to map.
      * @param metadata Metadata for query results.
+     * @param startInclusive the first index to cover.
+     * @param endExclusive index immediately past the last index to cover.
      * @return Index mapping.
      */
-    protected static List<Integer> indexMapping(ClientColumn[] columns, int from, int to, @Nullable ResultSetMetadata metadata) {
+    static List<Integer> indexMapping(
+            ClientColumn[] columns,
+            int startInclusive,
+            int endExclusive,
+            @Nullable ResultSetMetadata metadata
+    ) {
         if (metadata == null) {
-            throw new IllegalStateException("Metadata can't be null.");
+            throw new IgniteException(Sql.RUNTIME_ERR, "Metadata can't be null.");
         }
 
-        return Arrays.stream(columns, from, to)
+        return Arrays.stream(columns, startInclusive, endExclusive)
                 .map(ClientColumn::name)
                 .map((columnName) -> {
                     var rowIdx = metadata.indexOf(columnName);
