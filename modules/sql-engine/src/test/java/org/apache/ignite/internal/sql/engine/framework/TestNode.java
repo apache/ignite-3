@@ -29,6 +29,7 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.QueryCancel;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.exec.ExchangeService;
@@ -163,7 +164,7 @@ public class TestNode implements LifecycleAware {
      * @param plan A plan to execute.
      * @return A cursor representing the result.
      */
-    public AsyncCursor<List<Object>> executePlan(QueryPlan plan) {
+    public AsyncCursor<InternalSqlRow> executePlan(QueryPlan plan) {
         return executionService.executePlan(new NoOpTransaction(nodeName), plan, createContext());
     }
 

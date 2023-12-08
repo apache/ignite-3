@@ -211,7 +211,7 @@ public class ClientTable implements Table {
             assert propCnt >= 7;
 
             var name = in.unpackString();
-            var type = ColumnTypeConverter.fromOrdinalOrThrow(in.unpackInt());
+            var type = ColumnTypeConverter.fromIdOrThrow(in.unpackInt());
             var isKey = in.unpackBoolean();
             var isNullable = in.unpackBoolean();
             var colocationIndex = in.unpackInt();
