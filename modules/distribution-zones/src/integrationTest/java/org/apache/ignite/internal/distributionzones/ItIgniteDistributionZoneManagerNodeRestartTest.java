@@ -56,6 +56,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -65,6 +66,7 @@ import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.function.Consumer;
 import java.util.function.LongFunction;
 import java.util.stream.Stream;
+import org.apache.ignite.configuration.validation.Validator;
 import org.apache.ignite.internal.BaseIgniteRestartTest;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
@@ -98,6 +100,7 @@ import org.apache.ignite.internal.metastorage.server.TestRocksDbKeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.raft.MetaStorageWriteHandler;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.network.recovery.VaultStateIds;
+import org.apache.ignite.internal.security.authentication.validator.AuthenticationProvidersValidatorImpl;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
@@ -219,11 +222,14 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
                 modules.distributed().polymorphicSchemaExtensions()
         );
 
+        Set<Validator<?, ?>> validators = new HashSet<>(modules.distributed().validators());
+        validators.remove(AuthenticationProvidersValidatorImpl.INSTANCE);
+
         var clusterCfgMgr = new ConfigurationManager(
                 modules.distributed().rootKeys(),
                 cfgStorage,
                 distributedConfigurationGenerator,
-                ConfigurationValidatorImpl.withDefaultValidators(distributedConfigurationGenerator, modules.distributed().validators())
+                ConfigurationValidatorImpl.withDefaultValidators(distributedConfigurationGenerator, validators)
         );
 
         ConfigurationRegistry clusterConfigRegistry = clusterCfgMgr.configurationRegistry();
