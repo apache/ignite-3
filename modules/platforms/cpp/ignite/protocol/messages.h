@@ -35,6 +35,12 @@ enum class response_flag : std::int32_t
 {
     /// Partition assignment changed in cluster.s
     PARTITION_ASSIGNMENT_CHANGED = 1,
+
+    /// Notification flag.
+    NOTIFICATION_FLAG = 2,
+
+    /// Error flag.
+    ERROR_FLAG = 4,
 };
 
 /**

@@ -63,11 +63,6 @@ bool node_connection::handshake() {
 
 void node_connection::process_message(bytes_view msg) {
     protocol::reader reader(msg);
-    auto response_type = reader.read_int32();
-    if (protocol::message_type(response_type) != protocol::message_type::RESPONSE) {
-        m_logger->log_warning("Unsupported message type: " + std::to_string(response_type));
-        return;
-    }
 
     auto req_id = reader.read_int64();
     auto flags = reader.read_int32();
@@ -90,13 +85,15 @@ void node_connection::process_message(bytes_view msg) {
         return;
     }
 
-    auto err = protocol::read_error(reader);
-    if (err) {
-        m_logger->log_error("Error: " + err->what_str());
-        auto res = handler->set_error(std::move(err.value()));
-        if (res.has_error())
+    if (test_flag(flags, protocol::response_flag::ERROR_FLAG))
+    {
+        auto err = protocol::read_error_core(reader);
+        m_logger->log_error("Error: " + err.what_str());
+        auto res = handler->set_error(std::move(err));
+        if (res.has_error()) {
             m_logger->log_error(
                 "Uncaught user callback exception while handling operation error: " + res.error().what_str());
+        }
         return;
     }
 

@@ -209,6 +209,14 @@ template<>
 [[nodiscard]] std::optional<ignite_error> read_error(protocol::reader &reader);
 
 /**
+ * Read error core.
+ *
+ * @param reader reader.
+ * @return Error.
+ */
+[[nodiscard]] ignite_error read_error_core(protocol::reader &reader);
+
+/**
  * Claim type and scale header for a value written in binary tuple.
  *
  * @param builder Tuple builder.

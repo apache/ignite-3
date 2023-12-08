@@ -198,6 +198,10 @@ std::optional<ignite_error> read_error(reader &reader) {
     if (reader.try_read_nil())
         return std::nullopt;
 
+    return {read_error_core(reader)};
+}
+
+ignite_error read_error_core(reader &reader) {
     auto trace_id = reader.try_read_nil() ? make_random_uuid() : reader.read_uuid();
     auto code = reader.read_object_or_default<std::int32_t>(65537);
     auto class_name = reader.read_string();
@@ -212,7 +216,7 @@ std::optional<ignite_error> read_error(reader &reader) {
         err_msg_builder << ": " << *message;
     err_msg_builder << " (" << code << ", " << trace_id << ")";
 
-    return {ignite_error(status_code(code), err_msg_builder.str())};
+    return ignite_error{status_code(code), err_msg_builder.str()};
 }
 
 void claim_primitive_with_type(binary_tuple_builder &builder, const primitive &value) {

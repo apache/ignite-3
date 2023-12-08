@@ -332,12 +332,6 @@ network::data_buffer_owning sql_connection::receive_message(std::int64_t id, std
             throw odbc_error(sql_state::SHYT00_TIMEOUT_EXPIRED, "Could not receive a response within timeout");
 
         protocol::reader reader(res);
-        auto response_type = reader.read_int32();
-        if (protocol::message_type(response_type) != protocol::message_type::RESPONSE) {
-            LOG_MSG("Unsupported message type: " + std::to_string(response_type));
-            continue;
-        }
-
         auto req_id = reader.read_int64();
         if (req_id != id) {
             throw odbc_error(
@@ -355,9 +349,10 @@ network::data_buffer_owning sql_connection::receive_message(std::int64_t id, std
         auto observable_timestamp = reader.read_int64();
         on_observable_timestamp(observable_timestamp);
 
-        auto err = protocol::read_error(reader);
-        if (err) {
-            throw odbc_error(sql_state::SHY000_GENERAL_ERROR, err.value().what_str());
+        if (test_flag(flags, protocol::response_flag::ERROR_FLAG))
+        {
+            auto err = protocol::read_error_core(reader);
+            throw odbc_error(sql_state::SHY000_GENERAL_ERROR, err.what_str());
         }
 
         return network::data_buffer_owning{std::move(res), reader.position()};
