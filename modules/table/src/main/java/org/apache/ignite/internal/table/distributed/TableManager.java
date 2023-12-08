@@ -892,7 +892,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 localNode(),
                 schemaSyncService,
                 catalogService,
-                placementDriver
+                placementDriver,
+                id -> clusterService.topologyService().getById(id)
         );
     }
 

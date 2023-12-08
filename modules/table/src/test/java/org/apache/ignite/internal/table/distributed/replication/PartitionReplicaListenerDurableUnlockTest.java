@@ -132,7 +132,7 @@ public class PartitionReplicaListenerDurableUnlockTest extends IgniteAbstractTes
             return cleanupCallback.apply(txId, partitionId);
         }).when(txManager).cleanup(anyString(), any(), any(), anyBoolean(), any());
 
-        doAnswer(invocation -> completedFuture(null)).when(schemaSyncService).waitForMetadataCompleteness(any());
+        doAnswer(invocation -> nullCompletedFuture()).when(schemaSyncService).waitForMetadataCompleteness(any());
 
         doAnswer(invocation -> 1).when(catalogService).activeCatalogVersion(anyLong());
 
@@ -169,7 +169,8 @@ public class PartitionReplicaListenerDurableUnlockTest extends IgniteAbstractTes
                 LOCAL_NODE,
                 schemaSyncService,
                 catalogService,
-                placementDriver
+                placementDriver,
+                s -> null
         );
     }
 

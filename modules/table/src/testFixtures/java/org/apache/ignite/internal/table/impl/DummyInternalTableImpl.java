@@ -374,7 +374,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 LOCAL_NODE,
                 new AlwaysSyncedSchemaSyncService(),
                 catalogService,
-                TEST_PLACEMENT_DRIVER
+                TEST_PLACEMENT_DRIVER,
+                s -> null
         );
 
         partitionListener = new PartitionListener(

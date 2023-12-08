@@ -25,6 +25,7 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Function;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -110,7 +111,8 @@ public class ItTxDistributedCleanupRecoveryTest extends ItTxDistributedTestSingl
                     ClusterNode localNode,
                     SchemaSyncService schemaSyncService,
                     CatalogService catalogService,
-                    PlacementDriver placementDriver
+                    PlacementDriver placementDriver,
+                    Function<String, ClusterNode> clusterNodeByIdResolver
             ) {
                 return new PartitionReplicaListener(
                         mvDataStorage,
@@ -132,7 +134,8 @@ public class ItTxDistributedCleanupRecoveryTest extends ItTxDistributedTestSingl
                         localNode,
                         schemaSyncService,
                         catalogService,
-                        placementDriver
+                        placementDriver,
+                        clusterNodeByIdResolver
                 ) {
                     @Override
                     public CompletableFuture<ReplicaResult> invoke(ReplicaRequest request, String senderId) {

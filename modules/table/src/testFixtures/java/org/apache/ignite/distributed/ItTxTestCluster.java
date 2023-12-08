@@ -552,7 +552,8 @@ public class ItTxTestCluster {
                                         consistentIdToNode.apply(assignment),
                                         new AlwaysSyncedSchemaSyncService(),
                                         catalogService,
-                                        placementDriver
+                                        placementDriver,
+                                        id -> clusterServices.get(assignment).topologyService().getById(id)
                                 );
 
                                 replicaManagers.get(assignment).startReplica(
@@ -648,7 +649,8 @@ public class ItTxTestCluster {
             ClusterNode localNode,
             SchemaSyncService schemaSyncService,
             CatalogService catalogService,
-            PlacementDriver placementDriver
+            PlacementDriver placementDriver,
+            Function<String, ClusterNode> clusterNodeByIdResolver
     ) {
         return new PartitionReplicaListener(
                 mvDataStorage,
@@ -670,7 +672,8 @@ public class ItTxTestCluster {
                 localNode,
                 schemaSyncService,
                 catalogService,
-                placementDriver
+                placementDriver,
+                clusterNodeByIdResolver
         );
     }
 

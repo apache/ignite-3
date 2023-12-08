@@ -273,6 +273,8 @@ public class PartitionReplicaListener implements ReplicaListener {
      */
     private final Object commandProcessingLinearizationMutex = new Object();
 
+    private final Function<String, ClusterNode> clusterNodeByIdResolver;
+
     /**
      * The constructor.
      *
@@ -314,7 +316,8 @@ public class PartitionReplicaListener implements ReplicaListener {
             ClusterNode localNode,
             SchemaSyncService schemaSyncService,
             CatalogService catalogService,
-            PlacementDriver placementDriver
+            PlacementDriver placementDriver,
+            Function<String, ClusterNode> clusterNodeByIdResolver
     ) {
         this.mvDataStorage = mvDataStorage;
         this.raftClient = raftClient;
@@ -333,6 +336,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         this.schemaSyncService = schemaSyncService;
         this.catalogService = catalogService;
         this.placementDriver = placementDriver;
+        this.clusterNodeByIdResolver = clusterNodeByIdResolver;
 
         this.replicationGroupId = new TablePartitionId(tableId, partId);
 
@@ -530,7 +534,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      */
     private CompletableFuture<TransactionMeta> triggerTxRecovery(UUID txId) {
         // TODO: IGNITE-20735 Implement initiate recovery handling logic.
-        return nullCompletedFuture();
+        return completedFuture(txManager.stateMeta(txId));
     }
 
     /**
@@ -772,22 +776,33 @@ public class PartitionReplicaListener implements ReplicaListener {
         }
 
         if (txMeta == null) {
-            // This means that primary replica for commit partition has changed, since the local node doesn't have the volatile tx state.
-            // No need to wait a finish request from tx coordinator, the transaction can't be committed at all.
+            // This means that primary replica for commit partition has changed, since the local node doesn't have the volatile tx state;
+            // and there is no final tx state in txStateStorage. But we can assume that as the coordinator is missing, there is
+            // no need to wait a finish request from tx coordinator, the transaction can't be committed at all.
             return triggerTxRecovery(txId);
         } else if (txMeta instanceof TxStateMeta) {
             TxStateMeta txStateMeta = (TxStateMeta) txMeta;
 
-            // TODO IGNITE-20771 Proper lifeness check.
             // Trigger tx recovery due to tx coordinator absence.
-            // if (isDead(txStateMeta.txCoordinatorId()))
-            //     return triggerTxRecovery(txId);
-            // else
-                 return completedFuture(txMeta);
+            if (isTxCoordinatorAlive(txStateMeta.txCoordinatorId())) {
+                return completedFuture(txMeta);
+            } else {
+                return triggerTxRecovery(txId);
+            }
         } else {
             // Recovery is not needed.
             return completedFuture(txMeta);
         }
+    }
+
+    /**
+     * Does a life check for the transaction coordinator.
+     *
+     * @param txCoordinatorId Non-consistent id of the transaction coordinator.
+     * @return True when the transaction coordinator is alive, false otherwise.
+     */
+    private boolean isTxCoordinatorAlive(String txCoordinatorId) {
+        return clusterNodeByIdResolver.apply(txCoordinatorId) != null;
     }
 
     /**

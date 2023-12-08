@@ -489,7 +489,8 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 localNode,
                 schemaSyncService,
                 catalogService,
-                new TestPlacementDriver(localNode)
+                new TestPlacementDriver(localNode),
+                s -> null
         );
 
         kvMarshaller = marshallerFor(schemaDescriptor);

@@ -237,7 +237,8 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                 localNode,
                 new AlwaysSyncedSchemaSyncService(),
                 catalogService,
-                new TestPlacementDriver(localNode)
+                new TestPlacementDriver(localNode),
+                s -> null
         );
 
         kvMarshaller = new ReflectionMarshallerFactory().create(schemaDescriptor, Integer.class, Integer.class);
