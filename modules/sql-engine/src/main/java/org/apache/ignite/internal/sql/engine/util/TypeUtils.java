@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.sql.engine.util;
 
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
-import static org.apache.ignite.internal.sql.engine.util.Commons.transform;
 
 import java.lang.reflect.Type;
 import java.math.BigDecimal;
@@ -77,6 +76,8 @@ import org.jetbrains.annotations.Nullable;
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public class TypeUtils {
+    public static final BiFunction<Integer, Object, Object> BI_FUNCTION_IDENTITY_SECOND_ARGUMENT = (idx, r) -> r;
+
     private static final Set<SqlTypeName> CONVERTABLE_TYPES = EnumSet.of(
             SqlTypeName.DATE,
             SqlTypeName.TIME,
@@ -168,7 +169,6 @@ public class TypeUtils {
      *
      * @param ectx SQL execution context.
      * @param resultType Type of result.
-     *
      * @return Function for two arguments. First argument is an index of column to convert. Second argument is a value to be converted
      */
     public static BiFunction<Integer, Object, Object> resultTypeConverter(ExecutionContext<?> ectx, RelDataType resultType) {
@@ -176,15 +176,18 @@ public class TypeUtils {
 
         if (hasConvertableFields(resultType)) {
             List<RelDataType> types = RelOptUtil.getFieldTypeList(resultType);
-            List<Function<Object, Object>> converters = transform(types, t -> fieldConverter(ectx, t));
+            Function<Object, Object>[] converters = (Function<Object, Object>[]) new Function[types.size()];
+            for (int i = 0; i < types.size(); i++) {
+                converters[i] = fieldConverter(ectx, types.get(i));
+            }
 
             return (idx, r) -> {
-                assert idx >= 0 && idx < converters.size();
-                return converters.get(idx).apply(r);
+                assert idx >= 0 && idx < converters.length;
+                return converters[idx].apply(r);
             };
         }
 
-        return (idx, r) -> r;
+        return BI_FUNCTION_IDENTITY_SECOND_ARGUMENT;
     }
 
     private static Function<Object, Object> fieldConverter(ExecutionContext<?> ectx, RelDataType fieldType) {
@@ -268,7 +271,7 @@ public class TypeUtils {
      * FromInternal.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
-    public static @Nullable Object fromInternal(@Nullable  Object val, Type storageType) {
+    public static @Nullable Object fromInternal(@Nullable Object val, Type storageType) {
         if (val == null) {
             return null;
         } else if (storageType == LocalDate.class && val instanceof Integer) {
@@ -502,7 +505,7 @@ public class TypeUtils {
                 return NativeTypes.blobOf(length);
             case NUMBER:
                 return NativeTypes.numberOf(precision);
-                // fallthrough
+            // fallthrough
             case PERIOD:
             case DURATION:
             case NULL:
@@ -561,8 +564,8 @@ public class TypeUtils {
     }
 
     /**
-     * Checks that {@code toType} and {@code fromType} have compatible type families taking into account custom data types.
-     * Types {@code T1} and {@code T2} have compatible type families if {@code T1} can be assigned to {@code T2} and vice-versa.
+     * Checks that {@code toType} and {@code fromType} have compatible type families taking into account custom data types. Types {@code T1}
+     * and {@code T2} have compatible type families if {@code T1} can be assigned to {@code T2} and vice-versa.
      *
      * @see SqlTypeUtil#canAssignFrom(RelDataType, RelDataType)
      */
