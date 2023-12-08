@@ -423,7 +423,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         );
 
         try {
-            // If the service was unable to stop within the provided timeout, debugging information will be output to the log.
+            // If the service was unable to stop within the provided timeout, debugging information will be printed to the log.
             f.get(shutdownTimeout, TimeUnit.MILLISECONDS);
         } catch (TimeoutException e) {
             String message = format("SQL execution service could not be stopped within the specified timeout ({} ms).", shutdownTimeout);
