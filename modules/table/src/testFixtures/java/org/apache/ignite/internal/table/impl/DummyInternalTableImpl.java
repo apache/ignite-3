@@ -85,6 +85,7 @@ import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
@@ -149,19 +150,11 @@ public class DummyInternalTableImpl extends InternalTableImpl {
      * Creates a new local table.
      *
      * @param replicaSvc Replica service.
-     */
-    public DummyInternalTableImpl(ReplicaService replicaSvc) {
-        this(replicaSvc, SCHEMA);
-    }
-
-    /**
-     * Creates a new local table.
-     *
-     * @param replicaSvc Replica service.
      * @param schema Schema.
+     * @param txConfiguration Transaction configuration.
      */
-    public DummyInternalTableImpl(ReplicaService replicaSvc, SchemaDescriptor schema) {
-        this(replicaSvc, new TestMvPartitionStorage(0), schema);
+    public DummyInternalTableImpl(ReplicaService replicaSvc, SchemaDescriptor schema, TransactionConfiguration txConfiguration) {
+        this(replicaSvc, new TestMvPartitionStorage(0), schema, txConfiguration);
     }
 
     /**
@@ -192,16 +185,18 @@ public class DummyInternalTableImpl extends InternalTableImpl {
      * @param replicaSvc Replica service.
      * @param mvPartStorage Multi version partition storage.
      * @param schema Schema descriptor.
+     * @param txConfiguration Transaction configuration.
      */
     public DummyInternalTableImpl(
             ReplicaService replicaSvc,
             MvPartitionStorage mvPartStorage,
-            SchemaDescriptor schema
+            SchemaDescriptor schema,
+            TransactionConfiguration txConfiguration
     ) {
         this(
                 replicaSvc,
                 mvPartStorage,
-                txManager(replicaSvc),
+                txManager(replicaSvc, txConfiguration),
                 false,
                 null,
                 schema,
@@ -425,8 +420,9 @@ public class DummyInternalTableImpl extends InternalTableImpl {
      * Creates a {@link TxManager}.
      *
      * @param replicaSvc Replica service to use.
+     * @param txConfiguration Transaction configuration.
      */
-    public static TxManagerImpl txManager(ReplicaService replicaSvc) {
+    public static TxManagerImpl txManager(ReplicaService replicaSvc, TransactionConfiguration txConfiguration) {
         TopologyService topologyService = mock(TopologyService.class);
         when(topologyService.localMember()).thenReturn(LOCAL_NODE);
 
@@ -435,6 +431,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
         when(clusterService.topologyService()).thenReturn(topologyService);
 
         var txManager = new TxManagerImpl(
+                txConfiguration,
                 clusterService,
                 replicaSvc,
                 new HeapLockManager(),

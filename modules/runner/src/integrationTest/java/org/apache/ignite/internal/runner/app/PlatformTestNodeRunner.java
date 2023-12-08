@@ -715,8 +715,9 @@ public class PlatformTestNodeRunner {
                                     if (enable) {
                                         change.changeProviders().create("basic", authenticationProviderChange -> {
                                             authenticationProviderChange.convert(BasicAuthenticationProviderChange.class)
-                                                    .changeUsername("user-1")
-                                                    .changePassword("password-1");
+                                                    .changeUsers(users ->
+                                                            users.create("user-1", user -> user.changePassword("password-1"))
+                                                    );
                                         });
                                     }
                                 }

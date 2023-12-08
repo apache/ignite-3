@@ -81,7 +81,7 @@ public interface TxManager extends IgniteComponent {
      * @deprecated Use lockManager directly.
      */
     @Deprecated
-    public LockManager lockManager();
+    LockManager lockManager();
 
     /**
      * Execute transaction cleanup asynchronously.

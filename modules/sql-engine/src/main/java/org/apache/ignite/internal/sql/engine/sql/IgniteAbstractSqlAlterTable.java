@@ -20,9 +20,6 @@ package org.apache.ignite.internal.sql.engine.sql;
 import java.util.Objects;
 import org.apache.calcite.sql.SqlDdl;
 import org.apache.calcite.sql.SqlIdentifier;
-import org.apache.calcite.sql.SqlKind;
-import org.apache.calcite.sql.SqlOperator;
-import org.apache.calcite.sql.SqlSpecialOperator;
 import org.apache.calcite.sql.SqlWriter;
 import org.apache.calcite.sql.parser.SqlParserPos;
 
@@ -33,30 +30,24 @@ public abstract class IgniteAbstractSqlAlterTable extends SqlDdl {
     /** SqlNode identifier name. */
     protected final SqlIdentifier name;
 
-    /** If exist flag. */
-    protected final boolean ifExists;
-
-    /** Alter operator. */
-    private static final SqlOperator OPERATOR =
-            new SqlSpecialOperator("ALTER TABLE", SqlKind.ALTER_TABLE);
-
     /** Constructor. */
-    public IgniteAbstractSqlAlterTable(SqlParserPos pos, boolean ifExists, SqlIdentifier tblName) {
-        super(OPERATOR, pos);
-        this.ifExists = ifExists;
+    protected IgniteAbstractSqlAlterTable(IgniteDdlOperator operator, SqlParserPos pos, SqlIdentifier tblName) {
+        super(operator, pos);
         name = Objects.requireNonNull(tblName, "table name");
     }
 
     /** {@inheritDoc} */
-    @Override public SqlOperator getOperator() {
-        return OPERATOR;
+    @Override
+    public IgniteDdlOperator getOperator() {
+        return (IgniteDdlOperator) super.getOperator();
     }
 
     /** {@inheritDoc} */
-    @Override public void unparse(SqlWriter writer, int leftPrec, int rightPrec) {
+    @Override
+    public void unparse(SqlWriter writer, int leftPrec, int rightPrec) {
         writer.keyword(getOperator().getName());
 
-        if (ifExists) {
+        if (ifExists()) {
             writer.keyword("IF EXISTS");
         }
 
@@ -85,6 +76,7 @@ public abstract class IgniteAbstractSqlAlterTable extends SqlDdl {
      * @return Whether the IF EXISTS is specified.
      */
     public boolean ifExists() {
-        return ifExists;
+        IgniteDdlOperator operator = getOperator();
+        return operator.existFlag();
     }
 }
