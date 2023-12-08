@@ -350,12 +350,10 @@ namespace Apache.Ignite.Tests.Compute
             var ex = Assert.ThrowsAsync<IgniteException>(async () =>
                 await Client.Compute.ExecuteAsync<object>(await GetNodeAsync(1), Units, CheckedExceptionJob, "foo-bar"));
 
-            // TODO: Check exception type
-            // TODO: Check Java exception type.
             Assert.AreEqual("TestCheckedEx: foo-bar", ex!.Message);
             Assert.IsNotNull(ex.InnerException);
 
-            StringAssert.Contains("org.apache.ignite.lang.IgniteCheckedException: IGN-CMN-1", ex.ToString());
+            StringAssert.Contains("org.apache.ignite.lang.IgniteCheckedException: IGN-CMN-5", ex.ToString());
         }
 
         [Test]

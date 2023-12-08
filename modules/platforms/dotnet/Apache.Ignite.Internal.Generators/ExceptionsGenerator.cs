@@ -99,7 +99,7 @@ namespace Apache.Ignite.Internal.Generators
 
             bool IsIgniteException(string? ex) =>
                 ex != null &&
-                (ex == "IgniteException" ||
+                (ex == "IgniteException" || ex == "IgniteCheckedException" ||
                  IsIgniteException(javaExceptionsWithParents.TryGetValue(ex, out var parent) ? parent.Parent : null));
         }
 

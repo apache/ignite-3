@@ -558,7 +558,7 @@ public class PlatformTestNodeRunner {
     private static class CheckedExceptionJob implements ComputeJob<String> {
         @Override
         public String execute(JobExecutionContext context, Object... args) {
-            throw new CompletionException(new IgniteCheckedException(Common.NODE_STOPPING_ERR, "TestCheckedEx: " + args[0]));
+            throw new CompletionException(new IgniteCheckedException(Common.NODE_LEFT_ERR, "TestCheckedEx: " + args[0]));
         }
     }
 
