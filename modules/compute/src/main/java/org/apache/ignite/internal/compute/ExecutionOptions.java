@@ -21,20 +21,28 @@ package org.apache.ignite.internal.compute;
  * Compute job execution options.
  */
 public class ExecutionOptions {
-    public static final ExecutionOptions DEFAULT = new ExecutionOptions(0);
+    public static final ExecutionOptions DEFAULT = new ExecutionOptions(0, 0);
 
     private final int priority;
+
+    private final int maxRetries;
 
     /**
      * Constructor.
      *
      * @param priority Job execution priority.
+     * @param maxRetries Number of times to retry job execution in case of failure, 0 to not retry.
      */
-    public ExecutionOptions(int priority) {
+    public ExecutionOptions(int priority, int maxRetries) {
         this.priority = priority;
+        this.maxRetries = maxRetries;
     }
 
     public int priority() {
         return priority;
+    }
+
+    public int maxRetries() {
+        return maxRetries;
     }
 }

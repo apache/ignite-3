@@ -80,7 +80,8 @@ public class ComputeExecutorImpl implements ComputeExecutor {
 
         QueueExecution<R> execution = executorService.submit(
                 () -> ComputeUtils.instantiateJob(jobClass).execute(context, args),
-                options.priority()
+                options.priority(),
+                options.maxRetries()
         );
 
         return new JobExecutionImpl<>(execution, isInterrupted);

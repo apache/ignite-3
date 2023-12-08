@@ -18,11 +18,16 @@
 package org.apache.ignite.internal.compute.executor;
 
 import static org.apache.ignite.compute.JobState.CANCELED;
+import static org.apache.ignite.compute.JobState.COMPLETED;
 import static org.apache.ignite.compute.JobState.EXECUTING;
+import static org.apache.ignite.compute.JobState.FAILED;
 import static org.apache.ignite.internal.testframework.matchers.JobStatusMatcher.jobStatusWithState;
 import static org.apache.ignite.internal.testframework.matchers.JobStatusMatcher.jobStatusWithStateAndCreateTimeStartTime;
 import static org.awaitility.Awaitility.await;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.is;
 
+import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.JobExecution;
@@ -111,6 +116,63 @@ class ComputeExecutorTest extends BaseIgniteAbstractTest {
                     Thread.currentThread().interrupt();
                 }
             }
+        }
+    }
+
+    @Test
+    void retryJobFail() {
+        AtomicInteger runTimes = new AtomicInteger();
+
+        int maxRetries = 5;
+
+        JobExecution<Integer> execution = computeExecutor.executeJob(
+                new ExecutionOptions(0, maxRetries),
+                RetryJobFail.class,
+                new Object[]{runTimes}
+        );
+
+        await().until(execution::status, jobStatusWithState(FAILED));
+
+        assertThat(runTimes.get(), is(maxRetries + 1));
+    }
+
+    private static class RetryJobFail implements ComputeJob<Integer> {
+
+        @Override
+        public Integer execute(JobExecutionContext context, Object... args) {
+            AtomicInteger runTimes = (AtomicInteger) args[0];
+            runTimes.incrementAndGet();
+            throw new RuntimeException();
+        }
+    }
+
+    @Test
+    void retryJobSuccess() {
+        AtomicInteger runTimes = new AtomicInteger();
+
+        int maxRetries = 5;
+
+        JobExecution<Integer> execution = computeExecutor.executeJob(
+                new ExecutionOptions(0, maxRetries),
+                RetryJobSuccess.class,
+                new Object[]{runTimes, maxRetries}
+        );
+
+        await().until(execution::status, jobStatusWithState(COMPLETED));
+
+        assertThat(runTimes.get(), is(maxRetries + 1));
+    }
+
+    private static class RetryJobSuccess implements ComputeJob<Integer> {
+
+        @Override
+        public Integer execute(JobExecutionContext context, Object... args) {
+            AtomicInteger runTimes = (AtomicInteger) args[0];
+            int maxRetries = (int) args[1];
+            if (runTimes.incrementAndGet() <= maxRetries) {
+                throw new RuntimeException();
+            }
+            return 0;
         }
     }
 
