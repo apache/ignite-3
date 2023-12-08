@@ -19,13 +19,13 @@ package org.apache.ignite.internal.sql.engine.sql;
 
 import java.util.List;
 import java.util.Objects;
+import org.apache.calcite.sql.SqlCall;
 import org.apache.calcite.sql.SqlCreate;
 import org.apache.calcite.sql.SqlIdentifier;
 import org.apache.calcite.sql.SqlKind;
+import org.apache.calcite.sql.SqlLiteral;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlNodeList;
-import org.apache.calcite.sql.SqlOperator;
-import org.apache.calcite.sql.SqlSpecialOperator;
 import org.apache.calcite.sql.SqlWriter;
 import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.util.ImmutableNullableList;
@@ -35,13 +35,30 @@ import org.jetbrains.annotations.Nullable;
  * Parse tree for {@code CREATE ZONE} statement with Ignite specific features.
  */
 public class IgniteSqlCreateZone extends SqlCreate {
+
+    /** CREATE ZONE operator. */
+    protected static class Operator extends IgniteDdlOperator {
+
+        /** Constructor. */
+        protected Operator(boolean existFlag) {
+            super("CREATE ZONE", SqlKind.OTHER_DDL, existFlag);
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public SqlCall createCall(@Nullable SqlLiteral functionQualifier,
+                SqlParserPos pos, @Nullable SqlNode... operands) {
+
+            return new IgniteSqlCreateZone(pos, existFlag(), (SqlIdentifier) operands[0],
+                    (SqlNodeList) operands[1], (SqlIdentifier) operands[2]);
+        }
+    }
+
     private final SqlIdentifier name;
 
     private final @Nullable SqlIdentifier engineName;
 
     private final @Nullable SqlNodeList createOptionList;
-
-    private static final SqlOperator OPERATOR = new SqlSpecialOperator("CREATE ZONE", SqlKind.OTHER_DDL);
 
     /** Creates a SqlCreateZone. */
     public IgniteSqlCreateZone(
@@ -51,7 +68,7 @@ public class IgniteSqlCreateZone extends SqlCreate {
             @Nullable SqlNodeList createOptionList,
             @Nullable SqlIdentifier engineName
     ) {
-        super(OPERATOR, pos, false, ifNotExists);
+        super(new Operator(ifNotExists), pos, false, ifNotExists);
 
         assert engineName == null || engineName.isSimple() : engineName;
 
@@ -61,10 +78,16 @@ public class IgniteSqlCreateZone extends SqlCreate {
     }
 
     /** {@inheritDoc} */
+    @Override
+    public IgniteDdlOperator getOperator() {
+        return (IgniteDdlOperator) super.getOperator();
+    }
+
+    /** {@inheritDoc} */
     @SuppressWarnings("nullness")
     @Override
     public List<SqlNode> getOperandList() {
-        return ImmutableNullableList.of(name, createOptionList);
+        return ImmutableNullableList.of(name, createOptionList, engineName);
     }
 
     /** {@inheritDoc} */
@@ -72,7 +95,7 @@ public class IgniteSqlCreateZone extends SqlCreate {
     public void unparse(SqlWriter writer, int leftPrec, int rightPrec) {
         writer.keyword("CREATE");
         writer.keyword("ZONE");
-        if (ifNotExists) {
+        if (ifNotExists()) {
             writer.keyword("IF NOT EXISTS");
         }
 

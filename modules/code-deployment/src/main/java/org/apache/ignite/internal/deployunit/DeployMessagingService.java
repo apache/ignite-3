@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.deployunit;
 
+import static java.util.concurrent.CompletableFuture.allOf;
+
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
@@ -24,13 +26,10 @@ import org.apache.ignite.compute.version.Version;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.deployunit.exception.DeploymentUnitReadException;
 import org.apache.ignite.internal.deployunit.message.DeployUnitMessageTypes;
+import org.apache.ignite.internal.deployunit.message.DeploymentUnitFactory;
 import org.apache.ignite.internal.deployunit.message.DownloadUnitRequest;
-import org.apache.ignite.internal.deployunit.message.DownloadUnitRequestImpl;
 import org.apache.ignite.internal.deployunit.message.DownloadUnitResponse;
-import org.apache.ignite.internal.deployunit.message.DownloadUnitResponseImpl;
 import org.apache.ignite.internal.deployunit.message.StopDeployRequest;
-import org.apache.ignite.internal.deployunit.message.StopDeployRequestImpl;
-import org.apache.ignite.internal.deployunit.message.StopDeployResponseImpl;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.network.ChannelType;
@@ -64,6 +63,8 @@ public class DeployMessagingService {
      * Tracker of deploy actions.
      */
     private final DownloadTracker tracker;
+
+    private final DeploymentUnitFactory messageFactory = new DeploymentUnitFactory();
 
     /**
      * Constructor.
@@ -108,7 +109,7 @@ public class DeployMessagingService {
      * @return Downloaded deployment unit content.
      */
     CompletableFuture<UnitContent> downloadUnitContent(String id, Version version, List<String> nodes) {
-        DownloadUnitRequest request = DownloadUnitRequestImpl.builder()
+        DownloadUnitRequest request = messageFactory.downloadUnitRequest()
                 .id(id)
                 .version(version.render())
                 .build();
@@ -137,34 +138,35 @@ public class DeployMessagingService {
      * @param version Deployment unit version.
      * @return Future with stop result.
      */
-    public CompletableFuture<Void> stopInProgressDeploy(String id, Version version) {
+    CompletableFuture<Void> stopInProgressDeploy(String id, Version version) {
         LOG.info("Stop in progress deploy for " + id + ":" + version);
-        return CompletableFuture.allOf(cmgManager.logicalTopology()
-                .thenApply(topology -> topology.nodes().stream().map(node ->
-                                clusterService.messagingService()
-                                        .invoke(node,
-                                                DEPLOYMENT_CHANNEL,
-                                                StopDeployRequestImpl
-                                                        .builder()
-                                                        .id(id)
-                                                        .version(version.render())
-                                                        .build(),
-                                                Long.MAX_VALUE)
-                        ).toArray(CompletableFuture[]::new)));
+
+        return cmgManager.logicalTopology()
+                .thenCompose(topology -> {
+                    StopDeployRequest request = messageFactory.stopDeployRequest()
+                            .id(id)
+                            .version(version.render())
+                            .build();
+
+                    CompletableFuture<?>[] sendFutures = topology.nodes().stream()
+                            .map(node -> clusterService.messagingService().invoke(node, DEPLOYMENT_CHANNEL, request, Long.MAX_VALUE))
+                            .toArray(CompletableFuture[]::new);
+
+                    return allOf(sendFutures);
+                });
     }
 
     private void processStopDeployRequest(StopDeployRequest request, String senderConsistentId, long correlationId) {
         tracker.cancelIfDownloading(request.id(), Version.parseVersion(request.version()));
         clusterService.messagingService()
-                .respond(senderConsistentId, StopDeployResponseImpl.builder().build(), correlationId);
-
+                .respond(senderConsistentId, messageFactory.stopDeployResponse().build(), correlationId);
     }
 
     private void processDownloadRequest(DownloadUnitRequest request, String senderConsistentId, long correlationId) {
         deployerService.getUnitContent(request.id(), Version.parseVersion(request.version()))
                 .thenApply(content -> clusterService.messagingService()
                         .respond(senderConsistentId,
-                                DownloadUnitResponseImpl.builder().unitContent(content).build(),
+                                messageFactory.downloadUnitResponse().unitContent(content).build(),
                                 correlationId)
                 );
     }

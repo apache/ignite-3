@@ -20,6 +20,7 @@ package org.apache.ignite.internal.tx.impl;
 import static java.util.Collections.emptyIterator;
 import static java.util.Collections.emptyList;
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.ACQUIRE_LOCK_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.ACQUIRE_LOCK_TIMEOUT_ERR;
 
@@ -368,7 +369,7 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
 
                         waiter.upgrade(prev);
 
-                        return new IgniteBiTuple<>(completedFuture(null), prev.lockMode());
+                        return new IgniteBiTuple(nullCompletedFuture(null), prev.lockMode());
                     } else {
                         waiter.upgrade(prev);
 

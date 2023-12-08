@@ -115,12 +115,14 @@ public class ClientAuthenticationTest extends BaseIgniteAbstractTest {
                 null);
 
         if (basicAuthn) {
-            securityConfiguration.change(change -> {
-                change.changeEnabled(true);
-                change.changeAuthentication().changeProviders().create("basic", authenticationProviderChange ->
-                        authenticationProviderChange.convert(BasicAuthenticationProviderChange.class)
-                                .changeUsername("usr")
-                                .changePassword("pwd"));
+            securityConfiguration.change(securityChange -> {
+                securityChange.changeEnabled(true);
+                securityChange.changeAuthentication().changeProviders().create("basic", change ->
+                        change.convert(BasicAuthenticationProviderChange.class)
+                                .changeUsers(users -> users.create("usr", user ->
+                                        user.changePassword("pwd"))
+                                )
+                );
             }).join();
         }
 

@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.tx.impl;
 
 import static java.util.concurrent.CompletableFuture.allOf;
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -28,6 +27,7 @@ import static org.apache.ignite.internal.tx.TxState.COMMITED;
 import static org.apache.ignite.internal.tx.TxState.PENDING;
 import static org.apache.ignite.internal.tx.TxState.checkTransitionCorrectness;
 import static org.apache.ignite.internal.tx.TxState.isFinalState;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.withCause;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
@@ -82,8 +82,10 @@ import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.TxStateMetaFinishing;
+import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.message.TxFinishReplicaRequest;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
+import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.network.ClusterService;
@@ -109,6 +111,9 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     /** Tx messages factory. */
     private static final TxMessagesFactory FACTORY = new TxMessagesFactory();
 
+    /** Transaction configuration. */
+    private final TransactionConfiguration txConfig;
+
     private final ReplicaService replicaService;
 
     /** Lock manager. */
@@ -123,8 +128,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     /** Generates transaction IDs. */
     private final TransactionIdGenerator transactionIdGenerator;
 
-    /** The local map for tx states. */
-    private final ConcurrentHashMap<UUID, TxStateMeta> txStateMap = new ConcurrentHashMap<>();
+    /** The local state storage. */
+    private final VolatileTxStateMetaStorage txStateVolatileStorage = new VolatileTxStateMetaStorage();
 
     /** Txn contexts. */
     private final ConcurrentHashMap<UUID, TxContext> txCtxMap = new ConcurrentHashMap<>(MAX_CONCURRENT_TXNS);
@@ -162,6 +167,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     /**
      * The constructor.
      *
+     * @param txConfig Transaction configuration.
      * @param clusterService Cluster service.
      * @param replicaService Replica service.
      * @param lockManager Lock manager.
@@ -171,6 +177,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
      * @param idleSafeTimePropagationPeriodMsSupplier Used to get idle safe time propagation period in ms.
      */
     public TxManagerImpl(
+            TransactionConfiguration txConfig,
             ClusterService clusterService,
             ReplicaService replicaService,
             LockManager lockManager,
@@ -179,6 +186,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             PlacementDriver placementDriver,
             LongSupplier idleSafeTimePropagationPeriodMsSupplier
     ) {
+        this.txConfig = txConfig;
         this.replicaService = replicaService;
         this.lockManager = lockManager;
         this.clock = clock;
@@ -268,12 +276,12 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
     @Override
     public TxStateMeta stateMeta(UUID txId) {
-        return txStateMap.get(txId);
+        return txStateVolatileStorage.state(txId);
     }
 
     @Override
     public TxStateMeta updateTxMeta(UUID txId, Function<TxStateMeta, TxStateMeta> updater) {
-        return txStateMap.compute(txId, (k, oldMeta) -> {
+        return txStateVolatileStorage.updateMeta(txId, oldMeta -> {
             TxStateMeta newMeta = updater.apply(oldMeta);
 
             if (newMeta == null) {
@@ -321,7 +329,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             // If there are no enlisted groups, just update local state - we already marked the tx as finished.
             updateTxMeta(txId, old -> coordinatorFinalTxStateMeta(commit, commitPartition, commitTimestamp(commit)));
 
-            return completedFuture(null);
+            return nullCompletedFuture();
         }
 
         // Here we put finishing state meta into the local map, so that all concurrent operations trying to read tx state
@@ -330,8 +338,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         // than all the read timestamps processed before.
         // Every concurrent operation will now use a finish future from the finishing state meta and get only final transaction
         // state after the transaction is finished.
-        TxStateMetaFinishing finishingStateMeta = (TxStateMetaFinishing) updateTxMeta(txId, old ->
-                new TxStateMetaFinishing(localNodeId, old == null ? null : old.commitPartitionId()));
+        TxStateMetaFinishing finishingStateMeta = (TxStateMetaFinishing) updateTxMeta(txId, TxStateMeta::finishing);
 
         TxContext tuple = txCtxMap.compute(txId, (uuid, tuple0) -> {
             if (tuple0 == null) {
@@ -370,7 +377,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         // given primaries are not expired or, in other words, whether commitTimestamp is less or equal to the enlisted primaries
         // expiration timestamps.
         CompletableFuture<Void> verificationFuture =
-                commit ? verifyCommitTimestamp(enlistedGroups, commitTimestamp) : completedFuture(null);
+                commit ? verifyCommitTimestamp(enlistedGroups, commitTimestamp) : nullCompletedFuture();
 
         return verificationFuture.handle(
                         (unused, throwable) -> {
@@ -456,7 +463,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                         }
                     }
 
-                    return CompletableFuture.<Void>completedFuture(null);
+                    return CompletableFutures.<Void>nullCompletedFuture();
                 })
                 .thenCompose(Function.identity()));
     }
@@ -551,15 +558,15 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
     @Override
     public int finished() {
-        return (int) txStateMap.entrySet().stream()
-                .filter(e -> isFinalState(e.getValue().txState()))
+        return (int) txStateVolatileStorage.states().stream()
+                .filter(e -> isFinalState(e.txState()))
                 .count();
     }
 
     @Override
     public int pending() {
-        return (int) txStateMap.entrySet().stream()
-                .filter(e -> e.getValue().txState() == PENDING)
+        return (int) txStateVolatileStorage.states().stream()
+                .filter(e -> e.txState() == PENDING)
                 .count();
     }
 
@@ -567,12 +574,16 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     public void start() {
         localNodeId = clusterService.topologyService().localMember().id();
         clusterService.messagingService().addMessageHandler(ReplicaMessageGroup.class, this);
-        orphanDetector.start(txStateMap::get);
+
+        txStateVolatileStorage.start();
+
+        orphanDetector.start(txStateVolatileStorage, txConfig.abandonedCheckTs());
     }
 
     @Override
     public void beforeNodeStop() {
         orphanDetector.stop();
+        txStateVolatileStorage.stop();
     }
 
     @Override
@@ -768,7 +779,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         }
 
         private CompletableFuture<Void> waitReadyToFinish(boolean commit) {
-            return commit ? waitNoInflights() : completedFuture(null);
+            return commit ? waitNoInflights() : nullCompletedFuture();
         }
 
         private CompletableFuture<Void> waitNoInflights() {

@@ -25,6 +25,7 @@ import static org.apache.ignite.internal.placementdriver.PlacementDriverManager.
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.utils.RebalanceUtil.STABLE_ASSIGNMENTS_PREFIX;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -347,7 +348,7 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
 
             leaseExpired.set(true);
 
-            return CompletableFuture.completedFuture(false);
+            return falseCompletedFuture();
         });
 
         Lease lease1 = checkLeaseCreated(grpPart0, true);

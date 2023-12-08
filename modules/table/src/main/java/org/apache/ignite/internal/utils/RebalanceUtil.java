@@ -26,6 +26,7 @@ import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.metastorage.dsl.Statements.iif;
 import static org.apache.ignite.internal.util.CollectionUtils.difference;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Collection;
@@ -218,7 +219,7 @@ public class RebalanceUtil {
                         return startPeerRemoval(partId, peerAssignment, metaStorageMgr);
                     }
 
-                    return CompletableFuture.completedFuture(null);
+                    return nullCompletedFuture();
                 });
     }
 
@@ -241,7 +242,7 @@ public class RebalanceUtil {
         Set<Assignment> switchReduce = ByteUtils.fromBytes(eventData);
 
         if (switchReduce.isEmpty()) {
-            return CompletableFuture.completedFuture(null);
+            return nullCompletedFuture();
         }
 
         Set<Assignment> assignments = AffinityUtils.calculateAssignmentForPartition(dataNodes, partId.partitionId(), replicas);

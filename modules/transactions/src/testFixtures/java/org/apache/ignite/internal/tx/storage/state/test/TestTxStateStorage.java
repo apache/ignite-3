@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal.tx.storage.state.test;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_STATE_STORAGE_REBALANCE_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_STATE_STORAGE_STOPPED_ERR;
 
@@ -143,7 +143,7 @@ public class TestTxStateStorage implements TxStateStorage {
 
     @Override
     public CompletableFuture<Void> flush() {
-        return completedFuture(null);
+        return nullCompletedFuture();
     }
 
     @Override
@@ -200,7 +200,7 @@ public class TestTxStateStorage implements TxStateStorage {
         CompletableFuture<Void> rebalanceFuture = rebalanceFutureReference.getAndSet(null);
 
         if (rebalanceFuture == null) {
-            return completedFuture(null);
+            return nullCompletedFuture();
         }
 
         return rebalanceFuture
@@ -239,7 +239,7 @@ public class TestTxStateStorage implements TxStateStorage {
         lastAppliedIndex = 0;
         lastAppliedTerm = 0;
 
-        return completedFuture(null);
+        return nullCompletedFuture();
     }
 
     private void checkStorageInProgreesOfRebalance() {
