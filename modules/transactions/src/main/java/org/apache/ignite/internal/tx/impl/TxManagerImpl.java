@@ -29,6 +29,7 @@ import static org.apache.ignite.internal.tx.TxState.checkTransitionCorrectness;
 import static org.apache.ignite.internal.tx.TxState.isFinalState;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.withCause;
+import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_UNAVAILABLE_ERR;
@@ -276,12 +277,12 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
     @Override
     public TxStateMeta stateMeta(UUID txId) {
-        return txStateVolatileStorage.state(txId);
+        return inBusyLock(busyLock, () -> txStateVolatileStorage.state(txId));
     }
 
     @Override
     public TxStateMeta updateTxMeta(UUID txId, Function<TxStateMeta, TxStateMeta> updater) {
-        return txStateVolatileStorage.updateMeta(txId, oldMeta -> {
+        return inBusyLock(busyLock, () -> txStateVolatileStorage.updateMeta(txId, oldMeta -> {
             TxStateMeta newMeta = updater.apply(oldMeta);
 
             if (newMeta == null) {
@@ -291,7 +292,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             TxState oldState = oldMeta == null ? null : oldMeta.txState();
 
             return checkTransitionCorrectness(oldState, newMeta.txState()) ? newMeta : oldMeta;
-        });
+        }));
     }
 
     @Override
@@ -556,16 +557,16 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
     @Override
     public int finished() {
-        return (int) txStateVolatileStorage.states().stream()
+        return inBusyLock(busyLock, () -> (int) txStateVolatileStorage.states().stream()
                 .filter(e -> isFinalState(e.txState()))
-                .count();
+                .count());
     }
 
     @Override
     public int pending() {
-        return (int) txStateVolatileStorage.states().stream()
+        return inBusyLock(busyLock, () -> (int) txStateVolatileStorage.states().stream()
                 .filter(e -> e.txState() == PENDING)
-                .count();
+                .count());
     }
 
     @Override
@@ -816,8 +817,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         );
 
         /**
-         * Check if the provided exception is recoverable.
-         * A recoverable transaction is the one that we can send a 'retry' request for.
+         * Check if the provided exception is recoverable. A recoverable transaction is the one that we can send a 'retry' request for.
          *
          * @param throwable Exception to test.
          * @return {@code true} if recoverable, {@code false} otherwise.
