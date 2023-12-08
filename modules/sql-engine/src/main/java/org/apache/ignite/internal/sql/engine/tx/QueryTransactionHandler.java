@@ -29,11 +29,11 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Starts an implicit transaction if there is no external transaction.
  */
-public class QueryTransactionContext {
-    private final IgniteTransactions transactions;
-    private final @Nullable InternalTransaction tx;
+public class QueryTransactionHandler {
+    final IgniteTransactions transactions;
+    final @Nullable InternalTransaction tx;
 
-    public QueryTransactionContext(IgniteTransactions transactions, @Nullable InternalTransaction tx) {
+    public QueryTransactionHandler(IgniteTransactions transactions, @Nullable InternalTransaction tx) {
         this.transactions = transactions;
         this.tx = tx;
     }
@@ -45,7 +45,7 @@ public class QueryTransactionContext {
      * @return Transaction wrapper.
      */
     public QueryTransactionWrapper startTxIfNeeded(SqlQueryType queryType) {
-        InternalTransaction activeTx = tx;
+        InternalTransaction activeTx = activeTransaction();
 
         if (activeTx == null) {
             return new QueryTransactionWrapperImpl((InternalTransaction) transactions.begin(
@@ -57,11 +57,7 @@ public class QueryTransactionContext {
         return new QueryTransactionWrapperImpl(activeTx, false);
     }
 
-    IgniteTransactions transactions() {
-        return transactions;
-    }
-
-    @Nullable InternalTransaction tx() {
+    protected @Nullable InternalTransaction activeTransaction() {
         return tx;
     }
 
