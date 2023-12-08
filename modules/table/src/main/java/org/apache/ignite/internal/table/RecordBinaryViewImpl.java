@@ -34,7 +34,6 @@ import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.sql.SyncResultSetAdapter;
 import org.apache.ignite.internal.streamer.StreamerBatchSender;
 import org.apache.ignite.internal.table.criteria.ClosableSessionAsyncResultSet;
-import org.apache.ignite.internal.table.criteria.SqlSerializer;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.lang.IgniteException;
@@ -450,15 +449,12 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
             @Nullable Criteria criteria,
             CriteriaQueryOptions opts
     ) {
-        var ser = new SqlSerializer.Builder()
-                .tableName(tbl.name())
-                .where(criteria)
-                .build();
+        var query = "SELECT * FROM " + tbl.name();
 
-        var statement = tbl.sql().statementBuilder().query(ser.toString()).pageSize(opts.pageSize()).build();
+        var statement = tbl.sql().statementBuilder().query(query).pageSize(opts.pageSize()).build();
         var session = tbl.sql().createSession();
 
-        return session.executeAsync(tx, statement, ser.getArguments())
+        return session.executeAsync(tx, statement)
                 .thenApply(resultSet -> new ClosableSessionAsyncResultSet<>(session, resultSet));
     }
 

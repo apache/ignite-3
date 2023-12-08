@@ -17,15 +17,9 @@
 
 package org.apache.ignite.internal.runner.app.client;
 
-import static org.apache.ignite.internal.table.criteria.CriteriaElement.equalTo;
-import static org.apache.ignite.internal.table.criteria.Criterias.columnValue;
-import static org.apache.ignite.internal.table.criteria.Criterias.not;
 import static org.apache.ignite.table.criteria.CriteriaQueryOptions.builder;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.hasItem;
-import static org.hamcrest.Matchers.hasProperty;
 import static org.hamcrest.Matchers.hasSize;
-import static org.hamcrest.Matchers.not;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.nio.file.Path;
@@ -35,7 +29,6 @@ import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
 import org.hamcrest.FeatureMatcher;
 import org.hamcrest.Matcher;
-import org.hamcrest.Matchers;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -62,14 +55,6 @@ public class ItThinClientCriteriaQueryTest extends ItAbstractThinClientTest {
         var res = view.queryCriteria(null, null).getAll();
         assertThat(res, hasSize(3));
 
-        res = view.queryCriteria(null, columnValue(COLUMN_KEY, equalTo(2))).getAll();
-        assertThat(res, hasSize(1));
-        assertThat(res, hasItem(tupleValue(COLUMN_KEY, Matchers.equalTo(2))));
-
-        res = view.queryCriteria(null, not(columnValue(COLUMN_KEY, equalTo(2)))).getAll();
-        assertThat(res, hasSize(2));
-        assertThat(res, not(hasItem(tupleValue(COLUMN_KEY, Matchers.equalTo(2)))));
-
         var ars = view.queryCriteriaAsync(null, null, builder().pageSize(2).build()).join();
         assertEquals(2, ars.currentPageSize());
     }
@@ -80,14 +65,6 @@ public class ItThinClientCriteriaQueryTest extends ItAbstractThinClientTest {
 
         var res = view.queryCriteria(null, null).getAll();
         assertThat(res, hasSize(3));
-
-        res = view.queryCriteria(null, columnValue(COLUMN_KEY, equalTo(2))).getAll();
-        assertThat(res, hasSize(1));
-        assertThat(res, hasItem(hasProperty(COLUMN_KEY, Matchers.equalTo(2))));
-
-        res = view.queryCriteria(null, not(columnValue(COLUMN_KEY, equalTo(2)))).getAll();
-        assertThat(res, hasSize(2));
-        assertThat(res, not(hasItem(hasProperty(COLUMN_KEY, Matchers.equalTo(2)))));
 
         var ars = view.queryCriteriaAsync(null, null, builder().pageSize(2).build()).join();
         assertEquals(2, ars.currentPageSize());

@@ -17,16 +17,10 @@
 
 package org.apache.ignite.internal.table;
 
-import static org.apache.ignite.internal.table.criteria.CriteriaElement.equalTo;
-import static org.apache.ignite.internal.table.criteria.Criterias.columnValue;
-import static org.apache.ignite.internal.table.criteria.Criterias.not;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.hasItem;
-import static org.hamcrest.Matchers.hasProperty;
 import static org.hamcrest.Matchers.hasSize;
-import static org.hamcrest.Matchers.not;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import java.nio.file.Path;
@@ -46,7 +40,6 @@ import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
 import org.hamcrest.FeatureMatcher;
 import org.hamcrest.Matcher;
-import org.hamcrest.Matchers;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -122,31 +115,15 @@ public class ItCriteriaQueryTest extends BaseIgniteAbstractTest {
 
         var res = view.queryCriteria(null, null).getAll();
         assertThat(res, hasSize(15));
-
-        res = view.queryCriteria(null, columnValue(COLUMN_KEY, equalTo(2))).getAll();
-        assertThat(res, hasSize(1));
-        assertThat(res, hasItem(tupleValue(COLUMN_KEY, Matchers.equalTo(2))));
-
-        res = view.queryCriteria(null, not(columnValue(COLUMN_KEY, equalTo(2)))).getAll();
-        assertThat(res, hasSize(14));
-        assertThat(res, not(hasItem(tupleValue(COLUMN_KEY, Matchers.equalTo(2)))));
     }
 
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18695")
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20977")
     @Test
     public void testBasicQueryCriteriaRecordPojoView() {
         RecordView<TestPojo> view = node.tables().table(TABLE_NAME).recordView(TestPojo.class);
 
         var res = view.queryCriteria(null, null).getAll();
         assertThat(res, hasSize(15));
-
-        res = view.queryCriteria(null, columnValue(COLUMN_KEY, equalTo(2))).getAll();
-        assertThat(res, hasSize(1));
-        assertThat(res, hasItem(hasProperty(COLUMN_KEY, Matchers.equalTo(2))));
-
-        res = view.queryCriteria(null, not(columnValue(COLUMN_KEY, equalTo(2)))).getAll();
-        assertThat(res, hasSize(14));
-        assertThat(res, not(hasItem(hasProperty(COLUMN_KEY, Matchers.equalTo(2)))));
     }
 
     private static void startTable(Ignite node, String tableName) {

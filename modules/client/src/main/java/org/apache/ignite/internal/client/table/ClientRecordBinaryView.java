@@ -34,7 +34,6 @@ import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.sql.SyncResultSetAdapter;
 import org.apache.ignite.internal.streamer.StreamerBatchSender;
 import org.apache.ignite.internal.table.criteria.ClosableSessionAsyncResultSet;
-import org.apache.ignite.internal.table.criteria.SqlSerializer;
 import org.apache.ignite.sql.ClosableCursor;
 import org.apache.ignite.sql.async.AsyncClosableCursor;
 import org.apache.ignite.sql.async.AsyncResultSet;
@@ -395,15 +394,12 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
             @Nullable Criteria criteria,
             CriteriaQueryOptions opts
     ) {
-        var sqlSer = new SqlSerializer.Builder()
-                .tableName(tbl.name())
-                .where(criteria)
-                .build();
+        var query = "SELECT * FROM " + tbl.name();
 
-        var statement = tbl.sql().statementBuilder().query(sqlSer.toString()).pageSize(opts.pageSize()).build();
+        var statement = tbl.sql().statementBuilder().query(query).pageSize(opts.pageSize()).build();
         var session = tbl.sql().createSession();
 
-        return session.executeAsync(tx, statement, sqlSer.getArguments())
+        return session.executeAsync(tx, statement)
                 .thenApply(resultSet -> new ClosableSessionAsyncResultSet<>(session, resultSet));
     }
 
