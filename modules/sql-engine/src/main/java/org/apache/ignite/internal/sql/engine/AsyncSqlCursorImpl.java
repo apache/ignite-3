@@ -47,7 +47,6 @@ public class AsyncSqlCursorImpl<T> implements AsyncSqlCursor<T> {
     private final AsyncCursor<T> dataCursor;
     private final Runnable onClose;
     private final CompletableFuture<AsyncSqlCursor<T>> nextStatement;
-    private volatile Supplier<CompletableFuture<Void>> closeHnd;
 
     /**
      * Constructor.
