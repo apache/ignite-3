@@ -17,8 +17,10 @@
 
 package org.apache.ignite.internal.client.proto;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.Test;
 
@@ -26,39 +28,19 @@ import org.junit.jupiter.api.Test;
  * Column type converter tests.
  */
 public class ColumnTypeConverterTest {
-    /**
-     * Client protocol relies on this order of column types. Do not change.
-     * If a change to ColumnType enum is required, fix ColumnTypeConverter.
-     */
-    private static final ColumnType[] EXPECTED_VALS = {
-            ColumnType.BOOLEAN,
-            ColumnType.INT8,
-            ColumnType.INT16,
-            ColumnType.INT32,
-            ColumnType.INT64,
-            ColumnType.FLOAT,
-            ColumnType.DOUBLE,
-            ColumnType.DECIMAL,
-            ColumnType.DATE,
-            ColumnType.TIME,
-            ColumnType.DATETIME,
-            ColumnType.TIMESTAMP,
-            ColumnType.UUID,
-            ColumnType.BITMASK,
-            ColumnType.STRING,
-            ColumnType.BYTE_ARRAY,
-            ColumnType.PERIOD,
-            ColumnType.DURATION,
-            ColumnType.NUMBER
-    };
-
     @Test
     public void testColumnTypeConverter() {
-        for (int i = 0; i < EXPECTED_VALS.length; i++) {
-            ColumnType expectedVal = EXPECTED_VALS[i];
-            ColumnType actualVal = ColumnTypeConverter.fromOrdinalOrThrow(i);
-
-            assertEquals(expectedVal, actualVal);
+        ColumnType[] values = ColumnType.values();
+        for (ColumnType value : values) {
+            assertSame(value, ColumnTypeConverter.fromIdOrThrow(value.id()));
         }
+    }
+
+    @Test
+    public void testColumnTypeConverterForUnknownId() {
+        assertThrows(IgniteException.class, () -> ColumnTypeConverter.fromIdOrThrow(-1));
+        assertThrows(IgniteException.class, () -> ColumnTypeConverter.fromIdOrThrow(Integer.MAX_VALUE));
+        assertThrows(IgniteException.class, () -> ColumnTypeConverter.fromIdOrThrow(Integer.MIN_VALUE));
+
     }
 }

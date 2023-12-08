@@ -563,7 +563,7 @@ public class PlatformTestNodeRunner {
             var reader = new BinaryTupleReader(columnCount * 3, buf);
 
             for (int i = 0; i < columnCount; i++) {
-                var type = ColumnTypeConverter.fromOrdinalOrThrow(reader.intValue(i * 3));
+                var type = ColumnTypeConverter.fromIdOrThrow(reader.intValue(i * 3));
                 var scale = reader.intValue(i * 3 + 1);
                 var valIdx = i * 3 + 2;
 

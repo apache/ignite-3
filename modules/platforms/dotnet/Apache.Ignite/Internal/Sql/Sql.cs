@@ -93,6 +93,7 @@ namespace Apache.Ignite.Internal.Sql
 
             return col.Type switch
             {
+                ColumnType.Null => null,
                 ColumnType.Boolean => reader.GetBool(idx),
                 ColumnType.Int8 => reader.GetByte(idx),
                 ColumnType.Int16 => reader.GetShort(idx),

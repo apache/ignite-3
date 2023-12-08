@@ -613,6 +613,17 @@ public class ClientMessagePacker implements AutoCloseable {
      */
     public void packBinaryTuple(BinaryTupleBuilder builder) {
         ByteBuffer buf = builder.build();
+        packByteBuffer(buf);
+    }
+
+    /**
+     * Pack ByteBuffer.
+     *
+     * @param buf ByteBuffer object.
+     */
+    public void packByteBuffer(ByteBuffer buf) {
+        assert !closed : "Packer is closed";
+
         packBinaryHeader(buf.limit() - buf.position());
         writePayload(buf);
     }
