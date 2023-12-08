@@ -77,8 +77,6 @@ import org.apache.ignite.internal.table.RecordBinaryViewImpl;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.lang.ErrorGroup;
-import org.apache.ignite.lang.ErrorGroups;
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.IgniteCheckedException;
 import org.apache.ignite.sql.Session;
