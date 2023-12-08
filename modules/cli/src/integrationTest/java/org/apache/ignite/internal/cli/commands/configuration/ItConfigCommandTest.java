@@ -119,7 +119,7 @@ class ItConfigCommandTest extends CliCommandTestInitializedIntegrationBase {
     @DisplayName("Should update config with key-value format when valid cluster-endpoint-url is given")
     void updateClusterConfigWithoutQuoting() {
         execute("cluster", "config", "update", "--cluster-endpoint-url", NODE_URL,
-                "security.authentication.providers.basic1={type=basic,username=asd,password=asadf}");
+                "security.authentication.providers.default={type=basic,users=[{username=asd,password=pass1}]}");
 
         assertAll(
                 this::assertExitCodeIsZero,
@@ -130,7 +130,7 @@ class ItConfigCommandTest extends CliCommandTestInitializedIntegrationBase {
 
         //Emulate config with spaces
         execute("cluster", "config", "update", "--cluster-endpoint-url", NODE_URL,
-                "security.authentication.providers.basic2", "=", "{", "type=basic,", "username=asd,", "password=asadf}");
+                "security.authentication.providers.default", "=", "{", "type=basic,", "users=[{", "username=asd,", "password=pass2}]}");
 
         assertAll(
                 this::assertExitCodeIsZero,
@@ -144,7 +144,7 @@ class ItConfigCommandTest extends CliCommandTestInitializedIntegrationBase {
     void updateClusterWithQuotedArgs() {
         //Emulate quoting config
         execute("cluster", "config", "update", "--cluster-endpoint-url", NODE_URL,
-                "\"security.authentication.providers.basic3={type=basic,username=asd,password=asadf}\"");
+                "\"security.authentication.providers.default={type=basic,users=[{username=asd,password=pass3}]}\"");
 
         assertAll(
                 this::assertExitCodeIsZero,
@@ -154,7 +154,7 @@ class ItConfigCommandTest extends CliCommandTestInitializedIntegrationBase {
 
         //Emulate quoting config
         execute("cluster", "config", "update", "--cluster-endpoint-url", NODE_URL,
-                "\"security.authentication.providers.basic4\"", "\"={type=basic,username=asd,password=asadf}\"");
+                "\"security.authentication.providers.default\"", "\"={type=basic,users=[{username=asd,password=pass4}]}\"");
 
         assertAll(
                 this::assertExitCodeIsZero,
@@ -164,7 +164,7 @@ class ItConfigCommandTest extends CliCommandTestInitializedIntegrationBase {
 
         //Emulate quoting config
         execute("cluster", "config", "update", "--cluster-endpoint-url", NODE_URL,
-                "security.authentication.providers.basic5", "\"={type=basic,username=asd,password=asadf}\"");
+                "security.authentication.providers.default", "\"={type=basic,users=[{username=asd,password=pass5}]}\"");
 
         assertAll(
                 this::assertExitCodeIsZero,
@@ -177,7 +177,7 @@ class ItConfigCommandTest extends CliCommandTestInitializedIntegrationBase {
     @DisplayName("Test using arguments in parameters")
     void useOptionsInArguments() {
         execute("cluster", "config", "update", "--cluster-endpoint-url", NODE_URL,
-                "security.authentication.providers.basic6={type=basic,username:", "--verbose,", "password=--verbose}");
+                "security.authentication.providers.default={type=basic,users=[{username:", "--verbose,", "password=--verbose}]}");
 
         assertAll(
                 () -> assertExitCodeIs(2),
@@ -188,7 +188,7 @@ class ItConfigCommandTest extends CliCommandTestInitializedIntegrationBase {
         resetOutput();
 
         execute("cluster", "config", "update", "--cluster-endpoint-url", NODE_URL,
-                "\"security.authentication.providers.basic7={type=basic,username: --verbose, password=--verbose}\"");
+                "\"security.authentication.providers.default={type=basic,users=[{username: --verbose, password=--verbose}]}\"");
 
         assertAll(
                 this::assertExitCodeIsZero,

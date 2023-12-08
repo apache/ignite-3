@@ -28,7 +28,7 @@ import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.validation.Validator;
 import org.apache.ignite.internal.security.authentication.basic.BasicAuthenticationProviderChange;
 import org.apache.ignite.internal.security.authentication.basic.BasicAuthenticationProviderConfigurationSchema;
-import org.apache.ignite.internal.security.authentication.configuration.validator.AuthenticationProvidersValidatorImpl;
+import org.apache.ignite.internal.security.authentication.validator.AuthenticationProvidersValidatorImpl;
 import org.apache.ignite.internal.security.configuration.SecurityConfiguration;
 
 /**
@@ -36,7 +36,7 @@ import org.apache.ignite.internal.security.configuration.SecurityConfiguration;
  */
 @AutoService(ConfigurationModule.class)
 public class SecurityConfigurationModule implements ConfigurationModule {
-    private static final String DEFAULT_PROVIDER_NAME = "default";
+    public static final String DEFAULT_PROVIDER_NAME = "default";
 
     private static final String DEFAULT_USERNAME = "ignite";
 
@@ -66,11 +66,12 @@ public class SecurityConfigurationModule implements ConfigurationModule {
     public void patchConfigurationWithDynamicDefaults(SuperRootChange rootChange) {
         rootChange.changeRoot(SecurityConfiguration.KEY).changeAuthentication(authenticationChange -> {
             if (authenticationChange.changeProviders().size() == 0) {
-                authenticationChange.changeProviders().create(DEFAULT_PROVIDER_NAME, change -> {
-                    change.convert(BasicAuthenticationProviderChange.class)
-                            .changeUsername(DEFAULT_USERNAME)
-                            .changePassword(DEFAULT_PASSWORD);
-                });
+                authenticationChange.changeProviders().create(DEFAULT_PROVIDER_NAME, change ->
+                        change.convert(BasicAuthenticationProviderChange.class)
+                                .changeUsers(users -> users.create(DEFAULT_USERNAME, user ->
+                                        user.changePassword(DEFAULT_PASSWORD))
+                                )
+                );
             }
         });
     }

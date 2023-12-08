@@ -161,6 +161,7 @@ import org.apache.ignite.internal.tx.message.TxRecoveryMessage;
 import org.apache.ignite.internal.tx.message.TxStateCommitPartitionRequest;
 import org.apache.ignite.internal.tx.message.WriteIntentSwitchReplicaRequest;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
+import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.CursorUtils;
 import org.apache.ignite.internal.util.ExceptionUtils;
@@ -949,17 +950,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 resolutionFuts[i] = resolveRowByPkForReadOnly(primaryKeys.get(i), readTimestamp);
             }
 
-            return allOf(resolutionFuts).thenApply(unused1 -> {
-                var result = new ArrayList<BinaryRow>(resolutionFuts.length);
-
-                for (CompletableFuture<BinaryRow> resolutionFut : resolutionFuts) {
-                    BinaryRow resolvedReadResult = resolutionFut.join();
-
-                    result.add(resolvedReadResult);
-                }
-
-                return result;
-            });
+            return CompletableFutures.allOf(resolutionFuts);
         });
     }
 
@@ -2018,25 +2009,13 @@ public class PartitionReplicaListener implements ReplicaListener {
                     format("Unknown single request [actionType={}]", request.requestType()));
         }
 
-        var resolutionFuts = new ArrayList<CompletableFuture<BinaryRow>>(primaryKeys.size());
+        CompletableFuture<BinaryRow>[] resolutionFuts = new CompletableFuture[primaryKeys.size()];
 
-        for (BinaryTuple primaryKey : primaryKeys) {
-            CompletableFuture<BinaryRow> fut = resolveRowByPkForReadOnly(primaryKey, readTimestamp);
-
-            resolutionFuts.add(fut);
+        for (int i = 0; i < primaryKeys.size(); i++) {
+            resolutionFuts[i] = resolveRowByPkForReadOnly(primaryKeys.get(i), readTimestamp);
         }
 
-        return allOf(resolutionFuts.toArray(new CompletableFuture[0])).thenApply(unused1 -> {
-            var result = new ArrayList<BinaryRow>(resolutionFuts.size());
-
-            for (CompletableFuture<BinaryRow> resolutionFut : resolutionFuts) {
-                BinaryRow resolvedReadResult = resolutionFut.join();
-
-                result.add(resolvedReadResult);
-            }
-
-            return result;
-        });
+        return CompletableFutures.allOf(resolutionFuts);
     }
 
     /**
