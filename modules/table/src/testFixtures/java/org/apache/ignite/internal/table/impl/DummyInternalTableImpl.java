@@ -103,10 +103,12 @@ import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.TopologyService;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Dummy table storage implementation.
  */
+@TestOnly
 public class DummyInternalTableImpl extends InternalTableImpl {
     public static final IgniteLogger LOG = Loggers.forClass(DummyInternalTableImpl.class);
 
@@ -153,6 +155,23 @@ public class DummyInternalTableImpl extends InternalTableImpl {
      */
     public DummyInternalTableImpl(ReplicaService replicaSvc, SchemaDescriptor schema, TransactionConfiguration txConfiguration) {
         this(replicaSvc, new TestMvPartitionStorage(0), schema, new TestPlacementDriver(LOCAL_NODE), txConfiguration);
+    }
+
+    /**
+     * Creates a new local table.
+     *
+     * @param replicaSvc Replica service.
+     * @param storage Storage.
+     * @param schema Schema.
+     * @param txConfiguration Transaction configuration.
+     */
+    public DummyInternalTableImpl(
+            ReplicaService replicaSvc,
+            MvPartitionStorage storage,
+            SchemaDescriptor schema,
+            TransactionConfiguration txConfiguration
+    ) {
+        this(replicaSvc, storage, schema, new TestPlacementDriver(LOCAL_NODE), txConfiguration);
     }
 
     /**

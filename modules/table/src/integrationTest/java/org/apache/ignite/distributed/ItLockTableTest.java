@@ -40,6 +40,7 @@ import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.tx.DeadlockPreventionPolicy;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager.LockState;
 import org.apache.ignite.internal.tx.impl.HeapUnboundedLockManager;
@@ -92,6 +93,9 @@ public class ItLockTableTest extends IgniteAbstractTest {
     @InjectConfiguration
     protected static GcConfiguration gcConfig;
 
+    @InjectConfiguration
+    protected static TransactionConfiguration txConfiguration;
+
     private ItTxTestCluster txTestCluster;
 
     private HybridTimestampTracker timestampTracker = new HybridTimestampTracker();
@@ -110,6 +114,7 @@ public class ItLockTableTest extends IgniteAbstractTest {
         txTestCluster = new ItTxTestCluster(
                 testInfo,
                 raftConfiguration,
+                txConfiguration,
                 workDir,
                 1,
                 1,
@@ -126,6 +131,7 @@ public class ItLockTableTest extends IgniteAbstractTest {
                     PlacementDriver placementDriver
             ) {
                 return new TxManagerImpl(
+                        txConfiguration,
                         clusterService,
                         replicaSvc,
                         new HeapLockManager(

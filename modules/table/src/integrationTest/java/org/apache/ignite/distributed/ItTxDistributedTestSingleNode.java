@@ -78,7 +78,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
     protected RaftConfiguration raftConfiguration;
 
     @InjectConfiguration
-    protected static TransactionConfiguration txConfiguration;
+    protected TransactionConfiguration txConfiguration;
 
     /**
      * Returns a count of nodes.
