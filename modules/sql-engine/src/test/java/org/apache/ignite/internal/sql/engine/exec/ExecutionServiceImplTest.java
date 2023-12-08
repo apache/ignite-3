@@ -738,7 +738,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         }));
 
         InternalTransaction tx = new NoOpTransaction(nodeNames.get(0));
-        AsyncCursor<List<Object>> cursor = execService.executePlan(tx, plan, ctx);
+        AsyncCursor<InternalSqlRow> cursor = execService.executePlan(tx, plan, ctx);
 
         startResponseLatch.await(TIMEOUT_IN_MS, TimeUnit.MILLISECONDS);
 

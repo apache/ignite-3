@@ -524,11 +524,11 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             }
             buf.nl();
 
-            CompletableFuture<AsyncRootNode<RowT, List<Object>>> rootNodeFut = mgr.root;
+            CompletableFuture<AsyncRootNode<RowT, InternalSqlRow>> rootNodeFut = mgr.root;
             if (rootNodeFut != null) {
                 buf.app("  Root node state: ");
                 try {
-                    AsyncRootNode<RowT, List<Object>> rootNode = rootNodeFut.getNow(null);
+                    AsyncRootNode<RowT, InternalSqlRow> rootNode = rootNodeFut.getNow(null);
                     if (rootNode != null) {
                         if (rootNode.isClosed()) {
                             buf.app("closed");
