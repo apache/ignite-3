@@ -32,6 +32,7 @@ import com.facebook.presto.bytecode.expression.BytecodeExpressions;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
 import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.EnumSet;
@@ -64,7 +65,9 @@ class ObjectMarshallerCodeGenerator implements MarshallerCodeGenerator {
         this.targetClass = targetClass;
         columnAccessors = new ColumnAccessCodeGenerator[columns.length];
 
+        // TODO: Column list should come from mapper?
         Map<String, Field> flds = Arrays.stream(targetClass.getDeclaredFields())
+                .filter(fld -> !Modifier.isStatic(fld.getModifiers()) && !Modifier.isTransient(fld.getModifiers()))
                 .collect(Collectors.toMap(f -> f.getName().toUpperCase(), Function.identity()));
 
         if (flds.size() > columns.length) {
@@ -74,7 +77,6 @@ class ObjectMarshallerCodeGenerator implements MarshallerCodeGenerator {
 
             var fldNames = flds.values().stream().map(Field::getName).sorted().collect(Collectors.toList());
 
-            // TODO: Exclude static and transient fields from the list.
             throw new IllegalArgumentException(
                     "Fields " + fldNames + " of type " + targetClass.getName() + " are not mapped to columns");
         }

@@ -152,7 +152,6 @@ public abstract class Marshaller {
                     fieldSet.remove(fieldName);
                 }
 
-                // TODO: Exclude static and transient fields from the list.
                 throw new IllegalArgumentException(
                         String.format("Fields %s of type %s are not mapped to columns", fieldSet, mapper.targetType().getName()),
                         new UnmappedColumnsException()
