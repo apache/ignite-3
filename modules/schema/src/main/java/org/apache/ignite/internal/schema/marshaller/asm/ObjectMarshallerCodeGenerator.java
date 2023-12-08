@@ -65,12 +65,14 @@ class ObjectMarshallerCodeGenerator implements MarshallerCodeGenerator {
         columnAccessors = new ColumnAccessCodeGenerator[columns.length];
 
         Map<String, Field> flds = new HashMap<>();
-        for (String fieldName : mapper.fields()) {
+        for (String fldName : mapper.fields()) {
             try {
-                Field field = mapper.targetType().getDeclaredField(fieldName);
-                flds.put(fieldName.toUpperCase(), field);
+                Field field = mapper.targetType().getDeclaredField(fldName);
+                flds.put(fldName.toUpperCase(), field);
             } catch (NoSuchFieldException e) {
-                throw new RuntimeException(e);
+                throw new IllegalArgumentException(
+                        "Field " + fldName + " is returned from mapper of type " + mapper.getClass().getName()
+                                + ", but is not present in target class " + mapper.targetType().getName(), e);
             }
         }
 
