@@ -28,7 +28,7 @@ void check_primitive_type(ignite_type expected) {
 }
 
 TEST(primitive, get_column_type) {
-    check_primitive_type<nullptr_t>(ignite_type::UNDEFINED);
+    check_primitive_type<nullptr_t>(ignite_type::NIL);
     check_primitive_type<bool>(ignite_type::BOOLEAN);
     check_primitive_type<int8_t>(ignite_type::INT8);
     check_primitive_type<int16_t>(ignite_type::INT16);
@@ -52,12 +52,12 @@ TEST(primitive, get_column_type) {
 
 TEST(primitive, null_value_by_nullptr) {
     primitive val(nullptr);
-    EXPECT_EQ(val.get_type(), ignite_type::UNDEFINED);
+    EXPECT_EQ(val.get_type(), ignite_type::NIL);
     EXPECT_TRUE(val.is_null());
 }
 
 TEST(primitive, null_value_by_nullopt) {
     primitive val(std::nullopt);
-    EXPECT_EQ(val.get_type(), ignite_type::UNDEFINED);
+    EXPECT_EQ(val.get_type(), ignite_type::NIL);
     EXPECT_TRUE(val.is_null());
 }

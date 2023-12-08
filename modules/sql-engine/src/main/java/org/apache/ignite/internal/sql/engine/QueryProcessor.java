@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine;
 
-import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.sql.engine.property.SqlProperties;
@@ -46,7 +45,7 @@ public interface QueryProcessor extends IgniteComponent {
      * @throws IgniteException in case of an error.
      * @see QueryProperty
      */
-    CompletableFuture<AsyncSqlCursor<List<Object>>> querySingleAsync(
+    CompletableFuture<AsyncSqlCursor<InternalSqlRow>> querySingleAsync(
             SqlProperties properties,
             IgniteTransactions transactions,
             @Nullable InternalTransaction transaction,
@@ -68,7 +67,7 @@ public interface QueryProcessor extends IgniteComponent {
      * @throws IgniteException in case of an error.
      * @see QueryProperty
      */
-    CompletableFuture<AsyncSqlCursor<List<Object>>> queryScriptAsync(
+    CompletableFuture<AsyncSqlCursor<InternalSqlRow>> queryScriptAsync(
             SqlProperties properties,
             IgniteTransactions transactions,
             @Nullable InternalTransaction transaction,

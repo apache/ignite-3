@@ -15,30 +15,30 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.client.proto;
+package org.apache.ignite.internal.sql.engine;
 
-import org.apache.ignite.lang.ErrorGroups.Client;
-import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.sql.ColumnType;
+import org.apache.ignite.internal.schema.BinaryTuple;
+import org.jetbrains.annotations.Nullable;
 
 /**
- * Column type utils.
+ * Internal representation of SQL row.
  */
-public class ColumnTypeConverter {
+public interface InternalSqlRow {
+    /**
+     * Get column value from the row by index.
+     *
+     * @param idx Index of a column.
+     * @return Value of column. Returns value can be {@code null}.
+     */
+    @Nullable Object get(int idx);
 
     /**
-     * Converts wire SQL type code to column type.
-     *
-     * @param id Type code.
-     * @return Column type.
+     * Count of filed in the row.
      */
-    public static ColumnType fromIdOrThrow(int id) {
-        ColumnType columnType = ColumnType.getById(id);
+    int fieldCount();
 
-        if (columnType == null) {
-            throw new IgniteException(Client.PROTOCOL_ERR, "Invalid column type id: " + id);
-        }
-
-        return columnType;
-    }
+    /**
+     * Returns representation of the row as {@code BinaryTuple}.
+     */
+    BinaryTuple asBinaryTuple();
 }

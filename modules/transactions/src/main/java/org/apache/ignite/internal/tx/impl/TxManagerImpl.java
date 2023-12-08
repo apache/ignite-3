@@ -20,18 +20,15 @@ package org.apache.ignite.internal.tx.impl;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
-import static java.util.concurrent.TimeUnit.SECONDS;
-import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestampToLong;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
 import static org.apache.ignite.internal.tx.TxState.COMMITED;
 import static org.apache.ignite.internal.tx.TxState.PENDING;
 import static org.apache.ignite.internal.tx.TxState.checkTransitionCorrectness;
 import static org.apache.ignite.internal.tx.TxState.isFinalState;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
-import static org.apache.ignite.internal.util.ExceptionUtils.withCause;
+import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
-import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_UNAVAILABLE_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_READ_ONLY_TOO_OLD_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_WAS_ABORTED_ERR;
 
@@ -64,7 +61,6 @@ import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
-import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
@@ -83,8 +79,6 @@ import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.TxStateMetaFinishing;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
-import org.apache.ignite.internal.tx.message.TxFinishReplicaRequest;
-import org.apache.ignite.internal.tx.message.TxMessagesFactory;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -106,15 +100,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     /** Hint for maximum concurrent txns. */
     private static final int MAX_CONCURRENT_TXNS = 1024;
 
-    private static final int AWAIT_PRIMARY_REPLICA_TIMEOUT = 10;
-
-    /** Tx messages factory. */
-    private static final TxMessagesFactory FACTORY = new TxMessagesFactory();
-
     /** Transaction configuration. */
     private final TransactionConfiguration txConfig;
-
-    private final ReplicaService replicaService;
 
     /** Lock manager. */
     private final LockManager lockManager;
@@ -147,6 +134,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
     private final PlacementDriver placementDriver;
 
+    private final PlacementDriverHelper placementDriverHelper;
+
     private final LongSupplier idleSafeTimePropagationPeriodMsSupplier;
 
     /** Prevents double stopping of the tracker. */
@@ -163,6 +152,21 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
     /** Local node network identity. This id is available only after the network has started. */
     private String localNodeId;
+
+    /**
+     * Server cleanup processor.
+     */
+    private final TxCleanupRequestHandler txCleanupRequestHandler;
+
+    /**
+     * Cleanup request sender.
+     */
+    private final TxCleanupRequestSender txCleanupRequestSender;
+
+    /**
+     * Transaction message sender.
+     */
+    private final TxMessageSender txMessageSender;
 
     /**
      * The constructor.
@@ -187,13 +191,14 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             LongSupplier idleSafeTimePropagationPeriodMsSupplier
     ) {
         this.txConfig = txConfig;
-        this.replicaService = replicaService;
         this.lockManager = lockManager;
         this.clock = clock;
         this.transactionIdGenerator = transactionIdGenerator;
         this.clusterService = clusterService;
         this.placementDriver = placementDriver;
         this.idleSafeTimePropagationPeriodMsSupplier = idleSafeTimePropagationPeriodMsSupplier;
+
+        placementDriverHelper = new PlacementDriverHelper(placementDriver, clock);
 
         int cpus = Runtime.getRuntime().availableProcessors();
 
@@ -206,6 +211,15 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                 new NamedThreadFactory("tx-async-cleanup", LOG));
 
         orphanDetector = new OrphanDetector(clusterService.topologyService(), replicaService, placementDriver, lockManager, clock);
+
+        txMessageSender = new TxMessageSender(clusterService, replicaService, clock);
+
+        WriteIntentSwitchProcessor writeIntentSwitchProcessor =
+                new WriteIntentSwitchProcessor(placementDriverHelper, txMessageSender, clusterService);
+
+        txCleanupRequestHandler = new TxCleanupRequestHandler(clusterService, lockManager, clock, writeIntentSwitchProcessor);
+
+        txCleanupRequestSender = new TxCleanupRequestSender(txMessageSender, placementDriverHelper, writeIntentSwitchProcessor);
     }
 
     @Override
@@ -276,11 +290,11 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
     @Override
     public TxStateMeta stateMeta(UUID txId) {
-        return txStateVolatileStorage.state(txId);
+        return inBusyLock(busyLock, () -> txStateVolatileStorage.state(txId));
     }
 
     @Override
-    public <T extends TxStateMeta> T updateTxMeta(UUID txId, Function<TxStateMeta, TxStateMeta> updater) {
+    public @Nullable <T extends TxStateMeta> T updateTxMeta(UUID txId, Function<TxStateMeta, TxStateMeta> updater) {
         return txStateVolatileStorage.updateMeta(txId, oldMeta -> {
             TxStateMeta newMeta = updater.apply(oldMeta);
 
@@ -409,7 +423,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             HybridTimestamp commitTimestamp,
             CompletableFuture<TransactionMeta> txFinishFuture
     ) {
-        return inBusyLockAsync(busyLock, () -> findPrimaryReplica(commitPartition, clock.now())
+        return inBusyLockAsync(busyLock, () -> placementDriverHelper.awaitPrimaryReplicaWithExceptionHandling(commitPartition)
                 .thenCompose(meta ->
                         makeFinishRequest(
                                 observableTimestampTracker,
@@ -480,18 +494,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         LOG.debug("Finish [partition={}, node={}, term={} commit={}, txId={}, groups={}",
                 commitPartition, primaryConsistentId, term, commit, txId, replicationGroupIds);
 
-        TxFinishReplicaRequest req = FACTORY.txFinishReplicaRequest()
-                .txId(txId)
-                .timestampLong(clock.nowLong())
-                .groupId(commitPartition)
-                .groups(replicationGroupIds)
-                // In case of verification future failure transaction will be rolled back.
-                .commit(commit)
-                .commitTimestampLong(hybridTimestampToLong(commitTimestamp))
-                .enlistmentConsistencyToken(term)
-                .build();
-
-        return replicaService.invoke(primaryConsistentId, req)
+        return txMessageSender.finish(primaryConsistentId, commitPartition, replicationGroupIds, txId, term, commit, commitTimestamp)
                 .thenRun(() -> {
                     updateTxMeta(txId, old -> {
                         if (isFinalState(old.txState())) {
@@ -519,53 +522,18 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                 });
     }
 
-    private CompletableFuture<ReplicaMeta> findPrimaryReplica(TablePartitionId partitionId, HybridTimestamp now) {
-        return placementDriver.awaitPrimaryReplica(partitionId, now, AWAIT_PRIMARY_REPLICA_TIMEOUT, SECONDS)
-                .handle((primaryReplica, e) -> {
-                    if (e != null) {
-                        LOG.error("Failed to retrieve primary replica for partition {}", e, partitionId);
-
-                        throw withCause(TransactionException::new, REPLICA_UNAVAILABLE_ERR,
-                                "Failed to get the primary replica"
-                                        + " [tablePartitionId=" + partitionId + ", awaitTimestamp=" + now + ']', e);
-                    }
-
-                    return primaryReplica;
-                });
-    }
-
-    @Override
-    public CompletableFuture<Void> cleanup(
-            String primaryConsistentId,
-            TablePartitionId tablePartitionId,
-            UUID txId,
-            boolean commit,
-            @Nullable HybridTimestamp commitTimestamp
-    ) {
-        return replicaService.invoke(
-                primaryConsistentId,
-                FACTORY.txCleanupReplicaRequest()
-                        .groupId(tablePartitionId)
-                        .timestampLong(clock.nowLong())
-                        .txId(txId)
-                        .commit(commit)
-                        .commitTimestampLong(hybridTimestampToLong(commitTimestamp))
-                        .build()
-        );
-    }
-
     @Override
     public int finished() {
-        return (int) txStateVolatileStorage.states().stream()
+        return inBusyLock(busyLock, () -> (int) txStateVolatileStorage.states().stream()
                 .filter(e -> isFinalState(e.txState()))
-                .count();
+                .count());
     }
 
     @Override
     public int pending() {
-        return (int) txStateVolatileStorage.states().stream()
+        return inBusyLock(busyLock, () -> (int) txStateVolatileStorage.states().stream()
                 .filter(e -> e.txState() == PENDING)
-                .count();
+                .count());
     }
 
     @Override
@@ -576,6 +544,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         txStateVolatileStorage.start();
 
         orphanDetector.start(txStateVolatileStorage, txConfig.abandonedCheckTs());
+
+        txCleanupRequestHandler.start();
     }
 
     @Override
@@ -585,12 +555,14 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     }
 
     @Override
-    public void stop() {
+    public void stop() throws Exception {
         if (!stopGuard.compareAndSet(false, true)) {
             return;
         }
 
         busyLock.block();
+
+        txCleanupRequestHandler.stop();
 
         shutdownAndAwaitTermination(cleanupExecutor, 10, TimeUnit.SECONDS);
     }
@@ -598,6 +570,16 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     @Override
     public LockManager lockManager() {
         return lockManager;
+    }
+
+    @Override
+    public CompletableFuture<Void> cleanup(
+            Collection<TablePartitionId> partitions,
+            boolean commit,
+            @Nullable HybridTimestamp commitTimestamp,
+            UUID txId
+    ) {
+        return txCleanupRequestSender.cleanup(partitions, commit, commitTimestamp, txId);
     }
 
     @Override
@@ -807,7 +789,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         }
     }
 
-    private static class TransactionFailureHandler {
+    static class TransactionFailureHandler {
         private static final Set<Class<? extends Throwable>> RECOVERABLE = Set.of(
                 TimeoutException.class,
                 IOException.class,
@@ -816,8 +798,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         );
 
         /**
-         * Check if the provided exception is recoverable.
-         * A recoverable transaction is the one that we can send a 'retry' request for.
+         * Check if the provided exception is recoverable. A recoverable transaction is the one that we can send a 'retry' request for.
          *
          * @param throwable Exception to test.
          * @return {@code true} if recoverable, {@code false} otherwise.
@@ -839,4 +820,3 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         }
     }
 }
-

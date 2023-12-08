@@ -74,6 +74,7 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopolog
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.RunnableX;
 import org.apache.ignite.internal.metrics.MetricManager;
+import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.NodeLeftException;
 import org.apache.ignite.internal.sql.engine.QueryCancel;
 import org.apache.ignite.internal.sql.engine.QueryCancelledException;
@@ -225,7 +226,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         nodeNames.stream().map(testCluster::node).forEach(TestNode::pauseScan);
 
         InternalTransaction tx = new NoOpTransaction(nodeNames.get(0));
-        AsyncCursor<List<Object>> cursor = execService.executePlan(tx, plan, ctx);
+        AsyncCursor<InternalSqlRow> cursor = execService.executePlan(tx, plan, ctx);
 
         assertTrue(waitForCondition(
                 () -> executionServices.stream().map(es -> es.localFragments(ctx.queryId()).size())
@@ -265,7 +266,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         nodeNames.stream().map(testCluster::node).forEach(TestNode::pauseScan);
 
         InternalTransaction tx = new NoOpTransaction(nodeNames.get(0));
-        AsyncCursor<List<Object>> cursor = execService.executePlan(tx, plan, ctx);
+        AsyncCursor<InternalSqlRow> cursor = execService.executePlan(tx, plan, ctx);
 
         assertTrue(waitForCondition(
                 () -> executionServices.stream().map(es -> es.localFragments(ctx.queryId()).size())
@@ -322,7 +323,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         });
 
         InternalTransaction tx = new NoOpTransaction(nodeNames.get(0));
-        AsyncCursor<List<Object>> cursor = execService.executePlan(tx, plan, ctx);
+        AsyncCursor<InternalSqlRow> cursor = execService.executePlan(tx, plan, ctx);
 
         CompletionStage<?> batchFut = cursor.requestNextAsync(1);
 
@@ -362,7 +363,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         nodeNames.stream().map(testCluster::node).forEach(TestNode::pauseScan);
 
         InternalTransaction tx = new NoOpTransaction(nodeNames.get(0));
-        AsyncCursor<List<Object>> cursor = execService.executePlan(tx, plan, ctx);
+        AsyncCursor<InternalSqlRow> cursor = execService.executePlan(tx, plan, ctx);
 
         var batchFut = cursor.requestNextAsync(1);
 
@@ -389,7 +390,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         nodeNames.stream().map(testCluster::node).forEach(TestNode::pauseScan);
 
         InternalTransaction tx = new NoOpTransaction(nodeNames.get(0));
-        AsyncCursor<List<Object>> cursor = execService.executePlan(tx, plan, ctx);
+        AsyncCursor<InternalSqlRow> cursor = execService.executePlan(tx, plan, ctx);
 
         assertTrue(waitForCondition(
                 () -> executionServices.stream().map(es -> es.localFragments(ctx.queryId()).size())
@@ -428,7 +429,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         QueryPlan plan = prepare("SELECT * FROM test_tbl", ctx);
 
         InternalTransaction tx = new NoOpTransaction(nodeNames.get(0));
-        AsyncCursor<List<Object>> cursor = execService.executePlan(tx, plan, ctx);
+        AsyncCursor<InternalSqlRow> cursor = execService.executePlan(tx, plan, ctx);
 
         BatchedResult<?> res = await(cursor.requestNextAsync(8));
         assertNotNull(res);
@@ -455,7 +456,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         QueryPlan plan = prepare("SELECT * FROM test_tbl", ctx);
 
         InternalTransaction tx = new NoOpTransaction(nodeNames.get(0));
-        AsyncCursor<List<Object>> cursor = execService.executePlan(tx, plan, ctx);
+        AsyncCursor<InternalSqlRow> cursor = execService.executePlan(tx, plan, ctx);
 
         BatchedResult<?> res = await(cursor.requestNextAsync(9));
         assertNotNull(res);
@@ -477,7 +478,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         QueryPlan plan = prepare("SELECT * FROM test_tbl", ctx);
 
         InternalTransaction tx = new NoOpTransaction(nodeNames.get(0));
-        AsyncCursor<List<Object>> cursor = execService.executePlan(tx, plan, ctx);
+        AsyncCursor<InternalSqlRow> cursor = execService.executePlan(tx, plan, ctx);
 
         // node failed trigger
         CountDownLatch nodeFailedLatch = new CountDownLatch(1);
@@ -509,14 +510,14 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
             }
         }));
 
-        CompletableFuture<BatchedResult<List<Object>>> resFut = cursor.requestNextAsync(9);
+        CompletableFuture<BatchedResult<InternalSqlRow>> resFut = cursor.requestNextAsync(9);
 
         startResponse.await();
         execService.onDisappeared(firstNode);
 
         nodeFailedLatch.countDown();
 
-        BatchedResult<List<Object>> res0 = await(resFut);
+        BatchedResult<InternalSqlRow> res0 = await(resFut);
         assertNotNull(res0);
         assertFalse(res0.hasMore());
         assertEquals(9, res0.items().size());
@@ -568,7 +569,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         }));
 
         InternalTransaction tx = new NoOpTransaction(nodeNames.get(0));
-        AsyncCursor<List<Object>> cursor = execService.executePlan(tx, plan, ctx);
+        AsyncCursor<InternalSqlRow> cursor = execService.executePlan(tx, plan, ctx);
 
         // Wait till the query fails due to nodes' unavailability.
         ExecutionException eex = assertThrows(ExecutionException.class, () -> cursor.closeAsync().get(10, TimeUnit.SECONDS));
@@ -599,7 +600,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
     public void testPrefetchCallbackInvocation() throws Exception {
         String query = "SELECT * FROM test_tbl";
         int totalStatements = 20;
-        Collection<AsyncCursor<List<Object>>> resultCursors = new ArrayBlockingQueue<>(totalStatements);
+        Collection<AsyncCursor<InternalSqlRow>> resultCursors = new ArrayBlockingQueue<>(totalStatements);
         List<String> queries = IntStream.range(0, totalStatements).boxed().map(n -> query).collect(Collectors.toList());
         ArrayBlockingQueue<String> queriesQueue = new ArrayBlockingQueue<>(totalStatements, false, queries);
         AtomicReference<AssertionError> errHolder = new AtomicReference<>();
@@ -691,7 +692,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         });
 
         QueryPlan plan = prepare("SELECT * FROM test_tbl", ctx);
-        AsyncCursor<List<Object>> cursor = execService.executePlan(new NoOpTransaction(nodeNames.get(0)), plan, ctx);
+        AsyncCursor<InternalSqlRow> cursor = execService.executePlan(new NoOpTransaction(nodeNames.get(0)), plan, ctx);
 
         assertThat(prefetchFut, willThrow(equalTo(expectedException)));
 

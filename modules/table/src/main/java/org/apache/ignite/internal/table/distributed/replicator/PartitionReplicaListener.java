@@ -21,7 +21,6 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
-import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestampToLong;
@@ -36,12 +35,10 @@ import static org.apache.ignite.internal.util.CompletableFutures.emptyCollection
 import static org.apache.ignite.internal.util.CompletableFutures.emptyListCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
-import static org.apache.ignite.internal.util.ExceptionUtils.withCause;
 import static org.apache.ignite.internal.util.IgniteUtils.findAny;
 import static org.apache.ignite.internal.util.IgniteUtils.findFirst;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
-import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_UNAVAILABLE_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_FAILED_READ_WRITE_OPERATION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_WAS_ABORTED_ERR;
 import static org.apache.ignite.raft.jraft.util.internal.ThrowUtil.hasCause;
@@ -125,10 +122,10 @@ import org.apache.ignite.internal.table.distributed.command.MarkLocksReleasedCom
 import org.apache.ignite.internal.table.distributed.command.TablePartitionIdMessage;
 import org.apache.ignite.internal.table.distributed.command.TimedBinaryRowMessage;
 import org.apache.ignite.internal.table.distributed.command.TimedBinaryRowMessageBuilder;
-import org.apache.ignite.internal.table.distributed.command.TxCleanupCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateAllCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateCommandBuilder;
+import org.apache.ignite.internal.table.distributed.command.WriteIntentSwitchCommand;
 import org.apache.ignite.internal.table.distributed.replication.request.BinaryRowMessage;
 import org.apache.ignite.internal.table.distributed.replication.request.BinaryTupleMessage;
 import org.apache.ignite.internal.table.distributed.replication.request.BuildIndexReplicaRequest;
@@ -160,10 +157,10 @@ import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
-import org.apache.ignite.internal.tx.message.TxCleanupReplicaRequest;
 import org.apache.ignite.internal.tx.message.TxFinishReplicaRequest;
 import org.apache.ignite.internal.tx.message.TxRecoveryMessage;
 import org.apache.ignite.internal.tx.message.TxStateCommitPartitionRequest;
+import org.apache.ignite.internal.tx.message.WriteIntentSwitchReplicaRequest;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.Cursor;
@@ -183,10 +180,6 @@ import org.jetbrains.annotations.Nullable;
 public class PartitionReplicaListener implements ReplicaListener {
     /** Logger. */
     private static final IgniteLogger LOG = Loggers.forClass(PartitionReplicaListener.class);
-
-    private static final int AWAIT_PRIMARY_REPLICA_TIMEOUT = 10;
-
-    private static final int ATTEMPTS_TO_CLEANUP_REPLICA = 5;
 
     /** Factory to create RAFT command messages. */
     private static final TableMessagesFactory MSG_FACTORY = new TableMessagesFactory();
@@ -392,7 +385,13 @@ public class PartitionReplicaListener implements ReplicaListener {
     }
 
     private CompletableFuture<?> durableCleanup(UUID txId, TxMeta txMeta) {
-        return cleanup(txId, txMeta)
+        Collection<TablePartitionId> enlistedPartitions = txMeta.enlistedPartitions();
+
+        boolean commit = txMeta.txState() == COMMITED;
+
+        HybridTimestamp commitTimestamp = txMeta.commitTimestamp();
+
+        return txManager.cleanup(enlistedPartitions, commit, commitTimestamp, txId)
                 .handle((v, e) -> {
                     if (e == null) {
                         return txManager.executeCleanupAsync(() -> markLocksReleased(txId));
@@ -733,8 +732,8 @@ public class PartitionReplicaListener implements ReplicaListener {
             return nullCompletedFuture();
         } else if (request instanceof TxFinishReplicaRequest) {
             return processTxFinishAction((TxFinishReplicaRequest) request, senderId);
-        } else if (request instanceof TxCleanupReplicaRequest) {
-            return processTxCleanupAction((TxCleanupReplicaRequest) request);
+        } else if (request instanceof WriteIntentSwitchReplicaRequest) {
+            return processWriteIntentSwitchAction((WriteIntentSwitchReplicaRequest) request);
         } else if (request instanceof ReadOnlySingleRowPkReplicaRequest) {
             return processReadOnlySingleEntryAction((ReadOnlySingleRowPkReplicaRequest) request, isPrimary);
         } else if (request instanceof ReadOnlyMultiRowPkReplicaRequest) {
@@ -1592,76 +1591,9 @@ public class PartitionReplicaListener implements ReplicaListener {
             }
         }
 
-        CompletableFuture<?> changeStateFuture = finishTransaction(enlistedPartitions, txId, commit, commitTimestamp, txCoordinatorId);
-
-        return cleanup(changeStateFuture, enlistedPartitions, commit, commitTimestamp, txId, ATTEMPTS_TO_CLEANUP_REPLICA)
+        return finishTransaction(enlistedPartitions, txId, commit, commitTimestamp, txCoordinatorId)
+                .thenCompose(v -> txManager.cleanup(enlistedPartitions, commit, commitTimestamp, txId))
                 .thenRun(() -> markLocksReleased(txId));
-    }
-
-    private CompletableFuture<Void> cleanup(UUID txId, TxMeta txMeta) {
-        return cleanup(nullCompletedFuture(), txMeta.enlistedPartitions(), txMeta.txState() == COMMITED, txMeta.commitTimestamp(), txId, 1);
-    }
-
-    // TODO https://issues.apache.org/jira/browse/IGNITE-20681 remove attempts count.
-    private CompletableFuture<Void> cleanup(
-            CompletableFuture<?> changeStateFuture,
-            Collection<TablePartitionId> enlistedPartitions,
-            boolean commit,
-            @Nullable HybridTimestamp commitTimestamp,
-            UUID txId,
-            int attemptsToCleanupReplica
-    ) {
-        CompletableFuture<?>[] futures = enlistedPartitions.stream()
-                .map(partitionId -> changeStateFuture.thenCompose(ignored ->
-                        // TODO: IGNITE-20874 Use the node cleanup procedure instead of the replication group cleanup one.
-                        cleanupWithRetry(commit, commitTimestamp, txId, partitionId, attemptsToCleanupReplica)))
-                .toArray(size -> new CompletableFuture<?>[size]);
-
-        return allOf(futures);
-    }
-
-    private CompletableFuture<Void> cleanupWithRetry(
-            boolean commit,
-            @Nullable HybridTimestamp commitTimestamp,
-            UUID txId,
-            TablePartitionId partitionId,
-            int attempts) {
-        return findPrimaryReplica(partitionId, hybridClock.now())
-                .thenCompose(leaseHolder ->
-                        txManager.cleanup(leaseHolder, partitionId, txId, commit, commitTimestamp))
-                .handle((res, ex) -> {
-                    if (ex != null) {
-                        if (attempts > 0) {
-                            LOG.warn("Failed to perform cleanup on Tx. The operation will be retried [txId={}].", txId, ex);
-                        } else {
-                            LOG.warn("Failed to perform cleanup on Tx [txId={}].", txId, ex);
-                        }
-
-                        if (attempts > 0) {
-                            return cleanupWithRetry(commit, commitTimestamp, txId, partitionId, attempts - 1);
-                        }
-
-                        return CompletableFuture.<Void>failedFuture(ex);
-                    }
-
-                    return CompletableFutures.<Void>nullCompletedFuture();
-                })
-                .thenCompose(Function.identity());
-    }
-
-    private CompletableFuture<String> findPrimaryReplica(TablePartitionId partitionId, HybridTimestamp now) {
-        return placementDriver.awaitPrimaryReplica(partitionId, now, AWAIT_PRIMARY_REPLICA_TIMEOUT, SECONDS)
-                .handle((primaryReplica, e) -> {
-                    if (e != null) {
-                        LOG.error("Failed to retrieve primary replica for partition {}", partitionId, e);
-
-                        throw withCause(TransactionException::new, REPLICA_UNAVAILABLE_ERR,
-                                "Failed to get the primary replica"
-                                        + " [tablePartitionId=" + partitionId + ", awaitTimestamp=" + now + ']', e);
-                    }
-
-                    return primaryReplica.getLeaseholder();
-                });
     }
 
     /**
@@ -1747,7 +1679,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @return CompletableFuture of void.
      */
     // TODO: need to properly handle primary replica changes https://issues.apache.org/jira/browse/IGNITE-17615
-    private CompletableFuture<Void> processTxCleanupAction(TxCleanupReplicaRequest request) {
+    private CompletableFuture<Void> processWriteIntentSwitchAction(WriteIntentSwitchReplicaRequest request) {
         try {
             closeAllTransactionCursors(request.txId());
         } catch (Exception e) {
@@ -1764,22 +1696,19 @@ public class PartitionReplicaListener implements ReplicaListener {
                         HybridTimestamp commandTimestamp = hybridClock.now();
 
                         return reliableCatalogVersionFor(commandTimestamp)
-                                .thenCompose(catalogVersion ->
-                                        applyCleanupCommand(
-                                                request.txId(),
-                                                request.commit(),
-                                                request.commitTimestamp(),
-                                                request.commitTimestampLong(),
-                                                catalogVersion
-                                        ))
-                                .thenApply(unused -> res);
+                                .thenCompose(catalogVersion -> {
+                                    applyWriteIntentSwitchCommand(
+                                            request.txId(),
+                                            request.commit(),
+                                            request.commitTimestamp(),
+                                            request.commitTimestampLong(),
+                                            catalogVersion
+                                    );
+
+                                    return nullCompletedFuture();
+                                });
                     } else {
-                        return completedFuture(res);
-                    }
-                })
-                .thenAccept(res -> {
-                    if (res.hadUpdateFutures() || res.hadReadFutures()) {
-                        releaseTxLocks(request.txId());
+                        return nullCompletedFuture();
                     }
                 });
     }
@@ -1812,14 +1741,14 @@ public class PartitionReplicaListener implements ReplicaListener {
                 .thenApply(v -> new FuturesCleanupResult(!txReadFutures.isEmpty(), !txUpdateFutures.isEmpty()));
     }
 
-    private CompletableFuture<Void> applyCleanupCommand(
+    private CompletableFuture<Void> applyWriteIntentSwitchCommand(
             UUID transactionId,
             boolean commit,
             HybridTimestamp commitTimestamp,
             long commitTimestampLong,
             int catalogVersion
     ) {
-        TxCleanupCommand txCleanupCmd = MSG_FACTORY.txCleanupCommand()
+        WriteIntentSwitchCommand wiSwitchCmd = MSG_FACTORY.writeIntentSwitchCommand()
                 .txId(transactionId)
                 .commit(commit)
                 .commitTimestampLong(commitTimestampLong)
@@ -1828,11 +1757,11 @@ public class PartitionReplicaListener implements ReplicaListener {
                 .requiredCatalogVersion(catalogVersion)
                 .build();
 
-        storageUpdateHandler.handleTransactionCleanup(transactionId, commit, commitTimestamp);
+        storageUpdateHandler.switchWriteIntents(transactionId, commit, commitTimestamp);
 
         CompletableFuture<Object> resultFuture = new CompletableFuture<>();
 
-        applyCmdWithRetryOnSafeTimeReorderException(txCleanupCmd, resultFuture);
+        applyCmdWithRetryOnSafeTimeReorderException(wiSwitchCmd, resultFuture);
 
         return resultFuture
                 .exceptionally(e -> {
@@ -3538,7 +3467,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             // The cleanup for this row has already been triggered. For example, we are resolving a write intent for an RW transaction
             // and a concurrent RO transaction resolves the same row, hence computeIfAbsent.
             return txManager.executeCleanupAsync(() ->
-                    inBusyLock(busyLock, () -> storageUpdateHandler.handleTransactionCleanup(txId, txState == COMMITED, commitTimestamp))
+                    inBusyLock(busyLock, () -> storageUpdateHandler.switchWriteIntents(txId, txState == COMMITED, commitTimestamp))
             ).whenComplete((unused, e) -> {
                 if (e != null) {
                     LOG.warn("Failed to complete transaction cleanup command [txId=" + txId + ']', e);

@@ -15,30 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.client.proto;
+package org.apache.ignite.internal.tx.message;
 
-import org.apache.ignite.lang.ErrorGroups.Client;
-import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.sql.ColumnType;
+import org.apache.ignite.internal.replicator.message.TimestampAware;
+import org.apache.ignite.network.annotations.Transferable;
 
 /**
- * Column type utils.
+ * Cleanup transaction message response.
  */
-public class ColumnTypeConverter {
-
-    /**
-     * Converts wire SQL type code to column type.
-     *
-     * @param id Type code.
-     * @return Column type.
-     */
-    public static ColumnType fromIdOrThrow(int id) {
-        ColumnType columnType = ColumnType.getById(id);
-
-        if (columnType == null) {
-            throw new IgniteException(Client.PROTOCOL_ERR, "Invalid column type id: " + id);
-        }
-
-        return columnType;
-    }
+@Transferable(TxMessageGroup.TX_CLEANUP_MSG_RESPONSE)
+public interface TxCleanupMessageResponse extends TimestampAware {
 }

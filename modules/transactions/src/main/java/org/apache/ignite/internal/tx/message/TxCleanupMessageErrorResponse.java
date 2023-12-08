@@ -15,30 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.client.proto;
+package org.apache.ignite.internal.tx.message;
 
-import org.apache.ignite.lang.ErrorGroups.Client;
-import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.sql.ColumnType;
+import org.apache.ignite.network.annotations.Marshallable;
+import org.apache.ignite.network.annotations.Transferable;
 
 /**
- * Column type utils.
+ * Cleanup transaction message error response.
  */
-public class ColumnTypeConverter {
-
+@Transferable(TxMessageGroup.TX_CLEANUP_MSG_ERR_RESPONSE)
+public interface TxCleanupMessageErrorResponse extends TxCleanupMessageResponse {
     /**
-     * Converts wire SQL type code to column type.
+     * Returns a {@link Throwable} that was thrown during handling a lock release message.
      *
-     * @param id Type code.
-     * @return Column type.
+     * @return {@link Throwable} that was thrown during handling a lock release message.
      */
-    public static ColumnType fromIdOrThrow(int id) {
-        ColumnType columnType = ColumnType.getById(id);
-
-        if (columnType == null) {
-            throw new IgniteException(Client.PROTOCOL_ERR, "Invalid column type id: " + id);
-        }
-
-        return columnType;
-    }
+    @Marshallable
+    Throwable throwable();
 }

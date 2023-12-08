@@ -196,14 +196,14 @@ public class PartitionRaftCommandsSerializationTest extends IgniteAbstractTest {
     public void testTxCleanupCommand() throws Exception {
         HybridClock clock = new HybridClockImpl();
 
-        TxCleanupCommand cmd = msgFactory.txCleanupCommand()
+        WriteIntentSwitchCommand cmd = msgFactory.writeIntentSwitchCommand()
                 .txId(UUID.randomUUID())
                 .commit(true)
                 .commitTimestampLong(clock.nowLong())
                 .txCoordinatorId(UUID.randomUUID().toString())
                 .build();
 
-        TxCleanupCommand readCmd = copyCommand(cmd);
+        WriteIntentSwitchCommand readCmd = copyCommand(cmd);
 
         assertEquals(cmd.txId(), readCmd.txId());
         assertEquals(cmd.commit(), readCmd.commit());
@@ -251,14 +251,14 @@ public class PartitionRaftCommandsSerializationTest extends IgniteAbstractTest {
                     .commitTimestampLong(finishTxCommand.commitTimestampLong())
                     .txCoordinatorId(finishTxCommand.txCoordinatorId())
                     .build();
-        } else if (cmd instanceof TxCleanupCommand) {
-            TxCleanupCommand txCleanupCommand = (TxCleanupCommand) cmd;
+        } else if (cmd instanceof WriteIntentSwitchCommand) {
+            WriteIntentSwitchCommand writeIntentSwitchCommand = (WriteIntentSwitchCommand) cmd;
 
-            return (T) msgFactory.txCleanupCommand()
-                    .txId(txCleanupCommand.txId())
-                    .commit(txCleanupCommand.commit())
-                    .commitTimestampLong(txCleanupCommand.commitTimestampLong())
-                    .txCoordinatorId(txCleanupCommand.txCoordinatorId())
+            return (T) msgFactory.writeIntentSwitchCommand()
+                    .txId(writeIntentSwitchCommand.txId())
+                    .commit(writeIntentSwitchCommand.commit())
+                    .commitTimestampLong(writeIntentSwitchCommand.commitTimestampLong())
+                    .txCoordinatorId(writeIntentSwitchCommand.txCoordinatorId())
                     .build();
         } else if (cmd instanceof UpdateCommand) {
             UpdateCommand updateCommand = (UpdateCommand) cmd;
