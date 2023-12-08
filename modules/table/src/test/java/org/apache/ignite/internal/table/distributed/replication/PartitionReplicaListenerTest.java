@@ -437,8 +437,6 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
         configureTxManager(txManager);
 
-        doAnswer(invocation -> nullCompletedFuture()).when(txManager).executeCleanupAsync(any(Runnable.class));
-
         doAnswer(invocation -> {
             Object argument = invocation.getArgument(1);
 
@@ -1858,6 +1856,8 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
             });
             return null;
         }).when(txManager).updateTxMeta(any(), any());
+
+        doAnswer(invocation -> nullCompletedFuture()).when(txManager).executeCleanupAsync(any(Runnable.class));
     }
 
     private void testWritesAreSuppliedWithRequiredCatalogVersion(RequestType requestType, RwListenerInvocation listenerInvocation) {

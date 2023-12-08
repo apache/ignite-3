@@ -538,10 +538,16 @@ public class PartitionReplicaListener implements ReplicaListener {
         // TODO: IGNITE-20735 Implement initiate recovery handling logic. This part has to be fully rewritten.
         TxStateMeta txStateMeta = txManager.stateMeta(txId);
 
-        if (txStateMeta.txState() == ABANDONED) {
+        if (txStateMeta == null || txStateMeta.txState() == ABANDONED) {
             txStateStorage.put(txId, new TxMeta(ABORTED, List.of(), null));
             return completedFuture(
-                    txManager.updateTxMeta(txId, old -> new TxStateMeta(ABORTED, old.txCoordinatorId(), old.commitPartitionId(), null))
+                    txManager.updateTxMeta(txId, old -> {
+                        if (old == null) {
+                            return new TxStateMeta(ABORTED, null, replicationGroupId, null);
+                        } else {
+                            return new TxStateMeta(ABORTED, old.txCoordinatorId(), replicationGroupId, null);
+                        }
+                    })
             );
         } else {
             return completedFuture(txStateMeta);
