@@ -32,16 +32,15 @@ import com.facebook.presto.bytecode.expression.BytecodeExpressions;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
 import java.lang.reflect.Field;
-import java.lang.reflect.Modifier;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.EnumSet;
+import java.util.HashMap;
 import java.util.Map;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.marshaller.BinaryMode;
 import org.apache.ignite.internal.marshaller.MarshallerColumn;
 import org.apache.ignite.internal.schema.row.RowAssembler;
+import org.apache.ignite.table.mapper.PojoMapper;
 
 /**
  * Generates marshaller methods code.
@@ -58,17 +57,22 @@ class ObjectMarshallerCodeGenerator implements MarshallerCodeGenerator {
 
     ObjectMarshallerCodeGenerator(
             MarshallerColumn[] marshallerColumns,
-            Class<?> targetClass,
+            PojoMapper<?> mapper,
             int firstColIdx
     ) {
         this.columns = marshallerColumns;
-        this.targetClass = targetClass;
+        this.targetClass = mapper.targetType();
         columnAccessors = new ColumnAccessCodeGenerator[columns.length];
 
-        // TODO: Column list should come from mapper?
-        Map<String, Field> flds = Arrays.stream(targetClass.getDeclaredFields())
-                .filter(fld -> !Modifier.isStatic(fld.getModifiers()) && !Modifier.isTransient(fld.getModifiers()))
-                .collect(Collectors.toMap(f -> f.getName().toUpperCase(), Function.identity()));
+        Map<String, Field> flds = new HashMap<>();
+        for (String fieldName : mapper.fields()) {
+            try {
+                Field field = mapper.getClass().getDeclaredField(fieldName);
+                flds.put(fieldName.toUpperCase(), field);
+            } catch (NoSuchFieldException e) {
+                throw new RuntimeException(e);
+            }
+        }
 
         if (flds.size() > columns.length) {
             for (MarshallerColumn col : columns) {
