@@ -504,7 +504,7 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
                     String actualType = deriveDynamicParamType(dynamicParam).toString();
                     String expectedType = intType.toString();
 
-                    var err = IgniteResource.INSTANCE.invalidDynamicParameter(dynamicParam.getIndex(), expectedType, actualType);
+                    var err = IgniteResource.INSTANCE.incorrectDynamicParameterType(expectedType, actualType);
                     throw newValidationError(n, err);
                 }
             }
@@ -920,9 +920,7 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
 
             if (isUnspecifiedDynamicParam(call.operand(0))) {
                 SqlDynamicParam dynamicParam = call.operand(0);
-                int index = dynamicParam.getIndex();
-
-                throw newValidationError(dynamicParam, IgniteResource.INSTANCE.unableToResolveDynamicParameterType(index));
+                throw newValidationError(dynamicParam, IgniteResource.INSTANCE.unableToResolveDynamicParameterType());
             }
         }
 
@@ -1046,7 +1044,7 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
             if (paramState == null || paramState.resolvedType == null || paramState.node == null) {
                 throw new AssertionError("Dynamic parameter has not been validated: " + i);
             } else if (paramState.resolvedType == unknownType) {
-                throw newValidationError(paramState.node, IgniteResource.INSTANCE.unableToResolveDynamicParameterType(i));
+                throw newValidationError(paramState.node, IgniteResource.INSTANCE.unableToResolveDynamicParameterType());
             }
         }
 

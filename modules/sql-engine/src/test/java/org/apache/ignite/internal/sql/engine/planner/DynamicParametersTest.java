@@ -114,13 +114,13 @@ public class DynamicParametersTest extends AbstractPlannerTest {
                 sql("SELECT ? IN (1, 2)", 1).parameterTypes(nullable(NativeTypes.INT32)).project("OR(=(?0, 1), =(?0, 2))"),
 
                 sql("SELECT ? IN (1)", Unspecified.UNKNOWN)
-                        .fails("Unable to determine type of a dynamic parameter#0"),
+                        .fails("Unable to determine type of a dynamic parameter"),
 
                 sql("SELECT ? IN (?, 1)", Unspecified.UNKNOWN, Unspecified.UNKNOWN)
-                        .fails("Unable to determine type of a dynamic parameter#0"),
+                        .fails("Unable to determine type of a dynamic parameter"),
 
                 sql("SELECT ? IN (?, ?)", Unspecified.UNKNOWN, Unspecified.UNKNOWN, Unspecified.UNKNOWN)
-                        .fails("Unable to determine type of a dynamic parameter#0"),
+                        .fails("Unable to determine type of a dynamic parameter"),
 
                 sql("SELECT 1 IN (?, ?)", Unspecified.UNKNOWN, Unspecified.UNKNOWN)
                         .project("OR(=(1, ?0), =(1, ?1))"),
@@ -195,7 +195,7 @@ public class DynamicParametersTest extends AbstractPlannerTest {
                         .sql("select case when (VAL = ?) then 0 else (case when (NUM IS NULL) then ? else ? end) end FROM TBL1",
                                 Unspecified.UNKNOWN, Unspecified.UNKNOWN, Unspecified.UNKNOWN)
                         .parameterTypes(nullableStr, nullType, nullableInt)
-                        .fails("Unable to determine type of a dynamic parameter#1"),
+                        .fails("Unable to determine type of a dynamic parameter"),
 
                 checkStatement()
                         .table("TBL1", "ID", NativeTypes.INT32, "VAL", NativeTypes.STRING, "NUM", NativeTypes.INT32)
@@ -209,7 +209,7 @@ public class DynamicParametersTest extends AbstractPlannerTest {
                         .sql("select case when (VAL = ?) then 0 else (case when (NUM IS NULL) then ? else ? end) end FROM TBL1",
                                 Unspecified.UNKNOWN, Unspecified.UNKNOWN, Unspecified.UNKNOWN)
                         .parameterTypes(nullableStr, nullType, nullableInt)
-                        .fails("Unable to determine type of a dynamic parameter#1")
+                        .fails("Unable to determine type of a dynamic parameter")
         );
     }
 
@@ -247,7 +247,7 @@ public class DynamicParametersTest extends AbstractPlannerTest {
 
                 checkStatement()
                         .sql("SELECT ?", Unspecified.UNKNOWN)
-                        .fails("Unable to determine type of a dynamic parameter#0"),
+                        .fails("Unable to determine type of a dynamic parameter"),
 
                 checkStatement()
                         .sql("SELECT CAST(? AS INTEGER)", 1)
@@ -303,7 +303,7 @@ public class DynamicParametersTest extends AbstractPlannerTest {
 
                 checkStatement()
                         .sql("SELECT (SELECT ?)", Unspecified.UNKNOWN)
-                        .fails("Unable to determine type of a dynamic parameter#0"),
+                        .fails("Unable to determine type of a dynamic parameter"),
 
                 // Predicates
 
@@ -317,7 +317,7 @@ public class DynamicParametersTest extends AbstractPlannerTest {
                 checkStatement()
                         .table("t1", "int_col", NativeTypes.INT32)
                         .sql("SELECT * FROM t1 WHERE int_col = SOME(SELECT ?)", Unspecified.UNKNOWN)
-                        .fails("Unable to determine type of a dynamic parameter#0"),
+                        .fails("Unable to determine type of a dynamic parameter"),
 
                 checkStatement()
                         .table("t1", "int_col", NativeTypes.INT32)
@@ -328,7 +328,7 @@ public class DynamicParametersTest extends AbstractPlannerTest {
                 checkStatement()
                         .table("t1", "int_col", NativeTypes.INT32)
                         .sql("SELECT * FROM t1 WHERE int_col = ANY(SELECT ?)", Unspecified.UNKNOWN)
-                        .fails("Unable to determine type of a dynamic parameter#0"),
+                        .fails("Unable to determine type of a dynamic parameter"),
 
 
                 // DML
@@ -341,7 +341,7 @@ public class DynamicParametersTest extends AbstractPlannerTest {
                 checkStatement()
                         .table("t1", "c1", NativeTypes.INT32)
                         .sql("INSERT INTO t1 VALUES (1), ((SELECT ?))", Unspecified.UNKNOWN)
-                        .fails("Unable to determine type of a dynamic parameter#0"),
+                        .fails("Unable to determine type of a dynamic parameter"),
 
                 checkStatement()
                         .table("t1", "c1", NativeTypes.INT32, "c2", NativeTypes.INT64)
@@ -353,7 +353,7 @@ public class DynamicParametersTest extends AbstractPlannerTest {
         //         checkStatement()
         //                .table("t1", "c1", NativeTypes.INT32, "c2", NativeTypes.INT64)
         //                .sql("UPDATE t1 SET c1 = (SELECT ?)", Unspecified.UNKNOWN)
-        //                .fails("Unable to determine type of a dynamic parameter#0")
+        //                .fails("Unable to determine type of a dynamic parameter")
         );
     }
 
@@ -390,7 +390,7 @@ public class DynamicParametersTest extends AbstractPlannerTest {
                         .ok(),
 
                 sql("SELECT ? BETWEEN ? AND ?", Unspecified.UNKNOWN, Unspecified.UNKNOWN, Unspecified.UNKNOWN)
-                        .fails("Unable to determine type of a dynamic parameter#0")
+                        .fails("Unable to determine type of a dynamic parameter")
         );
     }
 
@@ -400,11 +400,11 @@ public class DynamicParametersTest extends AbstractPlannerTest {
         return Stream.of(
                 checkStatement()
                         .sql("SELECT MAX(?)", Unspecified.UNKNOWN)
-                        .fails("Unable to determine type of a dynamic parameter#0"),
+                        .fails("Unable to determine type of a dynamic parameter"),
 
                 checkStatement()
                         .sql("SELECT MIN(?)", Unspecified.UNKNOWN)
-                        .fails("Unable to determine type of a dynamic parameter#0"),
+                        .fails("Unable to determine type of a dynamic parameter"),
 
                 checkStatement()
                         .sql("SELECT AVG(?)", Unspecified.UNKNOWN)
@@ -412,7 +412,7 @@ public class DynamicParametersTest extends AbstractPlannerTest {
 
                 checkStatement()
                         .sql("SELECT COUNT(?)", Unspecified.UNKNOWN)
-                        .fails("Unable to determine type of a dynamic parameter#0")
+                        .fails("Unable to determine type of a dynamic parameter")
         );
     }
 
@@ -431,7 +431,7 @@ public class DynamicParametersTest extends AbstractPlannerTest {
 
                 checkStatement()
                         .sql("SELECT NULLIF(?, 1)", Unspecified.UNKNOWN)
-                        .fails("Unable to determine type of a dynamic parameter#0"),
+                        .fails("Unable to determine type of a dynamic parameter"),
 
                 checkStatement()
                         .sql("SELECT NULLIF(CAST(? AS INTEGER), 1)", Unspecified.UNKNOWN)
@@ -452,11 +452,11 @@ public class DynamicParametersTest extends AbstractPlannerTest {
 
                 checkStatement()
                         .sql("SELECT COALESCE(?)", Unspecified.UNKNOWN)
-                        .fails("Unable to determine type of a dynamic parameter#0"),
+                        .fails("Unable to determine type of a dynamic parameter"),
 
                 checkStatement()
                         .sql("SELECT COALESCE(?)", Unspecified.UNKNOWN)
-                        .fails("Unable to determine type of a dynamic parameter#0"),
+                        .fails("Unable to determine type of a dynamic parameter"),
 
                 checkStatement()
                         .sql("SELECT COALESCE(?, ?)", null, null)
@@ -469,7 +469,7 @@ public class DynamicParametersTest extends AbstractPlannerTest {
 
                 checkStatement()
                         .sql("SELECT COALESCE(1, ?)", Unspecified.UNKNOWN)
-                        .fails("Unable to determine type of a dynamic parameter#0"),
+                        .fails("Unable to determine type of a dynamic parameter"),
 
                 checkStatement()
                         .sql("SELECT COALESCE(CAST(? AS INTEGER), 1)", 2)
@@ -714,7 +714,7 @@ public class DynamicParametersTest extends AbstractPlannerTest {
 
                 checkStatement(setup)
                         .sql("SELECT * FROM t1 LIMIT ?", "a")
-                        .fails("Incorrect type of a dynamic parameter#0 expected <INTEGER> but got <VARCHAR"),
+                        .fails("Incorrect type of a dynamic parameter. Expected <INTEGER> but got <VARCHAR"),
 
                 checkStatement(setup)
                         .sql("SELECT * FROM t1 OFFSET ?", 1)
@@ -728,7 +728,7 @@ public class DynamicParametersTest extends AbstractPlannerTest {
 
                 checkStatement(setup)
                         .sql("SELECT * FROM t1 OFFSET ?", "a")
-                        .fails("Incorrect type of a dynamic parameter#0 expected <INTEGER> but got <VARCHAR")
+                        .fails("Incorrect type of a dynamic parameter. Expected <INTEGER> but got <VARCHAR")
         );
     }
 
@@ -772,7 +772,7 @@ public class DynamicParametersTest extends AbstractPlannerTest {
                         .ok(),
 
                 sql("SELECT 1 UNION SELECT ?", Unspecified.UNKNOWN)
-                        .fails("Unable to determine type of a dynamic parameter#0."),
+                        .fails("Unable to determine type of a dynamic parameter"),
 
                 sql("SELECT ? UNION SELECT 1", 1)
                         .parameterTypes(nullable(NativeTypes.INT32))
@@ -783,10 +783,10 @@ public class DynamicParametersTest extends AbstractPlannerTest {
                         .ok(),
 
                 sql("SELECT ? UNION SELECT 1", Unspecified.UNKNOWN)
-                        .fails("Unable to determine type of a dynamic parameter#0."),
+                        .fails("Unable to determine type of a dynamic parameter"),
 
                 sql("SELECT ? UNION SELECT ?", 1, Unspecified.UNKNOWN)
-                        .fails("Unable to determine type of a dynamic parameter#1.")
+                        .fails("Unable to determine type of a dynamic parameter")
         );
     }
 
