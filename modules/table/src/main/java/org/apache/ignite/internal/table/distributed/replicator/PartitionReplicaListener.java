@@ -1562,7 +1562,6 @@ public class PartitionReplicaListener implements ReplicaListener {
             UUID txId,
             int attemptsToCleanupReplica
     ) {
-        // Avoid invoking async chain in raft threads.
         CompletableFuture<?>[] futures = enlistedPartitions.stream()
                 .map(partitionId -> changeStateFuture.thenCompose(ignored ->
                         // TODO: IGNITE-20874 Use the node cleanup procedure instead of the replication group cleanup one.

@@ -194,6 +194,9 @@ public class ItLockTableTest extends IgniteAbstractTest {
                 total += slot.waitersCount();
             }
 
+            // 2 S_lock on key=0 + 2 S_lock on key=1 - resolve by PK
+            // 1 S lock + 1 X lock on rowId(0) - read and update row0
+            // 1 S lock + 1 X lock on rowId(1) - read and update row1
             return total == 8;
         }, 10_000), "Some lockers are missing");
 
