@@ -205,6 +205,10 @@ public class AsyncRootNode<InRowT, OutRowT> implements Downstream<InRowT>, Async
         return prefetchFut;
     }
 
+    public boolean isClosed() {
+        return cancelFut.isDone();
+    }
+
     private void flush() throws Exception {
         completePrefetchFuture(null);
 
