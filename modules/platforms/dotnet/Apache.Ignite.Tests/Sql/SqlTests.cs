@@ -54,6 +54,7 @@ namespace Apache.Ignite.Tests.Sql
         {
             await Client.Sql.ExecuteAsync(null, "DROP TABLE TEST");
             await Client.Sql.ExecuteAsync(null, "DROP TABLE IF EXISTS TestDdlDml");
+            await Client.Sql.ExecuteAsync(null, "DROP TABLE IF EXISTS TestExecuteScript");
         }
 
         [Test]
@@ -429,20 +430,24 @@ namespace Apache.Ignite.Tests.Sql
         [Test]
         public async Task TestExecuteScript()
         {
+            var id = Random.Shared.Next(100);
+
             await Client.Sql.ExecuteScriptAsync(
-                "CREATE TABLE IF NOT EXISTS TestExecuteScript(ID INT PRIMARY KEY, VAL VARCHAR); " +
-                "INSERT INTO TestExecuteScript VALUES (?, ?); INSERT INTO TestScript VALUES (?, ?);",
-                1,
+                "CREATE TABLE TestExecuteScript(ID INT PRIMARY KEY, VAL VARCHAR); " +
+                "DELETE FROM TestExecuteScript;" +
+                "INSERT INTO TestExecuteScript VALUES (?, ?); " +
+                "INSERT INTO TestExecuteScript VALUES (?, ?);",
+                id,
                 "a",
-                2,
+                id + 1,
                 "b");
 
             await using var resultSet = await Client.Sql.ExecuteAsync(null, "SELECT * FROM TESTEXECUTESCRIPT ORDER BY ID");
             var rows = await resultSet.ToListAsync();
 
             Assert.AreEqual(2, rows.Count);
-            Assert.AreEqual("IgniteTuple { ID = 1, VAL = a }", rows[0].ToString());
-            Assert.AreEqual("IgniteTuple { ID = 2, VAL = b }", rows[1].ToString());
+            Assert.AreEqual($"IgniteTuple {{ ID = {id}, VAL = a }}", rows[0].ToString());
+            Assert.AreEqual($"IgniteTuple {{ ID = {id + 1}, VAL = b }}", rows[1].ToString());
         }
     }
 }
