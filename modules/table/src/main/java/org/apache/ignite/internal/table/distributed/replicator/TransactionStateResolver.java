@@ -29,6 +29,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
@@ -42,6 +43,7 @@ import org.apache.ignite.internal.tx.TxStateMetaFinishing;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
 import org.apache.ignite.internal.tx.message.TxStateCommitPartitionRequest;
+import org.apache.ignite.internal.tx.message.TxStateCommitPartitionRequestBuilder;
 import org.apache.ignite.internal.tx.message.TxStateCoordinatorRequest;
 import org.apache.ignite.internal.tx.message.TxStateResponse;
 import org.apache.ignite.network.ClusterNode;
@@ -250,14 +252,15 @@ public class TransactionStateResolver {
             ReplicationGroupId commitGrpId,
             CompletableFuture<TransactionMeta> txMetaFuture
     ) {
-        TxStateCommitPartitionRequest request = FACTORY.txStateCommitPartitionRequest()
+        HybridTimestamp now = clock.now();
+
+        Supplier<TxStateCommitPartitionRequestBuilder> factory = () -> FACTORY.txStateCommitPartitionRequest()
                 .groupId(commitGrpId)
-                .txId(txId)
-                .build();
+                .txId(txId);
 
         updateLocalTxMapAfterDistributedStateResolved(txId, txMetaFuture);
 
-        sendAndRetry(txMetaFuture, commitGrpId, request);
+        sendAndRetry(txMetaFuture, commitGrpId, factory, now);
     }
 
     /**
@@ -284,18 +287,21 @@ public class TransactionStateResolver {
      *
      * @param resFut Response future.
      * @param replicaGrp Replication group id.
-     * @param request Request.
+     * @param requestBuilderFactory Request builder factory.
      */
     private void sendAndRetry(
             CompletableFuture<TransactionMeta> resFut,
             ReplicationGroupId replicaGrp,
-            TxStateCommitPartitionRequest request
+            Supplier<TxStateCommitPartitionRequestBuilder> requestBuilderFactory,
+            HybridTimestamp now
     ) {
-        HybridTimestamp now = clock.now();
-
         placementDriver.awaitPrimaryReplica(replicaGrp, now, AWAIT_PRIMARY_REPLICA_TIMEOUT, MILLISECONDS)
                 .thenCompose(replicaMeta -> {
                     ClusterNode nodeToSend = clusterNodeResolver.apply(replicaMeta.getLeaseholder());
+
+                    TxStateCommitPartitionRequest request = requestBuilderFactory.get()
+                            .enlistmentConsistencyToken(replicaMeta.getStartTime().longValue())
+                            .build();
 
                     return replicaService.invoke(nodeToSend, request);
                 })
@@ -306,8 +312,10 @@ public class TransactionStateResolver {
                         TransactionMeta txMeta = (TransactionMeta) resp;
                         resFut.complete(txMeta);
                     } else {
+                        HybridTimestamp newNow = clock.now();
+
                         if (e instanceof PrimaryReplicaMissException) {
-                            sendAndRetry(resFut, replicaGrp, request);
+                            sendAndRetry(resFut, replicaGrp, requestBuilderFactory, newNow);
                         } else {
                             resFut.completeExceptionally(e);
                         }

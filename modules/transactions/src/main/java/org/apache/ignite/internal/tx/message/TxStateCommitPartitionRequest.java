@@ -18,13 +18,13 @@
 package org.apache.ignite.internal.tx.message;
 
 import java.util.UUID;
-import org.apache.ignite.internal.replicator.message.ReplicaRequest;
+import org.apache.ignite.internal.replicator.message.PrimaryReplicaRequest;
 import org.apache.ignite.network.annotations.Transferable;
 
 /**
  * Transaction state request.
  */
 @Transferable(TxMessageGroup.TX_STATE_COMMIT_PARTITION_REQUEST)
-public interface TxStateCommitPartitionRequest extends ReplicaRequest {
+public interface TxStateCommitPartitionRequest extends PrimaryReplicaRequest {
     UUID txId();
 }

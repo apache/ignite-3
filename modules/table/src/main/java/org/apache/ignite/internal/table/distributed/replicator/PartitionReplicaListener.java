@@ -457,11 +457,6 @@ public class PartitionReplicaListener implements ReplicaListener {
 
     @Override
     public CompletableFuture<ReplicaResult> invoke(ReplicaRequest request, String senderId) {
-        if (request instanceof TxStateCommitPartitionRequest) {
-            return processTxStateCommitPartitionRequest((TxStateCommitPartitionRequest) request)
-                    .thenApply(res -> new ReplicaResult(res, null));
-        }
-
         return ensureReplicaIsPrimary(request)
                 .thenCompose(isPrimary -> processRequest(request, isPrimary, senderId))
                 .thenApply(res -> {
@@ -750,6 +745,8 @@ public class PartitionReplicaListener implements ReplicaListener {
             return processReadOnlyDirectSingleEntryAction((ReadOnlyDirectSingleRowReplicaRequest) request, opStartTsIfDirectRo);
         } else if (request instanceof ReadOnlyDirectMultiRowReplicaRequest) {
             return processReadOnlyDirectMultiEntryAction((ReadOnlyDirectMultiRowReplicaRequest) request, opStartTsIfDirectRo);
+        } else if (request instanceof TxStateCommitPartitionRequest) {
+            return processTxStateCommitPartitionRequest((TxStateCommitPartitionRequest) request);
         } else {
             throw new UnsupportedReplicaRequestException(request.getClass());
         }
