@@ -101,7 +101,9 @@ public class DefaultMessagingService extends AbstractMessagingService {
 
     private static final ConcurrentMap<String, Long> sendNanoTimes = new ConcurrentHashMap<>();
 
-    private final AtomicLong lastReceiveStart = new AtomicLong(-1);
+    private final ConcurrentMap<String, AtomicLong> lastReceiveStarts = new ConcurrentHashMap<>();
+    private final ConcurrentMap<String, AtomicLong> lastSendStarts = new ConcurrentHashMap<>();
+    private final ConcurrentMap<String, AtomicLong> lastSendEnds = new ConcurrentHashMap<>();
 
     private AtomicInteger sent(String fromConsistentId, String toConsistentId) {
         return sent.computeIfAbsent(new ChannelKey(fromConsistentId, toConsistentId), key -> new AtomicInteger());
@@ -113,6 +115,18 @@ public class DefaultMessagingService extends AbstractMessagingService {
 
     private AtomicInteger inFlight(String fromConsistentId, String toConsistentId) {
         return inFlight.computeIfAbsent(new ChannelKey(fromConsistentId, toConsistentId), key -> new AtomicInteger());
+    }
+
+    private AtomicLong lastReceiveStart(String consistentId) {
+        return lastReceiveStarts.computeIfAbsent(consistentId, k -> new AtomicLong(-1));
+    }
+
+    private AtomicLong lastSendStart(String consistentId) {
+        return lastSendStarts.computeIfAbsent(consistentId, k -> new AtomicLong(-1));
+    }
+
+    private AtomicLong lastSendEnd(String consistentId) {
+        return lastSendEnds.computeIfAbsent(consistentId, k -> new AtomicLong(-1));
     }
 
     /**
@@ -317,7 +331,20 @@ public class DefaultMessagingService extends AbstractMessagingService {
         sent(topologyService.localMember().name(), consistentId).incrementAndGet();
         inFlight(topologyService.localMember().name(), consistentId).incrementAndGet();
         //sentMessages.put(message.messageId(), message);
-        sendNanoTimes.put(message.messageId(), System.nanoTime());
+        long beforeSendingNanos = System.nanoTime();
+        sendNanoTimes.put(message.messageId(), beforeSendingNanos);
+
+        long beforeSentNanos = System.nanoTime();
+        long lastSendStartNanos = lastSendStart(topologyService.localMember().name()).getAndSet(beforeSentNanos);
+
+        if (lastSendStartNanos > 0) {
+            long nanosSinceLastSendStart = beforeSentNanos - lastSendStartNanos;
+            long millisSinceLastSendStart = TimeUnit.NANOSECONDS.toMillis(nanosSinceLastSendStart);
+
+            if (millisSinceLastSendStart > 1000) {
+                LOG.info("DDD {} ms since last send start, message is {}", millisSinceLastSendStart, message);
+            }
+        }
 
         if (message instanceof ScaleCubeMessage) {
             ScaleCubeMessage scaleCubeMessage = (ScaleCubeMessage) message;
@@ -333,14 +360,32 @@ public class DefaultMessagingService extends AbstractMessagingService {
 
         List<ClassDescriptorMessage> descriptors;
 
+        long beforeMarshalling = System.nanoTime();
         try {
             descriptors = beforeRead(message);
         } catch (Exception e) {
             return failedFuture(new IgniteException("Failed to marshal message: " + e.getMessage(), e));
         }
+        long marshallingMillis = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - beforeMarshalling);
+        if (marshallingMillis > 1000) {
+            LOG.info("CCC2 Marshalling took {} ms for {}", marshallingMillis, message);
+        }
 
         return connectionManager.channel(consistentId, type, addr)
-                .thenComposeToCompletable(sender -> sender.send(new OutNetworkObject(message, descriptors)));
+                .thenComposeToCompletable(sender -> sender.send(new OutNetworkObject(message, descriptors)))
+                .whenComplete((res, ex) -> {
+                    long afterSentNanos = System.nanoTime();
+                    long lastSendEndNanos = lastSendEnd(topologyService.localMember().name()).getAndSet(afterSentNanos);
+
+                    if (lastSendEndNanos > 0) {
+                        long nanosSinceLastSendEnd = afterSentNanos - lastSendEndNanos;
+                        long millisSinceLastSendEnd = TimeUnit.NANOSECONDS.toMillis(nanosSinceLastSendEnd);
+
+                        if (millisSinceLastSendEnd > 1000) {
+                            LOG.info("EEE {} ms since last send end, message is {}", millisSinceLastSendEnd, message);
+                        }
+                    }
+                });
     }
 
     private List<ClassDescriptorMessage> beforeRead(NetworkMessage msg) throws Exception {
@@ -393,7 +438,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
         }
 
         long nowNanos = System.nanoTime();
-        long lastReceiveStartNanos = lastReceiveStart.getAndSet(nowNanos);
+        long lastReceiveStartNanos = lastReceiveStart(obj.consistentId()).getAndSet(nowNanos);
         if (lastReceiveStartNanos > 0) {
             long nanosSinceLastReceive = nowNanos - lastReceiveStartNanos;
             long millisSinceLastReceive = TimeUnit.NANOSECONDS.toMillis(nanosSinceLastReceive);
