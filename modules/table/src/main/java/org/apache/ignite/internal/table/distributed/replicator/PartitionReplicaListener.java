@@ -27,7 +27,7 @@ import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestampToLo
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.tx.TxState.ABANDONED;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
-import static org.apache.ignite.internal.tx.TxState.COMMITED;
+import static org.apache.ignite.internal.tx.TxState.COMMITTED;
 import static org.apache.ignite.internal.tx.TxState.PENDING;
 import static org.apache.ignite.internal.tx.TxState.isFinalState;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
@@ -382,7 +382,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     private CompletableFuture<?> durableCleanup(UUID txId, TxMeta txMeta) {
         Collection<TablePartitionId> enlistedPartitions = txMeta.enlistedPartitions();
 
-        boolean commit = txMeta.txState() == COMMITED;
+        boolean commit = txMeta.txState() == COMMITTED;
 
         HybridTimestamp commitTimestamp = txMeta.commitTimestamp();
 
@@ -1520,7 +1520,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             // Other combinations of states are not possible.
 
             // First, throw an exception if we are trying to abort an already committed tx.
-            assert !(txMeta.txState() == COMMITED && !commit) : "Not allowed to abort an already committed transaction.";
+            assert !(txMeta.txState() == COMMITTED && !commit) : "Not allowed to abort an already committed transaction.";
 
             // If a 'commit' sees a tx in the ABORTED state (valid as per the explanation above), let the client know with an exception.
             if (commit && txMeta.txState() == ABORTED) {
@@ -1538,7 +1538,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                         markLocksReleased(
                                 txId,
                                 enlistedPartitions,
-                                commit ? COMMITED : ABORTED,
+                                commit ? COMMITTED : ABORTED,
                                 commitTimestamp)
                 );
     }
@@ -1577,7 +1577,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                         )
                 )
                 .whenComplete((o, throwable) -> {
-                    TxState txState = commit ? COMMITED : ABORTED;
+                    TxState txState = commit ? COMMITTED : ABORTED;
 
                     markFinished(txId, txState, commitTimestamp);
                 });
@@ -1617,7 +1617,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * <ol>
      *     <li>Waits for finishing of local transactional operations;</li>
      *     <li>Runs asynchronously the specific raft {@code TxCleanupCommand} command, that will convert all pending entries(writeIntents)
-     *     to either regular values({@link TxState#COMMITED}) or removing them ({@link TxState#ABORTED});</li>
+     *     to either regular values({@link TxState#COMMITTED}) or removing them ({@link TxState#ABORTED});</li>
      *     <li>Releases all locks that were held on local Replica by given transaction.</li>
      * </ol>
      * This operation is idempotent, so it's safe to retry it.
@@ -1633,7 +1633,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             return failedFuture(e);
         }
 
-        TxState txState = request.commit() ? COMMITED : ABORTED;
+        TxState txState = request.commit() ? COMMITTED : ABORTED;
 
         markFinished(request.txId(), txState, request.commitTimestamp());
 
@@ -3414,7 +3414,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             // The cleanup for this row has already been triggered. For example, we are resolving a write intent for an RW transaction
             // and a concurrent RO transaction resolves the same row, hence computeIfAbsent.
             return txManager.executeCleanupAsync(() ->
-                    inBusyLock(busyLock, () -> storageUpdateHandler.switchWriteIntents(txId, txState == COMMITED, commitTimestamp))
+                    inBusyLock(busyLock, () -> storageUpdateHandler.switchWriteIntents(txId, txState == COMMITTED, commitTimestamp))
             ).whenComplete((unused, e) -> {
                 if (e != null) {
                     LOG.warn("Failed to complete transaction cleanup command [txId=" + txId + ']', e);
@@ -3464,7 +3464,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             // TODO more determined
             throw new TransactionAbandonedException(txId, txMeta);
         }
-        if (txMeta.txState() == COMMITED) {
+        if (txMeta.txState() == COMMITTED) {
             boolean readLatest = timestamp == null;
 
             return readLatest || txMeta.commitTimestamp().compareTo(timestamp) <= 0;
@@ -3624,7 +3624,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * Marks the transaction as finished in local tx state map.
      *
      * @param txId Transaction id.
-     * @param txState Transaction state, must be either {@link TxState#COMMITED} or {@link TxState#ABORTED}.
+     * @param txState Transaction state, must be either {@link TxState#COMMITTED} or {@link TxState#ABORTED}.
      * @param commitTimestamp Commit timestamp.
      */
     private void markFinished(UUID txId, TxState txState, @Nullable HybridTimestamp commitTimestamp) {
@@ -3636,7 +3636,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                         txState,
                         old.txCoordinatorId(),
                         old.commitPartitionId(),
-                        txState == COMMITED ? commitTimestamp : null
+                        txState == COMMITTED ? commitTimestamp : null
                 ));
     }
 

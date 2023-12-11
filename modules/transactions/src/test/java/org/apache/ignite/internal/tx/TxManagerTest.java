@@ -362,7 +362,7 @@ public class TxManagerTest extends IgniteAbstractTest {
         // Ensure that commit doesn't throw exceptions.
         InternalTransaction committedTransaction = prepareTransaction();
         committedTransaction.commit();
-        assertEquals(TxState.COMMITED, txManager.stateMeta(committedTransaction.id()).txState());
+        assertEquals(TxState.COMMITTED, txManager.stateMeta(committedTransaction.id()).txState());
 
         // Ensure that rollback doesn't throw exceptions.
         assertRollbackSucceeds();
