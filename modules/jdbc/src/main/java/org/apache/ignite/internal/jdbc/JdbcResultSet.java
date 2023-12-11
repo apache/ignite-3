@@ -65,7 +65,6 @@ import org.apache.ignite.internal.jdbc.proto.IgniteQueryErrorCode;
 import org.apache.ignite.internal.jdbc.proto.JdbcQueryCursorHandler;
 import org.apache.ignite.internal.jdbc.proto.SqlStateCode;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcColumnMeta;
-import org.apache.ignite.internal.jdbc.proto.event.JdbcGetMoreResultsRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaColumnsResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryCloseRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryCloseResult;
@@ -221,7 +220,7 @@ public class JdbcResultSet implements ResultSet {
 
     @Nullable JdbcResultSet getNextResultSet() throws SQLException {
         try {
-            JdbcGetMoreResultsRequest req = new JdbcGetMoreResultsRequest(cursorId, fetchSize);
+            JdbcQueryFetchRequest req = new JdbcQueryFetchRequest(cursorId, fetchSize);
             JdbcQuerySingleResult res = cursorHandler.getMoreResultsAsync(req).get();
 
             close0(true);

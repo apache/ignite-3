@@ -29,7 +29,6 @@ import java.util.stream.Collectors;
 import org.apache.ignite.internal.jdbc.JdbcConverterUtils;
 import org.apache.ignite.internal.jdbc.proto.JdbcQueryCursorHandler;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcColumnMeta;
-import org.apache.ignite.internal.jdbc.proto.event.JdbcGetMoreResultsRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaColumnsResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryCloseRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryCloseResult;
@@ -98,7 +97,7 @@ public class JdbcQueryCursorHandlerImpl implements JdbcQueryCursorHandler {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<JdbcQuerySingleResult> getMoreResultsAsync(JdbcGetMoreResultsRequest req) {
+    public CompletableFuture<JdbcQuerySingleResult> getMoreResultsAsync(JdbcQueryFetchRequest req) {
         AsyncSqlCursor<InternalSqlRow> asyncSqlCursor;
         try {
             asyncSqlCursor = resources.get(req.cursorId()).get(AsyncSqlCursor.class);
@@ -113,7 +112,7 @@ public class JdbcQueryCursorHandlerImpl implements JdbcQueryCursorHandler {
             return CompletableFuture.completedFuture(new JdbcQuerySingleResult(false));
         }
 
-        return asyncSqlCursor.nextResult().thenCompose(cur -> cur.requestNextAsync(req.prefetchSize())
+        return asyncSqlCursor.nextResult().thenCompose(cur -> cur.requestNextAsync(req.pageSize())
                 .handle((batch, t) -> {
                     if (t != null) {
                         StringWriter sw = getWriterWithStackTrace(t);

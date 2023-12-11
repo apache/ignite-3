@@ -21,7 +21,6 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.client.ClientChannel;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.jdbc.proto.JdbcQueryCursorHandler;
-import org.apache.ignite.internal.jdbc.proto.event.JdbcGetMoreResultsRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaColumnsResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryCloseRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryCloseResult;
@@ -60,7 +59,7 @@ public class JdbcClientQueryCursorHandler implements JdbcQueryCursorHandler {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<JdbcQuerySingleResult> getMoreResultsAsync(JdbcGetMoreResultsRequest req) {
+    public CompletableFuture<JdbcQuerySingleResult> getMoreResultsAsync(JdbcQueryFetchRequest req) {
         return channel.serviceAsync(ClientOp.JDBC_MORE_RESULTS, w -> req.writeBinary(w.out()), r -> {
             JdbcQuerySingleResult res = new JdbcQuerySingleResult();
 

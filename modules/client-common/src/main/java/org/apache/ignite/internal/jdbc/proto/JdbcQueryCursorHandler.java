@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal.jdbc.proto;
 
+import java.sql.Statement;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.jdbc.proto.event.JdbcGetMoreResultsRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaColumnsResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryCloseRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryCloseResult;
@@ -40,12 +40,12 @@ public interface JdbcQueryCursorHandler {
     CompletableFuture<JdbcQueryFetchResult> fetchAsync(JdbcQueryFetchRequest req);
 
     /**
-     * {@link JdbcGetMoreResultsRequest} command handler.
+     * {@link Statement#getMoreResults()} command implementor.
      *
-     * @param req More results request.
+     * @param req Results request.
      * @return Result future.
      */
-    CompletableFuture<JdbcQuerySingleResult> getMoreResultsAsync(JdbcGetMoreResultsRequest req);
+    CompletableFuture<JdbcQuerySingleResult> getMoreResultsAsync(JdbcQueryFetchRequest req);
 
     /**
      * {@link JdbcQueryCloseRequest} command handler.
