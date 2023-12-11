@@ -19,7 +19,6 @@ package org.apache.ignite.internal.sql.engine;
 
 import java.util.NoSuchElementException;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Supplier;
 import org.apache.ignite.internal.util.AsyncCursor;
 import org.apache.ignite.sql.ResultSetMetadata;
 
@@ -46,11 +45,11 @@ public interface AsyncSqlCursor<T> extends AsyncCursor<T> {
     boolean hasNextResult();
 
     /**
-     * Subscribes a new listener to the cursor close event.
+     * Registers a callback that will run when the cursor is closed.
      *
-     * @param supplier Listener.
+     * @param callback Callback that will run when the cursor is closed.
      */
-    void onClose(Supplier<CompletableFuture<Void>> supplier);
+    void onClose(Runnable callback);
 
     /**
      * Returns the future for the next statement of the query.

@@ -151,10 +151,8 @@ class ScriptTransactionWrapperImpl implements QueryTransactionWrapper {
             if (cur != null) {
                 cur.onClose(() -> {
                     if (openedCursors.remove(cursorId) != null) {
-                        return tryCompleteTx();
+                        tryCompleteTx();
                     }
-
-                    return nullCompletedFuture();
                 });
             }
         });

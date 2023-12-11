@@ -24,7 +24,6 @@ import java.util.List;
 import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Supplier;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
@@ -86,7 +85,7 @@ public class FakeCursor implements AsyncSqlCursor<InternalSqlRow> {
     }
 
     @Override
-    public void onClose(Supplier<CompletableFuture<Void>> supplier) {
+    public void onClose(Runnable callback) {
         throw new UnsupportedOperationException();
     }
 }
