@@ -126,12 +126,14 @@ public class ItTransactionConflictTest extends ClusterPerTestIntegrationTest {
         });
 
         runConflictingTransaction(node(0), oldRwTx);
-        runConflictingTransaction(node(0), node(0).transactions().begin());
 
         assertThat(recoveryTxMsgCaptureFut, willCompleteSuccessfully());
 
         assertEquals(orphanTxId, recoveryTxMsgCaptureFut.join());
         assertEquals(1, msgCount.get());
+
+        // Recovery has fixed the transaction, the next one should succeed.
+        runTransaction(node(0), node(0).transactions().begin());
 
         node(0).clusterConfiguration().getConfiguration(TransactionConfiguration.KEY).change(transactionChange ->
                 transactionChange.changeAbandonedCheckTs(1));
@@ -161,6 +163,18 @@ public class ItTransactionConflictTest extends ClusterPerTestIntegrationTest {
 
             log.info("Expected lock conflict.", e);
         }
+    }
+
+    /**
+     * Runs a transaction that that should run without any error.
+     *
+     * @param node Transaction coordinator node.
+     * @param rwTx A transaction to create.
+     */
+    private void runTransaction(IgniteImpl node, Transaction rwTx) {
+        RecordView view = node.tables().table(TABLE_NAME).recordView();
+
+        view.upsert(rwTx, Tuple.create().set("key", 42).set("val", "val2"));
     }
 
     /**

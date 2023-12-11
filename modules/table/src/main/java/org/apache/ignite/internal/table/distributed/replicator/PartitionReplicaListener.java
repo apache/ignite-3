@@ -147,6 +147,7 @@ import org.apache.ignite.internal.table.distributed.replication.request.ReadWrit
 import org.apache.ignite.internal.table.distributed.replicator.action.RequestType;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
 import org.apache.ignite.internal.table.distributed.schema.ValidationSchemasSource;
+import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.Lock;
 import org.apache.ignite.internal.tx.LockKey;
 import org.apache.ignite.internal.tx.LockManager;
@@ -488,7 +489,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         }
 
         if (request instanceof TxRecoveryMessage) {
-            return processTxRecoveryMessage((TxRecoveryMessage) request);
+            return processTxRecoveryMessage((TxRecoveryMessage) request, senderId);
         }
 
         HybridTimestamp opTsIfDirectRo = (request instanceof ReadOnlyDirectReplicaRequest) ? hybridClock.now() : null;
@@ -505,22 +506,59 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param request Tx recovery request.
      * @return The future is complete when the transaction state is finalized.
      */
-    private CompletableFuture<Void> processTxRecoveryMessage(TxRecoveryMessage request) {
+    private CompletableFuture<Void> processTxRecoveryMessage(TxRecoveryMessage request, String senderId) {
         UUID txId = request.txId();
 
         TxMeta txMeta = txStateStorage.get(txId);
 
         // Check whether a transaction has already been finished.
-        boolean transactionAlreadyFinished = txMeta != null && isFinalState(txMeta.txState());
-
-        if (transactionAlreadyFinished) {
-            return nullCompletedFuture();
+        if (txMeta != null && isFinalState(txMeta.txState())) {
+            return recoverFinishedTx(txId, txMeta)
+                    // If the sender has sent a recovery message, it failed to handle it on its own,
+                    // so sending cleanup to the sender for the transaction we know is finished.
+                    .whenComplete((v, ex) -> runCleanupOnNode(txId, senderId));
         }
 
         LOG.info("Orphan transaction has to be aborted [tx={}].", txId);
 
-        return triggerTxRecovery(txId)
-                .thenApply(v -> null);
+        return triggerTxRecovery(txId, senderId);
+    }
+
+    private CompletableFuture<Void> recoverFinishedTx(UUID txId, TxMeta txMeta) {
+        if (txMeta.locksReleased() || txMeta.enlistedPartitions().isEmpty()) {
+            // Nothing to do if the locks have been released already or there are no enlistedPartitions available.
+            return nullCompletedFuture();
+        }
+
+        // Otherwise run a cleanup on the known set of partitions.
+        return (CompletableFuture<Void>) durableCleanup(txId, txMeta);
+    }
+
+    /**
+     * Run cleanup on a node.
+     *
+     * @param txId Transaction id.
+     * @param nodeId Node id (inconsistent).
+     */
+    private CompletableFuture<Void> runCleanupOnNode(UUID txId, String nodeId) {
+        // Get node id of the sender to send back cleanup requests.
+        String nodeConsistentId = clusterNodeResolver.getConsistentIdById(nodeId);
+
+        return nodeConsistentId == null ? nullCompletedFuture() : txManager.cleanup(nodeConsistentId, txId);
+    }
+
+    private CompletableFuture<Void> triggerTxRecovery(UUID txId, String senderId) {
+        // If the transaction state is pending, then the transaction should be rolled back,
+        // meaning that the state is changed to aborted and a corresponding cleanup request
+        // is sent in a common durable manner to a partition that have initiated recovery.
+        return txManager.finish(
+                        new HybridTimestampTracker(),
+                        replicationGroupId,
+                        false,
+                        Map.of(replicationGroupId, 0L), // term is not required for the rollback.
+                        txId
+                )
+                .thenCompose(unused -> runCleanupOnNode(txId, senderId));
     }
 
     /**
@@ -528,23 +566,14 @@ public class PartitionReplicaListener implements ReplicaListener {
      * when the recovery is completed.
      *
      * @param txId Transaction id.
+     * @param txStateMeta Transaction meta.
+     * @param senderId Sender inconsistent id.
      * @return Tx recovery future, or failed future if the tx recovery is not possible.
      */
-    private CompletableFuture<TransactionMeta> triggerTxRecovery(UUID txId) {
-        // TODO: IGNITE-20735 Implement initiate recovery handling logic. This part has to be fully rewritten.
-        TxStateMeta txStateMeta = txManager.stateMeta(txId);
-
+    private CompletableFuture<TransactionMeta> triggerTxRecoveryWithState(UUID txId, @Nullable TxStateMeta txStateMeta, String senderId) {
         if (txStateMeta == null || txStateMeta.txState() == ABANDONED) {
-            txStateStorage.put(txId, new TxMeta(ABORTED, List.of(), null));
-            return completedFuture(
-                    txManager.updateTxMeta(txId, old -> {
-                        if (old == null) {
-                            return new TxStateMeta(ABORTED, null, replicationGroupId, null);
-                        } else {
-                            return new TxStateMeta(ABORTED, old.txCoordinatorId(), replicationGroupId, null);
-                        }
-                    })
-            );
+            return triggerTxRecovery(txId, senderId)
+                    .thenApply(v -> txStateStorage.get(txId));
         } else {
             return completedFuture(txStateMeta);
         }
@@ -746,7 +775,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         } else if (request instanceof ReadOnlyDirectMultiRowReplicaRequest) {
             return processReadOnlyDirectMultiEntryAction((ReadOnlyDirectMultiRowReplicaRequest) request, opStartTsIfDirectRo);
         } else if (request instanceof TxStateCommitPartitionRequest) {
-            return processTxStateCommitPartitionRequest((TxStateCommitPartitionRequest) request);
+            return processTxStateCommitPartitionRequest((TxStateCommitPartitionRequest) request, senderId);
         } else {
             throw new UnsupportedReplicaRequestException(request.getClass());
         }
@@ -756,9 +785,13 @@ public class PartitionReplicaListener implements ReplicaListener {
      * Processes a transaction state request.
      *
      * @param request Transaction state request.
+     * @param senderId Sender inconsistent id.
      * @return Result future.
      */
-    private CompletableFuture<TransactionMeta> processTxStateCommitPartitionRequest(TxStateCommitPartitionRequest request) {
+    private CompletableFuture<TransactionMeta> processTxStateCommitPartitionRequest(
+            TxStateCommitPartitionRequest request,
+            String senderId
+    ) {
         return placementDriver.getPrimaryReplica(replicationGroupId, hybridClock.now())
                 .thenCompose(replicaMeta -> {
                     if (replicaMeta == null || replicaMeta.getLeaseholder() == null) {
@@ -777,11 +810,12 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                     if (txMeta != null && txMeta.txState() == FINISHING) {
                         assert txMeta instanceof TxStateMetaFinishing : txMeta;
+
                         return ((TxStateMetaFinishing) txMeta).txFinishFuture();
                     } else if (txMeta == null || !isFinalState(txMeta.txState())) {
                         // Try to trigger recovery, if needed. If the transaction will be aborted, the proper ABORTED state will be sent
                         // in response.
-                        return triggerTxRecoveryOnTxStateResolutionIfNeeded(txId, txMeta);
+                        return triggerTxRecoveryOnTxStateResolutionIfNeeded(txId, txMeta, senderId);
                     } else {
                         return completedFuture(txMeta);
                     }
@@ -793,9 +827,14 @@ public class PartitionReplicaListener implements ReplicaListener {
      *
      * @param txId Transaction id.
      * @param txStateMeta Transaction meta.
+     * @param senderId Sender inconsistent id.
      * @return Tx recovery future, or completed future if the recovery isn't needed, or failed future if the recovery is not possible.
      */
-    private CompletableFuture<TransactionMeta> triggerTxRecoveryOnTxStateResolutionIfNeeded(UUID txId, @Nullable TxStateMeta txStateMeta) {
+    private CompletableFuture<TransactionMeta> triggerTxRecoveryOnTxStateResolutionIfNeeded(
+            UUID txId,
+            @Nullable TxStateMeta txStateMeta,
+            String senderId
+    ) {
         assert txStateMeta == null || !isFinalState(txStateMeta.txState()) : "Unexpected transaction state: " + txStateMeta;
 
         TxMeta txMeta = txStateStorage.get(txId);
@@ -809,14 +848,17 @@ public class PartitionReplicaListener implements ReplicaListener {
                 // state; and there is no final tx state in txStateStorage, or the tx coordinator left the cluster. But we can assume
                 // that as the coordinator (or information about it) is missing, there is  no need to wait a finish request from
                 // tx coordinator, the transaction can't be committed at all.
-                return triggerTxRecovery(txId);
+                return triggerTxRecoveryWithState(txId, txStateMeta, senderId);
             } else {
-                assert txStateMeta != null && txStateMeta.txState() == PENDING : "Unexpected transaction state: " + txStateMeta;
+                assert txStateMeta != null && (txStateMeta.txState() == PENDING || txStateMeta.txState() == FINISHING)
+                        : "Unexpected transaction state: " + txStateMeta;
+
                 return completedFuture(txStateMeta);
             }
         } else {
             // Recovery is not needed.
             assert isFinalState(txMeta.txState()) : "Unexpected transaction state: " + txMeta;
+
             return completedFuture(txMeta);
         }
     }
@@ -1673,7 +1715,6 @@ public class PartitionReplicaListener implements ReplicaListener {
             return resultFuture;
         }
     }
-
 
     /**
      * Processes transaction cleanup request:

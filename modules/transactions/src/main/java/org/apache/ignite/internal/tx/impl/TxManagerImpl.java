@@ -582,6 +582,11 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     }
 
     @Override
+    public CompletableFuture<Void> cleanup(String node, UUID txId) {
+        return txCleanupRequestSender.cleanup(node, txId);
+    }
+
+    @Override
     public CompletableFuture<Void> executeCleanupAsync(Runnable runnable) {
         return runAsync(runnable, cleanupExecutor);
     }
