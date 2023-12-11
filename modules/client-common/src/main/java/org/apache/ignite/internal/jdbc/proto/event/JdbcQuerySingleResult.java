@@ -145,7 +145,7 @@ public class JdbcQuerySingleResult extends Response {
      * Decimal scales.
      *
      * @return Decimal scales in appearance order in columns. Can be empty in case no any decimal columns.
-     * */
+     */
     public int[] decimalScales() {
         return decimalScales;
     }
@@ -241,7 +241,7 @@ public class JdbcQuerySingleResult extends Response {
 
         rowTuples = new ArrayList<>(size);
         for (int rowIdx = 0; rowIdx < size; rowIdx++) {
-            rowTuples.add(new BinaryTupleReader(columnTypes.size(), unpacker.readBinary()));
+            rowTuples.add(new BinaryTupleReader(count, unpacker.readBinary()));
         }
 
     }

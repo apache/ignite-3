@@ -20,9 +20,7 @@ package org.apache.ignite.internal.jdbc.proto.event;
 import static org.apache.ignite.internal.binarytuple.BinaryTupleParser.ORDER;
 
 import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
@@ -35,7 +33,7 @@ public class JdbcGetMoreResultsResult extends Response {
     /** Cursor ID. */
     private long cursorId;
 
-    /** Query type. */
+    /** Update count. */
     private long updCount;
 
     /** Serialized result rows. */
@@ -50,7 +48,8 @@ public class JdbcGetMoreResultsResult extends Response {
     /** Decimal scales in appearance order. Can be empty in case no any decimal columns. */
     private int[] decimalScales;
 
-    boolean isQuery;
+    /** Query flag, {@code true} for non DML or DDL queries. */
+    private boolean isQuery;
 
     /**
      * Default constructor is used for deserialization.
@@ -74,9 +73,12 @@ public class JdbcGetMoreResultsResult extends Response {
      *
      * @param hasNext {@code true} if more results are present.
      * @param cursorId Cursor ID.
-     * @param type Query type.
+     * @param updCount Update count.
+     * @param columnTypes Column types.
+     * @param decimalScales Decimal scales.
      * @param items Query result rows.
      * @param last  Flag indicating the query has no unfetched results.
+     * @param isQuery Query, non dml or ddl statement.
      */
     public JdbcGetMoreResultsResult(
             boolean hasNext,
@@ -123,22 +125,47 @@ public class JdbcGetMoreResultsResult extends Response {
         return updCount;
     }
 
+    /**
+     * Get the items.
+     *
+     * @return Serialized query result rows.
+     */
     public List<ByteBuffer> items() {
         return rowTuples;
     }
 
+    /**
+     * Get the last flag.
+     *
+     * @return Flag indicating the query has no unfetched results.
+     */
     public boolean last() {
         return last;
     }
 
+    /**
+     * Types of columns in serialized rows.
+     *
+     * @return Ordered list of types of columns in serialized rows.
+     */
     public List<ColumnType> columnTypes() {
         return columnTypes;
     }
 
+    /**
+     * Decimal scales.
+     *
+     * @return Decimal scales in appearance order in columns. Can be empty in case no any decimal columns.
+     */
     public int[] decimalScales() {
         return decimalScales;
     }
 
+    /**
+     * Get the isQuery flag.
+     *
+     * @return Flag indicating the query is SELECT query. {@code false} for DML/DDL queries.
+     */
     public boolean isQuery() {
         return isQuery;
     }
