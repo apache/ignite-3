@@ -22,12 +22,10 @@ import static org.apache.ignite.internal.compute.ClassLoaderExceptionsMapper.map
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 
 import java.util.List;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.JobExecution;
-import org.apache.ignite.compute.JobStatus;
 import org.apache.ignite.internal.compute.executor.ComputeExecutor;
 import org.apache.ignite.internal.compute.loader.JobContext;
 import org.apache.ignite.internal.compute.loader.JobContextManager;
@@ -38,7 +36,6 @@ import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.MessagingService;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Implementation of {@link ComputeComponent}.
@@ -102,11 +99,6 @@ public class ComputeComponentImpl implements ComputeComponent {
         } finally {
             busyLock.leaveBusy();
         }
-    }
-
-    @Override
-    public @Nullable JobStatus getJobStatus(UUID jobId) {
-        return executor.status(jobId);
     }
 
     private <R> CompletableFuture<R> start(

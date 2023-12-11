@@ -24,18 +24,14 @@ import static org.apache.ignite.compute.JobState.QUEUED;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willTimeoutIn;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
-import static org.apache.ignite.internal.testframework.matchers.JobStatusMatcher.jobStatusWithState;
-import static org.apache.ignite.internal.testframework.matchers.JobStatusMatcher.jobStatusWithStateAndCreateTimeStartTime;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
 
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
-import org.apache.ignite.compute.JobStatus;
 import org.apache.ignite.internal.compute.configuration.ComputeConfiguration;
 import org.apache.ignite.internal.compute.state.InMemoryComputeStateMachine;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
@@ -234,17 +230,10 @@ public class PriorityQueueExecutorTest extends BaseIgniteAbstractTest {
             }
         });
 
-        JobStatus executingStatus = await().until(
-                execution::status,
-                jobStatusWithState(equalTo(EXECUTING))
-        );
+        await().until(() -> execution.state() == EXECUTING);
 
         execution.cancel();
-
-        await().until(
-                execution::status,
-                jobStatusWithStateAndCreateTimeStartTime(CANCELED, executingStatus.createTime(), executingStatus.startTime())
-        );
+        await().untilAsserted(() -> assertThat(execution.state(), is(CANCELED)));
     }
 
     @Test
@@ -257,17 +246,10 @@ public class PriorityQueueExecutorTest extends BaseIgniteAbstractTest {
             return 0;
         });
 
-        JobStatus executingStatus = await().until(
-                execution::status,
-                jobStatusWithState(equalTo(EXECUTING))
-        );
+        await().until(() -> execution.state() == EXECUTING);
 
         execution.cancel();
-
-        await().until(
-                execution::status,
-                jobStatusWithStateAndCreateTimeStartTime(CANCELED, executingStatus.createTime(), executingStatus.startTime())
-        );
+        await().untilAsserted(() -> assertThat(execution.state(), is(CANCELED)));
     }
 
     @Test
@@ -276,10 +258,10 @@ public class PriorityQueueExecutorTest extends BaseIgniteAbstractTest {
 
         QueueExecution<Object> execution = priorityQueueExecutor.submit(() -> 0);
 
-        await().until(execution::status, jobStatusWithState(COMPLETED));
+        await().until(() -> execution.state() == COMPLETED);
 
         execution.cancel();
-        assertThat(execution.status().state(), is(COMPLETED));
+        assertThat(execution.state(), is(COMPLETED));
     }
 
     @Test
@@ -293,15 +275,15 @@ public class PriorityQueueExecutorTest extends BaseIgniteAbstractTest {
             return 0;
         });
 
-        await().until(runningExecution::status, jobStatusWithState(EXECUTING));
+        await().until(() -> runningExecution.state() == EXECUTING);
 
         // Put the task in the queue
         QueueExecution<Object> execution = priorityQueueExecutor.submit(() -> 0);
-        await().until(execution::status, jobStatusWithState(QUEUED));
+        assertThat(execution.state(), is(QUEUED));
 
         // Cancel the task
         execution.cancel();
-        assertThat(execution.status(), jobStatusWithState(CANCELED));
+        assertThat(execution.state(), is(CANCELED));
 
         // Finish the running task
         latch.countDown();

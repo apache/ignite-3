@@ -22,7 +22,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 
 import org.apache.calcite.sql.SqlNode;
-import org.apache.calcite.sql.pretty.SqlPrettyWriter;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -31,7 +30,7 @@ import org.junit.jupiter.params.provider.CsvSource;
 /**
  * Tests for transaction control SQL statements.
  */
-public class SqlTransactionControlParserTest {
+public class SqlTransactionControlParserTest extends AbstractDdlParserTest {
 
     @ParameterizedTest
     @CsvSource({
@@ -40,7 +39,7 @@ public class SqlTransactionControlParserTest {
             "START TRANSACTION,IMPLICIT_READ_WRITE",
     })
     public void testStartTx(String sqlStmt, IgniteSqlStartTransactionMode mode) {
-        SqlNode node = parseStatement(sqlStmt);
+        SqlNode node = parse(sqlStmt);
         IgniteSqlStartTransaction start = assertInstanceOf(IgniteSqlStartTransaction.class, node);
         assertEquals(mode, start.getMode());
 
@@ -49,27 +48,16 @@ public class SqlTransactionControlParserTest {
 
     @Test
     public void testStartRejectInvalid() {
-        assertThrowsSqlException(Sql.STMT_PARSE_ERR, " Encountered \"XY\"", () -> parseStatement("START TRANSACTION XY"));
+        assertThrowsSqlException(Sql.STMT_PARSE_ERR, " Encountered \"XY\"", () -> parse("START TRANSACTION XY"));
     }
 
     @Test
     public void testCommit() {
         String sql = "COMMIT";
 
-        SqlNode node = parseStatement(sql);
+        SqlNode node = parse(sql);
         assertInstanceOf(IgniteSqlCommitTransaction.class, node);
 
         expectUnparsed(node, sql);
-    }
-
-    private static SqlNode parseStatement(String sqlStmt) {
-        return IgniteSqlParser.parse(sqlStmt, StatementParseResult.MODE).statement();
-    }
-
-    private static void expectUnparsed(SqlNode node, String expected) {
-        SqlPrettyWriter writer = new SqlPrettyWriter();
-        node.unparse(writer, 0, 0);
-
-        assertEquals(expected, writer.toString(), "Unparse does not match");
     }
 }

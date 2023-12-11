@@ -18,8 +18,7 @@
 package org.apache.ignite.internal.compute.queue;
 
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.compute.JobStatus;
-import org.jetbrains.annotations.Nullable;
+import org.apache.ignite.compute.JobState;
 
 /**
  * Provides information about the task executing on the {@link PriorityQueueExecutor}, allows cancelling the task.
@@ -35,13 +34,11 @@ public interface QueueExecution<R> {
     CompletableFuture<R> resultAsync();
 
     /**
-     * Returns the current status of the job. The job status may be deleted and thus return {@code null} if the time for retaining job
-     * status has been exceeded.
+     * Returns job's current state.
      *
-     * @return The current status of the job, or {@code null} if the job status no longer exists due to exceeding the retention time limit.
+     * @return Job's state.
      */
-    @Nullable
-    JobStatus status();
+    JobState state();
 
     /**
      * Cancels the job.

@@ -20,9 +20,8 @@ package org.apache.ignite.internal.compute.executor;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.compute.JobExecution;
-import org.apache.ignite.compute.JobStatus;
+import org.apache.ignite.compute.JobState;
 import org.apache.ignite.internal.compute.queue.QueueExecution;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Job execution object implementation.
@@ -51,9 +50,8 @@ public class JobExecutionImpl<R> implements JobExecution<R> {
     }
 
     @Override
-    @Nullable
-    public JobStatus status() {
-        return execution.status();
+    public JobState state() {
+        return execution.state();
     }
 
     @Override

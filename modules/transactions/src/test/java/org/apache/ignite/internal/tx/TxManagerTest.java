@@ -46,6 +46,8 @@ import static org.mockito.Mockito.when;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.LongSupplier;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -56,6 +58,7 @@ import org.apache.ignite.internal.placementdriver.TestReplicaMetaImpl;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
+import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.PrimaryReplicaExpiredException;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
@@ -80,7 +83,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 /**
  * Basic tests for a transaction manager.
  */
-@ExtendWith(MockitoExtension.class)
+@ExtendWith({MockitoExtension.class, ConfigurationExtension.class})
 public class TxManagerTest extends IgniteAbstractTest {
     private static final ClusterNode LOCAL_NODE = new ClusterNodeImpl("local_id", "local", new NetworkAddress("127.0.0.1", 2004), null);
 
@@ -102,6 +105,9 @@ public class TxManagerTest extends IgniteAbstractTest {
     @Mock
     private PlacementDriver placementDriver;
 
+    @InjectConfiguration
+    private TransactionConfiguration txConfiguration;
+
     /** Init test callback. */
     @BeforeEach
     public void setup() {
@@ -116,6 +122,7 @@ public class TxManagerTest extends IgniteAbstractTest {
         when(replicaService.invoke(anyString(), any())).thenReturn(nullCompletedFuture());
 
         txManager = new TxManagerImpl(
+                txConfiguration,
                 clusterService,
                 replicaService,
                 new HeapLockManager(),
@@ -355,7 +362,7 @@ public class TxManagerTest extends IgniteAbstractTest {
         // Ensure that commit doesn't throw exceptions.
         InternalTransaction committedTransaction = prepareTransaction();
         committedTransaction.commit();
-        assertEquals(TxState.COMMITED, txManager.stateMeta(committedTransaction.id()).txState());
+        assertEquals(TxState.COMMITTED, txManager.stateMeta(committedTransaction.id()).txState());
 
         // Ensure that rollback doesn't throw exceptions.
         assertRollbackSucceeds();

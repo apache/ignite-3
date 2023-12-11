@@ -53,6 +53,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.stream.Collectors;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
@@ -76,6 +77,8 @@ import org.apache.ignite.internal.table.RecordBinaryViewImpl;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.lang.ErrorGroups.Common;
+import org.apache.ignite.lang.IgniteCheckedException;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
@@ -547,6 +550,17 @@ public class PlatformTestNodeRunner {
     }
 
     /**
+     * Compute job that throws an exception.
+     */
+    @SuppressWarnings("unused") // Used by platform tests.
+    private static class CheckedExceptionJob implements ComputeJob<String> {
+        @Override
+        public String execute(JobExecutionContext context, Object... args) {
+            throw new CompletionException(new IgniteCheckedException(Common.NODE_LEFT_ERR, "TestCheckedEx: " + args[0]));
+        }
+    }
+
+    /**
      * Compute job that computes row colocation hash.
      */
     @SuppressWarnings("unused") // Used by platform tests.
@@ -563,7 +577,7 @@ public class PlatformTestNodeRunner {
             var reader = new BinaryTupleReader(columnCount * 3, buf);
 
             for (int i = 0; i < columnCount; i++) {
-                var type = ColumnTypeConverter.fromOrdinalOrThrow(reader.intValue(i * 3));
+                var type = ColumnTypeConverter.fromIdOrThrow(reader.intValue(i * 3));
                 var scale = reader.intValue(i * 3 + 1);
                 var valIdx = i * 3 + 2;
 
@@ -715,8 +729,9 @@ public class PlatformTestNodeRunner {
                                     if (enable) {
                                         change.changeProviders().create("basic", authenticationProviderChange -> {
                                             authenticationProviderChange.convert(BasicAuthenticationProviderChange.class)
-                                                    .changeUsername("user-1")
-                                                    .changePassword("password-1");
+                                                    .changeUsers(users ->
+                                                            users.create("user-1", user -> user.changePassword("password-1"))
+                                                    );
                                         });
                                     }
                                 }

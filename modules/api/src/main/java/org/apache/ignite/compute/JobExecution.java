@@ -33,13 +33,12 @@ public interface JobExecution<R> {
     CompletableFuture<R> resultAsync();
 
     /**
-     * Returns the current status of the job. The job status may be deleted and thus return {@code null} if the time for retaining job
-     * status has been exceeded.
+     * TODO https://issues.apache.org/jira/browse/IGNITE-20841
+     * Returns job's current state.
      *
-     * @return The current status of the job, or {@code null} if the job status no longer exists due to exceeding the retention time limit.
+     * @return Job's state.
      */
-
-    JobStatus status();
+    JobState state();
 
     /**
      * Cancels the job.

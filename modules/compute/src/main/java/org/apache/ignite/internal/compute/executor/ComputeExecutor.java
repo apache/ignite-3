@@ -17,12 +17,9 @@
 
 package org.apache.ignite.internal.compute.executor;
 
-import java.util.UUID;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.JobExecution;
-import org.apache.ignite.compute.JobStatus;
 import org.apache.ignite.internal.compute.ExecutionOptions;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Executor of Compute jobs.
@@ -31,9 +28,6 @@ public interface ComputeExecutor {
     <R> JobExecution<R> executeJob(ExecutionOptions options, Class<? extends ComputeJob<R>> jobClass, Object[] args);
 
     void start();
-
-    @Nullable
-    JobStatus status(UUID jobId);
 
     void stop();
 }
