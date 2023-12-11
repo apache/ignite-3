@@ -61,6 +61,8 @@ namespace Apache.Ignite.Sql
         /// <param name="script">Script.</param>
         /// <param name="args">Arguments.</param>
         /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
+        // TODO: We should either take a string or a separate SqlScript type, because some of the props don't apply to scripts.
+        // Waiting for discussion.
         Task ExecuteScriptAsync(SqlStatement script, params object?[]? args);
     }
 }

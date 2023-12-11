@@ -453,8 +453,19 @@ namespace Apache.Ignite.Tests.Sql
         [Test]
         public async Task TestScriptProperties()
         {
-            // TODO
-            await Task.Delay(1);
+            using var server = new FakeServer();
+            using var client = await server.ConnectClientAsync();
+
+            var sqlStatement = new SqlStatement(
+                query: "SELECT PROPS",
+                timeout: TimeSpan.FromSeconds(123),
+                schema: "schema-1",
+                pageSize: 987,
+                properties: new Dictionary<string, object?> { { "prop1", 10 }, { "prop-2", "xyz" } });
+
+            await client.Sql.ExecuteScriptAsync(sqlStatement);
+            var rows = await res.ToListAsync();
+            var props = rows.ToDictionary(x => (string)x["NAME"]!, x => (string)x["VAL"]!);
         }
     }
 }
