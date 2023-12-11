@@ -42,7 +42,7 @@ public class AlterZoneCommandValidationTest extends AbstractCommandValidationTes
 
     @ParameterizedTest(name = "[{index}] ''{argumentsWithNames}''")
     @MethodSource("nullAndBlankStrings")
-    void testValidateZoneNameOnAlterZone(String zone) {
+    void zoneNameMustNotBeNullOrBlank(String zone) {
         assertThrows(
                 CatalogValidationException.class,
                 () -> AlterZoneCommand.builder().zoneName(zone).build(),
@@ -51,7 +51,7 @@ public class AlterZoneCommandValidationTest extends AbstractCommandValidationTes
     }
 
     @Test
-    void testValidateZonePartitionsOnAlterZone() {
+    void zonePartitions() {
         assertThrows(
                 CatalogValidationException.class,
                 () -> alterZoneBuilder(ZONE_NAME).partitions(-1).build(),
@@ -78,7 +78,7 @@ public class AlterZoneCommandValidationTest extends AbstractCommandValidationTes
     }
 
     @Test
-    void testValidateZoneReplicasOnAlterZone() {
+    void zoneReplicas() {
         assertThrows(
                 CatalogValidationException.class,
                 () -> alterZoneBuilder(ZONE_NAME).replicas(-1).build(),
@@ -98,7 +98,7 @@ public class AlterZoneCommandValidationTest extends AbstractCommandValidationTes
     }
 
     @Test
-    void testValidateDataNodesAutoAdjustOnAlterZone() {
+    void zoneAutoAdjust() {
         assertThrows(
                 CatalogValidationException.class,
                 () -> alterZoneBuilder(ZONE_NAME).dataNodesAutoAdjust(-1).build(),
@@ -112,7 +112,7 @@ public class AlterZoneCommandValidationTest extends AbstractCommandValidationTes
     }
 
     @Test
-    void testValidateDataNodesAutoAdjustScaleUpOnAlterZone() {
+    void zoneAutoAdjustScaleUp() {
         assertThrows(
                 CatalogValidationException.class,
                 () -> alterZoneBuilder(ZONE_NAME).dataNodesAutoAdjustScaleUp(-1).build(),
@@ -126,7 +126,7 @@ public class AlterZoneCommandValidationTest extends AbstractCommandValidationTes
     }
 
     @Test
-    void testValidateDataNodesAutoAdjustScaleDownOnAlterZone() {
+    void zoneAutoAdjustScaleDown() {
         assertThrows(
                 CatalogValidationException.class,
                 () -> alterZoneBuilder(ZONE_NAME).dataNodesAutoAdjustScaleDown(-1).build(),
@@ -140,7 +140,7 @@ public class AlterZoneCommandValidationTest extends AbstractCommandValidationTes
     }
 
     @Test
-    void testValidateDataNodesAutoAdjustCompatibilityParametersOnAlterZone() {
+    void zoneAutoAdjustCompatibility() {
         // Auto adjust + scale up.
         assertThrows(
                 CatalogValidationException.class,
@@ -208,7 +208,7 @@ public class AlterZoneCommandValidationTest extends AbstractCommandValidationTes
     }
 
     @Test
-    void testValidateFilterOnAlterZone() {
+    void zoneFilter() {
         assertThrows(
                 CatalogValidationException.class,
                 () -> alterZoneBuilder(ZONE_NAME).filter("not a JsonPath").build(),
@@ -225,22 +225,6 @@ public class AlterZoneCommandValidationTest extends AbstractCommandValidationTes
         // Let's check the success cases.
         alterZoneBuilder(ZONE_NAME).filter("['nodeAttributes'][?(@.['region'] == 'EU')]").build();
         alterZoneBuilder(ZONE_NAME).filter(DEFAULT_FILTER).build();
-    }
-
-    @Test
-    void testValidateZoneNamesOnRenameZone() {
-        assertThrows(
-                CatalogValidationException.class,
-                () -> RenameZoneCommand.builder().build(),
-                "Name of the zone can't be null or blank");
-
-        assertThrows(
-                CatalogValidationException.class,
-                () -> RenameZoneCommand.builder().zoneName(ZONE_NAME).build(),
-                "New zone name can't be null or blank");
-
-        // Let's check the success cases.
-        RenameZoneCommand.builder().zoneName(ZONE_NAME).newZoneName(ZONE_NAME + 0).build();
     }
 
     private static CatalogCommand alterZoneParams(@Nullable Integer autoAdjust, @Nullable Integer scaleUp, @Nullable Integer scaleDown) {

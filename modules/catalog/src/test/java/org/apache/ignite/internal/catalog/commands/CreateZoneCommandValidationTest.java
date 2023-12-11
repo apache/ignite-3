@@ -41,7 +41,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 public class CreateZoneCommandValidationTest extends AbstractCommandValidationTest {
     @ParameterizedTest(name = "[{index}] ''{argumentsWithNames}''")
     @MethodSource("nullAndBlankStrings")
-    void testValidateZoneNameOnCreateZone(String zone) {
+    void zoneNameMustNotBeNullOrBlank(String zone) {
         assertThrows(
                 CatalogValidationException.class,
                 () -> CreateZoneCommand.builder().zoneName(zone).build(),
@@ -50,7 +50,7 @@ public class CreateZoneCommandValidationTest extends AbstractCommandValidationTe
     }
 
     @Test
-    void testValidateZonePartitionsOnCreateZone() {
+    void zonePartitions() {
         assertThrows(
                 CatalogValidationException.class,
                 () -> createZoneBuilder(ZONE_NAME).partitions(-1).build(),
@@ -77,7 +77,7 @@ public class CreateZoneCommandValidationTest extends AbstractCommandValidationTe
     }
 
     @Test
-    void testValidateZoneReplicasOnCreateZone() {
+    void zoneReplicas() {
         assertThrows(
                 CatalogValidationException.class,
                 () -> createZoneBuilder(ZONE_NAME).replicas(-1).build(),
@@ -97,7 +97,7 @@ public class CreateZoneCommandValidationTest extends AbstractCommandValidationTe
     }
 
     @Test
-    void testValidateDataNodesAutoAdjustOnCreateZone() {
+    void zoneAutoAdjust() {
         assertThrows(
                 CatalogValidationException.class,
                 () -> createZoneBuilder(ZONE_NAME).dataNodesAutoAdjust(-1).build(),
@@ -111,7 +111,7 @@ public class CreateZoneCommandValidationTest extends AbstractCommandValidationTe
     }
 
     @Test
-    void testValidateDataNodesAutoAdjustScaleUpOnCreateZone() {
+    void zoneAutoAdjustScaleUp() {
         assertThrows(
                 CatalogValidationException.class,
                 () -> createZoneBuilder(ZONE_NAME).dataNodesAutoAdjustScaleUp(-1).build(),
@@ -125,7 +125,7 @@ public class CreateZoneCommandValidationTest extends AbstractCommandValidationTe
     }
 
     @Test
-    void testValidateDataNodesAutoAdjustScaleDownOnCreateZone() {
+    void zoneAutoAdjustScaleDown() {
         assertThrows(
                 CatalogValidationException.class,
                 () -> createZoneBuilder(ZONE_NAME).dataNodesAutoAdjustScaleDown(-1).build(),
@@ -139,7 +139,7 @@ public class CreateZoneCommandValidationTest extends AbstractCommandValidationTe
     }
 
     @Test
-    void testValidateDataNodesAutoAdjustCompatibilityParametersOnCreateZone() {
+    void zoneAutoAdjustCompatibility() {
         // Auto adjust + scale up.
         assertThrows(
                 CatalogValidationException.class,
@@ -209,7 +209,7 @@ public class CreateZoneCommandValidationTest extends AbstractCommandValidationTe
     }
 
     @Test
-    void testValidateFilterOnCreateZone() {
+    void zoneFilter() {
         assertThrows(
                 CatalogValidationException.class,
                 () -> createZoneBuilder(ZONE_NAME).filter("not a JsonPath").build(),

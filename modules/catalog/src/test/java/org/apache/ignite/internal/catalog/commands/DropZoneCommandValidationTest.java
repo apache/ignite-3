@@ -34,7 +34,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 public class DropZoneCommandValidationTest extends AbstractCommandValidationTest {
     @ParameterizedTest(name = "[{index}] ''{argumentsWithNames}''")
     @MethodSource("nullAndBlankStrings")
-    void testValidateZoneNameOnDropZone(String zone) {
+    void zoneNameMustNotBeNullOrBlank(String zone) {
         assertThrows(
                 CatalogValidationException.class,
                 () -> DropZoneCommand.builder().zoneName(zone).build(),
@@ -43,7 +43,7 @@ public class DropZoneCommandValidationTest extends AbstractCommandValidationTest
     }
 
     @Test
-    void testValidateDropDefaultZone() {
+    void rejectToDropDefaultZone() {
         assertThrows(
                 CatalogValidationException.class,
                 () -> DropZoneCommand.builder().zoneName(DEFAULT_ZONE_NAME).build(),

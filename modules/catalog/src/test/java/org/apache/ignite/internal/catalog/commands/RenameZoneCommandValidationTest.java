@@ -35,7 +35,7 @@ public class RenameZoneCommandValidationTest extends AbstractCommandValidationTe
 
     @ParameterizedTest(name = "[{index}] ''{argumentsWithNames}''")
     @MethodSource("nullAndBlankStrings")
-    void testValidateZoneNamesOnRenameZone(String zone) {
+    void srcDestZoneNamesMustNotBeNullOrBlank(String zone) {
         assertThrows(
                 CatalogValidationException.class,
                 () -> RenameZoneCommand.builder().zoneName(zone).build(),
@@ -48,7 +48,7 @@ public class RenameZoneCommandValidationTest extends AbstractCommandValidationTe
     }
 
     @Test
-    void testRenameDefaultZone() {
+    void rejectToRenameDefaultZone() {
         assertThrows(
                 CatalogValidationException.class,
                 () -> RenameZoneCommand.builder().zoneName(DEFAULT_ZONE_NAME).newZoneName("some").build(),
