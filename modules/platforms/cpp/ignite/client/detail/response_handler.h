@@ -263,8 +263,7 @@ public:
      * @param conn Connection.
      * @param msg Message.
      */
-    [[nodiscard]] ignite_result<void> handle(std::shared_ptr<node_connection> conn, bytes_view msg,
-        std::int32_t flags) final {
+    [[nodiscard]] ignite_result<void> handle(std::shared_ptr<node_connection>, bytes_view msg, std::int32_t flags) final {
         protocol::reader reader(msg);
 
         if (!test_flag(flags, protocol::response_flag::NOTIFICATION_FLAG)) {

@@ -94,7 +94,7 @@ void compute_impl::execute_on_one_node(cluster_node node, const std::vector<depl
         write_primitives_as_binary_tuple(writer, args);
     };
 
-    auto response_reader_func = [](protocol::reader &reader) { };
+    auto response_reader_func = [](protocol::reader&) { };
 
     auto notification_reader_func = [](protocol::reader &reader) -> std::optional<primitive> {
         if (reader.try_read_nil())
