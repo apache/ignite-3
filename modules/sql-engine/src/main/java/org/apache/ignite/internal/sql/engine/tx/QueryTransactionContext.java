@@ -52,7 +52,7 @@ public class QueryTransactionContext {
                     new TransactionOptions().readOnly(queryType != SqlQueryType.DML)), true);
         }
 
-        validateStatement(queryType, outerTx);
+        validateStatement(queryType, outerTx.isReadOnly());
 
         return new QueryTransactionWrapperImpl(outerTx, false);
     }
@@ -69,12 +69,12 @@ public class QueryTransactionContext {
     }
 
     /** Checks that the statement is allowed within an external/script transaction. */
-    static void validateStatement(SqlQueryType queryType, InternalTransaction tx) {
+    static void validateStatement(SqlQueryType queryType, boolean readOnly) {
         if (SqlQueryType.DDL == queryType) {
             throw new SqlException(RUNTIME_ERR, "DDL doesn't support transactions.");
         }
 
-        if (SqlQueryType.DML == queryType && tx.isReadOnly()) {
+        if (SqlQueryType.DML == queryType && readOnly) {
             throw new SqlException(RUNTIME_ERR, "DML query cannot be started by using read only transactions.");
         }
     }

@@ -149,6 +149,10 @@ public class QueryTransactionWrapperSelfTest extends BaseIgniteAbstractTest {
         txCtx.handleControlStatement(txStartStmt);
 
         //noinspection ThrowableNotThrown
-        assertThrowsSqlException(Sql.RUNTIME_ERR, "Nested transactions are not supported.", () -> txCtx.handleControlStatement(txStartStmt));
+        assertThrowsSqlException(
+                Sql.RUNTIME_ERR,
+                "Nested transactions are not supported.",
+                () -> txCtx.handleControlStatement(txStartStmt)
+        );
     }
 }

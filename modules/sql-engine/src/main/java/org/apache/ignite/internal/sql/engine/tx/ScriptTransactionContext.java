@@ -67,7 +67,7 @@ public class ScriptTransactionContext {
                 return queryTxCtx.getOrStartImplicit(queryType);
             }
 
-            validateStatement(queryType, wrapper.unwrap());
+            validateStatement(queryType, wrapper.unwrap().isReadOnly());
 
             return wrapper;
         } catch (SqlException e) {
