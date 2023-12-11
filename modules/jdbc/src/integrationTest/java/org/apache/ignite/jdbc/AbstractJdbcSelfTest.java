@@ -177,9 +177,11 @@ public class AbstractJdbcSelfTest extends BaseIgniteAbstractTest {
     /** Return a size of stored resources. Reflection based implementation, need to be refactored. */
     int openCursorsRegistered() throws Exception {
         // a bit hack, instead of calling stmt.close(), gives a chance to catch potential forgiven cursor.
-        stmt.execute("SELECT 1");
-        ResultSet rs = stmt.getResultSet();
-        rs.close();
+        if (!stmt.isClosed()) {
+            stmt.execute("SELECT 1");
+            ResultSet rs = stmt.getResultSet();
+            rs.close();
+        }
 
         IgniteImpl ignite = (IgniteImpl) clusterNodes.get(0);
         IgniteComponent cliHnd = IgniteTestUtils.getFieldValue(ignite, "clientHandlerModule");
