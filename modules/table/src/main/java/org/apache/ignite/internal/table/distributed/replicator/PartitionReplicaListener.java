@@ -3517,7 +3517,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * Check whether we can read write intents created by this transaction.
      *
      * @param txId Transaction id.
-     * @param txMeta Transaction meta info, should have final state.
+     * @param txMeta Transaction meta info.
      * @param timestamp Read timestamp.
      * @return {@code true} if we can read from entries created in this transaction (when the transaction was committed and commit time <=
      *         read time).
