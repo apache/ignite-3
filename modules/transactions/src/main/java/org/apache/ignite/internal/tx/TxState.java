@@ -31,8 +31,11 @@ public enum TxState {
     PENDING,
 
     /**
-     * This state is possible only on a transaction coordinator from the moment of start of finalization process to the moment when
-     * the coordinator receives a tx finish response from commit partition.
+     * Transaction can be put in this state on a transaction coordinator or a commit partition on a start of finalization process
+     * (for commit partition this is true only in case of recovery, when the commit partition initiates this finalization process)
+     * and the transaction ends up with some final state ({@link #COMMITED} or {@link #ABORTED}) when receives a tx finish response from
+     * commit partition on a coordinator, or finishes the transaction recovery on a commit partition. This state can be also seen locally
+     * on data nodes if they are colocated with the coordinator or the commit partition.
      */
     FINISHING,
 
