@@ -506,7 +506,7 @@ public class SqlQueryProcessor implements QueryProcessor {
         return stage;
     }
 
-    private CompletableFuture<AsyncSqlCursor<List<InternalSqlRow>>> querySingle0(
+    private CompletableFuture<AsyncSqlCursor<InternalSqlRow>> querySingle0(
             SqlProperties properties,
             IgniteTransactions transactions,
             @Nullable InternalTransaction explicitTransaction,
@@ -588,7 +588,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                 });
     }
 
-    private CompletableFuture<AsyncSqlCursor<List<InternalSqlRow>>> executeParsedStatement(
+    private CompletableFuture<AsyncSqlCursor<InternalSqlRow>> executeParsedStatement(
             String schemaName,
             ParsedResult parsedResult,
             QueryTransactionWrapper txWrapper,
