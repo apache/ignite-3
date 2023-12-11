@@ -351,7 +351,7 @@ network::data_buffer_owning sql_connection::receive_message(std::int64_t id, std
 
         if (test_flag(flags, protocol::response_flag::ERROR_FLAG))
         {
-            auto err = protocol::read_error_core(reader);
+            auto err = protocol::read_error(reader);
             throw odbc_error(sql_state::SHY000_GENERAL_ERROR, err.what_str());
         }
 

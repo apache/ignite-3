@@ -22,7 +22,7 @@
 
 namespace ignite::detail {
 
-node_connection::node_connection(uint64_t id, std::shared_ptr<network::async_client_pool> pool,
+node_connection::node_connection(std::uint64_t id, std::shared_ptr<network::async_client_pool> pool,
     std::weak_ptr<connection_event_handler> event_handler, std::shared_ptr<ignite_logger> logger,
     const ignite_client_configuration &cfg)
     : m_id(id)
@@ -46,7 +46,7 @@ node_connection::~node_connection() {
 }
 
 bool node_connection::handshake() {
-    static constexpr int8_t CLIENT_TYPE = 2;
+    static constexpr std::int8_t CLIENT_TYPE = 2;
 
     std::map<std::string, std::string> extensions;
     auto authenticator = m_configuration.get_authenticator();
@@ -69,7 +69,6 @@ void node_connection::process_message(bytes_view msg) {
     if (test_flag(flags, protocol::response_flag::PARTITION_ASSIGNMENT_CHANGED))
     {
         auto assignment_ts = reader.read_int64();
-
         UNUSED_VALUE assignment_ts;
     }
 
@@ -79,29 +78,42 @@ void node_connection::process_message(bytes_view msg) {
         event_handler->on_observable_timestamp_changed(observable_timestamp);
     }
 
-    auto handler = get_and_remove_handler(req_id);
-    if (!handler) {
-        m_logger->log_error("Missing handler for request with id=" + std::to_string(req_id));
-        return;
-    }
-
-    if (test_flag(flags, protocol::response_flag::ERROR_FLAG))
-    {
-        auto err = protocol::read_error_core(reader);
-        m_logger->log_error("Error: " + err.what_str());
-        auto res = handler->set_error(std::move(err));
-        if (res.has_error()) {
-            m_logger->log_error(
-                "Uncaught user callback exception while handling operation error: " + res.error().what_str());
-        }
-        return;
+    std::optional<ignite_error> err{};
+    if (test_flag(flags, protocol::response_flag::ERROR_FLAG)) {
+        err = {protocol::read_error(reader)};
+        m_logger->log_error("Error: " + err->what_str());
     }
 
     auto pos = reader.position();
     bytes_view data{msg.data() + pos, msg.size() - pos};
-    auto handling_res = handler->handle(shared_from_this(), data, flags);
-    if (handling_res.has_error())
-        m_logger->log_error("Uncaught user callback exception: " + handling_res.error().what_str());
+
+    { // Locking scope
+        std::lock_guard<std::mutex> lock(m_request_handlers_mutex);
+
+        auto it = m_request_handlers.find(req_id);
+        if (it == m_request_handlers.end()) {
+            m_logger->log_error("Missing handler for request with id=" + std::to_string(req_id));
+            return;
+        }
+
+        auto handler = it->second;
+
+        ignite_result<void> result{};
+        if (err) {
+            result = handler->set_error(std::move(*err));
+        }
+        else {
+            result = handler->handle(shared_from_this(), data, flags);
+        }
+
+        if (result.has_error()) {
+            m_logger->log_error("Uncaught user callback exception: " + result.error().what_str());
+        }
+
+        if (handler->is_handling_complete()) {
+            m_request_handlers.erase(it);
+        }
+    }
 }
 
 ignite_result<void> node_connection::process_handshake_rsp(bytes_view msg) {
@@ -127,7 +139,7 @@ ignite_result<void> node_connection::process_handshake_rsp(bytes_view msg) {
     return {};
 }
 
-std::shared_ptr<response_handler> node_connection::get_and_remove_handler(int64_t req_id) {
+std::shared_ptr<response_handler> node_connection::get_and_remove_handler(std::int64_t req_id) {
     std::lock_guard<std::mutex> lock(m_request_handlers_mutex);
 
     auto it = m_request_handlers.find(req_id);
@@ -138,6 +150,14 @@ std::shared_ptr<response_handler> node_connection::get_and_remove_handler(int64_
     m_request_handlers.erase(it);
 
     return res;
+}
+
+std::shared_ptr<response_handler> node_connection::find_handler_unsafe(std::int64_t req_id) {
+    auto it = m_request_handlers.find(req_id);
+    if (it == m_request_handlers.end())
+        return {};
+
+    return it->second;
 }
 
 } // namespace ignite::detail

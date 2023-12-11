@@ -194,14 +194,14 @@ uuid make_random_uuid() {
     return {distrib(gen), distrib(gen)};
 }
 
-std::optional<ignite_error> read_error(reader &reader) {
+std::optional<ignite_error> try_read_error(reader &reader) {
     if (reader.try_read_nil())
         return std::nullopt;
 
-    return {read_error_core(reader)};
+    return {read_error(reader)};
 }
 
-ignite_error read_error_core(reader &reader) {
+ignite_error read_error(reader &reader) {
     auto trace_id = reader.try_read_nil() ? make_random_uuid() : reader.read_uuid();
     auto code = reader.read_object_or_default<std::int32_t>(65537);
     auto class_name = reader.read_string();

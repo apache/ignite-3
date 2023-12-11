@@ -55,6 +55,13 @@ public:
      * Set error.
      */
     [[nodiscard]] virtual ignite_result<void> set_error(ignite_error) = 0;
+
+    /**
+     * Check whether handling is complete.
+     *
+     * @return @c true if the handling is complete and false otherwise.
+     */
+    [[nodiscard]] virtual bool is_handling_complete() const = 0;
 };
 
 /**
@@ -72,40 +79,33 @@ public:
      * @param callback Callback.
      */
     explicit response_handler_adapter(ignite_callback<T> callback)
-        : m_callback(std::move(callback))
-        , m_mutex() {}
+        : m_callback(std::move(callback)) {}
 
     /**
      * Set error.
      *
      * @param err Error to set.
      */
-    [[nodiscard]] ignite_result<void> set_error(ignite_error err) final {
-        ignite_callback<T> callback = remove_callback();
-        if (!callback)
-            return {};
+    [[nodiscard]] ignite_result<void> set_error(ignite_error err) override {
+        m_handling_complete = true;
+        return result_of_operation<void>([&]() { m_callback({std::move(err)}); });
+    }
 
-        return result_of_operation<void>([&]() { callback({std::move(err)}); });
+    /**
+     * Check whether handling is complete.
+     *
+     * @return @c true if the handling is complete and false otherwise.
+     */
+    [[nodiscard]] bool is_handling_complete() const final {
+        return m_handling_complete;
     }
 
 protected:
-    /**
-     * Remove callback and return it.
-     *
-     * @return Callback.
-     */
-    ignite_callback<T> remove_callback() {
-        std::lock_guard<std::mutex> guard(m_mutex);
-        ignite_callback<T> callback = {};
-        std::swap(callback, m_callback);
-        return callback;
-    }
-
     /** Promise. */
     ignite_callback<T> m_callback;
 
-    /** Callback mutex. */
-    std::mutex m_mutex;
+    /** Handling completion flag. */
+    bool m_handling_complete{false};
 };
 
 /**
@@ -136,17 +136,15 @@ public:
      */
     [[nodiscard]] ignite_result<void> handle(std::shared_ptr<node_connection> channel, bytes_view msg,
         std::int32_t) final {
-        ignite_callback<T> callback = response_handler_adapter<T>::remove_callback();
-        if (!callback)
-            return {};
-
         auto read_res = result_of_operation<T>([&]() { return m_read_func(std::move(channel), msg); });
         bool read_error = read_res.has_error();
 
-        auto handle_res = result_of_operation<void>([&]() { callback(std::move(read_res)); });
+        auto handle_res = result_of_operation<void>([&]() { m_callback(std::move(read_res)); });
         if (!read_error && handle_res.has_error()) {
-            handle_res = result_of_operation<void>([&]() { callback(std::move(handle_res.error())); });
+            handle_res = result_of_operation<void>([&]() { m_callback(std::move(handle_res.error())); });
         }
+
+        this->m_handling_complete = true;
         return handle_res;
     }
 
@@ -180,18 +178,16 @@ public:
      * @param msg Message.
      */
     [[nodiscard]] ignite_result<void> handle(std::shared_ptr<node_connection>, bytes_view msg, std::int32_t) final {
-        ignite_callback<T> callback = response_handler_adapter<T>::remove_callback();
-        if (!callback)
-            return {};
-
         protocol::reader reader(msg);
         auto read_res = result_of_operation<T>([&]() { return m_read_func(reader); });
         bool read_error = read_res.has_error();
 
-        auto handle_res = result_of_operation<void>([&]() { callback(std::move(read_res)); });
+        auto handle_res = result_of_operation<void>([&]() { m_callback(std::move(read_res)); });
         if (!read_error && handle_res.has_error()) {
-            handle_res = result_of_operation<void>([&]() { callback(std::move(handle_res.error())); });
+            handle_res = result_of_operation<void>([&]() { m_callback(std::move(handle_res.error())); });
         }
+
+        this->m_handling_complete = true;
         return handle_res;
     }
 
@@ -227,18 +223,16 @@ public:
      * @param msg Message.
      */
     [[nodiscard]] ignite_result<void> handle(std::shared_ptr<node_connection> conn, bytes_view msg, std::int32_t) final {
-        ignite_callback<T> callback = response_handler_adapter<T>::remove_callback();
-        if (!callback)
-            return {};
-
         protocol::reader reader(msg);
         auto read_res = result_of_operation<T>([&]() { return m_read_func(reader, conn); });
         bool read_error = read_res.has_error();
 
-        auto handle_res = result_of_operation<void>([&]() { callback(std::move(read_res)); });
+        auto handle_res = result_of_operation<void>([&]() { m_callback(std::move(read_res)); });
         if (!read_error && handle_res.has_error()) {
-            handle_res = result_of_operation<void>([&]() { callback(std::move(handle_res.error())); });
+            handle_res = result_of_operation<void>([&]() { m_callback(std::move(handle_res.error())); });
         }
+
+        this->m_handling_complete = true;
         return handle_res;
     }
 
