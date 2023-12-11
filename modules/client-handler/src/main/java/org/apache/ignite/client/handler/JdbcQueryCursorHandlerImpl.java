@@ -73,12 +73,12 @@ public class JdbcQueryCursorHandlerImpl implements JdbcQueryCursorHandler {
                     "Failed to find query cursor [curId=" + req.cursorId() + "]. Error message:" + sw));
         }
 
-        if (req.pageSize() <= 0) {
+        if (req.fetchSize() <= 0) {
             return CompletableFuture.completedFuture(new JdbcQueryFetchResult(Response.STATUS_FAILED,
-                    "Invalid fetch size [fetchSize=" + req.pageSize() + ']'));
+                    "Invalid fetch size [fetchSize=" + req.fetchSize() + ']'));
         }
 
-        return asyncSqlCursor.requestNextAsync(req.pageSize()).handle((batch, t) -> {
+        return asyncSqlCursor.requestNextAsync(req.fetchSize()).handle((batch, t) -> {
             if (t != null) {
                 StringWriter sw = getWriterWithStackTrace(t);
 
@@ -112,7 +112,7 @@ public class JdbcQueryCursorHandlerImpl implements JdbcQueryCursorHandler {
             return CompletableFuture.completedFuture(new JdbcQuerySingleResult(false));
         }
 
-        return asyncSqlCursor.nextResult().thenCompose(cur -> cur.requestNextAsync(req.pageSize())
+        return asyncSqlCursor.nextResult().thenCompose(cur -> cur.requestNextAsync(req.fetchSize())
                 .handle((batch, t) -> {
                     if (t != null) {
                         StringWriter sw = getWriterWithStackTrace(t);
