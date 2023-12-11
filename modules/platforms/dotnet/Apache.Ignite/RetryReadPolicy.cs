@@ -57,6 +57,7 @@ namespace Apache.Ignite
                 ClientOperationType.TupleContainsKey => false,
                 ClientOperationType.ComputeExecute => false,
                 ClientOperationType.SqlExecute => false,
+                ClientOperationType.SqlExecuteScript => false,
                 var unsupported => throw new NotSupportedException("Unsupported operation type: " + unsupported)
             };
         }

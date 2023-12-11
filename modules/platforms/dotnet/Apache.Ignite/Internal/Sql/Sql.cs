@@ -104,6 +104,7 @@ namespace Apache.Ignite.Internal.Sql
                 w.Write((long)script.Timeout.TotalMilliseconds);
                 w.WriteNil(); // Session timeout (unused, session is closed by the server immediately).
                 WriteProperties(script, ref w);
+                w.Write(script.Query);
                 w.WriteObjectCollectionAsBinaryTuple(args);
 
                 w.Write(_socket.ObservableTimestamp);
