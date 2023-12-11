@@ -484,20 +484,20 @@ public class DefaultMessagingService extends AbstractMessagingService {
                     LOG.info("AAA {} ms passed for {}", millisPassed, msg);
                 }
             }
-        }
 
-        if (msg instanceof ScaleCubeMessage) {
-            ScaleCubeMessage scaleCubeMessage = (ScaleCubeMessage) msg;
-            if (scaleCubeMessage.data() != null && scaleCubeMessage.data().getClass().getName().endsWith(".PingData")) {
-                LOG.info(
-                        "{}/{}/{} Receiving ping from {}, cid {}, data {}",
-                        sent,
-                        received,
-                        inFlight,
-                        obj.consistentId(),
-                        scaleCubeMessage.headers().get("cid"),
-                        scaleCubeMessage.data()
-                );
+            if (msg instanceof ScaleCubeMessage) {
+                ScaleCubeMessage scaleCubeMessage = (ScaleCubeMessage) msg;
+                if (scaleCubeMessage.data() != null && scaleCubeMessage.data().getClass().getName().endsWith(".PingData")) {
+                    LOG.info(
+                            "{}/{}/{} Receiving ping from {}, cid {}, data {}",
+                            sent,
+                            received,
+                            inFlight,
+                            obj.consistentId(),
+                            scaleCubeMessage.headers().get("cid"),
+                            scaleCubeMessage.data()
+                    );
+                }
             }
         }
 
