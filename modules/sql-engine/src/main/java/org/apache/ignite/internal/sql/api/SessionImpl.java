@@ -25,6 +25,7 @@ import static org.apache.ignite.lang.ErrorGroups.Sql.SESSION_CLOSED_ERR;
 
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.List;
@@ -39,7 +40,6 @@ import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.sql.AbstractSession;
@@ -414,6 +414,7 @@ public class SessionImpl implements AbstractSession {
             busyLock.leaveBusy();
         }
 
+        // Complete the user's future asynchronously outside of the busy lock.
         handler.resultFuture().whenCompleteAsync((res, th) -> {
             if (th == null) {
                 userFut.complete(null);
@@ -549,8 +550,7 @@ public class SessionImpl implements AbstractSession {
 
     private class ScriptHandler {
         private final CompletableFuture<Void> resFut = new CompletableFuture<>();
-
-        private final AtomicReference<Throwable> cursorCloseErrHolder = new AtomicReference<>();
+        private final List<Throwable> cursorCloseErrors = Collections.synchronizedList(new ArrayList<>());
 
         CompletableFuture<Void> resultFuture() {
             return resFut;
@@ -558,8 +558,8 @@ public class SessionImpl implements AbstractSession {
 
         void processCursor(AsyncSqlCursor<InternalSqlRow> cursor, Throwable scriptError) {
             if (scriptError != null) {
-                // Stop script execution.
-                completeScriptExecution(scriptError);
+                // Stopping script execution.
+                onFail(scriptError);
 
                 return;
             }
@@ -567,11 +567,11 @@ public class SessionImpl implements AbstractSession {
             cursor.closeAsync().whenComplete((ignored, cursorCloseError) -> {
                 if (cursorCloseError != null) {
                     // Just save the error for later and continue fetching cursors.
-                    saveError(cursorCloseError);
+                    cursorCloseErrors.add(cursorCloseError);
                 }
 
                 if (!busyLock.enterBusy()) {
-                    completeScriptExecution(sessionIsClosedException());
+                    onFail(sessionIsClosedException());
                     return;
                 }
 
@@ -579,7 +579,7 @@ public class SessionImpl implements AbstractSession {
                     if (cursor.hasNextResult()) {
                         cursor.nextResult().whenCompleteAsync(this::processCursor);
                     } else {
-                        completeScriptExecution(null);
+                        onComplete();
                     }
                 } finally {
                     busyLock.leaveBusy();
@@ -587,38 +587,22 @@ public class SessionImpl implements AbstractSession {
             });
         }
 
-        private void completeScriptExecution(@Nullable Throwable err) {
-            Throwable savedError = cursorCloseErrHolder.get();
-
-            if (err == null && savedError == null) {
-                resFut.complete(null);
+        private void onComplete() {
+            if (!cursorCloseErrors.isEmpty()) {
+                onFail(new IllegalStateException("The script was completed with errors."));
 
                 return;
             }
 
-            if (err == null) {
-                err = savedError;
-            } else if (savedError != null) {
-                err.addSuppressed(savedError);
+            resFut.complete(null);
+        }
+
+        private void onFail(Throwable err) {
+            for (Throwable cursorCloseErr : cursorCloseErrors) {
+                err.addSuppressed(cursorCloseErr);
             }
 
             resFut.completeExceptionally(err);
-        }
-
-        void saveError(Throwable t) {
-            Throwable oldVal = cursorCloseErrHolder.get();
-
-            Throwable err = oldVal;
-
-            if (err == null) {
-                err = t;
-            } else {
-                err.addSuppressed(t);
-            }
-
-            boolean success = cursorCloseErrHolder.compareAndSet(oldVal, err);
-
-            assert success;
         }
     }
 }

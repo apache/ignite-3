@@ -20,19 +20,18 @@ package org.apache.ignite.internal.sql.engine.tx;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Sql.EXECUTION_CANCELLED_ERR;
 
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Function;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.AsyncCursor;
 import org.apache.ignite.sql.SqlException;
-import org.apache.ignite.tx.Transaction;
 
 /**
  * Wraps a transaction, which is managed by SQL engine via {@link SqlQueryType#TX_CONTROL} statements.
@@ -55,16 +54,14 @@ class ScriptTransactionWrapperImpl implements QueryTransactionWrapper {
     private final CompletableFuture<Void> txFinishFuture = new CompletableFuture<>();
 
     /** Opened cursors that must be closed before the transaction can complete. */
-    private final Map<UUID, CompletableFuture<? extends AsyncCursor<?>>> openedCursors = new ConcurrentHashMap<>();
+    private final Map<UUID, CompletableFuture<? extends AsyncCursor<?>>> openedCursors = new HashMap<>();
 
-    /** Transaction action (commit or rollback) that will be performed when all dependent cursors are closed. */
-    private final AtomicReference<Function<InternalTransaction, CompletableFuture<Void>>> finishTxAction = new AtomicReference<>();
+    private final Object mux = new Object();
+
+    private volatile State txState;
 
     /** Error that caused the transaction to be rolled back. */
-    private volatile Throwable rollbackCause;
-
-    /** Mutex to synchronize registering a new cursor with closing the cursor. */
-    private final Object mux = new Object();
+    private Throwable rollbackCause;
 
     ScriptTransactionWrapperImpl(InternalTransaction managedTx) {
         this.managedTx = managedTx;
@@ -82,66 +79,52 @@ class ScriptTransactionWrapperImpl implements QueryTransactionWrapper {
 
     @Override
     public CompletableFuture<Void> rollback(Throwable cause) {
-        assert cause != null;
+        Collection<CompletableFuture<? extends AsyncCursor<?>>> cursorsToClose;
 
-        if (rollbackCause == null) {
-            synchronized (mux) {
-                if (rollbackCause != null) {
-                    return txFinishFuture;
-                }
-
-                rollbackCause = cause;
-
-                // Close all associated cursors on error.
-                for (CompletableFuture<? extends AsyncCursor<?>> fut : openedCursors.values()) {
-                    fut.whenComplete((cursor, ex) -> {
-                        if (cursor != null) {
-                            cursor.closeAsync();
-                        }
-                    });
-                }
+        synchronized (mux) {
+            if (rollbackCause != null) {
+                return txFinishFuture;
             }
 
-            managedTx.rollbackAsync().whenComplete((r, e) -> {
-                if (e != null) {
-                    txFinishFuture.completeExceptionally(e);
-                } else {
-                    txFinishFuture.complete(null);
+            rollbackCause = cause;
+            txState = State.ROLLBACK;
+
+            cursorsToClose = List.copyOf(openedCursors.values());
+        }
+
+        // Close all associated cursors on error.
+        for (CompletableFuture<? extends AsyncCursor<?>> fut : cursorsToClose) {
+            fut.whenComplete((cursor, ex) -> {
+                if (cursor != null) {
+                    cursor.closeAsync();
                 }
             });
         }
 
+        completeTx();
+
         return txFinishFuture;
     }
 
-    public CompletableFuture<Void> commit() {
-        boolean success = finishTxAction.compareAndSet(null, Transaction::commitAsync);
-
-        assert success;
-
-        tryCompleteTx();
+    CompletableFuture<Void> commit() {
+        changeState(State.COMMIT);
 
         return txFinishFuture;
     }
 
     void rollbackWhenCursorsClosed() {
-        boolean success = finishTxAction.compareAndSet(null, InternalTransaction::rollbackAsync);
-
-        assert success;
-
-        // Wait until all cursors will be closed.
-        tryCompleteTx();
+        changeState(State.ROLLBACK);
     }
 
-    void registerCursor(CompletableFuture<AsyncSqlCursor<InternalSqlRow>> cursorFut) {
+    void registerCursorFuture(CompletableFuture<AsyncSqlCursor<InternalSqlRow>> cursorFut) {
         UUID cursorId = UUID.randomUUID();
 
         synchronized (mux) {
-            Throwable err = rollbackCause;
+            if (txState != null) {
+                assert txState == State.ROLLBACK;
 
-            if (err != null) {
                 throw new SqlException(EXECUTION_CANCELLED_ERR,
-                        "The transaction has already been rolled back due to an error in the previous statement.", err);
+                        "The transaction has already been rolled back due to an error in the previous statement.", rollbackCause);
             }
 
             openedCursors.put(cursorId, cursorFut);
@@ -150,29 +133,62 @@ class ScriptTransactionWrapperImpl implements QueryTransactionWrapper {
         cursorFut.whenComplete((cur, ex) -> {
             if (cur != null) {
                 cur.onClose(() -> {
-                    if (openedCursors.remove(cursorId) != null) {
-                        tryCompleteTx();
+                    synchronized (mux) {
+                        if (openedCursors.remove(cursorId) == null
+                                || txState == null
+                                || !openedCursors.isEmpty()) {
+                            return;
+                        }
                     }
+
+                    completeTx();
                 });
             }
         });
     }
 
-    private CompletableFuture<Void> tryCompleteTx() {
-        Function<InternalTransaction, CompletableFuture<Void>> action = finishTxAction.get();
+    private void changeState(State newState) {
+        synchronized (mux) {
+            if (txState != null) {
+                return;
+            }
 
-        if (action != null && openedCursors.isEmpty()) {
-            return action.apply(managedTx)
-                    .whenComplete((r, e) -> {
-                        if (e != null) {
-                            txFinishFuture.completeExceptionally(e);
-                        } else {
-                            txFinishFuture.complete(null);
-                        }
-                    });
+            txState = newState;
+
+            if (!openedCursors.isEmpty()) {
+                return;
+            }
         }
 
-        return nullCompletedFuture();
+        completeTx();
     }
 
+    private void completeTx() {
+        // Intentional volatile read outside of a synchronized block.
+        switch (txState) {
+            case COMMIT:
+                managedTx.commitAsync().whenComplete(this::completeTxFuture);
+                break;
+
+            case ROLLBACK:
+                managedTx.rollbackAsync().whenComplete(this::completeTxFuture);
+                break;
+
+            default:
+                throw new IllegalStateException("Unknown transaction target state: " + txState);
+        }
+    }
+
+    private void completeTxFuture(Void unused, Throwable e) {
+        if (e != null) {
+            txFinishFuture.completeExceptionally(e);
+        } else {
+            txFinishFuture.complete(null);
+        }
+    }
+
+    private enum State {
+        COMMIT,
+        ROLLBACK
+    }
 }

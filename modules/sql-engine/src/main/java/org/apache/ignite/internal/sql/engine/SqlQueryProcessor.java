@@ -20,6 +20,7 @@ package org.apache.ignite.internal.sql.engine;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.lang.SqlExceptionMapperUtil.mapToPublicSqlException;
+import static org.apache.ignite.internal.sql.engine.tx.ScriptTransactionContext.NOOP_TX_WRAPPER;
 import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFIG;
 import static org.apache.ignite.internal.table.distributed.storage.InternalTableImpl.AWAIT_PRIMARY_REPLICA_TIMEOUT;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
@@ -670,7 +671,7 @@ public class SqlQueryProcessor implements QueryProcessor {
     private class MultiStatementHandler {
         private final String schemaName;
         private final Queue<ScriptStatement> statements;
-        private final ScriptTransactionContext scriptTxCtx;
+        private final ScriptTransactionContext txCtx;
 
         MultiStatementHandler(
                 String schemaName,
@@ -680,7 +681,7 @@ public class SqlQueryProcessor implements QueryProcessor {
         ) {
             this.schemaName = schemaName;
             this.statements = prepareStatementsQueue(parsedResults, params);
-            this.scriptTxCtx = new ScriptTransactionContext(txCtx);
+            this.txCtx = new ScriptTransactionContext(txCtx);
         }
 
         /**
@@ -725,33 +726,52 @@ public class SqlQueryProcessor implements QueryProcessor {
 
                 ParsedResult parsedResult = scriptStatement.parsedResult;
 
-                QueryTransactionWrapper txWrapper = scriptTxCtx.getOrStartImplicit(parsedResult.queryType());
+                CompletableFuture<AsyncSqlCursor<InternalSqlRow>> fut;
 
-                scriptTxCtx.registerCursor(parsedResult.queryType(), cursorFuture);
+                if (parsedResult.queryType() == SqlQueryType.TX_CONTROL) {
+                    CompletableFuture<Void> txStmtFut = txCtx.handleControlStatement(parsedResult.parsedTree());
 
-                executeStatement(parsedResult, txWrapper, scriptStatement.dynamicParams, scriptStatement.nextStatementFuture)
-                        .whenComplete((cursor, ex) -> {
-                            if (ex != null) {
-                                cursorFuture.completeExceptionally(ex);
-                                cancelAll(ex);
-                            }
-                        })
-                        .thenCompose(cursor -> txWrapper.commitImplicit()
-                                .thenApply(ignore -> {
-                                    if (scriptStatement.isLastStatement()) {
-                                        // Try to rollback script managed transaction, if any.
-                                        scriptTxCtx.onScriptEnd();
-                                    } else {
-                                        taskExecutor.execute(this::processNext);
-                                    }
+                    // Return an empty cursor.
+                    fut = txStmtFut.thenApply(ignored ->
+                            new AsyncSqlCursorImpl<>(parsedResult.queryType(),
+                                    EMPTY_RESULT_SET_METADATA,
+                                    NOOP_TX_WRAPPER,
+                                    new AsyncWrapper<>(Collections.emptyIterator()),
+                                    () -> {},
+                                    scriptStatement.nextStatementFuture
+                            ));
+                } else {
+                    QueryTransactionWrapper txWrapper = txCtx.getOrStartImplicit(parsedResult.queryType());
 
-                                    cursorFuture.complete(cursor);
+                    txCtx.registerCursorFuture(parsedResult.queryType(), cursorFuture);
 
-                                    return cursor;
-                                })
-                        );
+                    fut = executeParsedStatement(schemaName, parsedResult, txWrapper,
+                            new QueryCancel(), scriptStatement.dynamicParams, true, scriptStatement.nextStatementFuture)
+                            .thenCompose(cursor -> txWrapper.commitImplicit().thenApply(ignore -> cursor));
+                }
+
+                fut.whenComplete((cursor, ex) -> {
+                    if (ex != null) {
+                        cancelAll(ex);
+
+                        return;
+                    }
+
+                    if (scriptStatement.isLastStatement()) {
+                        // Try to rollback script managed transaction, if any.
+                        txCtx.rollbackUncommitted();
+                    } else {
+                        taskExecutor.execute(this::processNext);
+                    }
+                }).whenCompleteAsync((cursor, ex) -> {
+                    if (ex != null) {
+                        cursorFuture.completeExceptionally(ex);
+                    } else {
+                        cursorFuture.complete(cursor);
+                    }
+                }, taskExecutor);
             } catch (Throwable e) {
-                scriptTxCtx.onError(e);
+                txCtx.onError(e);
 
                 cursorFuture.completeExceptionally(e);
 
@@ -759,30 +779,6 @@ public class SqlQueryProcessor implements QueryProcessor {
             }
 
             return cursorFuture;
-        }
-
-        private CompletableFuture<AsyncSqlCursor<InternalSqlRow>> executeStatement(
-                ParsedResult parsedResult,
-                QueryTransactionWrapper txWrapper,
-                Object[] params,
-                CompletableFuture<AsyncSqlCursor<InternalSqlRow>> nextCursorFut
-        ) {
-            if (parsedResult.queryType() == SqlQueryType.TX_CONTROL) {
-                CompletableFuture<Void> txStmtFut = scriptTxCtx.handleControlStatement(parsedResult.parsedTree());
-
-                // Return an empty cursor.
-                return txStmtFut.thenApply(ignored ->
-                        new AsyncSqlCursorImpl<>(
-                                parsedResult.queryType(),
-                                EMPTY_RESULT_SET_METADATA,
-                                txWrapper,
-                                new AsyncWrapper<>(Collections.emptyIterator()),
-                                () -> {},
-                                nextCursorFut
-                        ));
-            }
-
-            return executeParsedStatement(schemaName, parsedResult, txWrapper, new QueryCancel(), params, true, nextCursorFut);
         }
 
         private void cancelAll(Throwable cause) {

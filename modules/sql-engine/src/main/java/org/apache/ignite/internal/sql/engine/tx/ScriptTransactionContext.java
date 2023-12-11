@@ -38,7 +38,7 @@ import org.apache.ignite.tx.TransactionOptions;
  * Starts an implicit or script-driven transaction if there is no external transaction.
  */
 public class ScriptTransactionContext {
-    private static final QueryTransactionWrapper NOOP_TX_WRAPPER = new NoopTransactionWrapper();
+    public static final QueryTransactionWrapper NOOP_TX_WRAPPER = new NoopTransactionWrapper();
 
     private final QueryTransactionContext queryTxCtx;
 
@@ -117,23 +117,21 @@ public class ScriptTransactionContext {
         }
     }
 
-    /** Registers a statement cursor that must be closed before the transaction can be committed. */
-    public void registerCursor(SqlQueryType queryType, CompletableFuture<AsyncSqlCursor<InternalSqlRow>> cursorFut) {
-        if (queryType == SqlQueryType.DDL
-                || queryType == SqlQueryType.TX_CONTROL
-                || queryType == SqlQueryType.EXPLAIN) {
+    /** Registers a future statement cursor that must be closed before the transaction can be committed. */
+    public void registerCursorFuture(SqlQueryType queryType, CompletableFuture<AsyncSqlCursor<InternalSqlRow>> cursorFut) {
+        if (queryType == SqlQueryType.DDL || queryType == SqlQueryType.EXPLAIN) {
             return;
         }
 
         ScriptTransactionWrapperImpl txWrapper = wrapper;
 
         if (txWrapper != null) {
-            wrapper.registerCursor(cursorFut);
+            wrapper.registerCursorFuture(cursorFut);
         }
     }
 
     /** Attempts to rollback a script-driven transaction if it has not finished. */
-    public void onScriptEnd() {
+    public void rollbackUncommitted() {
         ScriptTransactionWrapperImpl txWrapper = wrapper;
 
         if (txWrapper != null) {
