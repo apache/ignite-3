@@ -265,9 +265,7 @@ public class TransactionStateResolver {
      * @param txId Transaction id.
      */
     private void markAbandoned(UUID txId) {
-        txManager.updateTxMeta(txId, old ->
-                new TxStateMeta(ABANDONED, old.txCoordinatorId(), old.commitPartitionId(), old.commitTimestamp())
-        );
+        txManager.updateTxMeta(txId, TxStateMeta::abandoned);
     }
 
     private void updateLocalTxMapAfterDistributedStateResolved(UUID txId, CompletableFuture<TransactionMeta> future) {
