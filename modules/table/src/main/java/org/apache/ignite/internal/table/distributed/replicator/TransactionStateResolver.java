@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.table.distributed.replicator;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.apache.ignite.internal.tx.TxState.ABANDONED;
 import static org.apache.ignite.internal.tx.TxState.FINISHING;
 import static org.apache.ignite.internal.tx.TxState.PENDING;
@@ -34,12 +33,13 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.replicator.ReplicaService;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
 import org.apache.ignite.internal.tx.TransactionMeta;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.TxStateMetaFinishing;
+import org.apache.ignite.internal.tx.impl.PlacementDriverHelper;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
 import org.apache.ignite.internal.tx.message.TxStateCommitPartitionRequest;
@@ -58,8 +58,6 @@ public class TransactionStateResolver {
     /** Tx messages factory. */
     private static final TxMessagesFactory FACTORY = new TxMessagesFactory();
 
-    private static final int AWAIT_PRIMARY_REPLICA_TIMEOUT = 10_000;
-
     /** Network timeout. */
     private static final long RPC_TIMEOUT = 3000;
 
@@ -74,7 +72,7 @@ public class TransactionStateResolver {
     /** Function that resolves a node non-consistent ID to a cluster node. */
     private final Function<String, ClusterNode> clusterNodeResolverById;
 
-    private final PlacementDriver placementDriver;
+    private final PlacementDriverHelper placementDriverHelper;
 
     private final Map<UUID, CompletableFuture<TransactionMeta>> txStateFutures = new ConcurrentHashMap<>();
 
@@ -110,7 +108,7 @@ public class TransactionStateResolver {
         this.clusterNodeResolver = clusterNodeResolver;
         this.clusterNodeResolverById = clusterNodeResolverById;
         this.messagingService = messagingService;
-        this.placementDriver = placementDriver;
+        this.placementDriverHelper = new PlacementDriverHelper(placementDriver, clock);
     }
 
     /**
@@ -144,7 +142,7 @@ public class TransactionStateResolver {
      */
     public CompletableFuture<TransactionMeta> resolveTxState(
             UUID txId,
-            ReplicationGroupId commitGrpId,
+            TablePartitionId commitGrpId,
             @Nullable HybridTimestamp timestamp
     ) {
         TxStateMeta localMeta = txManager.stateMeta(txId);
@@ -180,7 +178,7 @@ public class TransactionStateResolver {
     private void resolveDistributiveTxState(
             UUID txId,
             @Nullable TxStateMeta localMeta,
-            ReplicationGroupId commitGrpId,
+            TablePartitionId commitGrpId,
             @Nullable HybridTimestamp timestamp,
             CompletableFuture<TransactionMeta> txMetaFuture
     ) {
@@ -214,7 +212,7 @@ public class TransactionStateResolver {
     private void resolveTxStateFromTxCoordinator(
             UUID txId,
             String coordinatorId,
-            ReplicationGroupId commitGrpId,
+            TablePartitionId commitGrpId,
             HybridTimestamp timestamp,
             CompletableFuture<TransactionMeta> txMetaFuture
     ) {
@@ -249,18 +247,16 @@ public class TransactionStateResolver {
 
     private void resolveTxStateFromCommitPartition(
             UUID txId,
-            ReplicationGroupId commitGrpId,
+            TablePartitionId commitGrpId,
             CompletableFuture<TransactionMeta> txMetaFuture
     ) {
-        HybridTimestamp now = clock.now();
-
         Supplier<TxStateCommitPartitionRequestBuilder> factory = () -> FACTORY.txStateCommitPartitionRequest()
                 .groupId(commitGrpId)
                 .txId(txId);
 
         updateLocalTxMapAfterDistributedStateResolved(txId, txMetaFuture);
 
-        sendAndRetry(txMetaFuture, commitGrpId, factory, now);
+        sendAndRetry(txMetaFuture, commitGrpId, factory);
     }
 
     /**
@@ -291,11 +287,10 @@ public class TransactionStateResolver {
      */
     private void sendAndRetry(
             CompletableFuture<TransactionMeta> resFut,
-            ReplicationGroupId replicaGrp,
-            Supplier<TxStateCommitPartitionRequestBuilder> requestBuilderFactory,
-            HybridTimestamp now
+            TablePartitionId replicaGrp,
+            Supplier<TxStateCommitPartitionRequestBuilder> requestBuilderFactory
     ) {
-        placementDriver.awaitPrimaryReplica(replicaGrp, now, AWAIT_PRIMARY_REPLICA_TIMEOUT, MILLISECONDS)
+        placementDriverHelper.awaitPrimaryReplicaWithExceptionHandling(replicaGrp)
                 .thenCompose(replicaMeta -> {
                     ClusterNode nodeToSend = clusterNodeResolver.apply(replicaMeta.getLeaseholder());
 
@@ -312,10 +307,8 @@ public class TransactionStateResolver {
                         TransactionMeta txMeta = (TransactionMeta) resp;
                         resFut.complete(txMeta);
                     } else {
-                        HybridTimestamp newNow = clock.now();
-
                         if (e instanceof PrimaryReplicaMissException) {
-                            sendAndRetry(resFut, replicaGrp, requestBuilderFactory, newNow);
+                            sendAndRetry(resFut, replicaGrp, requestBuilderFactory);
                         } else {
                             resFut.completeExceptionally(e);
                         }
