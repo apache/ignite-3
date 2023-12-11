@@ -173,7 +173,7 @@ public class ItInitializedClusterRestTest extends AbstractRestTestBase {
                         400,
                         containsString(
                                 "Validation did not pass for keys: "
-                                        + "[security.authentication.providers, Default provider default is not removable.]"
+                                        + "[security.authentication.providers, At least one provider is required.]"
                         )
                 )
         );

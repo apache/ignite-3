@@ -36,7 +36,7 @@ import org.apache.ignite.internal.security.configuration.SecurityConfiguration;
  */
 @AutoService(ConfigurationModule.class)
 public class SecurityConfigurationModule implements ConfigurationModule {
-    public static final String DEFAULT_PROVIDER_NAME = "default";
+    private static final String DEFAULT_PROVIDER_NAME = "default";
 
     private static final String DEFAULT_USERNAME = "ignite";
 
