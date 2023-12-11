@@ -411,15 +411,15 @@ public class PartitionReplicaListener implements ReplicaListener {
                 .thenCompose(f -> f);
     }
 
-    private void markLocksReleased(UUID txId) {
-        reliableCatalogVersionFor(hybridClock.now()).thenAccept(catalogVersion -> {
+    private CompletableFuture<Void> markLocksReleased(UUID txId) {
+        return reliableCatalogVersionFor(hybridClock.now()).thenCompose(catalogVersion -> {
             MarkLocksReleasedCommand cmd = MSG_FACTORY.markLocksReleasedCommand()
                     .txId(txId)
                     .safeTimeLong(hybridClock.nowLong())
                     .requiredCatalogVersion(catalogVersion)
                     .build();
 
-            raftClient.run(cmd);
+            return raftClient.run(cmd);
         });
     }
 
@@ -1607,7 +1607,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         return finishTransaction(enlistedPartitions, txId, commit, commitTimestamp, txCoordinatorId)
                 .thenCompose(v -> txManager.cleanup(enlistedPartitions, commit, commitTimestamp, txId))
-                .thenRun(() -> markLocksReleased(txId));
+                .thenCompose(v -> markLocksReleased(txId));
     }
 
     /**
