@@ -88,15 +88,13 @@ void node_connection::process_message(bytes_view msg) {
     bytes_view data{msg.data() + pos, msg.size() - pos};
 
     { // Locking scope
-        std::lock_guard<std::mutex> lock(m_request_handlers_mutex);
+        std::lock_guard<std::recursive_mutex> lock(m_request_handlers_mutex);
 
-        auto it = m_request_handlers.find(req_id);
-        if (it == m_request_handlers.end()) {
+        auto handler = find_handler_unsafe(req_id);
+        if (!handler) {
             m_logger->log_error("Missing handler for request with id=" + std::to_string(req_id));
             return;
         }
-
-        auto handler = it->second;
 
         ignite_result<void> result{};
         if (err) {
@@ -111,7 +109,7 @@ void node_connection::process_message(bytes_view msg) {
         }
 
         if (handler->is_handling_complete()) {
-            m_request_handlers.erase(it);
+            m_request_handlers.erase(req_id);
         }
     }
 }
@@ -140,7 +138,7 @@ ignite_result<void> node_connection::process_handshake_rsp(bytes_view msg) {
 }
 
 std::shared_ptr<response_handler> node_connection::get_and_remove_handler(std::int64_t req_id) {
-    std::lock_guard<std::mutex> lock(m_request_handlers_mutex);
+    std::lock_guard<std::recursive_mutex> lock(m_request_handlers_mutex);
 
     auto it = m_request_handlers.find(req_id);
     if (it == m_request_handlers.end())

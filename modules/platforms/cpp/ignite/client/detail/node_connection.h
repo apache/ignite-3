@@ -116,7 +116,7 @@ public:
         }
 
         {
-            std::lock_guard<std::mutex> lock(m_request_handlers_mutex);
+            std::lock_guard<std::recursive_mutex> lock(m_request_handlers_mutex);
             m_request_handlers[req_id] = std::move(handler);
         }
 
@@ -254,7 +254,7 @@ private:
     std::unordered_map<std::int64_t, std::shared_ptr<response_handler>> m_request_handlers;
 
     /** Handlers map mutex. */
-    std::mutex m_request_handlers_mutex;
+    std::recursive_mutex m_request_handlers_mutex;
 
     /** Logger. */
     std::shared_ptr<ignite_logger> m_logger;
