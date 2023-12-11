@@ -783,7 +783,6 @@ public class PartitionReplicaListener implements ReplicaListener {
                         // in response.
                         return triggerTxRecoveryOnTxStateResolutionIfNeeded(txId, txMeta);
                     } else {
-                        assert txMeta != null && isFinalState(txMeta.txState()) : txMeta;
                         return completedFuture(txMeta);
                     }
                 });

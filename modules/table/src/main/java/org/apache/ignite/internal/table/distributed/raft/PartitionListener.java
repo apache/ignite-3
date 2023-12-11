@@ -569,8 +569,6 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
     }
 
     private static void onTxStateStorageCasFail(UUID txId, TxMeta txMetaBeforeCas, TxMeta txMetaToSet) {
-        UUID traceId = UUID.randomUUID();
-
         String errorMsg = format("Failed to update tx state in the storage, transaction txId = {} because of inconsistent state,"
                         + " expected state = {}, state to set = {}",
                 txId,
@@ -578,7 +576,7 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
                 txMetaToSet
         );
 
-        IgniteInternalException stateChangeException = new IgniteInternalException(traceId, TX_UNEXPECTED_STATE_ERR, errorMsg);
+        IgniteInternalException stateChangeException = new IgniteInternalException(TX_UNEXPECTED_STATE_ERR, errorMsg);
 
         // Exception is explicitly logged because otherwise it can be lost if it did not occur on the leader.
         LOG.error(errorMsg);
