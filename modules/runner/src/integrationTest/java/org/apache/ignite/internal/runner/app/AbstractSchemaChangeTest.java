@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.runner.app;
 
 import static java.util.stream.Collectors.toList;
-import static java.util.stream.Collectors.toUnmodifiableList;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -35,6 +34,7 @@ import org.apache.ignite.InitParameters;
 import org.apache.ignite.internal.IgniteIntegrationTest;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
+import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.Session;
@@ -128,9 +128,9 @@ abstract class AbstractSchemaChangeTest extends IgniteIntegrationTest {
      * Returns grid nodes.
      */
     protected List<Ignite> startGrid() {
-        List<CompletableFuture<Ignite>> futures = nodesBootstrapCfg.entrySet().stream()
+        CompletableFuture<Ignite>[] futures = nodesBootstrapCfg.entrySet().stream()
                 .map(e -> TestIgnitionManager.start(e.getKey(), e.getValue(), workDir.resolve(e.getKey())))
-                .collect(toList());
+                .toArray(CompletableFuture[]::new);
 
         String metaStorageNode = nodesBootstrapCfg.keySet().iterator().next();
 
@@ -142,11 +142,7 @@ abstract class AbstractSchemaChangeTest extends IgniteIntegrationTest {
 
         TestIgnitionManager.init(initParameters);
 
-        await(CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])));
-
-        return futures.stream()
-                .map(CompletableFuture::join)
-                .collect(toUnmodifiableList());
+        return await(CompletableFutures.allOf(futures));
     }
 
     /**

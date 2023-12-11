@@ -49,6 +49,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -58,6 +59,8 @@ import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
+import java.util.function.Function;
+import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.jdbc.proto.IgniteQueryErrorCode;
 import org.apache.ignite.internal.jdbc.proto.JdbcQueryCursorHandler;
 import org.apache.ignite.internal.jdbc.proto.SqlStateCode;
@@ -68,6 +71,7 @@ import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryCloseResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryFetchRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryFetchResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryMetadataRequest;
+import org.apache.ignite.internal.util.TransformingIterator;
 
 /**
  * Jdbc result set implementation.
@@ -101,7 +105,7 @@ public class JdbcResultSet implements ResultSet {
     private Map<String, Integer> colOrder;
 
     /** Rows. */
-    private List<List<Object>> rows;
+    private List<BinaryTupleReader> rows;
 
     /** Rows iterator. */
     private Iterator<List<Object>> rowsIter;
@@ -142,22 +146,31 @@ public class JdbcResultSet implements ResultSet {
     /** Jdbc metadata. */
     private JdbcResultSetMetadata jdbcMeta;
 
+    /** Count of columns in resultSet row. */
+    private int columnCount;
+
+    /** Function to deserialize raw rows to list of objects. */
+    private Function<BinaryTupleReader, List<Object>> transformer;
+
     /**
      * Creates new result set.
      *
-     * @param handler    JdbcQueryCursorHandler.
-     * @param stmt       Statement.
-     * @param cursorId   Cursor ID.
-     * @param fetchSize  Fetch size.
-     * @param finished   Finished flag.
-     * @param rows       Rows.
-     * @param isQry      Is Result ser for Select query.
-     * @param autoClose  Is automatic close of server cursors enabled.
-     * @param updCnt     Update count.
-     * @param closeStmt  Close statement on the result set close.
+     * @param handler     JdbcQueryCursorHandler.
+     * @param stmt        Statement.
+     * @param cursorId    Cursor ID.
+     * @param fetchSize   Fetch size.
+     * @param finished    Finished flag.
+     * @param rows        Rows.
+     * @param isQry       Is Result ser for Select query.
+     * @param autoClose   Is automatic close of server cursors enabled.
+     * @param updCnt      Update count.
+     * @param closeStmt   Close statement on the result set close.
+     * @param columnCount Count of columns in resultSet row.
+     * @param transformer Function to deserialize raw rows to list of objects.
      */
     JdbcResultSet(JdbcQueryCursorHandler handler, JdbcStatement stmt, Long cursorId, int fetchSize, boolean finished,
-            List<List<Object>> rows, boolean isQry, boolean autoClose, long updCnt, boolean closeStmt) {
+            List<BinaryTupleReader> rows, boolean isQry, boolean autoClose, long updCnt, boolean closeStmt, int columnCount,
+            Function<BinaryTupleReader, List<Object>> transformer) {
         assert stmt != null;
         assert fetchSize > 0;
 
@@ -169,11 +182,13 @@ public class JdbcResultSet implements ResultSet {
         this.isQuery = isQry;
         this.autoClose = autoClose;
         this.closeStmt = closeStmt;
+        this.columnCount = columnCount;
+        this.transformer = transformer;
 
         if (isQuery) {
             this.rows = rows;
 
-            rowsIter = rows != null ? rows.iterator() : null;
+            rowsIter = rows != null ? new TransformingIterator<>(rows.iterator(), transformer) : null;
         } else {
             this.updCnt = updCnt;
         }
@@ -194,7 +209,6 @@ public class JdbcResultSet implements ResultSet {
         finished = true;
         isQuery = true;
 
-        this.rows = rows;
         this.rowsIter = rows.iterator();
         this.jdbcMeta = new JdbcResultSetMetadata(meta);
 
@@ -213,10 +227,14 @@ public class JdbcResultSet implements ResultSet {
                     throw IgniteQueryErrorCode.createJdbcSqlException(res.err(), res.status());
                 }
 
-                rows = res.items();
+                rows = new ArrayList<>(res.items().size());
+                for (ByteBuffer item : res.items()) {
+                    rows.add(new BinaryTupleReader(columnCount, item));
+                }
+
                 finished = res.last();
 
-                rowsIter = rows.iterator();
+                rowsIter = new TransformingIterator<>(rows.iterator(), transformer);
             } catch (InterruptedException e) {
                 throw new SQLException("Thread was interrupted.", e);
             } catch (ExecutionException e) {

@@ -119,6 +119,7 @@ import org.apache.ignite.internal.table.impl.DummyValidationSchemasSource;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
@@ -152,6 +153,8 @@ public class ItTxTestCluster {
     private final NodeFinder nodeFinder;
 
     private final RaftConfiguration raftConfig;
+
+    private final TransactionConfiguration txConfiguration;
 
     private final Path workDir;
 
@@ -242,6 +245,7 @@ public class ItTxTestCluster {
     public ItTxTestCluster(
             TestInfo testInfo,
             RaftConfiguration raftConfig,
+            TransactionConfiguration txConfiguration,
             Path workDir,
             int nodes,
             int replicas,
@@ -249,6 +253,7 @@ public class ItTxTestCluster {
             HybridTimestampTracker timestampTracker
     ) {
         this.raftConfig = raftConfig;
+        this.txConfiguration = txConfiguration;
         this.workDir = workDir;
         this.nodes = nodes;
         this.replicas = replicas;
@@ -389,6 +394,7 @@ public class ItTxTestCluster {
             PlacementDriver placementDriver
     ) {
         return new TxManagerImpl(
+                txConfiguration,
                 clusterService,
                 replicaSvc,
                 new HeapLockManager(),
@@ -819,6 +825,7 @@ public class ItTxTestCluster {
 
     private void initializeClientTxComponents() {
         clientTxManager = new TxManagerImpl(
+                txConfiguration,
                 client,
                 clientReplicaSvc,
                 new HeapLockManager(),

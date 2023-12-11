@@ -39,6 +39,7 @@ import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.TxStateMeta;
+import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.ReadWriteTransactionImpl;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.network.ClusterNode;
@@ -61,6 +62,9 @@ public class ItTxStateLocalMapTest extends IgniteAbstractTest {
     //TODO fsync can be turned on again after https://issues.apache.org/jira/browse/IGNITE-20195
     @InjectConfiguration("mock: { fsync: false }")
     private static RaftConfiguration raftConfig;
+
+    @InjectConfiguration
+    private static TransactionConfiguration txConfiguration;
 
     private final TestInfo testInfo;
 
@@ -88,6 +92,7 @@ public class ItTxStateLocalMapTest extends IgniteAbstractTest {
         testCluster = new ItTxTestCluster(
                 testInfo,
                 raftConfig,
+                txConfiguration,
                 workDir,
                 NODES,
                 NODES,

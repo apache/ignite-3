@@ -272,6 +272,7 @@ public final class MapperBuilder<T> {
 
         if (automapFlag) {
             Arrays.stream(targetType.getDeclaredFields())
+                    .filter(fld -> !Modifier.isStatic(fld.getModifiers()) && !Modifier.isTransient(fld.getModifiers()))
                     .map(Field::getName)
                     .filter(fldName -> !fields.contains(fldName))
                     // Ignore manually mapped fields/columns.
