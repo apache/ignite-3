@@ -15,39 +15,31 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.compute;
+package org.apache.ignite.internal.testframework.matchers;
+
+import org.hamcrest.BaseMatcher;
+import org.hamcrest.Description;
 
 /**
- * Compute job's state enum.
+ * Matcher that matches anything.
  */
-public enum JobState {
-    /**
-     * The job is submitted and waiting for an execution start.
-     */
-    QUEUED,
+public class AnythingMatcher<V> extends BaseMatcher<V> {
+    @Override
+    public boolean matches(Object actual) {
+        return true;
+    }
+
+    @Override
+    public void describeTo(Description description) {
+        description.appendText("anything");
+    }
 
     /**
-     * The job is being executed.
+     * Creates a matcher that matches anything.
+     *
+     * @return Matcher that matches anything.
      */
-    EXECUTING,
-
-    /**
-     * The job was unexpectedly terminated during execution.
-     */
-    FAILED,
-
-    /**
-     * The job was executed successfully and the execution result was returned.
-     */
-    COMPLETED,
-
-    /**
-     * The job has received the cancel command, but it is still running.
-     */
-    CANCELING,
-
-    /**
-     * The job was successfully cancelled.
-     */
-    CANCELED;
+    public static <V> AnythingMatcher<V> anything() {
+        return new AnythingMatcher<>();
+    }
 }

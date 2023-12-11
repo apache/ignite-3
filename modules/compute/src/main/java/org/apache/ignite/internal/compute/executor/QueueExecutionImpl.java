@@ -20,7 +20,7 @@ package org.apache.ignite.internal.compute.executor;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ThreadPoolExecutor;
-import org.apache.ignite.compute.JobState;
+import org.apache.ignite.compute.JobStatus;
 import org.apache.ignite.internal.compute.queue.QueueEntry;
 import org.apache.ignite.internal.compute.queue.QueueExecution;
 import org.apache.ignite.internal.compute.state.ComputeStateMachine;
@@ -71,8 +71,8 @@ public class QueueExecutionImpl<R> implements QueueExecution<R> {
     }
 
     @Override
-    public JobState state() {
-        return stateMachine.currentState(jobId);
+    public JobStatus status() {
+        return stateMachine.currentStatus(jobId);
     }
 
     @Override

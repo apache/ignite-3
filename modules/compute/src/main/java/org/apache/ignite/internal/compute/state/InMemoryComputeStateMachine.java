@@ -25,6 +25,7 @@ import static org.apache.ignite.compute.JobState.FAILED;
 import static org.apache.ignite.compute.JobState.QUEUED;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 
+import java.time.Instant;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
@@ -36,6 +37,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import org.apache.ignite.compute.JobState;
+import org.apache.ignite.compute.JobStatus;
 import org.apache.ignite.internal.compute.configuration.ComputeConfiguration;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -55,7 +57,7 @@ public class InMemoryComputeStateMachine implements ComputeStateMachine {
 
     private final Set<UUID> waitToRemove = ConcurrentHashMap.newKeySet();
 
-    private final Map<UUID, JobState> states = new ConcurrentHashMap<>();
+    private final Map<UUID, JobStatus> statuses = new ConcurrentHashMap<>();
 
     public InMemoryComputeStateMachine(ComputeConfiguration configuration) {
         this.configuration = configuration;
@@ -72,7 +74,7 @@ public class InMemoryComputeStateMachine implements ComputeStateMachine {
             this.waitToRemove.removeAll(nextToRemove);
 
             for (UUID jobId : toRemove) {
-                states.remove(jobId);
+                statuses.remove(jobId);
             }
             toRemove.clear();
             toRemove.addAll(nextToRemove);
@@ -86,15 +88,20 @@ public class InMemoryComputeStateMachine implements ComputeStateMachine {
     }
 
     @Override
-    public JobState currentState(UUID jobId) {
-        return states.get(jobId);
+    public JobStatus currentStatus(UUID jobId) {
+        return statuses.get(jobId);
     }
 
     @Override
     public UUID initJob() {
         UUID uuid = UUID.randomUUID();
-        JobState prevValue = states.putIfAbsent(uuid, QUEUED);
-        if (prevValue != null) {
+        JobStatus status = JobStatus.builder()
+                .id(uuid)
+                .state(QUEUED)
+                .createTime(Instant.now())
+                .build();
+
+        if (statuses.putIfAbsent(uuid, status) != null) {
             LOG.info("UUID collision detected! UUID: {}", uuid);
             return initJob();
         }
@@ -104,24 +111,24 @@ public class InMemoryComputeStateMachine implements ComputeStateMachine {
 
     @Override
     public void executeJob(UUID jobId) {
-        changeState(jobId, EXECUTING, QUEUED);
+        changeJobState(jobId, EXECUTING);
     }
 
     @Override
     public void failJob(UUID jobId) {
-        changeState(jobId, FAILED, EXECUTING, CANCELING);
+        changeJobState(jobId, FAILED);
         waitToRemove.add(jobId);
     }
 
     @Override
     public void completeJob(UUID jobId) {
-        changeState(jobId, COMPLETED, EXECUTING, CANCELING);
+        changeJobState(jobId, COMPLETED);
         waitToRemove.add(jobId);
     }
 
     @Override
     public void cancelingJob(UUID jobId) {
-        changeState(jobId, currentState -> {
+        changeJobState(jobId, currentState -> {
             if (currentState == QUEUED) {
                 waitToRemove.add(jobId);
                 return CANCELED;
@@ -135,33 +142,72 @@ public class InMemoryComputeStateMachine implements ComputeStateMachine {
 
     @Override
     public void cancelJob(UUID jobId) {
-        changeState(jobId, CANCELED, QUEUED, CANCELING);
+        changeJobState(jobId, CANCELED);
         waitToRemove.add(jobId);
     }
 
-    private void changeState(UUID jobId, JobState newState, JobState... requiredStates) {
-        changeState(jobId, currentState -> {
-            for (JobState requiredState : requiredStates) {
-                if (currentState == requiredState) {
-                    return newState;
-                }
+    private void changeJobState(UUID jobId, JobState newState) {
+        changeJobState(jobId, ignored -> newState);
+    }
+
+    private void changeJobState(UUID jobId, Function<JobState, JobState> newStateFunction) {
+        changeState(jobId, currentStatus -> {
+            JobState currentState = currentStatus.state();
+            JobState newState = newStateFunction.apply(currentState);
+
+            validateStateTransition(jobId, currentState, newState);
+
+            JobStatus.Builder builder = currentStatus.toBuilder().state(newState);
+
+            if (newState == EXECUTING) {
+                builder.startTime(Instant.now());
+            } else if (isFinal(newState)) {
+                builder.finishTime(Instant.now());
             }
 
-            throw new IllegalJobStateTransition(jobId, currentState, newState);
+            return builder.build();
         });
     }
 
-    private void changeState(
-            UUID jobId,
-            Function<JobState, JobState> newStateFunction
-    ) {
-        JobState prevValue = states.computeIfPresent(jobId,
-                (uuid, currentState) -> newStateFunction.apply(currentState)
-        );
-
-        if (prevValue == null) {
+    private void changeState(UUID jobId, Function<JobStatus, JobStatus> newStateFunction) {
+        if (statuses.computeIfPresent(jobId, (k, v) -> newStateFunction.apply(v)) == null) {
             throw new IllegalJobStateTransition(jobId);
         }
     }
 
+    /**
+     * Returns {@code true} if the state is final.
+     */
+    private static boolean isFinal(JobState state) {
+        return state == FAILED || state == COMPLETED || state == CANCELED;
+    }
+
+    /**
+     * Validates the state transition.
+     */
+    private static void validateStateTransition(UUID jobId, JobState current, JobState target) {
+        if (!isValidStateTransition(current, target)) {
+            throw new IllegalJobStateTransition(jobId, current, target);
+        }
+    }
+
+    /**
+     * Returns {@code true} if the transition is valid.
+     */
+    private static boolean isValidStateTransition(JobState from, JobState toState) {
+        switch (from) {
+            case QUEUED:
+                return toState == EXECUTING || toState == CANCELING || toState == CANCELED;
+            case EXECUTING:
+                return toState == FAILED || toState == COMPLETED || toState == CANCELING || toState == CANCELED;
+            case CANCELING:
+                return toState == CANCELED || toState == FAILED || toState == COMPLETED;
+            case FAILED:
+            case COMPLETED:
+            case CANCELED:
+                return false;
+            default:
+                throw new IllegalStateException("Unknown job state: " + from);
+        }
+    }
 }
