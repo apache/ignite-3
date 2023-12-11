@@ -21,6 +21,7 @@
 #include "ignite/common/ignite_error.h"
 #include "ignite/common/ignite_result.h"
 #include "ignite/protocol/reader.h"
+#include "ignite/protocol/messages.h"
 
 #include <functional>
 #include <future>
@@ -61,7 +62,13 @@ public:
      *
      * @return @c true if the handling is complete and false otherwise.
      */
-    [[nodiscard]] virtual bool is_handling_complete() const = 0;
+    [[nodiscard]] bool is_handling_complete() const {
+        return m_handling_complete;
+    }
+
+protected:
+    /** Handling completion flag. */
+    bool m_handling_complete{false};
 };
 
 /**
@@ -91,21 +98,9 @@ public:
         return result_of_operation<void>([&]() { m_callback({std::move(err)}); });
     }
 
-    /**
-     * Check whether handling is complete.
-     *
-     * @return @c true if the handling is complete and false otherwise.
-     */
-    [[nodiscard]] bool is_handling_complete() const final {
-        return m_handling_complete;
-    }
-
 protected:
     /** Promise. */
     ignite_callback<T> m_callback;
-
-    /** Handling completion flag. */
-    bool m_handling_complete{false};
 };
 
 /**
@@ -239,6 +234,82 @@ public:
 private:
     /** Read function. */
     std::function<T(protocol::reader &, std::shared_ptr<node_connection>)> m_read_func;
+};
+
+/**
+ * Response handler implementation for a single expected notification.
+ */
+template<typename T>
+class response_handler_notification final : public response_handler_adapter<T> {
+public:
+    // Default
+    response_handler_notification() = default;
+
+    /**
+     * Constructor.
+     *
+     * @param read_func Read function.
+     * @param callback Callback.
+     */
+    explicit response_handler_notification(std::function<T(protocol::reader &)> response_read_func,
+        std::function<T(protocol::reader &)> notification_read_func, ignite_callback<T> callback)
+        : response_handler_adapter<T>(std::move(callback))
+        , m_response_read_func(std::move(response_read_func))
+        , m_notification_read_func(std::move(notification_read_func)) {}
+
+    /**
+     * Handle response.
+     *
+     * @param conn Connection.
+     * @param msg Message.
+     */
+    [[nodiscard]] ignite_result<void> handle(std::shared_ptr<node_connection> conn, bytes_view msg,
+        std::int32_t flags) final {
+        protocol::reader reader(msg);
+
+        if (!test_flag(flags, protocol::response_flag::NOTIFICATION_FLAG)) {
+            // Handling response
+            m_response_received = true;
+
+            auto read_res = result_of_operation<void>([&]() { m_response_read_func(reader); });
+            if (read_res.has_error()) {
+                auto handle_res = result_of_operation<void>([&]() { m_callback(std::move(read_res.error())); });
+                if (handle_res.has_error()) {
+                    this->m_handling_complete = true;
+
+                    return handle_res;
+                }
+            }
+
+            this->m_handling_complete = m_notification_received;
+            return {};
+        }
+
+        // Handling notification.
+        m_notification_received = true;
+
+        auto read_res = result_of_operation<T>([&]() { return m_notification_read_func(reader); });
+        auto handle_res = result_of_operation<void>([&]() { m_callback(std::move(read_res)); });
+        if (!read_res.has_error() && handle_res.has_error()) {
+            handle_res = result_of_operation<void>([&]() { m_callback(std::move(handle_res.error())); });
+        }
+
+        this->m_handling_complete = m_response_received;
+        return handle_res;
+    }
+
+private:
+    /** Response received. */
+    bool m_response_received{false};
+
+    /** Notification received. */
+    bool m_notification_received{false};
+
+    /** Response read function. */
+    std::function<void(protocol::reader &)> m_response_read_func;
+
+    /** Notification read function. */
+    std::function<T(protocol::reader &)> m_notification_read_func;
 };
 
 } // namespace ignite::detail

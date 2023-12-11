@@ -194,6 +194,24 @@ public:
      * @return Channel used for the request.
      */
     template<typename T>
+    void perform_request_single_notification(protocol::client_operation op,
+        const std::function<void(protocol::writer &)> &wr, std::function<T(protocol::reader &)> rd,
+        ignite_callback<T> callback) {
+        auto handler = std::make_shared<response_handler_notification<T>>(std::move(rd), std::move(callback));
+        perform_request_handler<T>(op, nullptr, wr, std::move(handler));
+    }
+
+    /**
+     * Perform request.
+     *
+     * @tparam T Result type.
+     * @param op Operation code.
+     * @param wr Request writer function.
+     * @param rd response reader function.
+     * @param callback Callback to call on result.
+     * @return Channel used for the request.
+     */
+    template<typename T>
     void perform_request(protocol::client_operation op, const std::function<void(protocol::writer &)> &wr,
         std::function<T(protocol::reader &, std::shared_ptr<node_connection>)> rd, ignite_callback<T> callback) {
         auto handler = std::make_shared<response_handler_reader_connection<T>>(std::move(rd), std::move(callback));
