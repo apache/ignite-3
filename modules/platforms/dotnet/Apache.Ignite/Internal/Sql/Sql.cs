@@ -28,6 +28,7 @@ namespace Apache.Ignite.Internal.Sql
     using Linq;
     using Proto;
     using Proto.BinaryTuple;
+    using Proto.MsgPack;
     using Transactions;
 
     /// <summary>
@@ -75,9 +76,9 @@ namespace Apache.Ignite.Internal.Sql
         }
 
         /// <inheritdoc/>
-        public async Task ExecuteScriptAsync(string sql, params object?[]? args)
+        public async Task ExecuteScriptAsync(SqlStatement script, params object?[]? args)
         {
-            IgniteArgumentCheck.NotNull(sql);
+            IgniteArgumentCheck.NotNull(script);
 
             using var bufferWriter = Write();
 
@@ -90,7 +91,7 @@ namespace Apache.Ignite.Internal.Sql
                 throw new SqlException(
                     e.TraceId,
                     ErrorGroups.Sql.StmtValidation,
-                    "Invalid query, check inner exceptions for details: " + sql,
+                    "Invalid query, check inner exceptions for details: " + script,
                     e);
             }
 
@@ -99,10 +100,10 @@ namespace Apache.Ignite.Internal.Sql
                 var writer = ProtoCommon.GetMessageWriter();
                 var w = writer.MessageWriter;
 
-                w.WriteNil(); // Default schema.
-                w.WriteNil(); // Default query timeout.
+                w.Write(script.Schema);
+                w.Write((long)script.Timeout.TotalMilliseconds);
                 w.WriteNil(); // Session timeout (unused, session is closed by the server immediately).
-                w.Write(0); // Properties.
+                WriteProperties(script, ref w);
                 w.WriteObjectCollectionAsBinaryTuple(args);
 
                 w.Write(_socket.ObservableTimestamp);
@@ -202,16 +203,7 @@ namespace Apache.Ignite.Internal.Sql
                 w.Write((long)statement.Timeout.TotalMilliseconds);
                 w.WriteNil(); // Session timeout (unused, session is closed by the server immediately).
 
-                w.Write(statement.Properties.Count);
-                using var propTuple = new BinaryTupleBuilder(statement.Properties.Count * 4);
-
-                foreach (var (key, val) in statement.Properties)
-                {
-                    propTuple.AppendString(key);
-                    propTuple.AppendObjectWithType(val);
-                }
-
-                w.Write(propTuple.Build().Span);
+                WriteProperties(statement, ref w);
                 w.Write(statement.Query);
                 w.WriteObjectCollectionAsBinaryTuple(args);
 
@@ -219,6 +211,21 @@ namespace Apache.Ignite.Internal.Sql
 
                 return writer;
             }
+        }
+
+        private static void WriteProperties(SqlStatement statement, ref MsgPackWriter w)
+        {
+            var props = statement.Properties;
+            w.Write(props.Count);
+            using var propTuple = new BinaryTupleBuilder(props.Count * 4);
+
+            foreach (var (key, val) in props)
+            {
+                propTuple.AppendString(key);
+                propTuple.AppendObjectWithType(val);
+            }
+
+            w.Write(propTuple.Build().Span);
         }
 
         private static IIgniteTuple ReadTuple(IReadOnlyList<IColumnMetadata> cols, ref BinaryTupleReader tupleReader)

@@ -58,9 +58,9 @@ namespace Apache.Ignite.Sql
         /// <summary>
         /// Executes a multi-statement SQL query.
         /// </summary>
-        /// <param name="sql">Query.</param>
+        /// <param name="script">Script.</param>
         /// <param name="args">Arguments.</param>
         /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
-        Task ExecuteScriptAsync(string sql, params object?[]? args);
+        Task ExecuteScriptAsync(SqlStatement script, params object?[]? args);
     }
 }
