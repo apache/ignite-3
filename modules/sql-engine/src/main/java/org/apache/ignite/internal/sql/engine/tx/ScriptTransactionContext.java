@@ -55,15 +55,10 @@ public class ScriptTransactionContext {
      * @return Transaction wrapper.
      */
     public QueryTransactionWrapper getOrStartImplicit(SqlQueryType queryType) {
-        if (queryType == SqlQueryType.TX_CONTROL) {
-            return NOOP_TX_WRAPPER;
-        }
-
         QueryTransactionWrapper wrapper = this.wrapper;
 
         try {
             if (wrapper == null) {
-                // Implicit transaction.
                 return queryTxCtx.getOrStartImplicit(queryType);
             }
 

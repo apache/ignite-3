@@ -725,28 +725,27 @@ public class SqlQueryProcessor implements QueryProcessor {
                 }
 
                 ParsedResult parsedResult = scriptStatement.parsedResult;
+                Object[] params = scriptStatement.dynamicParams;
+                CompletableFuture<AsyncSqlCursor<InternalSqlRow>> nextCurFut = scriptStatement.nextStatementFuture;
 
                 CompletableFuture<AsyncSqlCursor<InternalSqlRow>> fut;
 
                 if (parsedResult.queryType() == SqlQueryType.TX_CONTROL) {
-                    CompletableFuture<Void> txStmtFut = txCtx.handleControlStatement(parsedResult.parsedTree());
-
                     // Return an empty cursor.
-                    fut = txStmtFut.thenApply(ignored ->
-                            new AsyncSqlCursorImpl<>(parsedResult.queryType(),
+                    fut = txCtx.handleControlStatement(parsedResult.parsedTree())
+                            .thenApply(ignored -> new AsyncSqlCursorImpl<>(parsedResult.queryType(),
                                     EMPTY_RESULT_SET_METADATA,
                                     NOOP_TX_WRAPPER,
                                     new AsyncWrapper<>(Collections.emptyIterator()),
                                     () -> {},
-                                    scriptStatement.nextStatementFuture
+                                    nextCurFut
                             ));
                 } else {
                     QueryTransactionWrapper txWrapper = txCtx.getOrStartImplicit(parsedResult.queryType());
 
                     txCtx.registerCursorFuture(parsedResult.queryType(), cursorFuture);
 
-                    fut = executeParsedStatement(schemaName, parsedResult, txWrapper,
-                            new QueryCancel(), scriptStatement.dynamicParams, true, scriptStatement.nextStatementFuture)
+                    fut = executeParsedStatement(schemaName, parsedResult, txWrapper, new QueryCancel(), params, true, nextCurFut)
                             .thenCompose(cursor -> txWrapper.commitImplicit().thenApply(ignore -> cursor));
                 }
 

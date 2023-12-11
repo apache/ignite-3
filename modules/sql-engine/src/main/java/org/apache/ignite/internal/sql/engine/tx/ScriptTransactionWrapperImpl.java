@@ -60,7 +60,6 @@ class ScriptTransactionWrapperImpl implements QueryTransactionWrapper {
 
     private volatile State txState;
 
-    /** Error that caused the transaction to be rolled back. */
     private Throwable rollbackCause;
 
     ScriptTransactionWrapperImpl(InternalTransaction managedTx) {
@@ -106,16 +105,19 @@ class ScriptTransactionWrapperImpl implements QueryTransactionWrapper {
         return txFinishFuture;
     }
 
+    /** Returns a future that completes after the script-driven transaction commits. */
     CompletableFuture<Void> commit() {
         changeState(State.COMMIT);
 
         return txFinishFuture;
     }
 
+    /** Rolls back the transaction when all cursors are closed. */
     void rollbackWhenCursorsClosed() {
         changeState(State.ROLLBACK);
     }
 
+    /** Registers a new cursor associated with the current transaction. */
     void registerCursorFuture(CompletableFuture<AsyncSqlCursor<InternalSqlRow>> cursorFut) {
         UUID cursorId = UUID.randomUUID();
 
@@ -188,7 +190,10 @@ class ScriptTransactionWrapperImpl implements QueryTransactionWrapper {
     }
 
     private enum State {
+        /** The transaction must be committed when all cursors are closed. */
         COMMIT,
+
+        /** The transaction must be rolled back when all cursors are closed. */
         ROLLBACK
     }
 }
