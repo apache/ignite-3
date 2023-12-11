@@ -425,5 +425,24 @@ namespace Apache.Ignite.Tests.Sql
                 "ColumnMetadata { Name = NULL, Type = Null, Precision = -1, Scale = -2147483648, Nullable = True, Origin =  } ] } }",
                 resultSet.ToString());
         }
+
+        [Test]
+        public async Task TestExecuteScript()
+        {
+            await Client.Sql.ExecuteScriptAsync(
+                "CREATE TABLE IF NOT EXISTS TestScript(ID INT PRIMARY KEY, VAL VARCHAR); " +
+                "INSERT INTO TestScript VALUES (?, ?); INSERT INTO TestScript VALUES (?, ?);",
+                1,
+                "a",
+                2,
+                "b");
+
+            await using var resultSet = await Client.Sql.ExecuteAsync(null, "SELECT * FROM TestScript ORDER BY ID");
+            var rows = await resultSet.ToListAsync();
+
+            Assert.AreEqual(2, rows.Count);
+            Assert.AreEqual("IgniteTuple { ID = 1, VAL = a }", rows[0].ToString());
+            Assert.AreEqual("IgniteTuple { ID = 2, VAL = b }", rows[1].ToString());
+        }
     }
 }
