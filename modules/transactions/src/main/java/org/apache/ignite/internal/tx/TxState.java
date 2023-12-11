@@ -50,8 +50,8 @@ public enum TxState {
     COMMITTED,
 
     /**
-     * State that is assigned to a transaction due to absence of coordinator. It is temporary and can be changed to {@link TxState#COMMITTED}
-     * or {@link TxState#ABORTED} after recovery or successful write intent resolution.
+     * State that is assigned to a transaction due to absence of coordinator. It is temporary and can be changed to
+     * {@link TxState#COMMITTED} or {@link TxState#ABORTED} after recovery or successful write intent resolution.
      */
     ABANDONED;
 
