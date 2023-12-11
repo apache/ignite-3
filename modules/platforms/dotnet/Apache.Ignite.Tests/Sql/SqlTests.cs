@@ -19,6 +19,7 @@ namespace Apache.Ignite.Tests.Sql
 {
     using System;
     using System.Collections.Generic;
+    using System.Diagnostics.CodeAnalysis;
     using System.Linq;
     using System.Threading.Tasks;
     using Ignite.Sql;
@@ -28,6 +29,8 @@ namespace Apache.Ignite.Tests.Sql
     /// <summary>
     /// Tests for SQL API: <see cref="ISql"/>.
     /// </summary>
+    [SuppressMessage("ReSharper", "NotDisposedResource", Justification = "Tests")]
+    [SuppressMessage("ReSharper", "NotDisposedResourceIsReturned", Justification = "Tests")]
     public class SqlTests : IgniteTestsBase
     {
         [OneTimeSetUp]

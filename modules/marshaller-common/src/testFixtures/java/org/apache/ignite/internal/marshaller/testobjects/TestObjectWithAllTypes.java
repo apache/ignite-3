@@ -146,6 +146,10 @@ public class TestObjectWithAllTypes {
 
     private BigDecimal decimalCol;
 
+    private static int staticField;
+
+    private transient int transientField;
+
     /** {@inheritDoc} */
     @Override
     public boolean equals(Object o) {

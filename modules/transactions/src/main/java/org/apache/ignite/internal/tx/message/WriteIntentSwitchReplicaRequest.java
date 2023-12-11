@@ -27,7 +27,7 @@ import org.apache.ignite.network.annotations.Transferable;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * A replica request that either triggers the conversion of all pending entries(writeIntents) to regular values(TxState.COMMITED)
+ * A replica request that either triggers the conversion of all pending entries(writeIntents) to regular values(TxState.COMMITTED)
  * or removes them (TxState.ABORTED).
  */
 @Transferable(TxMessageGroup.WRITE_INTENT_SWITCH_REQUEST)

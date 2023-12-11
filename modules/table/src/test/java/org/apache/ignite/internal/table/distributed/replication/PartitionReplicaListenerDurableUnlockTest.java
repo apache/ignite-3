@@ -186,7 +186,7 @@ public class PartitionReplicaListenerDurableUnlockTest extends IgniteAbstractTes
         TablePartitionId part1 = new TablePartitionId(TABLE_ID, 1);
 
         txStateStorage.put(tx0, new TxMeta(TxState.PENDING, List.of(part0, part1), null));
-        txStateStorage.put(tx1, new TxMeta(TxState.COMMITED, List.of(part0), clock.now()));
+        txStateStorage.put(tx1, new TxMeta(TxState.COMMITTED, List.of(part0), clock.now()));
         txStateStorage.put(tx2, new TxMeta(TxState.ABORTED, List.of(part0), null));
 
         cleanupCallback = (tx, partId) -> {
@@ -210,7 +210,7 @@ public class PartitionReplicaListenerDurableUnlockTest extends IgniteAbstractTes
     public void testRepeatedUntilSuccess() {
         UUID tx0 = TestTransactionIds.newTransactionId();
         TablePartitionId part0 = new TablePartitionId(TABLE_ID, PART_ID);
-        txStateStorage.put(tx0, new TxMeta(TxState.COMMITED, List.of(part0), null));
+        txStateStorage.put(tx0, new TxMeta(TxState.COMMITTED, List.of(part0), null));
 
         int exCnt = 3;
         AtomicInteger exceptionCounter = new AtomicInteger(exCnt);

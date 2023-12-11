@@ -21,7 +21,7 @@ import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
-import static org.apache.ignite.internal.tx.TxState.COMMITED;
+import static org.apache.ignite.internal.tx.TxState.COMMITTED;
 import static org.apache.ignite.internal.tx.TxState.PENDING;
 import static org.apache.ignite.internal.tx.TxState.checkTransitionCorrectness;
 import static org.apache.ignite.internal.tx.TxState.isFinalState;
@@ -240,8 +240,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         HybridTimestamp observableTimestamp = timestampTracker.get();
 
         HybridTimestamp readTimestamp = observableTimestamp != null
-                ? HybridTimestamp.max(observableTimestamp, currentReadTimestamp())
-                : currentReadTimestamp();
+                ? HybridTimestamp.max(observableTimestamp, currentReadTimestamp(beginTimestamp))
+                : currentReadTimestamp(beginTimestamp);
 
         TxIdAndTimestamp txIdAndTimestamp = new TxIdAndTimestamp(readTimestamp, txId);
 
@@ -276,12 +276,11 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     /**
      * Current read timestamp, for calculation of read timestamp of read-only transactions.
      *
+     * @param beginTx Begin transaction timestamp.
      * @return Current read timestamp.
      */
-    private HybridTimestamp currentReadTimestamp() {
-        HybridTimestamp now = clock.now();
-
-        return new HybridTimestamp(now.getPhysical()
+    private HybridTimestamp currentReadTimestamp(HybridTimestamp beginTx) {
+        return new HybridTimestamp(beginTx.getPhysical()
                 - idleSafeTimePropagationPeriodMsSupplier.getAsLong()
                 - HybridTimestamp.CLOCK_SKEW,
                 0
@@ -315,7 +314,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         if (commit) {
             timestampTracker.update(clock.now());
 
-            finalState = COMMITED;
+            finalState = COMMITTED;
         } else {
             finalState = ABORTED;
         }
@@ -694,7 +693,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             TablePartitionId commitPartitionId,
             @Nullable HybridTimestamp commitTimestamp
     ) {
-        return new TxStateMeta(commit ? COMMITED : ABORTED, localNodeId, commitPartitionId, commitTimestamp);
+        return new TxStateMeta(commit ? COMMITTED : ABORTED, localNodeId, commitPartitionId, commitTimestamp);
     }
 
     /**

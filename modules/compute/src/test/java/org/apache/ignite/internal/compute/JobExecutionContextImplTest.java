@@ -21,6 +21,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.sameInstance;
 
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
@@ -36,8 +37,21 @@ class JobExecutionContextImplTest extends BaseIgniteAbstractTest {
 
     @Test
     void returnsIgnite() {
-        JobExecutionContext context = new JobExecutionContextImpl(ignite);
+        JobExecutionContext context = new JobExecutionContextImpl(ignite, new AtomicBoolean());
 
         assertThat(context.ignite(), is(sameInstance(ignite)));
+    }
+
+    @Test
+    void returnsInterruptedFlag() {
+        AtomicBoolean isInterrupted = new AtomicBoolean();
+
+        JobExecutionContext context = new JobExecutionContextImpl(ignite, isInterrupted);
+
+        assertThat(context.isInterrupted(), is(false));
+
+        isInterrupted.set(true);
+
+        assertThat(context.isInterrupted(), is(true));
     }
 }

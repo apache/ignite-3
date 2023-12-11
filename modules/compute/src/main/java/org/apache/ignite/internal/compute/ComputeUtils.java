@@ -46,7 +46,7 @@ public class ComputeUtils {
      * @param <R> Compute job return type.
      * @return Compute job instance.
      */
-    public static <R> ComputeJob<R> instantiateJob(Class<ComputeJob<R>> computeJobClass) {
+    public static <R> ComputeJob<R> instantiateJob(Class<? extends ComputeJob<R>> computeJobClass) {
         if (!(ComputeJob.class.isAssignableFrom(computeJobClass))) {
             throw new IgniteException(
                     CLASS_INITIALIZATION_ERR,
