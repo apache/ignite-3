@@ -75,6 +75,43 @@ namespace Apache.Ignite.Internal.Sql
         }
 
         /// <inheritdoc/>
+        public async Task ExecuteScriptAsync(string sql, params object?[]? args)
+        {
+            IgniteArgumentCheck.NotNull(sql);
+
+            using var bufferWriter = Write();
+
+            try
+            {
+                using var buf = await _socket.DoOutInOpAsync(ClientOp.SqlExecScript, bufferWriter).ConfigureAwait(false);
+            }
+            catch (SqlException e) when (e.Code == ErrorGroups.Sql.StmtParse)
+            {
+                throw new SqlException(
+                    e.TraceId,
+                    ErrorGroups.Sql.StmtValidation,
+                    "Invalid query, check inner exceptions for details: " + sql,
+                    e);
+            }
+
+            PooledArrayBuffer Write()
+            {
+                var writer = ProtoCommon.GetMessageWriter();
+                var w = writer.MessageWriter;
+
+                w.WriteNil(); // Default schema.
+                w.WriteNil(); // Default query timeout.
+                w.WriteNil(); // Session timeout (unused, session is closed by the server immediately).
+                w.Write(0); // Properties.
+                w.WriteObjectCollectionAsBinaryTuple(args);
+
+                w.Write(_socket.ObservableTimestamp);
+
+                return writer;
+            }
+        }
+
+        /// <inheritdoc/>
         public override string ToString() => IgniteToStringBuilder.Build(GetType());
 
         /// <summary>
