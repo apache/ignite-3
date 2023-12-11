@@ -206,9 +206,7 @@ public class JobStatusMatcher extends BaseMatcher<JobStatus> {
             stateMatcher.describeMismatch(status.state(), mismatchDescription);
             createTimeMatcher.describeMismatch(status.createTime(), mismatchDescription);
             startTimeMatcher.describeMismatch(status.startTime(), mismatchDescription);
-            if (finishTimeMatcher != null) {
-                finishTimeMatcher.describeMismatch(status.finishTime(), mismatchDescription);
-            }
+            finishTimeMatcher.describeMismatch(status.finishTime(), mismatchDescription);
         }
     }
 

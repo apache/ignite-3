@@ -228,7 +228,6 @@ public class PriorityQueueExecutorTest extends BaseIgniteAbstractTest {
                 try {
                     latch.await();
                 } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
                     return 0;
                 }
             }

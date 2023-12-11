@@ -18,6 +18,7 @@
 package org.apache.ignite.compute;
 
 import java.time.Instant;
+import java.util.Objects;
 import java.util.UUID;
 import org.jetbrains.annotations.Nullable;
 
@@ -53,6 +54,10 @@ public class JobStatus {
     private final Instant finishTime;
 
     private JobStatus(Builder builder) {
+        Objects.requireNonNull(builder.id, "id");
+        Objects.requireNonNull(builder.state, "state");
+        Objects.requireNonNull(builder.createTime, "createTime");
+
         this.id = builder.id;
         this.state = builder.state;
         this.createTime = builder.createTime;

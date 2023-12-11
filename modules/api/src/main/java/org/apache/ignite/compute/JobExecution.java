@@ -18,6 +18,7 @@
 package org.apache.ignite.compute;
 
 import java.util.concurrent.CompletableFuture;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Job control object, provides information about the job execution process and result, allows cancelling the job.
@@ -38,7 +39,7 @@ public interface JobExecution<R> {
      *
      * @return The current status of the job, or {@code null} if the job status no longer exists due to exceeding the retention time limit.
      */
-
+    @Nullable
     JobStatus status();
 
     /**
