@@ -25,6 +25,9 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
+import java.lang.management.ManagementFactory;
+import java.lang.management.ThreadInfo;
+import java.lang.management.ThreadMXBean;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -436,7 +439,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         } catch (TimeoutException e) {
             String message = format("SQL execution service could not be stopped within the specified timeout ({} ms).", shutdownTimeout);
 
-            LOG.warn(message + dumpDebugInfo());
+            LOG.warn(message + dumpDebugInfo() + dumpThreads());
         } catch (CancellationException e) {
             LOG.warn("The stop future was cancelled, going to proceed the stop procedure", e);
         } catch (InterruptedException e) {
@@ -591,7 +594,21 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             }
         }
 
-        return buf.length() > 0 ? buf.toString() : "No debug information available.";
+        return buf.length() > 0 ? buf.toString() : " No debug information available.";
+    }
+
+    private static String dumpThreads() {
+        ThreadMXBean bean = ManagementFactory.getThreadMXBean();
+        ThreadInfo[] infos = bean.dumpAllThreads(true, true);
+        IgniteStringBuilder buf = new IgniteStringBuilder();
+
+        buf.nl().nl().app("Dumping threads:").nl().nl();
+
+        for (ThreadInfo info : infos) {
+            buf.app(info.toString()).nl();
+        }
+
+        return buf.toString();
     }
 
     /**
