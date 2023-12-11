@@ -787,7 +787,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     private CompletableFuture<TransactionMeta> triggerTxRecoveryOnTxStateResolutionIfNeeded(UUID txId) {
         TransactionMeta txMeta = txManager.stateMeta(txId);
 
-        if (txMeta == null) {
+        if (txMeta == null || !isFinalState(txMeta.txState())) {
             txMeta = txStateStorage.get(txId);
         }
 
@@ -800,7 +800,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             TxStateMeta txStateMeta = (TxStateMeta) txMeta;
 
             // Trigger tx recovery due to tx coordinator absence.
-            if (txStateMeta.txState() == ABANDONED || clusterNodeByIdResolver.apply(txStateMeta.txCoordinatorId()) == null) {
+            if (!isFinalState(txMeta.txState()) || clusterNodeByIdResolver.apply(txStateMeta.txCoordinatorId()) == null) {
                 return triggerTxRecovery(txId);
             } else {
                 return completedFuture(txMeta);
