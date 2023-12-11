@@ -39,12 +39,12 @@ public class QueryTransactionContext {
     }
 
     /**
-     * Starts a transaction if there is no external transaction.
+     * Starts an implicit transaction if there is no external transaction.
      *
      * @param queryType Query type.
      * @return Transaction wrapper.
      */
-    public QueryTransactionWrapper startTxIfNeeded(SqlQueryType queryType) {
+    public QueryTransactionWrapper getOrStartImplicit(SqlQueryType queryType) {
         InternalTransaction outerTx = tx;
 
         if (outerTx == null) {

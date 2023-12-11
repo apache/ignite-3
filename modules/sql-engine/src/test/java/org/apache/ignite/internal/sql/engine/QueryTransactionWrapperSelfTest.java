@@ -65,12 +65,12 @@ public class QueryTransactionWrapperSelfTest extends BaseIgniteAbstractTest {
         );
 
         QueryTransactionContext transactionHandler = new QueryTransactionContext(transactions, null);
-        QueryTransactionWrapper transactionWrapper = transactionHandler.startTxIfNeeded(SqlQueryType.DML);
+        QueryTransactionWrapper transactionWrapper = transactionHandler.getOrStartImplicit(SqlQueryType.DML);
 
         assertThat(transactionWrapper.unwrap().isReadOnly(), equalTo(false));
 
         for (SqlQueryType type : EnumSet.complementOf(EnumSet.of(SqlQueryType.DML))) {
-            transactionWrapper = transactionHandler.startTxIfNeeded(type);
+            transactionWrapper = transactionHandler.getOrStartImplicit(type);
             assertThat(transactionWrapper.unwrap().isReadOnly(), equalTo(true));
         }
 
@@ -115,7 +115,7 @@ public class QueryTransactionWrapperSelfTest extends BaseIgniteAbstractTest {
 
         //noinspection ThrowableNotThrown
         assertThrowsSqlException(Sql.RUNTIME_ERR, "DDL doesn't support transactions.",
-                () -> txHandler.startTxIfNeeded(SqlQueryType.DDL));
+                () -> txHandler.getOrStartImplicit(SqlQueryType.DDL));
 
         verifyNoInteractions(transactions);
     }
@@ -126,7 +126,7 @@ public class QueryTransactionWrapperSelfTest extends BaseIgniteAbstractTest {
 
         //noinspection ThrowableNotThrown
         assertThrowsSqlException(Sql.RUNTIME_ERR, "DML query cannot be started by using read only transactions.",
-                () -> txHandler.startTxIfNeeded(SqlQueryType.DML));
+                () -> txHandler.getOrStartImplicit(SqlQueryType.DML));
 
         verifyNoInteractions(transactions);
     }
@@ -136,7 +136,7 @@ public class QueryTransactionWrapperSelfTest extends BaseIgniteAbstractTest {
         ScriptTransactionContext txCtx = new ScriptTransactionContext(
                 new QueryTransactionContext(transactions, new NoOpTransaction("test")));
 
-        assertThrowsExactly(TxControlInsideExternalTxNotSupportedException.class, () -> txCtx.handleTxControl(null));
+        assertThrowsExactly(TxControlInsideExternalTxNotSupportedException.class, () -> txCtx.handleControlStatement(null));
     }
 
     @Test
@@ -146,9 +146,9 @@ public class QueryTransactionWrapperSelfTest extends BaseIgniteAbstractTest {
 
         when(transactions.begin(any())).thenReturn(new NoOpTransaction("test"));
 
-        txCtx.handleTxControl(txStartStmt);
+        txCtx.handleControlStatement(txStartStmt);
 
         //noinspection ThrowableNotThrown
-        assertThrowsSqlException(Sql.RUNTIME_ERR, "Nested transactions are not supported.", () -> txCtx.handleTxControl(txStartStmt));
+        assertThrowsSqlException(Sql.RUNTIME_ERR, "Nested transactions are not supported.", () -> txCtx.handleControlStatement(txStartStmt));
     }
 }

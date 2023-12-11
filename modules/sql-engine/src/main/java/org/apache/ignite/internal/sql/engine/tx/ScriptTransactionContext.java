@@ -35,7 +35,7 @@ import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.tx.TransactionOptions;
 
 /**
- * TODO blah blah.
+ * Starts an implicit or script-driven transaction if there is no external transaction.
  */
 public class ScriptTransactionContext {
     private static final QueryTransactionWrapper NOOP_TX_WRAPPER = new NoopTransactionWrapper();
@@ -49,12 +49,12 @@ public class ScriptTransactionContext {
     }
 
     /**
-     * Starts a new transaction if there is no external or script-driven transaction.
+     * Starts a new implicit transaction if there is no external or script-driven transaction.
      *
      * @param queryType Query type.
      * @return Transaction wrapper.
      */
-    public QueryTransactionWrapper startTxIfNeeded(SqlQueryType queryType) {
+    public QueryTransactionWrapper getOrStartImplicit(SqlQueryType queryType) {
         if (queryType == SqlQueryType.TX_CONTROL) {
             return NOOP_TX_WRAPPER;
         }
@@ -64,7 +64,7 @@ public class ScriptTransactionContext {
         try {
             if (wrapper == null) {
                 // Implicit transaction.
-                return queryTxCtx.startTxIfNeeded(queryType);
+                return queryTxCtx.getOrStartImplicit(queryType);
             }
 
             validateStatement(queryType, wrapper.unwrap());
@@ -79,8 +79,14 @@ public class ScriptTransactionContext {
         }
     }
 
-    /** TODO blah-blah-blah. */
-    public CompletableFuture<Void> handleTxControl(SqlNode node) {
+    /**
+     * Handles {@link SqlQueryType#TX_CONTROL} statement.
+     * Depending on the type of operator, it starts a new transaction controlled by a script, or completes previously started transaction.
+     *
+     * @param node Tx control tree node.
+     * @return Future representing result of execution. The next statement should not be executed until this future is completed.
+     */
+    public CompletableFuture<Void> handleControlStatement(SqlNode node) {
         if (queryTxCtx.transaction() != null) {
             throw new TxControlInsideExternalTxNotSupportedException();
         }
@@ -111,7 +117,7 @@ public class ScriptTransactionContext {
         }
     }
 
-    /** TODO blah-blah-blah. */
+    /** Registers a statement cursor that must be closed before the transaction can be committed. */
     public void registerCursor(SqlQueryType queryType, CompletableFuture<AsyncSqlCursor<InternalSqlRow>> cursorFut) {
         if (queryType == SqlQueryType.DDL
                 || queryType == SqlQueryType.TX_CONTROL
@@ -126,7 +132,7 @@ public class ScriptTransactionContext {
         }
     }
 
-    /** TODO blah-blah-blah. */
+    /** Attempts to rollback a script-driven transaction if it has not finished. */
     public void onScriptEnd() {
         ScriptTransactionWrapperImpl txWrapper = wrapper;
 
@@ -135,7 +141,7 @@ public class ScriptTransactionContext {
         }
     }
 
-    /** TODO blah-blah-blah. */
+    /** Closes all associated cursors and rolls back the script-driven transaction. */
     public void onError(Throwable t) {
         ScriptTransactionWrapperImpl txWrapper = wrapper;
 

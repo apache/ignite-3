@@ -476,7 +476,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
             validateParsedStatement(properties0, result, params);
 
-            QueryTransactionWrapper txWrapper = txCtx.startTxIfNeeded(result.queryType());
+            QueryTransactionWrapper txWrapper = txCtx.getOrStartImplicit(result.queryType());
 
             return executeParsedStatement(schemaName, result, txWrapper, queryCancel, params, false, null);
         });
@@ -495,7 +495,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     private CompletableFuture<AsyncSqlCursor<InternalSqlRow>> queryScript0(
             SqlProperties properties,
-            QueryTransactionContext transactionContext,
+            QueryTransactionContext txCtx,
             String sql,
             Object... params
     ) {
@@ -508,7 +508,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                 .thenApply(ignored -> parserService.parseScript(sql))
                 .thenCompose(parsedResults -> {
                     MultiStatementHandler handler = new MultiStatementHandler(
-                            schemaName, transactionContext, parsedResults, params);
+                            schemaName, txCtx, parsedResults, params);
 
                     return handler.processNext();
                 });
@@ -670,17 +670,17 @@ public class SqlQueryProcessor implements QueryProcessor {
     private class MultiStatementHandler {
         private final String schemaName;
         private final Queue<ScriptStatement> statements;
-        private final ScriptTransactionContext txCtx;
+        private final ScriptTransactionContext scriptTxCtx;
 
         MultiStatementHandler(
                 String schemaName,
-                QueryTransactionContext transactionContext,
+                QueryTransactionContext txCtx,
                 List<ParsedResult> parsedResults,
                 Object[] params
         ) {
             this.schemaName = schemaName;
             this.statements = prepareStatementsQueue(parsedResults, params);
-            this.txCtx = new ScriptTransactionContext(transactionContext);
+            this.scriptTxCtx = new ScriptTransactionContext(txCtx);
         }
 
         /**
@@ -725,9 +725,9 @@ public class SqlQueryProcessor implements QueryProcessor {
 
                 ParsedResult parsedResult = scriptStatement.parsedResult;
 
-                QueryTransactionWrapper txWrapper = txCtx.startTxIfNeeded(parsedResult.queryType());
+                QueryTransactionWrapper txWrapper = scriptTxCtx.getOrStartImplicit(parsedResult.queryType());
 
-                txCtx.registerCursor(parsedResult.queryType(), cursorFuture);
+                scriptTxCtx.registerCursor(parsedResult.queryType(), cursorFuture);
 
                 executeStatement(parsedResult, txWrapper, scriptStatement.dynamicParams, scriptStatement.nextStatementFuture)
                         .whenComplete((cursor, ex) -> {
@@ -740,7 +740,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                                 .thenApply(ignore -> {
                                     if (scriptStatement.isLastStatement()) {
                                         // Try to rollback script managed transaction, if any.
-                                        txCtx.onScriptEnd();
+                                        scriptTxCtx.onScriptEnd();
                                     } else {
                                         taskExecutor.execute(this::processNext);
                                     }
@@ -751,7 +751,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                                 })
                         );
             } catch (Throwable e) {
-                txCtx.onError(e);
+                scriptTxCtx.onError(e);
 
                 cursorFuture.completeExceptionally(e);
 
@@ -768,7 +768,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                 CompletableFuture<AsyncSqlCursor<InternalSqlRow>> nextCursorFut
         ) {
             if (parsedResult.queryType() == SqlQueryType.TX_CONTROL) {
-                CompletableFuture<Void> txStmtFut = txCtx.handleTxControl(parsedResult.parsedTree());
+                CompletableFuture<Void> txStmtFut = scriptTxCtx.handleControlStatement(parsedResult.parsedTree());
 
                 // Return an empty cursor.
                 return txStmtFut.thenApply(ignored ->
