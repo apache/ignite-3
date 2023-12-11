@@ -113,6 +113,8 @@ namespace Apache.Ignite.Tests
 
         public long? LastSqlTxId { get; set; }
 
+        public Dictionary<string, object?> LastSqlScriptProps { get; private set; } = new();
+
         public long UpsertAllRowCount { get; set; }
 
         public long DroppedConnectionCount { get; set; }
@@ -306,6 +308,11 @@ namespace Apache.Ignite.Tests
 
                     case ClientOp.SqlCursorNextPage:
                         SqlCursorNextPage(handler, requestId);
+                        continue;
+
+                    case ClientOp.SqlExecScript:
+                        SqlExecScript(reader);
+                        Send(handler, requestId, Array.Empty<byte>());
                         continue;
 
                     case ClientOp.Heartbeat:
@@ -504,6 +511,35 @@ namespace Apache.Ignite.Tests
             }
 
             Send(handler, requestId, arrayBufferWriter);
+        }
+
+        private void SqlExecScript(MsgPackReader reader)
+        {
+            var props = new Dictionary<string, object?>
+            {
+                ["schema"] = reader.TryReadNil() ? null : reader.ReadString(),
+                ["timeoutMs"] = reader.TryReadNil() ? null : reader.ReadInt64(),
+                ["sessionTimeoutMs"] = reader.TryReadNil() ? null : reader.ReadInt64()
+            };
+
+            var propCount = reader.ReadInt32();
+            var propTuple = new BinaryTupleReader(reader.ReadBinary(), propCount * 4);
+
+            for (int i = 0; i < propCount; i++)
+            {
+                var idx = i * 4;
+
+                var name = propTuple.GetString(idx);
+                var type = (ColumnType)propTuple.GetInt(idx + 1);
+                var scale = propTuple.GetInt(idx + 2);
+
+                props[name] = propTuple.GetObject(idx + 3, type, scale);
+            }
+
+            var sql = reader.ReadString();
+            props["sql"] = sql;
+
+            LastSqlScriptProps = props;
         }
 
         private void GetSchemas(MsgPackReader reader, Socket handler, long requestId)

@@ -464,8 +464,14 @@ namespace Apache.Ignite.Tests.Sql
                 properties: new Dictionary<string, object?> { { "prop1", 10 }, { "prop-2", "xyz" } });
 
             await client.Sql.ExecuteScriptAsync(sqlStatement);
-            var rows = await res.ToListAsync();
-            var props = rows.ToDictionary(x => (string)x["NAME"]!, x => (string)x["VAL"]!);
+            var resProps = server.LastSqlScriptProps;
+
+            Assert.AreEqual("schema-1", resProps["schema"]);
+            Assert.IsFalse(resProps.ContainsKey("pageSize"));
+            Assert.AreEqual(123000, resProps["timeoutMs"]);
+            Assert.AreEqual("SELECT PROPS", resProps["sql"]);
+            Assert.AreEqual(10, resProps["prop1"]);
+            Assert.AreEqual("xyz", resProps["prop-2"]);
         }
     }
 }
