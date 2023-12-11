@@ -449,5 +449,12 @@ namespace Apache.Ignite.Tests.Sql
             Assert.AreEqual($"IgniteTuple {{ ID = {id}, VAL = a }}", rows[0].ToString());
             Assert.AreEqual($"IgniteTuple {{ ID = {id + 1}, VAL = b }}", rows[1].ToString());
         }
+
+        [Test]
+        public async Task TestScriptProperties()
+        {
+            // TODO
+            await Task.Delay(1);
+        }
     }
 }
