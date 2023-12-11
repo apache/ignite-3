@@ -430,14 +430,14 @@ namespace Apache.Ignite.Tests.Sql
         public async Task TestExecuteScript()
         {
             await Client.Sql.ExecuteScriptAsync(
-                "CREATE TABLE IF NOT EXISTS TestScript(ID INT PRIMARY KEY, VAL VARCHAR); " +
-                "INSERT INTO TestScript VALUES (?, ?); INSERT INTO TestScript VALUES (?, ?);",
+                "CREATE TABLE IF NOT EXISTS TestExecuteScript(ID INT PRIMARY KEY, VAL VARCHAR); " +
+                "INSERT INTO TestExecuteScript VALUES (?, ?); INSERT INTO TestScript VALUES (?, ?);",
                 1,
                 "a",
                 2,
                 "b");
 
-            await using var resultSet = await Client.Sql.ExecuteAsync(null, "SELECT * FROM TestScript ORDER BY ID");
+            await using var resultSet = await Client.Sql.ExecuteAsync(null, "SELECT * FROM TESTEXECUTESCRIPT ORDER BY ID");
             var rows = await resultSet.ToListAsync();
 
             Assert.AreEqual(2, rows.Count);
