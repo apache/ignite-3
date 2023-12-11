@@ -403,10 +403,10 @@ public class SessionImpl implements AbstractSession {
             return CompletableFuture.failedFuture(sessionIsClosedException());
         }
 
-        CompletableFuture<Void> resFut = new CompletableFuture<>();
+        ScriptHandler handler = new ScriptHandler();
+        CompletableFuture<Void> userFut = new CompletableFuture<>();
         try {
             SqlProperties properties = SqlPropertiesHelper.emptyProperties();
-            ScriptHandler handler = new ScriptHandler(resFut);
 
             qryProc.queryScriptAsync(properties, transactions, null, query, arguments)
                             .whenComplete(handler::processCursor);
@@ -414,11 +414,17 @@ public class SessionImpl implements AbstractSession {
             busyLock.leaveBusy();
         }
 
-        return resFut.exceptionally((th) -> {
-            Throwable cause = ExceptionUtils.unwrapCause(th);
+        handler.resultFuture().whenCompleteAsync((res, th) -> {
+            if (th == null) {
+                userFut.complete(null);
+            } else {
+                Throwable cause = ExceptionUtils.unwrapCause(th);
 
-            throw new CompletionException(mapToPublicSqlException(cause));
+                userFut.completeExceptionally(mapToPublicSqlException(cause));
+            }
         });
+
+        return userFut;
     }
 
     /** {@inheritDoc} */
@@ -542,12 +548,12 @@ public class SessionImpl implements AbstractSession {
     }
 
     private class ScriptHandler {
-        private final CompletableFuture<Void> resFut;
+        private final CompletableFuture<Void> resFut = new CompletableFuture<>();
 
         private final AtomicReference<Throwable> cursorCloseErrHolder = new AtomicReference<>();
 
-        private ScriptHandler(CompletableFuture<Void> resFut) {
-            this.resFut = resFut;
+        CompletableFuture<Void> resultFuture() {
+            return resFut;
         }
 
         void processCursor(AsyncSqlCursor<InternalSqlRow> cursor, Throwable scriptError) {
@@ -571,7 +577,7 @@ public class SessionImpl implements AbstractSession {
 
                 try {
                     if (cursor.hasNextResult()) {
-                        cursor.nextResult().whenComplete(this::processCursor);
+                        cursor.nextResult().whenCompleteAsync(this::processCursor);
                     } else {
                         completeScriptExecution(null);
                     }
