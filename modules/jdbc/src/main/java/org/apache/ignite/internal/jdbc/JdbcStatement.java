@@ -20,6 +20,7 @@ package org.apache.ignite.internal.jdbc;
 import static java.sql.ResultSet.CONCUR_READ_ONLY;
 import static java.sql.ResultSet.FETCH_FORWARD;
 import static java.sql.ResultSet.TYPE_FORWARD_ONLY;
+import static org.apache.ignite.internal.jdbc.JdbcResultSet.createTransformer;
 import static org.apache.ignite.internal.util.ArrayUtils.INT_EMPTY_ARRAY;
 
 import java.sql.BatchUpdateException;
@@ -42,7 +43,6 @@ import org.apache.ignite.internal.jdbc.proto.JdbcStatementType;
 import org.apache.ignite.internal.jdbc.proto.SqlStateCode;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcBatchExecuteRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcBatchExecuteResult;
-import org.apache.ignite.internal.jdbc.proto.event.JdbcGetMoreResultsRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryExecuteRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQuerySingleResult;
 import org.apache.ignite.internal.jdbc.proto.event.Response;
@@ -177,26 +177,6 @@ public class JdbcStatement implements Statement {
                 closeOnCompletion, columnTypes.size(), transformer));
 
         assert !resSets.isEmpty() : "At least one results set is expected";
-    }
-
-    public static Function<BinaryTupleReader, List<Object>> createTransformer(List<ColumnType> columnTypes, int[] decimalScales) {
-        return (tuple) -> {
-            int columnCount = columnTypes.size();
-            List<Object> row = new ArrayList<>(columnCount);
-            int decimalIdx = 0;
-            int currentDecimalScale = -1;
-
-            for (int colIdx = 0; colIdx < columnCount; colIdx++) {
-                ColumnType type = columnTypes.get(colIdx);
-                if (type == ColumnType.DECIMAL) {
-                    currentDecimalScale = decimalScales[decimalIdx++];
-                }
-
-                row.add(JdbcConverterUtils.deriveValueFromBinaryTuple(type, tuple, colIdx, currentDecimalScale));
-            }
-
-            return row;
-        };
     }
 
     /** {@inheritDoc} */

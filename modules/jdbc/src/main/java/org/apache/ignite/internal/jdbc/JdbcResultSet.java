@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.jdbc;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static org.apache.ignite.internal.jdbc.JdbcStatement.createTransformer;
 
 import java.io.InputStream;
 import java.io.Reader;
@@ -67,13 +66,13 @@ import org.apache.ignite.internal.jdbc.proto.JdbcQueryCursorHandler;
 import org.apache.ignite.internal.jdbc.proto.SqlStateCode;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcColumnMeta;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcGetMoreResultsRequest;
-import org.apache.ignite.internal.jdbc.proto.event.JdbcGetMoreResultsResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaColumnsResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryCloseRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryCloseResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryFetchRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryFetchResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryMetadataRequest;
+import org.apache.ignite.internal.jdbc.proto.event.JdbcQuerySingleResult;
 import org.apache.ignite.internal.util.TransformingIterator;
 import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.Nullable;
@@ -223,7 +222,7 @@ public class JdbcResultSet implements ResultSet {
     @Nullable JdbcResultSet getNextResultSet() throws SQLException {
         try {
             JdbcGetMoreResultsRequest req = new JdbcGetMoreResultsRequest(cursorId, fetchSize);
-            JdbcGetMoreResultsResult res = cursorHandler.getMoreResultsAsync(req).get();
+            JdbcQuerySingleResult res = cursorHandler.getMoreResultsAsync(req).get();
 
             close0(true);
 
@@ -236,14 +235,11 @@ public class JdbcResultSet implements ResultSet {
             List<ColumnType> columnTypes = res.columnTypes();
             int[] decimalScales = res.decimalScales();
 
-            rows = new ArrayList<>(res.items().size());
-            for (ByteBuffer item : res.items()) {
-                rows.add(new BinaryTupleReader(columnTypes.size(), item));
-            }
+            rows = List.of();
 
             Function<BinaryTupleReader, List<Object>> transformer = createTransformer(columnTypes, decimalScales);
 
-            return new JdbcResultSet(cursorHandler, stmt, cursorId0, fetchSize, res.last(), rows,
+            return new JdbcResultSet(cursorHandler, stmt, cursorId0, fetchSize, res.last(), res.items(),
                     res.isQuery(), autoClose, res.updateCount(), closeStmt, columnTypes.size(), transformer);
         } catch (InterruptedException e) {
             throw new SQLException("Thread was interrupted.", e);
@@ -2284,5 +2280,25 @@ public class JdbcResultSet implements ResultSet {
         } catch (CancellationException e) {
             throw new SQLException("Metadata request canceled.", SqlStateCode.QUERY_CANCELLED);
         }
+    }
+
+    static Function<BinaryTupleReader, List<Object>> createTransformer(List<ColumnType> columnTypes, int[] decimalScales) {
+        return (tuple) -> {
+            int columnCount = columnTypes.size();
+            List<Object> row = new ArrayList<>(columnCount);
+            int decimalIdx = 0;
+            int currentDecimalScale = -1;
+
+            for (int colIdx = 0; colIdx < columnCount; colIdx++) {
+                ColumnType type = columnTypes.get(colIdx);
+                if (type == ColumnType.DECIMAL) {
+                    currentDecimalScale = decimalScales[decimalIdx++];
+                }
+
+                row.add(JdbcConverterUtils.deriveValueFromBinaryTuple(type, tuple, colIdx, currentDecimalScale));
+            }
+
+            return row;
+        };
     }
 }

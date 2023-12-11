@@ -22,13 +22,13 @@ import org.apache.ignite.internal.client.ClientChannel;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.jdbc.proto.JdbcQueryCursorHandler;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcGetMoreResultsRequest;
-import org.apache.ignite.internal.jdbc.proto.event.JdbcGetMoreResultsResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaColumnsResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryCloseRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryCloseResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryFetchRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryFetchResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryMetadataRequest;
+import org.apache.ignite.internal.jdbc.proto.event.JdbcQuerySingleResult;
 
 /**
  * Jdbc client cursor events handler implementation.
@@ -60,9 +60,9 @@ public class JdbcClientQueryCursorHandler implements JdbcQueryCursorHandler {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<JdbcGetMoreResultsResult> getMoreResultsAsync(JdbcGetMoreResultsRequest req) {
+    public CompletableFuture<JdbcQuerySingleResult> getMoreResultsAsync(JdbcGetMoreResultsRequest req) {
         return channel.serviceAsync(ClientOp.JDBC_MORE_RESULTS, w -> req.writeBinary(w.out()), r -> {
-            JdbcGetMoreResultsResult res = new JdbcGetMoreResultsResult();
+            JdbcQuerySingleResult res = new JdbcQuerySingleResult();
 
             res.readBinary(r.in());
 

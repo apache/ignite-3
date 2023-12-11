@@ -65,6 +65,7 @@ import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.property.SqlProperties;
 import org.apache.ignite.internal.sql.engine.property.SqlPropertiesHelper;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ColumnType;
@@ -392,26 +393,9 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
             switch (cur.queryType()) {
                 case EXPLAIN:
                 case QUERY: {
-                    List<BinaryTupleReader> rows = new ArrayList<>(batch.items().size());
-                    for (InternalSqlRow item : batch.items()) {
-                        rows.add(item.asBinaryTuple());
-                    }
-
                     List<ColumnMetadata> columns = cur.metadata().columns();
 
-                    int[] decimalScales = new int[columns.size()];
-                    List<ColumnType> schema = new ArrayList<>(columns.size());
-
-                    int countOfDecimal = 0;
-                    for (ColumnMetadata column : columns) {
-                        schema.add(column.type());
-                        if (column.type() == ColumnType.DECIMAL) {
-                            decimalScales[countOfDecimal++] = column.scale();
-                        }
-                    }
-                    decimalScales = Arrays.copyOf(decimalScales, countOfDecimal);
-
-                    return new JdbcQuerySingleResult(cursorId, rows, schema, decimalScales, !hasNext);
+                    return buildSingleRequest(batch, columns, cursorId, !hasNext, cur.queryType());
                 }
                 case DML: {
                     if (!validateDmlResult(cur.metadata(), hasNext)) {
@@ -428,6 +412,40 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
                             "Query type is not supported yet [queryType=" + cur.queryType() + ']');
             }
         });
+    }
+
+    static JdbcQuerySingleResult buildSingleRequest(
+            BatchedResult<InternalSqlRow> batch,
+            List<ColumnMetadata> columns,
+            long cursorId,
+            boolean hasNext,
+            SqlQueryType queryType
+    ) {
+        List<BinaryTupleReader> rows = new ArrayList<>(batch.items().size());
+        for (InternalSqlRow item : batch.items()) {
+            rows.add(item.asBinaryTuple());
+        }
+
+        int[] decimalScales = new int[columns.size()];
+        List<ColumnType> schema = new ArrayList<>(columns.size());
+
+        int countOfDecimal = 0;
+        for (ColumnMetadata column : columns) {
+            schema.add(column.type());
+            if (column.type() == ColumnType.DECIMAL) {
+                decimalScales[countOfDecimal++] = column.scale();
+            }
+        }
+        decimalScales = Arrays.copyOf(decimalScales, countOfDecimal);
+
+        long updCount = 0;
+        if (queryType == SqlQueryType.DML) {
+            updCount = (long) batch.items().get(0).get(0);
+        }
+
+        boolean isQuery = queryType == SqlQueryType.QUERY || queryType == SqlQueryType.EXPLAIN;
+
+        return new JdbcQuerySingleResult(cursorId, rows, schema, decimalScales, hasNext, isQuery, updCount);
     }
 
     /**

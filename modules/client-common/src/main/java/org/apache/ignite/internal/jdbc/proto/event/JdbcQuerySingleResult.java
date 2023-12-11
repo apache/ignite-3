@@ -72,12 +72,21 @@ public class JdbcQuerySingleResult extends Response {
     /**
      * Constructor.
      *
+     * @param hasNext {@code true} if more results are present.
+     */
+    public JdbcQuerySingleResult(boolean hasNext) {
+        hasResults = hasNext;
+    }
+
+    /**
+     * Constructor.
+     *
      * @param cursorId Cursor ID.
      * @param rowTuples Serialized SQL result rows.
      * @param last     Flag indicates the query has no unfetched results.
      */
     public JdbcQuerySingleResult(long cursorId, List<BinaryTupleReader> rowTuples, List<ColumnType> columnTypes, int[] decimalScales,
-            boolean last) {
+            boolean last, boolean isQuery, long updateCnt) {
         super();
 
         Objects.requireNonNull(rowTuples);
@@ -88,7 +97,8 @@ public class JdbcQuerySingleResult extends Response {
         this.decimalScales = decimalScales;
 
         this.last = last;
-        this.isQuery = true;
+        this.isQuery = isQuery;
+        this.updateCnt = updateCnt;
 
         hasResults = true;
 

@@ -19,13 +19,13 @@ package org.apache.ignite.internal.jdbc.proto;
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcGetMoreResultsRequest;
-import org.apache.ignite.internal.jdbc.proto.event.JdbcGetMoreResultsResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaColumnsResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryCloseRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryCloseResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryFetchRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryFetchResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryMetadataRequest;
+import org.apache.ignite.internal.jdbc.proto.event.JdbcQuerySingleResult;
 
 /**
  * Jdbc QUERY cursor operations handler interface.
@@ -45,7 +45,7 @@ public interface JdbcQueryCursorHandler {
      * @param req More results request.
      * @return Result future.
      */
-    CompletableFuture<JdbcGetMoreResultsResult> getMoreResultsAsync(JdbcGetMoreResultsRequest req);
+    CompletableFuture<JdbcQuerySingleResult> getMoreResultsAsync(JdbcGetMoreResultsRequest req);
 
     /**
      * {@link JdbcQueryCloseRequest} command handler.
