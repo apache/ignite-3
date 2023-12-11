@@ -27,6 +27,7 @@ import static org.apache.ignite.internal.catalog.events.CatalogEvent.ZONE_ALTER;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.ZONE_CREATE;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.ZONE_DROP;
 import static org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl.LOGICAL_TOPOLOGY_KEY;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertDataNodesFromManager;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertValueInStorage;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.extractZoneId;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
@@ -406,6 +407,92 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         Set<String> dataNodes3 = distributionZoneManager.dataNodes(scaleUpRevision, catalogManager.latestCatalogVersion(), zoneId)
                 .get(TIMEOUT, MILLISECONDS);
         assertEquals(TWO_NODES_NAMES, dataNodes3);
+    }
+
+    /**
+     * Tests that data nodes for a zone with non-immediate scale up/down on a zone creation will eventually return
+     * expected data nodes.
+     *
+     * @throws Exception If failed.
+     */
+    @Test
+    void testZoneWithNonImmediateTimersOnCreation() throws Exception {
+        createZone(ZONE_NAME, 1, 1, null);
+
+        putNodeInLogicalTopologyAndGetRevision(NODE_0, ONE_NODE);
+        putNodeInLogicalTopologyAndGetRevision(NODE_1, TWO_NODES);
+        removeNodeInLogicalTopologyAndGetRevision(Set.of(NODE_1), ONE_NODE);
+
+        int zoneId = getZoneId(ZONE_NAME);
+
+        assertDataNodesFromManager(
+                distributionZoneManager,
+                metaStorageManager::appliedRevision,
+                catalogManager::latestCatalogVersion,
+                zoneId,
+                ONE_NODE,
+                TIMEOUT
+        );
+    }
+
+    /**
+     * Tests that data nodes for a zone with non-immediate down on a zone creation will eventually return
+     * expected data nodes.
+     *
+     * @throws Exception If failed.
+     */
+    @Test
+    void testZoneWithNonImmediateScaleDownTimerOnCreation() throws Exception {
+        createZone(ZONE_NAME, IMMEDIATE_TIMER_VALUE, 1, null);
+
+        putNodeInLogicalTopologyAndGetRevision(NODE_0, ONE_NODE);
+        long topologyRevision = putNodeInLogicalTopologyAndGetRevision(NODE_1, TWO_NODES);
+        removeNodeInLogicalTopologyAndGetRevision(Set.of(NODE_1), ONE_NODE);
+
+        int zoneId = getZoneId(ZONE_NAME);
+
+        Set<String> dataNodes1 = distributionZoneManager.dataNodes(topologyRevision, catalogManager.latestCatalogVersion(), zoneId)
+                .get(TIMEOUT, MILLISECONDS);
+        assertEquals(TWO_NODES_NAMES, dataNodes1);
+
+        assertDataNodesFromManager(
+                distributionZoneManager,
+                metaStorageManager::appliedRevision,
+                catalogManager::latestCatalogVersion,
+                zoneId,
+                ONE_NODE,
+                TIMEOUT
+        );
+    }
+
+    /**
+     * Tests that data nodes for a zone with non-immediate scale up on a zone creation will eventually return
+     * expected data nodes.
+     *
+     * @throws Exception If failed.
+     */
+    @Test
+    void testZoneWithNonImmediateScaleUpTimerOnCreation() throws Exception {
+        createZone(ZONE_NAME, 1, IMMEDIATE_TIMER_VALUE, null);
+
+        putNodeInLogicalTopologyAndGetRevision(NODE_0, ONE_NODE);
+        putNodeInLogicalTopologyAndGetRevision(NODE_1, TWO_NODES);
+        long topologyRevision = removeNodeInLogicalTopologyAndGetRevision(Set.of(NODE_1), ONE_NODE);
+
+        int zoneId = getZoneId(ZONE_NAME);
+
+        Set<String> dataNodes1 = distributionZoneManager.dataNodes(topologyRevision, catalogManager.latestCatalogVersion(), zoneId)
+                .get(TIMEOUT, MILLISECONDS);
+        assertEquals(Set.of(), dataNodes1);
+
+        assertDataNodesFromManager(
+                distributionZoneManager,
+                metaStorageManager::appliedRevision,
+                catalogManager::latestCatalogVersion,
+                zoneId,
+                ONE_NODE,
+                TIMEOUT
+        );
     }
 
     /**
