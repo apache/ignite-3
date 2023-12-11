@@ -502,7 +502,7 @@ public class MessageImplGenerator {
                 .addModifiers(Modifier.PUBLIC)
                 .returns(int.class);
 
-        if (message.getters().isEmpty()) {
+        if (message.getters().stream().allMatch(el -> "messageId".equals(el.getSimpleName().toString()))) {
             equals.addStatement("return true");
 
             hashCode.addStatement("return $T.class.hashCode()", message.implClassName());
@@ -519,6 +519,10 @@ public class MessageImplGenerator {
         var others = new ArrayList<ExecutableElement>();
 
         for (ExecutableElement element : message.getters()) {
+            if ("messageId".equals(element.getSimpleName().toString())) {
+                continue;
+            }
+
             TypeKind typeKind = element.getReturnType().getKind();
 
             if (typeKind.isPrimitive()) {

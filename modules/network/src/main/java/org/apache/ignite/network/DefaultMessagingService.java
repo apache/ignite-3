@@ -329,21 +329,24 @@ public class DefaultMessagingService extends AbstractMessagingService {
             message.messageId(UUID.randomUUID().toString());
         }
 
-        sent(topologyService.localMember().name(), consistentId).incrementAndGet();
-        inFlight(topologyService.localMember().name(), consistentId).incrementAndGet();
-        //sentMessages.put(message.messageId(), message);
-        long beforeSendingNanos = System.nanoTime();
-        sendNanoTimes.put(message.messageId(), beforeSendingNanos);
+        ClusterNode localMember = topologyService.localMember();
+        if (localMember != null) {
+            sent(localMember.name(), consistentId).incrementAndGet();
+            inFlight(localMember.name(), consistentId).incrementAndGet();
+            //sentMessages.put(message.messageId(), message);
+            long beforeSendingNanos = System.nanoTime();
+            sendNanoTimes.put(message.messageId(), beforeSendingNanos);
 
-        long beforeSentNanos = System.nanoTime();
-        long lastSendStartNanos = lastSendStart(topologyService.localMember().name()).getAndSet(beforeSentNanos);
+            long beforeSentNanos = System.nanoTime();
+            long lastSendStartNanos = lastSendStart(localMember.name()).getAndSet(beforeSentNanos);
 
-        if (lastSendStartNanos > 0) {
-            long nanosSinceLastSendStart = beforeSentNanos - lastSendStartNanos;
-            long millisSinceLastSendStart = TimeUnit.NANOSECONDS.toMillis(nanosSinceLastSendStart);
+            if (lastSendStartNanos > 0) {
+                long nanosSinceLastSendStart = beforeSentNanos - lastSendStartNanos;
+                long millisSinceLastSendStart = TimeUnit.NANOSECONDS.toMillis(nanosSinceLastSendStart);
 
-            if (millisSinceLastSendStart > 1000) {
-                LOG.info("DDD {} ms since last send start, message is {}", millisSinceLastSendStart, message);
+                if (millisSinceLastSendStart > 1000) {
+                    LOG.info("DDD {} ms since last send start, message is {}", millisSinceLastSendStart, message);
+                }
             }
         }
 
@@ -375,15 +378,18 @@ public class DefaultMessagingService extends AbstractMessagingService {
         return connectionManager.channel(consistentId, type, addr)
                 .thenComposeToCompletable(sender -> sender.send(new OutNetworkObject(message, descriptors)))
                 .whenComplete((res, ex) -> {
-                    long afterSentNanos = System.nanoTime();
-                    long lastSendEndNanos = lastSendEnd(topologyService.localMember().name()).getAndSet(afterSentNanos);
+                    ClusterNode localMember1 = topologyService.localMember();
+                    if (localMember1 != null) {
+                        long afterSentNanos = System.nanoTime();
+                        long lastSendEndNanos = lastSendEnd(localMember1.name()).getAndSet(afterSentNanos);
 
-                    if (lastSendEndNanos > 0) {
-                        long nanosSinceLastSendEnd = afterSentNanos - lastSendEndNanos;
-                        long millisSinceLastSendEnd = TimeUnit.NANOSECONDS.toMillis(nanosSinceLastSendEnd);
+                        if (lastSendEndNanos > 0) {
+                            long nanosSinceLastSendEnd = afterSentNanos - lastSendEndNanos;
+                            long millisSinceLastSendEnd = TimeUnit.NANOSECONDS.toMillis(nanosSinceLastSendEnd);
 
-                        if (millisSinceLastSendEnd > 1000) {
-                            LOG.info("EEE {} ms since last send end, message is {}", millisSinceLastSendEnd, message);
+                            if (millisSinceLastSendEnd > 1000) {
+                                LOG.info("EEE {} ms since last send end, message is {}", millisSinceLastSendEnd, message);
+                            }
                         }
                     }
                 });
@@ -464,16 +470,19 @@ public class DefaultMessagingService extends AbstractMessagingService {
 
         assert msg.messageId() != null;
 
-        int sent = sent(obj.consistentId(), topologyService.localMember().name()).get();
-        int received = received(obj.consistentId(), topologyService.localMember().name()).incrementAndGet();
-        int inFlight = inFlight(obj.consistentId(), topologyService.localMember().name()).decrementAndGet();
+        ClusterNode localMember = topologyService.localMember();
+        if (localMember != null) {
+            int sent = sent(obj.consistentId(), localMember.name()).get();
+            int received = received(obj.consistentId(), localMember.name()).incrementAndGet();
+            int inFlight = inFlight(obj.consistentId(), localMember.name()).decrementAndGet();
 
-        Long sentNanoTime = sendNanoTimes.remove(msg.messageId());
-        if (sentNanoTime != null) {
-            long nanosPassed = System.nanoTime() - sentNanoTime;
-            long millisPassed = TimeUnit.NANOSECONDS.toMillis(nanosPassed);
-            if (millisPassed > 1000) {
-                LOG.info("AAA {} ms passed for {}", millisPassed, msg);
+            Long sentNanoTime = sendNanoTimes.remove(msg.messageId());
+            if (sentNanoTime != null) {
+                long nanosPassed = System.nanoTime() - sentNanoTime;
+                long millisPassed = TimeUnit.NANOSECONDS.toMillis(nanosPassed);
+                if (millisPassed > 1000) {
+                    LOG.info("AAA {} ms passed for {}", millisPassed, msg);
+                }
             }
         }
 
