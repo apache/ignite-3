@@ -28,6 +28,7 @@ import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.tx.TxState.ABANDONED;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
 import static org.apache.ignite.internal.tx.TxState.COMMITED;
+import static org.apache.ignite.internal.tx.TxState.FINISHING;
 import static org.apache.ignite.internal.tx.TxState.PENDING;
 import static org.apache.ignite.internal.tx.TxState.isFinalState;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
@@ -157,6 +158,7 @@ import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
+import org.apache.ignite.internal.tx.TxStateMetaFinishing;
 import org.apache.ignite.internal.tx.message.TxFinishReplicaRequest;
 import org.apache.ignite.internal.tx.message.TxRecoveryMessage;
 import org.apache.ignite.internal.tx.message.TxStateCommitPartitionRequest;
@@ -772,9 +774,21 @@ public class PartitionReplicaListener implements ReplicaListener {
                         );
                     }
 
-                    // Try to trigger recovery, if needed. If the transaction will be aborted, the proper ABORTED state will be sent
-                    // in response.
-                    return triggerTxRecoveryOnTxStateResolutionIfNeeded(request.txId());
+                    UUID txId = request.txId();
+
+                    TxStateMeta txMeta = txManager.stateMeta(txId);
+
+                    if (txMeta != null && txMeta.txState() == FINISHING) {
+                        assert txMeta instanceof TxStateMetaFinishing : txMeta;
+                        return ((TxStateMetaFinishing) txMeta).txFinishFuture();
+                    } else if (txMeta == null || !isFinalState(txMeta.txState())) {
+                        // Try to trigger recovery, if needed. If the transaction will be aborted, the proper ABORTED state will be sent
+                        // in response.
+                        return triggerTxRecoveryOnTxStateResolutionIfNeeded(txId, txMeta);
+                    } else {
+                        assert txMeta != null && isFinalState(txMeta.txState()) : txMeta;
+                        return completedFuture(txMeta);
+                    }
                 });
     }
 
@@ -782,31 +796,31 @@ public class PartitionReplicaListener implements ReplicaListener {
      * Checks whether tx recovery is needed with given tx meta and triggers it of needed.
      *
      * @param txId Transaction id.
+     * @param txStateMeta Transaction meta.
      * @return Tx recovery future, or completed future if the recovery isn't needed, or failed future if the recovery is not possible.
      */
-    private CompletableFuture<TransactionMeta> triggerTxRecoveryOnTxStateResolutionIfNeeded(UUID txId) {
-        TransactionMeta txMeta = txManager.stateMeta(txId);
+    private CompletableFuture<TransactionMeta> triggerTxRecoveryOnTxStateResolutionIfNeeded(UUID txId, @Nullable TxStateMeta txStateMeta) {
+        assert txStateMeta == null || !isFinalState(txStateMeta.txState()) : "Unexpected transaction state: " + txStateMeta;
 
-        if (txMeta == null || !isFinalState(txMeta.txState())) {
-            txMeta = txStateStorage.get(txId);
-        }
+        TxMeta txMeta = txStateStorage.get(txId);
 
         if (txMeta == null) {
-            // This means that primary replica for commit partition has changed, since the local node doesn't have the volatile tx state;
-            // and there is no final tx state in txStateStorage. But we can assume that as the coordinator is missing, there is
-            // no need to wait a finish request from tx coordinator, the transaction can't be committed at all.
-            return triggerTxRecovery(txId);
-        } else if (txMeta instanceof TxStateMeta) {
-            TxStateMeta txStateMeta = (TxStateMeta) txMeta;
-
-            // Trigger tx recovery due to tx coordinator absence.
-            if (!isFinalState(txMeta.txState()) || clusterNodeByIdResolver.apply(txStateMeta.txCoordinatorId()) == null) {
+            // This means the transaction is pending and we should trigger the recovery if there is no tx coordinator in topology.
+            if (txStateMeta == null
+                    || txStateMeta.txState() == ABANDONED
+                    || clusterNodeByIdResolver.apply(txStateMeta.txCoordinatorId()) == null) {
+                // This means that primary replica for commit partition has changed, since the local node doesn't have the volatile tx
+                // state; and there is no final tx state in txStateStorage, or the tx coordinator left the cluster. But we can assume
+                // that as the coordinator (or information about it) is missing, there is  no need to wait a finish request from
+                // tx coordinator, the transaction can't be committed at all.
                 return triggerTxRecovery(txId);
             } else {
-                return completedFuture(txMeta);
+                assert txStateMeta != null && txStateMeta.txState() == PENDING : "Unexpected transaction state: " + txStateMeta;
+                return completedFuture(txStateMeta);
             }
         } else {
             // Recovery is not needed.
+            assert isFinalState(txMeta.txState()) : "Unexpected transaction state: " + txMeta;
             return completedFuture(txMeta);
         }
     }
