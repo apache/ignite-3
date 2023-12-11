@@ -27,8 +27,8 @@ import org.jetbrains.annotations.Nullable;
 /**
  * State machine command to cleanup on a transaction commit.
  */
-@Transferable(TableMessageGroup.Commands.TX_CLEANUP)
-public interface TxCleanupCommand extends PartitionCommand {
+@Transferable(TableMessageGroup.Commands.WRITE_INTENT_SWITCH)
+public interface WriteIntentSwitchCommand extends PartitionCommand {
     /**
      * Returns a commit or a rollback state.
      */

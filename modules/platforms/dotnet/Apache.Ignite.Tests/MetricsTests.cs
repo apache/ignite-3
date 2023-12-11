@@ -20,6 +20,7 @@ namespace Apache.Ignite.Tests;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Diagnostics.Metrics;
 using System.Linq;
 using System.Runtime.CompilerServices;
@@ -91,6 +92,7 @@ public class MetricsTests
     }
 
     [Test]
+    [SuppressMessage("ReSharper", "DisposeOnUsingVariable", Justification = "Test")]
     public async Task TestConnectionsLost()
     {
         using var server = new FakeServer();

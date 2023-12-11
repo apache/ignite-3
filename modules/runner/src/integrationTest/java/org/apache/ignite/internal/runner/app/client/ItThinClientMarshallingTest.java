@@ -325,6 +325,10 @@ public class ItThinClientMarshallingTest extends ItAbstractThinClientTest {
         public String unmapped;
 
         public String unmapped2;
+
+        public static String staticField;
+
+        public transient String transientField;
     }
 
     private static class MissingFieldPojo {

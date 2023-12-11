@@ -284,25 +284,27 @@ public class StorageUpdateHandler {
     }
 
     /**
-     * Handles the cleanup of a transaction. The transaction is either committed or rolled back.
+     * Switches write intents created by the transaction to regular values if the transaction is committed
+     * or removes them if the transaction is aborted.
      *
      * @param txId Transaction id.
      * @param commit Commit flag. {@code true} if transaction is committed, {@code false} otherwise.
      * @param commitTimestamp Commit timestamp. Not {@code null} if {@code commit} is {@code true}.
      */
-    public void handleTransactionCleanup(UUID txId, boolean commit, @Nullable HybridTimestamp commitTimestamp) {
-        handleTransactionCleanup(txId, commit, commitTimestamp, null);
+    public void switchWriteIntents(UUID txId, boolean commit, @Nullable HybridTimestamp commitTimestamp) {
+        switchWriteIntents(txId, commit, commitTimestamp, null);
     }
 
     /**
-     * Handles the cleanup of a transaction. The transaction is either committed or rolled back.
+     * Switches write intents created by the transaction to regular values if the transaction is committed
+     * or removes them if the transaction is aborted.
      *
      * @param txId Transaction id.
      * @param commit Commit flag. {@code true} if transaction is committed, {@code false} otherwise.
      * @param commitTimestamp Commit timestamp. Not {@code null} if {@code commit} is {@code true}.
      * @param onApplication On application callback.
      */
-    public void handleTransactionCleanup(
+    public void switchWriteIntents(
             UUID txId,
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp,

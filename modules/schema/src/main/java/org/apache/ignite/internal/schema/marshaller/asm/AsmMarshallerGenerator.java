@@ -63,6 +63,7 @@ import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.util.ObjectFactory;
 import org.apache.ignite.table.mapper.Mapper;
+import org.apache.ignite.table.mapper.PojoMapper;
 
 /**
  * {@link Marshaller} code generator.
@@ -92,7 +93,7 @@ public class AsmMarshallerGenerator implements MarshallerFactory {
             // Generate Marshaller code.
             long generation = System.nanoTime();
 
-            final ClassDefinition classDef = generateMarshallerClass(className, schema, keyClass, valClass);
+            final ClassDefinition classDef = generateMarshallerClass(className, schema, keyMapper, valueMapper);
             long compilationTime = System.nanoTime();
             generation = compilationTime - generation;
 
@@ -145,18 +146,18 @@ public class AsmMarshallerGenerator implements MarshallerFactory {
      *
      * @param className Marshaller class name.
      * @param schema    Schema descriptor.
-     * @param keyClass  Key class.
-     * @param valClass  Value class.
+     * @param keyMapper Key mapper.
+     * @param valMapper Value mapper.
      * @return Generated java class definition.
      */
     private ClassDefinition generateMarshallerClass(
             String className,
             SchemaDescriptor schema,
-            Class<?> keyClass,
-            Class<?> valClass
+            Mapper<?> keyMapper,
+            Mapper<?> valMapper
     ) {
-        MarshallerCodeGenerator keyMarsh = createMarshaller(keyClass, schema.keyColumns(), 0);
-        MarshallerCodeGenerator valMarsh = createMarshaller(valClass, schema.valueColumns(), schema.keyColumns().length());
+        MarshallerCodeGenerator keyMarsh = createMarshaller(keyMapper, schema.keyColumns(), 0);
+        MarshallerCodeGenerator valMarsh = createMarshaller(valMapper, schema.valueColumns(), schema.keyColumns().length());
 
         final ClassDefinition classDef = new ClassDefinition(
                 EnumSet.of(Access.PUBLIC),
@@ -202,22 +203,22 @@ public class AsmMarshallerGenerator implements MarshallerFactory {
     /**
      * Creates marshaller code generator for given class.
      *
-     * @param cls         Target class.
+     * @param mapper      Mapper.
      * @param columns     Columns that cls mapped to.
      * @param firstColIdx First column absolute index in schema.
      * @return Marshaller code generator.
      */
     private static MarshallerCodeGenerator createMarshaller(
-            Class<?> cls,
+            Mapper<?> mapper,
             Columns columns,
             int firstColIdx
     ) {
-        BinaryMode mode = BinaryMode.forClass(cls);
+        BinaryMode mode = BinaryMode.forClass(mapper.targetType());
 
         if (mode == BinaryMode.POJO) {
             MarshallerColumn[] marshallerColumns = MarshallerUtil.toMarshallerColumns(columns.columns());
 
-            return new ObjectMarshallerCodeGenerator(marshallerColumns, cls, firstColIdx);
+            return new ObjectMarshallerCodeGenerator(marshallerColumns, (PojoMapper<?>) mapper, firstColIdx);
         } else {
             return new IdentityMarshallerCodeGenerator(ColumnAccessCodeGenerator.createAccessor(mode, null, firstColIdx));
         }

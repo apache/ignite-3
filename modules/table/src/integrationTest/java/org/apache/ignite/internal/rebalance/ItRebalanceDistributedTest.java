@@ -167,6 +167,7 @@ import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
@@ -198,8 +199,7 @@ import org.mockito.Mockito;
 /**
  * Test suite for rebalance process, when replicas' number changed.
  */
-@ExtendWith(WorkDirectoryExtension.class)
-@ExtendWith(ConfigurationExtension.class)
+@ExtendWith({WorkDirectoryExtension.class, ConfigurationExtension.class})
 @Timeout(120)
 public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
     private static final IgniteLogger LOG = Loggers.forClass(ItRebalanceDistributedTest.class);
@@ -219,6 +219,9 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
     private static final int AWAIT_TIMEOUT_MILLIS = 10_000;
 
     private static final int NODE_COUNT = 3;
+
+    @InjectConfiguration
+    private static TransactionConfiguration txConfiguration;
 
     @InjectConfiguration
     private static RaftConfiguration raftConfiguration;
@@ -942,6 +945,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
             );
 
             txManager = new TxManagerImpl(
+                    txConfiguration,
                     clusterService,
                     replicaSvc,
                     lockManager,

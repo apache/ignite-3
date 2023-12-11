@@ -36,13 +36,17 @@ import java.time.LocalTime;
 import java.time.Period;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
+import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.Iterator;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 import org.apache.calcite.sql.type.SqlTypeName;
+import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.type.UuidType;
 import org.apache.ignite.lang.ErrorGroup;
 import org.apache.ignite.lang.ErrorGroups;
@@ -246,4 +250,29 @@ public class SqlTestUtils {
                 throw new IllegalArgumentException("unsupported type " + type);
         }
     }
+
+    /**
+     * Converts list of {@link InternalSqlRow} to list of list of objects, where internal list represent a row with fields.
+     *
+     * @param rows List of rows to be converted.
+     * @return List of converted rows.
+     */
+    public static List<List<Object>> convertSqlRows(List<InternalSqlRow> rows) {
+        return rows.stream().map(SqlTestUtils::convertSqlRowToObjects).collect(Collectors.toList());
+    }
+
+    /**
+     * Converts {@link InternalSqlRow} to list of objects, where each of list elements represents a field.
+     *
+     * @param row {@link InternalSqlRow} need to be converted.
+     * @return Converted value.
+     */
+    public static List<Object> convertSqlRowToObjects(InternalSqlRow row) {
+        List<Object> result = new ArrayList<>(row.fieldCount());
+        for (int i = 0; i < row.fieldCount(); i++) {
+            result.add(row.get(i));
+        }
+        return result;
+    }
+
 }

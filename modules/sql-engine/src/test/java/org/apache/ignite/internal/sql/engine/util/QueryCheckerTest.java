@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursorImpl;
+import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.QueryTransactionWrapper;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
@@ -273,7 +274,7 @@ public class QueryCheckerTest extends BaseIgniteAbstractTest {
         }
 
         @Override
-        public CompletableFuture<AsyncSqlCursor<List<Object>>> querySingleAsync(
+        public CompletableFuture<AsyncSqlCursor<InternalSqlRow>> querySingleAsync(
                 SqlProperties properties,
                 IgniteTransactions transactions,
                 @Nullable InternalTransaction transaction,
@@ -283,13 +284,13 @@ public class QueryCheckerTest extends BaseIgniteAbstractTest {
             assert params == null || params.length == 0 : "params are not supported";
 
             QueryPlan plan = node.prepare(qry);
-            AsyncCursor<List<Object>> dataCursor = node.executePlan(plan);
+            AsyncCursor<InternalSqlRow> dataCursor = node.executePlan(plan);
 
             SqlQueryType type = plan.type();
 
             assert type != null;
 
-            AsyncSqlCursor<List<Object>> sqlCursor = new AsyncSqlCursorImpl<>(
+            AsyncSqlCursor<InternalSqlRow> sqlCursor = new AsyncSqlCursorImpl<>(
                     type,
                     plan.metadata(),
                     new QueryTransactionWrapper(new NoOpTransaction("test"), false),
@@ -301,7 +302,7 @@ public class QueryCheckerTest extends BaseIgniteAbstractTest {
         }
 
         @Override
-        public CompletableFuture<AsyncSqlCursor<List<Object>>> queryScriptAsync(
+        public CompletableFuture<AsyncSqlCursor<InternalSqlRow>> queryScriptAsync(
                 SqlProperties properties,
                 IgniteTransactions transactions,
                 @Nullable InternalTransaction transaction,

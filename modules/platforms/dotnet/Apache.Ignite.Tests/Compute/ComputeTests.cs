@@ -56,6 +56,8 @@ namespace Apache.Ignite.Tests.Compute
 
         private const string ExceptionJob = PlatformTestNodeRunner + "$ExceptionJob";
 
+        private const string CheckedExceptionJob = PlatformTestNodeRunner + "$CheckedExceptionJob";
+
         private static readonly IList<DeploymentUnit> Units = Array.Empty<DeploymentUnit>();
 
         [Test]
@@ -340,6 +342,18 @@ namespace Apache.Ignite.Tests.Compute
             StringAssert.Contains(
                 "at org.apache.ignite.internal.runner.app.PlatformTestNodeRunner$ExceptionJob.execute(PlatformTestNodeRunner.java:",
                 str);
+        }
+
+        [Test]
+        public void TestCheckedExceptionInJobPropagatesToClient()
+        {
+            var ex = Assert.ThrowsAsync<IgniteException>(async () =>
+                await Client.Compute.ExecuteAsync<object>(await GetNodeAsync(1), Units, CheckedExceptionJob, "foo-bar"));
+
+            Assert.AreEqual("TestCheckedEx: foo-bar", ex!.Message);
+            Assert.IsNotNull(ex.InnerException);
+
+            StringAssert.Contains("org.apache.ignite.lang.IgniteCheckedException: IGN-CMN-5", ex.ToString());
         }
 
         [Test]
