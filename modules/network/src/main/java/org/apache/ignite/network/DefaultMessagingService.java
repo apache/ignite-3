@@ -325,8 +325,9 @@ public class DefaultMessagingService extends AbstractMessagingService {
                     .thenCompose(Function.identity());
         }
 
-        assert message.messageId() == null;
-        message.messageId(UUID.randomUUID().toString());
+        if (message.messageId() == null) {
+            message.messageId(UUID.randomUUID().toString());
+        }
 
         sent(topologyService.localMember().name(), consistentId).incrementAndGet();
         inFlight(topologyService.localMember().name(), consistentId).incrementAndGet();
@@ -468,12 +469,12 @@ public class DefaultMessagingService extends AbstractMessagingService {
         int inFlight = inFlight(obj.consistentId(), topologyService.localMember().name()).decrementAndGet();
 
         Long sentNanoTime = sendNanoTimes.remove(msg.messageId());
-        assert sentNanoTime != null : "No sentNanoTime for " + msg;
-
-        long nanosPassed = System.nanoTime() - sentNanoTime;
-        long millisPassed = TimeUnit.NANOSECONDS.toMillis(nanosPassed);
-        if (millisPassed > 1000) {
-            LOG.info("AAA {} ms passed for {}", millisPassed, msg);
+        if (sentNanoTime != null) {
+            long nanosPassed = System.nanoTime() - sentNanoTime;
+            long millisPassed = TimeUnit.NANOSECONDS.toMillis(nanosPassed);
+            if (millisPassed > 1000) {
+                LOG.info("AAA {} ms passed for {}", millisPassed, msg);
+            }
         }
 
         if (msg instanceof ScaleCubeMessage) {
