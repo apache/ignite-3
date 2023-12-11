@@ -134,9 +134,9 @@ public:
         auto read_res = result_of_operation<T>([&]() { return m_read_func(std::move(channel), msg); });
         bool read_error = read_res.has_error();
 
-        auto handle_res = result_of_operation<void>([&]() { m_callback(std::move(read_res)); });
+        auto handle_res = result_of_operation<void>([&]() { this->m_callback(std::move(read_res)); });
         if (!read_error && handle_res.has_error()) {
-            handle_res = result_of_operation<void>([&]() { m_callback(std::move(handle_res.error())); });
+            handle_res = result_of_operation<void>([&]() { this->m_callback(std::move(handle_res.error())); });
         }
 
         this->m_handling_complete = true;
@@ -177,9 +177,9 @@ public:
         auto read_res = result_of_operation<T>([&]() { return m_read_func(reader); });
         bool read_error = read_res.has_error();
 
-        auto handle_res = result_of_operation<void>([&]() { m_callback(std::move(read_res)); });
+        auto handle_res = result_of_operation<void>([&]() { this->m_callback(std::move(read_res)); });
         if (!read_error && handle_res.has_error()) {
-            handle_res = result_of_operation<void>([&]() { m_callback(std::move(handle_res.error())); });
+            handle_res = result_of_operation<void>([&]() { this->m_callback(std::move(handle_res.error())); });
         }
 
         this->m_handling_complete = true;
@@ -222,9 +222,9 @@ public:
         auto read_res = result_of_operation<T>([&]() { return m_read_func(reader, conn); });
         bool read_error = read_res.has_error();
 
-        auto handle_res = result_of_operation<void>([&]() { m_callback(std::move(read_res)); });
+        auto handle_res = result_of_operation<void>([&]() { this->m_callback(std::move(read_res)); });
         if (!read_error && handle_res.has_error()) {
-            handle_res = result_of_operation<void>([&]() { m_callback(std::move(handle_res.error())); });
+            handle_res = result_of_operation<void>([&]() { this->m_callback(std::move(handle_res.error())); });
         }
 
         this->m_handling_complete = true;
@@ -251,7 +251,7 @@ public:
      * @param read_func Read function.
      * @param callback Callback.
      */
-    explicit response_handler_notification(std::function<T(protocol::reader &)> response_read_func,
+    explicit response_handler_notification(std::function<void(protocol::reader &)> response_read_func,
         std::function<T(protocol::reader &)> notification_read_func, ignite_callback<T> callback)
         : response_handler_adapter<T>(std::move(callback))
         , m_response_read_func(std::move(response_read_func))
@@ -273,7 +273,7 @@ public:
 
             auto read_res = result_of_operation<void>([&]() { m_response_read_func(reader); });
             if (read_res.has_error()) {
-                auto handle_res = result_of_operation<void>([&]() { m_callback(std::move(read_res.error())); });
+                auto handle_res = result_of_operation<void>([&]() { this->m_callback(std::move(read_res.error())); });
                 if (handle_res.has_error()) {
                     this->m_handling_complete = true;
 
@@ -289,9 +289,9 @@ public:
         m_notification_received = true;
 
         auto read_res = result_of_operation<T>([&]() { return m_notification_read_func(reader); });
-        auto handle_res = result_of_operation<void>([&]() { m_callback(std::move(read_res)); });
+        auto handle_res = result_of_operation<void>([&]() { this->m_callback(std::move(read_res)); });
         if (!read_res.has_error() && handle_res.has_error()) {
-            handle_res = result_of_operation<void>([&]() { m_callback(std::move(handle_res.error())); });
+            handle_res = result_of_operation<void>([&]() { this->m_callback(std::move(handle_res.error())); });
         }
 
         this->m_handling_complete = m_response_received;

@@ -94,15 +94,18 @@ void compute_impl::execute_on_one_node(cluster_node node, const std::vector<depl
         write_primitives_as_binary_tuple(writer, args);
     };
 
-    auto reader_func = [](protocol::reader &reader) -> std::optional<primitive> {
+    auto response_reader_func = [](protocol::reader &reader) { };
+
+    auto notification_reader_func = [](protocol::reader &reader) -> std::optional<primitive> {
         if (reader.try_read_nil())
             return std::nullopt;
 
         return read_primitive_from_binary_tuple(reader);
     };
 
-    m_connection->perform_request<std::optional<primitive>>(
-        protocol::client_operation::COMPUTE_EXECUTE, writer_func, std::move(reader_func), std::move(callback));
+    m_connection->perform_request_single_notification<std::optional<primitive>>(
+        protocol::client_operation::COMPUTE_EXECUTE, writer_func, std::move(response_reader_func),
+        std::move(notification_reader_func), std::move(callback));
 }
 
 void compute_impl::execute_colocated_async(const std::string &table_name, const ignite_tuple &key,
