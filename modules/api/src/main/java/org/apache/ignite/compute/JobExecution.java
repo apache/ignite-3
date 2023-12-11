@@ -15,33 +15,33 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.compute;
+package org.apache.ignite.compute;
 
-import java.util.concurrent.atomic.AtomicBoolean;
-import org.apache.ignite.Ignite;
-import org.apache.ignite.compute.JobExecutionContext;
+import java.util.concurrent.CompletableFuture;
 
 /**
- * Implementation of {@link JobExecutionContext}.
+ * Job control object, provides information about the job execution process and result, allows cancelling the job.
+ *
+ * @param <R> Job result type.
  */
-public class JobExecutionContextImpl implements JobExecutionContext {
-    private final Ignite ignite;
+public interface JobExecution<R> {
+    /**
+     * Returns job's execution result.
+     *
+     * @return Job's execution result future.
+     */
+    CompletableFuture<R> resultAsync();
 
-    private final AtomicBoolean isInterrupted;
+    /**
+     * TODO https://issues.apache.org/jira/browse/IGNITE-20841
+     * Returns job's current state.
+     *
+     * @return Job's state.
+     */
+    JobState state();
 
-    public JobExecutionContextImpl(Ignite ignite, AtomicBoolean isInterrupted) {
-        this.ignite = ignite;
-        this.isInterrupted = isInterrupted;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public Ignite ignite() {
-        return ignite;
-    }
-
-    @Override
-    public boolean isInterrupted() {
-        return isInterrupted.get();
-    }
+    /**
+     * Cancels the job.
+     */
+    void cancel();
 }

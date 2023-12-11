@@ -45,7 +45,7 @@ public interface ComputeComponent extends IgniteComponent {
     );
 
     /**
-     * Executes a job of the given class on the current node with default execution options {@link ExecutionOptions.DEFAULT}.
+     * Executes a job of the given class on the current node with default execution options {@link ExecutionOptions#DEFAULT}.
      *
      * @param units Deployment units which will be loaded for execution.
      * @param jobClassName Name of the job class.
@@ -81,7 +81,7 @@ public interface ComputeComponent extends IgniteComponent {
     );
 
     /**
-     * Executes a job of the given class on a remote node with default execution options {@link ExecutionOptions.DEFAULT}.
+     * Executes a job of the given class on a remote node with default execution options {@link ExecutionOptions#DEFAULT}.
      *
      * @param remoteNode Name of the job class.
      * @param units Deployment units which will be loaded for execution.
