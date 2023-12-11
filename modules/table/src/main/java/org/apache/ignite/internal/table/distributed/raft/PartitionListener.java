@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
 import static org.apache.ignite.internal.tx.TxState.COMMITED;
 import static org.apache.ignite.internal.tx.TxState.PENDING;
+import static org.apache.ignite.internal.tx.TxState.isFinalState;
 import static org.apache.ignite.internal.util.CollectionUtils.last;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_UNEXPECTED_STATE_ERR;
 
@@ -543,6 +544,9 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
         UUID txId = cmd.txId();
 
         TxMeta txMetaBeforeCas = txStateStorage.get(txId);
+
+        assert txMetaBeforeCas != null && isFinalState(txMetaBeforeCas.txState()) : "Unexpected tx state [txId=" + cmd.txId()
+                + ", state=" + txMetaBeforeCas + "].";
 
         TxMeta txMetaToSet = new TxMeta(
                 txMetaBeforeCas.txState(),
