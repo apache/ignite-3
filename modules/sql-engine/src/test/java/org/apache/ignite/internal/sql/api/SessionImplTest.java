@@ -425,11 +425,9 @@ class SessionImplTest extends BaseIgniteAbstractTest {
         Exception cause = cause(sqlEx, lastCursorScriptException.getClass(), lastCursorScriptException.getMessage());
         assertNotNull(cause);
 
-        assertEquals(1, cause.getSuppressed().length);
+        assertEquals(2, cause.getSuppressed().length);
         assertSame(cursorCloseException1, cause.getSuppressed()[0]);
-
-        assertEquals(1, cause.getSuppressed()[0].getSuppressed().length);
-        assertSame(cursorCloseException2, cause.getSuppressed()[0].getSuppressed()[0]);
+        assertSame(cursorCloseException2, cause.getSuppressed()[1]);
     }
 
     @Test
