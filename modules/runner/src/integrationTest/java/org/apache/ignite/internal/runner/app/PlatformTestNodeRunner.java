@@ -722,20 +722,16 @@ public class PlatformTestNodeRunner {
                     root -> {
                         SecurityChange securityChange = root.changeRoot(SecurityConfiguration.KEY);
                         securityChange.changeEnabled(enable);
-                        securityChange.changeAuthentication(
-                                change -> {
-                                    change.changeProviders().delete("basic");
-
-                                    if (enable) {
-                                        change.changeProviders().create("basic", authenticationProviderChange -> {
-                                            authenticationProviderChange.convert(BasicAuthenticationProviderChange.class)
-                                                    .changeUsers(users ->
-                                                            users.create("user-1", user -> user.changePassword("password-1"))
-                                                    );
-                                        });
+                        securityChange.changeAuthentication().changeProviders().update("default", defaultProviderChange -> {
+                            defaultProviderChange.convert(BasicAuthenticationProviderChange.class).changeUsers(users -> {
+                                        if (enable) {
+                                            users.create("user-1", user -> user.changePassword("password-1"));
+                                        } else {
+                                            users.delete("user-1");
+                                        }
                                     }
-                                }
-                        );
+                            );
+                        });
                     });
 
             assertThat(changeFuture, willCompleteSuccessfully());

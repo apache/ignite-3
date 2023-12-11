@@ -17,6 +17,7 @@
 
 package org.apache.ignite.client.handler;
 
+import static org.apache.ignite.internal.configuration.validation.TestValidationUtil.mockValidationContext;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -24,6 +25,7 @@ import static org.hamcrest.Matchers.is;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
 import io.netty.buffer.ByteBuf;
@@ -38,15 +40,23 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Consumer;
 import org.apache.ignite.client.handler.configuration.ClientConnectorConfiguration;
 import org.apache.ignite.compute.IgniteCompute;
+import org.apache.ignite.configuration.NamedListView;
+import org.apache.ignite.configuration.validation.ValidationContext;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.configuration.validation.TestValidationUtil;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.security.authentication.AuthenticationManager;
 import org.apache.ignite.internal.security.authentication.AuthenticationManagerImpl;
 import org.apache.ignite.internal.security.authentication.basic.BasicAuthenticationProviderChange;
+import org.apache.ignite.internal.security.authentication.configuration.AuthenticationProviderView;
+import org.apache.ignite.internal.security.authentication.configuration.validator.AuthenticationProvidersValidator;
+import org.apache.ignite.internal.security.authentication.validator.AuthenticationProvidersValidatorImpl;
+import org.apache.ignite.internal.security.configuration.SecurityChange;
 import org.apache.ignite.internal.security.configuration.SecurityConfiguration;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
@@ -170,20 +180,16 @@ class ClientInboundMessageHandlerTest extends BaseIgniteAbstractTest {
         authenticationManager.listen(handler);
         securityConfiguration.listen(authenticationManager);
 
-        CompletableFuture<Void> future = securityConfiguration.change(change -> {
+        changeConfiguration(change -> {
             change.changeEnabled(true);
-            change.changeAuthentication(authChange -> {
-                authChange.changeProviders(providersChange -> {
-                    providersChange.create(PROVIDER_NAME, basicChange -> {
-                        basicChange.convert(BasicAuthenticationProviderChange.class)
-                                .changeUsers(users ->
-                                        users.create("admin", user -> user.changePassword("password"))
-                                                .create("admin1", user -> user.changePassword("password")));
+            change.changeAuthentication().changeProviders()
+                    .create(PROVIDER_NAME, providerChange -> {
+                        providerChange.convert(BasicAuthenticationProviderChange.class)
+                                .changeUsers()
+                                .create("admin", user -> user.changePassword("password"))
+                                .create("admin1", user -> user.changePassword("password"));
                     });
-                });
-            });
         });
-        assertThat(future, willCompleteSuccessfully());
 
         handler.channelRegistered(ctx);
     }
@@ -192,27 +198,18 @@ class ClientInboundMessageHandlerTest extends BaseIgniteAbstractTest {
     void disableAuthentication() throws IOException {
         handshake();
 
-        CompletableFuture<Void> future = securityConfiguration.change(change -> {
-            change.changeEnabled(false);
-        });
-        assertThat(future, willCompleteSuccessfully());
+        changeConfiguration(change -> change.changeEnabled(false));
 
         await().during(TIMEOUT_OF_DURING).untilAtomic(ctxClosed, is(false));
     }
 
     @Test
     void enableAuthentication() throws IOException {
-        CompletableFuture<Void> future1 = securityConfiguration.change(change -> {
-            change.changeEnabled(false);
-        });
-        assertThat(future1, willCompleteSuccessfully());
+        changeConfiguration(change -> change.changeEnabled(false));
 
         handshake();
 
-        CompletableFuture<Void> future = securityConfiguration.change(change -> {
-            change.changeEnabled(true);
-        });
-        assertThat(future, willCompleteSuccessfully());
+        changeConfiguration(change -> change.changeEnabled(true));
 
         await().untilAtomic(ctxClosed, is(true));
     }
@@ -221,62 +218,15 @@ class ClientInboundMessageHandlerTest extends BaseIgniteAbstractTest {
     void changeProvider() throws IOException {
         handshake();
 
-        CompletableFuture<Void> future = securityConfiguration.change(change -> {
+        changeConfiguration(change -> {
             change.changeEnabled(true);
-            change.changeAuthentication(authChange -> {
-                authChange.changeProviders(providersChange -> {
-                    providersChange.update(PROVIDER_NAME, basicChange -> {
-                        basicChange.convert(BasicAuthenticationProviderChange.class)
-                                .changeUsers(users ->
-                                        users.update("admin", user -> user.changePassword("new-password"))
-                                );
-                    });
-                });
+            change.changeAuthentication().changeProviders().update(PROVIDER_NAME, providerChange -> {
+                providerChange.convert(BasicAuthenticationProviderChange.class)
+                        .changeUsers().update("admin", user -> user.changePassword("new-password"));
             });
         });
-        assertThat(future, willCompleteSuccessfully());
 
         await().untilAtomic(ctxClosed, is(true));
-    }
-
-    @Test
-    void deleteAnotherProvider() throws IOException {
-        handshake();
-
-        CompletableFuture<Void> future = securityConfiguration.change(change -> {
-            change.changeEnabled(true);
-            change.changeAuthentication(authChange -> {
-                authChange.changeProviders(providersChange -> {
-                    providersChange.delete("basic1");
-                });
-            });
-        });
-        assertThat(future, willCompleteSuccessfully());
-
-        await().during(TIMEOUT_OF_DURING).untilAtomic(ctxClosed, is(false));
-    }
-
-    @Test
-    void createNewProvider() throws IOException {
-        String newProviderName = "basic2";
-        handshake();
-
-        CompletableFuture<Void> future = securityConfiguration.change(change -> {
-            change.changeEnabled(true);
-            change.changeAuthentication(authChange -> {
-                authChange.changeProviders(providersChange -> {
-                    providersChange.create(newProviderName, basicChange -> {
-                        basicChange.convert(BasicAuthenticationProviderChange.class)
-                                .changeUsers(users ->
-                                        users.create("admin2", user -> user.changePassword("admin"))
-                                );
-                    });
-                });
-            });
-        });
-        assertThat(future, willCompleteSuccessfully());
-
-        await().during(TIMEOUT_OF_DURING).untilAtomic(ctxClosed, is(false));
     }
 
     private void handshake() throws IOException {
@@ -301,5 +251,25 @@ class ClientInboundMessageHandlerTest extends BaseIgniteAbstractTest {
         handler.channelRead(ctx, byteBuf);
 
         verify(ctx).writeAndFlush(any());
+    }
+
+    private void changeConfiguration(Consumer<SecurityChange> changeConsumer) {
+        assertThat(securityConfiguration.change(changeConsumer), willCompleteSuccessfully());
+        validateConfiguration();
+    }
+
+    private void validateConfiguration() {
+        ValidationContext<NamedListView<? extends AuthenticationProviderView>> ctx = mockValidationContext(
+                null,
+                securityConfiguration.value().authentication().providers()
+        );
+
+        doReturn(securityConfiguration.value()).when(ctx).getNewRoot(SecurityConfiguration.KEY);
+
+        TestValidationUtil.validate(
+                AuthenticationProvidersValidatorImpl.INSTANCE,
+                mock(AuthenticationProvidersValidator.class),
+                ctx
+        );
     }
 }

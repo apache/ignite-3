@@ -48,6 +48,7 @@ dependencies {
     implementation libs.msgpack.jackson
     implementation libs.auto.service.annotations
 
+    testAnnotationProcessor project(':ignite-configuration-annotation-processor')
     testImplementation project(':ignite-configuration')
     testImplementation project(':ignite-security')
     testImplementation(testFixtures(project(':ignite-core')))
