@@ -53,6 +53,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.stream.Collectors;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
@@ -76,6 +77,8 @@ import org.apache.ignite.internal.table.RecordBinaryViewImpl;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.lang.ErrorGroups.Common;
+import org.apache.ignite.lang.IgniteCheckedException;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
@@ -543,6 +546,17 @@ public class PlatformTestNodeRunner {
         @Override
         public String execute(JobExecutionContext context, Object... args) {
             throw new RuntimeException("Test exception: " + args[0]);
+        }
+    }
+
+    /**
+     * Compute job that throws an exception.
+     */
+    @SuppressWarnings("unused") // Used by platform tests.
+    private static class CheckedExceptionJob implements ComputeJob<String> {
+        @Override
+        public String execute(JobExecutionContext context, Object... args) {
+            throw new CompletionException(new IgniteCheckedException(Common.NODE_LEFT_ERR, "TestCheckedEx: " + args[0]));
         }
     }
 
