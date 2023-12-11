@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.tx.impl;
 
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
-import static org.apache.ignite.internal.tx.TxState.COMMITED;
+import static org.apache.ignite.internal.tx.TxState.COMMITTED;
 import static org.apache.ignite.internal.tx.TxState.FINISHING;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -120,7 +120,7 @@ class ReadWriteTransactionImplTest extends BaseIgniteAbstractTest {
 
         if (commit) {
             if (txState == null) {
-                txState = COMMITED;
+                txState = COMMITTED;
             }
 
             tx.commit();

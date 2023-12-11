@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.tx.impl;
 
-import static org.apache.ignite.internal.tx.TxState.COMMITED;
+import static org.apache.ignite.internal.tx.TxState.COMMITTED;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.UUID;
@@ -116,7 +116,7 @@ class ReadOnlyTransactionImpl extends IgniteAbstractTransactionImpl {
         return ((TxManagerImpl) txManager).completeReadOnlyTransactionFuture(new TxIdAndTimestamp(readTimestamp, id()))
                 .thenRun(() -> txManager.updateTxMeta(
                         id(),
-                        old -> new TxStateMeta(COMMITED, old.txCoordinatorId(), old.commitPartitionId(), old.commitTimestamp())
+                        old -> new TxStateMeta(COMMITTED, old.txCoordinatorId(), old.commitPartitionId(), old.commitTimestamp())
                 ));
     }
 }

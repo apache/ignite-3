@@ -76,7 +76,7 @@ committing transaction can't be restarted.
 # Tx metadata
 Each node maintains a persistent tx map:
 
-txid -> txstate(ABORTED|COMMITED)
+txid -> txstate(ABORTED|COMMITTED)
 
 This map is used for a failover and for reading. Oldest entries in txid map must be cleaned to avoid unlimited grow.
 
