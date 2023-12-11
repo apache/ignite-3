@@ -26,6 +26,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.google.common.base.Strings;
 import java.io.IOException;
+import java.lang.management.ManagementFactory;
+import java.lang.management.ThreadInfo;
+import java.lang.management.ThreadMXBean;
 import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
@@ -266,23 +269,40 @@ public class ItSqlLogicTest extends IgniteIntegrationTest {
     }
 
     private void run(Path testPath) {
-        beforeTest();
-
-        LOG.info(">>> Start: " + SCRIPTS_ROOT.relativize(testPath));
-
-        var runtime = new TestRunnerRuntime();
-        var r = new SqlScriptRunner(testPath, runtime);
-
         try {
-            if (testPath.toString().endsWith("_slow")) {
-                r.run();
-            } else {
-                assertTimeoutPreemptively(Duration.ofMillis(TIMEOUT), r::run);
+            beforeTest();
+
+            LOG.info(">>> Start: " + SCRIPTS_ROOT.relativize(testPath));
+
+            var runtime = new TestRunnerRuntime();
+            var r = new SqlScriptRunner(testPath, runtime);
+
+            try {
+                if (testPath.toString().endsWith("_slow")) {
+                    r.run();
+                } else {
+                    assertTimeoutPreemptively(Duration.ofMillis(TIMEOUT), r::run);
+                }
+            } catch (Error | RuntimeException e) {
+                throw e;
+            } catch (Exception e) {
+                throw new RuntimeException(e);
             }
-        } catch (Error | RuntimeException e) {
+        } catch (Throwable e) {
+            dumpThreads(e);
+
             throw e;
-        } catch (Exception e) {
-            throw new RuntimeException(e);
+        }
+    }
+
+    private static void dumpThreads(Throwable e) {
+        ThreadMXBean bean = ManagementFactory.getThreadMXBean();
+        ThreadInfo[] infos = bean.dumpAllThreads(true, true);
+
+        LOG.error("Dumping threads after catching", e);
+
+        for (ThreadInfo info : infos) {
+            LOG.info(info.toString());
         }
     }
 
