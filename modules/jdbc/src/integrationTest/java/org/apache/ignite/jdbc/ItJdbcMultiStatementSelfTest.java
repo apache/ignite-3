@@ -62,10 +62,7 @@ public class ItJdbcMultiStatementSelfTest extends AbstractJdbcSelfTest {
 
     @Test
     public void testSimpleQueryExecute() throws Exception {
-        int initial = openCursorsRegistered();
-
         boolean res = stmt.execute("INSERT INTO TEST_TX VALUES (5, 5, '5');");
-        assertEquals(false, res);
         assertFalse(res);
         assertNull(stmt.getResultSet());
         assertFalse(stmt.getMoreResults());
@@ -73,8 +70,13 @@ public class ItJdbcMultiStatementSelfTest extends AbstractJdbcSelfTest {
 
         stmt.execute("INSERT INTO TEST_TX VALUES (6, 5, '5');");
         assertEquals(-1, getResultSetSize());
+    }
 
-        assertEquals(0, openCursorsRegistered() - initial);
+    @Test
+    public void testSimpleQueryError() throws Exception {
+        boolean res = stmt.execute("SELECT 1; SELECT 1/0");
+        assertTrue(res);
+        assertThrows(SQLException.class, () -> stmt.getMoreResults());
     }
 
     @Test
@@ -346,14 +348,24 @@ public class ItJdbcMultiStatementSelfTest extends AbstractJdbcSelfTest {
         return stmt.execute(sql);
     }
 
+    /**
+     * Returns: <br>
+     *  -1 if all statement datasets are null, or <br>
+     *  &gt= 0 summary results count<br>
+     * @return
+     * @throws SQLException
+     */
     private int getResultSetSize() throws SQLException {
         ResultSet rs = stmt.getResultSet();
-        int size = 0;
+        int size = -1;
         boolean more;
         int updCount;
 
         do {
             if (rs != null) {
+                if (size == -1) {
+                    size = 0;
+                }
                 while (rs.next()) {
                     ++size;
                 }
@@ -368,6 +380,6 @@ public class ItJdbcMultiStatementSelfTest extends AbstractJdbcSelfTest {
             }
             updCount = stmt.getUpdateCount();
         } while (more || updCount != -1);
-        return size == 0 ? -1 : size;
+        return size;
     }
 }

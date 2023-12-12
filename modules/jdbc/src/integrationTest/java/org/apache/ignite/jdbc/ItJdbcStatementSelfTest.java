@@ -782,6 +782,8 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
 
     @Test
     public void testOpenCursorsPureQuery() throws Exception {
+        int initial = openCursorsRegistered();
+
         stmt.execute("SELECT 1; SELECT 2;");
         ResultSet rs = stmt.getResultSet();
         stmt.execute("SELECT 3;");
@@ -792,14 +794,20 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
         for (int i = populateStmtCnt; i < stmt.getMaxRows() + 100; ++i) {
             stmt.execute(String.format("INSERT INTO TEST VALUES (%d, '1')", i));
         }
+
+        assertEquals(0, openCursorsRegistered() - initial);
     }
 
     @Test
     public void testOpenCursorsWithDdl() throws Exception {
+        int initial = openCursorsRegistered();
+
         stmt.execute("CREATE TABLE T1(ID INT PRIMARY KEY, AGE INT, NAME VARCHAR)");
         stmt.getResultSet();
         stmt.execute("SELECT 3;");
         stmt.execute("DROP TABLE T1");
         stmt.getResultSet();
+
+        assertEquals(0, openCursorsRegistered() - initial);
     }
 }
