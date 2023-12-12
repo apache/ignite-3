@@ -18,6 +18,7 @@
 package org.apache.ignite.client.handler.requests.sql;
 
 import static org.apache.ignite.client.handler.requests.sql.ClientSqlCommon.packCurrentPage;
+import static org.apache.ignite.client.handler.requests.sql.ClientSqlCommon.readSession;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTx;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
@@ -26,18 +27,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
-import java.util.concurrent.TimeUnit;
 import org.apache.ignite.client.handler.ClientHandlerMetricSource;
 import org.apache.ignite.client.handler.ClientResource;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
-import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
-import org.apache.ignite.internal.client.proto.ClientBinaryTupleUtils;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.lang.IgniteInternalException;
-import org.apache.ignite.internal.sql.api.SessionBuilderImpl;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.sql.ColumnMetadata;
@@ -45,11 +42,9 @@ import org.apache.ignite.sql.ColumnMetadata.ColumnOrigin;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.Session;
-import org.apache.ignite.sql.Session.SessionBuilder;
 import org.apache.ignite.sql.Statement;
 import org.apache.ignite.sql.Statement.StatementBuilder;
 import org.apache.ignite.sql.async.AsyncResultSet;
-import org.apache.ignite.tx.IgniteTransactions;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -155,43 +150,6 @@ public class ClientSqlExecuteRequest {
         statementBuilder.query(in.unpackString());
 
         return statementBuilder.build();
-    }
-
-    static Session readSession(ClientMessageUnpacker in, IgniteSql sql, IgniteTransactions transactions) {
-        SessionBuilder sessionBuilder = sql.sessionBuilder();
-
-        if (transactions != null && sessionBuilder instanceof SessionBuilderImpl) {
-            ((SessionBuilderImpl) sessionBuilder).igniteTransactions(transactions);
-        }
-
-        if (!in.tryUnpackNil()) {
-            sessionBuilder.defaultSchema(in.unpackString());
-        }
-
-        if (!in.tryUnpackNil()) {
-            sessionBuilder.defaultPageSize(in.unpackInt());
-        }
-
-        if (!in.tryUnpackNil()) {
-            sessionBuilder.defaultQueryTimeout(in.unpackLong(), TimeUnit.MILLISECONDS);
-        }
-
-        if (!in.tryUnpackNil()) {
-            sessionBuilder.idleTimeout(in.unpackLong(), TimeUnit.MILLISECONDS);
-        }
-
-        readSessionProperties(in, sessionBuilder);
-
-        return sessionBuilder.build();
-    }
-
-    static void readSessionProperties(ClientMessageUnpacker in, SessionBuilder sessionBuilder) {
-        var propCount = in.unpackInt();
-        var reader = new BinaryTupleReader(propCount * 4, in.readBinaryUnsafe());
-
-        for (int i = 0; i < propCount; i++) {
-            sessionBuilder.property(reader.stringValue(i * 4), ClientBinaryTupleUtils.readObject(reader, i * 4 + 1));
-        }
     }
 
     private static void packMeta(ClientMessagePacker out, @Nullable ResultSetMetadata meta) {

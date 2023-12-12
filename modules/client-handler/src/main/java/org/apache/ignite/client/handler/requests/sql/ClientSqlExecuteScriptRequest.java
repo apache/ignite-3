@@ -17,7 +17,7 @@
 
 package org.apache.ignite.client.handler.requests.sql;
 
-import static org.apache.ignite.client.handler.requests.sql.ClientSqlExecuteRequest.readSession;
+import static org.apache.ignite.client.handler.requests.sql.ClientSqlCommon.readSession;
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
