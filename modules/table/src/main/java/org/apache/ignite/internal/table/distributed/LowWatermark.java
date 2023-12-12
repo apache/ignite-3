@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.table.distributed;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 
 import java.util.concurrent.Executors;
@@ -115,7 +115,7 @@ public class LowWatermark implements ManuallyCloseable {
                         if (vaultEntry == null) {
                             scheduleUpdateLowWatermarkBusy();
 
-                            return completedFuture(null);
+                            return nullCompletedFuture();
                         }
 
                         HybridTimestamp lowWatermark = ByteUtils.fromBytes(vaultEntry.value());

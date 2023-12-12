@@ -17,12 +17,12 @@
 
 package org.apache.ignite.internal.future;
 
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Stream;
@@ -85,7 +85,7 @@ class OrderingFutureConcurrencyTest {
             for (int i = 0; i < 10_000; i++) {
                 future.thenComposeToCompletable(x -> {
                     counter.incrementAndGet();
-                    return CompletableFuture.completedFuture(null);
+                    return nullCompletedFuture();
                 });
             }
         };
@@ -213,7 +213,7 @@ class OrderingFutureConcurrencyTest {
         THEN_COMPOSE_TO_COMPLETABLE {
             @Override
             void execute(OrderingFuture<?> future) {
-                future.thenComposeToCompletable(x -> CompletableFuture.completedFuture(null));
+                future.thenComposeToCompletable(x -> nullCompletedFuture());
             }
         },
         THEN_COMPOSE {

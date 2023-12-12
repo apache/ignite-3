@@ -22,7 +22,7 @@ import java.io.PrintWriter;
 import java.io.Writer;
 import java.util.List;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
+import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.testframework.IntegrationTestBase;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.tx.Transaction;
@@ -85,7 +85,7 @@ public abstract class CliIntegrationTestBase extends IntegrationTestBase {
     protected static List<List<Object>> sql(@Nullable Transaction tx, String sql, Object... args) {
         Ignite ignite = CLUSTER_NODES.get(0);
 
-        return SqlTestUtils.sql(ignite, tx, sql, args);
+        return ClusterPerClassIntegrationTest.sql(ignite, tx, sql, args);
     }
 
     protected static PrintWriter output(List<Character> buffer) {

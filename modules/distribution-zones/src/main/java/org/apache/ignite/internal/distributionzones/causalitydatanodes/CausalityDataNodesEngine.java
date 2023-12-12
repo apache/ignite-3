@@ -25,16 +25,13 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleDownChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleUpChangeTriggerKey;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneVersionedConfigurationKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyKey;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToLong;
 import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
-import static org.apache.ignite.internal.util.ByteUtils.toBytes;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 
-import java.io.Serializable;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -43,7 +40,9 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.function.Consumer;
 import java.util.function.LongFunction;
+import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
+import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.causality.IncrementalVersionedValue;
 import org.apache.ignite.internal.causality.OutdatedTokenException;
 import org.apache.ignite.internal.causality.VersionedValue;
@@ -58,8 +57,6 @@ import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
-import org.apache.ignite.internal.vault.VaultEntry;
-import org.apache.ignite.internal.vault.VaultManager;
 
 /**
  * Causality data nodes engine. Contains logic for obtaining zone's data nodes with causality token.
@@ -71,11 +68,11 @@ public class CausalityDataNodesEngine {
     /** Meta Storage manager. */
     private final MetaStorageManager msManager;
 
-    /** Vault manager. */
-    private final VaultManager vaultMgr;
-
     /** Distribution zones manager. */
     private final DistributionZoneManager distributionZoneManager;
+
+    /** Catalog manager. */
+    private final CatalogManager catalogManager;
 
     /**
      * Map with states for distribution zones. States are needed to track nodes that we want to add or remove from the data nodes,
@@ -84,55 +81,66 @@ public class CausalityDataNodesEngine {
     private final Map<Integer, ZoneState> zonesState;
 
     /**
-     * The map which contains configuration changes which trigger zone's data nodes recalculation.
-     * zoneId -> (revision -> zoneConfiguration).
+     * The map which contains zones' create revision. It is updated only if the current node handled zone's create event.
      * TODO IGNITE-20050 Clean up this map.
      */
-    private final ConcurrentHashMap<Integer, ConcurrentSkipListMap<Long, ZoneConfiguration>> zonesVersionedCfg = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<Integer, Long> zonesCreateRevision = new ConcurrentHashMap<>();
 
-    /** Used to guarantee that the zone will be created before other components use the zone. */
+    /** Used to guarantee that the synchronous parts of all metastorage listeners for a specified causality token are handled. */
     private final VersionedValue<Void> zonesVv;
 
     /**
      * The constructor.
      *
      * @param busyLock Busy lock to stop synchronously.
+     * @param registry Registry for versioned values.
      * @param msManager Meta Storage manager.
-     * @param vaultMgr Vault manager.
      * @param zonesState Map with states for distribution zones.
      * @param distributionZoneManager Distribution zones manager.
+     * @param catalogManager Catalog manager.
      */
     public CausalityDataNodesEngine(
             IgniteSpinBusyLock busyLock,
             Consumer<LongFunction<CompletableFuture<?>>> registry,
             MetaStorageManager msManager,
-            VaultManager vaultMgr,
             Map<Integer, ZoneState> zonesState,
-            DistributionZoneManager distributionZoneManager
+            DistributionZoneManager distributionZoneManager,
+            CatalogManager catalogManager
     ) {
         this.busyLock = busyLock;
         this.msManager = msManager;
-        this.vaultMgr = vaultMgr;
         this.zonesState = zonesState;
         this.distributionZoneManager = distributionZoneManager;
+        this.catalogManager = catalogManager;
 
         zonesVv = new IncrementalVersionedValue<>(registry);
     }
 
     /**
-     * Gets data nodes of the zone using causality token.
+     * Gets data nodes of the zone using causality token and catalog version. {@code causalityToken} must be agreed
+     * with the {@code catalogVersion}, meaning that for the provided {@code causalityToken} actual {@code catalogVersion} must be provided.
+     * For example, if you are in the meta storage watch thread and {@code causalityToken} is the revision of the watch event, it is
+     * safe to take {@link CatalogManager#latestCatalogVersion()} as a {@code catalogVersion},
+     * because {@link CatalogManager#latestCatalogVersion()} won't be updated in a watch thread.
+     * The same is applied for {@link CatalogEventParameters}, it is safe to take {@link CatalogEventParameters#causalityToken()}
+     * as a {@code causalityToken} and {@link CatalogEventParameters#catalogVersion()} as a {@code catalogVersion}.
      *
      * <p>Return data nodes or throw the exception:
      * {@link IllegalArgumentException} if causalityToken or zoneId is not valid.
      * {@link DistributionZoneNotFoundException} if the zone with the provided zoneId does not exist.
      *
      * @param causalityToken Causality token.
+     * @param catalogVersion Catalog version.
      * @param zoneId Zone id.
      * @return The future with data nodes for the zoneId.
      */
-    public CompletableFuture<Set<String>> dataNodes(long causalityToken, int zoneId) {
+    public CompletableFuture<Set<String>> dataNodes(long causalityToken, int catalogVersion, int zoneId) {
         if (causalityToken < 1) {
             throw new IllegalArgumentException("causalityToken must be greater then zero [causalityToken=" + causalityToken + '"');
+        }
+
+        if (catalogVersion < 0) {
+            throw new IllegalArgumentException("catalogVersion must be greater or equal to zero [catalogVersion=" + catalogVersion + '"');
         }
 
         if (zoneId < 0) {
@@ -144,44 +152,35 @@ public class CausalityDataNodesEngine {
                 return zonesVv.get(causalityToken);
             } catch (OutdatedTokenException e) {
                 // This exception means that the DistributionZoneManager has already processed event with the causalityToken.
-                return CompletableFuture.completedFuture(null);
+                return nullCompletedFuture();
             }
         }).thenApply(ignored -> inBusyLock(busyLock, () -> {
-            ConcurrentSkipListMap<Long, ZoneConfiguration> versionedCfg = zonesVersionedCfg.get(zoneId);
+            CatalogZoneDescriptor zoneDescriptor = catalogManager.catalog(catalogVersion).zone(zoneId);
 
-            // Get the latest configuration and configuration revision for a given causality token
-            Map.Entry<Long, ZoneConfiguration> zoneLastCfgEntry = versionedCfg.floorEntry(causalityToken);
-
-            if (zoneLastCfgEntry == null) {
-                // It means that the zone does not exist on a given causality token.
+            if (zoneDescriptor == null) {
+                // It means that the zone does not exist on a given causality token or causality token is lower than metastorage recovery
+                // revision.
                 throw new DistributionZoneNotFoundException(zoneId);
             }
 
-            long lastCfgRevision = zoneLastCfgEntry.getKey();
+            Long createRevision = zonesCreateRevision.get(zoneId);
 
-            ZoneConfiguration zoneLastCfg = zoneLastCfgEntry.getValue();
+            long descLastUpdateRevision = zoneDescriptor.updateToken();
 
-            String filter = zoneLastCfg.getFilter();
-
-            boolean isZoneRemoved = zoneLastCfg.getIsRemoved();
-
-            if (isZoneRemoved) {
-                // It means that the zone was removed on a given causality token.
-                throw new DistributionZoneNotFoundException(zoneId);
-            }
+            String filter = zoneDescriptor.filter();
 
             // Get revisions of the last scale up and scale down event which triggered immediate data nodes recalculation.
-            long lastScaleUpRevision = getRevisionsOfLastScaleUpEvent(causalityToken, zoneId);
-            long lastScaleDownRevision = getRevisionsOfLastScaleDownEvent(causalityToken, zoneId);
+            long lastScaleUpRevision = getRevisionsOfLastScaleUpEvent(causalityToken, catalogVersion, zoneId);
+            long lastScaleDownRevision = getRevisionsOfLastScaleDownEvent(causalityToken, catalogVersion, zoneId);
 
-            if (lastCfgRevision == versionedCfg.firstKey()
-                    && lastCfgRevision >= lastScaleUpRevision
-                    && lastCfgRevision >= lastScaleDownRevision
+            if (createRevision != null && createRevision.equals(descLastUpdateRevision)
+                    && descLastUpdateRevision >= lastScaleUpRevision
+                    && descLastUpdateRevision >= lastScaleDownRevision
             ) {
                 // It means that the zone was created but the data nodes value had not updated yet.
-                // So the data nodes value will be equals to the logical topology on the lastCfgRevision.
+                // So the data nodes value will be equals to the logical topology on the descLastUpdateRevision.
 
-                Entry topologyEntry = msManager.getLocally(zonesLogicalTopologyKey(), zoneLastCfgEntry.getKey());
+                Entry topologyEntry = msManager.getLocally(zonesLogicalTopologyKey(), descLastUpdateRevision);
 
                 assert topologyEntry.value() != null : "Logical topology must be initialized.";
 
@@ -211,8 +210,7 @@ public class CausalityDataNodesEngine {
             // Search the revisions of zoneScaleUpChangeTriggerKey and zoneScaleDownChangeTriggerKey with value greater or equals
             // to expected one.
             long scaleUpDataNodesRevision = searchTriggerKey(lastScaleUpRevision, zoneId, zoneScaleUpChangeTriggerKey(zoneId));
-            long scaleDownDataNodesRevision = searchTriggerKey(lastScaleDownRevision, zoneId,
-                    zoneScaleDownChangeTriggerKey(zoneId));
+            long scaleDownDataNodesRevision = searchTriggerKey(lastScaleDownRevision, zoneId, zoneScaleDownChangeTriggerKey(zoneId));
 
             // Choose the highest revision.
             long dataNodesRevision = max(causalityToken, max(scaleUpDataNodesRevision, scaleDownDataNodesRevision));
@@ -263,11 +261,12 @@ public class CausalityDataNodesEngine {
      */
     private long getRevisionsOfLastScaleUpEvent(
             long causalityToken,
+            int catalogVersion,
             int zoneId
     ) {
         return max(
-                getLastScaleUpConfigRevision(causalityToken, zoneId),
-                getLastScaleUpTopologyRevisions(causalityToken, zoneId)
+                getLastScaleUpConfigRevision(catalogVersion, zoneId),
+                getLastScaleUpTopologyRevisions(causalityToken, catalogVersion, zoneId)
         );
     }
 
@@ -276,11 +275,12 @@ public class CausalityDataNodesEngine {
      */
     private long getRevisionsOfLastScaleDownEvent(
             long causalityToken,
+            int catalogVersion,
             int zoneId
     ) {
         return max(
-                getLastScaleDownConfigRevision(causalityToken, zoneId),
-                getLastScaleDownTopologyRevisions(causalityToken, zoneId)
+                getLastScaleDownConfigRevision(catalogVersion, zoneId),
+                getLastScaleDownTopologyRevisions(causalityToken, catalogVersion, zoneId)
         );
     }
 
@@ -288,20 +288,20 @@ public class CausalityDataNodesEngine {
      * Return revision of the last configuration change event which triggers immediate scale up recalculation of the data nodes value.
      */
     private long getLastScaleUpConfigRevision(
-            long causalityToken,
+            int catalogVersion,
             int zoneId
     ) {
-        return getLastConfigRevision(causalityToken, zoneId, true);
+        return getLastConfigRevision(catalogVersion, zoneId, true);
     }
 
     /**
      * Return revision of the last configuration change event which triggers immediate scale down recalculation of the data nodes value.
      */
     private long getLastScaleDownConfigRevision(
-            long causalityToken,
+            int catalogVersion,
             int zoneId
     ) {
-        return getLastConfigRevision(causalityToken, zoneId, false);
+        return getLastConfigRevision(catalogVersion, zoneId, false);
     }
 
     /**
@@ -309,33 +309,28 @@ public class CausalityDataNodesEngine {
      * of the data nodes value.
      */
     private long getLastConfigRevision(
-            long causalityToken,
+            int catalogVersion,
             int zoneId,
             boolean isScaleUp
     ) {
-        ConcurrentSkipListMap<Long, ZoneConfiguration> versionedCfg = zonesVersionedCfg.get(zoneId);
-
-        Iterator<Map.Entry<Long, ZoneConfiguration>> reversedIterator = versionedCfg.headMap(causalityToken, true)
-                .descendingMap().entrySet().iterator();
-
-        Map.Entry<Long, ZoneConfiguration> entryNewerCfg = null;
+        CatalogZoneDescriptor entryNewerCfg = null;
 
         // Iterate over zone configurations from newest to oldest.
-        while (reversedIterator.hasNext()) {
-            Map.Entry<Long, ZoneConfiguration> entryOlderCfg = reversedIterator.next();
+        for (int i = catalogVersion; i >= 0; i--) {
+            CatalogZoneDescriptor entryOlderCfg = catalogManager.catalog(i).zone(zoneId);
 
-            ZoneConfiguration olderCfg = entryOlderCfg.getValue();
+            if (entryOlderCfg == null) {
+                break;
+            }
 
             if (entryNewerCfg != null) {
-                ZoneConfiguration newerCfg = entryNewerCfg.getValue();
-
                 if (isScaleUp) {
-                    if (isScaleUpConfigRevision(olderCfg, newerCfg)) {
-                        return entryNewerCfg.getKey();
+                    if (isScaleUpConfigRevision(entryOlderCfg, entryNewerCfg)) {
+                        return entryNewerCfg.updateToken();
                     }
                 } else {
-                    if (isScaleDownConfigRevision(olderCfg, newerCfg)) {
-                        return entryNewerCfg.getKey();
+                    if (isScaleDownConfigRevision(entryOlderCfg, entryNewerCfg)) {
+                        return entryNewerCfg.updateToken();
                     }
                 }
             }
@@ -346,7 +341,7 @@ public class CausalityDataNodesEngine {
         assert entryNewerCfg != null : "At least one zone configuration must be present .";
 
         // The case when there is only one configuration in the history. This configuration corresponds to the zone creation.
-        return entryNewerCfg.getKey();
+        return entryNewerCfg.updateToken();
     }
 
     /**
@@ -354,19 +349,19 @@ public class CausalityDataNodesEngine {
      * Return true if an older configuration has not immediate scale up and an newer configuration has immediate scale up
      * or older and newer configuration have different filter.
      */
-    private static boolean isScaleUpConfigRevision(ZoneConfiguration olderCfg, ZoneConfiguration newerCfg) {
-        return olderCfg.getDataNodesAutoAdjustScaleUp() != newerCfg.getDataNodesAutoAdjustScaleUp()
-                    && newerCfg.getDataNodesAutoAdjustScaleUp() == IMMEDIATE_TIMER_VALUE
-                || !olderCfg.getFilter().equals(newerCfg.getFilter());
+    private static boolean isScaleUpConfigRevision(CatalogZoneDescriptor olderCfg, CatalogZoneDescriptor newerCfg) {
+        return olderCfg.dataNodesAutoAdjustScaleUp() != newerCfg.dataNodesAutoAdjustScaleUp()
+                    && newerCfg.dataNodesAutoAdjustScaleUp() == IMMEDIATE_TIMER_VALUE
+                || !olderCfg.filter().equals(newerCfg.filter());
     }
 
     /**
      * Check if newer configuration triggers immediate scale down recalculation of the data nodes value.
      * Return true if an older configuration has not immediate scale down and an newer configuration has immediate scale down.
      */
-    private static boolean isScaleDownConfigRevision(ZoneConfiguration olderCfg, ZoneConfiguration newerCfg) {
-        return olderCfg.getDataNodesAutoAdjustScaleDown() != newerCfg.getDataNodesAutoAdjustScaleDown()
-                && newerCfg.getDataNodesAutoAdjustScaleDown() == IMMEDIATE_TIMER_VALUE;
+    private static boolean isScaleDownConfigRevision(CatalogZoneDescriptor olderCfg, CatalogZoneDescriptor newerCfg) {
+        return olderCfg.dataNodesAutoAdjustScaleDown() != newerCfg.dataNodesAutoAdjustScaleDown()
+                && newerCfg.dataNodesAutoAdjustScaleDown() == IMMEDIATE_TIMER_VALUE;
     }
 
     /**
@@ -374,9 +369,10 @@ public class CausalityDataNodesEngine {
      */
     private long getLastScaleUpTopologyRevisions(
             long causalityToken,
+            int catalogVersion,
             int zoneId
     ) {
-        return getLastTopologyRevisions(causalityToken, zoneId, true);
+        return getLastTopologyRevisions(causalityToken, zoneId, catalogVersion, true);
     }
 
     /**
@@ -384,9 +380,10 @@ public class CausalityDataNodesEngine {
      */
     private long getLastScaleDownTopologyRevisions(
             long causalityToken,
+            int catalogVersion,
             int zoneId
     ) {
-        return getLastTopologyRevisions(causalityToken, zoneId, false);
+        return getLastTopologyRevisions(causalityToken, zoneId, catalogVersion, false);
     }
 
     /**
@@ -400,6 +397,7 @@ public class CausalityDataNodesEngine {
     private long getLastTopologyRevisions(
             long causalityToken,
             int zoneId,
+            int catalogVersion,
             boolean isScaleUp
     ) {
         Set<NodeWithAttributes> newerLogicalTopology;
@@ -430,21 +428,18 @@ public class CausalityDataNodesEngine {
                     olderLogicalTopology = fromBytes(olderLogicalTopologyBytes);
                 }
 
-                Map.Entry<Long, ZoneConfiguration> zoneConfigurationEntry = zonesVersionedCfg.get(zoneId)
-                        .floorEntry(newerTopologyRevision);
+                CatalogZoneDescriptor zoneDescriptor = catalogManager.catalog(catalogVersion).zone(zoneId);
 
-                if (zoneConfigurationEntry == null) {
+                if (zoneDescriptor == null) {
                     break;
                 }
 
-                ZoneConfiguration zoneCfg = zoneConfigurationEntry.getValue();
-
                 if (isScaleUp) {
-                    if (isScaleUpTopologyRevision(olderLogicalTopology, newerLogicalTopology, zoneCfg)) {
+                    if (isScaleUpTopologyRevision(olderLogicalTopology, newerLogicalTopology, zoneDescriptor)) {
                         return newerTopologyRevision;
                     }
                 } else {
-                    if (isScaleDownTopologyRevision(olderLogicalTopology, newerLogicalTopology, zoneCfg)) {
+                    if (isScaleDownTopologyRevision(olderLogicalTopology, newerLogicalTopology, zoneDescriptor)) {
                         return newerTopologyRevision;
                     }
                 }
@@ -469,10 +464,10 @@ public class CausalityDataNodesEngine {
     private static boolean isScaleUpTopologyRevision(
             Set<NodeWithAttributes> olderLogicalTopology,
             Set<NodeWithAttributes> newerLogicalTopology,
-            ZoneConfiguration zoneCfg
+            CatalogZoneDescriptor zoneDescriptor
     ) {
         return newerLogicalTopology.stream().anyMatch(node -> !olderLogicalTopology.contains(node))
-                && zoneCfg.getDataNodesAutoAdjustScaleUp() == IMMEDIATE_TIMER_VALUE;
+                && zoneDescriptor.dataNodesAutoAdjustScaleUp() == IMMEDIATE_TIMER_VALUE;
     }
 
     /**
@@ -482,10 +477,10 @@ public class CausalityDataNodesEngine {
     private static boolean isScaleDownTopologyRevision(
             Set<NodeWithAttributes> olderLogicalTopology,
             Set<NodeWithAttributes> newerLogicalTopology,
-            ZoneConfiguration zoneCfg
+            CatalogZoneDescriptor zoneDescriptor
     ) {
         return olderLogicalTopology.stream().anyMatch(node -> !newerLogicalTopology.contains(node))
-                && zoneCfg.getDataNodesAutoAdjustScaleDown() == IMMEDIATE_TIMER_VALUE;
+                && zoneDescriptor.dataNodesAutoAdjustScaleDown() == IMMEDIATE_TIMER_VALUE;
     }
 
     /**
@@ -523,89 +518,15 @@ public class CausalityDataNodesEngine {
     }
 
     /**
-     * Update zone configuration on a scale up update.
-     *
-     * @param revision Revision.
-     * @param zoneId Zone id.
-     * @param newScaleUp New scale up value.
-     */
-    public void causalityOnUpdateScaleUp(long revision, int zoneId, int newScaleUp) {
-        updateZoneConfiguration(revision, zoneId, zoneCfg -> zoneCfg.setDataNodesAutoAdjustScaleUp(newScaleUp));
-    }
-
-    /**
-     * Update zone configuration on a scale down update.
-     *
-     * @param revision Revision.
-     * @param zoneId Zone id.
-     * @param newScaleDown New scale down value.
-     */
-    public void causalityOnUpdateScaleDown(long revision, int zoneId, int newScaleDown) {
-        updateZoneConfiguration(revision, zoneId, zoneCfg -> zoneCfg.setDataNodesAutoAdjustScaleDown(newScaleDown));
-    }
-
-    /**
-     * Update zone configuration on a scale down update.
-     *
-     * @param revision Revision.
-     * @param zoneId Zone id.
-     * @param filter Filter.
-     */
-    public void onUpdateFilter(long revision, int zoneId, String filter) {
-        updateZoneConfiguration(revision, zoneId, zoneCfg -> zoneCfg.setFilter(filter));
-    }
-
-    /**
-     * Update zone configuration.
-     *
-     * @param revision Revision.
-     * @param zoneId Zone id.
-     * @param updater Closure to update a configuration.
-     */
-    private void updateZoneConfiguration(long revision, int zoneId, Consumer<ZoneConfiguration> updater) {
-        ConcurrentSkipListMap<Long, ZoneConfiguration> versionedCfg = zonesVersionedCfg.get(zoneId);
-
-        ZoneConfiguration previousCfg = versionedCfg.floorEntry(revision).getValue();
-
-        ZoneConfiguration newCfg = new ZoneConfiguration(previousCfg);
-
-        updater.accept(newCfg);
-
-        versionedCfg.put(revision, newCfg);
-
-        vaultMgr.put(zoneVersionedConfigurationKey(zoneId), toBytes(versionedCfg)).join();
-    }
-
-    /**
-     * Creates or restores zone's versioned configuration from the vault the Vault.
-     * We save versioned configuration in the Vault every time we receive event which triggers the data nodes recalculation.
+     * Saves revision of the creation a zone to a local state.
      *
      * @param revision Revision.
      * @param zone Zone descriptor.
      */
-    public void onCreateOrRestoreZoneState(long revision, CatalogZoneDescriptor zone) {
+    public void onCreateZoneState(long revision, CatalogZoneDescriptor zone) {
         int zoneId = zone.id();
 
-        VaultEntry versionedCfgEntry = vaultMgr.get(zoneVersionedConfigurationKey(zoneId)).join();
-
-        if (versionedCfgEntry == null) {
-            ZoneConfiguration zoneConfiguration = new ZoneConfiguration(
-                    false,
-                    zone.dataNodesAutoAdjustScaleUp(),
-                    zone.dataNodesAutoAdjustScaleDown(),
-                    zone.filter()
-            );
-
-            ConcurrentSkipListMap<Long, ZoneConfiguration> versionedCfg = new ConcurrentSkipListMap<>();
-
-            versionedCfg.put(revision, zoneConfiguration);
-
-            zonesVersionedCfg.put(zoneId, versionedCfg);
-
-            vaultMgr.put(zoneVersionedConfigurationKey(zoneId), toBytes(versionedCfg)).join();
-        } else {
-            zonesVersionedCfg.put(zoneId, fromBytes(versionedCfgEntry.value()));
-        }
+        zonesCreateRevision.put(zoneId, revision);
     }
 
     /**
@@ -615,109 +536,6 @@ public class CausalityDataNodesEngine {
      * @param zoneId Zone id.
      */
     public void onDelete(long revision, int zoneId) {
-        ConcurrentSkipListMap<Long, ZoneConfiguration> versionedCfg = zonesVersionedCfg.get(zoneId);
-
-        ZoneConfiguration previousCfg = versionedCfg.floorEntry(revision).getValue();
-
-        ZoneConfiguration newCfg = new ZoneConfiguration(previousCfg).setIsRemoved(true);
-
-        versionedCfg.put(revision, newCfg);
-
-        vaultMgr.put(zoneVersionedConfigurationKey(zoneId), toBytes(versionedCfg)).join();
-    }
-
-    /**
-     * Class stores zone configuration parameters. Changing of these parameters can trigger a data nodes recalculation.
-     */
-    private static class ZoneConfiguration implements Serializable {
-        /** Serial version UID. */
-        private static final long serialVersionUID = -7212835078222590440L;
-
-        /**
-         * The flag indicates whether this zone has been deleted or not.
-         */
-        private boolean isRemoved;
-
-        /**
-         * Scale up timer value.
-         */
-        private int dataNodesAutoAdjustScaleUp;
-
-        /**
-         * Scale down timer value.
-         */
-        private int dataNodesAutoAdjustScaleDown;
-
-        /**
-         * Filter.
-         */
-        private String filter;
-
-        /**
-         * Constructor.
-         *
-         * @param isRemoved Is this zone removed.
-         * @param dataNodesAutoAdjustScaleUp Data nodes auto adjust scale up timeout.
-         * @param dataNodesAutoAdjustScaleDown Data nodes auto adjust scale down timeout.
-         * @param filter Data nodes filter.
-         */
-        ZoneConfiguration(boolean isRemoved, int dataNodesAutoAdjustScaleUp, int dataNodesAutoAdjustScaleDown, String filter) {
-            this.isRemoved = isRemoved;
-            this.dataNodesAutoAdjustScaleUp = dataNodesAutoAdjustScaleUp;
-            this.dataNodesAutoAdjustScaleDown = dataNodesAutoAdjustScaleDown;
-            this.filter = filter;
-        }
-
-        /**
-         * Constructor.
-         *
-         * @param cfg Zone configuration.
-         */
-        ZoneConfiguration(ZoneConfiguration cfg) {
-            this.isRemoved = cfg.getIsRemoved();
-            this.dataNodesAutoAdjustScaleUp = cfg.getDataNodesAutoAdjustScaleUp();
-            this.dataNodesAutoAdjustScaleDown = cfg.getDataNodesAutoAdjustScaleDown();
-            this.filter = cfg.getFilter();
-        }
-
-        boolean getIsRemoved() {
-            return isRemoved;
-        }
-
-        ZoneConfiguration setIsRemoved(boolean isRemoved) {
-            this.isRemoved = isRemoved;
-
-            return this;
-        }
-
-        int getDataNodesAutoAdjustScaleUp() {
-            return dataNodesAutoAdjustScaleUp;
-        }
-
-        ZoneConfiguration setDataNodesAutoAdjustScaleUp(int dataNodesAutoAdjustScaleUp) {
-            this.dataNodesAutoAdjustScaleUp = dataNodesAutoAdjustScaleUp;
-
-            return this;
-        }
-
-        int getDataNodesAutoAdjustScaleDown() {
-            return dataNodesAutoAdjustScaleDown;
-        }
-
-        ZoneConfiguration setDataNodesAutoAdjustScaleDown(int dataNodesAutoAdjustScaleDown) {
-            this.dataNodesAutoAdjustScaleDown = dataNodesAutoAdjustScaleDown;
-
-            return this;
-        }
-
-        String getFilter() {
-            return filter;
-        }
-
-        ZoneConfiguration setFilter(String filter) {
-            this.filter = filter;
-
-            return this;
-        }
+        // https://issues.apache.org/jira/browse/IGNITE-20050
     }
 }

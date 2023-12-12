@@ -152,9 +152,6 @@ public class NodeImpl implements Node, RaftServerService {
         .writeLock();
     protected final Lock readLock = this.readWriteLock
         .readLock();
-
-    /** The future completes when all committed actions applied to RAFT state machine. */
-    private final CompletableFuture<Long> applyCommittedFuture;
     private volatile State state;
     private volatile CountDownLatch shutdownLatch;
     private long currTerm;
@@ -577,7 +574,6 @@ public class NodeImpl implements Node, RaftServerService {
             updateLastLeaderTimestamp(Utils.monotonicMs());
             this.confCtx = new ConfigurationCtx(this);
             this.wakingCandidate = null;
-            this.applyCommittedFuture = new CompletableFuture<>();
             this.ownFsmCallerExecutorDisruptorConfig = ownFsmCallerExecutorDisruptorConfig;
         }
 
@@ -1084,29 +1080,6 @@ public class NodeImpl implements Node, RaftServerService {
         // Adds metric registry to RPC service.
         this.options.setMetricRegistry(this.metrics.getMetricRegistry());
 
-        // Wait committed.
-        long commitIdx = logManager.getLastLogIndex();
-
-        CompletableFuture<Long> logApplyComplition = new CompletableFuture<>();
-
-        if (commitIdx > fsmCaller.getLastAppliedIndex()) {
-            LastAppliedLogIndexListener lnsr = new LastAppliedLogIndexListener() {
-                @Override
-                public void onApplied( long lastAppliedLogIndex) {
-                    if (lastAppliedLogIndex >= commitIdx) {
-                        logApplyComplition.complete(lastAppliedLogIndex);
-                        fsmCaller.removeLastAppliedLogIndexListener(this);
-                    }
-                }
-            };
-
-            fsmCaller.addLastAppliedLogIndexListener(lnsr);
-
-            fsmCaller.onCommitted(commitIdx);
-        } else {
-            logApplyComplition.complete(fsmCaller.getLastAppliedIndex());
-        }
-
         if (!this.rpcClientService.init(this.options)) {
             LOG.error("Fail to init rpc service.");
             return false;
@@ -1125,10 +1098,6 @@ public class NodeImpl implements Node, RaftServerService {
             return false;
         }
 
-        logApplyComplition.whenComplete((committedIdx, err) -> {
-            if (err != null) {
-                LOG.error("Fail to apply committed updates.", err);
-            }
 
             // set state to follower
             this.state = State.STATE_FOLLOWER;
@@ -1159,19 +1128,9 @@ public class NodeImpl implements Node, RaftServerService {
                 this.writeLock.unlock();
             }
 
-            applyCommittedFuture.complete(commitIdx);
-        });
-
         return true;
     }
 
-    /**
-     * Gets a future which complete when all committed update are applied to the node's state machine on start.
-     * @return Future completes when this node committed revision would be equal to the applied one.
-     */
-    public CompletableFuture<Long> getApplyCommittedFuture() {
-        return applyCommittedFuture;
-    }
     /**
      * Validates a required option if shared pools are enabled.
      *

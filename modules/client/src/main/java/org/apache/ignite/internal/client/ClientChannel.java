@@ -19,6 +19,7 @@ package org.apache.ignite.internal.client;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Processing thin client requests and responses.
@@ -35,8 +36,8 @@ public interface ClientChannel extends AutoCloseable {
      */
     <T> CompletableFuture<T> serviceAsync(
             int opCode,
-            PayloadWriter payloadWriter,
-            PayloadReader<T> payloadReader
+            @Nullable PayloadWriter payloadWriter,
+            @Nullable PayloadReader<T> payloadReader
     );
 
     /**

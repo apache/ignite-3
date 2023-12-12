@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.rocksdb.flush;
 
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.rocksdb.AbstractEventListener.EnabledEventCallback.ON_FLUSH_BEGIN;
 import static org.rocksdb.AbstractEventListener.EnabledEventCallback.ON_FLUSH_COMPLETED;
 
@@ -42,7 +43,7 @@ class RocksDbFlushListener extends AbstractEventListener {
     /**
      * Future that guarantees that last flush was fully processed and the new flush can safely begin.
      */
-    private volatile CompletableFuture<?> lastFlushProcessed = CompletableFuture.completedFuture(null);
+    private volatile CompletableFuture<?> lastFlushProcessed = nullCompletedFuture();
 
     /**
      * Constructor.

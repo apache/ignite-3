@@ -17,11 +17,11 @@
 
 package org.apache.ignite.internal.table.distributed;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowWithCauseOrSuppressed;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -63,7 +63,7 @@ class PartitionMoverTest extends BaseIgniteAbstractTest {
         when(raftService.changePeersAsync(any(), anyLong()))
                 .thenReturn(failedFuture(new RuntimeException()))
                 .thenReturn(failedFuture(new IOException()))
-                .thenReturn(completedFuture(null));
+                .thenReturn(nullCompletedFuture());
 
         var partitionMover = new PartitionMover(new IgniteSpinBusyLock(), () -> raftService);
 

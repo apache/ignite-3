@@ -19,7 +19,7 @@ package org.apache.ignite.internal.event;
 
 import static java.util.Collections.unmodifiableList;
 import static java.util.concurrent.CompletableFuture.allOf;
-import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -78,7 +78,7 @@ public abstract class AbstractEventProducer<T extends Event, P extends EventPara
         List<EventListener<P>> listeners = listenersByEvent.get(evt);
 
         if (listeners == null) {
-            return completedFuture(null);
+            return nullCompletedFuture();
         }
 
         CompletableFuture<?>[] futures = new CompletableFuture[listeners.size()];

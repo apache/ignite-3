@@ -20,6 +20,7 @@ package org.apache.ignite.client.handler;
 import static org.apache.ignite.internal.jdbc.proto.event.Response.STATUS_FAILED;
 import static org.apache.ignite.internal.jdbc.proto.event.Response.STATUS_SUCCESS;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.is;
@@ -143,7 +144,7 @@ class JdbcQueryEventHandlerImplTest extends BaseIgniteAbstractTest {
     public void explicitTxRollbackOnCloseRegistry() {
         InternalTransaction tx = mock(InternalTransaction.class);
 
-        when(tx.rollbackAsync()).thenReturn(CompletableFuture.completedFuture(null));
+        when(tx.rollbackAsync()).thenReturn(nullCompletedFuture());
         when(igniteTransactions.begin()).thenReturn(tx);
 
         long connectionId = acquireConnectionId();
@@ -164,8 +165,8 @@ class JdbcQueryEventHandlerImplTest extends BaseIgniteAbstractTest {
                 .thenReturn(CompletableFuture.failedFuture(new RuntimeException("Expected")));
 
         InternalTransaction tx = mock(InternalTransaction.class);
-        when(tx.commitAsync()).thenReturn(CompletableFuture.completedFuture(null));
-        when(tx.rollbackAsync()).thenReturn(CompletableFuture.completedFuture(null));
+        when(tx.commitAsync()).thenReturn(nullCompletedFuture());
+        when(tx.rollbackAsync()).thenReturn(nullCompletedFuture());
         when(igniteTransactions.begin()).thenReturn(tx);
 
         long connectionId = acquireConnectionId();

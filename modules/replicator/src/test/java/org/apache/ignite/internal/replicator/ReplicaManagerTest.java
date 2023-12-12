@@ -18,12 +18,14 @@
 package org.apache.ignite.internal.replicator;
 
 import static java.util.concurrent.CompletableFuture.allOf;
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.replicator.LocalReplicaEvent.AFTER_REPLICA_STARTED;
 import static org.apache.ignite.internal.replicator.LocalReplicaEvent.BEFORE_REPLICA_STOPPED;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.CompletableFutures.emptySetCompletedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -79,7 +81,7 @@ public class ReplicaManagerTest extends BaseIgniteAbstractTest {
 
         when(topologyService.localMember()).thenReturn(new ClusterNodeImpl(nodeName, nodeName, new NetworkAddress("foo", 0)));
 
-        when(cmgManager.metaStorageNodes()).thenReturn(completedFuture(Set.of()));
+        when(cmgManager.metaStorageNodes()).thenReturn(emptySetCompletedFuture());
 
         var clock = new HybridClockImpl();
 
@@ -115,10 +117,10 @@ public class ReplicaManagerTest extends BaseIgniteAbstractTest {
             @Mock ReplicaListener replicaListener,
             @Mock TopologyAwareRaftGroupService raftGroupService
     ) throws NodeStoppingException {
-        when(raftGroupService.unsubscribeLeader()).thenReturn(completedFuture(null));
+        when(raftGroupService.unsubscribeLeader()).thenReturn(nullCompletedFuture());
 
-        when(createReplicaListener.notify(any(), any())).thenReturn(completedFuture(false));
-        when(removeReplicaListener.notify(any(), any())).thenReturn(completedFuture(false));
+        when(createReplicaListener.notify(any(), any())).thenReturn(falseCompletedFuture());
+        when(removeReplicaListener.notify(any(), any())).thenReturn(falseCompletedFuture());
 
         replicaManager.listen(AFTER_REPLICA_STARTED, createReplicaListener);
         replicaManager.listen(BEFORE_REPLICA_STOPPED, removeReplicaListener);
@@ -127,7 +129,7 @@ public class ReplicaManagerTest extends BaseIgniteAbstractTest {
 
         CompletableFuture<Replica> startReplicaFuture = replicaManager.startReplica(
                 groupId,
-                completedFuture(null),
+                nullCompletedFuture(),
                 replicaListener,
                 raftGroupService,
                 new PendingComparableValuesTracker<>(0L)

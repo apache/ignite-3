@@ -146,4 +146,7 @@ public class ClientOp {
 
     /** JDBC command to commit/rollback transaction. */
     public static final int JDBC_TX_FINISH = 55;
+
+    /** Execute SQL script. */
+    public static final int SQL_EXEC_SCRIPT = 56;
 }

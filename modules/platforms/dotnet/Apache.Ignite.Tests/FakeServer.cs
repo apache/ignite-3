@@ -95,7 +95,7 @@ namespace Apache.Ignite.Tests
 
         public string[] PartitionAssignment { get; set; }
 
-        public bool PartitionAssignmentChanged { get; set; }
+        public long PartitionAssignmentTimestamp { get; set; }
 
         public TimeSpan HandshakeDelay { get; set; }
 
@@ -348,15 +348,8 @@ namespace Apache.Ignite.Tests
             writer.Write(0); // Message type.
             writer.Write(requestId);
 
-            if (PartitionAssignmentChanged)
-            {
-                writer.Write((int)ResponseFlags.PartitionAssignmentChanged);
-                writer.Write(DateTime.UtcNow.Ticks);
-            }
-            else
-            {
-                writer.Write(0);
-            }
+            writer.Write((int)ResponseFlags.PartitionAssignmentChanged);
+            writer.Write(PartitionAssignmentTimestamp);
 
             writer.Write(ObservableTimestamp); // Observable timestamp.
 

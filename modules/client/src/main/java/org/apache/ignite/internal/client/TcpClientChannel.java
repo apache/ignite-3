@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.client;
 
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.copyExceptionWithCause;
 import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
 import static org.apache.ignite.lang.ErrorGroups.Client.CONNECTION_ERR;
@@ -247,8 +248,8 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     @Override
     public <T> CompletableFuture<T> serviceAsync(
             int opCode,
-            PayloadWriter payloadWriter,
-            PayloadReader<T> payloadReader
+            @Nullable PayloadWriter payloadWriter,
+            @Nullable PayloadReader<T> payloadReader
     ) {
         try {
             if (log.isTraceEnabled()) {
@@ -273,7 +274,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
      * @param payloadWriter Payload writer to stream or {@code null} if request has no payload.
      * @return Request future.
      */
-    private ClientRequestFuture send(int opCode, PayloadWriter payloadWriter) {
+    private ClientRequestFuture send(int opCode, @Nullable PayloadWriter payloadWriter) {
         long id = reqId.getAndIncrement();
 
         if (closed()) {
@@ -336,7 +337,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
      * @param payloadReader Payload reader from stream.
      * @return Future for the operation.
      */
-    private <T> CompletableFuture<T> receiveAsync(ClientRequestFuture pendingReq, PayloadReader<T> payloadReader) {
+    private <T> CompletableFuture<T> receiveAsync(ClientRequestFuture pendingReq, @Nullable PayloadReader<T> payloadReader) {
         return pendingReq.thenApplyAsync(payload -> {
             if (payload == null) {
                 return null;
@@ -617,7 +618,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             protocolCtx = new ProtocolContext(
                     srvVer, ProtocolBitmaskFeature.allFeaturesAsEnumSet(), serverIdleTimeout, clusterNode, clusterId);
 
-            return CompletableFuture.completedFuture(null);
+            return nullCompletedFuture();
         } catch (Exception e) {
             log.warn("Failed to handle handshake response [remoteAddress=" + cfg.getAddress() + "]: " + e.getMessage(), e);
 

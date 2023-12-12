@@ -19,6 +19,7 @@ package org.apache.ignite.internal.security.authentication;
 
 import static org.apache.ignite.internal.security.authentication.event.EventType.AUTHENTICATION_DISABLED;
 import static org.apache.ignite.internal.security.authentication.event.EventType.AUTHENTICATION_ENABLED;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -96,7 +97,7 @@ public class AuthenticationManagerImpl implements AuthenticationManager {
             emitEvents(ctx);
         }
 
-        return CompletableFuture.completedFuture(null);
+        return nullCompletedFuture();
     }
 
     private boolean refreshProviders(@Nullable SecurityView view) {

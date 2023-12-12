@@ -262,7 +262,7 @@ public class ClientMessagePacker implements AutoCloseable {
      *
      * @param v the value to be written.
      */
-    public void packLongNullable(Long v) {
+    public void packLongNullable(@Nullable Long v) {
         if (v == null) {
             packNil();
         } else {
@@ -613,6 +613,17 @@ public class ClientMessagePacker implements AutoCloseable {
      */
     public void packBinaryTuple(BinaryTupleBuilder builder) {
         ByteBuffer buf = builder.build();
+        packByteBuffer(buf);
+    }
+
+    /**
+     * Pack ByteBuffer.
+     *
+     * @param buf ByteBuffer object.
+     */
+    public void packByteBuffer(ByteBuffer buf) {
+        assert !closed : "Packer is closed";
+
         packBinaryHeader(buf.limit() - buf.position());
         writePayload(buf);
     }

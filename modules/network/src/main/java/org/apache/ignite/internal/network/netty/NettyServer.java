@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.network.netty;
 
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
@@ -36,6 +38,7 @@ import org.apache.ignite.internal.network.handshake.HandshakeManager;
 import org.apache.ignite.internal.network.serialization.PerSessionSerializationService;
 import org.apache.ignite.internal.network.serialization.SerializationService;
 import org.apache.ignite.internal.network.ssl.SslContextProvider;
+import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.network.NettyBootstrapFactory;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -162,7 +165,7 @@ public class NettyServer {
 
                                 return CompletableFuture.<Void>failedFuture(stopErr);
                             } else {
-                                return CompletableFuture.<Void>completedFuture(null);
+                                return CompletableFutures.<Void>nullCompletedFuture();
                             }
                         }
                     })
@@ -189,13 +192,13 @@ public class NettyServer {
     public CompletableFuture<Void> stop() {
         synchronized (startStopLock) {
             if (stopped) {
-                return CompletableFuture.completedFuture(null);
+                return nullCompletedFuture();
             }
 
             stopped = true;
 
             if (serverStartFuture == null) {
-                return CompletableFuture.completedFuture(null);
+                return nullCompletedFuture();
             }
 
             var serverCloseFuture0 = serverCloseFuture;
@@ -205,7 +208,7 @@ public class NettyServer {
                     channel.close();
                 }
 
-                return serverCloseFuture0 == null ? CompletableFuture.<Void>completedFuture(null) : serverCloseFuture0;
+                return serverCloseFuture0 == null ? CompletableFutures.<Void>nullCompletedFuture() : serverCloseFuture0;
             }).thenCompose(Function.identity());
         }
     }

@@ -20,6 +20,7 @@ package org.apache.ignite.internal.configuration.storage;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.revision;
+import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 
 import java.io.Serializable;
 import java.util.Arrays;
@@ -236,7 +237,7 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
             // This means that curChangeId is less than version and other node has already updated configuration and
             // write should be retried. Actual version will be set when watch and corresponding configuration listener
             // updates configuration.
-            return CompletableFuture.completedFuture(false);
+            return falseCompletedFuture();
         }
 
         Set<Operation> operations = new HashSet<>();

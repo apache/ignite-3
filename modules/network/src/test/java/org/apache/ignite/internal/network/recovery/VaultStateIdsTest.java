@@ -19,6 +19,7 @@ package org.apache.ignite.internal.network.recovery;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.mockito.Mockito.any;
@@ -79,10 +80,10 @@ class VaultStateIdsTest extends BaseIgniteAbstractTest {
 
     @Test
     void savesNewStaleIdsToVault() {
-        doReturn(completedFuture(null)).when(vaultManager).get(staleIdsKey);
-        doReturn(completedFuture(null))
+        doReturn(nullCompletedFuture()).when(vaultManager).get(staleIdsKey);
+        doReturn(nullCompletedFuture())
                 .when(vaultManager).put(staleIdsKey, "id2".getBytes(UTF_8));
-        doReturn(completedFuture(null))
+        doReturn(nullCompletedFuture())
                 .when(vaultManager).put(staleIdsKey, "id2\nid1".getBytes(UTF_8));
 
         staleIds.markAsStale("id2");
@@ -93,7 +94,7 @@ class VaultStateIdsTest extends BaseIgniteAbstractTest {
     void respectsMaxIdsLimit() {
         staleIds = new VaultStateIds(vaultManager, 2);
 
-        doReturn(completedFuture(null)).when(vaultManager).get(staleIdsKey);
+        doReturn(nullCompletedFuture()).when(vaultManager).get(staleIdsKey);
 
         AtomicReference<String> lastSavedIds = new AtomicReference<>();
 
@@ -102,7 +103,7 @@ class VaultStateIdsTest extends BaseIgniteAbstractTest {
 
             lastSavedIds.set(new String(value, UTF_8));
 
-            return completedFuture(null);
+            return nullCompletedFuture();
         }).when(vaultManager).put(eq(staleIdsKey), any());
 
         staleIds.markAsStale("id3");
@@ -116,7 +117,7 @@ class VaultStateIdsTest extends BaseIgniteAbstractTest {
     void loadsBeforeDoingFirstSave() {
         lenient().doReturn(completedFuture(new VaultEntry(staleIdsKey, "id1".getBytes(UTF_8))))
                 .when(vaultManager).get(staleIdsKey);
-        doReturn(completedFuture(null)).when(vaultManager).put(eq(staleIdsKey), any());
+        doReturn(nullCompletedFuture()).when(vaultManager).put(eq(staleIdsKey), any());
 
         staleIds.markAsStale("id2");
 

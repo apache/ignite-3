@@ -19,12 +19,12 @@ package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 
 import static java.lang.Math.max;
 import static java.lang.System.nanoTime;
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointReadWriteLock.CHECKPOINT_RUNNER_THREAD_PREFIX;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.LOCK_TAKEN;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.FastTimestamps.coarseCurrentTimeMillis;
 import static org.apache.ignite.internal.util.IgniteUtils.safeAbs;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
@@ -819,11 +819,11 @@ public class Checkpointer extends IgniteWorker {
         // If the checkpoint starts after this line, then the data region will already know that we want to destroy the partition, and when
         // reading the page for writing to the delta file, we will receive an "outdated" page that we will not write to disk.
         if (currentCheckpointProgress == null || !currentCheckpointProgress.inProgress()) {
-            return completedFuture(null);
+            return nullCompletedFuture();
         }
 
         CompletableFuture<Void> processedPartitionFuture = currentCheckpointProgress.getProcessedPartitionFuture(groupPartitionId);
 
-        return processedPartitionFuture == null ? completedFuture(null) : processedPartitionFuture;
+        return processedPartitionFuture == null ? nullCompletedFuture() : processedPartitionFuture;
     }
 }

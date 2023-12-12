@@ -17,8 +17,9 @@
 
 package org.apache.ignite.internal.client.table;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.client.ClientUtils.sync;
+import static org.apache.ignite.internal.util.CompletableFutures.emptyListCompletedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.Collection;
 import java.util.Collections;
@@ -87,7 +88,7 @@ public class ClientRecordView<R> implements RecordView<R> {
         Objects.requireNonNull(keyRecs);
 
         if (keyRecs.isEmpty()) {
-            return completedFuture(Collections.emptyList());
+            return emptyListCompletedFuture();
         }
 
         return tbl.doSchemaOutInOpAsync(
@@ -129,7 +130,7 @@ public class ClientRecordView<R> implements RecordView<R> {
         Objects.requireNonNull(recs);
 
         if (recs.isEmpty()) {
-            return CompletableFuture.completedFuture(null);
+            return nullCompletedFuture();
         }
 
         return tbl.doSchemaOutOpAsync(
@@ -188,7 +189,7 @@ public class ClientRecordView<R> implements RecordView<R> {
         Objects.requireNonNull(recs);
 
         if (recs.isEmpty()) {
-            return CompletableFuture.completedFuture(Collections.emptyList());
+            return emptyListCompletedFuture();
         }
 
         return tbl.doSchemaOutInOpAsync(
@@ -322,7 +323,7 @@ public class ClientRecordView<R> implements RecordView<R> {
         Objects.requireNonNull(keyRecs);
 
         if (keyRecs.isEmpty()) {
-            return CompletableFuture.completedFuture(Collections.emptyList());
+            return emptyListCompletedFuture();
         }
 
         return tbl.doSchemaOutInOpAsync(
@@ -345,7 +346,7 @@ public class ClientRecordView<R> implements RecordView<R> {
         Objects.requireNonNull(recs);
 
         if (recs.isEmpty()) {
-            return CompletableFuture.completedFuture(Collections.emptyList());
+            return emptyListCompletedFuture();
         }
 
         return tbl.doSchemaOutInOpAsync(

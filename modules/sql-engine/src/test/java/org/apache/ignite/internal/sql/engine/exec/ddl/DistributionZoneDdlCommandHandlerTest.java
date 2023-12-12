@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.exec.ddl;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
@@ -50,7 +50,7 @@ public class DistributionZoneDdlCommandHandlerTest extends IgniteAbstractTest {
 
     @BeforeEach
     void before() {
-        catalogManager = mock(CatalogManager.class, invocation -> completedFuture(null));
+        catalogManager = mock(CatalogManager.class, invocation -> nullCompletedFuture());
 
         commandHandler = new DdlCommandHandler(catalogManager);
     }

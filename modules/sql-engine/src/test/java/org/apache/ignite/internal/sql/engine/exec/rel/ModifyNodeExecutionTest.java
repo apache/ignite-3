@@ -20,6 +20,7 @@ package org.apache.ignite.internal.sql.engine.exec.rel;
 import static org.apache.ignite.internal.sql.engine.exec.rel.AbstractNode.MODIFY_BATCH_SIZE;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
@@ -84,7 +85,7 @@ public class ModifyNodeExecutionTest extends AbstractExecutionTest<RowWrapper> {
 
         if (sourceSize > 0) {
             when(updatableTable.insertAll(any(), any()))
-                    .thenReturn(CompletableFuture.completedFuture(null));
+                    .thenReturn(nullCompletedFuture());
         }
 
         context.execute(() -> modifyNode.request(1), modifyNode::onError);
@@ -117,7 +118,7 @@ public class ModifyNodeExecutionTest extends AbstractExecutionTest<RowWrapper> {
 
         if (sourceSize > 0) {
             when(updatableTable.upsertAll(any(), any()))
-                    .thenReturn(CompletableFuture.completedFuture(null));
+                    .thenReturn(nullCompletedFuture());
         }
 
         context.execute(() -> modifyNode.request(1), modifyNode::onError);
@@ -150,7 +151,7 @@ public class ModifyNodeExecutionTest extends AbstractExecutionTest<RowWrapper> {
 
         if (sourceSize > 0) {
             when(updatableTable.deleteAll(any(), any()))
-                    .thenReturn(CompletableFuture.completedFuture(null));
+                    .thenReturn(nullCompletedFuture());
         }
 
         context.execute(() -> modifyNode.request(1), modifyNode::onError);

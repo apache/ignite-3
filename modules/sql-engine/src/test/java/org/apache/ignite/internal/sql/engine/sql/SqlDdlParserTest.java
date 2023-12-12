@@ -19,7 +19,6 @@ package org.apache.ignite.internal.sql.engine.sql;
 
 import static java.util.Collections.singleton;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
-import static org.hamcrest.CoreMatchers.endsWith;
 import static org.hamcrest.CoreMatchers.hasItem;
 import static org.hamcrest.CoreMatchers.instanceOf;
 import static org.hamcrest.CoreMatchers.is;
@@ -39,7 +38,6 @@ import org.apache.calcite.sql.SqlLiteral;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.ddl.SqlColumnDeclaration;
 import org.apache.calcite.sql.ddl.SqlKeyConstraint;
-import org.apache.calcite.sql.pretty.SqlPrettyWriter;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.hamcrest.CustomMatcher;
 import org.hamcrest.Matcher;
@@ -66,6 +64,11 @@ public class SqlDdlParserTest extends AbstractDdlParserTest {
         assertThat(createTable.ifNotExists, is(false));
         assertThat(createTable.columnList(), hasItem(columnWithName("ID")));
         assertThat(createTable.columnList(), hasItem(columnWithName("VAL")));
+
+        expectUnparsed(node, "CREATE TABLE \"MY_TABLE\" ("
+                + "\"ID\" INTEGER, "
+                + "\"VAL\" VARCHAR)"
+        );
     }
 
     /**
@@ -95,6 +98,12 @@ public class SqlDdlParserTest extends AbstractDdlParserTest {
                         .matches(constraint.getOperandList().get(1))
                         && constraint.getOperandList().get(0) == null
                         && constraint.isA(singleton(SqlKind.PRIMARY_KEY)))));
+
+        expectUnparsed(node, "CREATE TABLE \"MY_TABLE\" ("
+                + "PRIMARY KEY (\"ID\"), "
+                + "\"ID\" VARCHAR DEFAULT (\"GEN_RANDOM_UUID\"), "
+                + "\"VAL\" VARCHAR)"
+        );
     }
 
     /**
@@ -114,6 +123,11 @@ public class SqlDdlParserTest extends AbstractDdlParserTest {
         assertThat(createTable.ifNotExists, is(false));
         assertThat(createTable.columnList(), hasItem(columnWithName("Id")));
         assertThat(createTable.columnList(), hasItem(columnWithName("Val")));
+
+        expectUnparsed(node, "CREATE TABLE \"My_Table\" "
+                + "(\"Id\" INTEGER, "
+                + "\"Val\" VARCHAR)"
+        );
     }
 
     /**
@@ -133,6 +147,10 @@ public class SqlDdlParserTest extends AbstractDdlParserTest {
         assertThat(createTable.ifNotExists, is(true));
         assertThat(createTable.columnList(), hasItem(columnWithName("ID")));
         assertThat(createTable.columnList(), hasItem(columnWithName("VAL")));
+
+        expectUnparsed(node, "CREATE TABLE IF NOT EXISTS \"MY_TABLE\" ("
+                + "\"ID\" INTEGER, \"VAL\" VARCHAR)"
+        );
     }
 
     /**
@@ -156,6 +174,12 @@ public class SqlDdlParserTest extends AbstractDdlParserTest {
                         .matches(constraint.getOperandList().get(1))
                         && constraint.getOperandList().get(0) == null
                         && constraint.isA(singleton(SqlKind.PRIMARY_KEY)))));
+
+        expectUnparsed(node, "CREATE TABLE \"MY_TABLE\" ("
+                + "PRIMARY KEY (\"ID\"), "
+                + "\"ID\" INTEGER, "
+                + "\"VAL\" VARCHAR)"
+        );
     }
 
     /**
@@ -179,6 +203,12 @@ public class SqlDdlParserTest extends AbstractDdlParserTest {
                         .matches(constraint.getOperandList().get(1))
                         && constraint.getOperandList().get(0) == null
                         && constraint.isA(singleton(SqlKind.PRIMARY_KEY)))));
+
+        expectUnparsed(node, "CREATE TABLE \"MY_TABLE\" "
+                + "(\"ID\" INTEGER, "
+                + "\"VAL\" VARCHAR, "
+                + "PRIMARY KEY (\"ID\"))"
+        );
     }
 
     /**
@@ -202,6 +232,12 @@ public class SqlDdlParserTest extends AbstractDdlParserTest {
                         .matches(constraint.getOperandList().get(1))
                         && "PK_KEY".equals(((SqlIdentifier) constraint.getOperandList().get(0)).names.get(0))
                         && constraint.isA(singleton(SqlKind.PRIMARY_KEY)))));
+
+        expectUnparsed(node, "CREATE TABLE \"MY_TABLE\" ("
+                + "\"ID\" INTEGER, "
+                + "\"VAL\" VARCHAR, "
+                + "CONSTRAINT \"PK_KEY\" PRIMARY KEY (\"ID\"))"
+        );
     }
 
     /**
@@ -227,6 +263,12 @@ public class SqlDdlParserTest extends AbstractDdlParserTest {
                         .matches(constraint.getOperandList().get(1))
                         && constraint.getOperandList().get(0) == null
                         && constraint.isA(singleton(SqlKind.PRIMARY_KEY)))));
+
+        expectUnparsed(node, "CREATE TABLE \"MY_TABLE\" ("
+                + "\"ID1\" INTEGER, \"ID2\" INTEGER, "
+                + "\"VAL\" VARCHAR, "
+                + "PRIMARY KEY (\"ID1\", \"ID2\"))"
+        );
     }
 
     /**
@@ -254,10 +296,11 @@ public class SqlDdlParserTest extends AbstractDdlParserTest {
                 equalTo(List.of("ID2", "ID1"))
         );
 
-        SqlPrettyWriter w = new SqlPrettyWriter();
-        createTable.unparse(w, 0, 0);
-
-        assertThat(w.toString(), endsWith("COLOCATE BY (\"ID2\", \"ID1\")"));
+        expectUnparsed(createTable, "CREATE TABLE \"MY_TABLE\" ("
+                + "\"ID0\" INTEGER, \"ID1\" INTEGER, "
+                + "\"ID2\" INTEGER, \"VAL\" INTEGER, PRIMARY KEY (\"ID0\", \"ID1\", \"ID2\")"
+                + ") COLOCATE BY (\"ID2\", \"ID1\")"
+        );
 
         createTable = parseCreateTable(
                 "CREATE TABLE MY_TABLE(ID0 INT, ID1 INT, ID2 INT, VAL INT, PRIMARY KEY (ID0, ID1, ID2)) COLOCATE (ID0)"
@@ -279,10 +322,11 @@ public class SqlDdlParserTest extends AbstractDdlParserTest {
                         + "partitions=3"
         );
 
-        w = new SqlPrettyWriter();
-        createTable.unparse(w, 0, 0);
-
-        assertThat(w.toString(), endsWith("COLOCATE BY (\"ID0\") WITH \"REPLICAS\" = 2, \"PARTITIONS\" = 3"));
+        expectUnparsed(createTable, "CREATE TABLE \"MY_TABLE\" ("
+                + "\"ID0\" INTEGER, \"ID1\" INTEGER, "
+                + "\"ID2\" INTEGER, \"VAL\" INTEGER, PRIMARY KEY (\"ID0\", \"ID1\", \"ID2\")"
+                + ") COLOCATE BY (\"ID0\") WITH \"REPLICAS\" = 2, \"PARTITIONS\" = 3"
+        );
     }
 
     @Test
@@ -301,6 +345,11 @@ public class SqlDdlParserTest extends AbstractDdlParserTest {
         assertThatOptionPresent(createTable.createOptionList().getList(), "REPLICAS", 2);
         assertThatOptionPresent(createTable.createOptionList().getList(), "PARTITIONS", 3);
         assertThatOptionPresent(createTable.createOptionList().getList(), "PRIMARY_ZONE", "zone123");
+
+        expectUnparsed(node, "CREATE TABLE \"MY_TABLE\" ("
+                + "\"ID\" INTEGER"
+                + ") WITH \"REPLICAS\" = 2, \"PARTITIONS\" = 3, \"PRIMARY_ZONE\" = 'zone123'"
+        );
     }
 
     @Test
@@ -319,6 +368,8 @@ public class SqlDdlParserTest extends AbstractDdlParserTest {
         assertThat(createIndex.type(), is(IgniteSqlIndexType.IMPLICIT_TREE));
         assertThat(createIndex.columnList(), hasItem(ofTypeMatching("col", SqlIdentifier.class,
                 id -> id.isSimple() && id.getSimple().equals("COL"))));
+
+        expectUnparsed(node, "CREATE INDEX \"MY_INDEX\" ON \"MY_TABLE\" (\"COL\")");
     }
 
     @Test
@@ -343,6 +394,8 @@ public class SqlDdlParserTest extends AbstractDdlParserTest {
                         && bc.getOperandList().get(0) instanceof SqlIdentifier
                         && ((SqlIdentifier) bc.getOperandList().get(0)).isSimple()
                         && ((SqlIdentifier) bc.getOperandList().get(0)).getSimple().equals("COL2"))));
+
+        expectUnparsed(node, "CREATE INDEX \"MY_INDEX\" ON \"MY_TABLE\" (\"COL1\", \"COL2\" DESC)");
     }
 
     @Test
@@ -369,6 +422,8 @@ public class SqlDdlParserTest extends AbstractDdlParserTest {
                         && bc.getOperandList().get(0) instanceof SqlIdentifier
                         && ((SqlIdentifier) bc.getOperandList().get(0)).isSimple()
                         && ((SqlIdentifier) bc.getOperandList().get(0)).getSimple().equals("COL3"))));
+
+        expectUnparsed(node, "CREATE INDEX \"MY_INDEX\" ON \"MY_TABLE\" USING TREE (\"COL1\", \"COL2\", \"COL3\" DESC)");
     }
 
     @Test
@@ -387,6 +442,8 @@ public class SqlDdlParserTest extends AbstractDdlParserTest {
         assertThat(createIndex.type(), is(IgniteSqlIndexType.HASH));
         assertThat(createIndex.columnList(), hasItem(ofTypeMatching("col", SqlIdentifier.class,
                 id -> id.isSimple() && id.getSimple().equals("COL"))));
+
+        expectUnparsed(node, "CREATE INDEX \"MY_INDEX\" ON \"MY_TABLE\" USING HASH (\"COL\")");
     }
 
     @Test
@@ -412,6 +469,8 @@ public class SqlDdlParserTest extends AbstractDdlParserTest {
         assertThat(createIndex.indexName().getSimple(), is("MY_INDEX"));
         assertThat(createIndex.tableName().names, is(List.of("MY_TABLE")));
         assertThat(createIndex.ifNotExists, is(true));
+
+        expectUnparsed(node, "CREATE INDEX IF NOT EXISTS \"MY_INDEX\" ON \"MY_TABLE\" (\"COL\")");
     }
 
     @Test
@@ -426,6 +485,8 @@ public class SqlDdlParserTest extends AbstractDdlParserTest {
 
         assertThat(createIndex.indexName().getSimple(), is("MY_INDEX"));
         assertThat(createIndex.tableName().names, is(List.of("MY_SCHEMA", "MY_TABLE")));
+
+        expectUnparsed(node, "CREATE INDEX \"MY_INDEX\" ON \"MY_SCHEMA\".\"MY_TABLE\" (\"COL\")");
     }
 
     @Test
@@ -462,6 +523,58 @@ public class SqlDdlParserTest extends AbstractDdlParserTest {
                         && ((SqlIdentifier) ((SqlBasicCall) bc.getOperandList().get(0)).getOperandList().get(0)).isSimple()
                         && ((SqlIdentifier) ((SqlBasicCall) bc.getOperandList().get(0)).getOperandList().get(0))
                                 .getSimple().equals("COL3"))));
+
+        expectUnparsed(node, "CREATE INDEX \"MY_INDEX\" ON \"MY_TABLE\" ("
+                + "\"COL1\" NULLS FIRST, \"COL2\" NULLS LAST, \"COL3\" DESC NULLS FIRST)"
+        );
+    }
+
+    @Test
+    public void dropTable() {
+        var query = "drop table my_table";
+
+        SqlNode node = parse(query);
+
+        assertThat(node, instanceOf(IgniteSqlDropTable.class));
+
+        var dropIndex = (IgniteSqlDropTable) node;
+
+        assertThat(dropIndex.ifExists(), is(false));
+        assertThat(dropIndex.name().names, is(List.of("MY_TABLE")));
+
+        expectUnparsed(node, "DROP TABLE \"MY_TABLE\"");
+    }
+
+    @Test
+    public void dropTableSchemaSpecified() {
+        var query = "drop table my_schema.my_table";
+
+        SqlNode node = parse(query);
+
+        assertThat(node, instanceOf(IgniteSqlDropTable.class));
+
+        var dropIndex = (IgniteSqlDropTable) node;
+
+        assertThat(dropIndex.ifExists(), is(false));
+        assertThat(dropIndex.name().names, is(List.of("MY_SCHEMA", "MY_TABLE")));
+
+        expectUnparsed(node, "DROP TABLE \"MY_SCHEMA\".\"MY_TABLE\"");
+    }
+
+    @Test
+    public void dropTableIfExists() {
+        var query = "drop table if exists my_table";
+
+        SqlNode node = parse(query);
+
+        assertThat(node, instanceOf(IgniteSqlDropTable.class));
+
+        var dropIndex = (IgniteSqlDropTable) node;
+
+        assertThat(dropIndex.ifExists(), is(true));
+        assertThat(dropIndex.name().names, is(List.of("MY_TABLE")));
+
+        expectUnparsed(node, "DROP TABLE IF EXISTS \"MY_TABLE\"");
     }
 
     @Test
@@ -476,6 +589,8 @@ public class SqlDdlParserTest extends AbstractDdlParserTest {
 
         assertThat(dropIndex.ifExists(), is(false));
         assertThat(dropIndex.indexName().names, is(List.of("MY_INDEX")));
+
+        expectUnparsed(node, "DROP INDEX \"MY_INDEX\"");
     }
 
     @Test
@@ -490,6 +605,8 @@ public class SqlDdlParserTest extends AbstractDdlParserTest {
 
         assertThat(dropIndex.ifExists(), is(false));
         assertThat(dropIndex.indexName().names, is(List.of("MY_SCHEMA", "MY_INDEX")));
+
+        expectUnparsed(node, "DROP INDEX \"MY_SCHEMA\".\"MY_INDEX\"");
     }
 
     @Test
@@ -504,6 +621,8 @@ public class SqlDdlParserTest extends AbstractDdlParserTest {
 
         assertThat(dropIndex.ifExists(), is(true));
         assertThat(dropIndex.indexName().names, is(List.of("MY_INDEX")));
+
+        expectUnparsed(node, "DROP INDEX IF EXISTS \"MY_INDEX\"");
     }
 
     /**

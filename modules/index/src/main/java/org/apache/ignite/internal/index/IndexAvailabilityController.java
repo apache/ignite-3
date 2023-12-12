@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.index;
 
 import static java.util.concurrent.CompletableFuture.allOf;
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.index.IndexManagementUtils.PARTITION_BUILD_INDEX_KEY_PREFIX;
@@ -37,6 +36,7 @@ import static org.apache.ignite.internal.metastorage.dsl.Conditions.exists;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.noop;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.remove;
 import static org.apache.ignite.internal.util.CollectionUtils.concat;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
@@ -220,7 +220,7 @@ class IndexAvailabilityController implements ManuallyCloseable {
     private CompletableFuture<?> onIndexCreate(CreateIndexEventParameters parameters) {
         return inBusyLockAsync(busyLock, () -> {
             if (parameters.indexDescriptor().available()) {
-                return completedFuture(null);
+                return nullCompletedFuture();
             }
 
             int indexId = parameters.indexDescriptor().id();
@@ -267,14 +267,14 @@ class IndexAvailabilityController implements ManuallyCloseable {
         return inBusyLockAsync(busyLock, () -> {
             if (!event.single()) {
                 // We don't need to handle keys on index creation or deletion.
-                return completedFuture(null);
+                return nullCompletedFuture();
             }
 
             Entry entry = event.entryEvent().newEntry();
 
             if (entry.value() != null) {
                 // In case an index was created when there was only one partition.
-                return completedFuture(null);
+                return nullCompletedFuture();
             }
 
             String partitionBuildIndexKey = toPartitionBuildIndexMetastoreKeyString(entry.key());
@@ -285,14 +285,14 @@ class IndexAvailabilityController implements ManuallyCloseable {
 
             if (isAnyMetastoreKeyPresentLocally(metaStorageManager, partitionBuildIndexMetastoreKeyPrefix(indexId), metastoreRevision)
                     || isMetastoreKeyAbsentLocally(metaStorageManager, inProgressBuildIndexMetastoreKey(indexId), metastoreRevision)) {
-                return completedFuture(null);
+                return nullCompletedFuture();
             }
 
             // We will not wait for the command to be executed, since we will then find ourselves in a dead lock since we will not be able
             // to free the metastore thread.
             makeIndexAvailableInCatalogWithoutFuture(catalogManager, indexId, LOG);
 
-            return completedFuture(null);
+            return nullCompletedFuture();
         });
     }
 
@@ -324,7 +324,7 @@ class IndexAvailabilityController implements ManuallyCloseable {
         ByteArray inProgressBuildIndexMetastoreKey = inProgressBuildIndexMetastoreKey(indexId);
 
         if (isMetastoreKeyAbsentLocally(metaStorageManager, inProgressBuildIndexMetastoreKey, recoveryRevision)) {
-            return completedFuture(null);
+            return nullCompletedFuture();
         }
 
         return removeMetastoreKeyIfPresent(metaStorageManager, inProgressBuildIndexMetastoreKey);
@@ -354,6 +354,6 @@ class IndexAvailabilityController implements ManuallyCloseable {
             makeIndexAvailableInCatalogWithoutFuture(catalogManager, indexId, LOG);
         }
 
-        return completedFuture(null);
+        return nullCompletedFuture();
     }
 }

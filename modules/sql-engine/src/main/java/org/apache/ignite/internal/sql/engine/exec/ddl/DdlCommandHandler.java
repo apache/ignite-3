@@ -17,9 +17,9 @@
 
 package org.apache.ignite.internal.sql.engine.exec.ddl;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
+import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 
 import java.util.concurrent.CompletableFuture;
@@ -127,7 +127,7 @@ public class DdlCommandHandler {
     /** Handles add column command. */
     private CompletableFuture<Boolean> handleAlterAddColumn(AlterTableAddCommand cmd) {
         if (nullOrEmpty(cmd.columns())) {
-            return completedFuture(Boolean.FALSE);
+            return falseCompletedFuture();
         }
 
         return catalogManager.execute(DdlToCatalogCommandConverter.convert(cmd))
@@ -137,7 +137,7 @@ public class DdlCommandHandler {
     /** Handles drop column command. */
     private CompletableFuture<Boolean> handleAlterDropColumn(AlterTableDropCommand cmd) {
         if (nullOrEmpty(cmd.columns())) {
-            return completedFuture(Boolean.FALSE);
+            return falseCompletedFuture();
         }
 
         return catalogManager.execute(DdlToCatalogCommandConverter.convert(cmd))

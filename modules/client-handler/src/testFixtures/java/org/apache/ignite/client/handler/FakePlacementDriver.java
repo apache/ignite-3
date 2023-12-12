@@ -17,6 +17,8 @@
 
 package org.apache.ignite.client.handler;
 
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -93,7 +95,7 @@ public class FakePlacementDriver extends AbstractEventProducer<PrimaryReplicaEve
 
     @Override
     public CompletableFuture<Void> previousPrimaryExpired(ReplicationGroupId grpId) {
-        return CompletableFuture.completedFuture(null);
+        return nullCompletedFuture();
     }
 
     private static ReplicaMeta getReplicaMeta(String leaseholder, long leaseStartTime) {

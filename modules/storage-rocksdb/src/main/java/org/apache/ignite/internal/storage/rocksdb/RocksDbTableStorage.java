@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.storage.rocksdb;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.storage.rocksdb.RocksDbMetaStorage.PARTITION_CONF_PREFIX;
@@ -27,6 +26,7 @@ import static org.apache.ignite.internal.storage.rocksdb.RocksDbMetaStorage.crea
 import static org.apache.ignite.internal.storage.rocksdb.instance.SharedRocksDbInstance.DFLT_WRITE_OPTS;
 import static org.apache.ignite.internal.storage.util.StorageUtils.createMissingMvPartitionErrorMessage;
 import static org.apache.ignite.internal.util.ArrayUtils.BYTE_EMPTY_ARRAY;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 
 import java.util.ArrayList;
@@ -215,7 +215,7 @@ public class RocksDbTableStorage implements MvTableStorage {
         try {
             stop(true);
 
-            return completedFuture(null);
+            return nullCompletedFuture();
         } catch (Throwable t) {
             return failedFuture(new StorageException("Failed to destroy RocksDB table storage: " + getTableId(), t));
         }
@@ -355,7 +355,7 @@ public class RocksDbTableStorage implements MvTableStorage {
             }
 
             if (hashIdx == null) {
-                return completedFuture(null);
+                return nullCompletedFuture();
             } else {
                 return awaitFlush(false);
             }
@@ -389,7 +389,7 @@ public class RocksDbTableStorage implements MvTableStorage {
 
                 rocksDb.db.write(DFLT_WRITE_OPTS, writeBatch);
 
-                return completedFuture(null);
+                return nullCompletedFuture();
             } catch (RocksDBException e) {
                 throw new StorageRebalanceException(
                         "Error when trying to start rebalancing storage: [{}]",
@@ -411,7 +411,7 @@ public class RocksDbTableStorage implements MvTableStorage {
 
                 rocksDb.db.write(DFLT_WRITE_OPTS, writeBatch);
 
-                return completedFuture(null);
+                return nullCompletedFuture();
             } catch (RocksDBException e) {
                 throw new StorageRebalanceException("Error when trying to abort rebalancing storage: [{}]",
                         e,
@@ -437,7 +437,7 @@ public class RocksDbTableStorage implements MvTableStorage {
 
                 rocksDb.db.write(DFLT_WRITE_OPTS, writeBatch);
 
-                return completedFuture(null);
+                return nullCompletedFuture();
             } catch (RocksDBException e) {
                 throw new StorageRebalanceException("Error when trying to finish rebalancing storage: [{}]",
                         e,
@@ -466,7 +466,7 @@ public class RocksDbTableStorage implements MvTableStorage {
 
                 rocksDb.db.write(DFLT_WRITE_OPTS, writeBatch);
 
-                return completedFuture(null);
+                return nullCompletedFuture();
             } catch (RocksDBException e) {
                 throw new StorageException("Error when trying to cleanup storage: [{}]", e, mvPartitionStorage.createStorageInfo());
             } finally {

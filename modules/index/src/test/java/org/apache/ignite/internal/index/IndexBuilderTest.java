@@ -17,10 +17,10 @@
 
 package org.apache.ignite.internal.index;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willTimeoutFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.mockito.ArgumentMatchers.any;
@@ -52,7 +52,7 @@ public class IndexBuilderTest extends BaseIgniteAbstractTest {
 
     private static final long ANY_ENLISTMENT_CONSISTENCY_TOKEN = 100500;
 
-    private final ReplicaService replicaService = mock(ReplicaService.class, invocation -> completedFuture(null));
+    private final ReplicaService replicaService = mock(ReplicaService.class, invocation -> nullCompletedFuture());
 
     private final IndexBuilder indexBuilder = new IndexBuilder("test", 1, replicaService);
 
@@ -144,7 +144,7 @@ public class IndexBuilderTest extends BaseIgniteAbstractTest {
         CompletableFuture<Void> future = new CompletableFuture<>();
 
         when(replicaService.invoke(any(ClusterNode.class), any(ReplicaRequest.class)))
-                .thenReturn(completedFuture(null))
+                .thenReturn(nullCompletedFuture())
                 .thenAnswer(invocation -> {
                     future.complete(null);
 

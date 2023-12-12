@@ -29,6 +29,7 @@ import static org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEve
 import static org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED;
 import static org.apache.ignite.internal.placementdriver.leases.Lease.emptyLease;
 import static org.apache.ignite.internal.util.ArrayUtils.BYTE_EMPTY_ARRAY;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 
@@ -131,7 +132,7 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
 
     @Override
     public CompletableFuture<Void> previousPrimaryExpired(ReplicationGroupId grpId) {
-        return expirationFutureByGroup.getOrDefault(grpId, completedFuture(null));
+        return expirationFutureByGroup.getOrDefault(grpId, nullCompletedFuture());
     }
 
     /**

@@ -25,8 +25,8 @@ internal interface IClientSocketEventListener
     /// <summary>
     /// Called when partition assignment changes.
     /// </summary>
-    /// <param name="clientSocket">Source socket.</param>
-    void OnAssignmentChanged(ClientSocket clientSocket);
+    /// <param name="timestamp">Timestamp.</param>
+    void OnAssignmentChanged(long timestamp);
 
     /// <summary>
     /// Called when observable timestamp changes.

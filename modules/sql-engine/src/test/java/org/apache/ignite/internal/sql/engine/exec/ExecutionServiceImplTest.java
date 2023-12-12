@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.exec;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFIG;
@@ -24,6 +25,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_LEFT_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
@@ -45,7 +47,6 @@ import static org.mockito.Mockito.when;
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
@@ -58,6 +59,7 @@ import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
@@ -72,6 +74,7 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopolog
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.RunnableX;
 import org.apache.ignite.internal.metrics.MetricManager;
+import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.NodeLeftException;
 import org.apache.ignite.internal.sql.engine.QueryCancel;
 import org.apache.ignite.internal.sql.engine.QueryCancelledException;
@@ -148,6 +151,9 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
     /** Timeout in ms for SQL planning phase. */
     public static final long PLANNING_TIMEOUT = 5_000;
 
+    /** Timeout in ms for stopping execution service.*/
+    private static final long SHUTDOWN_TIMEOUT = 5_000;
+
     private static final int SCHEMA_VERSION = -1;
 
     private final List<String> nodeNames = List.of("node_1", "node_2", "node_3");
@@ -223,7 +229,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         nodeNames.stream().map(testCluster::node).forEach(TestNode::pauseScan);
 
         InternalTransaction tx = new NoOpTransaction(nodeNames.get(0));
-        AsyncCursor<List<Object>> cursor = execService.executePlan(tx, plan, ctx);
+        AsyncCursor<InternalSqlRow> cursor = execService.executePlan(tx, plan, ctx);
 
         assertTrue(waitForCondition(
                 () -> executionServices.stream().map(es -> es.localFragments(ctx.queryId()).size())
@@ -263,7 +269,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         nodeNames.stream().map(testCluster::node).forEach(TestNode::pauseScan);
 
         InternalTransaction tx = new NoOpTransaction(nodeNames.get(0));
-        AsyncCursor<List<Object>> cursor = execService.executePlan(tx, plan, ctx);
+        AsyncCursor<InternalSqlRow> cursor = execService.executePlan(tx, plan, ctx);
 
         assertTrue(waitForCondition(
                 () -> executionServices.stream().map(es -> es.localFragments(ctx.queryId()).size())
@@ -316,11 +322,11 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
                 original.onMessage(nodeName, msg);
             }
 
-            return CompletableFuture.completedFuture(null);
+            return nullCompletedFuture();
         });
 
         InternalTransaction tx = new NoOpTransaction(nodeNames.get(0));
-        AsyncCursor<List<Object>> cursor = execService.executePlan(tx, plan, ctx);
+        AsyncCursor<InternalSqlRow> cursor = execService.executePlan(tx, plan, ctx);
 
         CompletionStage<?> batchFut = cursor.requestNextAsync(1);
 
@@ -360,7 +366,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         nodeNames.stream().map(testCluster::node).forEach(TestNode::pauseScan);
 
         InternalTransaction tx = new NoOpTransaction(nodeNames.get(0));
-        AsyncCursor<List<Object>> cursor = execService.executePlan(tx, plan, ctx);
+        AsyncCursor<InternalSqlRow> cursor = execService.executePlan(tx, plan, ctx);
 
         var batchFut = cursor.requestNextAsync(1);
 
@@ -387,7 +393,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         nodeNames.stream().map(testCluster::node).forEach(TestNode::pauseScan);
 
         InternalTransaction tx = new NoOpTransaction(nodeNames.get(0));
-        AsyncCursor<List<Object>> cursor = execService.executePlan(tx, plan, ctx);
+        AsyncCursor<InternalSqlRow> cursor = execService.executePlan(tx, plan, ctx);
 
         assertTrue(waitForCondition(
                 () -> executionServices.stream().map(es -> es.localFragments(ctx.queryId()).size())
@@ -426,7 +432,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         QueryPlan plan = prepare("SELECT * FROM test_tbl", ctx);
 
         InternalTransaction tx = new NoOpTransaction(nodeNames.get(0));
-        AsyncCursor<List<Object>> cursor = execService.executePlan(tx, plan, ctx);
+        AsyncCursor<InternalSqlRow> cursor = execService.executePlan(tx, plan, ctx);
 
         BatchedResult<?> res = await(cursor.requestNextAsync(8));
         assertNotNull(res);
@@ -453,7 +459,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         QueryPlan plan = prepare("SELECT * FROM test_tbl", ctx);
 
         InternalTransaction tx = new NoOpTransaction(nodeNames.get(0));
-        AsyncCursor<List<Object>> cursor = execService.executePlan(tx, plan, ctx);
+        AsyncCursor<InternalSqlRow> cursor = execService.executePlan(tx, plan, ctx);
 
         BatchedResult<?> res = await(cursor.requestNextAsync(9));
         assertNotNull(res);
@@ -475,7 +481,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         QueryPlan plan = prepare("SELECT * FROM test_tbl", ctx);
 
         InternalTransaction tx = new NoOpTransaction(nodeNames.get(0));
-        AsyncCursor<List<Object>> cursor = execService.executePlan(tx, plan, ctx);
+        AsyncCursor<InternalSqlRow> cursor = execService.executePlan(tx, plan, ctx);
 
         // node failed trigger
         CountDownLatch nodeFailedLatch = new CountDownLatch(1);
@@ -499,22 +505,22 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
                     original.onMessage(senderNodeName, msg);
                 });
 
-                return CompletableFuture.completedFuture(null);
+                return nullCompletedFuture();
             } else {
                 original.onMessage(senderNodeName, msg);
 
-                return CompletableFuture.completedFuture(null);
+                return nullCompletedFuture();
             }
         }));
 
-        CompletableFuture<BatchedResult<List<Object>>> resFut = cursor.requestNextAsync(9);
+        CompletableFuture<BatchedResult<InternalSqlRow>> resFut = cursor.requestNextAsync(9);
 
         startResponse.await();
         execService.onDisappeared(firstNode);
 
         nodeFailedLatch.countDown();
 
-        BatchedResult<List<Object>> res0 = await(resFut);
+        BatchedResult<InternalSqlRow> res0 = await(resFut);
         assertNotNull(res0);
         assertFalse(res0.hasMore());
         assertEquals(9, res0.items().size());
@@ -558,7 +564,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
                     original.onMessage(senderNodeName, msg);
                 });
 
-                return CompletableFuture.completedFuture(null);
+                return nullCompletedFuture();
             } else {
                 // On other nodes, simulate that the node has already gone.
                 return CompletableFuture.failedFuture(new NodeLeftException(node.nodeName));
@@ -566,7 +572,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         }));
 
         InternalTransaction tx = new NoOpTransaction(nodeNames.get(0));
-        AsyncCursor<List<Object>> cursor = execService.executePlan(tx, plan, ctx);
+        AsyncCursor<InternalSqlRow> cursor = execService.executePlan(tx, plan, ctx);
 
         // Wait till the query fails due to nodes' unavailability.
         ExecutionException eex = assertThrows(ExecutionException.class, () -> cursor.closeAsync().get(10, TimeUnit.SECONDS));
@@ -597,7 +603,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
     public void testPrefetchCallbackInvocation() throws Exception {
         String query = "SELECT * FROM test_tbl";
         int totalStatements = 20;
-        Collection<AsyncCursor<List<Object>>> resultCursors = new ArrayBlockingQueue<>(totalStatements);
+        Collection<AsyncCursor<InternalSqlRow>> resultCursors = new ArrayBlockingQueue<>(totalStatements);
         List<String> queries = IntStream.range(0, totalStatements).boxed().map(n -> query).collect(Collectors.toList());
         ArrayBlockingQueue<String> queriesQueue = new ArrayBlockingQueue<>(totalStatements, false, queries);
         AtomicReference<AssertionError> errHolder = new AtomicReference<>();
@@ -685,15 +691,97 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
                 original.onMessage(nodeName, msg);
             }
 
-            return CompletableFuture.completedFuture(null);
+            return nullCompletedFuture();
         });
 
         QueryPlan plan = prepare("SELECT * FROM test_tbl", ctx);
-        AsyncCursor<List<Object>> cursor = execService.executePlan(new NoOpTransaction(nodeNames.get(0)), plan, ctx);
+        AsyncCursor<InternalSqlRow> cursor = execService.executePlan(new NoOpTransaction(nodeNames.get(0)), plan, ctx);
 
         assertThat(prefetchFut, willThrow(equalTo(expectedException)));
 
         cursor.closeAsync();
+    }
+
+    /**
+     * Test checks the format of the debugging information dump obtained during query execution.
+     * To obtain verifiable results, all response messages are blocked while debugging information is obtained.
+     */
+    @Test
+    public void testDebugInfoFormat() throws InterruptedException {
+        ExecutionServiceImpl<?> execService = executionServices.get(0);
+        BaseQueryContext ctx = createContext();
+        QueryPlan plan = prepare("SELECT * FROM test_tbl", ctx);
+
+        CountDownLatch startResponseLatch = new CountDownLatch(4);
+        CountDownLatch continueLatch = new CountDownLatch(1);
+
+        nodeNames.stream().map(testCluster::node).forEach(node -> node.interceptor((senderNodeName, msg, original) -> {
+            if (msg instanceof QueryStartResponseImpl) {
+                startResponseLatch.countDown();
+
+                ForkJoinPool.commonPool().execute(() -> {
+                    try {
+                        continueLatch.await(TIMEOUT_IN_MS, TimeUnit.MILLISECONDS);
+                    } catch (InterruptedException ignore) {
+                        // No-op.
+                    }
+
+                    original.onMessage(senderNodeName, msg);
+                });
+
+                return nullCompletedFuture();
+            } else {
+                original.onMessage(senderNodeName, msg);
+
+                return nullCompletedFuture();
+            }
+        }));
+
+        InternalTransaction tx = new NoOpTransaction(nodeNames.get(0));
+        AsyncCursor<InternalSqlRow> cursor = execService.executePlan(tx, plan, ctx);
+
+        startResponseLatch.await(TIMEOUT_IN_MS, TimeUnit.MILLISECONDS);
+
+        String debugInfoCoordinator = executionServices.get(0).dumpDebugInfo();
+        String debugInfo2 = executionServices.get(1).dumpDebugInfo();
+        String debugInfo3 = executionServices.get(2).dumpDebugInfo();
+
+        continueLatch.countDown();
+
+        await(cursor.closeAsync());
+
+        assertTrue(waitForCondition(
+                () -> executionServices.stream().map(es -> es.localFragments(ctx.queryId()).size())
+                        .mapToInt(i -> i).sum() == 0, TIMEOUT_IN_MS));
+
+        String nl = System.lineSeparator();
+
+        String expectedOnCoordinator = format(nl
+                + "Debug info for query: {} (canceled=false, stopped=false)" + nl
+                + "  Coordinator node: node_1 (current node)" + nl
+                + "  Root node state: opened" + nl
+                + nl
+                + "  Fragments awaiting init completion:" + nl
+                + "    id=0, node=node_1" + nl
+                + "    id=1, node=node_1" + nl
+                + "    id=1, node=node_2" + nl
+                + "    id=1, node=node_3" + nl
+                + nl
+                + "  Local fragments:" + nl
+                + "    id=0, state=opened, canceled=false, class=Inbox  (root)" + nl
+                + "    id=1, state=opened, canceled=false, class=Outbox" + nl, ctx.queryId());
+
+        assertThat(debugInfoCoordinator, equalTo(expectedOnCoordinator));
+
+        String expectedOnNonCoordinator = format(nl
+                + "Debug info for query: {} (canceled=false, stopped=false)" + nl
+                + "  Coordinator node: node_1" + nl
+                + nl
+                + "  Local fragments:" + nl
+                + "    id=1, state=opened, canceled=false, class=Outbox" + nl, ctx.queryId());
+
+        assertThat(debugInfo2, equalTo(expectedOnNonCoordinator));
+        assertThat(debugInfo3, equalTo(expectedOnNonCoordinator));
     }
 
     /** Creates an execution service instance for the node with given consistent id. */
@@ -727,7 +815,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
 
         when(topologyService.localMember()).thenReturn(clusterNode);
 
-        when(schemaManagerMock.schemaReadyFuture(isA(int.class))).thenReturn(CompletableFuture.completedFuture(null));
+        when(schemaManagerMock.schemaReadyFuture(isA(int.class))).thenReturn(nullCompletedFuture());
 
         NoOpExecutableTableRegistry executableTableRegistry = new NoOpExecutableTableRegistry();
 
@@ -746,7 +834,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
                     return CompletableFuture.failedFuture(mappingException);
                 }
 
-                return CompletableFuture.completedFuture(factory.allOf(nodeNames));
+                return completedFuture(factory.allOf(nodeNames));
             }
 
             @Override
@@ -772,7 +860,8 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
                 taskExecutor,
                 ArrayRowHandler.INSTANCE,
                 dependencyResolver,
-                (ctx, deps) -> node.implementor(ctx, mailboxRegistry, exchangeService, deps)
+                (ctx, deps) -> node.implementor(ctx, mailboxRegistry, exchangeService, deps),
+                SHUTDOWN_TIMEOUT
         );
 
         taskExecutor.start();
@@ -989,7 +1078,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
 
                 original.onMessage(senderNodeName, message);
 
-                return CompletableFuture.completedFuture(null);
+                return nullCompletedFuture();
             }
         }
 
@@ -1035,8 +1124,8 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
     private static class CapturingMailboxRegistry implements MailboxRegistry {
         private final MailboxRegistry delegate;
 
-        private final Set<Inbox<?>> inboxes = Collections.newSetFromMap(new ConcurrentHashMap<>());
-        private final Set<Outbox<?>> outboxes = Collections.newSetFromMap(new ConcurrentHashMap<>());
+        private final Set<Inbox<?>> inboxes = ConcurrentHashMap.newKeySet();
+        private final Set<Outbox<?>> outboxes = ConcurrentHashMap.newKeySet();
 
         CapturingMailboxRegistry(MailboxRegistry delegate) {
             this.delegate = delegate;

@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.framework;
 
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
@@ -187,7 +189,7 @@ public class ClusterServiceFactory {
                 handler.onReceived(msg, localNodeName, null);
             }
 
-            return CompletableFuture.completedFuture(null);
+            return nullCompletedFuture();
         }
 
         @Override
@@ -196,7 +198,7 @@ public class ClusterServiceFactory {
                 handler.onReceived(msg, localNodeName, null);
             }
 
-            return CompletableFuture.completedFuture(null);
+            return nullCompletedFuture();
         }
 
         /** {@inheritDoc} */

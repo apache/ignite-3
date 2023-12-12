@@ -18,8 +18,8 @@
 package org.apache.ignite.internal.distributionzones.utils;
 
 import static java.util.concurrent.CompletableFuture.allOf;
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -121,7 +121,7 @@ public class CatalogAlterZoneEventListener implements EventListener<AlterZoneEve
             addFuture(futures, onAutoAdjustScaleDownUpdate(parameters, oldZone.dataNodesAutoAdjustScaleDown()));
         }
 
-        return futures.isEmpty() ? completedFuture(null) : allOf(futures.toArray(CompletableFuture[]::new));
+        return futures.isEmpty() ? nullCompletedFuture() : allOf(futures.toArray(CompletableFuture[]::new));
     }
 
     /**
@@ -132,7 +132,7 @@ public class CatalogAlterZoneEventListener implements EventListener<AlterZoneEve
      * @return Future that signifies the end of the callback execution.
      */
     protected CompletableFuture<Void> onZoneUpdate(AlterZoneEventParameters parameters, CatalogZoneDescriptor oldZone) {
-        return completedFuture(null);
+        return nullCompletedFuture();
     }
 
     /**
@@ -143,7 +143,7 @@ public class CatalogAlterZoneEventListener implements EventListener<AlterZoneEve
      * @return Future that signifies the end of the callback execution.
      */
     protected CompletableFuture<Void> onPartitionsUpdate(AlterZoneEventParameters parameters, int oldPartitions) {
-        return completedFuture(null);
+        return nullCompletedFuture();
     }
 
     /**
@@ -154,7 +154,7 @@ public class CatalogAlterZoneEventListener implements EventListener<AlterZoneEve
      * @return Future that signifies the end of the callback execution.
      */
     protected CompletableFuture<Void> onReplicasUpdate(AlterZoneEventParameters parameters, int oldReplicas) {
-        return completedFuture(null);
+        return nullCompletedFuture();
     }
 
     /**
@@ -165,7 +165,7 @@ public class CatalogAlterZoneEventListener implements EventListener<AlterZoneEve
      * @return Future that signifies the end of the callback execution.
      */
     protected CompletableFuture<Void> onFilterUpdate(AlterZoneEventParameters parameters, String oldFilter) {
-        return completedFuture(null);
+        return nullCompletedFuture();
     }
 
     /**
@@ -177,7 +177,7 @@ public class CatalogAlterZoneEventListener implements EventListener<AlterZoneEve
      * @return Future that signifies the end of the callback execution.
      */
     protected CompletableFuture<Void> onAutoAdjustUpdate(AlterZoneEventParameters parameters, int oldAutoAdjust) {
-        return completedFuture(null);
+        return nullCompletedFuture();
     }
 
     /**
@@ -189,7 +189,7 @@ public class CatalogAlterZoneEventListener implements EventListener<AlterZoneEve
      * @return Future that signifies the end of the callback execution.
      */
     protected CompletableFuture<Void> onAutoAdjustScaleUpUpdate(AlterZoneEventParameters parameters, int oldAutoAdjustScaleUp) {
-        return completedFuture(null);
+        return nullCompletedFuture();
     }
 
     /**
@@ -201,7 +201,7 @@ public class CatalogAlterZoneEventListener implements EventListener<AlterZoneEve
      * @return Future that signifies the end of the callback execution.
      */
     protected CompletableFuture<Void> onAutoAdjustScaleDownUpdate(AlterZoneEventParameters parameters, int oldAutoAdjustScaleDown) {
-        return completedFuture(null);
+        return nullCompletedFuture();
     }
 
     private static void addFuture(List<CompletableFuture<Void>> futures, CompletableFuture<Void> future) {

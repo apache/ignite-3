@@ -21,4 +21,11 @@ package org.apache.ignite.internal.replicator.message;
  * This is an interface for requests are designed for primary replica.
  */
 public interface PrimaryReplicaRequest extends ReplicaRequest {
+    /**
+     * Gets an enlistment consistency token.
+     * The token is used to check that the lease is still actual while the message goes to the replica.
+     *
+     * @return Enlistment consistency token.
+     */
+    Long enlistmentConsistencyToken();
 }

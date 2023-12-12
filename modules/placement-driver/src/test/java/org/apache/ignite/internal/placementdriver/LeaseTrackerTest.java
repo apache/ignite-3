@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal.placementdriver;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.placementdriver.PlacementDriverManager.PLACEMENTDRIVER_LEASES_KEY;
+import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -73,7 +73,7 @@ public class LeaseTrackerTest extends BaseIgniteAbstractTest {
         AtomicReference<PrimaryReplicaEventParameters> parametersRef = new AtomicReference<>();
         leaseTracker.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, (p, e) -> {
             parametersRef.set(p);
-            return completedFuture(false);
+            return falseCompletedFuture();
         });
 
         TablePartitionId partId0 = new TablePartitionId(0, 0);

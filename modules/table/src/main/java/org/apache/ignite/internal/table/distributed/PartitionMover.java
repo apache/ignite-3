@@ -29,6 +29,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
+import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 
 /**
@@ -84,7 +85,7 @@ public class PartitionMover {
                                 return movePartition(peersAndLearners, term);
                             }
 
-                            return CompletableFuture.<Void>completedFuture(null);
+                            return CompletableFutures.<Void>nullCompletedFuture();
                         } finally {
                             busyLock.leaveBusy();
                         }

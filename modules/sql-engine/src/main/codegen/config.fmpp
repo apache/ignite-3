@@ -43,6 +43,7 @@ data: {
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlCreateZone",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlZoneOption",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlDropIndex",
+      "org.apache.ignite.internal.sql.engine.sql.IgniteSqlDropTable",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlDropZone",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlStartTransaction",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlStartTransactionMode",

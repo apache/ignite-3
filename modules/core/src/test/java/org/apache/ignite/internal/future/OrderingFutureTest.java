@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.future;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
@@ -302,7 +304,7 @@ class OrderingFutureTest {
         OrderingFuture<Integer> orderingFuture = OrderingFuture.completedFuture(3);
 
         CompletableFuture<Integer> completableFuture = orderingFuture.thenComposeToCompletable(
-                x -> CompletableFuture.completedFuture(x * 5)
+                x -> completedFuture(x * 5)
         );
 
         assertThat(completableFuture.getNow(999), is(15));
@@ -324,7 +326,7 @@ class OrderingFutureTest {
 
         CompletableFuture<Integer> completableFuture = orderingFuture.thenComposeToCompletable(value -> {
             called.set(true);
-            return CompletableFuture.completedFuture(value);
+            return completedFuture(value);
         });
 
         assertFalse(called.get());
@@ -336,7 +338,7 @@ class OrderingFutureTest {
         OrderingFuture<Integer> orderingFuture = new OrderingFuture<>();
 
         CompletableFuture<Integer> completableFuture = orderingFuture.thenComposeToCompletable(
-                x -> CompletableFuture.completedFuture(x * 5)
+                x -> completedFuture(x * 5)
         );
 
         orderingFuture.complete(3);
@@ -362,7 +364,7 @@ class OrderingFutureTest {
 
         CompletableFuture<Integer> completableFuture = orderingFuture.thenComposeToCompletable(value -> {
             called.set(true);
-            return CompletableFuture.completedFuture(value);
+            return completedFuture(value);
         });
         orderingFuture.completeExceptionally(cause);
 
@@ -399,7 +401,7 @@ class OrderingFutureTest {
         AtomicReference<Throwable> causeRef = new AtomicReference<>();
 
         OrderingFuture<Integer> future = new OrderingFuture<>();
-        future.thenComposeToCompletable(x -> CompletableFuture.completedFuture(null)).whenComplete((res, ex) -> causeRef.set(ex));
+        future.thenComposeToCompletable(x -> nullCompletedFuture()).whenComplete((res, ex) -> causeRef.set(ex));
 
         CancellationException cancellationException = new CancellationException("Oops");
         future.completeExceptionally(cancellationException);
@@ -416,7 +418,7 @@ class OrderingFutureTest {
 
         future.thenComposeToCompletable(x -> {
             intHolder.set(future.getNow(999));
-            return CompletableFuture.completedFuture(null);
+            return nullCompletedFuture();
         });
 
         future.complete(1);
@@ -438,7 +440,7 @@ class OrderingFutureTest {
                 fail("Unexpected exception", e);
             }
 
-            return CompletableFuture.completedFuture(null);
+            return nullCompletedFuture();
         });
 
         future.complete(1);

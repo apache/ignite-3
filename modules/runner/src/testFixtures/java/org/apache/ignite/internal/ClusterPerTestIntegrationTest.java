@@ -24,7 +24,6 @@ import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -192,6 +191,6 @@ public abstract class ClusterPerTestIntegrationTest extends IgniteIntegrationTes
     protected final List<List<Object>> executeSql(String sql, Object... args) {
         IgniteImpl ignite = node(0);
 
-        return SqlTestUtils.sql(ignite, null, sql, args);
+        return ClusterPerClassIntegrationTest.sql(ignite, null, sql, args);
     }
 }

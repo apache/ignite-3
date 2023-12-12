@@ -18,9 +18,9 @@
 package org.apache.ignite.internal.metastorage.server;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.is;
@@ -58,7 +58,7 @@ public class WatchProcessorTest extends BaseIgniteAbstractTest {
 
     @BeforeEach
     void setUp() {
-        when(revisionCallback.onRevisionApplied(any())).thenReturn(completedFuture(null));
+        when(revisionCallback.onRevisionApplied(any())).thenReturn(nullCompletedFuture());
 
         watchProcessor.setRevisionCallback(revisionCallback);
     }
@@ -184,7 +184,7 @@ public class WatchProcessorTest extends BaseIgniteAbstractTest {
         when(listener2.onUpdate(any()))
                 // Block the first call, the second call should work as usual.
                 .thenReturn(blockingFuture)
-                .thenReturn(completedFuture(null));
+                .thenReturn(nullCompletedFuture());
 
         watchProcessor.addWatch(new Watch(0, listener1, key -> Arrays.equals(key, "foo".getBytes(UTF_8))));
         watchProcessor.addWatch(new Watch(0, listener2, key -> Arrays.equals(key, "bar".getBytes(UTF_8))));
@@ -235,7 +235,7 @@ public class WatchProcessorTest extends BaseIgniteAbstractTest {
     private static WatchListener mockListener() {
         var listener = mock(WatchListener.class);
 
-        when(listener.onUpdate(any())).thenReturn(completedFuture(null));
+        when(listener.onUpdate(any())).thenReturn(nullCompletedFuture());
 
         return listener;
     }

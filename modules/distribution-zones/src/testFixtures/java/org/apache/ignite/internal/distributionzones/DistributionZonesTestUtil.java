@@ -421,6 +421,7 @@ public class DistributionZonesTestUtil {
     public static void assertDataNodesFromManager(
             DistributionZoneManager distributionZoneManager,
             Supplier<Long> causalityToken,
+            Supplier<Integer> catalogVersion,
             int zoneId,
             @Nullable Set<LogicalNode> expectedValue,
             long timeoutMillis
@@ -431,7 +432,7 @@ public class DistributionZonesTestUtil {
         boolean success = waitForCondition(() -> {
             Set<String> dataNodes = null;
             try {
-                dataNodes = distributionZoneManager.dataNodes(causalityToken.get(), zoneId).get(5, TimeUnit.SECONDS);
+                dataNodes = distributionZoneManager.dataNodes(causalityToken.get(), catalogVersion.get(), zoneId).get(5, TimeUnit.SECONDS);
             } catch (Exception e) {
                 // Ignore
             }
@@ -441,7 +442,8 @@ public class DistributionZonesTestUtil {
 
         // We do a second check simply to print a nice error message in case the condition above is not achieved.
         if (!success) {
-            Set<String> dataNodes = distributionZoneManager.dataNodes(causalityToken.get(), zoneId).get(5, TimeUnit.SECONDS);
+            Set<String> dataNodes = distributionZoneManager.dataNodes(causalityToken.get(), catalogVersion.get(), zoneId)
+                    .get(5, TimeUnit.SECONDS);
 
             assertThat(dataNodes, is(expectedValueNames));
         }

@@ -218,6 +218,9 @@ public class ClientUtils {
             case ClientOp.SQL_EXEC:
                 return ClientOperationType.SQL_EXECUTE;
 
+            case ClientOp.SQL_EXEC_SCRIPT:
+                return ClientOperationType.SQL_EXECUTE_SCRIPT;
+
             case ClientOp.SQL_CURSOR_NEXT_PAGE:
                 return ClientOperationType.SQL_CURSOR_NEXT_PAGE;
 
@@ -229,6 +232,7 @@ public class ClientUtils {
 
             case ClientOp.JDBC_TX_FINISH:
                 return null;
+
 
             // Do not return null from default arm intentionally, so we don't forget to update this when new ClientOp values are added.
             default:
