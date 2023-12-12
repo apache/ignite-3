@@ -121,7 +121,7 @@ public class ItRebalanceTriggersRecoveryTest extends ClusterPerTestIntegrationTe
     }
 
     private static Set<Assignment> getPartitionPendingClusterNodes(IgniteImpl node, int partNum) {
-        return Optional.ofNullable(getTableId(node.catalogManager(), "TEST",new HybridClockImpl().nowLong()))
+        return Optional.ofNullable(getTableId(node.catalogManager(), "TEST", new HybridClockImpl().nowLong()))
                 .map(tableId -> partitionPendingAssignments(node.metaStorageManager(), tableId, partNum).join())
                 .orElse(Set.of());
     }
