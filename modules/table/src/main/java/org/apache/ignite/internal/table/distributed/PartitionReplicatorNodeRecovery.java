@@ -33,7 +33,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import java.util.function.Function;
 import java.util.function.IntFunction;
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.lang.IgniteInternalException;
@@ -71,9 +70,6 @@ class PartitionReplicatorNodeRecovery {
 
     private final TopologyService topologyService;
 
-    /** Resolver that resolves a node consistent ID to cluster node. */
-    private final Function<String, ClusterNode> clusterNodeResolver;
-
     /** Obtains a TableImpl instance by a table ID. */
     private final IntFunction<TableViewInternal> tableById;
 
@@ -81,13 +77,11 @@ class PartitionReplicatorNodeRecovery {
             MetaStorageManager metaStorageManager,
             MessagingService messagingService,
             TopologyService topologyService,
-            Function<String, ClusterNode> clusterNodeResolver,
             IntFunction<TableViewInternal> tableById
     ) {
         this.metaStorageManager = metaStorageManager;
         this.messagingService = messagingService;
         this.topologyService = topologyService;
-        this.clusterNodeResolver = clusterNodeResolver;
         this.tableById = tableById;
     }
 
@@ -216,7 +210,7 @@ class PartitionReplicatorNodeRecovery {
         Map<String, ClusterNode> peerNodesByConsistentIds = new ConcurrentHashMap<>();
 
         for (Peer peer : peers) {
-            ClusterNode node = clusterNodeResolver.apply(peer.consistentId());
+            ClusterNode node = topologyService.getByConsistentId(peer.consistentId());
 
             if (node != null) {
                 peerNodesByConsistentIds.put(peer.consistentId(), node);
@@ -247,7 +241,7 @@ class PartitionReplicatorNodeRecovery {
         // Check again for peers that could appear in the topology since last check, but before we installed the handler.
         for (Peer peer : peers) {
             if (!peerNodesByConsistentIds.containsKey(peer.consistentId())) {
-                ClusterNode node = clusterNodeResolver.apply(peer.consistentId());
+                ClusterNode node = topologyService.getByConsistentId(peer.consistentId());
 
                 if (node != null) {
                     peerNodesByConsistentIds.put(peer.consistentId(), node);
@@ -284,7 +278,7 @@ class PartitionReplicatorNodeRecovery {
         //noinspection unchecked
         CompletableFuture<Boolean>[] requestFutures = peers.stream()
                 .map(Peer::consistentId)
-                .map(clusterNodeResolver)
+                .map(topologyService::getByConsistentId)
                 .filter(Objects::nonNull)
                 .map(node -> messagingService
                         .invoke(node, request, QUERY_DATA_NODES_COUNT_TIMEOUT_MILLIS)

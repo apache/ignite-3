@@ -27,7 +27,6 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.Function;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -47,6 +46,7 @@ import org.apache.ignite.internal.tx.message.TxStateCommitPartitionRequestBuilde
 import org.apache.ignite.internal.tx.message.TxStateCoordinatorRequest;
 import org.apache.ignite.internal.tx.message.TxStateResponse;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.network.ClusterNodeResolver;
 import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.network.NetworkMessage;
 import org.jetbrains.annotations.Nullable;
@@ -64,13 +64,10 @@ public class TransactionStateResolver {
     /** Replication service. */
     private final ReplicaService replicaService;
 
-    /** Function that resolves a node consistent ID to a cluster node. */
-    private final Function<String, ClusterNode> clusterNodeResolver;
-
     // TODO https://issues.apache.org/jira/browse/IGNITE-20408 after this ticket this resolver will be no longer needed, as
     // TODO we will store coordinator as ClusterNode in local tx state map.
-    /** Function that resolves a node non-consistent ID to a cluster node. */
-    private final Function<String, ClusterNode> clusterNodeResolverById;
+    /** Function that resolves a node consistent ID to a cluster node. */
+    private final ClusterNodeResolver clusterNodeResolver;
 
     private final PlacementDriverHelper placementDriverHelper;
 
@@ -89,7 +86,6 @@ public class TransactionStateResolver {
      * @param txManager Transaction manager.
      * @param clock Node clock.
      * @param clusterNodeResolver Cluster node resolver.
-     * @param clusterNodeResolverById Cluster node resolver using non-consistent id.
      * @param messagingService Messaging service.
      * @param placementDriver Placement driver.
      */
@@ -97,8 +93,7 @@ public class TransactionStateResolver {
             ReplicaService replicaService,
             TxManager txManager,
             HybridClock clock,
-            Function<String, ClusterNode> clusterNodeResolver,
-            Function<String, ClusterNode> clusterNodeResolverById,
+            ClusterNodeResolver clusterNodeResolver,
             MessagingService messagingService,
             PlacementDriver placementDriver
     ) {
@@ -106,7 +101,6 @@ public class TransactionStateResolver {
         this.txManager = txManager;
         this.clock = clock;
         this.clusterNodeResolver = clusterNodeResolver;
-        this.clusterNodeResolverById = clusterNodeResolverById;
         this.messagingService = messagingService;
         this.placementDriverHelper = new PlacementDriverHelper(placementDriver, clock);
     }
@@ -218,7 +212,7 @@ public class TransactionStateResolver {
     ) {
         updateLocalTxMapAfterDistributedStateResolved(txId, txMetaFuture);
 
-        ClusterNode coordinator = clusterNodeResolverById.apply(coordinatorId);
+        ClusterNode coordinator = clusterNodeResolver.getById(coordinatorId);
 
         if (coordinator == null) {
             // This means the coordinator node have either left the cluster or restarted.
@@ -290,7 +284,7 @@ public class TransactionStateResolver {
     ) {
         placementDriverHelper.awaitPrimaryReplicaWithExceptionHandling(replicaGrp)
                 .thenCompose(replicaMeta -> {
-                    ClusterNode nodeToSend = clusterNodeResolver.apply(replicaMeta.getLeaseholder());
+                    ClusterNode nodeToSend = clusterNodeResolver.getByConsistentId(replicaMeta.getLeaseholder());
 
                     TxStateCommitPartitionRequest request = requestBuilderFactory.get()
                             .enlistmentConsistencyToken(replicaMeta.getStartTime().longValue())

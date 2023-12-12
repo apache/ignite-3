@@ -25,6 +25,7 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 import org.apache.ignite.internal.lang.SqlExceptionMapperUtil;
+import org.apache.ignite.internal.sql.engine.tx.QueryTransactionWrapper;
 import org.apache.ignite.internal.util.AsyncCursor;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.sql.ResultSetMetadata;
@@ -117,7 +118,7 @@ public class AsyncSqlCursorImpl<T> implements AsyncSqlCursor<T> {
                 })
                 .exceptionally(rootEx -> {
                     // Always rollback a transaction in case of an error.
-                    return txWrapper.rollback()
+                    return txWrapper.rollback(rootEx)
                             .handle((none, rollbackEx) -> {
                                 Throwable wrapped = wrapIfNecessary(rootEx);
 
@@ -156,8 +157,18 @@ public class AsyncSqlCursorImpl<T> implements AsyncSqlCursor<T> {
 
         dataCursor.closeAsync()
                 .thenCompose(ignored -> txWrapper.commitImplicit())
-                .thenRun(onClose)
                 .whenComplete((r, e) -> {
+                    // Anyway run close handler.
+                    try {
+                        onClose.run();
+                    } catch (RuntimeException ex) {
+                        if (e == null) {
+                            e = ex;
+                        } else {
+                            e.addSuppressed(ex);
+                        }
+                    }
+
                     if (e != null) {
                         closeResult.completeExceptionally(e);
                     } else {
@@ -166,6 +177,12 @@ public class AsyncSqlCursorImpl<T> implements AsyncSqlCursor<T> {
                 });
 
         return closeResult;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void onClose(Runnable callback) {
+        closeResult.whenComplete((r, e) -> callback.run());
     }
 
     private static Throwable wrapIfNecessary(Throwable t) {

@@ -63,7 +63,6 @@ import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.binarytuple.BinaryTupleCommon;
@@ -175,6 +174,7 @@ import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.util.TrackerClosedException;
 import org.apache.ignite.lang.ErrorGroups.Replicator;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.network.ClusterNodeResolver;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
 
@@ -269,7 +269,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      */
     private final Object commandProcessingLinearizationMutex = new Object();
 
-    private final Function<String, ClusterNode> clusterNodeByIdResolver;
+    private final ClusterNodeResolver clusterNodeResolver;
 
     /**
      * The constructor.
@@ -313,7 +313,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             SchemaSyncService schemaSyncService,
             CatalogService catalogService,
             PlacementDriver placementDriver,
-            Function<String, ClusterNode> clusterNodeByIdResolver
+            ClusterNodeResolver clusterNodeResolver
     ) {
         this.mvDataStorage = mvDataStorage;
         this.raftClient = raftClient;
@@ -332,7 +332,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         this.schemaSyncService = schemaSyncService;
         this.catalogService = catalogService;
         this.placementDriver = placementDriver;
-        this.clusterNodeByIdResolver = clusterNodeByIdResolver;
+        this.clusterNodeResolver = clusterNodeResolver;
 
         this.replicationGroupId = new TablePartitionId(tableId, partId);
 
@@ -804,7 +804,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             // This means the transaction is pending and we should trigger the recovery if there is no tx coordinator in topology.
             if (txStateMeta == null
                     || txStateMeta.txState() == ABANDONED
-                    || clusterNodeByIdResolver.apply(txStateMeta.txCoordinatorId()) == null) {
+                    || clusterNodeResolver.getById(txStateMeta.txCoordinatorId()) == null) {
                 // This means that primary replica for commit partition has changed, since the local node doesn't have the volatile tx
                 // state; and there is no final tx state in txStateStorage, or the tx coordinator left the cluster. But we can assume
                 // that as the coordinator (or information about it) is missing, there is  no need to wait a finish request from

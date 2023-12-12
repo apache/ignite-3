@@ -262,9 +262,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     /** Started tables. */
     private final Map<Integer, TableImpl> startedTables = new ConcurrentHashMap<>();
 
-    /** Resolver that resolves a node consistent ID to cluster node. */
-    private final Function<String, ClusterNode> clusterNodeResolver;
-
     /** Busy lock to stop synchronously. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
@@ -413,14 +410,11 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         TopologyService topologyService = clusterService.topologyService();
 
-        clusterNodeResolver = topologyService::getByConsistentId;
-
         transactionStateResolver = new TransactionStateResolver(
                 replicaSvc,
                 txManager,
                 clock,
-                clusterNodeResolver,
-                topologyService::getById,
+                topologyService,
                 clusterService.messagingService(),
                 placementDriver
         );
@@ -480,7 +474,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 metaStorageMgr,
                 clusterService.messagingService(),
                 topologyService,
-                clusterNodeResolver,
                 tableId -> latestTablesById().get(tableId)
         );
 
@@ -892,7 +885,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 schemaSyncService,
                 catalogService,
                 placementDriver,
-                id -> clusterService.topologyService().getById(id)
+                clusterService.topologyService()
         );
     }
 
@@ -1121,7 +1114,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 tableName,
                 tableId,
                 new Int2ObjectOpenHashMap<>(partitions),
-                partitions, clusterNodeResolver, txManager, tableStorage,
+                partitions, clusterService.topologyService(), txManager, tableStorage,
                 txStateStorage, replicaSvc, clock, observableTimestampTracker, placementDriver);
 
         var table = new TableImpl(internalTable, lockMgr, schemaVersions);

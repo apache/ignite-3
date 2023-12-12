@@ -25,6 +25,7 @@ import static org.apache.ignite.lang.ErrorGroups.Sql.SESSION_CLOSED_ERR;
 
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.List;
@@ -410,7 +411,7 @@ public class SessionImpl implements AbstractSession {
                     qryProc.queryScriptAsync(properties, transactions, null, query, arguments);
 
             ScriptHandler handler = new ScriptHandler(resFut);
-            f.whenComplete(handler::processFirstResult);
+            f.whenComplete(handler::processCursor);
         } finally {
             busyLock.leaveBusy();
         }
@@ -543,55 +544,61 @@ public class SessionImpl implements AbstractSession {
     }
 
     private class ScriptHandler {
-
         private final CompletableFuture<Void> resFut;
+        private final List<Throwable> cursorCloseErrors = Collections.synchronizedList(new ArrayList<>());
 
-        private ScriptHandler(CompletableFuture<Void> resFut) {
+        ScriptHandler(CompletableFuture<Void> resFut) {
             this.resFut = resFut;
         }
 
-        void processFirstResult(AsyncSqlCursor<InternalSqlRow> cursor, Throwable t) {
-            if (t != null) {
-                resFut.completeExceptionally(t);
-            } else {
-                int cursorId = registerCursor(cursor);
-                processCursor(cursor, cursorId);
-            }
-        }
+        void processCursor(AsyncSqlCursor<InternalSqlRow> cursor, Throwable scriptError) {
+            if (scriptError != null) {
+                // Stopping script execution.
+                onFail(scriptError);
 
-        void processCursor(AsyncSqlCursor<InternalSqlRow> cursor, int cursorId) {
-            if (!busyLock.enterBusy()) {
-                closeCursor(cursor, cursorId);
-
-                resFut.completeExceptionally(sessionIsClosedException());
                 return;
             }
 
-            try {
-                if (cursor.hasNextResult()) {
-                    cursor.nextResult().whenComplete((nextCursor, t) -> {
-                        closeCursor(cursor, cursorId);
-
-                        if (nextCursor != null) {
-                            int nextCursorId = registerCursor(nextCursor);
-                            processCursor(nextCursor, nextCursorId);
-                        } else {
-                            resFut.completeExceptionally(t);
-                        }
-                    });
-                } else {
-                    closeCursor(cursor, cursorId);
-
-                    resFut.complete(null);
+            cursor.closeAsync().whenComplete((ignored, cursorCloseError) -> {
+                if (cursorCloseError != null) {
+                    // Just save the error for later and continue fetching cursors.
+                    cursorCloseErrors.add(cursorCloseError);
                 }
-            } finally {
-                busyLock.leaveBusy();
-            }
+
+                if (!busyLock.enterBusy()) {
+                    onFail(sessionIsClosedException());
+                    return;
+                }
+
+                try {
+                    if (cursor.hasNextResult()) {
+                        cursor.nextResult().whenCompleteAsync(this::processCursor);
+                        return;
+                    }
+                } finally {
+                    busyLock.leaveBusy();
+                }
+
+                onComplete();
+            });
         }
 
-        void closeCursor(AsyncSqlCursor<InternalSqlRow> cursor, int cursorId) {
-            openedCursors.remove(cursorId);
-            cursor.closeAsync();
+        private void onComplete() {
+            if (!cursorCloseErrors.isEmpty()) {
+                onFail(new IllegalStateException("The script was completed with errors."));
+
+                return;
+            }
+
+            resFut.complete(null);
+        }
+
+        private void onFail(Throwable err) {
+            for (Throwable cursorCloseErr : cursorCloseErrors) {
+                err.addSuppressed(cursorCloseErr);
+            }
+
+            resFut.completeExceptionally(err);
         }
     }
 }

@@ -70,6 +70,7 @@ import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterNodeImpl;
+import org.apache.ignite.network.ClusterNodeResolver;
 import org.apache.ignite.network.NetworkAddress;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -172,7 +173,7 @@ public class PartitionReplicaListenerDurableUnlockTest extends IgniteAbstractTes
                 schemaSyncService,
                 catalogService,
                 placementDriver,
-                s -> null
+                mock(ClusterNodeResolver.class)
         );
     }
 

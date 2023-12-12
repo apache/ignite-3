@@ -15,39 +15,31 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.compute;
+package org.apache.ignite.network;
 
 /**
- * Compute job's state enum.
+ * A class that returns a single {@link ClusterNode} for every request.
  */
-public enum JobState {
-    /**
-     * The job is submitted and waiting for an execution start.
-     */
-    QUEUED,
+public class SingleClusterNodeResolver implements ClusterNodeResolver {
+
+    private final ClusterNode clusterNode;
 
     /**
-     * The job is being executed.
+     * Constructor.
+     *
+     * @param clusterNode Default cluster node that will be returned as a result of all method calls.
      */
-    EXECUTING,
+    public SingleClusterNodeResolver(ClusterNode clusterNode) {
+        this.clusterNode = clusterNode;
+    }
 
-    /**
-     * The job was unexpectedly terminated during execution.
-     */
-    FAILED,
+    @Override
+    public ClusterNode getByConsistentId(String consistentId) {
+        return clusterNode;
+    }
 
-    /**
-     * The job was executed successfully and the execution result was returned.
-     */
-    COMPLETED,
-
-    /**
-     * The job has received the cancel command, but it is still running.
-     */
-    CANCELING,
-
-    /**
-     * The job was successfully cancelled.
-     */
-    CANCELED;
+    @Override
+    public ClusterNode getById(String id) {
+        return clusterNode;
+    }
 }

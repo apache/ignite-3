@@ -15,39 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.compute;
+package org.apache.ignite.internal.sql.engine.tx;
+
+import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.tx.InternalTransaction;
 
 /**
- * Compute job's state enum.
+ * Wrapper for the transaction that encapsulates the management of an implicit/script-driven transaction.
  */
-public enum JobState {
-    /**
-     * The job is submitted and waiting for an execution start.
-     */
-    QUEUED,
+public interface QueryTransactionWrapper {
+    /** Unwraps transaction. */
+    InternalTransaction unwrap();
 
-    /**
-     * The job is being executed.
-     */
-    EXECUTING,
+    /** Commits an implicit transaction, if one has been started. */
+    CompletableFuture<Void> commitImplicit();
 
-    /**
-     * The job was unexpectedly terminated during execution.
-     */
-    FAILED,
-
-    /**
-     * The job was executed successfully and the execution result was returned.
-     */
-    COMPLETED,
-
-    /**
-     * The job has received the cancel command, but it is still running.
-     */
-    CANCELING,
-
-    /**
-     * The job was successfully cancelled.
-     */
-    CANCELED;
+    /** Rolls back a transaction. */
+    CompletableFuture<Void> rollback(Throwable cause);
 }
