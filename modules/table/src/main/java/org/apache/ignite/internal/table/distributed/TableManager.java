@@ -262,9 +262,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     /** Started tables. */
     private final Map<Integer, TableImpl> startedTables = new ConcurrentHashMap<>();
 
-    /** Resolver that resolves a node consistent ID to cluster node. */
-    private final Function<String, ClusterNode> clusterNodeResolver;
-
     /** Busy lock to stop synchronously. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
@@ -412,14 +409,11 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         TopologyService topologyService = clusterService.topologyService();
 
-        clusterNodeResolver = topologyService::getByConsistentId;
-
         transactionStateResolver = new TransactionStateResolver(
                 replicaSvc,
                 txManager,
                 clock,
-                clusterNodeResolver,
-                topologyService::getById,
+                topologyService,
                 clusterService.messagingService()
         );
 
@@ -478,7 +472,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 metaStorageMgr,
                 clusterService.messagingService(),
                 topologyService,
-                clusterNodeResolver,
                 tableId -> latestTablesById().get(tableId)
         );
 
@@ -1102,7 +1095,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 tableName,
                 tableId,
                 new Int2ObjectOpenHashMap<>(partitions),
-                partitions, clusterNodeResolver, txManager, tableStorage,
+                partitions, clusterService.topologyService(), txManager, tableStorage,
                 txStateStorage, replicaSvc, clock, observableTimestampTracker, placementDriver);
 
         var table = new TableImpl(internalTable, lockMgr, schemaVersions);
@@ -1362,12 +1355,11 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                         return emptyListCompletedFuture();
                     }
 
-                    CompletableFuture<TableImpl>[] tableImplFutures = tableDescriptors.stream()
+                    CompletableFuture<Table>[] tableImplFutures = tableDescriptors.stream()
                             .map(tableDescriptor -> tableAsyncInternalBusy(tableDescriptor.id()))
                             .toArray(CompletableFuture[]::new);
 
-                    return allOf(tableImplFutures)
-                            .thenApply(unused1 -> Stream.of(tableImplFutures).map(CompletableFuture::join).collect(toList()));
+                    return CompletableFutures.allOf(tableImplFutures);
                 }), ioExecutor);
     }
 

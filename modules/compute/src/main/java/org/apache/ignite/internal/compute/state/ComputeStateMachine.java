@@ -19,6 +19,8 @@ package org.apache.ignite.internal.compute.state;
 
 import java.util.UUID;
 import org.apache.ignite.compute.JobState;
+import org.apache.ignite.compute.JobStatus;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * State machine of Compute Jobs.
@@ -82,10 +84,11 @@ public interface ComputeStateMachine {
     void failJob(UUID jobId);
 
     /**
-     * Returns current state of Compute Job.
+     * Returns current status of Compute Job.
      *
      * @param jobId Compute job identifier.
-     * @return Current state of Compute Job or {@code null} in case if job with provided identifier doesn't exist.
+     * @return Current status of Compute Job or {@code null} in case if job with provided identifier doesn't exist.
      */
-    JobState currentState(UUID jobId);
+    @Nullable
+    JobStatus currentStatus(UUID jobId);
 }

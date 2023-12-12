@@ -187,8 +187,9 @@ class AuthenticationManagerImplTest extends BaseIgniteAbstractTest {
                 securityConfiguration, change -> {
                     change.changeAuthentication().changeProviders(providers -> providers.update(PROVIDER, provider -> {
                         provider.convert(BasicAuthenticationProviderChange.class)
-                                .changeUsername(USERNAME)
-                                .changePassword("new-password");
+                                .changeUsers(users ->
+                                        users.update(USERNAME, user -> user.changePassword("new-password"))
+                                );
                     }));
                 })
                 .value();
@@ -244,8 +245,9 @@ class AuthenticationManagerImplTest extends BaseIgniteAbstractTest {
                 securityConfiguration, change -> {
                     change.changeAuthentication().changeProviders(providers -> providers.create(PROVIDER, provider -> {
                         provider.convert(BasicAuthenticationProviderChange.class)
-                                .changeUsername(USERNAME)
-                                .changePassword(PASSWORD);
+                                .changeUsers(users ->
+                                        users.create(USERNAME, user -> user.changePassword(PASSWORD))
+                                );
                     }));
                     change.changeEnabled(true);
                 })

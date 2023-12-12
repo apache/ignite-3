@@ -25,10 +25,10 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.BitSet;
 import java.util.Iterator;
-import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
+import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
 import org.apache.ignite.internal.util.TransformingIterator;
@@ -49,9 +49,9 @@ public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
 
     private final IdleExpirationTracker expirationTracker;
 
-    private final AsyncSqlCursor<List<Object>> cursor;
+    private final AsyncSqlCursor<InternalSqlRow> cursor;
 
-    private volatile BatchedResult<List<Object>> curPage;
+    private volatile BatchedResult<InternalSqlRow> curPage;
 
     private final int pageSize;
 
@@ -68,8 +68,8 @@ public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
      * @param closeRun Callback to be invoked after result is closed.
      */
     AsyncResultSetImpl(
-            AsyncSqlCursor<List<Object>> cursor,
-            BatchedResult<List<Object>> page,
+            AsyncSqlCursor<InternalSqlRow> cursor,
+            BatchedResult<InternalSqlRow> page,
             int pageSize,
             IdleExpirationTracker expirationTracker,
             Runnable closeRun
@@ -124,8 +124,8 @@ public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
 
         expirationTracker.touch();
 
-        final Iterator<List<Object>> it0 = curPage.items().iterator();
-        final ResultSetMetadata meta0 = cursor.metadata();
+        Iterator<InternalSqlRow> it0 = curPage.items().iterator();
+        ResultSetMetadata meta0 = cursor.metadata();
 
         // TODO: IGNITE-18695 map rows to objects when mapper is provided.
         return () -> new TransformingIterator<>(it0, (item) -> (T) new SqlRowImpl(item, meta0));
@@ -181,11 +181,11 @@ public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
     }
 
     private static class SqlRowImpl implements SqlRow {
-        private final List<Object> row;
+        private final InternalSqlRow row;
 
         private final ResultSetMetadata meta;
 
-        SqlRowImpl(List<Object> row, ResultSetMetadata meta) {
+        SqlRowImpl(InternalSqlRow row, ResultSetMetadata meta) {
             this.row = row;
             this.meta = meta;
         }
@@ -410,12 +410,6 @@ public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
         @Override
         public Instant timestampValue(int columnIndex) {
             return (Instant) row.get(columnIndex);
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public Iterator<Object> iterator() {
-            return row.iterator();
         }
 
         /** {@inheritDoc} */

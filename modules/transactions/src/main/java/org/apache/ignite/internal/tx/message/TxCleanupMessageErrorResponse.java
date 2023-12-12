@@ -15,15 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.client.proto;
+package org.apache.ignite.internal.tx.message;
+
+import org.apache.ignite.network.annotations.Marshallable;
+import org.apache.ignite.network.annotations.Transferable;
 
 /**
- * Server to client message types.
+ * Cleanup transaction message error response.
  */
-public class ServerMessageType {
-    /** Response to a request (initiated by the client). */
-    public static final int RESPONSE = 0;
-
-    /** Notification (initiated by the server). */
-    public static final int NOTIFICATION = 1;
+@Transferable(TxMessageGroup.TX_CLEANUP_MSG_ERR_RESPONSE)
+public interface TxCleanupMessageErrorResponse extends TxCleanupMessageResponse {
+    /**
+     * Returns a {@link Throwable} that was thrown during handling a lock release message.
+     *
+     * @return {@link Throwable} that was thrown during handling a lock release message.
+     */
+    @Marshallable
+    Throwable throwable();
 }

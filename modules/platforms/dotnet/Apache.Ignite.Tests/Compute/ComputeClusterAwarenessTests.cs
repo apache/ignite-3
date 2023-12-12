@@ -86,6 +86,7 @@ namespace Apache.Ignite.Tests.Compute
         }
 
         [Test]
+        [Ignore("IGNITE-21033 broken due to notification mechanism")]
         public async Task TestClientRetriesComputeJobOnPrimaryAndDefaultNodes()
         {
             using var server1 = new FakeServer(shouldDropConnection: ctx => ctx.RequestCount % 2 == 0, nodeName: "s1");

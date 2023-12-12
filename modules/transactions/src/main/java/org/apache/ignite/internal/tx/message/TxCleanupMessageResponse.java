@@ -15,21 +15,14 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Internal.Proto
-{
-    /// <summary>
-    /// Server to client message types.
-    /// </summary>
-    internal enum ServerMessageType
-    {
-        /// <summary>
-        /// Response to a request (initiated by the client).
-        /// </summary>
-        Response = 0,
+package org.apache.ignite.internal.tx.message;
 
-        /// <summary>
-        /// Notification (initiated by the server).
-        /// </summary>
-        Notification = 1
-    }
+import org.apache.ignite.internal.replicator.message.TimestampAware;
+import org.apache.ignite.network.annotations.Transferable;
+
+/**
+ * Cleanup transaction message response.
+ */
+@Transferable(TxMessageGroup.TX_CLEANUP_MSG_RESPONSE)
+public interface TxCleanupMessageResponse extends TimestampAware {
 }
