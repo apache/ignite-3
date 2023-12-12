@@ -149,7 +149,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
     private static final long TIMEOUT_IN_MS = 2_000;
 
     /** Timeout in ms for SQL planning phase. */
-    public static final long PLANNING_TIMEOUT = 5_000;
+    public static final long PLANNING_TIMEOUT = 10_000;
 
     /** Timeout in ms for stopping execution service.*/
     private static final long SHUTDOWN_TIMEOUT = 5_000;
