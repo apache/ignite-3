@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table.distributed.schema;
 
+import static org.apache.ignite.internal.raft.util.ByteBufferCache.NO_CACHE;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
@@ -25,7 +26,6 @@ import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
-import org.apache.ignite.internal.raft.util.ByteBufferCache;
 import org.apache.ignite.internal.raft.util.OptimizedMarshaller;
 import org.apache.ignite.internal.replicator.command.SafeTimeSyncCommand;
 import org.apache.ignite.internal.replicator.command.SafeTimeSyncCommandSerializationFactory;
@@ -62,9 +62,9 @@ class PartitionCommandsMarshallerImplTest {
         );
     }
 
-    private final OptimizedMarshaller standardMarshaller = new OptimizedMarshaller(registry, ByteBufferCache.NO_CACHE);
+    private final OptimizedMarshaller standardMarshaller = new OptimizedMarshaller(registry, NO_CACHE);
 
-    private final PartitionCommandsMarshallerImpl partitionCommandsMarshaller = new PartitionCommandsMarshallerImpl(registry, ByteBufferCache.NO_CACHE);
+    private final PartitionCommandsMarshallerImpl partitionCommandsMarshaller = new PartitionCommandsMarshallerImpl(registry, NO_CACHE);
 
     @Test
     void marshalPrependsWithZeroForNotCatalogLevelAware() {
