@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.prepare;
 
-import java.util.Collections;
-import java.util.Map;
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 import org.apache.calcite.plan.Context;
@@ -60,14 +60,14 @@ public final class PlanningContext implements Context {
     /** Flag indicated if planning has been canceled due to timeout. */
     private boolean timeouted = false;
 
-    private final Map<Integer, Object> parameters;
+    private final Int2ObjectMap<Object> parameters;
 
     /** Private constructor, used by a builder. */
     private PlanningContext(
             Context parentCtx,
             String qry,
             long plannerTimeout,
-            Map<Integer, Object> parameters
+            Int2ObjectMap<Object> parameters
     ) {
         this.qry = qry;
         this.parentCtx = parentCtx;
@@ -88,7 +88,7 @@ public final class PlanningContext implements Context {
     }
 
     /** Get query parameters. */
-    public Map<Integer, Object> parameters() {
+    public Int2ObjectMap<Object> parameters() {
         return parameters;
     }
 
@@ -191,13 +191,14 @@ public final class PlanningContext implements Context {
      * Planner context builder.
      */
     public static class Builder {
+
         private Context parentCtx = Contexts.empty();
 
         private String qry;
 
         private long plannerTimeout;
 
-        private Map<Integer, Object> parameters = Collections.emptyMap();
+        private Int2ObjectMap<Object> parameters = Int2ObjectMaps.emptyMap();
 
         /** Parent context. */
         public Builder parentContext(Context parentCtx) {
@@ -218,7 +219,7 @@ public final class PlanningContext implements Context {
         }
 
         /** Values of dynamic parameters to assist with type inference. */
-        public Builder parameters(Map<Integer, Object> parameters) {
+        public Builder parameters(Int2ObjectMap<Object> parameters) {
             this.parameters = parameters;
             return this;
         }

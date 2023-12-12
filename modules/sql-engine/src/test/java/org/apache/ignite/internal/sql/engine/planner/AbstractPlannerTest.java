@@ -29,15 +29,14 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.fail;
 
 import com.google.common.collect.ImmutableList;
+import it.unimi.dsi.fastutil.ints.Int2ObjectArrayMap;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
@@ -236,7 +235,7 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
             String... disabledRules
     ) {
 
-        Map<Integer, Object> paramsMap = new HashMap<>();
+        Int2ObjectArrayMap<Object> paramsMap = new Int2ObjectArrayMap<>();
         for (int i = 0; i < params.size(); i++) {
             Object value = params.get(i);
             if (value != Unspecified.UNKNOWN) {

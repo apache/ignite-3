@@ -23,6 +23,9 @@ import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.sql.ColumnMetadata.UNDEFINED_PRECISION;
 import static org.apache.ignite.sql.ColumnMetadata.UNDEFINED_SCALE;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectArrayMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
@@ -340,11 +343,11 @@ public final class Commons {
      * @param params Array of values.
      * @return Map of values.
      */
-    public static Map<Integer, Object> arrayToMap(@Nullable Object[] params) {
+    public static Int2ObjectMap<Object> arrayToMap(@Nullable Object[] params) {
         if (ArrayUtils.nullOrEmpty(params)) {
-            return Collections.emptyMap();
+            return Int2ObjectMaps.emptyMap();
         } else {
-            HashMap<Integer, Object> res = new HashMap<>();
+            Int2ObjectMap<Object> res = new Int2ObjectArrayMap<>(params.length);
 
             for (int i = 0; i < params.length; i++) {
                 res.put(i, params[i]);
