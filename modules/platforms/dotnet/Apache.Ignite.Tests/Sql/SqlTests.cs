@@ -467,7 +467,7 @@ namespace Apache.Ignite.Tests.Sql
             var resProps = server.LastSqlScriptProps;
 
             Assert.AreEqual("schema-1", resProps["schema"]);
-            Assert.IsFalse(resProps.ContainsKey("pageSize"));
+            Assert.AreEqual(987, resProps["pageSize"]);
             Assert.AreEqual(123000, resProps["timeoutMs"]);
             Assert.AreEqual("SELECT PROPS", resProps["sql"]);
             Assert.AreEqual(10, resProps["prop1"]);

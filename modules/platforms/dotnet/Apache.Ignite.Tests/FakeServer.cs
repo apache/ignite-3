@@ -519,6 +519,7 @@ namespace Apache.Ignite.Tests
             var props = new Dictionary<string, object?>
             {
                 ["schema"] = reader.TryReadNil() ? null : reader.ReadString(),
+                ["pageSize"] = reader.TryReadNil() ? null : reader.ReadInt32(),
                 ["timeoutMs"] = reader.TryReadNil() ? null : reader.ReadInt64(),
                 ["sessionTimeoutMs"] = reader.TryReadNil() ? null : reader.ReadInt64()
             };
