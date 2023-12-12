@@ -145,7 +145,6 @@ TEST_F(connection_test, odbc3_supported) {
     }
 }
 
-
 TEST_F(connection_test, username) {
     set_authentication_enabled(true);
     EXPECT_NO_THROW(odbc_connect_throw(get_auth_connection_string()));
