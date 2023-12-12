@@ -157,7 +157,7 @@ public class ClientSqlExecuteRequest {
         return statementBuilder.build();
     }
 
-    private static Session readSession(ClientMessageUnpacker in, IgniteSql sql, @Nullable IgniteTransactions transactions) {
+    static Session readSession(ClientMessageUnpacker in, IgniteSql sql, IgniteTransactions transactions) {
         SessionBuilder sessionBuilder = sql.sessionBuilder();
 
         if (transactions != null && sessionBuilder instanceof SessionBuilderImpl) {
@@ -167,6 +167,7 @@ public class ClientSqlExecuteRequest {
         if (!in.tryUnpackNil()) {
             sessionBuilder.defaultSchema(in.unpackString());
         }
+
         if (!in.tryUnpackNil()) {
             sessionBuilder.defaultPageSize(in.unpackInt());
         }
