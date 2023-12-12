@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.testframework.verification;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.mockito.Mockito;
 import org.mockito.internal.verification.api.VerificationData;
@@ -40,16 +41,16 @@ public class WaitForTimes implements VerificationMode {
     @Override
     public void verify(VerificationData data) {
         try {
-            waitForCondition(() -> {
+            assertTrue(waitForCondition(() -> {
                 MatchableInvocation wanted = data.getTarget();
                 long actual = data.getAllInvocations().stream().filter(wanted::matches).count();
 
                 if (actual > wantedTimes) {
-                    throw new AssertionError("Called more times than expected: " + actual);
+                    throw new AssertionError("Called more times than expected, expected=" + wantedTimes + ", actual=" + actual);
                 }
 
                 return actual == wantedTimes;
-            }, timeoutMillis);
+            }, timeoutMillis));
         } catch (InterruptedException e) {
             throw new AssertionError(e);
         }
