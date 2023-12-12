@@ -28,7 +28,7 @@ public enum TxState {
     PENDING,
     FINISHING,
     ABORTED,
-    COMMITED,
+    COMMITTED,
     ABANDONED;
 
     private static final boolean[][] TRANSITION_MATRIX = {
@@ -44,10 +44,10 @@ public enum TxState {
      * Checks whether the state is final, i.e. no transition from this state is allowed.
      *
      * @param state Transaction state.
-     * @return {@code true} if the state is either {@link #COMMITED} or {@link #ABORTED}
+     * @return {@code true} if the state is either {@link #COMMITTED} or {@link #ABORTED}
      */
     public static boolean isFinalState(TxState state) {
-        return state == COMMITED || state == ABORTED;
+        return state == COMMITTED || state == ABORTED;
     }
 
     /**

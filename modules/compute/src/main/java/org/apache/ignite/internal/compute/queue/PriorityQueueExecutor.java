@@ -28,6 +28,7 @@ import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.compute.configuration.ComputeConfiguration;
+import org.apache.ignite.internal.compute.executor.QueueExecutionImpl;
 import org.apache.ignite.internal.compute.state.ComputeStateMachine;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteException;
@@ -75,7 +76,7 @@ public class PriorityQueueExecutor {
      * @param <R> Job result type.
      * @return Completable future which will be finished when compute job finished.
      */
-    public <R> CompletableFuture<R> submit(Callable<R> job, int priority) {
+    public <R> QueueExecution<R> submit(Callable<R> job, int priority) {
         Objects.requireNonNull(job);
 
         UUID jobId = stateMachine.initJob();
@@ -84,19 +85,7 @@ public class PriorityQueueExecutor {
             return job.call();
         }, priority);
 
-        try {
-            executor.execute(queueEntry);
-        } catch (QueueOverflowException e) {
-            return failedFuture(new IgniteException(QUEUE_OVERFLOW_ERR, e));
-        }
-        return queueEntry.toFuture()
-                .whenComplete((r, throwable) -> {
-                    if (throwable != null) {
-                        stateMachine.failJob(jobId);
-                    } else {
-                        stateMachine.completeJob(jobId);
-                    }
-                });
+        return new QueueExecutionImpl<>(jobId, queueEntry, execute(queueEntry, jobId), executor, stateMachine);
     }
 
     /**
@@ -106,8 +95,26 @@ public class PriorityQueueExecutor {
      * @param <R> Job result type.
      * @return Completable future which will be finished when compute job finished.
      */
-    public <R> CompletableFuture<R> submit(Callable<R> job) {
+    public <R> QueueExecution<R> submit(Callable<R> job) {
         return submit(job, 0);
+    }
+
+    private <R> CompletableFuture<R> execute(QueueEntry<R> queueEntry, UUID jobId) {
+        try {
+            executor.execute(queueEntry);
+        } catch (QueueOverflowException e) {
+            return failedFuture(new IgniteException(QUEUE_OVERFLOW_ERR, e));
+        }
+        return queueEntry.toFuture()
+                .whenComplete((r, throwable) -> {
+                    if (queueEntry.isInterrupted()) {
+                        stateMachine.cancelJob(jobId);
+                    } else if (throwable != null) {
+                        stateMachine.failJob(jobId);
+                    } else {
+                        stateMachine.completeJob(jobId);
+                    }
+                });
     }
 
     /**
