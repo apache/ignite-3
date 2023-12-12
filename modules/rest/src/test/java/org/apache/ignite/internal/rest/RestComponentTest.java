@@ -20,6 +20,7 @@ package org.apache.ignite.internal.rest;
 import static org.apache.ignite.configuration.annotation.ConfigurationType.LOCAL;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.mock;
 
 import io.micronaut.http.HttpStatus;
 import io.micronaut.http.client.HttpClient;
@@ -48,6 +49,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
+/**
+ * Test suite for {@link RestComponent}.
+ */
 public class RestComponentTest extends BaseIgniteAbstractTest {
     private final RestManager restManager = new RestManager();
 
@@ -71,13 +75,16 @@ public class RestComponentTest extends BaseIgniteAbstractTest {
 
         RestConfiguration restConfiguration = configurationManager.configurationRegistry().getConfiguration(RestConfiguration.KEY);
 
-        ClusterManagementGroupManager cmg = Mockito.mock(ClusterManagementGroupManager.class);
+        ClusterManagementGroupManager cmg = mock(ClusterManagementGroupManager.class);
 
         Mockito.when(cmg.clusterState()).then(invocation -> CompletableFuture.completedFuture(state));
 
         AuthenticationManager authenticationManager = new AuthenticationManagerImpl();
         Supplier<RestFactory> authProviderFactory = () -> new AuthenticationProviderFactory(authenticationManager);
-        Supplier<RestFactory> restPresentationFactory = () -> new PresentationsFactory(configurationManager, Mockito.mock(ConfigurationManager.class));
+        Supplier<RestFactory> restPresentationFactory = () -> new PresentationsFactory(
+                configurationManager,
+                mock(ConfigurationManager.class)
+        );
         Supplier<RestFactory> clusterManagementRestFactory = () -> new ClusterManagementRestFactory(null, null, cmg);
 
         restComponent = new RestComponent(
@@ -138,7 +145,7 @@ public class RestComponentTest extends BaseIgniteAbstractTest {
 
         assertEquals(HttpStatus.NOT_ACCEPTABLE, e.getStatus());
 
-        state = Mockito.mock(ClusterState.class);
+        state = mock(ClusterState.class);
 
         HttpClientResponseException e1 = assertThrows(HttpClientResponseException.class,
                 () -> client.toBlocking().exchange("configuration/node/", String.class));
