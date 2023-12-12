@@ -57,7 +57,7 @@ handshake_response parse_handshake_response(bytes_view message) {
 
     protocol::protocol_version ver(ver_major, ver_minor, ver_patch);
     res.context.set_version(ver);
-    res.error = protocol::read_error(reader);
+    res.error = protocol::try_read_error(reader);
 
     if (res.error)
         return res;

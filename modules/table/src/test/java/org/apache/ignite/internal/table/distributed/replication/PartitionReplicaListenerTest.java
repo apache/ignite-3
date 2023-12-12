@@ -174,6 +174,7 @@ import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.lang.ErrorGroups.Transactions;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterNodeImpl;
+import org.apache.ignite.network.ClusterNodeResolver;
 import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.TopologyService;
@@ -451,12 +452,23 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
             return CompletableFuture.failedFuture(new Exception("Test exception"));
         }).when(messagingService).invoke(any(ClusterNode.class), any(), anyLong());
 
+        ClusterNodeResolver clusterNodeResolver = new ClusterNodeResolver() {
+            @Override
+            public ClusterNode getById(String id) {
+                return id.equals(localNode.id()) ? localNode : anotherNode;
+            }
+
+            @Override
+            public ClusterNode getByConsistentId(String consistentId) {
+                return consistentId.equals(localNode.name()) ? localNode : anotherNode;
+            }
+        };
+
         transactionStateResolver = new TransactionStateResolver(
                 mock(ReplicaService.class),
                 txManager,
                 clock,
-                consistentId -> consistentId.equals(localNode.name()) ? localNode : anotherNode,
-                id -> id.equals(localNode.id()) ? localNode : anotherNode,
+                clusterNodeResolver,
                 messagingService
         );
 

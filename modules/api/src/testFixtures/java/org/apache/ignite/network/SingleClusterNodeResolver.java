@@ -15,15 +15,31 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.client.proto;
+package org.apache.ignite.network;
 
 /**
- * Server to client message types.
+ * A class that returns a single {@link ClusterNode} for every request.
  */
-public class ServerMessageType {
-    /** Response to a request (initiated by the client). */
-    public static final int RESPONSE = 0;
+public class SingleClusterNodeResolver implements ClusterNodeResolver {
 
-    /** Notification (initiated by the server). */
-    public static final int NOTIFICATION = 1;
+    private final ClusterNode clusterNode;
+
+    /**
+     * Constructor.
+     *
+     * @param clusterNode Default cluster node that will be returned as a result of all method calls.
+     */
+    public SingleClusterNodeResolver(ClusterNode clusterNode) {
+        this.clusterNode = clusterNode;
+    }
+
+    @Override
+    public ClusterNode getByConsistentId(String consistentId) {
+        return clusterNode;
+    }
+
+    @Override
+    public ClusterNode getById(String id) {
+        return clusterNode;
+    }
 }

@@ -15,21 +15,31 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Internal.Proto
-{
-    /// <summary>
-    /// Server to client message types.
-    /// </summary>
-    internal enum ServerMessageType
-    {
-        /// <summary>
-        /// Response to a request (initiated by the client).
-        /// </summary>
-        Response = 0,
+package org.apache.ignite.internal.testframework.matchers;
 
-        /// <summary>
-        /// Notification (initiated by the server).
-        /// </summary>
-        Notification = 1
+import org.hamcrest.BaseMatcher;
+import org.hamcrest.Description;
+
+/**
+ * Matcher that matches anything.
+ */
+public class AnythingMatcher<V> extends BaseMatcher<V> {
+    @Override
+    public boolean matches(Object actual) {
+        return true;
+    }
+
+    @Override
+    public void describeTo(Description description) {
+        description.appendText("anything");
+    }
+
+    /**
+     * Creates a matcher that matches anything.
+     *
+     * @return Matcher that matches anything.
+     */
+    public static <V> AnythingMatcher<V> anything() {
+        return new AnythingMatcher<>();
     }
 }

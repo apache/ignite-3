@@ -19,14 +19,15 @@ package org.apache.ignite.internal.compute.executor;
 
 import static org.apache.ignite.compute.JobState.CANCELED;
 import static org.apache.ignite.compute.JobState.EXECUTING;
+import static org.apache.ignite.internal.testframework.matchers.JobStatusMatcher.jobStatusWithState;
+import static org.apache.ignite.internal.testframework.matchers.JobStatusMatcher.jobStatusWithStateAndCreateTimeStartTime;
 import static org.awaitility.Awaitility.await;
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.is;
 
 import org.apache.ignite.Ignite;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobExecutionContext;
+import org.apache.ignite.compute.JobStatus;
 import org.apache.ignite.internal.compute.ExecutionOptions;
 import org.apache.ignite.internal.compute.configuration.ComputeConfiguration;
 import org.apache.ignite.internal.compute.state.InMemoryComputeStateMachine;
@@ -64,9 +65,12 @@ class ComputeExecutorTest extends BaseIgniteAbstractTest {
     @Test
     void threadInterruption() {
         JobExecution<Integer> execution = computeExecutor.executeJob(ExecutionOptions.DEFAULT, InterruptingJob.class, new Object[]{});
-        await().until(() -> execution.state() == EXECUTING);
+        JobStatus executingStatus = await().until(execution::status, jobStatusWithState(EXECUTING));
         execution.cancel();
-        await().untilAsserted(() -> assertThat(execution.state(), is(CANCELED)));
+        await().until(
+                execution::status,
+                jobStatusWithStateAndCreateTimeStartTime(CANCELED, executingStatus.createTime(), executingStatus.startTime())
+        );
     }
 
     private static class InterruptingJob implements ComputeJob<Integer> {
@@ -86,9 +90,12 @@ class ComputeExecutorTest extends BaseIgniteAbstractTest {
     @Test
     void cooperativeCancellation() {
         JobExecution<Integer> execution = computeExecutor.executeJob(ExecutionOptions.DEFAULT, CancellingJob.class, new Object[]{});
-        await().until(() -> execution.state() == EXECUTING);
+        JobStatus executingStatus = await().until(execution::status, jobStatusWithState(EXECUTING));
         execution.cancel();
-        await().untilAsserted(() -> assertThat(execution.state(), is(CANCELED)));
+        await().until(
+                execution::status,
+                jobStatusWithStateAndCreateTimeStartTime(CANCELED, executingStatus.createTime(), executingStatus.startTime())
+        );
     }
 
     private static class CancellingJob implements ComputeJob<Integer> {

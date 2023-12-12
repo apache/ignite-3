@@ -30,7 +30,6 @@ import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.Function;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
@@ -46,6 +45,7 @@ import org.apache.ignite.internal.tx.message.TxStateCommitPartitionRequest;
 import org.apache.ignite.internal.tx.message.TxStateCoordinatorRequest;
 import org.apache.ignite.internal.tx.message.TxStateResponse;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.network.ClusterNodeResolver;
 import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.network.NetworkMessage;
 import org.jetbrains.annotations.Nullable;
@@ -66,13 +66,10 @@ public class TransactionStateResolver {
     /** Replication service. */
     private final ReplicaService replicaService;
 
-    /** Function that resolves a node consistent ID to a cluster node. */
-    private final Function<String, ClusterNode> clusterNodeResolver;
-
     // TODO https://issues.apache.org/jira/browse/IGNITE-20408 after this ticket this resolver will be no longer needed, as
     // TODO we will store coordinator as ClusterNode in local tx state map.
-    /** Function that resolves a node non-consistent ID to a cluster node. */
-    private final Function<String, ClusterNode> clusterNodeResolverById;
+    /** Function that resolves a node consistent ID to a cluster node. */
+    private final ClusterNodeResolver clusterNodeResolver;
 
     private final Map<UUID, CompletableFuture<TransactionMeta>> txStateFutures = new ConcurrentHashMap<>();
 
@@ -89,22 +86,19 @@ public class TransactionStateResolver {
      * @param txManager Transaction manager.
      * @param clock Node clock.
      * @param clusterNodeResolver Cluster node resolver.
-     * @param clusterNodeResolverById Cluster node resolver using non-consistent id.
      * @param messagingService Messaging service.
      */
     public TransactionStateResolver(
             ReplicaService replicaService,
             TxManager txManager,
             HybridClock clock,
-            Function<String, ClusterNode> clusterNodeResolver,
-            Function<String, ClusterNode> clusterNodeResolverById,
+            ClusterNodeResolver clusterNodeResolver,
             MessagingService messagingService
     ) {
         this.replicaService = replicaService;
         this.txManager = txManager;
         this.clock = clock;
         this.clusterNodeResolver = clusterNodeResolver;
-        this.clusterNodeResolverById = clusterNodeResolverById;
         this.messagingService = messagingService;
     }
 
@@ -214,7 +208,7 @@ public class TransactionStateResolver {
     ) {
         updateLocalTxMapAfterDistributedStateResolved(txId, txMetaFuture);
 
-        ClusterNode coordinator = clusterNodeResolverById.apply(coordinatorId);
+        ClusterNode coordinator = clusterNodeResolver.getById(coordinatorId);
 
         if (coordinator == null) {
             // This means the coordinator node have either left the cluster or restarted.
@@ -289,7 +283,7 @@ public class TransactionStateResolver {
             TxStateCommitPartitionRequest request
     ) {
         ClusterNode nodeToSend = primaryReplicaMapping.get(replicaGrp).stream()
-                .map(clusterNodeResolver)
+                .map(clusterNodeResolver::getByConsistentId)
                 .filter(Objects::nonNull)
                 .findFirst()
                 .orElseThrow(() -> new IgniteInternalException("All replica nodes are unavailable"));
