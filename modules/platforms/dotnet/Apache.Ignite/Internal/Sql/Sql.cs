@@ -157,10 +157,10 @@ namespace Apache.Ignite.Internal.Sql
         {
             IgniteArgumentCheck.NotNull(statement);
 
-            var tx = transaction.ToInternal();
+            Transaction? tx = transaction.ToInternal();
 
             using var bufferWriter = ProtoCommon.GetMessageWriter();
-            WriteStatement(bufferWriter, statement, args);
+            WriteStatement(bufferWriter, statement, args, tx, writeTx: true);
 
             try
             {
@@ -210,9 +210,19 @@ namespace Apache.Ignite.Internal.Sql
         private static RowReader<T> GetReaderFactory<T>(IReadOnlyList<IColumnMetadata> cols) =>
             ResultSelector.Get<T>(cols, selectorExpression: null, ResultSelectorOptions.None);
 
-        private void WriteStatement(PooledArrayBuffer writer, SqlStatement statement, ICollection<object?>? args)
+        private void WriteStatement(
+            PooledArrayBuffer writer,
+            SqlStatement statement,
+            ICollection<object?>? args,
+            Transaction? tx = null,
+            bool writeTx = false)
         {
             var w = writer.MessageWriter;
+
+            if (writeTx)
+            {
+                w.WriteTx(tx);
+            }
 
             w.Write(statement.Schema);
             w.Write(statement.PageSize);
