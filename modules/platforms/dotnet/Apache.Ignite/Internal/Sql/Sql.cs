@@ -80,7 +80,8 @@ namespace Apache.Ignite.Internal.Sql
         {
             IgniteArgumentCheck.NotNull(script);
 
-            using var bufferWriter = Write();
+            using var bufferWriter = ProtoCommon.GetMessageWriter();
+            WriteStatement(bufferWriter, script, args);
 
             try
             {
@@ -93,25 +94,6 @@ namespace Apache.Ignite.Internal.Sql
                     ErrorGroups.Sql.StmtValidation,
                     "Invalid query, check inner exceptions for details: " + script,
                     e);
-            }
-
-            PooledArrayBuffer Write()
-            {
-                var writer = ProtoCommon.GetMessageWriter();
-                var w = writer.MessageWriter;
-
-                // TODO: Extract common code with ExecuteAsyncInternal.
-                w.Write(script.Schema);
-                w.Write(script.PageSize);
-                w.Write((long)script.Timeout.TotalMilliseconds);
-                w.WriteNil(); // Session timeout (unused, session is closed by the server immediately).
-                WriteProperties(script, ref w);
-                w.Write(script.Query);
-                w.WriteObjectCollectionAsBinaryTuple(args);
-
-                w.Write(_socket.ObservableTimestamp);
-
-                return writer;
             }
         }
 
@@ -177,7 +159,8 @@ namespace Apache.Ignite.Internal.Sql
 
             var tx = transaction.ToInternal();
 
-            using var bufferWriter = Write();
+            using var bufferWriter = ProtoCommon.GetMessageWriter();
+            WriteStatement(bufferWriter, statement, args);
 
             try
             {
@@ -193,26 +176,6 @@ namespace Apache.Ignite.Internal.Sql
                     ErrorGroups.Sql.StmtValidation,
                     "Invalid query, check inner exceptions for details: " + statement.Query,
                     e);
-            }
-
-            PooledArrayBuffer Write()
-            {
-                var writer = ProtoCommon.GetMessageWriter();
-                var w = writer.MessageWriter;
-
-                w.WriteTx(tx);
-                w.Write(statement.Schema);
-                w.Write(statement.PageSize);
-                w.Write((long)statement.Timeout.TotalMilliseconds);
-                w.WriteNil(); // Session timeout (unused, session is closed by the server immediately).
-
-                WriteProperties(statement, ref w);
-                w.Write(statement.Query);
-                w.WriteObjectCollectionAsBinaryTuple(args);
-
-                w.Write(_socket.ObservableTimestamp);
-
-                return writer;
             }
         }
 
@@ -246,5 +209,19 @@ namespace Apache.Ignite.Internal.Sql
 
         private static RowReader<T> GetReaderFactory<T>(IReadOnlyList<IColumnMetadata> cols) =>
             ResultSelector.Get<T>(cols, selectorExpression: null, ResultSelectorOptions.None);
+
+        private void WriteStatement(PooledArrayBuffer writer, SqlStatement statement, ICollection<object?>? args)
+        {
+            var w = writer.MessageWriter;
+
+            w.Write(statement.Schema);
+            w.Write(statement.PageSize);
+            w.Write((long)statement.Timeout.TotalMilliseconds);
+            w.WriteNil(); // Session timeout (unused, session is closed by the server immediately).
+            WriteProperties(statement, ref w);
+            w.Write(statement.Query);
+            w.WriteObjectCollectionAsBinaryTuple(args);
+            w.Write(_socket.ObservableTimestamp);
+        }
     }
 }
