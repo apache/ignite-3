@@ -17,11 +17,11 @@
 
 package org.apache.ignite.internal.future;
 
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import org.junit.jupiter.api.Test;
 
@@ -38,11 +38,11 @@ class OrderingFutureCallbackOrderingTest {
 
         future.thenComposeToCompletable(x -> {
             order.add(1);
-            return CompletableFuture.completedFuture(null);
+            return nullCompletedFuture();
         });
         future.thenComposeToCompletable(x -> {
             order.add(2);
-            return CompletableFuture.completedFuture(null);
+            return nullCompletedFuture();
         });
 
         assertThat(order, contains(1, 2));
@@ -55,11 +55,11 @@ class OrderingFutureCallbackOrderingTest {
 
         future.thenComposeToCompletable(x -> {
             order.add(1);
-            return CompletableFuture.completedFuture(null);
+            return nullCompletedFuture();
         });
         future.thenComposeToCompletable(x -> {
             order.add(2);
-            return CompletableFuture.completedFuture(null);
+            return nullCompletedFuture();
         });
 
         future.complete(42);
@@ -145,7 +145,7 @@ class OrderingFutureCallbackOrderingTest {
 
         future.thenComposeToCompletable(x -> {
             order.add(1);
-            return CompletableFuture.completedFuture(null);
+            return nullCompletedFuture();
         });
         future.thenCompose(x -> {
             order.add(2);
@@ -163,7 +163,7 @@ class OrderingFutureCallbackOrderingTest {
 
         future.thenComposeToCompletable(x -> {
             order.add(1);
-            return CompletableFuture.completedFuture(null);
+            return nullCompletedFuture();
         });
         future.thenCompose(x -> {
             order.add(2);

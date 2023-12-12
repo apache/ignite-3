@@ -17,9 +17,9 @@
 
 package org.apache.ignite.internal.metastorage.impl;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToLong;
 import static org.apache.ignite.internal.util.ByteUtils.longToBytes;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.cancelOrConsume;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.lang.ErrorGroups.MetaStorage.RESTORING_STORAGE_ERR;
@@ -859,7 +859,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
         if (!busyLock.enterBusy()) {
             LOG.info("Skipping applying MetaStorage revision because the node is stopping");
 
-            return completedFuture(null);
+            return nullCompletedFuture();
         }
 
         try {

@@ -18,13 +18,13 @@
 package org.apache.ignite.internal.metastorage.server;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.function.Function.identity;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.remove;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -2082,7 +2082,7 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
 
             @Override
             public CompletableFuture<Void> onRevisionApplied(WatchEvent event) {
-                return completedFuture(null);
+                return nullCompletedFuture();
             }
         });
 
@@ -2093,7 +2093,7 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
             public CompletableFuture<Void> onUpdate(WatchEvent event) {
                 fut.complete(event.entryEvent().newEntry().value());
 
-                return completedFuture(null);
+                return nullCompletedFuture();
             }
 
             @Override
@@ -2407,11 +2407,11 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
         WatchListener mockListener2 = mock(WatchListener.class);
         WatchListener mockListener3 = mock(WatchListener.class);
 
-        when(mockListener1.onUpdate(any())).thenReturn(completedFuture(null));
+        when(mockListener1.onUpdate(any())).thenReturn(nullCompletedFuture());
 
-        when(mockListener2.onUpdate(any())).thenReturn(completedFuture(null));
+        when(mockListener2.onUpdate(any())).thenReturn(nullCompletedFuture());
 
-        when(mockListener3.onUpdate(any())).thenReturn(completedFuture(null));
+        when(mockListener3.onUpdate(any())).thenReturn(nullCompletedFuture());
 
         var exception = new IllegalStateException();
 
@@ -2423,7 +2423,7 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
 
         OnRevisionAppliedCallback mockCallback = mock(OnRevisionAppliedCallback.class);
 
-        when(mockCallback.onRevisionApplied(any())).thenReturn(completedFuture(null));
+        when(mockCallback.onRevisionApplied(any())).thenReturn(nullCompletedFuture());
 
         storage.startWatches(1, mockCallback);
 
@@ -2606,12 +2606,12 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
                         resultFuture.complete(null);
                     }
 
-                    return completedFuture(null);
+                    return nullCompletedFuture();
                 } catch (Exception e) {
                     resultFuture.completeExceptionally(e);
                 }
 
-                return completedFuture(null);
+                return nullCompletedFuture();
             }
 
             @Override
@@ -2628,7 +2628,7 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
 
             @Override
             public CompletableFuture<Void> onRevisionApplied(WatchEvent event) {
-                return completedFuture(null);
+                return nullCompletedFuture();
             }
         });
 

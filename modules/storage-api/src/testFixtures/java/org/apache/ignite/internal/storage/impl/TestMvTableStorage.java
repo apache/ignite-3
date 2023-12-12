@@ -18,8 +18,8 @@
 package org.apache.ignite.internal.storage.impl;
 
 import static java.util.concurrent.CompletableFuture.allOf;
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.storage.util.StorageUtils.createMissingMvPartitionErrorMessage;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.mockito.Mockito.spy;
 
 import java.util.Map;
@@ -142,7 +142,7 @@ public class TestMvTableStorage implements MvTableStorage {
             }
         }
 
-        return completedFuture(null);
+        return nullCompletedFuture();
     }
 
     @Override
@@ -187,7 +187,7 @@ public class TestMvTableStorage implements MvTableStorage {
             hashIndex.storageByPartitionId.values().forEach(HashIndexStorage::destroy);
         }
 
-        return completedFuture(null);
+        return nullCompletedFuture();
     }
 
     @Override
@@ -225,7 +225,7 @@ public class TestMvTableStorage implements MvTableStorage {
 
             testSortedIndexStorageStream(partitionId).forEach(TestSortedIndexStorage::startRebalance);
 
-            return completedFuture(null);
+            return nullCompletedFuture();
         });
     }
 
@@ -238,7 +238,7 @@ public class TestMvTableStorage implements MvTableStorage {
 
             testSortedIndexStorageStream(partitionId).forEach(TestSortedIndexStorage::abortRebalance);
 
-            return completedFuture(null);
+            return nullCompletedFuture();
         });
     }
 
@@ -256,7 +256,7 @@ public class TestMvTableStorage implements MvTableStorage {
 
             testSortedIndexStorageStream(partitionId).forEach(TestSortedIndexStorage::finishRebalance);
 
-            return completedFuture(null);
+            return nullCompletedFuture();
         });
     }
 
@@ -268,7 +268,7 @@ public class TestMvTableStorage implements MvTableStorage {
             testHashIndexStorageStream(partitionId).forEach(TestHashIndexStorage::clear);
             testSortedIndexStorageStream(partitionId).forEach(TestSortedIndexStorage::clear);
 
-            return completedFuture(null);
+            return nullCompletedFuture();
         });
     }
 

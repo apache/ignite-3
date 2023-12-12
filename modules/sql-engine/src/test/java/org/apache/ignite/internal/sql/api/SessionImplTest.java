@@ -17,8 +17,10 @@
 
 package org.apache.ignite.internal.sql.api;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.SESSION_CLOSED_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -46,8 +48,10 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
+import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
+import org.apache.ignite.internal.sql.engine.util.ListToInternalSqlRowAdapter;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -114,13 +118,13 @@ class SessionImplTest extends BaseIgniteAbstractTest {
     @Test
     @SuppressWarnings("unchecked")
     void sessionsShouldNotExpireWhenNewQueryExecuted() {
-        AsyncSqlCursor<List<Object>> result = mock(AsyncSqlCursor.class);
+        AsyncSqlCursor<InternalSqlRow> result = mock(AsyncSqlCursor.class);
 
         when(result.requestNextAsync(anyInt()))
-                .thenReturn(CompletableFuture.completedFuture(new BatchedResult<>(List.of(List.of(0L)), false)));
+                .thenReturn(completedFuture(new BatchedResult<>(List.of(new ListToInternalSqlRowAdapter(List.of(0L))), false)));
 
         when(queryProcessor.querySingleAsync(any(), any(), any(), any(), any(Object[].class)))
-                .thenReturn(CompletableFuture.completedFuture(result));
+                .thenReturn(completedFuture(result));
 
         SessionImpl session = newSession(3);
 
@@ -154,15 +158,15 @@ class SessionImplTest extends BaseIgniteAbstractTest {
     @Test
     @SuppressWarnings("unchecked")
     void sessionsShouldNotExpireWhenResultSetAreProcessed() {
-        AsyncSqlCursor<List<Object>> result = mock(AsyncSqlCursor.class);
+        AsyncSqlCursor<InternalSqlRow> result = mock(AsyncSqlCursor.class);
 
         when(result.requestNextAsync(anyInt()))
-                .thenReturn(CompletableFuture.completedFuture(new BatchedResult<>(List.of(List.of(0L)), false)));
+                .thenReturn(completedFuture(new BatchedResult<>(List.of(new ListToInternalSqlRowAdapter(List.of(0L))), false)));
         when(result.queryType())
                 .thenReturn(SqlQueryType.QUERY);
 
         when(queryProcessor.querySingleAsync(any(), any(), any(), any(), any(Object[].class)))
-                .thenReturn(CompletableFuture.completedFuture(result));
+                .thenReturn(completedFuture(result));
 
         SessionImpl session = newSession(3);
 
@@ -205,15 +209,15 @@ class SessionImplTest extends BaseIgniteAbstractTest {
     @Test
     @SuppressWarnings("unchecked")
     void resultSetCleanItselfOnClose() {
-        AsyncSqlCursor<List<Object>> result = mock(AsyncSqlCursor.class);
+        AsyncSqlCursor<InternalSqlRow> result = mock(AsyncSqlCursor.class);
 
         when(result.requestNextAsync(anyInt()))
-                .thenReturn(CompletableFuture.completedFuture(new BatchedResult<>(List.of(List.of(0L)), true)));
+                .thenReturn(completedFuture(new BatchedResult<>(List.of(new ListToInternalSqlRowAdapter(List.of(0L))), true)));
         when(result.closeAsync())
-                .thenReturn(CompletableFuture.completedFuture(null));
+                .thenReturn(nullCompletedFuture());
 
         when(queryProcessor.querySingleAsync(any(), any(), any(), any(), any(Object[].class)))
-                .thenReturn(CompletableFuture.completedFuture(result));
+                .thenReturn(completedFuture(result));
 
         SessionImpl session = newSession(3);
 
@@ -230,7 +234,7 @@ class SessionImplTest extends BaseIgniteAbstractTest {
     @Test
     @SuppressWarnings("unchecked")
     void resultSetIsNotCreatedIfSessionIsClosedInMiddleOfOperation() throws InterruptedException {
-        CompletableFuture<AsyncSqlCursor<List<Object>>> cursorFuture = new CompletableFuture<>();
+        CompletableFuture<AsyncSqlCursor<InternalSqlRow>> cursorFuture = new CompletableFuture<>();
         CountDownLatch executeQueryLatch = new CountDownLatch(1);
         when(queryProcessor.querySingleAsync(any(), any(), any(), any(), any(Object[].class)))
                 .thenAnswer(ignored -> {
@@ -246,7 +250,7 @@ class SessionImplTest extends BaseIgniteAbstractTest {
 
         session.close();
 
-        AsyncSqlCursor<List<Object>> cursor = mock(AsyncSqlCursor.class);
+        AsyncSqlCursor<InternalSqlRow> cursor = mock(AsyncSqlCursor.class);
         cursorFuture.complete(cursor);
 
         assertThrowsSqlException(
@@ -261,21 +265,21 @@ class SessionImplTest extends BaseIgniteAbstractTest {
     @Test
     @SuppressWarnings("unchecked")
     void batchProcessingIsInterruptedIfSessionIsClosedInMiddle() throws InterruptedException {
-        AsyncSqlCursor<List<Object>> dummyResult = mock(AsyncSqlCursor.class);
+        AsyncSqlCursor<InternalSqlRow> dummyResult = mock(AsyncSqlCursor.class);
 
         when(dummyResult.requestNextAsync(anyInt()))
-                .thenReturn(CompletableFuture.completedFuture(new BatchedResult<>(List.of(List.of(0L)), false)));
+                .thenReturn(completedFuture(new BatchedResult<>(List.of(new ListToInternalSqlRowAdapter(List.of(0L))), false)));
         when(dummyResult.closeAsync())
-                .thenReturn(CompletableFuture.completedFuture(null));
+                .thenReturn(nullCompletedFuture());
 
-        CompletableFuture<AsyncSqlCursor<List<Object>>> cursorFuture = new CompletableFuture<>();
+        CompletableFuture<AsyncSqlCursor<InternalSqlRow>> cursorFuture = new CompletableFuture<>();
         CountDownLatch executeQueryLatch = new CountDownLatch(3);
         when(queryProcessor.querySingleAsync(any(), any(), any(), any(), any(Object[].class)))
                 .thenAnswer(ignored -> {
                     executeQueryLatch.countDown();
 
                     if (executeQueryLatch.getCount() > 0) {
-                        return CompletableFuture.completedFuture(dummyResult);
+                        return completedFuture(dummyResult);
                     }
 
                     return cursorFuture;
@@ -294,7 +298,7 @@ class SessionImplTest extends BaseIgniteAbstractTest {
 
         session.close();
 
-        AsyncSqlCursor<List<Object>> cursor = mock(AsyncSqlCursor.class);
+        AsyncSqlCursor<InternalSqlRow> cursor = mock(AsyncSqlCursor.class);
         cursorFuture.complete(cursor);
 
         assertThrowsSqlException(
@@ -310,19 +314,19 @@ class SessionImplTest extends BaseIgniteAbstractTest {
     @Test
     @SuppressWarnings("unchecked")
     void resultSetAreClosedWhenReadTillEnd() {
-        AsyncSqlCursor<List<Object>> result = mock(AsyncSqlCursor.class);
+        AsyncSqlCursor<InternalSqlRow> result = mock(AsyncSqlCursor.class);
 
         AtomicBoolean hasMore = new AtomicBoolean(true);
 
         when(result.requestNextAsync(anyInt()))
-                .thenAnswer(ignored -> CompletableFuture.completedFuture(new BatchedResult<>(List.of(List.of(0L)), hasMore.get())));
+                .thenAnswer(ignored -> completedFuture(new BatchedResult<>(List.of(List.of(0L)), hasMore.get())));
         when(result.queryType())
                 .thenReturn(SqlQueryType.QUERY);
         when(result.closeAsync())
-                .thenReturn(CompletableFuture.completedFuture(null));
+                .thenReturn(nullCompletedFuture());
 
         when(queryProcessor.querySingleAsync(any(), any(), any(), any(), any(Object[].class)))
-                .thenReturn(CompletableFuture.completedFuture(result));
+                .thenReturn(completedFuture(result));
 
         SessionImpl session = newSession(3);
 
@@ -345,18 +349,18 @@ class SessionImplTest extends BaseIgniteAbstractTest {
 
     @Test
     public void scriptIteratesOverCursors() {
-        AsyncSqlCursor<List<Object>> cursor1 = mock(AsyncSqlCursor.class, "cursor1");
-        AsyncSqlCursor<List<Object>> cursor2 = mock(AsyncSqlCursor.class, "cursor2");
+        AsyncSqlCursor<InternalSqlRow> cursor1 = mock(AsyncSqlCursor.class, "cursor1");
+        AsyncSqlCursor<InternalSqlRow> cursor2 = mock(AsyncSqlCursor.class, "cursor2");
 
         when(cursor1.hasNextResult()).thenReturn(true);
-        when(cursor1.nextResult()).thenReturn(CompletableFuture.completedFuture(cursor2));
-        when(cursor1.closeAsync()).thenReturn(CompletableFuture.completedFuture(null));
+        when(cursor1.nextResult()).thenReturn(completedFuture(cursor2));
+        when(cursor1.closeAsync()).thenReturn(nullCompletedFuture());
 
         when(cursor2.hasNextResult()).thenReturn(false);
-        when(cursor2.closeAsync()).thenReturn(CompletableFuture.completedFuture(null));
+        when(cursor2.closeAsync()).thenReturn(nullCompletedFuture());
 
         when(queryProcessor.queryScriptAsync(any(), any(), any(), any(), any(Object[].class)))
-                .thenReturn(CompletableFuture.completedFuture(cursor1));
+                .thenReturn(completedFuture(cursor1));
 
         SessionImpl session = newSession(3);
 
@@ -368,14 +372,14 @@ class SessionImplTest extends BaseIgniteAbstractTest {
 
     @Test
     public void scriptRethrowsExceptionFromCursor() {
-        AsyncSqlCursor<List<Object>> cursor1 = mock(AsyncSqlCursor.class);
+        AsyncSqlCursor<InternalSqlRow> cursor1 = mock(AsyncSqlCursor.class);
 
         when(cursor1.hasNextResult()).thenReturn(true);
         when(cursor1.nextResult()).thenReturn(CompletableFuture.failedFuture(new RuntimeException("Broken")));
-        when(cursor1.closeAsync()).thenReturn(CompletableFuture.completedFuture(null));
+        when(cursor1.closeAsync()).thenReturn(nullCompletedFuture());
 
         when(queryProcessor.queryScriptAsync(any(), any(), any(), any(), any(Object[].class)))
-                .thenReturn(CompletableFuture.completedFuture(cursor1));
+                .thenReturn(completedFuture(cursor1));
 
         SessionImpl session = newSession(3);
 
@@ -390,18 +394,18 @@ class SessionImplTest extends BaseIgniteAbstractTest {
 
     @Test
     public void scriptIgnoresCloseCursorException() {
-        AsyncSqlCursor<List<Object>> cursor1 = mock(AsyncSqlCursor.class, "cursor1");
-        AsyncSqlCursor<List<Object>> cursor2 = mock(AsyncSqlCursor.class, "cursor2");
+        AsyncSqlCursor<InternalSqlRow> cursor1 = mock(AsyncSqlCursor.class, "cursor1");
+        AsyncSqlCursor<InternalSqlRow> cursor2 = mock(AsyncSqlCursor.class, "cursor2");
 
         when(cursor1.hasNextResult()).thenReturn(true);
-        when(cursor1.nextResult()).thenReturn(CompletableFuture.completedFuture(cursor2));
+        when(cursor1.nextResult()).thenReturn(completedFuture(cursor2));
         when(cursor1.closeAsync()).thenReturn(CompletableFuture.failedFuture(new IllegalStateException("cursor1")));
 
         when(cursor2.hasNextResult()).thenReturn(false);
         when(cursor2.closeAsync()).thenReturn(CompletableFuture.failedFuture(new IllegalStateException("cursor2")));
 
         when(queryProcessor.queryScriptAsync(any(), any(), any(), any(), any(Object[].class)))
-                .thenReturn(CompletableFuture.completedFuture(cursor1));
+                .thenReturn(completedFuture(cursor1));
 
         SessionImpl session = newSession(3);
 
@@ -413,19 +417,19 @@ class SessionImplTest extends BaseIgniteAbstractTest {
 
     @Test
     public void scriptTerminatesWhenSessionCloses() {
-        AsyncSqlCursor<List<Object>> cursor1 = mock(AsyncSqlCursor.class, "cursor1");
-        AsyncSqlCursor<List<Object>> cursor2 = mock(AsyncSqlCursor.class, "cursor2");
+        AsyncSqlCursor<InternalSqlRow> cursor1 = mock(AsyncSqlCursor.class, "cursor1");
+        AsyncSqlCursor<InternalSqlRow> cursor2 = mock(AsyncSqlCursor.class, "cursor2");
 
-        CompletableFuture<AsyncSqlCursor<List<Object>>> cursor2Fut = new CompletableFuture<>();
+        CompletableFuture<AsyncSqlCursor<InternalSqlRow>> cursor2Fut = new CompletableFuture<>();
 
         when(cursor1.hasNextResult()).thenReturn(true);
         when(cursor1.nextResult()).thenAnswer(ignored -> cursor2Fut);
-        when(cursor1.closeAsync()).thenReturn(CompletableFuture.completedFuture(null));
+        when(cursor1.closeAsync()).thenReturn(nullCompletedFuture());
 
-        when(cursor2.closeAsync()).thenReturn(CompletableFuture.completedFuture(null));
+        when(cursor2.closeAsync()).thenReturn(nullCompletedFuture());
 
         when(queryProcessor.queryScriptAsync(any(), any(), any(), any(), any(Object[].class)))
-                .thenReturn(CompletableFuture.completedFuture(cursor1));
+                .thenReturn(completedFuture(cursor1));
 
         SessionImpl session = newSession(3);
 

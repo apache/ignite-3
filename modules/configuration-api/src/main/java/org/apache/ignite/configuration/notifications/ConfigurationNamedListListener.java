@@ -17,7 +17,7 @@
 
 package org.apache.ignite.configuration.notifications;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.concurrent.CompletableFuture;
 
@@ -34,7 +34,7 @@ public interface ConfigurationNamedListListener<VIEWT> extends ConfigurationList
      * @return Future that signifies the end of the listener execution.
      */
     default CompletableFuture<?> onCreate(ConfigurationNotificationEvent<VIEWT> ctx) {
-        return completedFuture(null);
+        return nullCompletedFuture();
     }
 
     /**
@@ -46,7 +46,7 @@ public interface ConfigurationNamedListListener<VIEWT> extends ConfigurationList
      * @return Future that signifies the end of the listener execution.
      */
     default CompletableFuture<?> onRename(ConfigurationNotificationEvent<VIEWT> ctx) {
-        return completedFuture(null);
+        return nullCompletedFuture();
     }
 
     /**
@@ -56,12 +56,12 @@ public interface ConfigurationNamedListListener<VIEWT> extends ConfigurationList
      * @return Future that signifies the end of the listener execution.
      */
     default CompletableFuture<?> onDelete(ConfigurationNotificationEvent<VIEWT> ctx) {
-        return completedFuture(null);
+        return nullCompletedFuture();
     }
 
     /** {@inheritDoc} */
     @Override
     default CompletableFuture<?> onUpdate(ConfigurationNotificationEvent<VIEWT> ctx) {
-        return completedFuture(null);
+        return nullCompletedFuture();
     }
 }

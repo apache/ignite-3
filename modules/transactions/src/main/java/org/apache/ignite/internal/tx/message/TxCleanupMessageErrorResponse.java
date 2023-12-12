@@ -15,19 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.compute.queue;
+package org.apache.ignite.internal.tx.message;
 
-import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.compute.ComputeJob;
-import org.apache.ignite.internal.compute.ExecutionOptions;
+import org.apache.ignite.network.annotations.Marshallable;
+import org.apache.ignite.network.annotations.Transferable;
 
 /**
- * Executor of Compute jobs.
+ * Cleanup transaction message error response.
  */
-public interface ComputeExecutor {
-    <R> CompletableFuture<R> executeJob(ExecutionOptions options, Class<ComputeJob<R>> jobClass, Object[] args);
-
-    void start();
-
-    void stop();
+@Transferable(TxMessageGroup.TX_CLEANUP_MSG_ERR_RESPONSE)
+public interface TxCleanupMessageErrorResponse extends TxCleanupMessageResponse {
+    /**
+     * Returns a {@link Throwable} that was thrown during handling a lock release message.
+     *
+     * @return {@link Throwable} that was thrown during handling a lock release message.
+     */
+    @Marshallable
+    Throwable throwable();
 }

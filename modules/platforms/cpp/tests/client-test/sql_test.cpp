@@ -407,3 +407,17 @@ TEST_F(sql_test, uuid_argument) {
     auto value = result_set.current_page().front().get(0).get<uuid>();
     EXPECT_EQ(req, value);
 }
+
+TEST_F(sql_test, null_column) {
+    auto result_set = m_client.get_sql().execute(nullptr, {"select NULL"}, {});
+
+    EXPECT_TRUE(result_set.has_rowset());
+
+    auto &columns = result_set.metadata().columns();
+    EXPECT_EQ(1, columns.size());
+    EXPECT_EQ(ignite_type::NIL, columns.at(0).type());
+
+    auto value = result_set.current_page().front().get(0);
+    EXPECT_EQ(ignite_type::NIL, value.get_type());
+    EXPECT_TRUE(value.is_null());
+}

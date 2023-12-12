@@ -17,11 +17,11 @@
 
 package org.apache.ignite.internal.configuration.storage;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -184,7 +184,7 @@ public class ItDistributedConfigurationStorageTest extends BaseIgniteAbstractTes
                     .forEach(IgniteComponent::start);
 
             // this is needed to avoid assertion errors
-            cfgStorage.registerConfigurationListener(changedEntries -> completedFuture(null));
+            cfgStorage.registerConfigurationListener(changedEntries -> nullCompletedFuture());
         }
 
         /**

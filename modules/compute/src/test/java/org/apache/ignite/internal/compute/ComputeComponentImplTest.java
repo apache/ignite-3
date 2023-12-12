@@ -18,6 +18,9 @@
 package org.apache.ignite.internal.compute;
 
 import static org.apache.ignite.internal.compute.ExecutionOptions.DEFAULT;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowWithCauseOrSuppressed;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
@@ -57,22 +60,23 @@ import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.compute.version.Version;
 import org.apache.ignite.internal.compute.configuration.ComputeConfiguration;
+import org.apache.ignite.internal.compute.executor.ComputeExecutor;
+import org.apache.ignite.internal.compute.executor.ComputeExecutorImpl;
 import org.apache.ignite.internal.compute.loader.JobClassLoader;
 import org.apache.ignite.internal.compute.loader.JobContext;
 import org.apache.ignite.internal.compute.loader.JobContextManager;
 import org.apache.ignite.internal.compute.message.ExecuteRequest;
 import org.apache.ignite.internal.compute.message.ExecuteResponse;
-import org.apache.ignite.internal.compute.queue.ComputeExecutor;
-import org.apache.ignite.internal.compute.queue.ComputeExecutorImpl;
+import org.apache.ignite.internal.compute.state.InMemoryComputeStateMachine;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.deployunit.DeploymentStatus;
 import org.apache.ignite.internal.deployunit.exception.DeploymentUnitNotFoundException;
 import org.apache.ignite.internal.deployunit.exception.DeploymentUnitUnavailableException;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
-import org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterNodeImpl;
@@ -143,8 +147,8 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
                 willCompleteSuccessfully()
         );
 
+        computeExecutor = new ComputeExecutorImpl(ignite, new InMemoryComputeStateMachine(computeConfiguration), computeConfiguration);
 
-        computeExecutor = new ComputeExecutorImpl(ignite, computeConfiguration);
         computeComponent = new ComputeComponentImpl(messagingService, jobContextManager, computeExecutor);
 
         computeComponent.start();
@@ -156,10 +160,10 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void executesLocally() throws Exception {
-        String result = computeComponent.<String>executeLocally(List.of(), SimpleJob.class.getName(), "a", 42).get();
+    void executesLocally() {
+        CompletableFuture<String> result = computeComponent.executeLocally(List.of(), SimpleJob.class.getName(), "a", 42);
 
-        assertThat(result, is("jobResponse"));
+        assertThat(result, willBe("jobResponse"));
 
         assertThatExecuteRequestWasNotSent();
     }
@@ -266,11 +270,9 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
     void stoppedComponentReturnsExceptionOnLocalExecutionAttempt() throws Exception {
         computeComponent.stop();
 
-        Object result = computeComponent.executeLocally(List.of(), SimpleJob.class.getName())
-                .handle((s, ex) -> ex != null ? ex : s)
-                .get();
+        CompletableFuture<Object> result = computeComponent.executeLocally(List.of(), SimpleJob.class.getName());
 
-        assertThat(result, is(instanceOf(NodeStoppingException.class)));
+        assertThat(result, willThrowWithCauseOrSuppressed(NodeStoppingException.class));
     }
 
     @Test
@@ -284,11 +286,9 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
     void stoppedComponentReturnsExceptionOnRemoteExecutionAttempt() throws Exception {
         computeComponent.stop();
 
-        Object result = computeComponent.executeRemotely(remoteNode, List.of(), SimpleJob.class.getName())
-                .handle((s, ex) -> ex != null ? ex : s)
-                .get();
+        CompletableFuture<Object> result = computeComponent.executeRemotely(remoteNode, List.of(), SimpleJob.class.getName());
 
-        assertThat(result, is(instanceOf(NodeStoppingException.class)));
+        assertThat(result, willThrowWithCauseOrSuppressed(NodeStoppingException.class));
     }
 
     @Test
@@ -327,7 +327,8 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
         ExecuteResponse response = executeResponseCaptor.getValue();
 
         assertThat(response.result(), is(nullValue()));
-        assertThat(response.throwable(), is(instanceOf(NodeStoppingException.class)));
+        assertThat(response.throwable(), is(instanceOf(IgniteInternalException.class)));
+        assertThat(response.throwable().getCause(), is(instanceOf(NodeStoppingException.class)));
     }
 
     @Test
@@ -348,23 +349,24 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
         assertThat(computeConfiguration.change(computeChange -> computeChange.changeThreadPoolStopTimeoutMillis(100)),
                 willCompleteSuccessfully());
 
-        computeComponent = new ComputeComponentImpl(messagingService, jobContextManager, computeExecutor);
+        computeComponent = new ComputeComponentImpl(
+                messagingService,
+                jobContextManager,
+                computeExecutor
+        );
         computeComponent.start();
 
         // take the only executor thread
         computeComponent.executeLocally(List.of(), LongJob.class.getName());
 
         // the corresponding task goes to work queue
-        CompletableFuture<Object> resultFuture = computeComponent.executeLocally(List.of(), SimpleJob.class.getName())
-                .handle((res, ex) -> ex != null ? ex : res);
+        CompletableFuture<Object> resultFuture = computeComponent.executeLocally(List.of(), SimpleJob.class.getName());
 
         computeComponent.stop();
 
         // now work queue is dropped to the floor, so the future should be resolved with a cancellation
 
-        Exception result = (Exception) resultFuture.get(3, TimeUnit.SECONDS);
-
-        assertThat(result.getCause(), is(instanceOf(CancellationException.class)));
+        assertThat(resultFuture, willThrow(CancellationException.class));
     }
 
     @Test
@@ -414,7 +416,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
 
         assertThat(
                 computeComponent.executeLocally(units, "com.example.Maim"),
-                CompletableFutureExceptionMatcher.willThrow(ClassNotFoundException.class)
+                willThrow(ClassNotFoundException.class)
         );
     }
 
@@ -432,7 +434,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
 
         assertThat(
                 computeComponent.executeLocally(units, "com.example.Maim"),
-                CompletableFutureExceptionMatcher.willThrow(ClassNotFoundException.class)
+                willThrow(ClassNotFoundException.class)
         );
     }
 

@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.systemview;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.systemview.SystemViewManagerImpl.NODE_ATTRIBUTES_KEY;
 import static org.apache.ignite.internal.systemview.SystemViewManagerImpl.NODE_ATTRIBUTES_LIST_SEPARATOR;
@@ -26,6 +25,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.util.CollectionUtils.first;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.SubscriptionUtils.fromIterable;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.aMapWithSize;
@@ -118,7 +118,7 @@ public class SystemViewManagerTest extends BaseIgniteAbstractTest {
 
     @Test
     public void startAfterStartFails() {
-        Mockito.when(catalog.execute(anyList())).thenReturn(completedFuture(null));
+        Mockito.when(catalog.execute(anyList())).thenReturn(nullCompletedFuture());
 
         viewMgr.register(() -> List.of(dummyView("test")));
 
@@ -145,7 +145,7 @@ public class SystemViewManagerTest extends BaseIgniteAbstractTest {
     public void registerAllColumnTypes(NativeTypeSpec typeSpec) {
         NativeType type = SchemaTestUtils.specToType(typeSpec);
 
-        Mockito.when(catalog.execute(anyList())).thenReturn(completedFuture(null));
+        Mockito.when(catalog.execute(anyList())).thenReturn(nullCompletedFuture());
 
         viewMgr.register(() -> List.of(dummyView("test", type)));
         viewMgr.start();
@@ -171,7 +171,7 @@ public class SystemViewManagerTest extends BaseIgniteAbstractTest {
 
     @Test
     public void nodeAttributesUpdatedAfterStart() {
-        Mockito.when(catalog.execute(anyList())).thenReturn(completedFuture(null));
+        Mockito.when(catalog.execute(anyList())).thenReturn(nullCompletedFuture());
 
         String name1 = "view1";
         String name2 = "view2";
@@ -248,7 +248,7 @@ public class SystemViewManagerTest extends BaseIgniteAbstractTest {
 
     @Test
     void viewScanTest() {
-        Mockito.when(catalog.execute(anyList())).thenReturn(completedFuture(null));
+        Mockito.when(catalog.execute(anyList())).thenReturn(nullCompletedFuture());
 
         String nodeView = "NODE_VIEW";
         String clusterView = "CLUSTER_VIEW";

@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.util;
 
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -44,7 +46,7 @@ public class AsyncWrapper<T> implements AsyncCursor<T> {
     private final Object lock = new Object();
 
     /** The tail of the request chain. Guarded by {@link #lock}. */
-    private CompletableFuture<BatchedResult<T>> requestChainTail = CompletableFuture.completedFuture(null);
+    private CompletableFuture<BatchedResult<T>> requestChainTail = nullCompletedFuture();
 
     private volatile boolean cancelled = false;
 

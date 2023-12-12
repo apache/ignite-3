@@ -17,13 +17,14 @@
 
 package org.apache.ignite.internal.sql.engine;
 
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+
 import java.util.NoSuchElementException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 import org.apache.ignite.internal.lang.SqlExceptionMapperUtil;
-import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.util.AsyncCursor;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.sql.ResultSetMetadata;
@@ -109,7 +110,7 @@ public class AsyncSqlCursorImpl<T> implements AsyncSqlCursor<T> {
         return dataCursor.requestNextAsync(rows)
                 .thenApply(batch -> {
                     CompletableFuture<Void> fut = batch.hasMore()
-                            ? Commons.completedFuture()
+                            ? nullCompletedFuture()
                             : closeAsync();
 
                     return fut.thenApply(none -> batch);

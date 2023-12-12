@@ -38,6 +38,7 @@ import org.apache.ignite.internal.cluster.management.network.messages.InitErrorM
 import org.apache.ignite.internal.configuration.validation.ConfigurationValidator;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.StringUtils;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
@@ -156,7 +157,7 @@ public class ClusterInitializer {
                                     initMessage.metaStorageNodes()
                             );
 
-                            return CompletableFuture.<Void>completedFuture(null);
+                            return CompletableFutures.<Void>nullCompletedFuture();
                         } else {
                             if (e instanceof CompletionException) {
                                 e = e.getCause();

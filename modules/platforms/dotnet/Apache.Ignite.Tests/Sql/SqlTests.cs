@@ -19,6 +19,7 @@ namespace Apache.Ignite.Tests.Sql
 {
     using System;
     using System.Collections.Generic;
+    using System.Diagnostics.CodeAnalysis;
     using System.Linq;
     using System.Threading.Tasks;
     using Ignite.Sql;
@@ -28,6 +29,8 @@ namespace Apache.Ignite.Tests.Sql
     /// <summary>
     /// Tests for SQL API: <see cref="ISql"/>.
     /// </summary>
+    [SuppressMessage("ReSharper", "NotDisposedResource", Justification = "Tests")]
+    [SuppressMessage("ReSharper", "NotDisposedResourceIsReturned", Justification = "Tests")]
     public class SqlTests : IgniteTestsBase
     {
         [OneTimeSetUp]
@@ -403,6 +406,23 @@ namespace Apache.Ignite.Tests.Sql
                 "Metadata = ResultSetMetadata { Columns = [ " +
                 "ColumnMetadata { Name = NUM, Type = Int32, Precision = 10, Scale = 0, Nullable = False, Origin =  }, " +
                 "ColumnMetadata { Name = STR, Type = String, Precision = 5, Scale = -2147483648, Nullable = False, Origin =  } ] } }",
+                resultSet.ToString());
+        }
+
+        [Test]
+        public async Task TestSelectNull()
+        {
+            await using IResultSet<IIgniteTuple> resultSet = await Client.Sql.ExecuteAsync(null, "select null");
+
+            var rows = await resultSet.ToListAsync();
+
+            Assert.AreEqual(1, rows.Count);
+            Assert.IsNull(rows[0][0]);
+
+            Assert.AreEqual(
+                "ResultSet`1[IIgniteTuple] { HasRowSet = True, AffectedRows = -1, WasApplied = False, " +
+                "Metadata = ResultSetMetadata { Columns = [ " +
+                "ColumnMetadata { Name = NULL, Type = Null, Precision = -1, Scale = -2147483648, Nullable = True, Origin =  } ] } }",
                 resultSet.ToString());
         }
     }

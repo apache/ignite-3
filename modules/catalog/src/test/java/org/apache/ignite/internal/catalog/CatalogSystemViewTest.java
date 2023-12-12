@@ -17,12 +17,12 @@
 
 package org.apache.ignite.internal.catalog;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.catalog.CatalogManagerImpl.INITIAL_CAUSALITY_TOKEN;
 import static org.apache.ignite.internal.catalog.CatalogService.SYSTEM_SCHEMA_NAME;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.columnParams;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.sql.ColumnType.INT32;
 import static org.apache.ignite.sql.ColumnType.STRING;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -253,7 +253,7 @@ public class CatalogSystemViewTest extends BaseCatalogManagerTest {
     @EnumSource(SystemViewType.class)
     public void testCreateSystemViewDoesNotReplaceExistingViewWithTheSameNameIfItsStructureIsTheSame(SystemViewType type) {
         EventListener<CatalogEventParameters> eventListener = mock(EventListener.class);
-        when(eventListener.notify(any(), any())).thenReturn(completedFuture(false));
+        when(eventListener.notify(any(), any())).thenReturn(falseCompletedFuture());
 
         manager.listen(CatalogEvent.SYSTEM_VIEW_CREATE, eventListener);
 

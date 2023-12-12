@@ -17,7 +17,9 @@
 
 package org.apache.ignite.client.handler;
 
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.awaitility.Awaitility.await;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doReturn;
@@ -68,6 +70,8 @@ import org.msgpack.core.MessagePack;
 @ExtendWith(ConfigurationExtension.class)
 class ClientInboundMessageHandlerTest extends BaseIgniteAbstractTest {
     private static final Duration TIMEOUT_OF_DURING = Duration.ofSeconds(2);
+
+    private static final String PROVIDER_NAME = "basic";
 
     @InjectConfiguration
     private ClientConnectorConfiguration configuration;
@@ -166,22 +170,20 @@ class ClientInboundMessageHandlerTest extends BaseIgniteAbstractTest {
         authenticationManager.listen(handler);
         securityConfiguration.listen(authenticationManager);
 
-        securityConfiguration.change(change -> {
+        CompletableFuture<Void> future = securityConfiguration.change(change -> {
             change.changeEnabled(true);
             change.changeAuthentication(authChange -> {
                 authChange.changeProviders(providersChange -> {
-                    providersChange.create("basic", basicChange -> {
+                    providersChange.create(PROVIDER_NAME, basicChange -> {
                         basicChange.convert(BasicAuthenticationProviderChange.class)
-                                .changeUsername("admin")
-                                .changePassword("password");
-                    }).create("basic1", basicChange -> {
-                        basicChange.convert(BasicAuthenticationProviderChange.class)
-                                .changeUsername("admin1")
-                                .changePassword("password");
+                                .changeUsers(users ->
+                                        users.create("admin", user -> user.changePassword("password"))
+                                                .create("admin1", user -> user.changePassword("password")));
                     });
                 });
             });
-        }).join();
+        });
+        assertThat(future, willCompleteSuccessfully());
 
         handler.channelRegistered(ctx);
     }
@@ -190,80 +192,49 @@ class ClientInboundMessageHandlerTest extends BaseIgniteAbstractTest {
     void disableAuthentication() throws IOException {
         handshake();
 
-        securityConfiguration.change(change -> {
+        CompletableFuture<Void> future = securityConfiguration.change(change -> {
             change.changeEnabled(false);
-        }).join();
+        });
+        assertThat(future, willCompleteSuccessfully());
 
         await().during(TIMEOUT_OF_DURING).untilAtomic(ctxClosed, is(false));
     }
 
     @Test
-    void enableAuthentication() throws InterruptedException, IOException {
-        securityConfiguration.change(change -> {
+    void enableAuthentication() throws IOException {
+        CompletableFuture<Void> future1 = securityConfiguration.change(change -> {
             change.changeEnabled(false);
-        }).join();
+        });
+        assertThat(future1, willCompleteSuccessfully());
 
         handshake();
 
-        securityConfiguration.change(change -> {
+        CompletableFuture<Void> future = securityConfiguration.change(change -> {
             change.changeEnabled(true);
-        }).join();
+        });
+        assertThat(future, willCompleteSuccessfully());
 
         await().untilAtomic(ctxClosed, is(true));
     }
 
     @Test
-    void changeCurrentProvider() throws IOException {
+    void changeProvider() throws IOException {
         handshake();
 
-        securityConfiguration.change(change -> {
+        CompletableFuture<Void> future = securityConfiguration.change(change -> {
             change.changeEnabled(true);
             change.changeAuthentication(authChange -> {
                 authChange.changeProviders(providersChange -> {
-                    providersChange.update("basic", basicChange -> {
+                    providersChange.update(PROVIDER_NAME, basicChange -> {
                         basicChange.convert(BasicAuthenticationProviderChange.class)
-                                .changeUsername("admin")
-                                .changePassword("new-password");
+                                .changeUsers(users ->
+                                        users.update("admin", user -> user.changePassword("new-password"))
+                                );
                     });
                 });
             });
-        }).join();
-
-        await().untilAtomic(ctxClosed, is(true));
-    }
-
-    @Test
-    void changeAnotherProvider() throws IOException {
-        handshake();
-
-        securityConfiguration.change(change -> {
-            change.changeEnabled(true);
-            change.changeAuthentication(authChange -> {
-                authChange.changeProviders(providersChange -> {
-                    providersChange.update("basic1", basicChange -> {
-                        basicChange.convert(BasicAuthenticationProviderChange.class)
-                                .changeUsername("admin1")
-                                .changePassword("new-password");
-                    });
-                });
-            });
-        }).join();
-
-        await().during(TIMEOUT_OF_DURING).untilAtomic(ctxClosed, is(false));
-    }
-
-    @Test
-    void deleteCurrentProvider() throws IOException {
-        handshake();
-
-        securityConfiguration.change(change -> {
-            change.changeEnabled(true);
-            change.changeAuthentication(authChange -> {
-                authChange.changeProviders(providersChange -> {
-                    providersChange.delete("basic");
-                });
-            });
-        }).join();
+        });
+        assertThat(future, willCompleteSuccessfully());
 
         await().untilAtomic(ctxClosed, is(true));
     }
@@ -272,34 +243,38 @@ class ClientInboundMessageHandlerTest extends BaseIgniteAbstractTest {
     void deleteAnotherProvider() throws IOException {
         handshake();
 
-        securityConfiguration.change(change -> {
+        CompletableFuture<Void> future = securityConfiguration.change(change -> {
             change.changeEnabled(true);
             change.changeAuthentication(authChange -> {
                 authChange.changeProviders(providersChange -> {
                     providersChange.delete("basic1");
                 });
             });
-        }).join();
+        });
+        assertThat(future, willCompleteSuccessfully());
 
         await().during(TIMEOUT_OF_DURING).untilAtomic(ctxClosed, is(false));
     }
 
     @Test
     void createNewProvider() throws IOException {
+        String newProviderName = "basic2";
         handshake();
 
-        securityConfiguration.change(change -> {
+        CompletableFuture<Void> future = securityConfiguration.change(change -> {
             change.changeEnabled(true);
             change.changeAuthentication(authChange -> {
                 authChange.changeProviders(providersChange -> {
-                    providersChange.create("basic2", basicChange -> {
+                    providersChange.create(newProviderName, basicChange -> {
                         basicChange.convert(BasicAuthenticationProviderChange.class)
-                                .changeUsername("admin2")
-                                .changePassword("admin");
+                                .changeUsers(users ->
+                                        users.create("admin2", user -> user.changePassword("admin"))
+                                );
                     });
                 });
             });
-        }).join();
+        });
+        assertThat(future, willCompleteSuccessfully());
 
         await().during(TIMEOUT_OF_DURING).untilAtomic(ctxClosed, is(false));
     }
@@ -315,7 +290,7 @@ class ClientInboundMessageHandlerTest extends BaseIgniteAbstractTest {
         packer.packBinaryHeader(0); // Features.
         packer.packInt(3); // Extensions.
         packer.packString("authn-type");
-        packer.packString("basic");
+        packer.packString(PROVIDER_NAME);
         packer.packString("authn-identity");
         packer.packString("admin");
         packer.packString("authn-secret");

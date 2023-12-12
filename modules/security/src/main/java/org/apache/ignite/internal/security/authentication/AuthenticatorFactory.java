@@ -17,8 +17,10 @@
 
 package org.apache.ignite.internal.security.authentication;
 
+import java.util.stream.Collectors;
 import org.apache.ignite.internal.security.authentication.basic.BasicAuthenticationProviderView;
 import org.apache.ignite.internal.security.authentication.basic.BasicAuthenticator;
+import org.apache.ignite.internal.security.authentication.basic.BasicUser;
 import org.apache.ignite.internal.security.authentication.configuration.AuthenticationProviderView;
 import org.apache.ignite.security.AuthenticationType;
 
@@ -28,7 +30,11 @@ class AuthenticatorFactory {
         AuthenticationType type = AuthenticationType.parse(view.type());
         if (type == AuthenticationType.BASIC) {
             BasicAuthenticationProviderView basicAuthProviderView = (BasicAuthenticationProviderView) view;
-            return new BasicAuthenticator(view.name(), basicAuthProviderView.username(), basicAuthProviderView.password());
+            return new BasicAuthenticator(
+                    view.name(),
+                    basicAuthProviderView.users().stream().map(basicUserView -> new BasicUser(basicUserView.username(),
+                    basicUserView.password())).collect(Collectors.toList())
+            );
         } else {
             throw new IllegalArgumentException("Unexpected authentication type: " + type);
         }

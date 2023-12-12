@@ -27,6 +27,7 @@ import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.va
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.fromParams;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.fromParamsAndPreviousValue;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -330,7 +331,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     @Override
     public CompletableFuture<Void> execute(List<CatalogCommand> commands) {
         if (nullOrEmpty(commands)) {
-            return completedFuture(null);
+            return nullCompletedFuture();
         }
 
         return saveUpdateAndWaitForActivation(new BulkUpdateProducer(List.copyOf(commands)));
@@ -478,6 +479,11 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
 
         int newVersion = catalog.version() + 1;
 
+        // It is quite important to preserve such behavior: we wait here for versionTracker to be updated. It is updated when all events
+        // that were triggered by this change will be completed. That means that any Catalog update will be completed only
+        // after all reactions to that event will be completed through the catalog event notifications mechanism.
+        // This is important for the distribution zones recovery purposes:
+        // we guarantee recovery for a zones' catalog actions only if that actions were completed.
         return updateLog.append(new VersionedUpdate(newVersion, delayDurationMsSupplier.getAsLong(), updates))
                 .thenCompose(result -> versionTracker.waitFor(newVersion).thenApply(none -> result))
                 .thenCompose(result -> {
@@ -526,6 +532,11 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
                 }
             }
 
+            // It is quite important to preserve such behavior: we wait for all events to be completed and only after that we complete
+            // versionTracker, which is used for saving any update to Catalog. That means that any Catalog update will be completed only
+            // after all reactions to that event will be completed through the catalog event notifications mechanism.
+            // This is important for the distribution zones recovery purposes:
+            // we guarantee recovery for a zones' catalog actions only if that actions were completed.
             return allOf(eventFutures.toArray(CompletableFuture[]::new))
                     .whenComplete((ignore, err) -> {
                         if (err != null) {

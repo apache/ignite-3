@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.deployunit.DeploymentStatus.OBSOLETE;
 import static org.apache.ignite.internal.deployunit.DeploymentStatus.REMOVING;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.getPath;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
+import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.mockito.ArgumentMatchers.any;
@@ -160,7 +161,7 @@ class JobContextManagerTest extends BaseIgniteAbstractTest {
 
     @Test
     public void throwsExceptionOnOnDemandDeploy() {
-        doReturn(completedFuture(false))
+        doReturn(falseCompletedFuture())
                 .when(deployment).onDemandDeploy(anyString(), any());
 
         List<DeploymentUnit> units = List.of(

@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.network.file;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
@@ -25,6 +24,7 @@ import static org.apache.ignite.internal.network.file.Channel.FILE_TRANSFER_CHAN
 import static org.apache.ignite.internal.network.file.messages.FileHeader.fromPaths;
 import static org.apache.ignite.internal.network.file.messages.FileTransferError.fromThrowable;
 import static org.apache.ignite.internal.network.file.messages.FileTransferError.toException;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.io.IOException;
 import java.nio.file.Path;
@@ -626,7 +626,7 @@ public class FileTransferServiceImpl implements FileTransferService {
                 }
             }
 
-            return completedFuture(null);
+            return nullCompletedFuture();
         }
 
         /**

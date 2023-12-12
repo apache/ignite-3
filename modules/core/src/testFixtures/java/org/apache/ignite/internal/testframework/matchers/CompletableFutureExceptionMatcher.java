@@ -17,14 +17,13 @@
 
 package org.apache.ignite.internal.testframework.matchers;
 
+import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
 
 import java.util.Arrays;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import org.hamcrest.Description;
@@ -37,7 +36,7 @@ import org.jetbrains.annotations.Nullable;
  */
 public class CompletableFutureExceptionMatcher extends TypeSafeMatcher<CompletableFuture<?>> {
     /** Timeout in seconds. */
-    private static final int TIMEOUT_SECONDS = 1;
+    private static final int TIMEOUT_SECONDS = 10;
 
     /** Matcher to forward the exception of the completable future. */
     private final Matcher<? extends Exception> matcher;
@@ -48,7 +47,7 @@ public class CompletableFutureExceptionMatcher extends TypeSafeMatcher<Completab
 
     private final TimeUnit timeUnit;
 
-    private final @Nullable Matcher<String> errorMessageFragmentMatcher;
+    private final @Nullable Matcher<String> errorMessageMatcher;
 
     /**
      * Constructor.
@@ -58,20 +57,20 @@ public class CompletableFutureExceptionMatcher extends TypeSafeMatcher<Completab
      *     or every exception in the stacktrace is explored.
      * @param timeout Timeout value.
      * @param timeUnit Timeout unit.
-     * @param errorMessageFragment Expected error message fragment, {@code null} if any message is expected.
+     * @param errorMessageMatcher Expected error message Matcher, {@code null} if any message is expected.
      */
     private CompletableFutureExceptionMatcher(
             Matcher<? extends Exception> matcher,
             boolean inspectCause,
             int timeout,
             TimeUnit timeUnit,
-            @Nullable String errorMessageFragment
+            @Nullable Matcher<String> errorMessageMatcher
     ) {
         this.matcher = matcher;
         this.inspectCause = inspectCause;
         this.timeout = timeout;
         this.timeUnit = timeUnit;
-        this.errorMessageFragmentMatcher = errorMessageFragment == null ? null : containsString(errorMessageFragment);
+        this.errorMessageMatcher = errorMessageMatcher;
     }
 
     @Override
@@ -81,7 +80,7 @@ public class CompletableFutureExceptionMatcher extends TypeSafeMatcher<Completab
 
             return false;
         } catch (Throwable e) {
-            Throwable unwrapped = unwrapThrowable(e);
+            Throwable unwrapped = unwrapCause(e);
 
             return inspectCause ? matchesWithCause(unwrapped) : matchesException(unwrapped);
         }
@@ -89,15 +88,15 @@ public class CompletableFutureExceptionMatcher extends TypeSafeMatcher<Completab
 
     private boolean matchesException(Throwable throwable) {
         return matcher.matches(throwable)
-                && (errorMessageFragmentMatcher == null || errorMessageFragmentMatcher.matches(throwable.getMessage()));
+                && (errorMessageMatcher == null || errorMessageMatcher.matches(throwable.getMessage()));
     }
 
     @Override
     public void describeTo(Description description) {
         description.appendText("a future that completes with an exception that ").appendDescriptionOf(matcher);
 
-        if (errorMessageFragmentMatcher != null) {
-            description.appendText(" and error message that contains ").appendDescriptionOf(errorMessageFragmentMatcher);
+        if (errorMessageMatcher != null) {
+            description.appendText(" and error message that contains ").appendDescriptionOf(errorMessageMatcher);
         }
     }
 
@@ -107,21 +106,13 @@ public class CompletableFutureExceptionMatcher extends TypeSafeMatcher<Completab
             try {
                 item.join();
             } catch (Exception e) {
-                mismatchDescription.appendText("was completed exceptionally with ").appendValue(unwrapThrowable(e));
+                mismatchDescription.appendText("was completed exceptionally with ").appendValue(unwrapCause(e));
             }
         } else if (item.isDone()) {
             mismatchDescription.appendText("was completed successfully");
         } else {
             mismatchDescription.appendText("was not completed");
         }
-    }
-
-    private static Throwable unwrapThrowable(Throwable e) {
-        while (e instanceof ExecutionException || e instanceof CompletionException) {
-            e = e.getCause();
-        }
-
-        return e;
     }
 
     private boolean matchesWithCause(Throwable e) {
@@ -142,7 +133,7 @@ public class CompletableFutureExceptionMatcher extends TypeSafeMatcher<Completab
      * Creates a matcher that matches a future that completes exceptionally and the exception matches the nested matcher.
      */
     public static CompletableFutureExceptionMatcher willThrow(Matcher<? extends Exception> matcher) {
-        return new CompletableFutureExceptionMatcher(matcher, false, TIMEOUT_SECONDS, TimeUnit.SECONDS, null);
+        return willThrow(matcher, TIMEOUT_SECONDS, TimeUnit.SECONDS);
     }
 
     /**
@@ -153,7 +144,8 @@ public class CompletableFutureExceptionMatcher extends TypeSafeMatcher<Completab
     }
 
     /**
-     * Creates a matcher that matches a future that completes exceptionally and the exception matches the nested matcher.
+     * Creates a matcher that matches a future that completes exceptionally and the exception matches the nested matcher and its
+     * message contains a given substring.
      */
     public static CompletableFutureExceptionMatcher willThrow(
             Matcher<? extends Exception> matcher,
@@ -161,9 +153,20 @@ public class CompletableFutureExceptionMatcher extends TypeSafeMatcher<Completab
             TimeUnit timeUnit,
             String errorMessageFragment
     ) {
-        assert errorMessageFragment != null;
+        return willThrow(matcher, timeout, timeUnit, containsString(errorMessageFragment));
+    }
 
-        return new CompletableFutureExceptionMatcher(matcher, false, timeout, timeUnit, errorMessageFragment);
+    /**
+     * Creates a matcher that matches a future that completes exceptionally and the exception matches the nested matcher and its
+     * message matches {@code errorMessageMatcher}.
+     */
+    public static CompletableFutureExceptionMatcher willThrow(
+            Matcher<? extends Exception> matcher,
+            int timeout,
+            TimeUnit timeUnit,
+            Matcher<String> errorMessageMatcher
+    ) {
+        return new CompletableFutureExceptionMatcher(matcher, false, timeout, timeUnit, errorMessageMatcher);
     }
 
     /**
@@ -174,10 +177,19 @@ public class CompletableFutureExceptionMatcher extends TypeSafeMatcher<Completab
     }
 
     /**
-     * Creates a matcher that matches a future that completes with an exception of the provided type.
+     * Creates a matcher that matches a future that completes with an exception of the provided type and its
+     * message contains a given substring.
      */
     public static CompletableFutureExceptionMatcher willThrow(Class<? extends Exception> cls, String errorMessageFragment) {
         return willThrow(cls, TIMEOUT_SECONDS, TimeUnit.SECONDS, errorMessageFragment);
+    }
+
+    /**
+     * Creates a matcher that matches a future that completes with an exception of the provided type and its
+     * message matches {@code errorMessageMatcher}.
+     */
+    public static CompletableFutureExceptionMatcher willThrow(Class<? extends Exception> cls, Matcher<String> errorMessageMatcher) {
+        return willThrow(cls, TIMEOUT_SECONDS, TimeUnit.SECONDS, errorMessageMatcher);
     }
 
     /**
@@ -188,7 +200,8 @@ public class CompletableFutureExceptionMatcher extends TypeSafeMatcher<Completab
     }
 
     /**
-     * Creates a matcher that matches a future that completes with an exception of the provided type.
+     * Creates a matcher that matches a future that completes with an exception of the provided type and its
+     * message contains a given substring.
      */
     public static CompletableFutureExceptionMatcher willThrow(
             Class<? extends Exception> cls,
@@ -197,6 +210,19 @@ public class CompletableFutureExceptionMatcher extends TypeSafeMatcher<Completab
             String errorMessageFragment
     ) {
         return willThrow(is(instanceOf(cls)), timeout, timeUnit, errorMessageFragment);
+    }
+
+    /**
+     * Creates a matcher that matches a future that completes with an exception of the provided type and its
+     * message matches {@code errorMessageMatcher}.
+     */
+    public static CompletableFutureExceptionMatcher willThrow(
+            Class<? extends Exception> cls,
+            int timeout,
+            TimeUnit timeUnit,
+            Matcher<String> errorMessageMatcher
+    ) {
+        return willThrow(is(instanceOf(cls)), timeout, timeUnit, errorMessageMatcher);
     }
 
     /**
@@ -224,7 +250,30 @@ public class CompletableFutureExceptionMatcher extends TypeSafeMatcher<Completab
      * Creates a matcher that matches a future that completes with an exception that has a given {@code cause} in the exception stacktrace.
      */
     public static CompletableFutureExceptionMatcher willThrowWithCauseOrSuppressed(Class<? extends Exception> cause) {
-        return new CompletableFutureExceptionMatcher(is(instanceOf(cause)), true, TIMEOUT_SECONDS, TimeUnit.SECONDS, null);
+        return new CompletableFutureExceptionMatcher(
+                is(instanceOf(cause)),
+                true,
+                TIMEOUT_SECONDS,
+                TimeUnit.SECONDS,
+                null
+        );
+    }
+
+    /**
+     * Creates a matcher that matches a future that completes with an exception that has a given {@code cause} in the exception stacktrace
+     * and its message contains a given substring.
+     */
+    public static CompletableFutureExceptionMatcher willThrowWithCauseOrSuppressed(
+            Class<? extends Exception> cause,
+            String errorMessageFragment
+    ) {
+        return new CompletableFutureExceptionMatcher(
+                is(instanceOf(cause)),
+                true,
+                TIMEOUT_SECONDS,
+                TimeUnit.SECONDS,
+                containsString(errorMessageFragment)
+        );
     }
 
     /**

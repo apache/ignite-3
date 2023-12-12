@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.testframework.util;
 
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -78,7 +80,7 @@ public class DirectExecutor implements ExecutorService {
     @Override
     public Future<?> submit(Runnable task) {
         task.run();
-        return CompletableFuture.completedFuture(null);
+        return nullCompletedFuture();
     }
 
     @Override

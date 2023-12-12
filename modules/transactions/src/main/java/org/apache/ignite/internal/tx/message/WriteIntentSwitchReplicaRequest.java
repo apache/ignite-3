@@ -27,15 +27,11 @@ import org.apache.ignite.network.annotations.Transferable;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Transaction cleanup replica request that will trigger following actions processing.
- *
- *  <ol>
- *      <li>Convert all pending entries(writeIntents) to either regular values(TxState.COMMITED) or remove them (TxState.ABORTED).</li>
- *      <li>Release all locks that were held on local replica by given transaction.</li>
- *  </ol>
+ * A replica request that either triggers the conversion of all pending entries(writeIntents) to regular values(TxState.COMMITTED)
+ * or removes them (TxState.ABORTED).
  */
-@Transferable(TxMessageGroup.TX_CLEANUP_REQUEST)
-public interface TxCleanupReplicaRequest extends ReplicaRequest, TimestampAware {
+@Transferable(TxMessageGroup.WRITE_INTENT_SWITCH_REQUEST)
+public interface WriteIntentSwitchReplicaRequest extends ReplicaRequest, TimestampAware {
     /**
      * Returns transaction Id.
      *

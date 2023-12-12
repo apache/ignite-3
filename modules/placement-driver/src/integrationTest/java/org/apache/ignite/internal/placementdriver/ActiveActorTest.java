@@ -22,6 +22,7 @@ import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.placementdriver.ActiveActorTest.TestReplicationGroup.GROUP_ID;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.clusterService;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -434,7 +435,7 @@ public class ActiveActorTest extends IgniteAbstractTest {
             int clientPort
     ) {
         when(msm.recoveryFinishedFuture()).thenReturn(completedFuture(0L));
-        when(msm.invoke(any(), any(Operation.class), any(Operation.class))).thenReturn(completedFuture(true));
+        when(msm.invoke(any(), any(Operation.class), any(Operation.class))).thenReturn(trueCompletedFuture());
         when(msm.getLocally(any(), anyLong())).then(invocation -> emptyMetastoreEntry());
 
         List<NetworkAddress> addresses = getNetworkAddresses(nodes);

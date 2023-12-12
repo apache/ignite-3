@@ -19,13 +19,13 @@ package org.apache.ignite.internal.sql.engine.sql;
 
 import java.util.List;
 import java.util.Objects;
+import org.apache.calcite.sql.SqlCall;
 import org.apache.calcite.sql.SqlCreate;
 import org.apache.calcite.sql.SqlIdentifier;
 import org.apache.calcite.sql.SqlKind;
+import org.apache.calcite.sql.SqlLiteral;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlNodeList;
-import org.apache.calcite.sql.SqlOperator;
-import org.apache.calcite.sql.SqlSpecialOperator;
 import org.apache.calcite.sql.SqlWriter;
 import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.util.ImmutableNullableList;
@@ -35,6 +35,24 @@ import org.jetbrains.annotations.Nullable;
  * Parse tree for {@code CREATE TABLE} statement with Ignite specific features.
  */
 public class IgniteSqlCreateTable extends SqlCreate {
+
+    /** CREATE TABLE operator. */
+    protected static class Operator extends IgniteDdlOperator {
+
+        /** Constructor. */
+        protected Operator(boolean existFlag) {
+            super("CREATE TABLE", SqlKind.CREATE_TABLE, existFlag);
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public SqlCall createCall(@Nullable SqlLiteral functionQualifier, SqlParserPos pos,
+                @Nullable SqlNode... operands) {
+            return new IgniteSqlCreateTable(pos, existFlag(), (SqlIdentifier) operands[0], (SqlNodeList) operands[1],
+                    (SqlNodeList) operands[2], (SqlNodeList) operands[3]);
+        }
+    }
+
     private final SqlIdentifier name;
 
     private final @Nullable SqlNodeList columnList;
@@ -42,8 +60,6 @@ public class IgniteSqlCreateTable extends SqlCreate {
     private final @Nullable SqlNodeList colocationColumns;
 
     private final @Nullable SqlNodeList createOptionList;
-
-    private static final SqlOperator OPERATOR = new SqlSpecialOperator("CREATE TABLE", SqlKind.CREATE_TABLE);
 
     /** Creates a SqlCreateTable. */
     public IgniteSqlCreateTable(
@@ -54,7 +70,7 @@ public class IgniteSqlCreateTable extends SqlCreate {
             @Nullable SqlNodeList colocationColumns,
             @Nullable SqlNodeList createOptionList
     ) {
-        super(OPERATOR, pos, false, ifNotExists);
+        super(new Operator(ifNotExists), pos, false, ifNotExists);
 
         this.name = Objects.requireNonNull(name, "name");
         this.columnList = columnList;
@@ -63,10 +79,16 @@ public class IgniteSqlCreateTable extends SqlCreate {
     }
 
     /** {@inheritDoc} */
+    @Override
+    public IgniteDdlOperator getOperator() {
+        return (IgniteDdlOperator) super.getOperator();
+    }
+
+    /** {@inheritDoc} */
     @SuppressWarnings("nullness")
     @Override
     public List<SqlNode> getOperandList() {
-        return ImmutableNullableList.of(name, columnList, createOptionList);
+        return ImmutableNullableList.of(name, columnList, colocationColumns, createOptionList);
     }
 
     /** {@inheritDoc} */
@@ -74,7 +96,7 @@ public class IgniteSqlCreateTable extends SqlCreate {
     public void unparse(SqlWriter writer, int leftPrec, int rightPrec) {
         writer.keyword("CREATE");
         writer.keyword("TABLE");
-        if (ifNotExists) {
+        if (ifNotExists()) {
             writer.keyword("IF NOT EXISTS");
         }
 
@@ -135,6 +157,7 @@ public class IgniteSqlCreateTable extends SqlCreate {
      * Get whether the IF NOT EXISTS is specified.
      */
     public boolean ifNotExists() {
-        return ifNotExists;
+        Operator operator = (Operator) getOperator();
+        return operator.existFlag();
     }
 }

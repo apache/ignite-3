@@ -22,6 +22,7 @@ import static java.util.stream.Collectors.toUnmodifiableList;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.nullValue;
@@ -206,7 +207,7 @@ public class ItDistributedConfigurationPropertiesTest extends BaseIgniteAbstract
                         if (receivesUpdates) {
                             return listener.onEntriesChanged(changedEntries);
                         } else {
-                            return CompletableFuture.completedFuture(null);
+                            return nullCompletedFuture();
                         }
                     });
                 }

@@ -17,10 +17,10 @@
 
 package org.apache.ignite.internal.catalog.storage;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
@@ -85,7 +85,7 @@ class UpdateLogImplTest extends BaseIgniteAbstractTest {
     @Test
     void logReplayedOnStart() throws Exception {
         // First, let's append a few entries to the update log.
-        UpdateLogImpl updateLogImpl = createAndStartUpdateLogImpl((update, ts, causalityToken) -> completedFuture(null));
+        UpdateLogImpl updateLogImpl = createAndStartUpdateLogImpl((update, ts, causalityToken) -> nullCompletedFuture());
 
         assertThat(metastore.deployWatches(), willCompleteSuccessfully());
 
@@ -103,7 +103,7 @@ class UpdateLogImplTest extends BaseIgniteAbstractTest {
         createAndStartUpdateLogImpl((update, ts, causalityToken) -> {
             actualUpdates.add(update);
 
-            return completedFuture(null);
+            return nullCompletedFuture();
         });
 
         // Let's check that we have recovered to the latest version.
@@ -172,7 +172,7 @@ class UpdateLogImplTest extends BaseIgniteAbstractTest {
             appliedVersions.add(update.version());
             causalityTokens.add(causalityToken);
 
-            return completedFuture(null);
+            return nullCompletedFuture();
         });
 
         long revisionBefore = metastore.appliedRevision();

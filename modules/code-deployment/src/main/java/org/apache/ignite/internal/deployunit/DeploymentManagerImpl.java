@@ -18,13 +18,14 @@
 package org.apache.ignite.internal.deployunit;
 
 import static java.util.concurrent.CompletableFuture.allOf;
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.deployunit.DeploymentStatus.DEPLOYED;
 import static org.apache.ignite.internal.deployunit.DeploymentStatus.OBSOLETE;
 import static org.apache.ignite.internal.deployunit.DeploymentStatus.REMOVING;
 import static org.apache.ignite.internal.deployunit.DeploymentStatus.UPLOADING;
 import static org.apache.ignite.internal.deployunit.UnitContent.toDeploymentUnit;
+import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
 
 import java.nio.file.Path;
 import java.time.Duration;
@@ -256,7 +257,7 @@ public class DeploymentManagerImpl implements IgniteDeployment {
                                 DEPLOYED
                         );
                     }
-                    return completedFuture(false);
+                    return falseCompletedFuture();
                 });
     }
 
@@ -353,10 +354,10 @@ public class DeploymentManagerImpl implements IgniteDeployment {
         return deploymentUnitStore.getAllNodes(id, version)
                 .thenCompose(nodes -> {
                     if (nodes.isEmpty()) {
-                        return completedFuture(false);
+                        return falseCompletedFuture();
                     }
                     if (nodes.contains(nodeName)) {
-                        return completedFuture(true);
+                        return trueCompletedFuture();
                     }
                     return messaging.downloadUnitContent(id, version, nodes)
                             .thenCompose(content -> {

@@ -18,6 +18,9 @@
 package org.apache.ignite.internal.client.table;
 
 import static org.apache.ignite.internal.client.ClientUtils.sync;
+import static org.apache.ignite.internal.util.CompletableFutures.emptyCollectionCompletedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.emptyMapCompletedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.Collection;
 import java.util.Collections;
@@ -94,7 +97,7 @@ public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
         Objects.requireNonNull(keys);
 
         if (keys.isEmpty()) {
-            return CompletableFuture.completedFuture(Collections.emptyMap());
+            return emptyMapCompletedFuture();
         }
 
         return tbl.doSchemaOutInOpAsync(
@@ -192,7 +195,7 @@ public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
         Objects.requireNonNull(pairs);
 
         if (pairs.isEmpty()) {
-            return CompletableFuture.completedFuture(null);
+            return nullCompletedFuture();
         }
 
         return tbl.doSchemaOutOpAsync(
@@ -310,7 +313,7 @@ public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
         Objects.requireNonNull(keys);
 
         if (keys.isEmpty()) {
-            return CompletableFuture.completedFuture(Collections.emptyList());
+            return emptyCollectionCompletedFuture();
         }
 
         return tbl.doSchemaOutInOpAsync(

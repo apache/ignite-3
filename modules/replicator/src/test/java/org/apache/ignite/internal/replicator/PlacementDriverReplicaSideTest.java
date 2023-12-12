@@ -21,6 +21,7 @@ import static java.lang.System.currentTimeMillis;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -91,14 +92,14 @@ public class PlacementDriverReplicaSideTest extends BaseIgniteAbstractTest {
             LeaderElectionListener callback = invocationOnMock.getArgument(0);
             callbackHolder.set(callback);
 
-            return completedFuture(null);
+            return nullCompletedFuture();
         });
 
         when(raftClient.transferLeadership(any())).thenAnswer(invocationOnMock -> {
             Peer peer = invocationOnMock.getArgument(0);
             currentLeader = peer;
 
-            return completedFuture(null);
+            return nullCompletedFuture();
         });
 
         when(raftClient.readIndex()).thenAnswer(invocationOnMock -> {
@@ -112,7 +113,7 @@ public class PlacementDriverReplicaSideTest extends BaseIgniteAbstractTest {
 
         return new Replica(
                 GRP_ID,
-                completedFuture(null),
+                nullCompletedFuture(),
                 mock(ReplicaListener.class),
                 storageIndexTracker,
                 raftClient,

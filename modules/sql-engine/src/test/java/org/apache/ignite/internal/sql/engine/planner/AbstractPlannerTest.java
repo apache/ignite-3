@@ -225,7 +225,7 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
         return plannerCtx(sql, Collections.singleton(publicSchema), null, List.of(), disabledRules);
     }
 
-    private PlanningContext plannerCtx(
+    protected PlanningContext plannerCtx(
             String sql,
             Collection<IgniteSchema> schemas,
             HintStrategyTable hintStrategies,

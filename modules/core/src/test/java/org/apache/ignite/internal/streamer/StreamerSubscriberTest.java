@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.streamer;
 
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 
@@ -144,7 +145,7 @@ class StreamerSubscriberTest extends BaseIgniteAbstractTest {
 
             @Override
             public CompletableFuture<Void> refreshAsync() {
-                return CompletableFuture.completedFuture(null);
+                return nullCompletedFuture();
             }
         };
 

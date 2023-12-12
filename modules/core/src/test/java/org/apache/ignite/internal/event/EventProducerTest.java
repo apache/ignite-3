@@ -20,6 +20,7 @@ package org.apache.ignite.internal.event;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.runAsync;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -87,12 +88,12 @@ public class EventProducerTest {
                 listener = createEventListener((p, e) -> {
                     toRemoveFuture.complete(null);
 
-                    return completedFuture(false);
+                    return falseCompletedFuture();
                 });
 
                 listenerToRemove = listener;
             } else {
-                listener = createEventListener((p, e) -> completedFuture(false));
+                listener = createEventListener((p, e) -> falseCompletedFuture());
             }
 
             producer.listen(TestEvent.TEST, listener);

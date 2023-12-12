@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.raft.client;
 
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -145,7 +147,7 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
                                                 }, executor);
                                     }
 
-                                    return CompletableFuture.completedFuture(null);
+                                    return nullCompletedFuture();
                                 }, executor);
                     }
                 }
@@ -297,7 +299,7 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
                         .subscribe(true)
                         .build());
             } else {
-                futs[i] = CompletableFuture.completedFuture(null);
+                futs[i] = nullCompletedFuture();
             }
         }
 

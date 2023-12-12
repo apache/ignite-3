@@ -25,6 +25,8 @@ import static org.apache.ignite.internal.network.file.PathAssertions.namesAndCon
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowWithCauseOrSuppressed;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
+import static org.apache.ignite.internal.util.CompletableFutures.emptyListCompletedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
@@ -291,7 +293,7 @@ public class ItFileTransferTest extends BaseIgniteAbstractTest {
         Node sourceNode = cluster.members.get(0);
         sourceNode.fileTransferService().addFileProvider(
                 Identifier.class,
-                req -> completedFuture(List.of())
+                req -> emptyListCompletedFuture()
         );
 
         // Download files on the target node from the source node.
@@ -365,7 +367,7 @@ public class ItFileTransferTest extends BaseIgniteAbstractTest {
         Node sourceNode = cluster.members.get(0);
         sourceNode.fileTransferService().addFileProvider(
                 Identifier.class,
-                req -> completedFuture(List.of())
+                req -> emptyListCompletedFuture()
         );
 
         // Upload files to the target node from the source node.
@@ -410,7 +412,7 @@ public class ItFileTransferTest extends BaseIgniteAbstractTest {
         CompletableFuture<List<Path>> uploadedFilesFuture = new CompletableFuture<>();
         targetNode.fileTransferService().addFileConsumer(Identifier.class, ((identifier, uploadedFiles) -> {
             uploadedFilesFuture.complete(uploadedFiles);
-            return completedFuture(null);
+            return nullCompletedFuture();
         }));
 
         // Upload files to the target node from the source node.
@@ -447,7 +449,7 @@ public class ItFileTransferTest extends BaseIgniteAbstractTest {
         CompletableFuture<List<Path>> uploadedFilesFuture = new CompletableFuture<>();
         targetNode.fileTransferService().addFileConsumer(Identifier.class, ((identifier, uploadedFiles) -> {
             uploadedFilesFuture.complete(uploadedFiles);
-            return completedFuture(null);
+            return nullCompletedFuture();
         }));
 
         // Upload files to the target node from the source node.

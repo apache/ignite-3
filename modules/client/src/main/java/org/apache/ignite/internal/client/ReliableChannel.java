@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.client;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Client.CLUSTER_ID_MISMATCH_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Client.CONFIGURATION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Client.CONNECTION_ERR;
@@ -261,7 +263,7 @@ public final class ReliableChannel implements AutoCloseable {
             if (holder != null) {
                 return holder.getOrCreateChannelAsync().thenCompose(ch -> {
                     if (ch != null) {
-                        return CompletableFuture.completedFuture(ch);
+                        return completedFuture(ch);
                     } else {
                         return getDefaultChannelAsync();
                     }
@@ -273,7 +275,7 @@ public final class ReliableChannel implements AutoCloseable {
         ClientChannel nextCh = getNextChannelWithoutReconnect();
 
         if (nextCh != null) {
-            return CompletableFuture.completedFuture(nextCh);
+            return completedFuture(nextCh);
         }
 
         // 3. Default connection (with reconnect if necessary).
@@ -484,7 +486,7 @@ public final class ReliableChannel implements AutoCloseable {
     CompletableFuture<ClientChannel> channelsInitAsync() {
         // Do not establish connections if interrupted.
         if (!initChannelHolders()) {
-            return CompletableFuture.completedFuture(null);
+            return nullCompletedFuture();
         }
 
         // Establish default channel connection.
@@ -552,11 +554,11 @@ public final class ReliableChannel implements AutoCloseable {
             var hld = channels.get(defaultChIdx);
 
             if (hld == null) {
-                return CompletableFuture.completedFuture(null);
+                return nullCompletedFuture();
             }
 
             CompletableFuture<ClientChannel> fut = hld.getOrCreateChannelAsync();
-            return fut == null ? CompletableFuture.completedFuture(null) : fut;
+            return fut == null ? nullCompletedFuture() : fut;
         } finally {
             curChannelsGuard.readLock().unlock();
         }
@@ -753,7 +755,7 @@ public final class ReliableChannel implements AutoCloseable {
          */
         private CompletableFuture<ClientChannel> getOrCreateChannelAsync(boolean ignoreThrottling) {
             if (close) {
-                return CompletableFuture.completedFuture(null);
+                return nullCompletedFuture();
             }
 
             var chFut0 = chFut;
@@ -764,7 +766,7 @@ public final class ReliableChannel implements AutoCloseable {
 
             synchronized (this) {
                 if (close) {
-                    return CompletableFuture.completedFuture(null);
+                    return nullCompletedFuture();
                 }
 
                 chFut0 = chFut;

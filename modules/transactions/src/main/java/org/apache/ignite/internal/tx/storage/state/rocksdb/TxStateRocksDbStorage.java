@@ -17,11 +17,11 @@
 
 package org.apache.ignite.internal.tx.storage.state.rocksdb;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToLong;
 import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
 import static org.apache.ignite.internal.util.ByteUtils.putLongToBytes;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_STATE_STORAGE_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_STATE_STORAGE_REBALANCE_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_STATE_STORAGE_STOPPED_ERR;
@@ -444,7 +444,7 @@ public class TxStateRocksDbStorage implements TxStateStorage {
 
             db.write(writeOptions, writeBatch);
 
-            return completedFuture(null);
+            return nullCompletedFuture();
         } catch (Exception e) {
             throw new IgniteInternalException(
                     TX_STATE_STORAGE_REBALANCE_ERR,
@@ -459,7 +459,7 @@ public class TxStateRocksDbStorage implements TxStateStorage {
     @Override
     public CompletableFuture<Void> abortRebalance() {
         if (state.get() != StorageState.REBALANCE) {
-            return completedFuture(null);
+            return nullCompletedFuture();
         }
 
         try (WriteBatch writeBatch = new WriteBatch()) {
@@ -481,7 +481,7 @@ public class TxStateRocksDbStorage implements TxStateStorage {
             );
         }
 
-        return completedFuture(null);
+        return nullCompletedFuture();
     }
 
     @Override
@@ -507,7 +507,7 @@ public class TxStateRocksDbStorage implements TxStateStorage {
             );
         }
 
-        return completedFuture(null);
+        return nullCompletedFuture();
     }
 
     @Override
@@ -526,7 +526,7 @@ public class TxStateRocksDbStorage implements TxStateStorage {
 
             db.write(writeOptions, writeBatch);
 
-            return completedFuture(null);
+            return nullCompletedFuture();
         } catch (RocksDBException e) {
             throw new IgniteInternalException(
                     TX_STATE_STORAGE_ERR,
