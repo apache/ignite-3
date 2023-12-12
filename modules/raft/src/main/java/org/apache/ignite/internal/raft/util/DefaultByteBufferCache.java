@@ -37,6 +37,8 @@ public class DefaultByteBufferCache implements ByteBufferCache {
     private final AtomicInteger size = new AtomicInteger();
 
     /**
+     * Constructor.
+     *
      * @param capacity The maximum number of buffers that the cache should hold. Not strict.
      */
     public DefaultByteBufferCache(int capacity) {
