@@ -880,7 +880,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
      * Note that because of the executor of scale up/scale down tasks is single-threaded, this
      * method also blocks scale up tasks execution.
      *
-     * @return Latch to unblock execution of scale up tasks.
+     * @return Latch to unblock execution of scale down tasks.
      */
     private static CountDownLatch blockScaleDownTaskExecution(int zoneId, DistributionZoneManager distributionZoneManager) {
         CountDownLatch scaleDownLatch = new CountDownLatch(2);
