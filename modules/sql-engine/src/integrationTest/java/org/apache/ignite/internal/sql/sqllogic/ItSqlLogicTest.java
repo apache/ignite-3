@@ -299,7 +299,7 @@ public class ItSqlLogicTest extends IgniteIntegrationTest {
         ThreadMXBean bean = ManagementFactory.getThreadMXBean();
         ThreadInfo[] infos = bean.dumpAllThreads(true, true);
 
-        LOG.error("Dumping threads after catching", e);
+        LOG.info("Dumping threads after catching", e);
 
         for (ThreadInfo info : infos) {
             LOG.info(info.toString());
