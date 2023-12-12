@@ -572,8 +572,7 @@ const char *connection_info::info_type_to_string(info_type type) {
 
 #undef DBG_STR_CASE
 
-connection_info::connection_info(const configuration &config)
-    : config(config) {
+void connection_info::rebuild() {
     //
     //======================= String Params =======================
     //
@@ -2523,6 +2522,11 @@ connection_info::connection_info(const configuration &config)
     //     keywords.
     m_short_params[SQL_NULL_COLLATION] = SQL_NC_END;
 #endif // SQL_NULL_COLLATION
+}
+
+connection_info::connection_info(const configuration &config)
+    : config(config) {
+    rebuild();
 }
 
 std::string connection_info::get_formatted_project_version() {

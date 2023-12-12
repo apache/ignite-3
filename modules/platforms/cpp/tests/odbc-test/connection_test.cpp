@@ -144,3 +144,19 @@ TEST_F(connection_test, odbc3_supported) {
         FAIL() << get_odbc_error_message(SQL_HANDLE_DBC, m_conn);
     }
 }
+
+
+TEST_F(connection_test, username) {
+    set_authentication_enabled(true);
+    EXPECT_NO_THROW(odbc_connect_throw(get_auth_connection_string()));
+
+    SQLCHAR buffer[ODBC_BUFFER_SIZE];
+    SQLSMALLINT resLen = 0;
+
+    SQLRETURN ret = SQLGetInfo(m_conn, SQL_USER_NAME, buffer, ODBC_BUFFER_SIZE, &resLen);
+
+    if (!SQL_SUCCEEDED(ret))
+        FAIL() << (get_odbc_error_message(SQL_HANDLE_DBC, m_conn));
+
+    EXPECT_EQ(CORRECT_USERNAME, std::string(reinterpret_cast<char*>(buffer)));
+}
