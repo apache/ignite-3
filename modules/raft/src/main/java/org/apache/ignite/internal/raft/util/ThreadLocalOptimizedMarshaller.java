@@ -28,13 +28,16 @@ public class ThreadLocalOptimizedMarshaller implements Marshaller {
     /** Thread-local optimized marshaller holder. Not static, because it depends on serialization registry. */
     private final ThreadLocal<Marshaller> marshaller;
 
+    /** Shared cache of byte buffers for all thread-local instances. */
+    private final ByteBufferCache cache = new DefaultByteBufferCache(Runtime.getRuntime().availableProcessors());
+
     /**
      * Constructor.
      *
      * @param serializationRegistry Serialization registry.
      */
     public ThreadLocalOptimizedMarshaller(MessageSerializationRegistry serializationRegistry) {
-        marshaller = ThreadLocal.withInitial(() -> new OptimizedMarshaller(serializationRegistry));
+        marshaller = ThreadLocal.withInitial(() -> new OptimizedMarshaller(serializationRegistry, cache));
     }
 
     @Override

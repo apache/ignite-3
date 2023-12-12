@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.table.distributed.schema;
 
 import java.nio.ByteBuffer;
+import org.apache.ignite.internal.raft.util.ByteBufferCache;
+import org.apache.ignite.internal.raft.util.DefaultByteBufferCache;
 import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 
 /**
@@ -27,13 +29,16 @@ public class ThreadLocalPartitionCommandsMarshaller implements PartitionCommands
     /** Thread-local optimized marshaller holder. Not static, because it depends on serialization registry. */
     private final ThreadLocal<PartitionCommandsMarshaller> marshaller;
 
+    /** Shared cache of byte buffers for all thread-local instances. */
+    private final ByteBufferCache cache = new DefaultByteBufferCache(Runtime.getRuntime().availableProcessors());
+
     /**
      * Constructor.
      *
      * @param serializationRegistry Serialization registry.
      */
     public ThreadLocalPartitionCommandsMarshaller(MessageSerializationRegistry serializationRegistry) {
-        marshaller = ThreadLocal.withInitial(() -> new PartitionCommandsMarshallerImpl(serializationRegistry));
+        marshaller = ThreadLocal.withInitial(() -> new PartitionCommandsMarshallerImpl(serializationRegistry, cache));
     }
 
     @Override

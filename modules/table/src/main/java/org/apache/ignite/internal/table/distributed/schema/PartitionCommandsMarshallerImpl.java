@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.table.distributed.schema;
 
 import java.nio.ByteBuffer;
+import org.apache.ignite.internal.raft.util.ByteBufferCache;
 import org.apache.ignite.internal.raft.util.OptimizedMarshaller;
 import org.apache.ignite.internal.table.distributed.command.CatalogVersionAware;
 import org.apache.ignite.internal.util.VarIntUtils;
@@ -27,20 +28,18 @@ import org.apache.ignite.network.serialization.MessageSerializationRegistry;
  * Default {@link PartitionCommandsMarshaller} implementation.
  */
 public class PartitionCommandsMarshallerImpl extends OptimizedMarshaller implements PartitionCommandsMarshaller {
-    public PartitionCommandsMarshallerImpl(MessageSerializationRegistry serializationRegistry) {
-        super(serializationRegistry);
+    public PartitionCommandsMarshallerImpl(MessageSerializationRegistry serializationRegistry, ByteBufferCache cache) {
+        super(serializationRegistry, cache);
     }
 
     @Override
-    public byte[] marshall(Object o) {
+    protected void beforeWriteMessage(Object o, ByteBuffer buffer) {
         int requiredCatalogVersion = o instanceof CatalogVersionAware
                 ? ((CatalogVersionAware) o).requiredCatalogVersion()
                 : NO_VERSION_REQUIRED;
 
         stream.setBuffer(buffer);
         stream.writeInt(requiredCatalogVersion);
-
-        return super.marshall(o);
     }
 
     @Override
