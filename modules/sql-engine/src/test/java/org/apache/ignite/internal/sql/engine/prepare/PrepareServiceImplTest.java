@@ -64,11 +64,11 @@ import org.junit.jupiter.params.provider.MethodSource;
  * Tests to verify {@link PrepareServiceImpl}.
  */
 @SuppressWarnings("DataFlowIssue")
-class PrepareServiceImplTest extends BaseIgniteAbstractTest {
+public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
     private static final List<PrepareService> createdServices = new ArrayList<>();
 
     @AfterEach
-    void stopServices() throws Exception {
+    public void stopServices() throws Exception {
         for (PrepareService createdService : createdServices) {
             createdService.stop();
         }
@@ -77,7 +77,7 @@ class PrepareServiceImplTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void prepareServiceReturnsExistingPlanForExplain() {
+    public void prepareServiceReturnsExistingPlanForExplain() {
         PrepareService service = createPlannerService();
 
         QueryPlan queryPlan = await(service.prepareAsync(
@@ -98,7 +98,7 @@ class PrepareServiceImplTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void prepareServiceCachesPlanCreatedForExplain() {
+    public void prepareServiceCachesPlanCreatedForExplain() {
         PrepareService service = createPlannerService();
 
         QueryPlan explainPlan = await(service.prepareAsync(
@@ -119,7 +119,7 @@ class PrepareServiceImplTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void prepareReturnsQueryPlanThatDependsOnParameterTypeMatchInferred() {
+    public void prepareReturnsQueryPlanThatDependsOnParameterTypeMatchInferred() {
         PrepareService service = createPlannerService();
 
         QueryPlan queryPlan1 = await(service.prepareAsync(
@@ -150,7 +150,7 @@ class PrepareServiceImplTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void prepareReturnsDmlPlanThatDependsOnParameterTypeMatchInferred() {
+    public void prepareReturnsDmlPlanThatDependsOnParameterTypeMatchInferred() {
         PrepareService service = createPlannerService();
 
         QueryPlan queryPlan1 = await(service.prepareAsync(
@@ -181,7 +181,7 @@ class PrepareServiceImplTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void preparePropagatesValidationError() {
+    public void preparePropagatesValidationError() {
         PrepareService service = createPlannerService();
 
         assertThrowsSqlException(Sql.STMT_VALIDATION_ERR,
