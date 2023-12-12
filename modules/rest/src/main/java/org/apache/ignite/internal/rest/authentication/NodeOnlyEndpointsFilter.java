@@ -41,7 +41,6 @@ import org.reactivestreams.Publisher;
 /** Filters out endpoints that are not allowed to be accessed before cluster is initialized. */
 @Filter(Filter.MATCH_ALL_PATTERN)
 @Requires(property = "ignite.endpoints.filter-non-initialized", value = "true", defaultValue = "false")
-// TODO: https://issues.apache.org/jira/browse/IGNITE-19365
 public class NodeOnlyEndpointsFilter implements HttpServerFilter {
     private final ClusterManagementGroupManager cmgMgr;
 
@@ -64,6 +63,15 @@ public class NodeOnlyEndpointsFilter implements HttpServerFilter {
             }
         } catch (InterruptedException | ExecutionException | TimeoutException e) {
             throw new IgniteException(Common.INTERNAL_ERR, e);
+        }
+
+        if (!restManager.isRestEnabled()) {
+            return Publishers.just(HttpProblemResponse.from(
+                    Problem.fromHttpCode(HttpCode.NOT_ACCEPTABLE)
+                            .detail("Cluster initialization in progress."
+                                    + " REST is not available until initialization finished.")
+                            .build()
+            ));
         }
 
         return chain.proceed(request);

@@ -20,14 +20,12 @@ package org.apache.ignite.internal.cli.commands.cluster.init;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
 import org.apache.ignite.internal.cli.commands.CliCommandTestNotInitializedIntegrationBase;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
  * Tests for {@link ClusterInitCommand}.
  */
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-19365")
 public class ItClusterInitTest extends CliCommandTestNotInitializedIntegrationBase {
 
     @Test
