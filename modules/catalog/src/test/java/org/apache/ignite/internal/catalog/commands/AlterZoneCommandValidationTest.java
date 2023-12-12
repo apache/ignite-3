@@ -51,6 +51,16 @@ public class AlterZoneCommandValidationTest extends AbstractCommandValidationTes
     }
 
     @Test
+    void alterNonExistingZone() {
+        CatalogCommand cmd = AlterZoneCommand.builder().zoneName("not_existing_zone").build();
+        assertThrows(
+                CatalogValidationException.class,
+                () -> cmd.get(emptyCatalog()),
+                "Distribution zone with name 'not_existing_zone' not found"
+        );
+    }
+
+    @Test
     void zonePartitions() {
         assertThrows(
                 CatalogValidationException.class,

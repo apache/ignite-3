@@ -22,13 +22,11 @@ import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_ZONE_NAM
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.createTestCatalogManager;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.index;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.collectIndexes;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.fromParams;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.pkIndexName;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.sql.ColumnType.INT32;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.hasItems;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import java.util.List;
@@ -38,7 +36,6 @@ import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.Test;
@@ -253,16 +250,6 @@ public class CatalogUtilsTest extends BaseIgniteAbstractTest {
                     )
             );
         });
-    }
-
-    private static void checkAutoAdjustParams(CatalogZoneDescriptor descriptor, int expAutoAdjust, int expScaleUp, int expScaleDown) {
-        assertEquals(expAutoAdjust, descriptor.dataNodesAutoAdjust());
-        assertEquals(expScaleUp, descriptor.dataNodesAutoAdjustScaleUp());
-        assertEquals(expScaleDown, descriptor.dataNodesAutoAdjustScaleDown());
-    }
-
-    private static CatalogZoneDescriptor createPreviousZoneWithDefaults() {
-        return fromParams(1, ZONE_NAME);
     }
 
     private static void withCatalogManager(Consumer<CatalogManager> fun) throws Exception {
