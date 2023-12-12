@@ -174,11 +174,6 @@ public class ReadOnlyServiceImpl implements ReadOnlyService, LastAppliedLogIndex
                 notifyFail(new Status(-1, "Fail to run ReadIndex task, maybe the leader stepped down."));
                 return;
             }
-
-            if (readIndexResponse.index() == 0) {
-                return;
-            }
-
             // Success
             final ReadIndexStatus readIndexStatus = new ReadIndexStatus(this.states, this.request,
                 readIndexResponse.index());
