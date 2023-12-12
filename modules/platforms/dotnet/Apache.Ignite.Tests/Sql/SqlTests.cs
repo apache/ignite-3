@@ -335,11 +335,27 @@ namespace Apache.Ignite.Tests.Sql
         }
 
         [Test]
-        public void TestInvalidSqlThrowsException()
+        public void TestInvalidTableNameInSqlThrowsException()
         {
             var ex = Assert.ThrowsAsync<SqlException>(async () => await Client.Sql.ExecuteAsync(null, "select x from bad"));
 
             StringAssert.Contains("From line 1, column 15 to line 1, column 17: Object 'BAD' not found", ex!.Message);
+        }
+
+        [Test]
+        public void TestInvalidSqlThrowsException()
+        {
+            var ex = Assert.ThrowsAsync<SqlException>(async () => await Client.Sql.ExecuteAsync(null, "foo bar baz"));
+            var inner = (SqlException)ex!.InnerException!;
+
+            Assert.AreEqual(
+                "Invalid query, check inner exceptions for details: SqlStatement { " +
+                "Query = foo bar baz, Timeout = 00:00:00, Schema = PUBLIC, PageSize = 1024, Properties = { } }",
+                ex.Message);
+
+            Assert.AreEqual(
+                "Failed to parse query: Non-query expression encountered in illegal context. At line 1, column 1",
+                inner.Message);
         }
 
         [Test]
@@ -475,7 +491,7 @@ namespace Apache.Ignite.Tests.Sql
         }
 
         [Test]
-        public void TestScriptError()
+        public void TestInvalidScriptThrowsSqlException()
         {
             var ex = Assert.ThrowsAsync<SqlException>(async () => await Client.Sql.ExecuteScriptAsync("CREATE SOMETHING"));
             var inner = (SqlException)ex!.InnerException!;
