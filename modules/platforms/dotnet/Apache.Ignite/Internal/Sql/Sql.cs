@@ -100,6 +100,7 @@ namespace Apache.Ignite.Internal.Sql
                 var writer = ProtoCommon.GetMessageWriter();
                 var w = writer.MessageWriter;
 
+                // TODO: Extract common code with ExecuteAsyncInternal.
                 w.Write(script.Schema);
                 w.Write(script.PageSize);
                 w.Write((long)script.Timeout.TotalMilliseconds);
