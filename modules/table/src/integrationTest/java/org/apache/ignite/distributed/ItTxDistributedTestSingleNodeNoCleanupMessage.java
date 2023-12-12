@@ -61,6 +61,7 @@ import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.network.ClusterNodeResolver;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.TransactionException;
@@ -150,7 +151,8 @@ public class ItTxDistributedTestSingleNodeNoCleanupMessage extends ItTxDistribut
                     ClusterNode localNode,
                     SchemaSyncService schemaSyncService,
                     CatalogService catalogService,
-                    PlacementDriver placementDriver
+                    PlacementDriver placementDriver,
+                    ClusterNodeResolver clusterNodeResolver
             ) {
                 return new PartitionReplicaListener(
                         mvDataStorage,
@@ -172,7 +174,8 @@ public class ItTxDistributedTestSingleNodeNoCleanupMessage extends ItTxDistribut
                         localNode,
                         schemaSyncService,
                         catalogService,
-                        placementDriver
+                        placementDriver,
+                        clusterNodeResolver
                 ) {
                     @Override
                     public CompletableFuture<ReplicaResult> invoke(ReplicaRequest request, String senderId) {

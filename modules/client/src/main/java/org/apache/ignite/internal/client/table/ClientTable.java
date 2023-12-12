@@ -33,6 +33,7 @@ import java.util.function.Function;
 import org.apache.ignite.client.RetryPolicy;
 import org.apache.ignite.internal.client.ClientSchemaVersionMismatchException;
 import org.apache.ignite.internal.client.ClientUtils;
+import org.apache.ignite.internal.client.NotificationHandler;
 import org.apache.ignite.internal.client.PayloadOutputChannel;
 import org.apache.ignite.internal.client.ReliableChannel;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
@@ -304,7 +305,38 @@ public class ClientTable implements Table {
                 false,
                 provider,
                 null,
+                null,
                 null);
+    }
+
+    /**
+     * Performs a schema-based operation.
+     *
+     * @param opCode Op code.
+     * @param writer Writer.
+     * @param reader Reader.
+     * @param provider Partition awareness provider.
+     * @param notificationHandler Notification handler.
+     * @param <T> Result type.
+     * @return Future representing pending completion of the operation.
+     */
+    @SuppressWarnings("ClassEscapesDefinedScope")
+    public <T> CompletableFuture<T> doSchemaOutOpAsync(
+            int opCode,
+            BiConsumer<ClientSchema, PayloadOutputChannel> writer,
+            Function<ClientMessageUnpacker, T> reader,
+            @Nullable PartitionAwarenessProvider provider,
+            @Nullable NotificationHandler notificationHandler) {
+        return doSchemaOutInOpAsync(
+                opCode,
+                writer,
+                (schema, unpacker) -> reader.apply(unpacker),
+                null,
+                false,
+                provider,
+                null,
+                null,
+                notificationHandler);
     }
 
     /**
@@ -331,6 +363,7 @@ public class ClientTable implements Table {
                 false,
                 provider,
                 retryPolicyOverride,
+                null,
                 null);
     }
 
@@ -352,7 +385,7 @@ public class ClientTable implements Table {
             @Nullable T defaultValue,
             @Nullable PartitionAwarenessProvider provider
     ) {
-        return doSchemaOutInOpAsync(opCode, writer, reader, defaultValue, true, provider, null, null);
+        return doSchemaOutInOpAsync(opCode, writer, reader, defaultValue, true, provider, null, null, null);
     }
 
     /**
@@ -377,7 +410,8 @@ public class ClientTable implements Table {
             boolean responseSchemaRequired,
             @Nullable PartitionAwarenessProvider provider,
             @Nullable RetryPolicy retryPolicyOverride,
-            @Nullable Integer schemaVersionOverride) {
+            @Nullable Integer schemaVersionOverride,
+            @Nullable NotificationHandler notificationHandler) {
         CompletableFuture<T> fut = new CompletableFuture<>();
 
         CompletableFuture<ClientSchema> schemaFut = getSchema(schemaVersionOverride == null ? latestSchemaVer : schemaVersionOverride);
@@ -396,7 +430,8 @@ public class ClientTable implements Table {
                             w -> writer.accept(schema, w),
                             r -> readSchemaAndReadData(schema, r.in(), reader, defaultValue, responseSchemaRequired),
                             preferredNodeName,
-                            retryPolicyOverride);
+                            retryPolicyOverride,
+                            notificationHandler);
                 })
 
                 // Read resulting schema and the rest of the response.
@@ -416,7 +451,7 @@ public class ClientTable implements Table {
                             int expectedVersion = ((ClientSchemaVersionMismatchException) cause).expectedVersion();
 
                             doSchemaOutInOpAsync(opCode, writer, reader, defaultValue, responseSchemaRequired, provider,
-                                    retryPolicyOverride, expectedVersion)
+                                    retryPolicyOverride, expectedVersion, notificationHandler)
                                     .whenComplete((res0, err0) -> {
                                         if (err0 != null) {
                                             fut.completeExceptionally(err0);
@@ -432,7 +467,7 @@ public class ClientTable implements Table {
                             schemas.remove(UNKNOWN_SCHEMA_VERSION);
 
                             doSchemaOutInOpAsync(opCode, writer, reader, defaultValue, responseSchemaRequired, provider,
-                                    retryPolicyOverride, UNKNOWN_SCHEMA_VERSION)
+                                    retryPolicyOverride, UNKNOWN_SCHEMA_VERSION, notificationHandler)
                                     .whenComplete((res0, err0) -> {
                                         if (err0 != null) {
                                             fut.completeExceptionally(err0);
