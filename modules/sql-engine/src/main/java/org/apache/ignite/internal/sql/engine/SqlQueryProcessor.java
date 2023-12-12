@@ -767,7 +767,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
             int paramsCount = parsedResults.stream().mapToInt(ParsedResult::dynamicParamsCount).sum();
 
-            validateDynamicParameters(paramsCount, params);
+            validateDynamicParameters(paramsCount, params, true);
 
             ScriptStatement[] results = new ScriptStatement[parsedResults.size()];
 
