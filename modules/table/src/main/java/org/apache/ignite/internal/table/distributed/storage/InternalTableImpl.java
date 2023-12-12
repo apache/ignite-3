@@ -116,6 +116,7 @@ import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.utils.PrimaryReplica;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.network.ClusterNodeResolver;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -148,7 +149,7 @@ public class InternalTableImpl implements InternalTable {
     private final int tableId;
 
     /** Resolver that resolves a node consistent ID to cluster node. */
-    private final Function<String, ClusterNode> clusterNodeResolver;
+    private final ClusterNodeResolver clusterNodeResolver;
 
     /** Transactional manager. */
     protected final TxManager txManager;
@@ -202,7 +203,7 @@ public class InternalTableImpl implements InternalTable {
             int tableId,
             Int2ObjectMap<RaftGroupService> partMap,
             int partitions,
-            Function<String, ClusterNode> clusterNodeResolver,
+            ClusterNodeResolver clusterNodeResolver,
             TxManager txManager,
             MvTableStorage tableStorage,
             TxStateTableStorage txStateStorage,
@@ -612,7 +613,7 @@ public class InternalTableImpl implements InternalTable {
 
         CompletableFuture<R> fut = primaryReplicaFuture.thenCompose(primaryReplica -> {
             try {
-                ClusterNode node = clusterNodeResolver.apply(primaryReplica.getLeaseholder());
+                ClusterNode node = clusterNodeResolver.getByConsistentId(primaryReplica.getLeaseholder());
 
                 if (node == null) {
                     throw new TransactionException(REPLICA_UNAVAILABLE_ERR, "Failed to resolve the primary replica node [consistentId="
@@ -663,7 +664,7 @@ public class InternalTableImpl implements InternalTable {
 
         CompletableFuture<R>  fut = primaryReplicaFuture.thenCompose(primaryReplica -> {
             try {
-                ClusterNode node = clusterNodeResolver.apply(primaryReplica.getLeaseholder());
+                ClusterNode node = clusterNodeResolver.getByConsistentId(primaryReplica.getLeaseholder());
 
                 if (node == null) {
                     throw new TransactionException(REPLICA_UNAVAILABLE_ERR, "Failed to resolve the primary replica node [consistentId="
@@ -1496,7 +1497,7 @@ public class InternalTableImpl implements InternalTable {
             throw new IgniteInternalException("No such partition " + partition + " in table " + tableName);
         }
 
-        return clusterNodeResolver.apply(raftGroupService.leader().consistentId());
+        return clusterNodeResolver.getByConsistentId(raftGroupService.leader().consistentId());
     }
 
     /** {@inheritDoc} */
@@ -1699,7 +1700,7 @@ public class InternalTableImpl implements InternalTable {
                         + " [tablePartitionId=" + tablePartitionId + ", awaitTimestamp=" + now + ']', e);
             }
 
-            ClusterNode node = clusterNodeResolver.apply(primaryReplica.getLeaseholder());
+            ClusterNode node = clusterNodeResolver.getByConsistentId(primaryReplica.getLeaseholder());
 
             if (node == null) {
                 throw new TransactionException(REPLICA_UNAVAILABLE_ERR, "Failed to resolve the primary replica node [consistentId="
@@ -1904,7 +1905,7 @@ public class InternalTableImpl implements InternalTable {
                         if (res == null) {
                             throw withCause(TransactionException::new, REPLICA_UNAVAILABLE_ERR, e);
                         } else {
-                            return clusterNodeResolver.apply(res.getLeaseholder());
+                            return clusterNodeResolver.getByConsistentId(res.getLeaseholder());
                         }
                     }
                 });

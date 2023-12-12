@@ -24,4 +24,11 @@ import org.apache.ignite.Ignite;
  */
 public interface JobExecutionContext {
     Ignite ignite();
+
+    /**
+     * Flag indicating whether the job was interrupted.
+     *
+     * @return {@code true} when the job was interrupted.
+     */
+    boolean isInterrupted();
 }

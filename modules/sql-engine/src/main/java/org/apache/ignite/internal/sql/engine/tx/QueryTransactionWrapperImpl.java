@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine;
+package org.apache.ignite.internal.sql.engine.tx;
 
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
@@ -25,27 +25,23 @@ import org.apache.ignite.internal.tx.InternalTransaction;
 /**
  * Wrapper for the transaction that encapsulates the management of an implicit transaction.
  */
-public class QueryTransactionWrapper {
+public class QueryTransactionWrapperImpl implements QueryTransactionWrapper {
     private final boolean implicit;
 
     private final InternalTransaction transaction;
 
-    public QueryTransactionWrapper(InternalTransaction transaction, boolean implicit) {
+    public QueryTransactionWrapperImpl(InternalTransaction transaction, boolean implicit) {
         this.transaction = transaction;
         this.implicit = implicit;
     }
 
-    /**
-     * Unwrap transaction.
-     */
-    InternalTransaction unwrap() {
+    @Override
+    public InternalTransaction unwrap() {
         return transaction;
     }
 
-    /**
-     * Commits an implicit transaction, if one has been started.
-     */
-    CompletableFuture<Void> commitImplicit() {
+    @Override
+    public CompletableFuture<Void> commitImplicit() {
         if (implicit) {
             return transaction.commitAsync();
         }
@@ -53,10 +49,8 @@ public class QueryTransactionWrapper {
         return nullCompletedFuture();
     }
 
-    /**
-     * Rolls back a transaction.
-     */
-    CompletableFuture<Void> rollback() {
+    @Override
+    public CompletableFuture<Void> rollback(Throwable cause) {
         return transaction.rollbackAsync();
     }
 }

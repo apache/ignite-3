@@ -62,7 +62,7 @@ public class VolatileTxStateMetaStorage {
      * @param updater Transaction meta updater.
      * @return Updated transaction state.
      */
-    public TxStateMeta updateMeta(UUID txId, Function<TxStateMeta, TxStateMeta> updater) {
+    public <T extends TxStateMeta> T updateMeta(UUID txId, Function<TxStateMeta, TxStateMeta> updater) {
         return inBusyLock(busyLock, () -> updateMetaInternal(txId, updater));
     }
 
@@ -73,8 +73,8 @@ public class VolatileTxStateMetaStorage {
      * @param updater Transaction meta updater.
      * @return Updated transaction state.
      */
-    private @Nullable TxStateMeta updateMetaInternal(UUID txId, Function<TxStateMeta, TxStateMeta> updater) {
-        return txStateMap.compute(txId, (k, oldMeta) -> {
+    private @Nullable <T extends TxStateMeta> T updateMetaInternal(UUID txId, Function<TxStateMeta, TxStateMeta> updater) {
+        return (T) txStateMap.compute(txId, (k, oldMeta) -> {
             TxStateMeta newMeta = updater.apply(oldMeta);
 
             if (newMeta == null) {

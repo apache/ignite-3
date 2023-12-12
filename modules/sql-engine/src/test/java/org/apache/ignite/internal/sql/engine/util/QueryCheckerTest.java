@@ -26,7 +26,6 @@ import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursorImpl;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
-import org.apache.ignite.internal.sql.engine.QueryTransactionWrapper;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.framework.DataProvider;
 import org.apache.ignite.internal.sql.engine.framework.NoOpTransaction;
@@ -36,6 +35,7 @@ import org.apache.ignite.internal.sql.engine.framework.TestNode;
 import org.apache.ignite.internal.sql.engine.prepare.ParameterMetadata;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
 import org.apache.ignite.internal.sql.engine.property.SqlProperties;
+import org.apache.ignite.internal.sql.engine.tx.QueryTransactionWrapperImpl;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.type.NativeTypes;
@@ -293,7 +293,7 @@ public class QueryCheckerTest extends BaseIgniteAbstractTest {
             AsyncSqlCursor<InternalSqlRow> sqlCursor = new AsyncSqlCursorImpl<>(
                     type,
                     plan.metadata(),
-                    new QueryTransactionWrapper(new NoOpTransaction("test"), false),
+                    new QueryTransactionWrapperImpl(new NoOpTransaction("test"), false),
                     dataCursor,
                     () -> {}
             );

@@ -133,6 +133,9 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
     @Override
     protected CompletableFuture<Void> finish(boolean commit) {
         if (hasTxFinalizationBegun()) {
+            assert finishFuture != null : "Transaction is in final state but there is no finish future [id="
+                    + id() + ", state=" + state() + "].";
+
             return finishFuture;
         }
 
