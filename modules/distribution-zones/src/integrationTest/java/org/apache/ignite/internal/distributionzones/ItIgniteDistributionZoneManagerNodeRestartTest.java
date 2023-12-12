@@ -853,7 +853,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
     /**
      * Schedule a scale up task which block execution of another scale up tasks.
-     * Note that because of the executor of scale up/scale down taksks is single-threaded, this
+     * Note that because of the executor of scale up/scale down tasks is single-threaded, this
      * method also blocks scale down tasks execution.
      *
      * @return Latch to unblock execution of scale up tasks.
@@ -876,9 +876,9 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
     }
 
     /**
-     * Schedule a down up task which block execution of another scale down tasks.
-     * Note that because of the executor of scale up/scale down taksks is single-threaded, this
-     * method also blocks scale down tasks execution.
+     * Schedule a scale down task which block execution of another scale down tasks.
+     * Note that because of the executor of scale up/scale down tasks is single-threaded, this
+     * method also blocks scale up tasks execution.
      *
      * @return Latch to unblock execution of scale up tasks.
      */

@@ -85,6 +85,8 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
     private static final String ZONE_NAME_3 = "zone3";
 
+    private static final String ZONE_NAME_4 = "zone4";
+
     private static final LogicalNode NODE_0 =
             new LogicalNode("node_id_0", "node_name_0", new NetworkAddress("localhost", 123));
 
@@ -419,9 +421,9 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
     void testZoneWithNonImmediateTimersOnCreation() throws Exception {
         createZone(ZONE_NAME, 1, 1, null);
 
-        putNodeInLogicalTopologyAndGetRevision(NODE_0, ONE_NODE);
-        putNodeInLogicalTopologyAndGetRevision(NODE_1, TWO_NODES);
-        removeNodeInLogicalTopologyAndGetRevision(Set.of(NODE_1), ONE_NODE);
+        topology.putNode(NODE_0);
+        topology.putNode(NODE_1);
+        topology.removeNodes(Set.of(NODE_1));
 
         int zoneId = getZoneId(ZONE_NAME);
 
@@ -445,9 +447,9 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
     void testZoneWithNonImmediateScaleDownTimerOnCreation() throws Exception {
         createZone(ZONE_NAME, IMMEDIATE_TIMER_VALUE, 1, null);
 
-        putNodeInLogicalTopologyAndGetRevision(NODE_0, ONE_NODE);
+        topology.putNode(NODE_0);
         long topologyRevision = putNodeInLogicalTopologyAndGetRevision(NODE_1, TWO_NODES);
-        removeNodeInLogicalTopologyAndGetRevision(Set.of(NODE_1), ONE_NODE);
+        topology.removeNodes(Set.of(NODE_1));
 
         int zoneId = getZoneId(ZONE_NAME);
 
@@ -475,8 +477,8 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
     void testZoneWithNonImmediateScaleUpTimerOnCreation() throws Exception {
         createZone(ZONE_NAME, 1, IMMEDIATE_TIMER_VALUE, null);
 
-        putNodeInLogicalTopologyAndGetRevision(NODE_0, ONE_NODE);
-        putNodeInLogicalTopologyAndGetRevision(NODE_1, TWO_NODES);
+        topology.putNode(NODE_0);
+        topology.putNode(NODE_1);
         long topologyRevision = removeNodeInLogicalTopologyAndGetRevision(Set.of(NODE_1), ONE_NODE);
 
         int zoneId = getZoneId(ZONE_NAME);
@@ -493,6 +495,66 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
                 ONE_NODE,
                 TIMEOUT
         );
+    }
+
+    /**
+     * Tests that data nodes for zones with different scale up/down configs are empty when creation of zones were before any
+     * topology event.
+     *
+     * @throws Exception If failed.
+     */
+    @Test
+    void testEmptyDataNodesOnZoneCreationBeforeTopologyEvent() throws Exception {
+        createZone(ZONE_NAME, 1, 1, null);
+        createZone(ZONE_NAME_2, 1, IMMEDIATE_TIMER_VALUE, null);
+        createZone(ZONE_NAME_3, IMMEDIATE_TIMER_VALUE, 1, null);
+        createZone(ZONE_NAME_4, IMMEDIATE_TIMER_VALUE, 1, null);
+
+        int zoneId1 = getZoneId(ZONE_NAME);
+        int zoneId2 = getZoneId(ZONE_NAME_2);
+        int zoneId3 = getZoneId(ZONE_NAME_3);
+        int zoneId4 = getZoneId(ZONE_NAME_4);
+        int defaultZoneId = getZoneId(DEFAULT_ZONE_NAME);
+
+        Set<String> dataNodes = distributionZoneManager.dataNodes(
+                metaStorageManager.appliedRevision(),
+                catalogManager.latestCatalogVersion(),
+                zoneId1
+        ).get(TIMEOUT, MILLISECONDS);
+
+        assertEquals(emptySet(), dataNodes);
+
+        dataNodes = distributionZoneManager.dataNodes(
+                metaStorageManager.appliedRevision(),
+                catalogManager.latestCatalogVersion(),
+                zoneId2
+        ).get(TIMEOUT, MILLISECONDS);
+
+        assertEquals(emptySet(), dataNodes);
+
+        dataNodes = distributionZoneManager.dataNodes(
+                metaStorageManager.appliedRevision(),
+                catalogManager.latestCatalogVersion(),
+                zoneId3
+        ).get(TIMEOUT, MILLISECONDS);
+
+        assertEquals(emptySet(), dataNodes);
+
+        dataNodes = distributionZoneManager.dataNodes(
+                metaStorageManager.appliedRevision(),
+                catalogManager.latestCatalogVersion(),
+                zoneId4
+        ).get(TIMEOUT, MILLISECONDS);
+
+        assertEquals(emptySet(), dataNodes);
+
+        dataNodes = distributionZoneManager.dataNodes(
+                metaStorageManager.appliedRevision(),
+                catalogManager.latestCatalogVersion(),
+                defaultZoneId
+        ).get(TIMEOUT, MILLISECONDS);
+
+        assertEquals(emptySet(), dataNodes);
     }
 
     /**
@@ -982,7 +1044,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
     }
 
     /**
-     * Schedule a scale up task which block execution of another scale up tasks.
+     * Schedule a scale up task which blocks execution of another scale up tasks.
      *
      * @return Latch to unblock execution of scale up tasks.
      */
@@ -1015,7 +1077,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
     }
 
     /**
-     * Schedule a down up task which block execution of another scale down tasks.
+     * Schedule a scale down task which blocks execution of another scale down tasks.
      *
      * @return Latch to unblock execution of scale down tasks.
      */
