@@ -15,33 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.compute;
+package org.apache.ignite.internal.client;
 
-import java.util.concurrent.atomic.AtomicBoolean;
-import org.apache.ignite.Ignite;
-import org.apache.ignite.compute.JobExecutionContext;
+import org.jetbrains.annotations.Nullable;
 
 /**
- * Implementation of {@link JobExecutionContext}.
+ * Client notification handler.
  */
-public class JobExecutionContextImpl implements JobExecutionContext {
-    private final Ignite ignite;
-
-    private final AtomicBoolean isInterrupted;
-
-    public JobExecutionContextImpl(Ignite ignite, AtomicBoolean isInterrupted) {
-        this.ignite = ignite;
-        this.isInterrupted = isInterrupted;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public Ignite ignite() {
-        return ignite;
-    }
-
-    @Override
-    public boolean isInterrupted() {
-        return isInterrupted.get();
-    }
+@FunctionalInterface
+public interface NotificationHandler {
+    /**
+     * Consumes the notification.
+     *
+     * @param input Input, or {@code null} when failed.
+     * @param err Error, or {@code null} when successful.
+     * @throws Exception on failure.
+     */
+    void consume(@Nullable PayloadInputChannel input, @Nullable Throwable err) throws Exception;
 }

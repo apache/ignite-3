@@ -15,15 +15,33 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.client.proto;
+package org.apache.ignite.internal.compute.queue;
+
+import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.compute.JobState;
 
 /**
- * Server to client message types.
+ * Provides information about the task executing on the {@link PriorityQueueExecutor}, allows cancelling the task.
+ *
+ * @param <R> Job result type.
  */
-public class ServerMessageType {
-    /** Response to a request (initiated by the client). */
-    public static final int RESPONSE = 0;
+public interface QueueExecution<R> {
+    /**
+     * Returns job's execution result.
+     *
+     * @return Job's execution result future.
+     */
+    CompletableFuture<R> resultAsync();
 
-    /** Notification (initiated by the server). */
-    public static final int NOTIFICATION = 1;
+    /**
+     * Returns job's current state.
+     *
+     * @return Job's state.
+     */
+    JobState state();
+
+    /**
+     * Cancels the job.
+     */
+    void cancel();
 }

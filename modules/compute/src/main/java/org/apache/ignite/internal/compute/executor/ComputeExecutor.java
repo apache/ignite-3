@@ -17,15 +17,15 @@
 
 package org.apache.ignite.internal.compute.executor;
 
-import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.compute.ComputeJob;
+import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.internal.compute.ExecutionOptions;
 
 /**
  * Executor of Compute jobs.
  */
 public interface ComputeExecutor {
-    <R> CompletableFuture<R> executeJob(ExecutionOptions options, Class<ComputeJob<R>> jobClass, Object[] args);
+    <R> JobExecution<R> executeJob(ExecutionOptions options, Class<? extends ComputeJob<R>> jobClass, Object[] args);
 
     void start();
 

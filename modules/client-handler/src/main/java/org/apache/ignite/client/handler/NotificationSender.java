@@ -15,21 +15,16 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Internal.Proto
-{
-    /// <summary>
-    /// Server to client message types.
-    /// </summary>
-    internal enum ServerMessageType
-    {
-        /// <summary>
-        /// Response to a request (initiated by the client).
-        /// </summary>
-        Response = 0,
+package org.apache.ignite.client.handler;
 
-        /// <summary>
-        /// Notification (initiated by the server).
-        /// </summary>
-        Notification = 1
-    }
+import java.util.function.Consumer;
+import org.apache.ignite.internal.client.proto.ClientMessagePacker;
+import org.jetbrains.annotations.Nullable;
+
+/**
+ * Client notification sender.
+ */
+@FunctionalInterface
+public interface NotificationSender {
+    void sendNotification(@Nullable Consumer<ClientMessagePacker> writer, @Nullable Throwable err);
 }

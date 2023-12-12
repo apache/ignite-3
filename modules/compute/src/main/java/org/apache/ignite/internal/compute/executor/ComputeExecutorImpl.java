@@ -17,15 +17,17 @@
 
 package org.apache.ignite.internal.compute.executor;
 
-import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.compute.ComputeJob;
+import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.internal.compute.ComputeUtils;
 import org.apache.ignite.internal.compute.ExecutionOptions;
 import org.apache.ignite.internal.compute.JobExecutionContextImpl;
 import org.apache.ignite.internal.compute.configuration.ComputeConfiguration;
 import org.apache.ignite.internal.compute.queue.PriorityQueueExecutor;
+import org.apache.ignite.internal.compute.queue.QueueExecution;
 import org.apache.ignite.internal.compute.state.ComputeStateMachine;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -63,16 +65,22 @@ public class ComputeExecutorImpl implements ComputeExecutor {
     }
 
     @Override
-    public <R> CompletableFuture<R> executeJob(
+    public <R> JobExecution<R> executeJob(
             ExecutionOptions options,
-            Class<ComputeJob<R>> jobClass,
+            Class<? extends ComputeJob<R>> jobClass,
             Object[] args
     ) {
         assert executorService != null;
 
-        JobExecutionContext context = new JobExecutionContextImpl(ignite);
+        AtomicBoolean isInterrupted = new AtomicBoolean();
+        JobExecutionContext context = new JobExecutionContextImpl(ignite, isInterrupted);
 
-        return executorService.submit(() -> ComputeUtils.instantiateJob(jobClass).execute(context, args), options.priority());
+        QueueExecution<R> execution = executorService.submit(
+                () -> ComputeUtils.instantiateJob(jobClass).execute(context, args),
+                options.priority()
+        );
+
+        return new JobExecutionImpl<>(execution, isInterrupted);
     }
 
     @Override

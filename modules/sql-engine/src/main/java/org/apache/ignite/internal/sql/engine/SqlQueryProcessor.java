@@ -148,6 +148,8 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     private static final CacheFactory CACHE_FACTORY = CaffeineCacheFactory.INSTANCE;
 
+    private static final long EXECUTION_SERVICE_SHUTDOWN_TIMEOUT = 60_000;
+
     private final ParserService parserService = new ParserServiceImpl(
             PARSED_RESULT_CACHE_SIZE, CACHE_FACTORY
     );
@@ -322,7 +324,8 @@ public class SqlQueryProcessor implements QueryProcessor {
                 mailboxRegistry,
                 exchangeService,
                 mappingService,
-                dependencyResolver
+                dependencyResolver,
+                EXECUTION_SERVICE_SHUTDOWN_TIMEOUT
         ));
 
         clusterSrvc.topologyService().addEventHandler(executionSrvc);

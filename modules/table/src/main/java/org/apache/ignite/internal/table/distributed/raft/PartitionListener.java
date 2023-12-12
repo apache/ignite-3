@@ -22,7 +22,7 @@ import static java.util.function.Predicate.not;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
-import static org.apache.ignite.internal.tx.TxState.COMMITED;
+import static org.apache.ignite.internal.tx.TxState.COMMITTED;
 import static org.apache.ignite.internal.tx.TxState.PENDING;
 import static org.apache.ignite.internal.util.CollectionUtils.last;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_UNEXPECTED_STATE_ERR;
@@ -322,7 +322,7 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
 
         UUID txId = cmd.txId();
 
-        TxState stateToSet = cmd.commit() ? COMMITED : ABORTED;
+        TxState stateToSet = cmd.commit() ? COMMITTED : ABORTED;
 
         TxMeta txMetaToSet = new TxMeta(
                 stateToSet,
@@ -576,7 +576,7 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
 
     private void replicaTouch(UUID txId, String txCoordinatorId, HybridTimestamp commitTimestamp, boolean full) {
         txManager.updateTxMeta(txId, old -> new TxStateMeta(
-                full ? COMMITED : PENDING,
+                full ? COMMITTED : PENDING,
                 txCoordinatorId,
                 old == null ? null : old.commitPartitionId(),
                 full ? commitTimestamp : null
@@ -585,7 +585,7 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
 
     private void markFinished(UUID txId, boolean commit, @Nullable HybridTimestamp commitTimestamp, String txCoordinatorId) {
         txManager.updateTxMeta(txId, old -> new TxStateMeta(
-                commit ? COMMITED : ABORTED,
+                commit ? COMMITTED : ABORTED,
                 txCoordinatorId,
                 old == null ? null : old.commitPartitionId(),
                 commit ? commitTimestamp : null
