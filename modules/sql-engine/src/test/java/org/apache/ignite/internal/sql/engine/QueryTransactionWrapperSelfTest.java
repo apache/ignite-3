@@ -111,22 +111,22 @@ public class QueryTransactionWrapperSelfTest extends BaseIgniteAbstractTest {
 
     @Test
     public void throwsExceptionForDdlWithExternalTransaction() {
-        QueryTransactionContext txHandler = new QueryTransactionContext(transactions, new NoOpTransaction("test"));
+        QueryTransactionContext txCtx = new QueryTransactionContext(transactions, new NoOpTransaction("test"));
 
         //noinspection ThrowableNotThrown
         assertThrowsSqlException(Sql.RUNTIME_ERR, "DDL doesn't support transactions.",
-                () -> txHandler.getOrStartImplicit(SqlQueryType.DDL));
+                () -> txCtx.getOrStartImplicit(SqlQueryType.DDL));
 
         verifyNoInteractions(transactions);
     }
 
     @Test
     public void throwsExceptionForDmlWithReadOnlyExternalTransaction() {
-        QueryTransactionContext txHandler = new QueryTransactionContext(transactions, new NoOpTransaction("test"));
+        QueryTransactionContext txCtx = new QueryTransactionContext(transactions, new NoOpTransaction("test"));
 
         //noinspection ThrowableNotThrown
         assertThrowsSqlException(Sql.RUNTIME_ERR, "DML query cannot be started by using read only transactions.",
-                () -> txHandler.getOrStartImplicit(SqlQueryType.DML));
+                () -> txCtx.getOrStartImplicit(SqlQueryType.DML));
 
         verifyNoInteractions(transactions);
     }
