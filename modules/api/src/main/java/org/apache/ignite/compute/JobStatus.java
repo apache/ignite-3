@@ -54,13 +54,9 @@ public class JobStatus {
     private final Instant finishTime;
 
     private JobStatus(Builder builder) {
-        Objects.requireNonNull(builder.id, "id");
-        Objects.requireNonNull(builder.state, "state");
-        Objects.requireNonNull(builder.createTime, "createTime");
-
-        this.id = builder.id;
-        this.state = builder.state;
-        this.createTime = builder.createTime;
+        this.id = Objects.requireNonNull(builder.id, "id");
+        this.state = Objects.requireNonNull(builder.state, "state");
+        this.createTime = Objects.requireNonNull(builder.createTime, "createTime");
         this.startTime = builder.startTime;
         this.finishTime = builder.finishTime;
     }
