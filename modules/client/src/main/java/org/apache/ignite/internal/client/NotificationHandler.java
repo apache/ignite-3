@@ -15,21 +15,21 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Internal.Proto
-{
-    /// <summary>
-    /// Server to client message types.
-    /// </summary>
-    internal enum ServerMessageType
-    {
-        /// <summary>
-        /// Response to a request (initiated by the client).
-        /// </summary>
-        Response = 0,
+package org.apache.ignite.internal.client;
 
-        /// <summary>
-        /// Notification (initiated by the server).
-        /// </summary>
-        Notification = 1
-    }
+import org.jetbrains.annotations.Nullable;
+
+/**
+ * Client notification handler.
+ */
+@FunctionalInterface
+public interface NotificationHandler {
+    /**
+     * Consumes the notification.
+     *
+     * @param input Input, or {@code null} when failed.
+     * @param err Error, or {@code null} when successful.
+     * @throws Exception on failure.
+     */
+    void consume(@Nullable PayloadInputChannel input, @Nullable Throwable err) throws Exception;
 }

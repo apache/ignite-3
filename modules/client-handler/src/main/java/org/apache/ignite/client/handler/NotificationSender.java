@@ -15,15 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.client.proto;
+package org.apache.ignite.client.handler;
+
+import java.util.function.Consumer;
+import org.apache.ignite.internal.client.proto.ClientMessagePacker;
+import org.jetbrains.annotations.Nullable;
 
 /**
- * Server to client message types.
+ * Client notification sender.
  */
-public class ServerMessageType {
-    /** Response to a request (initiated by the client). */
-    public static final int RESPONSE = 0;
-
-    /** Notification (initiated by the server). */
-    public static final int NOTIFICATION = 1;
+@FunctionalInterface
+public interface NotificationSender {
+    void sendNotification(@Nullable Consumer<ClientMessagePacker> writer, @Nullable Throwable err);
 }
