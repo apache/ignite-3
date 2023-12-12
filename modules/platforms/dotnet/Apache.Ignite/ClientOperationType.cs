@@ -124,6 +124,11 @@ namespace Apache.Ignite
         /// <summary>
         /// SQL (<see cref="ISql.ExecuteAsync"/>, <see cref="ISql.ExecuteAsync{T}"/>).
         /// </summary>
-        SqlExecute
+        SqlExecute,
+
+        /// <summary>
+        /// SQL script (<see cref="ISql.ExecuteScriptAsync"/>).
+        /// </summary>
+        SqlExecuteScript
     }
 }
