@@ -44,6 +44,7 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.sql.AbstractSession;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.CurrentTimeProvider;
+import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.QueryProperty;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
@@ -405,7 +406,8 @@ public class SessionImpl implements AbstractSession {
         try {
             SqlProperties properties = SqlPropertiesHelper.emptyProperties();
 
-            CompletableFuture<AsyncSqlCursor<List<Object>>> f = qryProc.queryScriptAsync(properties, transactions, null, query, arguments);
+            CompletableFuture<AsyncSqlCursor<InternalSqlRow>> f =
+                    qryProc.queryScriptAsync(properties, transactions, null, query, arguments);
 
             ScriptHandler handler = new ScriptHandler(resFut);
             f.whenComplete(handler::processFirstResult);
@@ -500,11 +502,11 @@ public class SessionImpl implements AbstractSession {
         }
     }
 
-    private static void validateDmlResult(AsyncCursor.BatchedResult<List<Object>> page) {
+    private static void validateDmlResult(AsyncCursor.BatchedResult<InternalSqlRow> page) {
         if (page == null
                 || page.items() == null
                 || page.items().size() != 1
-                || page.items().get(0).size() != 1
+                || page.items().get(0).fieldCount() != 1
                 || page.hasMore()) {
             throw new IgniteInternalException(INTERNAL_ERR, "Invalid DML results: " + page);
         }
@@ -548,7 +550,7 @@ public class SessionImpl implements AbstractSession {
             this.resFut = resFut;
         }
 
-        void processFirstResult(AsyncSqlCursor<List<Object>> cursor, Throwable t) {
+        void processFirstResult(AsyncSqlCursor<InternalSqlRow> cursor, Throwable t) {
             if (t != null) {
                 resFut.completeExceptionally(t);
             } else {
@@ -557,7 +559,7 @@ public class SessionImpl implements AbstractSession {
             }
         }
 
-        void processCursor(AsyncSqlCursor<List<Object>> cursor, int cursorId) {
+        void processCursor(AsyncSqlCursor<InternalSqlRow> cursor, int cursorId) {
             if (!busyLock.enterBusy()) {
                 closeCursor(cursor, cursorId);
 
@@ -587,7 +589,7 @@ public class SessionImpl implements AbstractSession {
             }
         }
 
-        void closeCursor(AsyncSqlCursor<List<Object>> cursor, int cursorId) {
+        void closeCursor(AsyncSqlCursor<InternalSqlRow> cursor, int cursorId) {
             openedCursors.remove(cursorId);
             cursor.closeAsync();
         }

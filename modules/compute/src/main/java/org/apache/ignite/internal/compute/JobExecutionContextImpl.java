@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.compute;
 
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.compute.JobExecutionContext;
 
@@ -26,13 +27,21 @@ import org.apache.ignite.compute.JobExecutionContext;
 public class JobExecutionContextImpl implements JobExecutionContext {
     private final Ignite ignite;
 
-    public JobExecutionContextImpl(Ignite ignite) {
+    private final AtomicBoolean isInterrupted;
+
+    public JobExecutionContextImpl(Ignite ignite, AtomicBoolean isInterrupted) {
         this.ignite = ignite;
+        this.isInterrupted = isInterrupted;
     }
 
     /** {@inheritDoc} */
     @Override
     public Ignite ignite() {
         return ignite;
+    }
+
+    @Override
+    public boolean isInterrupted() {
+        return isInterrupted.get();
     }
 }

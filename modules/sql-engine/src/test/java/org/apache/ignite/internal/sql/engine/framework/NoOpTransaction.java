@@ -137,7 +137,7 @@ public final class NoOpTransaction implements InternalTransaction {
 
     @Override
     public TxState state() {
-        return TxState.COMMITED;
+        return TxState.COMMITTED;
     }
 
     @Override

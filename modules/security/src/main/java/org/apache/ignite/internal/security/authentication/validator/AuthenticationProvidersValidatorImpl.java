@@ -15,13 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.security.authentication.configuration.validator;
+package org.apache.ignite.internal.security.authentication.validator;
+
+import static org.apache.ignite.internal.security.authentication.SecurityConfigurationModule.DEFAULT_PROVIDER_NAME;
 
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.validation.ValidationContext;
 import org.apache.ignite.configuration.validation.ValidationIssue;
 import org.apache.ignite.configuration.validation.Validator;
+import org.apache.ignite.internal.security.authentication.basic.BasicAuthenticationProviderConfiguration;
+import org.apache.ignite.internal.security.authentication.basic.BasicAuthenticationProviderView;
 import org.apache.ignite.internal.security.authentication.configuration.AuthenticationProviderView;
+import org.apache.ignite.internal.security.authentication.configuration.validator.AuthenticationProvidersValidator;
 import org.apache.ignite.internal.security.configuration.SecurityConfiguration;
 
 /**
@@ -39,8 +44,36 @@ public class AuthenticationProvidersValidatorImpl implements
         boolean enabled = ctx.getNewRoot(SecurityConfiguration.KEY).enabled();
         NamedListView<? extends AuthenticationProviderView> view = ctx.getNewValue();
 
-        if (enabled && view.size() == 0) {
-            ctx.addIssue(new ValidationIssue(ctx.currentKey(), "Providers must be present, if security is enabled"));
+        BasicAuthenticationProviderView basicProvider = (BasicAuthenticationProviderView) view.get(DEFAULT_PROVIDER_NAME);
+        if (basicProvider == null) {
+            ctx.addIssue(new ValidationIssue(ctx.currentKey(), "Default provider " + DEFAULT_PROVIDER_NAME + " is not removable."));
+            return;
         }
+
+        if (!checkOnlyOneBasicProvider(ctx, view)) {
+            return;
+        }
+
+        if (enabled && view.size() == 1 && basicProvider.users().size() == 0) {
+            ctx.addIssue(new ValidationIssue(ctx.currentKey(), "Basic provider must have at least one user "
+                    + "in case when no other providers present."));
+        }
+    }
+
+    private static boolean checkOnlyOneBasicProvider(
+            ValidationContext<NamedListView<? extends AuthenticationProviderView>> ctx,
+            NamedListView<? extends AuthenticationProviderView> view
+    ) {
+        boolean basicAlreadyFound = false;
+        for (AuthenticationProviderView authenticationProviderView : view) {
+            if (authenticationProviderView instanceof BasicAuthenticationProviderConfiguration) {
+                if (basicAlreadyFound) {
+                    ctx.addIssue(new ValidationIssue(ctx.currentKey(), "Only one basic provider supported."));
+                    return false;
+                }
+                basicAlreadyFound = true;
+            }
+        }
+        return true;
     }
 }

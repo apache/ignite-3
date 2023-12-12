@@ -1344,12 +1344,11 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                         return emptyListCompletedFuture();
                     }
 
-                    CompletableFuture<TableImpl>[] tableImplFutures = tableDescriptors.stream()
+                    CompletableFuture<Table>[] tableImplFutures = tableDescriptors.stream()
                             .map(tableDescriptor -> tableAsyncInternalBusy(tableDescriptor.id()))
                             .toArray(CompletableFuture[]::new);
 
-                    return allOf(tableImplFutures)
-                            .thenApply(unused1 -> Stream.of(tableImplFutures).map(CompletableFuture::join).collect(toList()));
+                    return CompletableFutures.allOf(tableImplFutures);
                 }), ioExecutor);
     }
 
@@ -2220,6 +2219,10 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      * @param future Future.
      */
     private <T> CompletableFuture<T> orStopManagerFuture(CompletableFuture<T> future) {
+        if (future.isDone()) {
+            return future;
+        }
+
         return anyOf(future, stopManagerFuture).thenApply(o -> (T) o);
     }
 }

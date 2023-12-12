@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.sql.engine.util;
 
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
-import static org.apache.ignite.internal.sql.engine.util.Commons.transform;
 
 import java.lang.reflect.Type;
 import java.math.BigDecimal;
@@ -38,6 +37,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -52,8 +52,6 @@ import org.apache.calcite.sql.type.IntervalSqlType;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.type.SqlTypeUtil;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
-import org.apache.ignite.internal.sql.engine.exec.RowHandler;
-import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowBuilder;
 import org.apache.ignite.internal.sql.engine.exec.row.BaseTypeSpec;
 import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
 import org.apache.ignite.internal.sql.engine.exec.row.RowSchemaTypes;
@@ -78,6 +76,8 @@ import org.jetbrains.annotations.Nullable;
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public class TypeUtils {
+    public static final BiFunction<Integer, Object, Object> BI_FUNCTION_IDENTITY_SECOND_ARGUMENT = (idx, r) -> r;
+
     private static final Set<SqlTypeName> CONVERTABLE_TYPES = EnumSet.of(
             SqlTypeName.DATE,
             SqlTypeName.TIME,
@@ -165,37 +165,29 @@ public class TypeUtils {
     }
 
     /**
-     * Function.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Provide a function to convert internal representation of sql results into external types.
+     *
+     * @param ectx SQL execution context.
+     * @param resultType Type of result.
+     * @return Function for two arguments. First argument is an index of column to convert. Second argument is a value to be converted
      */
-    public static <RowT> Function<RowT, RowT> resultTypeConverter(ExecutionContext<RowT> ectx, RelDataType resultType) {
+    public static BiFunction<Integer, Object, Object> resultTypeConverter(ExecutionContext<?> ectx, RelDataType resultType) {
         assert resultType.isStruct();
 
         if (hasConvertableFields(resultType)) {
-            RowHandler<RowT> handler = ectx.rowHandler();
             List<RelDataType> types = RelOptUtil.getFieldTypeList(resultType);
-            RowSchema rowSchema = rowSchemaFromRelTypes(types);
-            RowHandler.RowFactory<RowT> factory = handler.factory(rowSchema);
-            List<Function<Object, Object>> converters = transform(types, t -> fieldConverter(ectx, t));
-            return r -> {
-                assert handler.columnCount(r) == converters.size();
+            Function<Object, Object>[] converters = (Function<Object, Object>[]) new Function[types.size()];
+            for (int i = 0; i < types.size(); i++) {
+                converters[i] = fieldConverter(ectx, types.get(i));
+            }
 
-                RowBuilder<RowT> rowBuilder = factory.rowBuilder();
-
-                for (int i = 0; i < converters.size(); i++) {
-                    Object converted = converters.get(i).apply(handler.get(i, r));
-                    rowBuilder.addField(converted);
-                }
-
-                RowT newRow = rowBuilder.buildAndReset();
-
-                assert handler.columnCount(newRow) == converters.size();
-
-                return newRow;
+            return (idx, r) -> {
+                assert idx >= 0 && idx < converters.length;
+                return converters[idx].apply(r);
             };
         }
 
-        return Function.identity();
+        return BI_FUNCTION_IDENTITY_SECOND_ARGUMENT;
     }
 
     private static Function<Object, Object> fieldConverter(ExecutionContext<?> ectx, RelDataType fieldType) {
@@ -279,7 +271,7 @@ public class TypeUtils {
      * FromInternal.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
-    public static @Nullable Object fromInternal(@Nullable  Object val, Type storageType) {
+    public static @Nullable Object fromInternal(@Nullable Object val, Type storageType) {
         if (val == null) {
             return null;
         } else if (storageType == LocalDate.class && val instanceof Integer) {
@@ -513,7 +505,7 @@ public class TypeUtils {
                 return NativeTypes.blobOf(length);
             case NUMBER:
                 return NativeTypes.numberOf(precision);
-                // fallthrough
+            // fallthrough
             case PERIOD:
             case DURATION:
             case NULL:
@@ -572,8 +564,8 @@ public class TypeUtils {
     }
 
     /**
-     * Checks that {@code toType} and {@code fromType} have compatible type families taking into account custom data types.
-     * Types {@code T1} and {@code T2} have compatible type families if {@code T1} can be assigned to {@code T2} and vice-versa.
+     * Checks that {@code toType} and {@code fromType} have compatible type families taking into account custom data types. Types {@code T1}
+     * and {@code T2} have compatible type families if {@code T1} can be assigned to {@code T2} and vice-versa.
      *
      * @see SqlTypeUtil#canAssignFrom(RelDataType, RelDataType)
      */

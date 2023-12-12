@@ -37,6 +37,8 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.calcite.rel.type.RelDataType;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -61,6 +63,7 @@ import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
@@ -75,12 +78,17 @@ import org.apache.ignite.network.TopologyService;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Tests execution flow of TableScanNode.
  */
+@ExtendWith(ConfigurationExtension.class)
 public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> {
     private final LinkedList<AutoCloseable> closeables = new LinkedList<>();
+
+    @InjectConfiguration
+    private TransactionConfiguration txConfiguration;
 
     // Ensures that all data from TableScanNode is being propagated correctly.
     @Test
@@ -130,6 +138,7 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
             ReplicaService replicaSvc = mock(ReplicaService.class, RETURNS_DEEP_STUBS);
 
             TxManagerImpl txManager = new TxManagerImpl(
+                    txConfiguration,
                     clusterService,
                     replicaSvc,
                     new HeapLockManager(),
