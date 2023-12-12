@@ -403,29 +403,24 @@ public class SessionImpl implements AbstractSession {
             return CompletableFuture.failedFuture(sessionIsClosedException());
         }
 
-        ScriptHandler handler = new ScriptHandler();
-        CompletableFuture<Void> userFut = new CompletableFuture<>();
+        CompletableFuture<Void> resFut = new CompletableFuture<>();
         try {
             SqlProperties properties = SqlPropertiesHelper.emptyProperties();
 
-            qryProc.queryScriptAsync(properties, transactions, null, query, arguments)
-                            .whenComplete(handler::processCursor);
+            CompletableFuture<AsyncSqlCursor<InternalSqlRow>> f =
+                    qryProc.queryScriptAsync(properties, transactions, null, query, arguments);
+
+            ScriptHandler handler = new ScriptHandler(resFut);
+            f.whenComplete(handler::processCursor);
         } finally {
             busyLock.leaveBusy();
         }
 
-        // Complete the user's future asynchronously outside of the busy lock.
-        handler.resultFuture().whenCompleteAsync((res, th) -> {
-            if (th == null) {
-                userFut.complete(null);
-            } else {
-                Throwable cause = ExceptionUtils.unwrapCause(th);
+        return resFut.exceptionally((th) -> {
+            Throwable cause = ExceptionUtils.unwrapCause(th);
 
-                userFut.completeExceptionally(mapToPublicSqlException(cause));
-            }
+            throw new CompletionException(mapToPublicSqlException(cause));
         });
-
-        return userFut;
     }
 
     /** {@inheritDoc} */
@@ -549,11 +544,11 @@ public class SessionImpl implements AbstractSession {
     }
 
     private class ScriptHandler {
-        private final CompletableFuture<Void> resFut = new CompletableFuture<>();
+        private final CompletableFuture<Void> resFut;
         private final List<Throwable> cursorCloseErrors = Collections.synchronizedList(new ArrayList<>());
 
-        CompletableFuture<Void> resultFuture() {
-            return resFut;
+        ScriptHandler(CompletableFuture<Void> resFut) {
+            this.resFut = resFut;
         }
 
         void processCursor(AsyncSqlCursor<InternalSqlRow> cursor, Throwable scriptError) {
@@ -578,12 +573,13 @@ public class SessionImpl implements AbstractSession {
                 try {
                     if (cursor.hasNextResult()) {
                         cursor.nextResult().whenCompleteAsync(this::processCursor);
-                    } else {
-                        onComplete();
+                        return;
                     }
                 } finally {
                     busyLock.leaveBusy();
                 }
+
+                onComplete();
             });
         }
 
