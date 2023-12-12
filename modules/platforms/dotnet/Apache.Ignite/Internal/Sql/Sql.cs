@@ -100,6 +100,7 @@ namespace Apache.Ignite.Internal.Sql
                 var writer = ProtoCommon.GetMessageWriter();
                 var w = writer.MessageWriter;
 
+                // TODO: Write everything, including PageSize.
                 w.Write(script.Schema);
                 w.Write((long)script.Timeout.TotalMilliseconds);
                 w.WriteNil(); // Session timeout (unused, session is closed by the server immediately).
