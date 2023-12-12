@@ -17,40 +17,37 @@
 
 package org.apache.ignite.network;
 
-import java.util.Collection;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Entry point for obtaining physical cluster topology information.
+ * A node resolver.
  */
-// TODO: allow removing event handlers, see https://issues.apache.org/jira/browse/IGNITE-14519
-public interface TopologyService extends ClusterNodeResolver {
+public interface ClusterNodeResolver {
     /**
-     * Returns information about the current node.
+     * Returns a cluster node consistent ID by its node ID.
      *
-     * @return Information about the local network member.
+     * @param id Node ID.
+     * @return The consistent ID; {@code null} if the node has not been discovered or is offline.
      */
-    ClusterNode localMember();
+    default @Nullable String getConsistentIdById(String id) {
+        ClusterNode node = getById(id);
+
+        return node != null ? node.name() : null;
+    }
 
     /**
-     * Returns a list of all discovered cluster members, including the local member itself.
+     * Returns a cluster node specified by its consistent ID.
      *
-     * @return List of the discovered cluster members.
-     */
-    Collection<ClusterNode> allMembers();
-
-    /**
-     * Registers a handler for physical topology change events.
-     *
-     * @param handler Physical topology event handler.
-     */
-    void addEventHandler(TopologyEventHandler handler);
-
-    /**
-     * Returns a cluster node specified by its network address in the 'host:port' format.
-     *
-     * @param addr The network address.
+     * @param consistentId Consistent ID.
      * @return The node object; {@code null} if the node has not been discovered or is offline.
      */
-    @Nullable ClusterNode getByAddress(NetworkAddress addr);
+    @Nullable ClusterNode getByConsistentId(String consistentId);
+
+    /**
+     * Returns a cluster node specified by its ID.
+     *
+     * @param id Node ID.
+     * @return The node object; {@code null} if the node has not been discovered or is offline.
+     */
+    @Nullable ClusterNode getById(String id);
 }
