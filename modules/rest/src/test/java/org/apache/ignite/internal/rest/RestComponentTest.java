@@ -86,12 +86,14 @@ public class RestComponentTest extends BaseIgniteAbstractTest {
                 mock(ConfigurationManager.class)
         );
         Supplier<RestFactory> clusterManagementRestFactory = () -> new ClusterManagementRestFactory(null, null, cmg);
+        Supplier<RestFactory> restManagerFactory = () -> new RestManagerFactory(restManager);
 
         restComponent = new RestComponent(
                 List.of(restPresentationFactory,
                         authProviderFactory,
-                        clusterManagementRestFactory),
-                new RestManagerProvider(restManager),
+                        clusterManagementRestFactory,
+                        restManagerFactory),
+                restManager,
                 restConfiguration
         );
 

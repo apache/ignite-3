@@ -39,7 +39,7 @@ import java.util.List;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.rest.RestManager;
-import org.apache.ignite.internal.rest.RestManagerProvider;
+import org.apache.ignite.internal.rest.RestManagerFactory;
 import org.apache.ignite.internal.rest.api.cluster.ClusterManagementApi;
 import org.apache.ignite.internal.rest.api.cluster.ClusterState;
 import org.apache.ignite.internal.rest.authentication.AuthenticationProviderFactory;
@@ -163,9 +163,9 @@ public class ItClusterManagementControllerTest extends RestTestBase {
 
     @Factory
     @Bean
-    @Replaces(RestManagerProvider.class)
-    public RestManagerProvider restManagerProvider() {
-        return new RestManagerProvider(new RestManager());
+    @Replaces(RestManagerFactory.class)
+    public RestManagerFactory restManagerProvider() {
+        return new RestManagerFactory(new RestManager());
     }
 
     private AuthenticationManagerImpl authenticationManager() {

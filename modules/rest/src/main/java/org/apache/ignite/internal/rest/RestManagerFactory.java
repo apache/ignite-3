@@ -26,10 +26,10 @@ import jakarta.inject.Singleton;
  * Provider for {@link RestManager}.
  */
 @Factory
-public class RestManagerProvider implements RestFactory {
+public class RestManagerFactory implements RestFactory {
     private RestManager restManager;
 
-    public RestManagerProvider(RestManager restManager) {
+    public RestManagerFactory(RestManager restManager) {
         this.restManager = restManager;
     }
 

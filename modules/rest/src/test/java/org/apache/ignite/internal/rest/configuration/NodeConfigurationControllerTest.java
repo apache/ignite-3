@@ -29,7 +29,7 @@ import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.presentation.ConfigurationPresentation;
 import org.apache.ignite.internal.configuration.presentation.HoconPresentation;
 import org.apache.ignite.internal.rest.RestManager;
-import org.apache.ignite.internal.rest.RestManagerProvider;
+import org.apache.ignite.internal.rest.RestManagerFactory;
 import org.apache.ignite.internal.security.authentication.AuthenticationManager;
 import org.apache.ignite.internal.security.authentication.AuthenticationManagerImpl;
 
@@ -60,9 +60,9 @@ class NodeConfigurationControllerTest extends ConfigurationControllerBaseTest {
 
     @Factory
     @Bean
-    @Replaces(RestManagerProvider.class)
-    public RestManagerProvider restManagerProvider() {
-        return new RestManagerProvider(new RestManager());
+    @Replaces(RestManagerFactory.class)
+    public RestManagerFactory restManagerProvider() {
+        return new RestManagerFactory(new RestManager());
     }
 
     @Bean
