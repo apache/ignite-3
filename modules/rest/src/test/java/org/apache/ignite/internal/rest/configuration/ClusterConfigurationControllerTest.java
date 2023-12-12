@@ -28,6 +28,8 @@ import jakarta.inject.Named;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.presentation.ConfigurationPresentation;
 import org.apache.ignite.internal.configuration.presentation.HoconPresentation;
+import org.apache.ignite.internal.rest.RestManager;
+import org.apache.ignite.internal.rest.RestManagerProvider;
 import org.apache.ignite.internal.security.authentication.AuthenticationManager;
 import org.apache.ignite.internal.security.authentication.AuthenticationManagerImpl;
 
@@ -54,6 +56,13 @@ class ClusterConfigurationControllerTest extends ConfigurationControllerBaseTest
     @Replaces(factory = PresentationsFactory.class)
     public ConfigurationPresentation<String> cfgPresentation(ConfigurationRegistry configurationRegistry) {
         return new HoconPresentation(configurationRegistry);
+    }
+
+    @Factory
+    @Bean
+    @Replaces(RestManagerProvider.class)
+    public RestManagerProvider restManagerProvider() {
+        return new RestManagerProvider(new RestManager());
     }
 
     @Bean
