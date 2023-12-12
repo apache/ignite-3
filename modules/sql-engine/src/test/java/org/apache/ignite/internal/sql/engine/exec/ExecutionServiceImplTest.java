@@ -139,6 +139,7 @@ import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -149,7 +150,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
     private static final long TIMEOUT_IN_MS = 2_000;
 
     /** Timeout in ms for SQL planning phase. */
-    public static final long PLANNING_TIMEOUT = 10_000;
+    public static final long PLANNING_TIMEOUT = 5_000;
 
     /** Timeout in ms for stopping execution service.*/
     private static final long SHUTDOWN_TIMEOUT = 5_000;
@@ -663,6 +664,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
      * Test ensures that an exception during data prefetching is propagated to the callback.
      */
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-21052")
     public void testErrorIsPropagatedToPrefetchCallback() {
         ExecutionService execService = executionServices.get(0);
         CompletableFuture<Void> prefetchFut = new CompletableFuture<>();
