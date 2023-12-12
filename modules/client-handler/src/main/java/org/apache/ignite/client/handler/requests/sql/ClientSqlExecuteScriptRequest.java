@@ -18,17 +18,14 @@
 package org.apache.ignite.client.handler.requests.sql;
 
 import static org.apache.ignite.client.handler.requests.sql.ClientSqlExecuteRequest.readSession;
-import static org.apache.ignite.client.handler.requests.sql.ClientSqlExecuteRequest.readSessionProperties;
 
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.Session;
-import org.apache.ignite.sql.Session.SessionBuilder;
 
 /**
  * Client SQL execute script request.
