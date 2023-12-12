@@ -29,17 +29,21 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.function.BiConsumer;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.internal.client.ClientUtils;
+import org.apache.ignite.internal.client.PayloadOutputChannel;
 import org.apache.ignite.internal.client.ReliableChannel;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.proto.TuplePart;
 import org.apache.ignite.internal.client.table.ClientRecordSerializer;
+import org.apache.ignite.internal.client.table.ClientSchema;
 import org.apache.ignite.internal.client.table.ClientTable;
 import org.apache.ignite.internal.client.table.ClientTables;
 import org.apache.ignite.internal.client.table.ClientTupleSerializer;
+import org.apache.ignite.internal.client.table.PartitionAwarenessProvider;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.TableNotFoundException;
@@ -234,6 +238,7 @@ public class ClientCompute implements IgniteCompute {
                     if (err != null) {
                         notificationFut.completeExceptionally(err);
                     } else {
+                        assert r != null;
                         notificationFut.complete((R) r.in().unpackObjectFromBinaryTuple());
                     }
                 });
@@ -263,31 +268,13 @@ public class ClientCompute implements IgniteCompute {
             List<DeploymentUnit> units,
             String jobClassName,
             Object[] args) {
-        CompletableFuture<R> notificationFut = new CompletableFuture<>();
-
-        var reqFut = t.doSchemaOutOpAsync(
-                ClientOp.COMPUTE_EXECUTE_COLOCATED,
-                (schema, outputChannel) -> {
-                    ClientMessagePacker w = outputChannel.out();
-
-                    w.packInt(t.tableId());
-                    w.packInt(schema.version());
-
-                    ClientRecordSerializer.writeRecRaw(key, keyMapper, schema, w, TuplePart.KEY);
-
-                    packJob(w, units, jobClassName, args);
-                },
-                r -> null,
+        return executeColocated(
+                t,
+                (outputChannel, schema) -> ClientRecordSerializer.writeRecRaw(key, keyMapper, schema, outputChannel.out(), TuplePart.KEY),
                 ClientTupleSerializer.getPartitionAwarenessProvider(null, keyMapper, key),
-                (r, err) -> {
-                    if (err != null) {
-                        notificationFut.completeExceptionally(err);
-                    } else {
-                        notificationFut.complete((R) r.in().unpackObjectFromBinaryTuple());
-                    }
-                });
-
-        return reqFut.thenCompose(v -> notificationFut);
+                units,
+                jobClassName,
+                args);
     }
 
     private static <R> CompletableFuture<R> executeColocatedTupleKey(
@@ -296,9 +283,24 @@ public class ClientCompute implements IgniteCompute {
             List<DeploymentUnit> units,
             String jobClassName,
             Object[] args) {
+        return executeColocated(
+                t,
+                (outputChannel, schema) -> ClientTupleSerializer.writeTupleRaw(key, schema, outputChannel, true),
+                ClientTupleSerializer.getPartitionAwarenessProvider(null, key),
+                units,
+                jobClassName,
+                args);
+    }
+
+    private static <R> CompletableFuture<R> executeColocated(
+            ClientTable t,
+            BiConsumer<PayloadOutputChannel, ClientSchema> keyWriter,
+            PartitionAwarenessProvider partitionAwarenessProvider,
+            List<DeploymentUnit> units,
+            String jobClassName,
+            Object[] args) {
         CompletableFuture<R> notificationFut = new CompletableFuture<>();
 
-        // TODO: Deduplicate with above method.
         var reqFut = t.doSchemaOutOpAsync(
                 ClientOp.COMPUTE_EXECUTE_COLOCATED,
                 (schema, outputChannel) -> {
@@ -307,16 +309,17 @@ public class ClientCompute implements IgniteCompute {
                     w.packInt(t.tableId());
                     w.packInt(schema.version());
 
-                    ClientTupleSerializer.writeTupleRaw(key, schema, outputChannel, true);
+                    keyWriter.accept(outputChannel, schema);
 
                     packJob(w, units, jobClassName, args);
                 },
                 r -> null,
-                ClientTupleSerializer.getPartitionAwarenessProvider(null, key),
+                partitionAwarenessProvider,
                 (r, err) -> {
                     if (err != null) {
                         notificationFut.completeExceptionally(err);
                     } else {
+                        assert r != null;
                         notificationFut.complete((R) r.in().unpackObjectFromBinaryTuple());
                     }
                 });
