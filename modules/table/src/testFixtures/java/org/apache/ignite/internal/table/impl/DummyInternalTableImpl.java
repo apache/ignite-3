@@ -99,6 +99,7 @@ import org.apache.ignite.network.AbstractMessagingService;
 import org.apache.ignite.network.ChannelType;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterNodeImpl;
+import org.apache.ignite.network.ClusterNodeResolver;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NetworkMessage;
@@ -378,7 +379,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 LOCAL_NODE,
                 new AlwaysSyncedSchemaSyncService(),
                 catalogService,
-                TEST_PLACEMENT_DRIVER
+                TEST_PLACEMENT_DRIVER,
+                mock(ClusterNodeResolver.class)
         );
 
         partitionListener = new PartitionListener(

@@ -15,16 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.tx.message;
+package org.apache.ignite.internal.table.distributed.command;
 
-import java.util.UUID;
-import org.apache.ignite.internal.replicator.message.PrimaryReplicaRequest;
+import org.apache.ignite.internal.table.distributed.TableMessageGroup.Commands;
 import org.apache.ignite.network.annotations.Transferable;
 
 /**
- * Transaction state request.
+ * Command that is used to replicate the locks released update for tx state storage.
  */
-@Transferable(TxMessageGroup.TX_STATE_COMMIT_PARTITION_REQUEST)
-public interface TxStateCommitPartitionRequest extends PrimaryReplicaRequest {
-    UUID txId();
+@Transferable(Commands.MARK_LOCKS_RELEASED)
+public interface MarkLocksReleasedCommand extends PartitionCommand {
 }

@@ -29,8 +29,10 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import java.util.Collection;
 import java.util.List;
@@ -52,6 +54,7 @@ import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
+import org.apache.ignite.internal.table.distributed.command.MarkLocksReleasedCommand;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
 import org.apache.ignite.internal.table.distributed.replicator.TransactionStateResolver;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
@@ -67,6 +70,7 @@ import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterNodeImpl;
+import org.apache.ignite.network.ClusterNodeResolver;
 import org.apache.ignite.network.NetworkAddress;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -96,6 +100,15 @@ public class PartitionReplicaListenerDurableUnlockTest extends IgniteAbstractTes
     @Mock
     private TxManager txManager;
 
+    @Mock
+    private SchemaSyncService schemaSyncService;
+
+    @Mock
+    private CatalogService catalogService;
+
+    @Mock
+    private RaftGroupService raftClient;
+
     /** Partition replication listener to test. */
     private PartitionReplicaListener partitionReplicaListener;
 
@@ -122,9 +135,26 @@ public class PartitionReplicaListenerDurableUnlockTest extends IgniteAbstractTes
                     .toArray(size -> new CompletableFuture<?>[size]));
         }).when(txManager).cleanup(any(), anyBoolean(), any(), any());
 
+        doAnswer(invocation -> nullCompletedFuture()).when(schemaSyncService).waitForMetadataCompleteness(any());
+
+        doAnswer(invocation -> 1).when(catalogService).activeCatalogVersion(anyLong());
+
+        when(raftClient.run(any())).thenAnswer(invocation -> {
+            if (invocation.getArgument(0) instanceof MarkLocksReleasedCommand) {
+                MarkLocksReleasedCommand cmd = invocation.getArgument(0);
+
+                TxMeta txMeta = txStateStorage.get(cmd.txId());
+                TxMeta txMetaToSet = new TxMeta(txMeta.txState(), txMeta.enlistedPartitions(), txMeta.commitTimestamp(), true);
+
+                txStateStorage.compareAndSet(cmd.txId(), txMeta.txState(), txMetaToSet, 0, 0);
+            }
+
+            return null;
+        });
+
         partitionReplicaListener = new PartitionReplicaListener(
                 new TestMvPartitionStorage(PART_ID),
-                mock(RaftGroupService.class),
+                raftClient,
                 txManager,
                 new HeapLockManager(),
                 Runnable::run,
@@ -140,9 +170,10 @@ public class PartitionReplicaListenerDurableUnlockTest extends IgniteAbstractTes
                 mock(StorageUpdateHandler.class),
                 mock(ValidationSchemasSource.class),
                 LOCAL_NODE,
-                mock(SchemaSyncService.class),
-                mock(CatalogService.class),
-                placementDriver
+                schemaSyncService,
+                catalogService,
+                placementDriver,
+                mock(ClusterNodeResolver.class)
         );
     }
 
