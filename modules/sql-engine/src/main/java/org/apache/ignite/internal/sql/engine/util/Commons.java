@@ -65,8 +65,6 @@ import org.apache.calcite.rel.RelCollationTraitDef;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.hint.HintPredicates;
 import org.apache.calcite.rel.hint.HintStrategyTable;
-import org.apache.calcite.rel.type.RelDataType;
-import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rex.RexBuilder;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlNode;
@@ -178,8 +176,6 @@ public final class Commons {
             .traitDefs(DISTRIBUTED_TRAITS_SET)
             .build();
 
-    private static final RelDataType EMPTY_ROW = new RelDataTypeFactory.Builder(typeFactory()).build();
-
     private Commons() {
     }
 
@@ -264,10 +260,6 @@ public final class Commons {
         }
 
         return list;
-    }
-
-    public static RelDataType emptyRowType() {
-        return EMPTY_ROW;
     }
 
     /**
