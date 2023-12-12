@@ -473,5 +473,23 @@ namespace Apache.Ignite.Tests.Sql
             Assert.AreEqual(10, resProps["prop1"]);
             Assert.AreEqual("xyz", resProps["prop-2"]);
         }
+
+        [Test]
+        public void TestScriptError()
+        {
+            var ex = Assert.ThrowsAsync<SqlException>(async () => await Client.Sql.ExecuteScriptAsync("CREATE SOMETHING"));
+            var inner = (SqlException)ex!.InnerException!;
+
+            Assert.AreEqual(
+                "Invalid query, check inner exceptions for details: SqlStatement { " +
+                "Query = CREATE SOMETHING, " +
+                "Timeout = 00:00:00, " +
+                "Schema = PUBLIC, " +
+                "PageSize = 1024, " +
+                "Properties = { } }",
+                ex.Message);
+
+            Assert.AreEqual("Failed to parse query: Encountered \"SOMETHING\" at line 1, column 8", inner.Message);
+        }
     }
 }

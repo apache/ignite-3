@@ -174,7 +174,7 @@ namespace Apache.Ignite.Internal.Sql
                 throw new SqlException(
                     e.TraceId,
                     ErrorGroups.Sql.StmtValidation,
-                    "Invalid query, check inner exceptions for details: " + statement.Query,
+                    "Invalid query, check inner exceptions for details: " + statement,
                     e);
             }
         }
