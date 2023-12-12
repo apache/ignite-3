@@ -25,6 +25,8 @@ import static org.apache.calcite.util.Static.RESOURCE;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_PARSE_ERR;
 
+import it.unimi.dsi.fastutil.ints.IntArraySet;
+import it.unimi.dsi.fastutil.ints.IntSet;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.AbstractList;
@@ -32,7 +34,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
@@ -587,7 +588,7 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         // into dynamic parameters may place the same parameter into multiple positions
         // in SQL tree.
         List<RelDataType> types = new ArrayList<>();
-        Set<Integer> alreadyVisited = new HashSet<>();
+        IntSet alreadyVisited = new IntArraySet(dynamicParameters.size());
         sqlQuery.accept(
                 new SqlShuttle() {
                     @Override public SqlNode visit(SqlDynamicParam param) {
