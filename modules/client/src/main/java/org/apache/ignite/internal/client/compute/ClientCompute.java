@@ -268,7 +268,7 @@ public class ClientCompute implements IgniteCompute {
             List<DeploymentUnit> units,
             String jobClassName,
             Object[] args) {
-        return executeColocated(
+        return executeColocatedInternal(
                 t,
                 (outputChannel, schema) -> ClientRecordSerializer.writeRecRaw(key, keyMapper, schema, outputChannel.out(), TuplePart.KEY),
                 ClientTupleSerializer.getPartitionAwarenessProvider(null, keyMapper, key),
@@ -283,7 +283,7 @@ public class ClientCompute implements IgniteCompute {
             List<DeploymentUnit> units,
             String jobClassName,
             Object[] args) {
-        return executeColocated(
+        return executeColocatedInternal(
                 t,
                 (outputChannel, schema) -> ClientTupleSerializer.writeTupleRaw(key, schema, outputChannel, true),
                 ClientTupleSerializer.getPartitionAwarenessProvider(null, key),
@@ -292,7 +292,7 @@ public class ClientCompute implements IgniteCompute {
                 args);
     }
 
-    private static <R> CompletableFuture<R> executeColocated(
+    private static <R> CompletableFuture<R> executeColocatedInternal(
             ClientTable t,
             BiConsumer<PayloadOutputChannel, ClientSchema> keyWriter,
             PartitionAwarenessProvider partitionAwarenessProvider,
