@@ -145,7 +145,7 @@ public class OrphanDetector {
 
     private CompletableFuture<Boolean> lockConflictListener(LockEventParameters params, Throwable e) {
         try {
-            checkOrphanhood(params.lockHolderTx());
+            checkTxOrphaned(params.lockHolderTx());
         } catch (NodeStoppingException ex) {
             return failedFuture(ex);
         }
@@ -158,10 +158,10 @@ public class OrphanDetector {
      *
      * @param txId Transaction id that holds a lock.
      */
-    private void checkOrphanhood(UUID txId) throws NodeStoppingException {
+    private void checkTxOrphaned(UUID txId) throws NodeStoppingException {
         if (busyLock.enterBusy()) {
             try {
-                checkOrphanhoodInternal(txId);
+                checkTxOrphanedInternal(txId);
             } finally {
                 busyLock.leaveBusy();
             }
@@ -176,7 +176,7 @@ public class OrphanDetector {
      * @param txId Transaction id that holds a lock.
      * @return Future to complete.
      */
-    private void checkOrphanhoodInternal(UUID txId) {
+    private void checkTxOrphanedInternal(UUID txId) {
         TxStateMeta txState = txLocalStateStorage.state(txId);
 
         // Transaction state for full transactions is not stored in the local map, so it can be null.
