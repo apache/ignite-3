@@ -27,6 +27,7 @@ import org.apache.ignite.configuration.validation.ValidationContext;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.configuration.validation.TestValidationUtil;
+import org.apache.ignite.internal.security.authentication.basic.BasicAuthenticationProviderChange;
 import org.apache.ignite.internal.security.authentication.configuration.AuthenticationProviderConfigurationSchema;
 import org.apache.ignite.internal.security.authentication.configuration.AuthenticationProviderView;
 import org.apache.ignite.internal.security.authentication.configuration.validator.AuthenticationProvidersValidator;
@@ -70,7 +71,7 @@ class AuthenticationProvidersValidatorImplTest extends BaseIgniteAbstractTest {
         });
 
         // Then validation fails
-        validate(newValue, "Only one basic provider supported.");
+        validate(newValue, "Only one basic provider is supported.");
     }
 
     @Test
@@ -84,11 +85,11 @@ class AuthenticationProvidersValidatorImplTest extends BaseIgniteAbstractTest {
         });
 
         // Then validation fails
-        validate(newValue, "Basic provider must have at least one user in case when no other providers present.");
+        validate(newValue, "Basic provider must have at least one user.");
     }
 
     @Test
-    public void customProvider() {
+    public void customProviderWithoutBasicProvider() {
         // When there's only one non-basic provider
         SecurityView newValue = mutateConfiguration(securityConfiguration, change -> {
             change.changeAuthentication().changeProviders().create("custom",
@@ -97,7 +98,7 @@ class AuthenticationProvidersValidatorImplTest extends BaseIgniteAbstractTest {
         });
 
         // Then validation succeeds
-        validate(newValue);
+        validate(newValue, "Basic provider is required.");
     }
 
     @Test
@@ -114,6 +115,45 @@ class AuthenticationProvidersValidatorImplTest extends BaseIgniteAbstractTest {
                                 "custom",
                                 providerChange -> providerChange.convert(CustomAuthenticationProviderConfigurationSchema.TYPE)
                         );
+            });
+        });
+
+        // Then validation succeeds
+        validate(newValue, "Basic provider must have at least one user.");
+    }
+
+    @Test
+    public void basicProviderWithUsers() {
+        // When there's a basic provider with users
+        SecurityView newValue = mutateConfiguration(securityConfiguration, change -> {
+            change.changeEnabled(true);
+            change.changeAuthentication().changeProviders(providers -> {
+                providers.create(
+                        "basic",
+                        providerChange -> providerChange.convert(BasicAuthenticationProviderChange.class)
+                                .changeUsers().create("user", userChange -> {})
+                );
+            });
+        });
+
+        // Then validation succeeds
+        validate(newValue);
+    }
+
+    @Test
+    public void basicProviderWithUsersAndCustomProvider() {
+        // When there's a basic provider with users
+        SecurityView newValue = mutateConfiguration(securityConfiguration, change -> {
+            change.changeEnabled(true);
+            change.changeAuthentication().changeProviders(providers -> {
+                providers.create(
+                        "basic",
+                        providerChange -> providerChange.convert(BasicAuthenticationProviderChange.class)
+                                .changeUsers().create("user", userChange -> {})
+                ).create(
+                        "custom",
+                        providerChange -> providerChange.convert(CustomAuthenticationProviderConfigurationSchema.TYPE)
+                );
             });
         });
 

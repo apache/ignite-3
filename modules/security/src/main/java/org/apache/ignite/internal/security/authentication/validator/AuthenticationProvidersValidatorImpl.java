@@ -40,7 +40,6 @@ public class AuthenticationProvidersValidatorImpl implements
             AuthenticationProvidersValidator annotation,
             ValidationContext<NamedListView<? extends AuthenticationProviderView>> ctx
     ) {
-        boolean enabled = ctx.getNewRoot(SecurityConfiguration.KEY).enabled();
         NamedListView<? extends AuthenticationProviderView> view = ctx.getNewValue();
 
         if (view.size() == 0) {
@@ -53,14 +52,19 @@ public class AuthenticationProvidersValidatorImpl implements
                 .map(BasicAuthenticationProviderView.class::cast)
                 .collect(Collectors.toList());
 
-        if (basicProviders.size() > 1) {
-            ctx.addIssue(new ValidationIssue(ctx.currentKey(), "Only one basic provider supported."));
+        if (basicProviders.isEmpty()) {
+            ctx.addIssue(new ValidationIssue(ctx.currentKey(), "Basic provider is required."));
             return;
         }
 
-        if (enabled && view.size() == 1 && basicProviders.size() == 1 && basicProviders.get(0).users().size() == 0) {
-            ctx.addIssue(new ValidationIssue(ctx.currentKey(), "Basic provider must have at least one user "
-                    + "in case when no other providers present."));
+        if (basicProviders.size() > 1) {
+            ctx.addIssue(new ValidationIssue(ctx.currentKey(), "Only one basic provider is supported."));
+            return;
+        }
+
+        boolean enabled = ctx.getNewRoot(SecurityConfiguration.KEY).enabled();
+        if (enabled && basicProviders.get(0).users().size() == 0) {
+            ctx.addIssue(new ValidationIssue(ctx.currentKey(), "Basic provider must have at least one user."));
         }
     }
 }
