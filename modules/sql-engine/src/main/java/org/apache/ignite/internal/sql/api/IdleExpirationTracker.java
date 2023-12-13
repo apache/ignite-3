@@ -35,7 +35,7 @@ import org.apache.ignite.internal.sql.engine.CurrentTimeProvider;
  * </ol>
  *
  */
-class IdleExpirationTracker {
+public class IdleExpirationTracker {
     /** Marker used to mark a session which has been expired. */
     private static final long EXPIRED = 0L;
 
@@ -43,7 +43,7 @@ class IdleExpirationTracker {
     private final AtomicLong lastTouched;
     private final CurrentTimeProvider currentTimeProvider;
 
-    IdleExpirationTracker(
+    public IdleExpirationTracker(
             long idleTimeoutMs,
             CurrentTimeProvider currentTimeProvider
     ) {

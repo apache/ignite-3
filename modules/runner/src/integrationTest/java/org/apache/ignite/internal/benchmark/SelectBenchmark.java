@@ -23,9 +23,15 @@ import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.Iterator;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.client.IgniteClient;
+import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
+import org.apache.ignite.internal.sql.engine.InternalSqlRow;
+import org.apache.ignite.internal.sql.engine.QueryProcessor;
+import org.apache.ignite.internal.sql.engine.property.SqlPropertiesHelper;
+import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.Session;
@@ -102,6 +108,16 @@ public class SelectBenchmark extends AbstractMultiNodeBenchmark {
     }
 
     /**
+     * Benchmark for SQL script select via embedded client.
+     */
+    @Benchmark
+    public void sqlScriptGet(SqlScriptState sqlScriptState) {
+        Iterator<InternalSqlRow> res = sqlScriptState.sql(SELECT_ALL_FROM_USERTABLE, random.nextInt(TABLE_SIZE));
+
+        res.next();
+    }
+
+    /**
      * Benchmark for SQL select via thin client.
      */
     @Benchmark
@@ -118,6 +134,19 @@ public class SelectBenchmark extends AbstractMultiNodeBenchmark {
     public void jdbcGet(JdbcState state) throws SQLException {
         state.stmt.setInt(1, random.nextInt(TABLE_SIZE));
         try (ResultSet r = state.stmt.executeQuery()) {
+            r.next();
+        }
+    }
+
+    /**
+     * Benchmark for JDBC script get.
+     */
+    @Benchmark
+    public void jdbcScriptGet(JdbcState state) throws SQLException {
+        state.stmt.setInt(1, random.nextInt(TABLE_SIZE));
+        state.stmt.execute();
+
+        try (ResultSet r = state.stmt.getResultSet()) {
             r.next();
         }
     }
@@ -168,6 +197,38 @@ public class SelectBenchmark extends AbstractMultiNodeBenchmark {
 
         private org.apache.ignite.sql.ResultSet<SqlRow> sql(String sql, Object... args) {
             return session.execute(null, sql, args);
+        }
+    }
+
+    /**
+     * Benchmark state for {@link #sqlGet(SqlState)}.
+     *
+     * <p>Holds {@link Session}.
+     */
+    @State(Scope.Benchmark)
+    public static class SqlScriptState {
+        private final QueryProcessor queryProc = clusterNode.queryEngine();
+        private int pageSize;
+
+        @Setup
+        public void setUp() throws Exception {
+            Session session = clusterNode.sql().createSession();
+
+            pageSize = session.defaultPageSize();
+
+            IgniteUtils.closeAll(session);
+        }
+
+        private Iterator<InternalSqlRow> sql(String sql, Object... args) {
+            AsyncSqlCursor<InternalSqlRow> cursor = queryProc.queryScriptAsync(
+                    SqlPropertiesHelper.emptyProperties(), clusterNode.transactions(), null, sql, args
+            ).join();
+
+            BatchedResult<InternalSqlRow> res = cursor.requestNextAsync(pageSize).join();
+
+            cursor.closeAsync();
+
+            return res.items().iterator();
         }
     }
 
