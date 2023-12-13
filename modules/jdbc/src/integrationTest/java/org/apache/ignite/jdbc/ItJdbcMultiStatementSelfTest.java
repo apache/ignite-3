@@ -80,6 +80,23 @@ public class ItJdbcMultiStatementSelfTest extends AbstractJdbcSelfTest {
     }
 
     @Test
+    public void testCloseOnCompletion() throws Exception {
+        stmt.execute("SELECT 1; SELECT 2");
+        ResultSet rs1 = stmt.getResultSet();
+
+        stmt.getMoreResults();
+        ResultSet rs2 = stmt.getResultSet();
+
+        assertFalse(stmt.isCloseOnCompletion());
+        stmt.closeOnCompletion();
+        assertTrue(stmt.isCloseOnCompletion());
+
+        assertFalse(stmt.isClosed());
+        rs1.close(); rs2.close();
+        assertTrue(stmt.isClosed());
+    }
+
+    @Test
     public void testMixedDmlQueryExecute() throws Exception {
         boolean res = stmt.execute("INSERT INTO TEST_TX VALUES (6, 5, '5'); DELETE FROM TEST_TX WHERE ID=6; SELECT 1;");
         assertEquals(false, res);
