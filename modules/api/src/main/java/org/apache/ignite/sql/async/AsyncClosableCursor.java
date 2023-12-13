@@ -27,7 +27,7 @@ import org.apache.ignite.table.criteria.CriteriaQueryOptions;
 import org.apache.ignite.tx.Transaction;
 
 /**
- * Provides methods for iterate over a collection in an asynchronous way and release underlying resources.
+ * Provides methods for iterate over query results in an asynchronous way.
  *
  * @param <T> The type of elements returned by this iterator.
  *
@@ -72,7 +72,7 @@ public interface AsyncClosableCursor<T> {
     boolean hasMorePages();
 
     /**
-     * Releases resources acquired by the iterator.
+     * Invalidates a query result, stops the query, and cleans up query resources.
      *
      * @return A future which will be completed when the resources will be actually released.
      */

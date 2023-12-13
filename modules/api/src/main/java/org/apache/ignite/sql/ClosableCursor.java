@@ -28,7 +28,7 @@ import org.apache.ignite.table.criteria.CriteriaQueryOptions;
 import org.apache.ignite.tx.Transaction;
 
 /**
- * An iterator over a collection, which allow to releasing underlying resources.
+ * An iterator over a query results.
  *
  * @param <T> The type of elements returned by this iterator.
  *
