@@ -62,7 +62,7 @@ public class CatalogUtils {
 
     /** Default distribution zone storage engine. */
     // TODO: IGNITE-19719 Should be defined differently
-    public static final String DEFAULT_STORAGE_ENGINE = IgniteSystemProperties.getString("IGNITE_DEFAULT_STORAGE_ENGINE", "aipersist");
+    public static final String DEFAULT_STORAGE_ENGINE = IgniteSystemProperties.getString("IGNITE_DEFAULT_STORAGE_ENGINE", "aimem");
 
     /** Default distribution zone storage engine data region. */
     // TODO: IGNITE-19719 Must be storage engine specific
