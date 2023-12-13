@@ -547,6 +547,11 @@ public class PartitionReplicaListener implements ReplicaListener {
         return nodeConsistentId == null ? nullCompletedFuture() : txManager.cleanup(nodeConsistentId, txId);
     }
 
+    /**
+     * Abort the abandoned transaction.
+     * @param txId Transaction id.
+     * @param senderId Sender inconsistent id.
+     */
     private CompletableFuture<Void> triggerTxRecovery(UUID txId, String senderId) {
         // If the transaction state is pending, then the transaction should be rolled back,
         // meaning that the state is changed to aborted and a corresponding cleanup request
@@ -559,24 +564,6 @@ public class PartitionReplicaListener implements ReplicaListener {
                         txId
                 )
                 .whenComplete((v, ex) -> runCleanupOnNode(txId, senderId));
-    }
-
-    /**
-     * Starts tx recovery process. Returns the future containing transaction meta with its final state that completes
-     * when the recovery is completed.
-     *
-     * @param txId Transaction id.
-     * @param txStateMeta Transaction meta.
-     * @param senderId Sender inconsistent id.
-     * @return Tx recovery future, or failed future if the tx recovery is not possible.
-     */
-    private CompletableFuture<TransactionMeta> triggerTxRecoveryWithState(UUID txId, @Nullable TxStateMeta txStateMeta, String senderId) {
-        if (txStateMeta == null || txStateMeta.txState() == ABANDONED) {
-            return triggerTxRecovery(txId, senderId)
-                    .thenApply(v -> txStateStorage.get(txId));
-        } else {
-            return completedFuture(txStateMeta);
-        }
     }
 
     /**
@@ -775,7 +762,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         } else if (request instanceof ReadOnlyDirectMultiRowReplicaRequest) {
             return processReadOnlyDirectMultiEntryAction((ReadOnlyDirectMultiRowReplicaRequest) request, opStartTsIfDirectRo);
         } else if (request instanceof TxStateCommitPartitionRequest) {
-            return processTxStateCommitPartitionRequest((TxStateCommitPartitionRequest) request, senderId);
+            return processTxStateCommitPartitionRequest((TxStateCommitPartitionRequest) request);
         } else {
             throw new UnsupportedReplicaRequestException(request.getClass());
         }
@@ -785,13 +772,9 @@ public class PartitionReplicaListener implements ReplicaListener {
      * Processes a transaction state request.
      *
      * @param request Transaction state request.
-     * @param senderId Sender inconsistent id.
      * @return Result future.
      */
-    private CompletableFuture<TransactionMeta> processTxStateCommitPartitionRequest(
-            TxStateCommitPartitionRequest request,
-            String senderId
-    ) {
+    private CompletableFuture<TransactionMeta> processTxStateCommitPartitionRequest(TxStateCommitPartitionRequest request) {
         return placementDriver.getPrimaryReplica(replicationGroupId, hybridClock.now())
                 .thenCompose(replicaMeta -> {
                     if (replicaMeta == null || replicaMeta.getLeaseholder() == null) {
@@ -815,7 +798,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                     } else if (txMeta == null || !isFinalState(txMeta.txState())) {
                         // Try to trigger recovery, if needed. If the transaction will be aborted, the proper ABORTED state will be sent
                         // in response.
-                        return triggerTxRecoveryOnTxStateResolutionIfNeeded(txId, txMeta, senderId);
+                        return triggerTxRecoveryOnTxStateResolutionIfNeeded(txId, txMeta);
                     } else {
                         return completedFuture(txMeta);
                     }
@@ -827,15 +810,15 @@ public class PartitionReplicaListener implements ReplicaListener {
      *
      * @param txId Transaction id.
      * @param txStateMeta Transaction meta.
-     * @param senderId Sender inconsistent id.
      * @return Tx recovery future, or completed future if the recovery isn't needed, or failed future if the recovery is not possible.
      */
     private CompletableFuture<TransactionMeta> triggerTxRecoveryOnTxStateResolutionIfNeeded(
             UUID txId,
-            @Nullable TxStateMeta txStateMeta,
-            String senderId
+            @Nullable TxStateMeta txStateMeta
     ) {
-        assert txStateMeta == null || !isFinalState(txStateMeta.txState()) : "Unexpected transaction state: " + txStateMeta;
+        // The state is either null or PENDING or ABANDONED, other states have been filtered out previously.
+        assert txStateMeta == null || txStateMeta.txState() == PENDING || txStateMeta.txState() == ABANDONED
+                : "Unexpected transaction state: " + txStateMeta;
 
         TxMeta txMeta = txStateStorage.get(txId);
 
@@ -848,7 +831,21 @@ public class PartitionReplicaListener implements ReplicaListener {
                 // state; and there is no final tx state in txStateStorage, or the tx coordinator left the cluster. But we can assume
                 // that as the coordinator (or information about it) is missing, there is  no need to wait a finish request from
                 // tx coordinator, the transaction can't be committed at all.
-                return triggerTxRecoveryWithState(txId, txStateMeta, senderId);
+                return triggerTxRecovery(txId, localNode.id())
+                        .handle((v, ex) -> {
+                            TransactionMeta transactionMeta = txManager.stateMeta(txId);
+
+                            assert transactionMeta != null;
+
+                            if (transactionMeta.txState() == FINISHING) {
+                                return ((TxStateMetaFinishing) transactionMeta).txFinishFuture();
+                            }
+
+                            assert transactionMeta.txState() == ABORTED;
+
+                            return completedFuture(transactionMeta);
+                        })
+                        .thenCompose(v -> v);
             } else {
                 assert txStateMeta != null && txStateMeta.txState() == PENDING : "Unexpected transaction state: " + txStateMeta;
 
