@@ -18,12 +18,21 @@
 package org.apache.ignite.client.handler.requests.sql;
 
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
+import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
+import org.apache.ignite.internal.client.proto.ClientBinaryTupleUtils;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
+import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
+import org.apache.ignite.internal.sql.api.SessionBuilderImpl;
 import org.apache.ignite.sql.ColumnMetadata;
+import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSetMetadata;
+import org.apache.ignite.sql.Session;
+import org.apache.ignite.sql.Session.SessionBuilder;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.async.AsyncResultSet;
+import org.apache.ignite.tx.IgniteTransactions;
 
 /**
  * Common SQL request handling logic.
@@ -138,6 +147,44 @@ class ClientSqlCommon {
 
             default:
                 throw new UnsupportedOperationException("Unsupported column type: " + col.type());
+        }
+    }
+
+    static Session readSession(ClientMessageUnpacker in, IgniteSql sql, IgniteTransactions transactions) {
+        SessionBuilder sessionBuilder = sql.sessionBuilder();
+
+        if (transactions != null && sessionBuilder instanceof SessionBuilderImpl) {
+            ((SessionBuilderImpl) sessionBuilder).igniteTransactions(transactions);
+        }
+
+        if (!in.tryUnpackNil()) {
+            sessionBuilder.defaultSchema(in.unpackString());
+        }
+
+        if (!in.tryUnpackNil()) {
+            sessionBuilder.defaultPageSize(in.unpackInt());
+        }
+
+        if (!in.tryUnpackNil()) {
+            sessionBuilder.defaultQueryTimeout(in.unpackLong(), TimeUnit.MILLISECONDS);
+        }
+
+        if (!in.tryUnpackNil()) {
+            sessionBuilder.idleTimeout(in.unpackLong(), TimeUnit.MILLISECONDS);
+        }
+
+        readSessionProperties(in, sessionBuilder);
+
+        return sessionBuilder.build();
+    }
+
+    private static void readSessionProperties(ClientMessageUnpacker in, SessionBuilder sessionBuilder) {
+        var propCount = in.unpackInt();
+        var reader = new BinaryTupleReader(propCount * 4, in.readBinaryUnsafe());
+
+        for (int i = 0; i < propCount; i++) {
+            //noinspection DataFlowIssue
+            sessionBuilder.property(reader.stringValue(i * 4), ClientBinaryTupleUtils.readObject(reader, i * 4 + 1));
         }
     }
 }

@@ -18,10 +18,13 @@
 package org.apache.ignite.internal.compute;
 
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.compute.DeploymentUnit;
+import org.apache.ignite.compute.JobStatus;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.network.ClusterNode;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Compute functionality.
@@ -45,7 +48,7 @@ public interface ComputeComponent extends IgniteComponent {
     );
 
     /**
-     * Executes a job of the given class on the current node with default execution options {@link ExecutionOptions.DEFAULT}.
+     * Executes a job of the given class on the current node with default execution options {@link ExecutionOptions#DEFAULT}.
      *
      * @param units Deployment units which will be loaded for execution.
      * @param jobClassName Name of the job class.
@@ -81,7 +84,7 @@ public interface ComputeComponent extends IgniteComponent {
     );
 
     /**
-     * Executes a job of the given class on a remote node with default execution options {@link ExecutionOptions.DEFAULT}.
+     * Executes a job of the given class on a remote node with default execution options {@link ExecutionOptions#DEFAULT}.
      *
      * @param remoteNode Name of the job class.
      * @param units Deployment units which will be loaded for execution.
@@ -98,4 +101,13 @@ public interface ComputeComponent extends IgniteComponent {
     ) {
         return executeRemotely(ExecutionOptions.DEFAULT, remoteNode, units, jobClassName, args);
     }
+
+    /**
+     * Returns job status by ID.
+     *
+     * @param jobId Job ID.
+     * @return Job status. {@code null} if job with the given ID does not exist.
+     */
+    @Nullable
+    JobStatus getJobStatus(UUID jobId);
 }

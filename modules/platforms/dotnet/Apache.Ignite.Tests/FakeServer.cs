@@ -113,6 +113,8 @@ namespace Apache.Ignite.Tests
 
         public long? LastSqlTxId { get; set; }
 
+        public Dictionary<string, object?> LastSqlScriptProps { get; private set; } = new();
+
         public long UpsertAllRowCount { get; set; }
 
         public long DroppedConnectionCount { get; set; }
@@ -294,9 +296,11 @@ namespace Apache.Ignite.Tests
                         continue;
 
                     case ClientOp.ComputeExecute:
+                    case ClientOp.ComputeExecuteColocated:
                     {
-                        using var pooledArrayBuffer = ComputeExecute(reader);
-                        Send(handler, requestId, pooledArrayBuffer);
+                        using var pooledArrayBuffer = ComputeExecute(reader, colocated: opCode == ClientOp.ComputeExecuteColocated);
+                        Send(handler, requestId, ReadOnlyMemory<byte>.Empty);
+                        Send(handler, requestId, pooledArrayBuffer, isNotification: true);
                         continue;
                     }
 
@@ -308,17 +312,15 @@ namespace Apache.Ignite.Tests
                         SqlCursorNextPage(handler, requestId);
                         continue;
 
+                    case ClientOp.SqlExecScript:
+                        SqlExecScript(reader);
+                        Send(handler, requestId, Array.Empty<byte>());
+                        continue;
+
                     case ClientOp.Heartbeat:
                         Thread.Sleep(HeartbeatDelay);
                         Send(handler, requestId, Array.Empty<byte>());
                         continue;
-
-                    case ClientOp.ComputeExecuteColocated:
-                    {
-                        using var pooledArrayBuffer = ComputeExecute(reader, colocated: true);
-                        Send(handler, requestId, pooledArrayBuffer);
-                        continue;
-                    }
                 }
 
                 // Fake error message for any other op code.
@@ -337,26 +339,32 @@ namespace Apache.Ignite.Tests
             handler.Disconnect(true);
         }
 
-        private void Send(Socket socket, long requestId, PooledArrayBuffer writer, bool isError = false)
-            => Send(socket, requestId, writer.GetWrittenMemory(), isError);
+        private void Send(Socket socket, long requestId, PooledArrayBuffer writer, bool isError = false, bool isNotification = false)
+            => Send(socket, requestId, writer.GetWrittenMemory(), isError, isNotification);
 
-        private void Send(Socket socket, long requestId, ReadOnlyMemory<byte> payload, bool isError = false)
+        private void Send(Socket socket, long requestId, ReadOnlyMemory<byte> payload, bool isError = false, bool isNotification = false)
         {
             using var header = new PooledArrayBuffer();
             var writer = new MsgPackWriter(header);
 
-            writer.Write(0); // Message type.
             writer.Write(requestId);
 
-            writer.Write((int)ResponseFlags.PartitionAssignmentChanged);
+            var flags = (int)ResponseFlags.PartitionAssignmentChanged;
+
+            if (isError)
+            {
+                flags |= (int)ResponseFlags.Error;
+            }
+
+            if (isNotification)
+            {
+                flags |= (int)ResponseFlags.Notification;
+            }
+
+            writer.Write(flags);
             writer.Write(PartitionAssignmentTimestamp);
 
             writer.Write(ObservableTimestamp); // Observable timestamp.
-
-            if (!isError)
-            {
-                writer.WriteNil(); // Success.
-            }
 
             var headerMem = header.GetWrittenMemory();
             var size = BitConverter.GetBytes(IPAddress.HostToNetworkOrder(headerMem.Length + payload.Length));
@@ -506,6 +514,36 @@ namespace Apache.Ignite.Tests
             Send(handler, requestId, arrayBufferWriter);
         }
 
+        private void SqlExecScript(MsgPackReader reader)
+        {
+            var props = new Dictionary<string, object?>
+            {
+                ["schema"] = reader.TryReadNil() ? null : reader.ReadString(),
+                ["pageSize"] = reader.TryReadNil() ? null : reader.ReadInt32(),
+                ["timeoutMs"] = reader.TryReadNil() ? null : reader.ReadInt64(),
+                ["sessionTimeoutMs"] = reader.TryReadNil() ? null : reader.ReadInt64()
+            };
+
+            var propCount = reader.ReadInt32();
+            var propTuple = new BinaryTupleReader(reader.ReadBinary(), propCount * 4);
+
+            for (int i = 0; i < propCount; i++)
+            {
+                var idx = i * 4;
+
+                var name = propTuple.GetString(idx);
+                var type = (ColumnType)propTuple.GetInt(idx + 1);
+                var scale = propTuple.GetInt(idx + 2);
+
+                props[name] = propTuple.GetObject(idx + 3, type, scale);
+            }
+
+            var sql = reader.ReadString();
+            props["sql"] = sql;
+
+            LastSqlScriptProps = props;
+        }
+
         private void GetSchemas(MsgPackReader reader, Socket handler, long requestId)
         {
             var tableId = reader.ReadInt32();
@@ -604,11 +642,6 @@ namespace Apache.Ignite.Tests
 
             var arrayBufferWriter = new PooledArrayBuffer();
             var writer = new MsgPackWriter(arrayBufferWriter);
-
-            if (colocated)
-            {
-                writer.Write(1); // Latest schema.
-            }
 
             writer.Write(builder.Build().Span);
 

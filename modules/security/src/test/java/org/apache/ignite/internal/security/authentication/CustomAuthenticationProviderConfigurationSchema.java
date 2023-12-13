@@ -15,15 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.client.proto;
+package org.apache.ignite.internal.security.authentication;
 
-/**
- * Server to client message types.
- */
-public class ServerMessageType {
-    /** Response to a request (initiated by the client). */
-    public static final int RESPONSE = 0;
+import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
+import org.apache.ignite.internal.security.authentication.configuration.AuthenticationProviderConfigurationSchema;
 
-    /** Notification (initiated by the server). */
-    public static final int NOTIFICATION = 1;
+/** Custom authentication configuration. */
+@PolymorphicConfigInstance(CustomAuthenticationProviderConfigurationSchema.TYPE)
+public class CustomAuthenticationProviderConfigurationSchema extends AuthenticationProviderConfigurationSchema {
+    static final String TYPE = "custom";
 }
