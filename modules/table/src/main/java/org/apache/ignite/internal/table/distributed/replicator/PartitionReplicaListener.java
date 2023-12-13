@@ -558,7 +558,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                         Map.of(replicationGroupId, 0L), // term is not required for the rollback.
                         txId
                 )
-                .thenCompose(unused -> runCleanupOnNode(txId, senderId));
+                .whenComplete((v, ex) -> runCleanupOnNode(txId, senderId));
     }
 
     /**
