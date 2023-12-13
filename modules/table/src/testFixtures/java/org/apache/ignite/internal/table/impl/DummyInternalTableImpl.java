@@ -379,7 +379,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 LOCAL_NODE,
                 new AlwaysSyncedSchemaSyncService(),
                 catalogService,
-                new TestPlacementDriver(LOCAL_NODE)
+                new TestPlacementDriver(LOCAL_NODE),
                 mock(ClusterNodeResolver.class)
         );
 

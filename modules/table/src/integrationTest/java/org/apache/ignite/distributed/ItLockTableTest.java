@@ -18,7 +18,6 @@
 package org.apache.ignite.distributed;
 
 import static org.apache.ignite.internal.replicator.ReplicaManager.DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
@@ -39,7 +38,6 @@ import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.tx.DeadlockPreventionPolicy;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
-import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager.LockState;
@@ -55,7 +53,6 @@ import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -156,51 +153,6 @@ public class ItLockTableTest extends IgniteAbstractTest {
     @AfterEach
     public void after() throws Exception {
         txTestCluster.shutdownCluster();
-    }
-
-    @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20894")
-    public void testDeadlockRecovery() {
-        RecordView<Tuple> view = testTable.recordView();
-        Tuple t1 = tuple(0, "0");
-        assertTrue(view.insert(null, t1));
-
-        Tuple t2 = tuple(1, "1");
-        assertTrue(view.insert(null, t2));
-
-        InternalTransaction tx1 = (InternalTransaction) txTestCluster.igniteTransactions().begin();
-        InternalTransaction tx2 = (InternalTransaction) txTestCluster.igniteTransactions().begin();
-
-        LOG.info("id1={}", tx1.id());
-        LOG.info("id2={}", tx2.id());
-
-        assertTrue(tx2.id().compareTo(tx1.id()) > 0);
-
-        Tuple t10 = view.get(tx1, keyTuple(0));
-        Tuple t21 = view.get(tx2, keyTuple(1));
-
-        assertEquals(t1.stringValue("name"), t10.stringValue("name"));
-        assertEquals(t2.stringValue("name"), t21.stringValue("name"));
-
-        view.upsertAsync(tx1, tuple(1, "11"));
-        view.upsertAsync(tx2, tuple(0, "00"));
-
-        assertTrue(TestUtils.waitForCondition(() -> {
-            int total = 0;
-            HeapLockManager lockManager = (HeapLockManager) txTestCluster.txManagers.get(txTestCluster.localNodeName).lockManager();
-            for (int j = 0; j < lockManager.getSlots().length; j++) {
-                LockState slot = lockManager.getSlots()[j];
-
-                total += slot.waitersCount();
-            }
-
-            // 2 S_lock on key=0 + 2 S_lock on key=1 - resolve by PK
-            // 1 S lock + 1 X lock on rowId(0) - read and update row0
-            // 1 S lock + 1 X lock on rowId(1) - read and update row1
-            return total == 8;
-        }, 10_000), "Some lockers are missing");
-
-        tx1.commit();
     }
 
     /**
