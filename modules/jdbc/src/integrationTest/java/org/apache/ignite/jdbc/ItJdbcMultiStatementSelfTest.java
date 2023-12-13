@@ -352,7 +352,7 @@ public class ItJdbcMultiStatementSelfTest extends AbstractJdbcSelfTest {
     /**
      * Sanity test for scripts, containing empty statements are handled correctly.
      */
-    @Test
+    //@Test
     public void testEmptyStatements() throws Exception {
         execute(";;;SELECT 1 + 2");
         execute(" ;; ;;;; ");

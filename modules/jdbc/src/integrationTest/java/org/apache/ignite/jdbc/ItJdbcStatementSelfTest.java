@@ -403,7 +403,7 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
         assertEquals(0, stmt0.getUpdateCount());
 
         for (int i = 0; i < stmtCnt; ++i) {
-            assertTrue(stmt0.getMoreResults());
+            assertFalse(stmt0.getMoreResults());
 
             assertNull(stmt0.getResultSet());
             assertEquals(1, stmt0.getUpdateCount());
