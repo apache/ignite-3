@@ -280,10 +280,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
      * @return Current read timestamp.
      */
     private HybridTimestamp currentReadTimestamp(HybridTimestamp beginTx) {
-        return new HybridTimestamp(beginTx.getPhysical()
-                - idleSafeTimePropagationPeriodMsSupplier.getAsLong()
-                - HybridTimestamp.CLOCK_SKEW,
-                0
+        return beginTx.subtractPhysicalTime(
+                idleSafeTimePropagationPeriodMsSupplier.getAsLong() + HybridTimestamp.CLOCK_SKEW
         );
     }
 
