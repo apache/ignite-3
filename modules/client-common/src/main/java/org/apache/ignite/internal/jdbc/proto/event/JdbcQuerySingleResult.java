@@ -41,7 +41,7 @@ public class JdbcQuerySingleResult extends Response {
     /** Flag indicating the query has no unfetched results. */
     private boolean last;
 
-    /** Flag indicating the query is SELECT query. {@code false} for DML/DDL queries. */
+    /** Flag indicating the query is SELECT/EXPLAIN query. {@code false} for DML/DDL/TX queries. */
     private boolean isQuery;
 
     /** Update count. */
@@ -74,8 +74,9 @@ public class JdbcQuerySingleResult extends Response {
      *
      * @param hasNext {@code true} if more results are present.
      */
-    public JdbcQuerySingleResult(boolean hasNext) {
+    public JdbcQuerySingleResult(boolean hasNext, long updCount) {
         hasResults = hasNext;
+        this.updateCnt = updCount;
     }
 
     /**
@@ -83,6 +84,10 @@ public class JdbcQuerySingleResult extends Response {
      *
      * @param cursorId Cursor ID.
      * @param rowTuples Serialized SQL result rows.
+     * @param columnTypes Ordered list of types of columns in serialized rows.
+     * @param decimalScales Decimal scales in appearance order.
+     * @param isQuery {@code true} if query is SELECT/EXPLAIN.
+     * @param updateCnt Update count.
      * @param last     Flag indicates the query has no unfetched results.
      */
     public JdbcQuerySingleResult(long cursorId, List<BinaryTupleReader> rowTuples, List<ColumnType> columnTypes, int[] decimalScales,
@@ -191,6 +196,7 @@ public class JdbcQuerySingleResult extends Response {
     @Override
     public void writeBinary(ClientMessagePacker packer) {
         super.writeBinary(packer);
+        packer.packLong(updateCnt);
 
         if (!hasResults) {
             return;
@@ -203,7 +209,6 @@ public class JdbcQuerySingleResult extends Response {
         }
 
         packer.packBoolean(isQuery);
-        packer.packLong(updateCnt);
         packer.packBoolean(last);
 
         packer.packIntArray(decimalScales);
@@ -224,6 +229,7 @@ public class JdbcQuerySingleResult extends Response {
     @Override
     public void readBinary(ClientMessageUnpacker unpacker) {
         super.readBinary(unpacker);
+        updateCnt = unpacker.unpackLong();
 
         if (!hasResults) {
             return;
@@ -235,7 +241,6 @@ public class JdbcQuerySingleResult extends Response {
             cursorId = unpacker.unpackLong();
         }
         isQuery = unpacker.unpackBoolean();
-        updateCnt = unpacker.unpackLong();
         last = unpacker.unpackBoolean();
 
         decimalScales = unpacker.unpackIntArray();

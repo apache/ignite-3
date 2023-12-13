@@ -762,7 +762,7 @@ public class JdbcPreparedStatement extends JdbcStatement implements PreparedStat
         Object[] args = currentArgs == null ? ArrayUtils.OBJECT_EMPTY_ARRAY :
                 currentArgs.stream().map(this::convertJdbcTypeToInternal).toArray();
 
-        execute0(statementType, sql, false, args);
+        execute0(statementType, sql, true, args);
     }
 
     private static void checkType(int sqlType) throws SQLException {

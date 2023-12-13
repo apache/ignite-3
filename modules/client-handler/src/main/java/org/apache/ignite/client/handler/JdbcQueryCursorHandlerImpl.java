@@ -109,7 +109,7 @@ public class JdbcQueryCursorHandlerImpl implements JdbcQueryCursorHandler {
         }
 
         if (!asyncSqlCursor.hasNextResult()) {
-            return CompletableFuture.completedFuture(new JdbcQuerySingleResult(false));
+            return CompletableFuture.completedFuture(new JdbcQuerySingleResult(false, -1));
         }
 
         return asyncSqlCursor.nextResult().thenCompose(cur -> cur.requestNextAsync(req.fetchSize())
@@ -122,9 +122,9 @@ public class JdbcQueryCursorHandlerImpl implements JdbcQueryCursorHandler {
                     }
 
                     try {
-                        long cursorId = resources.put(new ClientResource(cur, cur::closeAsync));
-
                         SqlQueryType queryType = cur.queryType();
+
+                        long cursorId = resources.put(new ClientResource(cur, cur::closeAsync));
 
                         List<ColumnMetadata> columns = cur.metadata().columns();
 

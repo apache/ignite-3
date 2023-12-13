@@ -218,6 +218,10 @@ public class JdbcResultSet implements ResultSet {
         initColumnOrder();
     }
 
+    boolean holdResults() {
+        return rows != null && !rows.isEmpty();
+    }
+
     @Nullable JdbcResultSet getNextResultSet() throws SQLException {
         try {
             JdbcQueryFetchRequest req = new JdbcQueryFetchRequest(cursorId, fetchSize);

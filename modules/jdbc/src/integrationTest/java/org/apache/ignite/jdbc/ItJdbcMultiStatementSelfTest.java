@@ -71,6 +71,11 @@ public class ItJdbcMultiStatementSelfTest extends AbstractJdbcSelfTest {
 
         stmt.execute("INSERT INTO TEST_TX VALUES (6, 5, '5');");
         assertEquals(-1, getResultSetSize());
+
+        // empty result
+        res = stmt.execute("SELECT ID FROM TEST_TX WHERE ID=1000;");
+        assertTrue(res);
+        assertNotNull(stmt.getResultSet());
     }
 
     @Test
@@ -93,7 +98,8 @@ public class ItJdbcMultiStatementSelfTest extends AbstractJdbcSelfTest {
         assertTrue(stmt.isCloseOnCompletion());
 
         assertFalse(stmt.isClosed());
-        rs1.close(); rs2.close();
+        rs1.close();
+        rs2.close();
         assertTrue(stmt.isClosed());
     }
 
@@ -133,37 +139,90 @@ public class ItJdbcMultiStatementSelfTest extends AbstractJdbcSelfTest {
     }
 
     @Test
-    public void testTransactionsRelatedExecute() throws Exception {
-        boolean res = stmt.execute("START TRANSACTION; INSERT INTO TEST_TX VALUES (5, 19, 'Nick'); COMMIT");
-        assertFalse(res);
-        assertEquals(-1, getResultSetSize());
-
-        // conn.setAutoCommit(false); need to check too
-/*        res = stmt.execute("START TRANSACTION; COMMIT");
+    public void testPureTransaction() throws Exception {
+        boolean res = stmt.execute("START TRANSACTION; COMMIT");
         assertFalse(res);
         assertNull(stmt.getResultSet());
         assertEquals(0, stmt.getUpdateCount());
-        assertFalse(stmt.getMoreResults());*/
+        assertFalse(stmt.getMoreResults());
+        assertEquals(0, stmt.getUpdateCount());
+        assertFalse(stmt.getMoreResults());
+        assertEquals(-1, stmt.getUpdateCount());
+    }
 
-/*        res = stmt.execute("COMMIT");
+    @Test
+    public void testBrokenTransaction() throws Exception {
+        boolean res = stmt.execute("START TRANSACTION;");
         assertFalse(res);
         assertNull(stmt.getResultSet());
         assertEquals(0, stmt.getUpdateCount());
-        assertFalse(stmt.getMoreResults());*/
+        assertFalse(stmt.getMoreResults());
+        assertEquals(-1, stmt.getUpdateCount());
 
+        res = stmt.execute("COMMIT;");
+        assertFalse(res);
+        assertNull(stmt.getResultSet());
+        assertEquals(0, stmt.getUpdateCount());
+        assertFalse(stmt.getMoreResults());
+        assertEquals(-1, stmt.getUpdateCount());
+    }
+
+    @Test
+    public void testTransactionQueryInside() throws Exception {
         stmt.execute("START TRANSACTION; SELECT 1; COMMIT");
         ResultSet resultSet = stmt.getResultSet();
         assertNull(resultSet);
         assertEquals(0, stmt.getUpdateCount());
 
+        // SELECT 1
         assertTrue(stmt.getMoreResults());
         resultSet = stmt.getResultSet();
         assertNotNull(resultSet);
 
-/*        assertFalse(stmt.getMoreResults());
+        // COMMIT
+        assertFalse(stmt.getMoreResults());
         resultSet = stmt.getResultSet();
         assertNull(resultSet);
-        assertEquals(0, stmt.getUpdateCount());*/
+        assertEquals(0, stmt.getUpdateCount());
+
+        // after commit
+        assertFalse(stmt.getMoreResults());
+        assertEquals(-1, stmt.getUpdateCount());
+    }
+
+    @Test
+    public void testTransactionQueryInsideOutside() throws Exception {
+        stmt.execute("START TRANSACTION; SELECT 1; COMMIT; SELECT 2;");
+        ResultSet resultSet = stmt.getResultSet();
+        assertNull(resultSet);
+        assertEquals(0, stmt.getUpdateCount());
+
+        // SELECT 1;
+        assertTrue(stmt.getMoreResults());
+        resultSet = stmt.getResultSet();
+        assertNotNull(resultSet);
+
+        // COMMIT;
+        assertFalse(stmt.getMoreResults());
+        resultSet = stmt.getResultSet();
+        assertNull(resultSet);
+        assertEquals(0, stmt.getUpdateCount());
+
+        // SELECT 2;
+        assertTrue(stmt.getMoreResults());
+        resultSet = stmt.getResultSet();
+        assertNotNull(resultSet);
+        assertEquals(-1, stmt.getUpdateCount());
+
+        // after
+        assertFalse(stmt.getMoreResults());
+        assertEquals(-1, stmt.getUpdateCount());
+    }
+
+    @Test
+    public void testDmlInsideTransaction() throws Exception {
+        stmt.execute("START TRANSACTION; INSERT INTO TEST_TX VALUES (5, 19, 'Nick'); COMMIT");
+        assertEquals(-1, getResultSetSize());
     }
 
     @Test
@@ -234,6 +293,10 @@ public class ItJdbcMultiStatementSelfTest extends AbstractJdbcSelfTest {
 
         rs.next();
         assertEquals(-1, stmt.getUpdateCount());
+
+        // empty result
+        stmt.execute("SELECT ID FROM TEST_TX WHERE ID=1000;");
+        assertEquals(-1, stmt.getUpdateCount());
     }
 
     @Test
@@ -289,7 +352,7 @@ public class ItJdbcMultiStatementSelfTest extends AbstractJdbcSelfTest {
     /**
      * Sanity test for scripts, containing empty statements are handled correctly.
      */
-    //@Test
+    @Test
     public void testEmptyStatements() throws Exception {
         execute(";;;SELECT 1 + 2");
         execute(" ;; ;;;; ");
@@ -329,8 +392,6 @@ public class ItJdbcMultiStatementSelfTest extends AbstractJdbcSelfTest {
             p.setInt(3, gabAge);
             p.setString(4, gabName);
             p.setInt(5, delYounger);
-
-            assertThrows(SQLException.class, () -> p.execute(), "Multiple statements are not allowed");
         }
 
         complexQuery = "UPDATE TEST_TX SET name = ? WHERE name = 'James';";
@@ -374,11 +435,12 @@ public class ItJdbcMultiStatementSelfTest extends AbstractJdbcSelfTest {
     }
 
     /**
+     * Check statement return result sets and update counter. <br>
      * Returns: <br>
      *  -1 if all statement datasets are null, or <br>
      *  &gt= 0 summary results count<br>
-     * @return
-     * @throws SQLException
+     *
+     * @throws SQLException If failed.
      */
     private int getResultSetSize() throws SQLException {
         ResultSet rs = stmt.getResultSet();

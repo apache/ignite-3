@@ -470,7 +470,7 @@ public class JdbcStatement implements Statement {
             }
         }
 
-        return nextResultSet != null;
+        return nextResultSet != null && nextResultSet.holdResults();
     }
 
     /** {@inheritDoc} */
