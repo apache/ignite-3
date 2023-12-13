@@ -54,12 +54,12 @@ public interface AsyncClosableCursor<T> {
 
     /**
      * Fetches the next page of results asynchronously.
-     * The future that is completed with the same {@code AsyncClosableCursor} object.
      * The current page is changed after the future completion.
      * The methods {@link #currentPage()}, {@link #currentPageSize()}, {@link #hasMorePages()}
      * use the current page and return consistent results between complete last page future and call {@code fetchNextPage}.
      *
      * @return A future which will be completed when next page will be fetched and set as the current page.
+     *     The future will return {@code this} for chaining.
      * @throws NoRowSetExpectedException if no row set is expected as a query result.
      */
     CompletableFuture<? extends AsyncClosableCursor<T>> fetchNextPage();
