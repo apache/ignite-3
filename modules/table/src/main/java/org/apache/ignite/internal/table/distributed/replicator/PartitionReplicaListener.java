@@ -850,8 +850,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 // tx coordinator, the transaction can't be committed at all.
                 return triggerTxRecoveryWithState(txId, txStateMeta, senderId);
             } else {
-                assert txStateMeta != null && (txStateMeta.txState() == PENDING || txStateMeta.txState() == FINISHING)
-                        : "Unexpected transaction state: " + txStateMeta;
+                assert txStateMeta != null && txStateMeta.txState() == PENDING : "Unexpected transaction state: " + txStateMeta;
 
                 return completedFuture(txStateMeta);
             }
