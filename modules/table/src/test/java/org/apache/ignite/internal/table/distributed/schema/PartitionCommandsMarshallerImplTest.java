@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.table.distributed.schema;
 
-import static org.apache.ignite.internal.raft.util.ByteBuffersPool.NO_POOL;
+import static org.apache.ignite.internal.raft.util.OptimizedMarshaller.NO_POOL;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;

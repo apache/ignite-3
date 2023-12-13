@@ -17,10 +17,14 @@
 
 package org.apache.ignite.internal.raft.util;
 
+import static org.apache.ignite.internal.raft.util.OptimizedMarshaller.DEFAULT_BUFFER_SIZE;
+import static org.apache.ignite.internal.raft.util.OptimizedMarshaller.MAX_CACHED_BUFFER_BYTES;
+
 import java.nio.ByteBuffer;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicInteger;
+import org.apache.ignite.internal.raft.util.OptimizedMarshaller.ByteBuffersPool;
 import org.jetbrains.annotations.Nullable;
 
 /**

@@ -17,9 +17,6 @@
 
 package org.apache.ignite.internal.raft.util;
 
-import static org.apache.ignite.internal.raft.util.ByteBuffersPool.DEFAULT_BUFFER_SIZE;
-import static org.apache.ignite.internal.raft.util.ByteBuffersPool.MAX_CACHED_BUFFER_BYTES;
-
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.Arrays;
@@ -33,11 +30,39 @@ import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.serialization.MessageReader;
 import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.network.serialization.MessageWriter;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Marshaller implementation that uses a {@link DirectByteBufferStream} variant to serialize/deserialize data.
  */
 public class OptimizedMarshaller implements Marshaller {
+    /**
+     * Byte buffer pool for {@link OptimizedMarshaller}. Helps re-using old buffers, saving some time on allocations.
+     */
+    public interface ByteBuffersPool {
+
+        /**
+         * Removes one buffer from cache and returns it, if possible. Returns {@code null} otherwise.
+         */
+        @Nullable ByteBuffer borrow();
+
+        /**
+         * Adds a buffer back to the pool. Should only be called if previous {@link #borrow()} call returned a non-null buffer.
+         *
+         * @param buffer The buffer to add back to the pool. Its capacity must not be higher than
+         *      {@link OptimizedMarshaller#MAX_CACHED_BUFFER_BYTES} or the sake of controlling the amount of RAM. If the capacity is higher,
+         *      the behavior is undefined.
+         */
+        void release(ByteBuffer buffer);
+    }
+
+    /** Default buffer size. */
+    public static final int DEFAULT_BUFFER_SIZE = 1024;
+    /** Maximal size of the buffer that can be stored in the pool. */
+    public static final int MAX_CACHED_BUFFER_BYTES = 256 * 1024;
+    /** Default "no pool" instance for always-empty pool. */
+    public static final ByteBuffersPool NO_POOL = new EmptyByteBuffersPool();
+
     /** Protocol version. */
     private static final byte PROTO_VER = 1;
 

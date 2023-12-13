@@ -17,20 +17,18 @@
 
 package org.apache.ignite.internal.raft.util;
 
-import java.nio.ByteBuffer;
-import org.apache.ignite.internal.raft.util.OptimizedMarshaller.ByteBuffersPool;
-import org.jetbrains.annotations.Nullable;
+import static org.junit.jupiter.api.Assertions.assertNull;
+
+import org.junit.jupiter.api.Test;
 
 /**
- * Cache that's always empty.
+ * Test for {@link EmptyByteBuffersPool}.
  */
-public class EmptyByteBuffersPool implements ByteBuffersPool {
-    @Override
-    public @Nullable ByteBuffer borrow() {
-        return null;
-    }
+class EmptyByteBuffersPoolTest {
+    @Test
+    public void testBorrow() {
+        var pool = new EmptyByteBuffersPool();
 
-    @Override
-    public void release(ByteBuffer buffer) {
+        assertNull(pool.borrow());
     }
 }

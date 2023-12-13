@@ -18,8 +18,8 @@
 package org.apache.ignite.internal.table.distributed.schema;
 
 import java.nio.ByteBuffer;
-import org.apache.ignite.internal.raft.util.ByteBuffersPool;
 import org.apache.ignite.internal.raft.util.DefaultByteBuffersPool;
+import org.apache.ignite.internal.raft.util.OptimizedMarshaller.ByteBuffersPool;
 import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 
 /**
