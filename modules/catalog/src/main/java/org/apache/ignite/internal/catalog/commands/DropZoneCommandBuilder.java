@@ -15,15 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.catalog;
+package org.apache.ignite.internal.catalog.commands;
 
 /**
- * This exception is thrown when table not found in the schema.
+ * Builder of a command that drop specified zone.
  *
- * <p>This exception is used to properly handle IF EXISTS flag in ddl command handler.
+ * <p>A builder is considered to be reusable, thus implementation have
+ * to make sure invocation of {@link #build()} method doesn't cause any
+ * side effects on builder's state or any object created by the same builder.
  */
-public class TableNotFoundValidationException extends CatalogValidationException {
-    public TableNotFoundValidationException(String message) {
-        super(message);
-    }
+public interface DropZoneCommandBuilder extends AbstractZoneCommandBuilder<DropZoneCommandBuilder> {
+
 }

@@ -17,27 +17,27 @@
 
 package org.apache.ignite.internal.catalog.commands;
 
+import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateIdentifier;
+
+import org.apache.ignite.internal.catalog.CatalogCommand;
+import org.apache.ignite.internal.catalog.CatalogValidationException;
+
 /**
- * DROP ZONE statement.
+ * Abstract zone-related command.
+ *
+ * <p>Every zone-related command, disregard it going to create new zone or modify existing one,
+ * should specify name of the zone to be processed.
  */
-public class DropZoneParams extends AbstractZoneCommandParams {
-    /** Constructor. */
-    private DropZoneParams(String zoneName) {
-        super(zoneName);
+public abstract class AbstractZoneCommand implements CatalogCommand {
+    protected String zoneName;
+
+    AbstractZoneCommand(String zoneName) throws CatalogValidationException {
+        this.zoneName = zoneName;
+
+        validate();
     }
 
-    /** Creates parameters builder. */
-    public static Builder builder() {
-        return new Builder();
-    }
-
-    /**
-     * Parameters builder.
-     */
-    public static class Builder extends AbstractBuilder<DropZoneParams, Builder> {
-        @Override
-        protected DropZoneParams createParams() {
-            return new DropZoneParams(zoneName);
-        }
+    private void validate() {
+        validateIdentifier(zoneName, "Name of the zone");
     }
 }

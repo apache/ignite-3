@@ -17,8 +17,18 @@
 
 package org.apache.ignite.internal.catalog.commands;
 
+import org.apache.ignite.internal.catalog.CatalogCommand;
+
 /**
- * Marker interface for DDL command parameters.
+ * Abstract builder of zone-related commands.
+ *
+ * <p>Every zone-related command, disregard it going to create new zone or modify existing one,
+ * should specify name of the zone to be processed.
  */
-public interface DdlCommandParams {
+public interface AbstractZoneCommandBuilder<T extends AbstractZoneCommandBuilder<T>> {
+    /** Zone name all inheritor will processed with. */
+    T zoneName(String zoneName);
+
+    /** Returns a command with specified parameters. */
+    CatalogCommand build();
 }

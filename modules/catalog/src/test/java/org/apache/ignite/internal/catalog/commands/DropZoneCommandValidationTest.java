@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.catalog.commands;
 
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 
 import org.apache.ignite.internal.catalog.Catalog;
@@ -27,73 +28,43 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
 /**
- * Tests to verify validation of {@link DropTableCommand}.
+ * Tests to verify validation of {@link DropZoneCommand}.
  */
 @SuppressWarnings("ThrowableNotThrown")
-public class DropTableCommandValidationTest extends AbstractCommandValidationTest {
+public class DropZoneCommandValidationTest extends AbstractCommandValidationTest {
     @ParameterizedTest(name = "[{index}] ''{argumentsWithNames}''")
     @MethodSource("nullAndBlankStrings")
-    void schemaNameMustNotBeNullOrBlank(String name) {
-        DropTableCommandBuilder builder = DropTableCommand.builder();
-
-        builder.tableName("TEST")
-                .schemaName(name);
-
+    void zoneNameMustNotBeNullOrBlank(String zone) {
         assertThrows(
                 CatalogValidationException.class,
-                builder::build,
-                "Name of the schema can't be null or blank"
-        );
-    }
-
-    @ParameterizedTest(name = "[{index}] ''{argumentsWithNames}''")
-    @MethodSource("nullAndBlankStrings")
-    void tableNameMustNotBeNullOrBlank(String name) {
-        DropTableCommandBuilder builder = DropTableCommand.builder();
-
-        builder.schemaName("TEST")
-                .tableName(name);
-
-        assertThrows(
-                CatalogValidationException.class,
-                builder::build,
-                "Name of the table can't be null or blank"
+                () -> DropZoneCommand.builder().zoneName(zone).build(),
+                "Name of the zone can't be null or blank"
         );
     }
 
     @Test
-    void exceptionIsThrownIfSchemaNotExists() {
-        DropTableCommandBuilder builder = DropTableCommand.builder();
+    void rejectToDropDefaultZone() {
+        assertThrows(
+                CatalogValidationException.class,
+                () -> DropZoneCommand.builder().zoneName(DEFAULT_ZONE_NAME).build(),
+                "Default distribution zone can't be dropped"
+        );
+    }
+
+    @Test
+    void exceptionIsThrownIfZoneWithGivenNameNotFound() {
+        DropZoneCommandBuilder builder = DropZoneCommand.builder();
 
         Catalog catalog = emptyCatalog();
 
         CatalogCommand command = builder
-                .schemaName(SCHEMA_NAME + "_UNK")
-                .tableName("TEST")
+                .zoneName("some_zone")
                 .build();
 
         assertThrows(
                 CatalogValidationException.class,
                 () -> command.get(catalog),
-                "Schema with name 'PUBLIC_UNK' not found"
-        );
-    }
-
-    @Test
-    void exceptionIsThrownIfTableWithGivenNameNotFound() {
-        DropTableCommandBuilder builder = DropTableCommand.builder();
-
-        Catalog catalog = emptyCatalog();
-
-        CatalogCommand command = builder
-                .schemaName(SCHEMA_NAME)
-                .tableName("TEST")
-                .build();
-
-        assertThrows(
-                CatalogValidationException.class,
-                () -> command.get(catalog),
-                "Table with name 'PUBLIC.TEST' not found"
+                "Distribution zone with name 'some_zone' not found"
         );
     }
 }

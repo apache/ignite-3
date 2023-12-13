@@ -18,12 +18,13 @@
 package org.apache.ignite.internal.catalog;
 
 /**
- * This exception is thrown when table not found in the schema.
+ * This exception is thrown when distribution zone cannot be created because another zone with
+ * the same name already exists.
  *
- * <p>This exception is used to properly handle IF EXISTS flag in ddl command handler.
+ * <p>This exception is used to properly handle IF NOT EXISTS flag in ddl command handler.
  */
-public class TableNotFoundValidationException extends CatalogValidationException {
-    public TableNotFoundValidationException(String message) {
+public class DistributionZoneExistsValidationException extends CatalogValidationException {
+    public DistributionZoneExistsValidationException(String message) {
         super(message);
     }
 }

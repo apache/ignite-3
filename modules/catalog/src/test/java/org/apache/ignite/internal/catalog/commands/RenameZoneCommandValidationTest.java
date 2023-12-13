@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.catalog.commands;
 
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 
 import org.apache.ignite.internal.catalog.Catalog;
@@ -27,73 +28,69 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
 /**
- * Tests to verify validation of {@link DropTableCommand}.
+ * Tests to verify validation of {@link RenameZoneCommand}.
  */
-@SuppressWarnings("ThrowableNotThrown")
-public class DropTableCommandValidationTest extends AbstractCommandValidationTest {
-    @ParameterizedTest(name = "[{index}] ''{argumentsWithNames}''")
-    @MethodSource("nullAndBlankStrings")
-    void schemaNameMustNotBeNullOrBlank(String name) {
-        DropTableCommandBuilder builder = DropTableCommand.builder();
-
-        builder.tableName("TEST")
-                .schemaName(name);
-
-        assertThrows(
-                CatalogValidationException.class,
-                builder::build,
-                "Name of the schema can't be null or blank"
-        );
-    }
+public class RenameZoneCommandValidationTest extends AbstractCommandValidationTest {
+    private static final String ZONE_NAME = "test_zone";
 
     @ParameterizedTest(name = "[{index}] ''{argumentsWithNames}''")
     @MethodSource("nullAndBlankStrings")
-    void tableNameMustNotBeNullOrBlank(String name) {
-        DropTableCommandBuilder builder = DropTableCommand.builder();
-
-        builder.schemaName("TEST")
-                .tableName(name);
+    void srcDestZoneNamesMustNotBeNullOrBlank(String zone) {
+        assertThrows(
+                CatalogValidationException.class,
+                () -> RenameZoneCommand.builder().zoneName(zone).build(),
+                "Name of the zone can't be null or blank");
 
         assertThrows(
                 CatalogValidationException.class,
-                builder::build,
-                "Name of the table can't be null or blank"
-        );
+                () -> RenameZoneCommand.builder().zoneName(ZONE_NAME).newZoneName(zone).build(),
+                "New zone name can't be null or blank");
     }
 
     @Test
-    void exceptionIsThrownIfSchemaNotExists() {
-        DropTableCommandBuilder builder = DropTableCommand.builder();
+    void rejectToRenameDefaultZone() {
+        assertThrows(
+                CatalogValidationException.class,
+                () -> RenameZoneCommand.builder().zoneName(DEFAULT_ZONE_NAME).newZoneName("some").build(),
+                "Default distribution zone can't be renamed");
+
+        // Let's check the success cases.
+        RenameZoneCommand.builder().zoneName(ZONE_NAME).newZoneName(ZONE_NAME + 0).build();
+    }
+
+    @Test
+    void exceptionIsThrownIfZoneWithGivenNameNotFound() {
+        RenameZoneCommandBuilder builder = RenameZoneCommand.builder();
 
         Catalog catalog = emptyCatalog();
 
         CatalogCommand command = builder
-                .schemaName(SCHEMA_NAME + "_UNK")
-                .tableName("TEST")
+                .zoneName("some_zone")
+                .newZoneName("some_zone1")
                 .build();
 
         assertThrows(
                 CatalogValidationException.class,
                 () -> command.get(catalog),
-                "Schema with name 'PUBLIC_UNK' not found"
+                "Distribution zone with name 'some_zone' not found"
         );
     }
 
     @Test
-    void exceptionIsThrownIfTableWithGivenNameNotFound() {
-        DropTableCommandBuilder builder = DropTableCommand.builder();
+    void exceptionIsThrownIfZoneToRenameAlreadyExist() {
+        RenameZoneCommandBuilder builder = RenameZoneCommand.builder();
 
-        Catalog catalog = emptyCatalog();
+        Catalog catalog = catalogWithZones("some_zone", "some_zone1");
 
         CatalogCommand command = builder
-                .schemaName(SCHEMA_NAME)
-                .tableName("TEST")
+                .zoneName("some_zone")
+                .newZoneName("some_zone1")
                 .build();
 
         assertThrows(
                 CatalogValidationException.class,
                 () -> command.get(catalog),
-                "Table with name 'PUBLIC.TEST' not found"
+                "Distribution zone with name 'some_zone1' already exists"
         );
     }
 }

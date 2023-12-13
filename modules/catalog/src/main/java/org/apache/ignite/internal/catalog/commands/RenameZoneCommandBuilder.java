@@ -15,15 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.catalog;
+package org.apache.ignite.internal.catalog.commands;
 
 /**
- * This exception is thrown when table not found in the schema.
+ * Builder of a command that changes an existing zone name.
  *
- * <p>This exception is used to properly handle IF EXISTS flag in ddl command handler.
+ * <p>A builder is considered to be reusable, thus implementation have
+ * to make sure invocation of {@link #build()} method doesn't cause any
+ * side effects on builder's state or any object created by the same builder.
  */
-public class TableNotFoundValidationException extends CatalogValidationException {
-    public TableNotFoundValidationException(String message) {
-        super(message);
-    }
+public interface RenameZoneCommandBuilder extends AbstractZoneCommandBuilder<RenameZoneCommandBuilder> {
+    /** A new name of already existing zone. */
+    RenameZoneCommandBuilder newZoneName(String newZoneName);
 }
