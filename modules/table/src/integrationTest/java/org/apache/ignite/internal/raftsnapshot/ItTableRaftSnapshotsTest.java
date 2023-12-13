@@ -20,7 +20,7 @@ package org.apache.ignite.internal.raftsnapshot;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.SessionUtils.executeUpdate;
-import static org.apache.ignite.internal.raft.util.ByteBufferCache.NO_CACHE;
+import static org.apache.ignite.internal.raft.util.ByteBuffersPool.NO_POOL;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.getFieldValue;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
@@ -590,7 +590,7 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
             return false;
         }
 
-        var commandsMarshaller = new PartitionCommandsMarshallerImpl(serializationRegistry, NO_CACHE);
+        var commandsMarshaller = new PartitionCommandsMarshallerImpl(serializationRegistry, NO_POOL);
         return commandsMarshaller.unmarshall(request.command()) instanceof SafeTimeSyncCommand;
     }
 

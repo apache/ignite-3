@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.table.distributed.schema;
 
-import static org.apache.ignite.internal.raft.util.ByteBufferCache.NO_CACHE;
+import static org.apache.ignite.internal.raft.util.ByteBuffersPool.NO_POOL;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.defaultSerializationRegistry;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.instanceOf;
@@ -96,7 +96,7 @@ class CheckCatalogVersionOnActionRequestTest extends BaseIgniteAbstractTest {
         lenient().when(node.getNodeState()).thenReturn(State.STATE_LEADER);
         lenient().when(node.getLeaderId()).thenReturn(leaderId);
 
-        commandsMarshaller = new PartitionCommandsMarshallerImpl(defaultSerializationRegistry(), NO_CACHE);
+        commandsMarshaller = new PartitionCommandsMarshallerImpl(defaultSerializationRegistry(), NO_POOL);
     }
 
     @Test

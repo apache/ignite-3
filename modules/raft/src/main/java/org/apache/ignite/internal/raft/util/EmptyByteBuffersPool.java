@@ -23,13 +23,13 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Cache that's always empty.
  */
-public class EmptyByteBufferCache implements ByteBufferCache {
+public class EmptyByteBuffersPool implements ByteBuffersPool {
     @Override
     public @Nullable ByteBuffer borrow() {
         return null;
     }
 
     @Override
-    public void offer(ByteBuffer buffer) {
+    public void release(ByteBuffer buffer) {
     }
 }

@@ -20,7 +20,7 @@ package org.apache.ignite.internal.raft;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toUnmodifiableList;
-import static org.apache.ignite.internal.raft.util.ByteBufferCache.NO_CACHE;
+import static org.apache.ignite.internal.raft.util.ByteBuffersPool.NO_POOL;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
@@ -631,7 +631,7 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
                 argThat(new ArgumentMatcher<WriteActionRequest>() {
                     @Override
                     public boolean matches(WriteActionRequest arg) {
-                        Object command = new OptimizedMarshaller(cluster.serializationRegistry(), NO_CACHE).unmarshall(arg.command());
+                        Object command = new OptimizedMarshaller(cluster.serializationRegistry(), NO_POOL).unmarshall(arg.command());
 
                         return command instanceof TestWriteCommand;
                     }

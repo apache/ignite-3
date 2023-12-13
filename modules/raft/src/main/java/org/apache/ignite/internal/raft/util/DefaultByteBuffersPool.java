@@ -24,46 +24,49 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Basic cache implementation with limited capacity.
+ * Basic pool implementation with limited capacity.
  */
-public class DefaultByteBufferCache implements ByteBufferCache {
-    /** Cache capacity. Not strict, just strongly suggested. */
+public class DefaultByteBuffersPool implements ByteBuffersPool {
+    /** Max pool size. */
     private final int capacity;
 
     /** Queue with cached buffers. */
-    private final Queue<ByteBuffer> cache;
+    private final Queue<ByteBuffer> queue;
 
-    /** Queue size, it's faster to store it separately. */
+    /** Pool size. */
     private final AtomicInteger size = new AtomicInteger();
 
     /**
      * Constructor.
      *
-     * @param capacity The maximum number of buffers that the cache should hold. Not strict.
+     * @param capacity Max pool size.
      */
-    public DefaultByteBufferCache(int capacity) {
+    public DefaultByteBuffersPool(int capacity) {
         this.capacity = capacity;
 
-        cache = new ConcurrentLinkedQueue<>();
+        queue = new ConcurrentLinkedQueue<>();
     }
 
     @Override
     public @Nullable ByteBuffer borrow() {
-        ByteBuffer buffer = cache.poll();
+        ByteBuffer buffer = queue.poll();
 
         if (buffer != null) {
-            size.decrementAndGet();
+            return buffer;
         }
 
-        return buffer;
+        if (size.get() < capacity && size.getAndIncrement() < capacity) {
+            return ByteBuffer.allocate(DEFAULT_BUFFER_SIZE).order(OptimizedMarshaller.ORDER);
+        }
+
+        return null;
     }
 
     @Override
-    public void offer(ByteBuffer buffer) {
-        if (size.get() < capacity) {
-            // Ignore races, there's no point in writing complicated code here.
-            cache.add(buffer);
-            size.incrementAndGet();
-        }
+    public void release(ByteBuffer buffer) {
+        assert buffer.position() == 0;
+        assert buffer.capacity() <= MAX_CACHED_BUFFER_BYTES;
+
+        queue.add(buffer);
     }
 }

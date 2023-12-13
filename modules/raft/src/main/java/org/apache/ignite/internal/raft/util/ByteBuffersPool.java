@@ -21,14 +21,18 @@ import java.nio.ByteBuffer;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Byte buffer cache for {@link org.apache.ignite.internal.raft.util.OptimizedMarshaller}. Helps re-using old buffers,
+ * Byte buffer pool for {@link org.apache.ignite.internal.raft.util.OptimizedMarshaller}. Helps re-using old buffers,
  * saving some time on allocations.
  */
-public interface ByteBufferCache {
-    /**
-     * Default "no cache" instance for always-empty cache.
-     */
-    ByteBufferCache NO_CACHE = new EmptyByteBufferCache();
+public interface ByteBuffersPool {
+    /** Default buffer size. */
+    int DEFAULT_BUFFER_SIZE = 1024;
+
+    /** Maximal size of the buffer that can be stored in the pool. */
+    int MAX_CACHED_BUFFER_BYTES = 256 * 1024;
+
+    /** Default "no pool" instance for always-empty pool. */
+    ByteBuffersPool NO_POOL = new EmptyByteBuffersPool();
 
     /**
      * Removes one buffer from cache and returns it, if possible. Returns {@code null} otherwise.
@@ -36,7 +40,7 @@ public interface ByteBufferCache {
     @Nullable ByteBuffer borrow();
 
     /**
-     * Adds a buffer to the cache. Might not modify the state of the cache, it it's already full.
+     * Adds a buffer back to the pool. Should only be called if previous {@link #borrow()} call returned a non-null buffer.
      */
-    void offer(ByteBuffer buffer);
+    void release(ByteBuffer buffer);
 }

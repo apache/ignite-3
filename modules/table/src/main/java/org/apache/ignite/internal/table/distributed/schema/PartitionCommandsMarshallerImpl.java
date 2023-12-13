@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.table.distributed.schema;
 
 import java.nio.ByteBuffer;
-import org.apache.ignite.internal.raft.util.ByteBufferCache;
+import org.apache.ignite.internal.raft.util.ByteBuffersPool;
 import org.apache.ignite.internal.raft.util.OptimizedMarshaller;
 import org.apache.ignite.internal.table.distributed.command.CatalogVersionAware;
 import org.apache.ignite.internal.util.VarIntUtils;
@@ -28,7 +28,7 @@ import org.apache.ignite.network.serialization.MessageSerializationRegistry;
  * Default {@link PartitionCommandsMarshaller} implementation.
  */
 public class PartitionCommandsMarshallerImpl extends OptimizedMarshaller implements PartitionCommandsMarshaller {
-    public PartitionCommandsMarshallerImpl(MessageSerializationRegistry serializationRegistry, ByteBufferCache cache) {
+    public PartitionCommandsMarshallerImpl(MessageSerializationRegistry serializationRegistry, ByteBuffersPool cache) {
         super(serializationRegistry, cache);
     }
 

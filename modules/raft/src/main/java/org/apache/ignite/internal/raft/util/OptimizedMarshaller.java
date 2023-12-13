@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.raft.util;
 
+import static org.apache.ignite.internal.raft.util.ByteBuffersPool.DEFAULT_BUFFER_SIZE;
+import static org.apache.ignite.internal.raft.util.ByteBuffersPool.MAX_CACHED_BUFFER_BYTES;
+
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.Arrays;
@@ -38,20 +41,14 @@ public class OptimizedMarshaller implements Marshaller {
     /** Protocol version. */
     private static final byte PROTO_VER = 1;
 
-    /** Default buffer size. */
-    private static final int DEFAULT_BUFFER_SIZE = 1024;
-
     /** Byte buffer order. */
-    private static final ByteOrder ORDER = ByteOrder.LITTLE_ENDIAN;
+    public static final ByteOrder ORDER = ByteOrder.LITTLE_ENDIAN;
 
     /** Empty array-based byte buffer. Not read-only. */
     private static final ByteBuffer EMPTY_BUFFER = ByteBuffer.wrap(ArrayUtils.BYTE_EMPTY_ARRAY);
 
-    /** Maximal size of the buffer that we put into {@link #cache}. */
-    private static final int MAX_CACHED_BUFFER_BYTES = 256 * 1024;
-
-    /** Cache of byte buffers. */
-    private final ByteBufferCache cache;
+    /** Pool of byte buffers. */
+    private final ByteBuffersPool pool;
 
     /** Direct byte-buffer stream instance. */
     protected final OptimizedStream stream;
@@ -66,10 +63,10 @@ public class OptimizedMarshaller implements Marshaller {
      * Constructor.
      *
      * @param serializationRegistry Serialization registry.
-     * @param cache Cache of byte buffers.
+     * @param pool Pool of byte buffers.
      */
-    public OptimizedMarshaller(MessageSerializationRegistry serializationRegistry, ByteBufferCache cache) {
-        this.cache = cache;
+    public OptimizedMarshaller(MessageSerializationRegistry serializationRegistry, ByteBuffersPool pool) {
+        this.pool = pool;
         stream = new OptimizedStream(serializationRegistry);
 
         messageWriter = new DirectMessageWriter(serializationRegistry, PROTO_VER) {
@@ -95,14 +92,9 @@ public class OptimizedMarshaller implements Marshaller {
     public byte[] marshall(Object o) {
         assert o instanceof NetworkMessage;
 
-        ByteBuffer cacheBuffer = cache.borrow();
+        ByteBuffer poolBuffer = pool.borrow();
 
-        if (cacheBuffer == null) {
-            cacheBuffer = ByteBuffer.allocate(DEFAULT_BUFFER_SIZE).order(ORDER);
-        }
-
-        ByteBuffer buffer = cacheBuffer;
-        assert buffer.position() == 0;
+        ByteBuffer buffer = poolBuffer == null ? ByteBuffer.allocate(DEFAULT_BUFFER_SIZE).order(ORDER) : poolBuffer;
 
         NetworkMessage message = (NetworkMessage) o;
 
@@ -119,8 +111,13 @@ public class OptimizedMarshaller implements Marshaller {
 
             buffer = expandBuffer(buffer);
 
-            if (buffer.capacity() <= MAX_CACHED_BUFFER_BYTES) {
-                cacheBuffer = buffer;
+            if (buffer.capacity() <= MAX_CACHED_BUFFER_BYTES && poolBuffer != null) {
+                poolBuffer = buffer;
+            } else if (poolBuffer != null) {
+                poolBuffer.position(0);
+                pool.release(poolBuffer);
+
+                poolBuffer = null;
             }
         }
 
@@ -129,9 +126,10 @@ public class OptimizedMarshaller implements Marshaller {
 
         byte[] result = Arrays.copyOf(buffer.array(), buffer.position());
 
-        cacheBuffer.position(0);
-
-        cache.offer(cacheBuffer);
+        if (poolBuffer != null) {
+            poolBuffer.position(0);
+            pool.release(poolBuffer);
+        }
 
         return result;
     }

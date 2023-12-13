@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.table.distributed.schema;
 
-import static org.apache.ignite.internal.raft.util.ByteBufferCache.NO_CACHE;
+import static org.apache.ignite.internal.raft.util.ByteBuffersPool.NO_POOL;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
@@ -62,9 +62,9 @@ class PartitionCommandsMarshallerImplTest {
         );
     }
 
-    private final OptimizedMarshaller standardMarshaller = new OptimizedMarshaller(registry, NO_CACHE);
+    private final OptimizedMarshaller standardMarshaller = new OptimizedMarshaller(registry, NO_POOL);
 
-    private final PartitionCommandsMarshallerImpl partitionCommandsMarshaller = new PartitionCommandsMarshallerImpl(registry, NO_CACHE);
+    private final PartitionCommandsMarshallerImpl partitionCommandsMarshaller = new PartitionCommandsMarshallerImpl(registry, NO_POOL);
 
     @Test
     void marshalPrependsWithZeroForNotCatalogLevelAware() {
