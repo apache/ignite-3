@@ -19,29 +19,26 @@ package org.apache.ignite.internal.table.criteria;
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.sql.ResultSetMetadata;
-import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.async.AsyncResultSet;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Wrapper over {@link AsyncResultSet} that close {@link Session} when {@link AsyncResultSet} is closed.
+ * Wrapper over {@link AsyncResultSet} for criteria queries.
  */
-public class ClosableSessionAsyncResultSet<T> implements AsyncResultSet<T> {
-    /** Session instance. */
-    private final Session session;
-
-    /** Wrapped async result set. */
+public class QueryCriteriaAsyncResultSet<T> implements AsyncResultSet<T> {
     private final AsyncResultSet<T> ars;
+
+    private final Runnable closeRun;
 
     /**
      * Constructor.
      *
-     * @param session Session instance.
      * @param ars Asynchronous result set.
+     * @param closeRun Callback to be invoked after result is closed.
      */
-    public ClosableSessionAsyncResultSet(Session session, AsyncResultSet<? extends T> ars) {
-        this.session = session;
+    public QueryCriteriaAsyncResultSet(AsyncResultSet<? extends T> ars, Runnable closeRun) {
         this.ars = (AsyncResultSet<T>) ars;
+        this.closeRun = closeRun;
     }
 
     /** {@inheritDoc} */
@@ -59,7 +56,12 @@ public class ClosableSessionAsyncResultSet<T> implements AsyncResultSet<T> {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<? extends AsyncResultSet<T>> fetchNextPage() {
-        return ars.fetchNextPage();
+        return ars.fetchNextPage()
+            .whenComplete((v, t) -> {
+                if (t == null && !hasMorePages()) {
+                    closeRun.run();
+                }
+            });
     }
 
     /** {@inheritDoc} */
@@ -71,8 +73,7 @@ public class ClosableSessionAsyncResultSet<T> implements AsyncResultSet<T> {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> closeAsync() {
-        return ars.closeAsync()
-                .thenCompose((ignored) -> session.closeAsync());
+        return ars.closeAsync().thenRun(closeRun);
     }
 
     /** {@inheritDoc} */

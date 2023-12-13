@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table;
 
+import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -113,7 +114,7 @@ public class ItCriteriaQueryTest extends BaseIgniteAbstractTest {
     public void testBasicQueryCriteriaRecordBinaryView() {
         var view = node.tables().table(TABLE_NAME).recordView();
 
-        var res = view.queryCriteria(null, null).getAll();
+        var res = view.queryCriteria(null, null).stream().collect(toList());
         assertThat(res, hasSize(15));
     }
 
@@ -122,7 +123,7 @@ public class ItCriteriaQueryTest extends BaseIgniteAbstractTest {
     public void testBasicQueryCriteriaRecordPojoView() {
         RecordView<TestPojo> view = node.tables().table(TABLE_NAME).recordView(TestPojo.class);
 
-        var res = view.queryCriteria(null, null).getAll();
+        var res = view.queryCriteria(null, null).stream().collect(toList());
         assertThat(res, hasSize(15));
     }
 

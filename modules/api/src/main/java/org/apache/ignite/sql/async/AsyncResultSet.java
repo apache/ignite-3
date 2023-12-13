@@ -17,6 +17,7 @@
 
 package org.apache.ignite.sql.async;
 
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.Session;
@@ -56,7 +57,7 @@ import org.jetbrains.annotations.Nullable;
  */
 public interface AsyncResultSet<T> extends AsyncClosableCursor<T> {
     /**
-     * Returns metadata for query results. If the result set contains rows ({@link #hasRowSet()}, returns {@code true}). 
+     * Returns metadata for query results. If the result set contains rows ({@link #hasRowSet()}, returns {@code true}).
      * If not applicable, returns {@code null}.
      *
      * @return ResultSet Metadata.
@@ -86,11 +87,11 @@ public interface AsyncResultSet<T> extends AsyncClosableCursor<T> {
     long affectedRows();
 
     /**
-     * Indicates whether the query that had produced the result was a conditional query. 
-     * E.g., for query "Create table if not exists", the method returns {@code true} if 
+     * Indicates whether the query that had produced the result was a conditional query.
+     * E.g., for query "Create table if not exists", the method returns {@code true} if
      * the operation was successful or {@code false} if the operation was ignored because the table already existed.
      *
-     * <p>Note: If the method returns {@code false}, then either {@link #affectedRows()} returns the number of 
+     * <p>Note: If the method returns {@code false}, then either {@link #affectedRows()} returns the number of
      * affected rows, or {@link #hasRowSet()} returns {@code true}, or the conditional DDL query is not applied.
      *
      * @return {@code True} if a conditional query is applied, {@code false} otherwise.
@@ -98,4 +99,7 @@ public interface AsyncResultSet<T> extends AsyncClosableCursor<T> {
      */
     boolean wasApplied();
 
+    /** {@inheritDoc} */
+    @Override
+    CompletableFuture<? extends AsyncResultSet<T>> fetchNextPage();
 }

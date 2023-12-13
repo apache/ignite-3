@@ -33,7 +33,7 @@ import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.sql.SyncResultSetAdapter;
 import org.apache.ignite.internal.streamer.StreamerBatchSender;
-import org.apache.ignite.internal.table.criteria.ClosableSessionAsyncResultSet;
+import org.apache.ignite.internal.table.criteria.QueryCriteriaAsyncResultSet;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.lang.IgniteException;
@@ -455,7 +455,7 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
         var session = tbl.sql().createSession();
 
         return session.executeAsync(tx, statement)
-                .thenApply(resultSet -> new ClosableSessionAsyncResultSet<>(session, resultSet));
+                .thenApply(resultSet -> new QueryCriteriaAsyncResultSet<>(resultSet, session::close));
     }
 
     /** {@inheritDoc} */

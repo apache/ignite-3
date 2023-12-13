@@ -17,49 +17,35 @@
 
 package org.apache.ignite.sql;
 
-import static java.util.stream.Collectors.toList;
-
 import java.util.Iterator;
-import java.util.List;
 import java.util.Spliterators;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
+import org.apache.ignite.table.KeyValueView;
+import org.apache.ignite.table.RecordView;
+import org.apache.ignite.table.criteria.Criteria;
+import org.apache.ignite.table.criteria.CriteriaQueryOptions;
+import org.apache.ignite.tx.Transaction;
 
 /**
- * Closeable cursor.
+ * An iterator over a collection, which allow to releasing underlying resources.
  *
- * @param <T> Type of elements.
+ * @param <T> The type of elements returned by this iterator.
+ *
+ * @see KeyValueView#queryCriteria(Transaction, Criteria, CriteriaQueryOptions)
+ * @see RecordView#queryCriteria(Transaction, Criteria, CriteriaQueryOptions)
  */
 public interface ClosableCursor<T> extends Iterator<T>, AutoCloseable {
     /**
-     * Returns a sequential Stream over the elements covered by this cursor.
+     * Returns a sequential Stream over the elements covered by this iterator.
      *
-     * @return Sequential Stream over the elements covered by this cursor.
+     * @return Sequential Stream over the elements covered by this iterator.
      */
     default Stream<T> stream() {
         return StreamSupport.stream(Spliterators.spliteratorUnknownSize(this, 0), false);
     }
 
-    /**
-     * Gets all query results and stores them in the collection.
-     * Use this method when you know in advance that query result is
-     * relatively small and will not cause memory utilization issues.
-     *
-     * <p>Since all the results will be fetched, all the resources will be closed
-     * automatically after this call, e.g. there is no need to call {@link #close()} method in this case.
-     *
-     * @return List containing all query results.
-     */
-    default List<T> getAll() {
-        return stream().collect(toList());
-    }
-
-    /**
-     * Closes the cursor also releasing all underlying resources.
-     *
-     * <p>This method should be implemented carefully; just wrapping a checked exception in an unchecked one
-     * should not be used as the default option.
-     */
+    /** {@inheritDoc} */
     @Override
     void close();
 }

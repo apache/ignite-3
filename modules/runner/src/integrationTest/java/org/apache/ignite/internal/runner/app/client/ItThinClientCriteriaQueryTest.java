@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.runner.app.client;
 
+import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.table.criteria.CriteriaQueryOptions.builder;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.hasSize;
@@ -52,7 +53,7 @@ public class ItThinClientCriteriaQueryTest extends ItAbstractThinClientTest {
     public void testBasicQueryCriteriaRecordBinaryView() {
         var view = client().tables().table(TABLE_NAME).recordView();
 
-        var res = view.queryCriteria(null, null).getAll();
+        var res = view.queryCriteria(null, null).stream().collect(toList());
         assertThat(res, hasSize(3));
 
         var ars = view.queryCriteriaAsync(null, null, builder().pageSize(2).build()).join();
@@ -63,7 +64,7 @@ public class ItThinClientCriteriaQueryTest extends ItAbstractThinClientTest {
     public void testBasicQueryCriteriaRecordPojoView() {
         RecordView<TestPojo> view = client().tables().table(TABLE_NAME).recordView(TestPojo.class);
 
-        var res = view.queryCriteria(null, null).getAll();
+        var res = view.queryCriteria(null, null).stream().collect(toList());
         assertThat(res, hasSize(3));
 
         var ars = view.queryCriteriaAsync(null, null, builder().pageSize(2).build()).join();

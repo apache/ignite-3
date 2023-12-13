@@ -34,7 +34,7 @@ import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.proto.TuplePart;
 import org.apache.ignite.internal.sql.SyncResultSetAdapter;
 import org.apache.ignite.internal.streamer.StreamerBatchSender;
-import org.apache.ignite.internal.table.criteria.ClosableSessionAsyncResultSet;
+import org.apache.ignite.internal.table.criteria.QueryCriteriaAsyncResultSet;
 import org.apache.ignite.sql.ClosableCursor;
 import org.apache.ignite.sql.async.AsyncClosableCursor;
 import org.apache.ignite.sql.async.AsyncResultSet;
@@ -396,7 +396,7 @@ public class ClientRecordView<R> implements RecordView<R> {
         var session = tbl.sql().createSession();
 
         return session.executeAsync(tx, ser.mapper(), statement)
-                .thenApply(resultSet -> new ClosableSessionAsyncResultSet<>(session, resultSet));
+                .thenApply(resultSet -> new QueryCriteriaAsyncResultSet<>(resultSet, session::close));
     }
 
     @Override
