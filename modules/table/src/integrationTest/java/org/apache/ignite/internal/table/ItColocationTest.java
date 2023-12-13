@@ -103,6 +103,7 @@ import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.MessagingService;
+import org.apache.ignite.network.SingleClusterNodeResolver;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.AfterAll;
@@ -267,7 +268,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
                 tblId,
                 partRafts,
                 PARTS,
-                name -> clusterNode,
+                new SingleClusterNodeResolver(clusterNode),
                 txManager,
                 mock(MvTableStorage.class),
                 new TestTxStateTableStorage(),

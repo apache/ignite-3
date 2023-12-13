@@ -27,62 +27,65 @@ namespace ignite {
  * @note type of enum value is int, size is same as sizeof(int).
  */
 enum class ignite_type {
+    /** Null. */
+    NIL = 0,
+
     /** Boolean. */
-    BOOLEAN = 0,
+    BOOLEAN = 1,
 
     /** 8-bit signed integer. */
-    INT8 = 1,
+    INT8 = 2,
 
     /** 16-bit signed integer. */
-    INT16 = 2,
+    INT16 = 3,
 
     /** 32-bit signed integer. */
-    INT32 = 3,
+    INT32 = 4,
 
     /** 64-bit signed integer. */
-    INT64 = 4,
+    INT64 = 5,
 
     /** 32-bit single-precision floating-point number. */
-    FLOAT = 5,
+    FLOAT = 6,
 
     /** 64-bit double-precision floating-point number. */
-    DOUBLE = 6,
+    DOUBLE = 7,
 
     /** A decimal fixed-point number. */
-    DECIMAL = 7,
+    DECIMAL = 8,
 
     /** Timezone-free date. */
-    DATE = 8,
+    DATE = 9,
 
     /** Timezone-free time with precision. */
-    TIME = 9,
+    TIME = 10,
 
     /** Timezone-free datetime. */
-    DATETIME = 10,
+    DATETIME = 11,
 
     /** Number of ticks since Jan 1, 1970 00:00:00.000 (with no timezone). Tick unit depends on precision. */
-    TIMESTAMP = 11,
+    TIMESTAMP = 12,
 
     /** 128-bit UUID. */
-    UUID = 12,
+    UUID = 13,
 
     /** Bit mask. */
-    BITMASK = 13,
+    BITMASK = 14,
 
     /** String. */
-    STRING = 14,
+    STRING = 15,
 
     /** Binary data. */
-    BYTE_ARRAY = 15,
+    BYTE_ARRAY = 16,
 
     /** Date interval. */
-    PERIOD = 16,
+    PERIOD = 17,
 
     /** Time interval. */
-    DURATION = 17,
+    DURATION = 18,
 
     /** Number. */
-    NUMBER = 18,
+    NUMBER = 19,
 
     /** Undefined. */
     UNDEFINED

@@ -17,37 +17,12 @@
 
 package org.apache.ignite.internal.table.distributed.command;
 
-import static org.apache.ignite.internal.hlc.HybridTimestamp.nullableHybridTimestamp;
-
-import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.table.distributed.TableMessageGroup;
+import org.apache.ignite.internal.table.distributed.TableMessageGroup.Commands;
 import org.apache.ignite.network.annotations.Transferable;
-import org.jetbrains.annotations.Nullable;
 
 /**
- * State machine command to cleanup on a transaction commit.
+ * Command that is used to replicate the locks released update for tx state storage.
  */
-@Transferable(TableMessageGroup.Commands.TX_CLEANUP)
-public interface TxCleanupCommand extends PartitionCommand {
-    /**
-     * Returns a commit or a rollback state.
-     */
-    boolean commit();
-
-    /**
-     * Returns a transaction commit timestamp.
-     */
-    long commitTimestampLong();
-
-    /**
-     * Returns a transaction commit timestamp.
-     */
-    default @Nullable HybridTimestamp commitTimestamp() {
-        return nullableHybridTimestamp(commitTimestampLong());
-    }
-
-    /**
-     * Transaction coordinator id.
-     */
-    String txCoordinatorId();
+@Transferable(Commands.MARK_LOCKS_RELEASED)
+public interface MarkLocksReleasedCommand extends PartitionCommand {
 }

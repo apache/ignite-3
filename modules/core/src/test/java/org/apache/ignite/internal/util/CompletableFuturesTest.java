@@ -17,6 +17,10 @@
 
 package org.apache.ignite.internal.util;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.will;
 import static org.apache.ignite.internal.util.CompletableFutures.booleanCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.emptyCollectionCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.emptyListCompletedFuture;
@@ -25,6 +29,8 @@ import static org.apache.ignite.internal.util.CompletableFutures.emptySetComplet
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.contains;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -113,5 +119,27 @@ public class CompletableFuturesTest {
         assertTrue(future.join().isEmpty());
 
         assertThrows(UnsupportedOperationException.class, () -> future.join().put(1L, 2));
+    }
+
+    @Test
+    void testAllOfSuccessFuture() {
+        CompletableFuture<List<Integer>> future = CompletableFutures.allOf(
+                nullCompletedFuture(),
+                completedFuture(1),
+                completedFuture(42)
+        );
+
+        assertThat(future, will(contains(null, 1, 42)));
+    }
+
+    @Test
+    void testAllFailedFuture() {
+        CompletableFuture<List<Integer>> future = CompletableFutures.allOf(
+                nullCompletedFuture(),
+                failedFuture(new RuntimeException("test error")),
+                completedFuture(42)
+        );
+
+        assertThat(future, willThrow(RuntimeException.class, "test error"));
     }
 }

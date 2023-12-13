@@ -19,6 +19,7 @@ namespace Apache.Ignite.Tests.Sql
 {
     using System;
     using System.Collections.Generic;
+    using System.Diagnostics.CodeAnalysis;
     using System.Linq;
     using System.Threading.Tasks;
     using Ignite.Sql;
@@ -28,6 +29,8 @@ namespace Apache.Ignite.Tests.Sql
     /// <summary>
     /// Tests for SQL API: <see cref="ISql"/>.
     /// </summary>
+    [SuppressMessage("ReSharper", "NotDisposedResource", Justification = "Tests")]
+    [SuppressMessage("ReSharper", "NotDisposedResourceIsReturned", Justification = "Tests")]
     public class SqlTests : IgniteTestsBase
     {
         [OneTimeSetUp]
@@ -51,6 +54,7 @@ namespace Apache.Ignite.Tests.Sql
         {
             await Client.Sql.ExecuteAsync(null, "DROP TABLE TEST");
             await Client.Sql.ExecuteAsync(null, "DROP TABLE IF EXISTS TestDdlDml");
+            await Client.Sql.ExecuteAsync(null, "DROP TABLE IF EXISTS TestExecuteScript");
         }
 
         [Test]
@@ -331,11 +335,27 @@ namespace Apache.Ignite.Tests.Sql
         }
 
         [Test]
-        public void TestInvalidSqlThrowsException()
+        public void TestInvalidTableNameInSqlThrowsException()
         {
             var ex = Assert.ThrowsAsync<SqlException>(async () => await Client.Sql.ExecuteAsync(null, "select x from bad"));
 
             StringAssert.Contains("From line 1, column 15 to line 1, column 17: Object 'BAD' not found", ex!.Message);
+        }
+
+        [Test]
+        public void TestInvalidSqlThrowsException()
+        {
+            var ex = Assert.ThrowsAsync<SqlException>(async () => await Client.Sql.ExecuteAsync(null, "foo bar baz"));
+            var inner = (SqlException)ex!.InnerException!;
+
+            Assert.AreEqual(
+                "Invalid query, check inner exceptions for details: SqlStatement { " +
+                "Query = foo bar baz, Timeout = 00:00:00, Schema = PUBLIC, PageSize = 1024, Properties = { } }",
+                ex.Message);
+
+            Assert.AreEqual(
+                "Failed to parse query: Non-query expression encountered in illegal context. At line 1, column 1",
+                inner.Message);
         }
 
         [Test]
@@ -404,6 +424,88 @@ namespace Apache.Ignite.Tests.Sql
                 "ColumnMetadata { Name = NUM, Type = Int32, Precision = 10, Scale = 0, Nullable = False, Origin =  }, " +
                 "ColumnMetadata { Name = STR, Type = String, Precision = 5, Scale = -2147483648, Nullable = False, Origin =  } ] } }",
                 resultSet.ToString());
+        }
+
+        [Test]
+        public async Task TestSelectNull()
+        {
+            await using IResultSet<IIgniteTuple> resultSet = await Client.Sql.ExecuteAsync(null, "select null");
+
+            var rows = await resultSet.ToListAsync();
+
+            Assert.AreEqual(1, rows.Count);
+            Assert.IsNull(rows[0][0]);
+
+            Assert.AreEqual(
+                "ResultSet`1[IIgniteTuple] { HasRowSet = True, AffectedRows = -1, WasApplied = False, " +
+                "Metadata = ResultSetMetadata { Columns = [ " +
+                "ColumnMetadata { Name = NULL, Type = Null, Precision = -1, Scale = -2147483648, Nullable = True, Origin =  } ] } }",
+                resultSet.ToString());
+        }
+
+        [Test]
+        public async Task TestExecuteScript()
+        {
+            var id = Random.Shared.Next(100);
+
+            await Client.Sql.ExecuteScriptAsync(
+                "CREATE TABLE TestExecuteScript(ID INT PRIMARY KEY, VAL VARCHAR); " +
+                "DELETE FROM TestExecuteScript;" +
+                "INSERT INTO TestExecuteScript VALUES (?, ?); " +
+                "INSERT INTO TestExecuteScript VALUES (?, ?);",
+                id,
+                "a",
+                id + 1,
+                "b");
+
+            await using var resultSet = await Client.Sql.ExecuteAsync(null, "SELECT * FROM TESTEXECUTESCRIPT ORDER BY ID");
+            var rows = await resultSet.ToListAsync();
+
+            Assert.AreEqual(2, rows.Count);
+            Assert.AreEqual($"IgniteTuple {{ ID = {id}, VAL = a }}", rows[0].ToString());
+            Assert.AreEqual($"IgniteTuple {{ ID = {id + 1}, VAL = b }}", rows[1].ToString());
+        }
+
+        [Test]
+        public async Task TestScriptProperties()
+        {
+            using var server = new FakeServer();
+            using var client = await server.ConnectClientAsync();
+
+            var sqlStatement = new SqlStatement(
+                query: "SELECT PROPS",
+                timeout: TimeSpan.FromSeconds(123),
+                schema: "schema-1",
+                pageSize: 987,
+                properties: new Dictionary<string, object?> { { "prop1", 10 }, { "prop-2", "xyz" } });
+
+            await client.Sql.ExecuteScriptAsync(sqlStatement);
+            var resProps = server.LastSqlScriptProps;
+
+            Assert.AreEqual("schema-1", resProps["schema"]);
+            Assert.AreEqual(987, resProps["pageSize"]);
+            Assert.AreEqual(123000, resProps["timeoutMs"]);
+            Assert.AreEqual("SELECT PROPS", resProps["sql"]);
+            Assert.AreEqual(10, resProps["prop1"]);
+            Assert.AreEqual("xyz", resProps["prop-2"]);
+        }
+
+        [Test]
+        public void TestInvalidScriptThrowsSqlException()
+        {
+            var ex = Assert.ThrowsAsync<SqlException>(async () => await Client.Sql.ExecuteScriptAsync("CREATE SOMETHING"));
+            var inner = (SqlException)ex!.InnerException!;
+
+            Assert.AreEqual(
+                "Invalid query, check inner exceptions for details: SqlStatement { " +
+                "Query = CREATE SOMETHING, " +
+                "Timeout = 00:00:00, " +
+                "Schema = PUBLIC, " +
+                "PageSize = 1024, " +
+                "Properties = { } }",
+                ex.Message);
+
+            Assert.AreEqual("Failed to parse query: Encountered \"SOMETHING\" at line 1, column 8", inner.Message);
         }
     }
 }

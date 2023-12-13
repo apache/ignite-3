@@ -901,7 +901,7 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
     public ResultSet getSchemas(String catalog, String schemaPtrn) throws SQLException {
         conn.ensureNotClosed();
 
-        final List<JdbcColumnMeta> meta = asList(
+        List<JdbcColumnMeta> meta = asList(
                 new JdbcColumnMeta("TABLE_SCHEM", String.class),
                 new JdbcColumnMeta("TABLE_CATALOG", String.class)
         );

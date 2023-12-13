@@ -54,7 +54,6 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.affinity.AffinityUtils;
@@ -132,6 +131,7 @@ import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.network.ClusterNodeResolver;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NodeFinder;
@@ -141,6 +141,7 @@ import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.tx.IgniteTransactions;
 import org.apache.ignite.utils.ClusterServiceTestUtils;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.TestInfo;
 
 /**
@@ -207,32 +208,37 @@ public class ItTxTestCluster {
 
     protected String localNodeName;
 
-    private final Function<String, ClusterNode> consistentIdToNode = consistentId -> {
-        for (ClusterService service : cluster) {
-            ClusterNode clusterNode = service.topologyService().localMember();
+    private final ClusterNodeResolver nodeResolver = new ClusterNodeResolver() {
 
-            if (clusterNode.name().equals(consistentId)) {
-                return clusterNode;
+        @Override
+        public @Nullable ClusterNode getById(String id) {
+            for (ClusterService service : cluster) {
+                ClusterNode clusterNode = service.topologyService().localMember();
+
+                if (clusterNode.id().equals(id)) {
+                    return clusterNode;
+                }
             }
-        }
 
-        return null;
-    };
-
-    private final Function<String, ClusterNode> idToNode = id -> {
-        for (ClusterService service : cluster) {
-            ClusterNode clusterNode = service.topologyService().localMember();
-
-            if (clusterNode.id().equals(id)) {
-                return clusterNode;
+            if (client != null && client.topologyService().localMember().id().equals(id)) {
+                return client.topologyService().localMember();
             }
+
+            return null;
         }
 
-        if (client != null && client.topologyService().localMember().id().equals(id)) {
-            return client.topologyService().localMember();
-        }
+        @Override
+        public @Nullable ClusterNode getByConsistentId(String consistentId) {
+            for (ClusterService service : cluster) {
+                ClusterNode clusterNode = service.topologyService().localMember();
 
-        return null;
+                if (clusterNode.name().equals(consistentId)) {
+                    return clusterNode;
+                }
+            }
+
+            return null;
+        }
     };
 
     private final TestInfo testInfo;
@@ -463,15 +469,11 @@ public class ItTxTestCluster {
                         replicaServices.get(assignment),
                         txManagers.get(assignment),
                         clocks.get(assignment),
-                        consistentIdToNode,
-                        idToNode,
-                        clusterServices.get(assignment).messagingService()
+                        nodeResolver,
+                        clusterServices.get(assignment).messagingService(),
+                        placementDriver
                 );
                 transactionStateResolver.start();
-
-                for (int part = 0; part < assignments.size(); part++) {
-                    transactionStateResolver.updateAssignment(grpIds.get(part), assignments.get(part));
-                }
 
                 int indexId = globalIndexId++;
 
@@ -553,10 +555,11 @@ public class ItTxTestCluster {
                                         transactionStateResolver,
                                         storageUpdateHandler,
                                         new DummyValidationSchemasSource(schemaManager),
-                                        consistentIdToNode.apply(assignment),
+                                        nodeResolver.getByConsistentId(assignment),
                                         new AlwaysSyncedSchemaSyncService(),
                                         catalogService,
-                                        placementDriver
+                                        placementDriver,
+                                        clusterServices.get(assignment).topologyService()
                                 );
 
                                 replicaManagers.get(assignment).startReplica(
@@ -618,7 +621,7 @@ public class ItTxTestCluster {
                         tableId,
                         clients,
                         1,
-                        consistentIdToNode,
+                        nodeResolver,
                         clientTxManager,
                         mock(MvTableStorage.class),
                         mock(TxStateTableStorage.class),
@@ -653,7 +656,8 @@ public class ItTxTestCluster {
             ClusterNode localNode,
             SchemaSyncService schemaSyncService,
             CatalogService catalogService,
-            PlacementDriver placementDriver
+            PlacementDriver placementDriver,
+            ClusterNodeResolver clusterNodeResolver
     ) {
         return new PartitionReplicaListener(
                 mvDataStorage,
@@ -675,7 +679,8 @@ public class ItTxTestCluster {
                 localNode,
                 schemaSyncService,
                 catalogService,
-                placementDriver
+                placementDriver,
+                clusterNodeResolver
         );
     }
 
@@ -841,9 +846,9 @@ public class ItTxTestCluster {
                 clientReplicaSvc,
                 clientTxManager,
                 clientClock,
-                consistentIdToNode,
-                idToNode,
-                client.messagingService()
+                nodeResolver,
+                client.messagingService(),
+                placementDriver
         );
 
         clientTxStateResolver.start();

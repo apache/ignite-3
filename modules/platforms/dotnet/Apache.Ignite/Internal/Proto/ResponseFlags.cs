@@ -30,5 +30,15 @@ internal enum ResponseFlags
     /// <summary>
     /// Indicates partition assignment update.
     /// </summary>
-    PartitionAssignmentChanged = 1
+    PartitionAssignmentChanged = 1,
+
+    /// <summary>
+    /// Indicates a server-to-client notification.
+    /// </summary>
+    Notification = 2,
+
+    /// <summary>
+    /// Indicates error response.
+    /// </summary>
+    Error = 4
 }
