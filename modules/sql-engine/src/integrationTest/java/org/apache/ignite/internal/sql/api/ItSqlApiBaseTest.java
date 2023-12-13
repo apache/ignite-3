@@ -519,8 +519,8 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
                 "CREATE TABLE TEST2 (VAL INT)");
 
         // Execute error.
-        checkSqlError(Sql.RUNTIME_ERR, "/ by zero", ses, "SELECT 1 / ?", 0);
-        checkSqlError(Sql.RUNTIME_ERR, "/ by zero", ses, "UPDATE TEST SET val0 = val0/(val0 - ?) + " + ROW_COUNT, 0);
+        checkSqlError(Sql.RUNTIME_ERR, "Division by zero", ses, "SELECT 1 / ?", 0);
+        checkSqlError(Sql.RUNTIME_ERR, "Division by zero", ses, "UPDATE TEST SET val0 = val0/(val0 - ?) + " + ROW_COUNT, 0);
         checkSqlError(Sql.RUNTIME_ERR, "negative substring length not allowed", ses, "SELECT SUBSTRING('foo', 1, -3)");
 
         // No result set error.
@@ -673,7 +673,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
 
             assertThrowsSqlException(
                     Sql.RUNTIME_ERR,
-                    "/ by zero",
+                    "Division by zero",
                     () -> execute(tx, ses, dmlQuery, 1).affectedRows());
 
             IgniteException err = assertThrows(IgniteException.class, () -> {
@@ -704,7 +704,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
 
             assertThrowsSqlException(
                     Sql.RUNTIME_ERR,
-                    "/ by zero",
+                    "Division by zero",
                     () -> execute(tx, ses, "SELECT val/? FROM tst WHERE id=?", 0, 1));
 
             IgniteException err = assertThrows(IgniteException.class, () -> {
@@ -868,7 +868,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
         try (Session session = sql.createSession()) {
             assertThrowsSqlException(
                     Sql.RUNTIME_ERR,
-                    "/ by zero",
+                    "Division by zero",
                     () -> executeScript(session,
                             "CREATE TABLE test (id INT PRIMARY KEY, step INTEGER); "
                                     + "INSERT INTO test VALUES(1, 0); "
