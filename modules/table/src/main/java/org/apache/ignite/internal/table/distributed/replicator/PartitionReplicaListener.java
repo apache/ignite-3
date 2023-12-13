@@ -549,6 +549,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
     /**
      * Abort the abandoned transaction.
+     *
      * @param txId Transaction id.
      * @param senderId Sender inconsistent id.
      */
