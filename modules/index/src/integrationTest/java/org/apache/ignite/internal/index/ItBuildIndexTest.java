@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.index;
 
 import static java.util.stream.Collectors.joining;
+import static org.apache.ignite.internal.raft.util.OptimizedMarshaller.NO_POOL;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsIndexScan;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
@@ -261,7 +262,7 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
     ) {
         IgniteImpl node = CLUSTER.node(0);
         MessageSerializationRegistry serializationRegistry = node.raftManager().service().serializationRegistry();
-        var commandsMarshaller = new PartitionCommandsMarshallerImpl(serializationRegistry);
+        var commandsMarshaller = new PartitionCommandsMarshallerImpl(serializationRegistry, NO_POOL);
 
         return (nodeConsistentId, networkMessage) -> {
             if (networkMessage instanceof WriteActionRequest) {
