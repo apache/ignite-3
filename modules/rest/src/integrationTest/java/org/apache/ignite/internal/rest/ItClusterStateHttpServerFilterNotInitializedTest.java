@@ -40,7 +40,7 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 /** Tests that before cluster is initialized, only a subset of endpoints are available. */
-public class ItNodeOnlyEndpointsFilterNotInitializedTest extends IntegrationTestBase {
+public class ItClusterStateHttpServerFilterNotInitializedTest extends IntegrationTestBase {
 
     private ObjectMapper mapper = new ObjectMapper();
 

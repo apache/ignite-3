@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.rest;
 
 import static org.apache.ignite.configuration.annotation.ConfigurationType.LOCAL;
+import static org.apache.ignite.internal.rest.RestState.INITIALIZATION;
+import static org.apache.ignite.internal.rest.RestState.INITIALIZED;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.mock;
@@ -120,14 +122,14 @@ public class RestComponentTest extends BaseIgniteAbstractTest {
 
         assertEquals(HttpStatus.OK, response.status());
 
-        restManager.enabled(false);
+        restManager.setState(INITIALIZATION);
 
         HttpClientResponseException e = assertThrows(HttpClientResponseException.class,
                 () -> client.toBlocking().exchange("configuration/node/", String.class));
 
-        assertEquals(HttpStatus.NOT_ACCEPTABLE, e.getStatus());
+        assertEquals(HttpStatus.CONFLICT, e.getStatus());
 
-        restManager.enabled(true);
+        restManager.setState(INITIALIZED);
 
         response = client.toBlocking().exchange("configuration/node/", String.class);
 
@@ -140,18 +142,18 @@ public class RestComponentTest extends BaseIgniteAbstractTest {
 
         assertEquals(HttpStatus.OK, response.status());
 
-        restManager.enabled(false);
+        restManager.setState(INITIALIZATION);
 
         HttpClientResponseException e = assertThrows(HttpClientResponseException.class,
                 () -> client.toBlocking().exchange("configuration/node/", String.class));
 
-        assertEquals(HttpStatus.NOT_ACCEPTABLE, e.getStatus());
+        assertEquals(HttpStatus.CONFLICT, e.getStatus());
 
         state = mock(ClusterState.class);
 
         HttpClientResponseException e1 = assertThrows(HttpClientResponseException.class,
                 () -> client.toBlocking().exchange("configuration/node/", String.class));
 
-        assertEquals(HttpStatus.NOT_ACCEPTABLE, e1.getStatus());
+        assertEquals(HttpStatus.CONFLICT, e1.getStatus());
     }
 }

@@ -17,7 +17,9 @@
 
 package org.apache.ignite.internal.rest;
 
-import java.util.concurrent.atomic.AtomicBoolean;
+import static org.apache.ignite.internal.rest.PathAvailability.available;
+import static org.apache.ignite.internal.rest.PathAvailability.unavailable;
+
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 
@@ -26,6 +28,11 @@ import org.apache.ignite.internal.logger.Loggers;
  */
 public class RestManager {
     private static final IgniteLogger LOG = Loggers.forClass(RestManager.class);
+
+    private static final String DURING_INITIALIZATION = "REST temporary unavailable";
+
+    private static final String CLUSTER_NOT_INITIALIZED = "Cluster is not initialized. "
+            + "Call /management/v1/cluster/init in order to initialize cluster.";
 
     private static final String[] DEFAULT_ENDPOINTS = {
             "/management/v1/configuration/node",
@@ -36,7 +43,7 @@ public class RestManager {
 
     private final String[] availableOnStartEndpoints;
 
-    private final AtomicBoolean isRestEnabled = new AtomicBoolean(true);
+    private RestState state = RestState.NOT_INITIALIZED;
 
     public RestManager() {
         this(DEFAULT_ENDPOINTS);
@@ -47,24 +54,22 @@ public class RestManager {
     }
 
     /**
-     * Enable or disable whole REST component.
+     * Returns path availability.
      *
-     * @param isEnabled Is REST component enabled.
+     * @param requestPath Request path.
+     * @return Path
      */
-    public void enabled(boolean isEnabled) {
-        if (!isRestEnabled.compareAndSet(!isEnabled, isEnabled)) {
-            String action = isEnabled ? "enable" : "disable";
-            LOG.warn("Tried to " + action + " already " + action + "d REST component.");
+    public PathAvailability pathAvailability(String requestPath) {
+        switch (state) {
+            case INITIALIZED:
+                return available();
+            case INITIALIZATION:
+                return unavailable(DURING_INITIALIZATION);
+            case NOT_INITIALIZED:
+                return pathDisabledForNotInitializedCluster(requestPath) ? unavailable(CLUSTER_NOT_INITIALIZED) : available();
+            default:
+                throw new IllegalStateException("Unrecognized state " + state);
         }
-    }
-
-    /**
-     * Returns enabled or not REST component.
-     *
-     * @return Enabled or not REST component.
-     */
-    public boolean isRestEnabled() {
-        return isRestEnabled.get();
     }
 
     /**
@@ -73,12 +78,20 @@ public class RestManager {
      * @param path REST method path.
      * @return {@code true} in case when path disable or {@code false} if not.
      */
-    public boolean pathDisabledForNotInitializedCluster(String path) {
+    private boolean pathDisabledForNotInitializedCluster(String path) {
         for (String enabledPath : availableOnStartEndpoints) {
             if (path.startsWith(enabledPath)) {
                 return false;
             }
         }
         return true;
+    }
+
+    void setState(RestState state) {
+        if (state.ordinal() <= this.state.ordinal()) {
+            LOG.error("Incorrect state transfer from " + this.state + " to " + state);
+            return;
+        }
+        this.state = state;
     }
 }

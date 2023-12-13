@@ -124,14 +124,14 @@ public class RestComponent implements IgniteComponent {
      * Disable REST component.
      */
     public void disable() {
-        restManager.enabled(false);
+        restManager.setState(RestState.INITIALIZATION);
     }
 
     /**
      * Enable REST component.
      */
     public void enable() {
-        restManager.enabled(true);
+        restManager.setState(RestState.INITIALIZED);
     }
 
     /** Starts Micronaut application using the provided ports.
