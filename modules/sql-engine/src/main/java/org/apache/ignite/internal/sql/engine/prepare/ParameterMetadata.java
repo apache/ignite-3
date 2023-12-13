@@ -17,31 +17,28 @@
 
 package org.apache.ignite.internal.sql.engine.prepare;
 
-import org.apache.ignite.internal.sql.engine.SqlQueryType;
-import org.apache.ignite.sql.ResultSetMetadata;
+import java.util.List;
+import org.apache.ignite.internal.tostring.S;
 
 /**
- * QueryPlan interface.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ * Metadata for dynamic parameters.
  */
-public interface QueryPlan {
-    /**
-     * Get a unique identifier of a plan.
-     */
-    PlanId id();
+public final class ParameterMetadata {
 
-    /**
-     * Get query type, or {@code null} if this is a fragment.
-     */
-    SqlQueryType type();
+    private final List<ParameterType> parameterTypes;
 
-    /**
-     * Get fields metadata.
-     */
-    ResultSetMetadata metadata();
+    /** Constructor. */
+    public ParameterMetadata(List<ParameterType> parameterTypes) {
+        this.parameterTypes = parameterTypes;
+    }
 
-    /**
-     * Returns parameters metadata.
-     */
-    ParameterMetadata parameterMetadata();
+    /** Return metadata for each parameter. */
+    public List<ParameterType> parameterTypes() {
+        return parameterTypes;
+    }
+
+    @Override
+    public String toString() {
+        return S.toString(ParameterMetadata.class, this, "parametersTypes", parameterTypes);
+    }
 }
