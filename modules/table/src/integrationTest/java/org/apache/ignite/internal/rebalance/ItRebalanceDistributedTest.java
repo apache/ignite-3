@@ -51,6 +51,7 @@ import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.timeout;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 import java.io.IOException;
@@ -154,6 +155,7 @@ import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryDataStora
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineConfiguration;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryStorageEngineConfiguration;
 import org.apache.ignite.internal.table.InternalTable;
+import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.TableManager;
@@ -701,9 +703,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
     private void verifyThatRaftNodesAndReplicasWereStartedOnlyOnce() throws Exception {
         for (int i = 0; i < NODE_COUNT; i++) {
-            verify(getNode(i).raftManager, waitForTimes(1, 10_000))
-                    .startRaftGroupNode(any(), any(), any(), any(), any(RaftGroupOptions.class));
-            verify(getNode(i).replicaManager, waitForTimes(1, 10_000)).startReplica(any(), any(), any(), any(), any());
+            verify(getNode(i).raftManager, times(1)).startRaftGroupNode(any(), any(), any(), any(), any(RaftGroupOptions.class));
+            verify(getNode(i).replicaManager, times(1)).startReplica(any(), any(), any(), any(), any());
         }
     }
 
@@ -712,6 +713,14 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                 () -> nodes.stream().allMatch(n -> getPartitionClusterNodes(n, partNum).size() == replicasNum),
                 (long) AWAIT_TIMEOUT_MILLIS * nodes.size()
         ));
+
+        if (replicasNum == nodes.size()) {
+            assertTrue(waitForCondition(
+                    () -> ((TableImpl) nodes.get(0).tableManager.table(TABLE_NAME)).internalTable()
+                            .partitionRaftGroupServiceStarted(partNum),
+                    (long) AWAIT_TIMEOUT_MILLIS * nodes.size()
+            ));
+        }
     }
 
     private void waitPartitionPendingAssignmentsSyncedToExpected(int partNum, int replicasNum) throws Exception {
