@@ -40,7 +40,6 @@ public class OptimizedMarshaller implements Marshaller {
      * Byte buffer pool for {@link OptimizedMarshaller}. Helps re-using old buffers, saving some time on allocations.
      */
     public interface ByteBuffersPool {
-
         /**
          * Removes one buffer from cache and returns it, if possible. Returns {@code null} otherwise.
          */
