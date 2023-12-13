@@ -262,7 +262,6 @@ public class IgniteMath {
         throw new SqlException(RUNTIME_ERR, "Division by zero");
     }
 
-
     /** Cast value to {@code int}, throwing an exception if the result overflows an {@code int}. */
     public static int convertToIntExact(long x) {
         if ((int) x != x) {
