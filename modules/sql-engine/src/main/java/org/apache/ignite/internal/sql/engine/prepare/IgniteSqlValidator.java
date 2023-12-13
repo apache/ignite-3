@@ -25,6 +25,8 @@ import static org.apache.calcite.util.Static.RESOURCE;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_PARSE_ERR;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectArrayMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.IntArraySet;
 import it.unimi.dsi.fastutil.ints.IntSet;
 import java.math.BigDecimal;
@@ -128,7 +130,7 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
     }
 
     /** Dynamic parameters state. */
-    private final Map<Integer, DynamicParamState> dynamicParameters;
+    private final Int2ObjectMap<DynamicParamState> dynamicParameters;
 
     /**
      * The same dynamic parameter can be used in the same SQL tree multiple types after a rewrite.
@@ -150,13 +152,13 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
      * @param parameters    Dynamic parameters
      */
     public IgniteSqlValidator(SqlOperatorTable opTab, CalciteCatalogReader catalogReader,
-            IgniteTypeFactory typeFactory, SqlValidator.Config config, Map<Integer, Object> parameters) {
+            IgniteTypeFactory typeFactory, SqlValidator.Config config, Int2ObjectMap<Object> parameters) {
         super(opTab, catalogReader, typeFactory, config);
 
-        this.dynamicParameters = new HashMap<>();
-        for (Map.Entry<Integer, Object> param : parameters.entrySet()) {
+        this.dynamicParameters = new Int2ObjectArrayMap<>(parameters.size());
+        for (Map.Entry<Integer, Object> param : parameters.int2ObjectEntrySet()) {
             Object value = param.getValue();
-            dynamicParameters.put(param.getKey(), new DynamicParamState(value));
+            dynamicParameters.put(param.getKey().intValue(), new DynamicParamState(value));
         }
     }
 
