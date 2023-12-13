@@ -210,6 +210,7 @@ public class SelectBenchmark extends AbstractMultiNodeBenchmark {
         private final QueryProcessor queryProc = clusterNode.queryEngine();
         private int pageSize;
 
+        /** Generates statements. */
         @Setup
         public void setUp() throws Exception {
             Session session = clusterNode.sql().createSession();

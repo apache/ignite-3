@@ -66,8 +66,7 @@ public class AbstractMultiNodeBenchmark {
 
     protected static IgniteImpl clusterNode;
 
-    //@Param({"false", "true"})
-    @Param("false")
+    @Param({"false", "true"})
     private boolean fsync;
 
     /**
@@ -88,31 +87,36 @@ public class AbstractMultiNodeBenchmark {
                     ))
             );
 
-            var createTableStatement = "CREATE TABLE " + TABLE_NAME + "(\n"
-                    + "    ycsb_key int PRIMARY KEY,\n"
-                    + "    field1   varchar(100),\n"
-                    + "    field2   varchar(100),\n"
-                    + "    field3   varchar(100),\n"
-                    + "    field4   varchar(100),\n"
-                    + "    field5   varchar(100),\n"
-                    + "    field6   varchar(100),\n"
-                    + "    field7   varchar(100),\n"
-                    + "    field8   varchar(100),\n"
-                    + "    field9   varchar(100),\n"
-                    + "    field10  varchar(100)\n"
-                    + ") WITH primary_zone='" + ZONE_NAME + "'";
-
-            getAllFromCursor(
-                    await(queryEngine.querySingleAsync(
-                            SqlPropertiesHelper.emptyProperties(), clusterNode.transactions(), null, createTableStatement
-                    ))
-            );
+            createTable(TABLE_NAME);
         } catch (Throwable th) {
             nodeTearDown();
 
             throw th;
         }
     }
+
+    protected void createTable(String tableName) {
+        var createTableStatement = "CREATE TABLE " + tableName + "(\n"
+                + "    ycsb_key int PRIMARY KEY,\n"
+                + "    field1   varchar(100),\n"
+                + "    field2   varchar(100),\n"
+                + "    field3   varchar(100),\n"
+                + "    field4   varchar(100),\n"
+                + "    field5   varchar(100),\n"
+                + "    field6   varchar(100),\n"
+                + "    field7   varchar(100),\n"
+                + "    field8   varchar(100),\n"
+                + "    field9   varchar(100),\n"
+                + "    field10  varchar(100)\n"
+                + ") WITH primary_zone='" + ZONE_NAME + "'";
+
+        getAllFromCursor(
+                await(clusterNode.queryEngine().querySingleAsync(
+                        SqlPropertiesHelper.emptyProperties(), clusterNode.transactions(), null, createTableStatement
+                ))
+        );
+    }
+
 
     /**
      * Stops the cluster.
