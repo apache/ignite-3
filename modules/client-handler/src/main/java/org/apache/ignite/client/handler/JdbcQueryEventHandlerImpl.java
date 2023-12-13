@@ -406,6 +406,7 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
                     return new JdbcQuerySingleResult(cursorId, (long) batch.items().get(0).get(0));
                 }
                 case DDL:
+                case TX_CONTROL:
                     return new JdbcQuerySingleResult(cursorId, 0);
                 default:
                     return new JdbcQuerySingleResult(UNSUPPORTED_OPERATION,

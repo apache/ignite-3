@@ -20,6 +20,7 @@ package org.apache.ignite.jdbc;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -99,7 +100,7 @@ public class ItJdbcMultiStatementSelfTest extends AbstractJdbcSelfTest {
     @Test
     public void testMixedDmlQueryExecute() throws Exception {
         boolean res = stmt.execute("INSERT INTO TEST_TX VALUES (6, 5, '5'); DELETE FROM TEST_TX WHERE ID=6; SELECT 1;");
-        assertEquals(false, res);
+        assertFalse(res);
         assertEquals(1, getResultSetSize());
 
         res = stmt.execute("SELECT 1; INSERT INTO TEST_TX VALUES (7, 5, '5'); DELETE FROM TEST_TX WHERE ID=6;");
@@ -115,41 +116,40 @@ public class ItJdbcMultiStatementSelfTest extends AbstractJdbcSelfTest {
     @Test
     public void testMiscDmlExecute() throws Exception {
         boolean res = stmt.execute("DROP TABLE IF EXISTS TEST_TX; DROP TABLE IF EXISTS SOME_UNEXISTING_TBL;");
-        assertEquals(false, res);
+        assertFalse(res);
         assertEquals(-1, getResultSetSize());
 
         res = stmt.execute("CREATE TABLE TEST_TX (ID INT PRIMARY KEY, AGE INT, NAME VARCHAR) ");
-        assertEquals(false, res);
+        assertFalse(res);
         assertEquals(-1, getResultSetSize());
 
         res = stmt.execute("INSERT INTO TEST_TX VALUES (1, 17, 'James'), (2, 43, 'Valery');");
-        assertEquals(false, res);
+        assertFalse(res);
         assertEquals(-1, getResultSetSize());
 
         res = stmt.execute("DROP TABLE IF EXISTS PUBLIC.TRANSACTIONS; INSERT INTO TEST_TX VALUES (3, 25, 'Michel');");
-        assertEquals(false, res);
+        assertFalse(res);
         assertEquals(-1, getResultSetSize());
     }
 
     @Test
     public void testTransactionsRelatedExecute() throws Exception {
         boolean res = stmt.execute("START TRANSACTION; INSERT INTO TEST_TX VALUES (5, 19, 'Nick'); COMMIT");
-        assertEquals(false, res);
+        assertFalse(res);
         assertEquals(-1, getResultSetSize());
 
-        // TODO: Wait for fix from IGNITE-20463
         // conn.setAutoCommit(false); need to check too
-        /*res = stmt.execute("START TRANSACTION; COMMIT");
-        assertEquals(false, res);
+/*        res = stmt.execute("START TRANSACTION; COMMIT");
+        assertFalse(res);
         assertNull(stmt.getResultSet());
         assertEquals(0, stmt.getUpdateCount());
-        assertFalse(stmt.getMoreResults());
+        assertFalse(stmt.getMoreResults());*/
 
-        res = stmt.execute("COMMIT");
-        assertEquals(false, res);
+/*        res = stmt.execute("COMMIT");
+        assertFalse(res);
         assertNull(stmt.getResultSet());
         assertEquals(0, stmt.getUpdateCount());
-        assertFalse(stmt.getMoreResults());
+        assertFalse(stmt.getMoreResults());*/
 
         stmt.execute("START TRANSACTION; SELECT 1; COMMIT");
         ResultSet resultSet = stmt.getResultSet();
@@ -160,13 +160,21 @@ public class ItJdbcMultiStatementSelfTest extends AbstractJdbcSelfTest {
         resultSet = stmt.getResultSet();
         assertNotNull(resultSet);
 
-        assertFalse(stmt.getMoreResults());
+/*        assertFalse(stmt.getMoreResults());
         resultSet = stmt.getResultSet();
         assertNull(resultSet);
-        assertEquals(0, stmt.getUpdateCount());
+        assertEquals(0, stmt.getUpdateCount());*/
+    }
 
-        res = stmt.execute(";;;;");
-        assertEquals(false, res);*/
+    @Test
+    public void testAutoCommitFalse() throws Exception {
+        conn.setAutoCommit(false);
+        assertThrows(SQLException.class, () -> stmt.execute("COMMIT"));
+
+        boolean res = stmt.execute("SELECT 1;COMMIT");
+        assertTrue(res);
+        assertNotNull(stmt.getResultSet());
+        assertThrows(SQLException.class, () -> stmt.getMoreResults());
     }
 
     @Test
@@ -281,9 +289,9 @@ public class ItJdbcMultiStatementSelfTest extends AbstractJdbcSelfTest {
     /**
      * Sanity test for scripts, containing empty statements are handled correctly.
      */
-    //@Test TODO: Wait for fix from IGNITE-20453
+    //@Test
     public void testEmptyStatements() throws Exception {
-        execute(";; ;;;;");
+        execute(";;;SELECT 1 + 2");
         execute(" ;; ;;;; ");
         execute("CREATE TABLE ONE (id INT PRIMARY KEY, VAL VARCHAR);;"
                 + "CREATE INDEX T_IDX ON ONE(val)"
