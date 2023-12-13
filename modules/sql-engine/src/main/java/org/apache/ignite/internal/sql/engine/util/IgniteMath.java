@@ -215,6 +215,9 @@ public class IgniteMath {
         if (y == -1) {
             return negateExact(x);
         }
+        if (y == 0) {
+            throwDivisionByZero();
+        }
 
         return x / y;
     }
@@ -223,6 +226,9 @@ public class IgniteMath {
     public static int divideExact(int x, int y) {
         if (y == -1) {
             return negateExact(x);
+        }
+        if (y == 0) {
+            throwDivisionByZero();
         }
 
         return x / y;
@@ -233,6 +239,9 @@ public class IgniteMath {
         if (y == -1) {
             return negateExact(x);
         }
+        if (y == 0) {
+            throwDivisionByZero();
+        }
 
         return (short) (x / y);
     }
@@ -242,9 +251,17 @@ public class IgniteMath {
         if (y == -1) {
             return negateExact(x);
         }
+        if (y == 0) {
+            throwDivisionByZero();
+        }
 
         return (byte) (x / y);
     }
+
+    private static void throwDivisionByZero() {
+        throw new SqlException(RUNTIME_ERR, "Division by zero");
+    }
+
 
     /** Cast value to {@code int}, throwing an exception if the result overflows an {@code int}. */
     public static int convertToIntExact(long x) {
