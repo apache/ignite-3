@@ -42,8 +42,6 @@ import org.junit.jupiter.api.Test;
 
 /** For {@link CatalogUtils} testing. */
 public class CatalogUtilsTest extends BaseIgniteAbstractTest {
-    private static final String ZONE_NAME = "test_zone";
-
     private static final String TABLE_NAME = "test_table";
 
     private static final String INDEX_NAME = "test_index";
