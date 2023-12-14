@@ -834,19 +834,8 @@ public class PartitionReplicaListener implements ReplicaListener {
                 // that as the coordinator (or information about it) is missing, there is  no need to wait a finish request from
                 // tx coordinator, the transaction can't be committed at all.
                 return triggerTxRecovery(txId, localNode.id())
-                        .handle((v, ex) -> {
-                            TransactionMeta transactionMeta = txManager.stateMeta(txId);
-
-                            assert transactionMeta != null;
-
-                            if (transactionMeta.txState() == FINISHING) {
-                                return ((TxStateMetaFinishing) transactionMeta).txFinishFuture();
-                            }
-
-                            assert transactionMeta.txState() == ABORTED;
-
-                            return completedFuture(transactionMeta);
-                        })
+                        .handle((v, ex) ->
+                                CompletableFuture.<TransactionMeta>completedFuture(txManager.stateMeta(txId)))
                         .thenCompose(v -> v);
             } else {
                 assert txStateMeta != null && txStateMeta.txState() == PENDING : "Unexpected transaction state: " + txStateMeta;
