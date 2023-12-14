@@ -187,6 +187,7 @@ public class MessageImplGenerator {
         TypeSpec.Builder messageImpl = TypeSpec.classBuilder(messageImplClassName)
                 .addModifiers(Modifier.PUBLIC)
                 .addSuperinterface(message.className())
+                .addSuperinterface(Cloneable.class)
                 .addFields(fields)
                 .addMethods(methodImpls)
                 .addMethod(constructor(fields, notNullFieldNames, marshallableFieldNames));
@@ -237,6 +238,17 @@ public class MessageImplGenerator {
 
         // equals and hashCode
         generateEqualsAndHashCode(messageImpl, message);
+
+        // generate clone
+        MethodSpec cloneMethod = MethodSpec.methodBuilder("clone")
+                .addAnnotation(Override.class)
+                .addModifiers(Modifier.PUBLIC)
+                .returns(Object.class)
+                .addException(CloneNotSupportedException.class)
+                .addStatement("return super.clone()")
+                .build();
+
+        messageImpl.addMethod(cloneMethod);
 
         var builderName = ClassName.get(message.packageName(), builderInterface.name);
 
