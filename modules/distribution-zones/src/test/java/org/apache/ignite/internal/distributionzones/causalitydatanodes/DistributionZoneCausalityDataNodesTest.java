@@ -57,6 +57,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.events.AlterZoneEventParameters;
 import org.apache.ignite.internal.catalog.events.CreateZoneEventParameters;
@@ -602,25 +603,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
             }).thenRun(latch::countDown).thenApply(ignored -> false);
         });
 
-        doAnswer((Answer<CompletableFuture<Void>>) invocation -> CompletableFuture.runAsync(() -> {
-            try {
-                latch.await();
-            } catch (InterruptedException e) {
-                throw new RuntimeException(e);
-            }
-        }).thenCompose(v -> {
-            try {
-                return (CompletableFuture<Void>) invocation.callRealMethod();
-            } catch (Throwable e) {
-                throw new RuntimeException(e);
-            }
-        })).when(metaStorageManager).invoke(argThat(iif -> {
-            If iif1 = MetaStorageWriteHandler.toIf(iif);
-
-            byte[] zoneDataNodes = zoneDataNodesKey().bytes();
-
-            return iif1.andThen().update().operations().stream().anyMatch(op -> startsWith(op.key(), zoneDataNodes));
-        }));
+        blockDataNodesUpdatesInMetaStorage(latch);
 
         createZone(ZONE_NAME, scaleUp, scaleDown, null);
 
@@ -1013,62 +996,128 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
      * @throws Exception If failed.
      */
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20412")
-    void checkDataNodesRepeated() throws Exception {
-        prepareZonesWithOneDataNodes();
+    void checkDataNodesRepeatedOnNodeAdded() throws Exception {
+        prepareZonesWithTwoDataNodes();
 
         prepareZonesTimerValuesToTest();
 
-        CountDownLatch scaleUpLatch = blockScaleUpTaskExecution();
+        CountDownLatch latch = new CountDownLatch(1);
 
-        CountDownLatch scaleDownLatch = blockScaleDownTaskExecution();
+        AtomicBoolean reached = new AtomicBoolean();
 
-        Set<LogicalNode> topology1 = Set.of(NODE_0, NODE_1, NODE_2);
-        Set<LogicalNode> topology2 = Set.of(NODE_0, NODE_2);
-
-        // Change logical topology. NODE_2 is added.
-        long topologyRevision1 = putNodeInLogicalTopologyAndGetRevision(NODE_2, topology1);
-        waitForCondition(() -> metaStorageManager.appliedRevision() >= topologyRevision1, TIMEOUT);
-
-        // Change logical topology. NODE_1 is removed.
-        long topologyRevision2 = removeNodeInLogicalTopologyAndGetRevision(Set.of(NODE_1), topology2);
-        waitForCondition(() -> metaStorageManager.appliedRevision() >= topologyRevision2, TIMEOUT);
-
-        Set<String> expectedDefaultZoneDataNodes = Set.of(NODE_0.name(), NODE_2.name());
+        Set<String> expectedDefaultZoneDataNodes = Set.of(NODE_0.name(), NODE_1.name(), NODE_2.name());
         Set<String> expectedZone1DataNodes = Set.of(NODE_0.name(), NODE_1.name(), NODE_2.name());
-        Set<String> expectedZone2DataNodes = Set.of(NODE_0.name());
+        Set<String> expectedZone2DataNodes = Set.of(NODE_0.name(), NODE_1.name());
         Set<String> expectedZone3DataNodes = Set.of(NODE_0.name(), NODE_1.name());
 
-        // Check that data nodes values are changed according to scale up and down timers.
-        // Data nodes from the meta storage manager and topology augmentation maps are used to calculate current data nodes.
-        checkDataNodes(
-                topologyRevision2,
+        AtomicLong topologyUpdateRevision = new AtomicLong();
+
+        WatchListener testListener = createLogicalTopologyWatchListenerToCheckDataNodes(
+                topologyUpdateRevision,
+                latch,
+                reached,
                 expectedDefaultZoneDataNodes,
                 expectedZone1DataNodes,
                 expectedZone2DataNodes,
                 expectedZone3DataNodes
         );
 
-        // Check that data nodes values are not changed in the meta storage.
-        checkThatDataNodesIsNotChangedInMetastorage();
+        metaStorageManager.registerPrefixWatch(zonesLogicalTopologyPrefix(), testListener);
 
-        // Unblock scale up and down tasks.
-        scaleUpLatch.countDown();
-        scaleDownLatch.countDown();
+        blockDataNodesUpdatesInMetaStorage(latch);
 
-        // Check that data nodes values are changed in the meta storage after scale up and scale down tasks updated the meta storage.
-        checkThatDataNodesIsChangedInMetastorage(
-                expectedDefaultZoneDataNodes,
-                expectedZone1DataNodes,
-                expectedZone2DataNodes,
-                expectedZone3DataNodes
-        );
+        Set<LogicalNode> topology1 = Set.of(NODE_0, NODE_1, NODE_2);
+
+        // Change logical topology. NODE_2 is added.
+        long topologyRevision = putNodeInLogicalTopologyAndGetRevision(NODE_2, topology1);
+        waitForCondition(() -> metaStorageManager.appliedRevision() >= topologyRevision, TIMEOUT);
+
+        assertEquals(topologyRevision, topologyUpdateRevision.get());
+
+        latch.await();
 
         // Check that data nodes values are idempotented.
         // Data nodes from the meta storage manager only used to calculate current data nodes because the meta storage are updated and
         // topology augmentation maps were cleared.
         checkDataNodes(
-                topologyRevision2,
+                topologyUpdateRevision.get(),
+                expectedDefaultZoneDataNodes,
+                expectedZone1DataNodes,
+                expectedZone2DataNodes,
+                expectedZone3DataNodes
+        );
+
+        checkDataNodes(
+                metaStorageManager.appliedRevision(),
+                expectedDefaultZoneDataNodes,
+                expectedZone1DataNodes,
+                expectedZone2DataNodes,
+                expectedZone3DataNodes
+        );
+    }
+
+    /**
+     * Check that data nodes calculation is idempotented.
+     * The current data nodes value which was calculated by data nodes from the meta storage manager and topology augmentation maps equals
+     * to the data nodes value which were calculated by data nodes from the meta storage manager after topology augmentation maps
+     * were cleared.
+     *
+     * @throws Exception If failed.
+     */
+    @Test
+    void checkDataNodesRepeatedOnNodeRemoved() throws Exception {
+        prepareZonesWithTwoDataNodes();
+
+        prepareZonesTimerValuesToTest();
+
+        CountDownLatch latch = new CountDownLatch(1);
+
+        AtomicBoolean reached = new AtomicBoolean();
+
+        Set<String> expectedDefaultZoneDataNodes = Set.of(NODE_0.name());
+        Set<String> expectedZone1DataNodes = Set.of(NODE_0.name(), NODE_1.name());
+        Set<String> expectedZone2DataNodes = Set.of(NODE_0.name());
+        Set<String> expectedZone3DataNodes = Set.of(NODE_0.name(), NODE_1.name());
+
+        AtomicLong topologyUpdateRevision = new AtomicLong();
+
+        WatchListener testListener = createLogicalTopologyWatchListenerToCheckDataNodes(
+                topologyUpdateRevision,
+                latch,
+                reached,
+                expectedDefaultZoneDataNodes,
+                expectedZone1DataNodes,
+                expectedZone2DataNodes,
+                expectedZone3DataNodes
+        );
+
+        metaStorageManager.registerPrefixWatch(zonesLogicalTopologyPrefix(), testListener);
+
+        blockDataNodesUpdatesInMetaStorage(latch);
+
+        Set<LogicalNode> topology1 = Set.of(NODE_0);
+
+        // Change logical topology. NODE_1 is removed.
+        long topologyRevision = removeNodeInLogicalTopologyAndGetRevision(Set.of(NODE_1), topology1);
+        waitForCondition(() -> metaStorageManager.appliedRevision() >= topologyRevision, TIMEOUT);
+
+        assertEquals(topologyRevision, topologyUpdateRevision.get());
+
+        latch.await();
+
+        // Check that data nodes values are idempotented.
+        // Data nodes from the meta storage manager only used to calculate current data nodes because the meta storage are updated and
+        // topology augmentation maps were cleared.
+        checkDataNodes(
+                topologyUpdateRevision.get(),
+                expectedDefaultZoneDataNodes,
+                expectedZone1DataNodes,
+                expectedZone2DataNodes,
+                expectedZone3DataNodes
+        );
+
+        checkDataNodes(
+                metaStorageManager.appliedRevision(),
                 expectedDefaultZoneDataNodes,
                 expectedZone1DataNodes,
                 expectedZone2DataNodes,
@@ -1079,7 +1128,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
     /**
      * Added two nodes in topology and assert that data nodes of zones are contains all topology nodes.
      */
-    private void prepareZonesWithOneDataNodes() throws Exception {
+    private void prepareZonesWithTwoDataNodes() throws Exception {
         alterZone(DEFAULT_ZONE_NAME, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE, null);
 
         createZone(ZONE_NAME, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE, null);
@@ -1113,70 +1162,54 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         assertEquals(TWO_NODES_NAMES, dataNodes4);
     }
 
-    /**
-     * Schedule a scale up task which blocks execution of another scale up tasks.
-     *
-     * @return Latch to unblock execution of scale up tasks.
-     */
-    private CountDownLatch blockScaleUpTaskExecution() {
-        CountDownLatch scaleUpLatch = new CountDownLatch(1);
+    private WatchListener createLogicalTopologyWatchListenerToCheckDataNodes(
+            AtomicLong topologyUpdateRevision,
+            CountDownLatch latch,
+            AtomicBoolean reached,
+            Set<String> expectedDefaultZoneDataNodes,
+            Set<String> expectedZone1DataNodes,
+            Set<String> expectedZone2DataNodes,
+            Set<String> expectedZone3DataNodes
+    ) {
+        return new WatchListener() {
+            @Override
+            public CompletableFuture<Void> onUpdate(WatchEvent evt) {
+                for (EntryEvent event : evt.entryEvents()) {
+                    Entry e = event.newEntry();
 
-        Runnable dummyScaleUpTask = () -> {
-            try {
-                scaleUpLatch.await(TIMEOUT, MILLISECONDS);
-            } catch (Exception e) {
-                throw new RuntimeException(e);
+                    if (Arrays.equals(e.key(), zonesLogicalTopologyVersionKey().bytes())) {
+                        topologyUpdateRevision.set(e.revision());
+                    }
+                }
+
+                assertTrue(topologyUpdateRevision.get() > 0);
+
+                return CompletableFuture.runAsync(() -> {
+                    try {
+                        // Check that data nodes values are changed according to scale up and down timers.
+                        // Data nodes from the meta storage manager and topology augmentation maps are used to calculate current data nodes.
+                        checkDataNodes(
+                                topologyUpdateRevision.get(),
+                                expectedDefaultZoneDataNodes,
+                                expectedZone1DataNodes,
+                                expectedZone2DataNodes,
+                                expectedZone3DataNodes
+                        );
+
+                        // Check that data nodes values are not changed in the meta storage.
+                        checkThatDataNodesIsNotChangedInMetastorage();
+
+                        reached.set(true);
+                    } catch (Exception e) {
+                        fail();
+                    }
+                }).thenRun(latch::countDown).thenApply(ignored -> null);
+            }
+
+            @Override
+            public void onError(Throwable e) {
             }
         };
-
-        int defaultZoneId = getZoneId(DEFAULT_ZONE_NAME);
-        int zoneId = getZoneId(ZONE_NAME);
-        int zoneId2 = getZoneId(ZONE_NAME_2);
-        int zoneId3 = getZoneId(ZONE_NAME_3);
-
-        distributionZoneManager.zonesState().get(defaultZoneId)
-                .rescheduleScaleUp(IMMEDIATE_TIMER_VALUE, dummyScaleUpTask, defaultZoneId);
-        distributionZoneManager.zonesState().get(zoneId)
-                .rescheduleScaleUp(IMMEDIATE_TIMER_VALUE, dummyScaleUpTask, zoneId);
-        distributionZoneManager.zonesState().get(zoneId2)
-                .rescheduleScaleUp(IMMEDIATE_TIMER_VALUE, dummyScaleUpTask, zoneId2);
-        distributionZoneManager.zonesState().get(zoneId3)
-                .rescheduleScaleUp(IMMEDIATE_TIMER_VALUE, dummyScaleUpTask, zoneId3);
-
-        return scaleUpLatch;
-    }
-
-    /**
-     * Schedule a scale down task which blocks execution of another scale down tasks.
-     *
-     * @return Latch to unblock execution of scale down tasks.
-     */
-    private CountDownLatch blockScaleDownTaskExecution() {
-        CountDownLatch scaleDownLatch = new CountDownLatch(1);
-
-        Runnable dummyScaleDownTask = () -> {
-            try {
-                scaleDownLatch.await(TIMEOUT, MILLISECONDS);
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
-        };
-
-        int defaultZoneId = getZoneId(DEFAULT_ZONE_NAME);
-        int zoneId = getZoneId(ZONE_NAME);
-        int zoneId2 = getZoneId(ZONE_NAME_2);
-        int zoneId3 = getZoneId(ZONE_NAME_3);
-
-        distributionZoneManager.zonesState().get(defaultZoneId)
-                .rescheduleScaleDown(IMMEDIATE_TIMER_VALUE, dummyScaleDownTask, defaultZoneId);
-        distributionZoneManager.zonesState().get(zoneId)
-                .rescheduleScaleDown(IMMEDIATE_TIMER_VALUE, dummyScaleDownTask, zoneId);
-        distributionZoneManager.zonesState().get(zoneId2)
-                .rescheduleScaleDown(IMMEDIATE_TIMER_VALUE, dummyScaleDownTask, zoneId2);
-        distributionZoneManager.zonesState().get(zoneId3)
-                .rescheduleScaleDown(IMMEDIATE_TIMER_VALUE, dummyScaleDownTask, zoneId3);
-
-        return scaleDownLatch;
     }
 
     private void checkThatDataNodesIsNotChangedInMetastorage() throws Exception {
@@ -1637,5 +1670,27 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
                 Arguments.of(1, IMMEDIATE_TIMER_VALUE),
                 Arguments.of(IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE)
         );
+    }
+
+    private void blockDataNodesUpdatesInMetaStorage(CountDownLatch latch) {
+        doAnswer((Answer<CompletableFuture<Void>>) invocation -> CompletableFuture.runAsync(() -> {
+            try {
+                latch.await();
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+        }).thenCompose(v -> {
+            try {
+                return (CompletableFuture<Void>) invocation.callRealMethod();
+            } catch (Throwable e) {
+                throw new RuntimeException(e);
+            }
+        })).when(metaStorageManager).invoke(argThat(iif -> {
+            If iif1 = MetaStorageWriteHandler.toIf(iif);
+
+            byte[] zoneDataNodes = zoneDataNodesKey().bytes();
+
+            return iif1.andThen().update().operations().stream().anyMatch(op -> startsWith(op.key(), zoneDataNodes));
+        }));
     }
 }
