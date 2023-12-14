@@ -30,10 +30,11 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
- * Tests for queries containing multiple multiply sql statements, separated by ";".
+ * Tests for queries containing multiple sql statements, separated by ";".
  */
 public class ItJdbcMultiStatementSelfTest extends AbstractJdbcSelfTest {
     /**
@@ -352,7 +353,8 @@ public class ItJdbcMultiStatementSelfTest extends AbstractJdbcSelfTest {
     /**
      * Sanity test for scripts, containing empty statements are handled correctly.
      */
-    //@Test
+    @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-21081")
     public void testEmptyStatements() throws Exception {
         execute(";;;SELECT 1 + 2");
         execute(" ;; ;;;; ");
