@@ -360,13 +360,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                         ? new TxStateMetaFinishing(null, commitPartition)
                         : txMeta.finishing();
 
-        TxStateMeta stateMeta = updateTxMeta(txId, oldMeta -> {
-            if (oldMeta != null && oldMeta.txState() == FINISHING) {
-                return oldMeta;
-            }
-
-            return finishingStateMeta;
-        });
+        TxStateMeta stateMeta = updateTxMeta(txId, oldMeta -> finishingStateMeta);
 
         // Means we failed to CAS the state, someone else did it.
         if (finishingStateMeta != stateMeta) {
