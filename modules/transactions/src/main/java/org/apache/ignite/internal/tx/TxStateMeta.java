@@ -91,6 +91,15 @@ public class TxStateMeta implements TransactionMeta {
         return new TxStateMetaAbandoned(txCoordinatorId, commitPartitionId);
     }
 
+    /**
+     * Creates a transaction state for the same transaction, but this one is marked finishing.
+     *
+     * @return Transaction state meta.
+     */
+    public TxStateMetaFinishing finishing() {
+        return new TxStateMetaFinishing(txCoordinatorId, commitPartitionId);
+    }
+
     @Override
     public TxState txState() {
         return txState;

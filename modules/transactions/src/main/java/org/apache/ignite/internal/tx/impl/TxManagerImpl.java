@@ -357,9 +357,11 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                 if (oldMeta.txState() == FINISHING) {
                     // Someone else has already triggered finish. We don't need to do anything, but wait for the result.
                     previousFinishFuture.set(((TxStateMetaFinishing) oldMeta).txFinishFuture());
+
+                    return oldMeta;
                 }
 
-                return new TxStateMetaFinishing(oldMeta.txCoordinatorId(), oldMeta.commitPartitionId());
+                return oldMeta.finishing();
             }
 
             return new TxStateMetaFinishing(localNodeId, commitPartition);
