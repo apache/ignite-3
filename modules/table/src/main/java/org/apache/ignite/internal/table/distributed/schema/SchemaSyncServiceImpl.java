@@ -20,12 +20,16 @@ package org.apache.ignite.internal.table.distributed.schema;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.LongSupplier;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.server.time.ClusterTime;
 
 /**
  * A default implementation of {@link SchemaSyncService}.
  */
 public class SchemaSyncServiceImpl implements SchemaSyncService {
+    private static final IgniteLogger LOGGER = Loggers.forClass(SchemaSyncServiceImpl.class);
+
     private final ClusterTime clusterTime;
 
     private final LongSupplier delayDurationMs;
@@ -40,6 +44,12 @@ public class SchemaSyncServiceImpl implements SchemaSyncService {
 
     @Override
     public CompletableFuture<Void> waitForMetadataCompleteness(HybridTimestamp ts) {
-        return clusterTime.waitFor(ts.subtractPhysicalTime(delayDurationMs.getAsLong()));
+        CompletableFuture<Void> future = clusterTime.waitFor(ts.subtractPhysicalTime(delayDurationMs.getAsLong()));
+
+        if (!future.isDone()) {
+            LOGGER.info("Schema sync caused a wait, ts {}", ts);
+        }
+
+        return future;
     }
 }
