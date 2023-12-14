@@ -125,10 +125,16 @@ public class CatalogUtils {
     private static final Map<ColumnType, Set<ColumnType>> ALTER_COLUMN_TYPE_TRANSITIONS = new EnumMap<>(ColumnType.class);
 
     static {
-        ALTER_COLUMN_TYPE_TRANSITIONS.put(ColumnType.INT8, EnumSet.of(ColumnType.INT16, ColumnType.INT32, ColumnType.INT64));
-        ALTER_COLUMN_TYPE_TRANSITIONS.put(ColumnType.INT16, EnumSet.of(ColumnType.INT32, ColumnType.INT64));
-        ALTER_COLUMN_TYPE_TRANSITIONS.put(ColumnType.INT32, EnumSet.of(ColumnType.INT64));
-        ALTER_COLUMN_TYPE_TRANSITIONS.put(ColumnType.FLOAT, EnumSet.of(ColumnType.DOUBLE));
+        ALTER_COLUMN_TYPE_TRANSITIONS.put(ColumnType.INT8, EnumSet.of(ColumnType.INT8, ColumnType.INT16, ColumnType.INT32,
+                ColumnType.INT64));
+        ALTER_COLUMN_TYPE_TRANSITIONS.put(ColumnType.INT16, EnumSet.of(ColumnType.INT16, ColumnType.INT32, ColumnType.INT64));
+        ALTER_COLUMN_TYPE_TRANSITIONS.put(ColumnType.INT32, EnumSet.of(ColumnType.INT32, ColumnType.INT64));
+        ALTER_COLUMN_TYPE_TRANSITIONS.put(ColumnType.INT64, EnumSet.of(ColumnType.INT64));
+        ALTER_COLUMN_TYPE_TRANSITIONS.put(ColumnType.FLOAT, EnumSet.of(ColumnType.FLOAT, ColumnType.DOUBLE));
+        ALTER_COLUMN_TYPE_TRANSITIONS.put(ColumnType.DOUBLE, EnumSet.of(ColumnType.DOUBLE));
+        ALTER_COLUMN_TYPE_TRANSITIONS.put(ColumnType.STRING, EnumSet.of(ColumnType.STRING));
+        ALTER_COLUMN_TYPE_TRANSITIONS.put(ColumnType.BYTE_ARRAY, EnumSet.of(ColumnType.BYTE_ARRAY));
+        ALTER_COLUMN_TYPE_TRANSITIONS.put(ColumnType.DECIMAL, EnumSet.of(ColumnType.DECIMAL));
     }
 
     /**
@@ -215,36 +221,54 @@ public class CatalogUtils {
             @Nullable Integer newLength,
             TypeChangeValidationListener listener
     ) {
-        if (newType != null && newType != origin.type()) {
-            if (!isSupportedColumnTypeChange(origin.type(), newType)) {
+        if (newType != null) {
+            if (isSupportedColumnTypeChange(origin.type(), newType)) {
+                if (origin.type().precisionAllowed() && newPrecision != null && newPrecision < origin.precision()) {
+                    listener.onFailure("Decreasing the precision for column of type '{}' is not allowed", origin.type(), newType);
+                    return false;
+                }
+
+                if (origin.type().scaleAllowed() && newScale != null && newScale != origin.scale()) {
+                    listener.onFailure("Changing the scale for column of type '{}' is not allowed", origin.type(), newType);
+                    return false;
+                }
+
+                if (origin.type().lengthAllowed() && newLength != null && newLength < origin.length()) {
+                    listener.onFailure("Decreasing the length for column of type '{}' is not allowed", origin.type(), newType);
+                    return false;
+                }
+
+                return true;
+            }
+
+            if (newType != origin.type()) {
                 listener.onFailure("Changing the type from {} to {} is not allowed", origin.type(), newType);
                 return false;
             }
         }
 
-        if (newPrecision != null && newPrecision != origin.precision() && origin.type() != ColumnType.DECIMAL) {
+        if (newPrecision != null && !origin.type().precisionAllowed()) {
             listener.onFailure("Changing the precision for column of type '{}' is not allowed", origin.type(), newType);
             return false;
         }
 
-        if (newPrecision != null && newPrecision < origin.precision()) {
-            listener.onFailure("Decreasing the precision is not allowed", origin.type(), newType);
+        if (newPrecision != null && newPrecision != origin.precision()) {
+            listener.onFailure("Changing the precision for column of type '{}' is not allowed", origin.type(), newType);
             return false;
         }
 
-        if (newScale != null && newScale != origin.scale()) {
-            listener.onFailure("Changing the scale is not allowed", origin.type(), newType);
+        if (newScale != null && (!origin.type().scaleAllowed() || newScale != origin.scale())) {
+            listener.onFailure("Changing the scale for column of type '{}' is not allowed", origin.type(), newType);
             return false;
         }
 
-        if (newLength != null && newLength != origin.length()
-                && origin.type() != ColumnType.STRING && origin.type() != ColumnType.BYTE_ARRAY) {
+        if (newLength != null && !origin.type().lengthAllowed()) {
             listener.onFailure("Changing the length for column of type '{}' is not allowed", origin.type(), newType);
             return false;
         }
 
-        if (newLength != null && newLength < origin.length()) {
-            listener.onFailure("Decreasing the length is not allowed", origin.type(), newType);
+        if (newLength != null && newLength != origin.length()) {
+            listener.onFailure("Changing the length for column of type '{}' is not allowed", origin.type(), newType);
             return false;
         }
 

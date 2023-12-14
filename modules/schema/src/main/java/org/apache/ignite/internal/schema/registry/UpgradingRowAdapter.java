@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.schema.registry;
 
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.isSupportedColumnTypeChange;
+
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.time.Instant;
@@ -34,6 +36,7 @@ import org.apache.ignite.internal.schema.SchemaException;
 import org.apache.ignite.internal.schema.mapping.ColumnMapper;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.type.NativeTypeSpec;
+import org.apache.ignite.sql.ColumnType;
 
 /**
  * Adapter for row of older schema.
@@ -146,7 +149,7 @@ public class UpgradingRowAdapter extends Row {
 
         Column column = mappedId < 0 ? mapper.mappedColumn(colIdx) : super.schema().column(mappedId);
 
-        if (NativeTypeSpec.INT8 != column.type().spec()) {
+        if (!isSupportedColumnTypeChange(column.type().spec().asColumnType(), ColumnType.INT8)) {
             throw new SchemaException("Type conversion is not supported yet.");
         }
 
@@ -160,7 +163,7 @@ public class UpgradingRowAdapter extends Row {
 
         Column column = mappedId < 0 ? mapper.mappedColumn(colIdx) : super.schema().column(mappedId);
 
-        if (NativeTypeSpec.INT8 != column.type().spec()) {
+        if (!isSupportedColumnTypeChange(column.type().spec().asColumnType(), ColumnType.INT8)) {
             throw new SchemaException("Type conversion is not supported yet.");
         }
 
@@ -174,7 +177,7 @@ public class UpgradingRowAdapter extends Row {
 
         Column column = mappedId < 0 ? mapper.mappedColumn(colIdx) : super.schema().column(mappedId);
 
-        if (NativeTypeSpec.INT16 != column.type().spec()) {
+        if (!isSupportedColumnTypeChange(column.type().spec().asColumnType(), ColumnType.INT16)) {
             throw new SchemaException("Type conversion is not supported yet.");
         }
 
@@ -188,7 +191,7 @@ public class UpgradingRowAdapter extends Row {
 
         Column column = mappedId < 0 ? mapper.mappedColumn(colIdx) : super.schema().column(mappedId);
 
-        if (NativeTypeSpec.INT16 != column.type().spec()) {
+        if (!isSupportedColumnTypeChange(column.type().spec().asColumnType(), ColumnType.INT16)) {
             throw new SchemaException("Type conversion is not supported yet.");
         }
 
@@ -202,7 +205,7 @@ public class UpgradingRowAdapter extends Row {
 
         Column column = mappedId < 0 ? mapper.mappedColumn(colIdx) : super.schema().column(mappedId);
 
-        if (NativeTypeSpec.INT32 != column.type().spec()) {
+        if (!isSupportedColumnTypeChange(column.type().spec().asColumnType(), ColumnType.INT32)) {
             throw new SchemaException("Type conversion is not supported yet.");
         }
 
@@ -216,7 +219,7 @@ public class UpgradingRowAdapter extends Row {
 
         Column column = mappedId < 0 ? mapper.mappedColumn(colIdx) : super.schema().column(mappedId);
 
-        if (NativeTypeSpec.INT32 != column.type().spec()) {
+        if (!isSupportedColumnTypeChange(column.type().spec().asColumnType(), ColumnType.INT32)) {
             throw new SchemaException("Type conversion is not supported yet.");
         }
 
@@ -230,7 +233,7 @@ public class UpgradingRowAdapter extends Row {
 
         Column column = mappedId < 0 ? mapper.mappedColumn(colIdx) : super.schema().column(mappedId);
 
-        if (NativeTypeSpec.INT64 != column.type().spec()) {
+        if (!isSupportedColumnTypeChange(column.type().spec().asColumnType(), ColumnType.INT64)) {
             throw new SchemaException("Type conversion is not supported yet.");
         }
 
@@ -244,7 +247,7 @@ public class UpgradingRowAdapter extends Row {
 
         Column column = mappedId < 0 ? mapper.mappedColumn(colIdx) : super.schema().column(mappedId);
 
-        if (NativeTypeSpec.INT64 != column.type().spec()) {
+        if (!isSupportedColumnTypeChange(column.type().spec().asColumnType(), ColumnType.INT64)) {
             throw new SchemaException("Type conversion is not supported yet.");
         }
 
@@ -258,7 +261,7 @@ public class UpgradingRowAdapter extends Row {
 
         Column column = mappedId < 0 ? mapper.mappedColumn(colIdx) : super.schema().column(mappedId);
 
-        if (NativeTypeSpec.FLOAT != column.type().spec()) {
+        if (!isSupportedColumnTypeChange(column.type().spec().asColumnType(), ColumnType.FLOAT)) {
             throw new SchemaException("Type conversion is not supported yet.");
         }
 
@@ -272,7 +275,7 @@ public class UpgradingRowAdapter extends Row {
 
         Column column = mappedId < 0 ? mapper.mappedColumn(colIdx) : super.schema().column(mappedId);
 
-        if (NativeTypeSpec.FLOAT != column.type().spec()) {
+        if (!isSupportedColumnTypeChange(column.type().spec().asColumnType(), ColumnType.FLOAT)) {
             throw new SchemaException("Type conversion is not supported yet.");
         }
 
@@ -286,7 +289,7 @@ public class UpgradingRowAdapter extends Row {
 
         Column column = mappedId < 0 ? mapper.mappedColumn(colIdx) : super.schema().column(mappedId);
 
-        if (NativeTypeSpec.DOUBLE != column.type().spec()) {
+        if (!isSupportedColumnTypeChange(column.type().spec().asColumnType(), ColumnType.DOUBLE)) {
             throw new SchemaException("Type conversion is not supported yet.");
         }
 
@@ -301,7 +304,7 @@ public class UpgradingRowAdapter extends Row {
 
         Column column = mappedId < 0 ? mapper.mappedColumn(colIdx) : super.schema().column(mappedId);
 
-        if (NativeTypeSpec.DOUBLE != column.type().spec()) {
+        if (!isSupportedColumnTypeChange(column.type().spec().asColumnType(), ColumnType.DOUBLE)) {
             throw new SchemaException("Type conversion is not supported yet.");
         }
 

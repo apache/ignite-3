@@ -20,6 +20,7 @@ package org.apache.ignite.lang;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.util.Locale;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Defines error groups and its errors.
@@ -105,7 +106,7 @@ public class ErrorGroups {
      * @param code Full error code
      * @return Error Group.
      */
-    public static ErrorGroup errorGroupByCode(int code) {
+    public static @Nullable ErrorGroup errorGroupByCode(int code) {
         return registeredGroups.get(extractGroupCode(code));
     }
 

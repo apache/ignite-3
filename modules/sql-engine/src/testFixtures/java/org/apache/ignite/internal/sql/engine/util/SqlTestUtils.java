@@ -94,6 +94,7 @@ public class SqlTestUtils {
 
         int expectedErrorCode = ErrorGroup.extractErrorCode(expectedCode);
         ErrorGroup expectedErrorGroup = ErrorGroups.errorGroupByCode(expectedCode);
+        assert expectedErrorGroup != null : "group not found, code=" + expectedCode;
         String expectedError = format("{}-{}", expectedErrorGroup.name(), expectedErrorCode);
         String actualError = format("{}-{}", ex.groupName(), ex.errorCode());
 
