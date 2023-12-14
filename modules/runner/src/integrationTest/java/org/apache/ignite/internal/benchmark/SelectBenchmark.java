@@ -111,7 +111,7 @@ public class SelectBenchmark extends AbstractMultiNodeBenchmark {
      * Benchmark for SQL script select via embedded client.
      */
     @Benchmark
-    public void sqlScriptGet(SqlScriptState sqlScriptState) {
+    public void sqlGetScript(SqlScriptState sqlScriptState) {
         Iterator<InternalSqlRow> res = sqlScriptState.sql(SELECT_ALL_FROM_USERTABLE, random.nextInt(TABLE_SIZE));
 
         res.next();
@@ -142,7 +142,7 @@ public class SelectBenchmark extends AbstractMultiNodeBenchmark {
      * Benchmark for JDBC script get.
      */
     @Benchmark
-    public void jdbcScriptGet(JdbcState state) throws SQLException {
+    public void jdbcGetScript(JdbcState state) throws SQLException {
         state.stmt.setInt(1, random.nextInt(TABLE_SIZE));
         state.stmt.execute();
 

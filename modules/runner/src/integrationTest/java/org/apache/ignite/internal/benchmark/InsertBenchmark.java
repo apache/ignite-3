@@ -81,7 +81,7 @@ public class InsertBenchmark extends AbstractMultiNodeBenchmark {
      * Benchmark for SQL script insert via embedded client.
      */
     @Benchmark
-    public void sqlScriptInsert(SqlState state) {
+    public void sqlInsertScript(SqlState state) {
         state.executeScript();
     }
 
@@ -105,7 +105,7 @@ public class InsertBenchmark extends AbstractMultiNodeBenchmark {
      * Benchmark for JDBC script insert.
      */
     @Benchmark
-    public void jdbcScriptInsert(JdbcState state) throws SQLException {
+    public void jdbcInsertScript(JdbcState state) throws SQLException {
         state.executeScript();
     }
 
@@ -137,7 +137,7 @@ public class InsertBenchmark extends AbstractMultiNodeBenchmark {
     }
 
     /**
-     * Benchmark state for {@link #sqlInsert(SqlState)} and {@link #sqlScriptInsert(SqlState)}.
+     * Benchmark state for {@link #sqlInsert(SqlState)} and {@link #sqlInsertScript(SqlState)}.
      *
      * <p>Holds {@link Session} and {@link Statement}.
      */
@@ -224,7 +224,7 @@ public class InsertBenchmark extends AbstractMultiNodeBenchmark {
     }
 
     /**
-     * Benchmark state for {@link #jdbcInsert(JdbcState)} and {@link #jdbcScriptInsert(JdbcState)}.
+     * Benchmark state for {@link #jdbcInsert(JdbcState)} and {@link #jdbcInsertScript(JdbcState)}.
      *
      * <p>Holds {@link Connection} and {@link PreparedStatement}.
      */
