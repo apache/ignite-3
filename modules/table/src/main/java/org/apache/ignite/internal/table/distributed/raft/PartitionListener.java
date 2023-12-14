@@ -557,7 +557,7 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
 
         boolean txStateChangeRes = txStateStorage.compareAndSet(
                 txId,
-                null,
+                txMetaBeforeCas.txState(),
                 txMetaToSet,
                 commandIndex,
                 commandTerm
