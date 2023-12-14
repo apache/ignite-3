@@ -194,10 +194,7 @@ public class CausalityDataNodesEngine {
 
                 Set<Node> logicalTopologyNodes = logicalTopology.stream().map(n -> n.node()).collect(toSet());
 
-                Set<String> dataNodesNames = filterDataNodes(logicalTopologyNodes, filter,
-                        distributionZoneManager.nodesAttributes());
-
-                return dataNodesNames;
+                return filterDataNodes(logicalTopologyNodes, filter, distributionZoneManager.nodesAttributes());
             }
 
             ZoneState zoneState = zonesState.get(zoneId);

@@ -93,7 +93,7 @@ public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstract
 
         keyValueStorage = spy(new SimpleInMemoryKeyValueStorage(nodeName));
 
-        metaStorageManager = StandaloneMetaStorageManager.create(vaultMgr, keyValueStorage);
+        metaStorageManager = spy(StandaloneMetaStorageManager.create(vaultMgr, keyValueStorage));
 
         components.add(metaStorageManager);
 

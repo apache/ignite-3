@@ -44,6 +44,10 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 import static org.apache.ignite.internal.util.IgniteUtils.startsWith;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.Mockito.doAnswer;
 
 import java.util.Arrays;
 import java.util.Set;
@@ -52,6 +56,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.events.AlterZoneEventParameters;
 import org.apache.ignite.internal.catalog.events.CreateZoneEventParameters;
 import org.apache.ignite.internal.catalog.events.DropZoneEventParameters;
@@ -69,6 +75,8 @@ import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.EntryEvent;
 import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
+import org.apache.ignite.internal.metastorage.server.If;
+import org.apache.ignite.internal.metastorage.server.raft.MetaStorageWriteHandler;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
@@ -76,6 +84,10 @@ import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
+import org.mockito.stubbing.Answer;
 
 /**
  * Tests for causality data nodes updating in {@link DistributionZoneManager}.
@@ -499,7 +511,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
     /**
      * Tests that data nodes for zones with different scale up/down configs are empty when creation of zones were before any
-     * topology event.
+     * topology event. In this test scenario we assume that initialisation of a zone was before the calling of the data nodes method.
      *
      * @throws Exception If failed.
      */
@@ -555,6 +567,65 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         ).get(TIMEOUT, MILLISECONDS);
 
         assertEquals(emptySet(), dataNodes);
+    }
+
+    /**
+     * Tests that data nodes for zones with different scale up/down configs are empty when creation of zones were before any
+     * topology event. In this test scenario we assume that initialisation of a zone was after the calling of the data nodes method.
+     *
+     */
+    @ParameterizedTest
+    @MethodSource("provideArgumentsOfDifferentTimersValue")
+    void testEmptyDataNodesOnZoneCreationBeforeTopologyEventAndZoneInitialisation(int scaleUp, int scaleDown) {
+        CountDownLatch latch = new CountDownLatch(1);
+
+        AtomicBoolean reached = new AtomicBoolean();
+
+        catalogManager.listen(ZONE_CREATE, (parameters, exception) ->  {
+            assert exception == null : parameters;
+
+            CreateZoneEventParameters params = (CreateZoneEventParameters) parameters;
+
+            return CompletableFuture.runAsync(() -> {
+                try {
+                    Set<String> dataNodes = distributionZoneManager.dataNodes(
+                            params.causalityToken(),
+                            params.catalogVersion(),
+                            params.zoneDescriptor().id()
+                    ).get(TIMEOUT, MILLISECONDS);
+
+                    assertEquals(emptySet(), dataNodes);
+
+                    reached.set(true);
+                } catch (Exception e) {
+                    fail();
+                }
+            }).thenRun(latch::countDown).thenApply(ignored -> false);
+        });
+
+        doAnswer((Answer<CompletableFuture<Void>>) invocation -> CompletableFuture.runAsync(() -> {
+            try {
+                latch.await();
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+        }).thenCompose(v -> {
+            try {
+                return (CompletableFuture<Void>) invocation.callRealMethod();
+            } catch (Throwable e) {
+                throw new RuntimeException(e);
+            }
+        })).when(metaStorageManager).invoke(argThat(iif -> {
+            If iif1 = MetaStorageWriteHandler.toIf(iif);
+
+            byte[] zoneDataNodes = zoneDataNodesKey().bytes();
+
+            return iif1.andThen().update().operations().stream().anyMatch(op -> startsWith(op.key(), zoneDataNodes));
+        }));
+
+        createZone(ZONE_NAME, scaleUp, scaleDown, null);
+
+        assertTrue(reached.get());
     }
 
     /**
@@ -1558,5 +1629,14 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         if (revisionFuture != null) {
             revisionFuture.complete(revision);
         }
+    }
+
+    private static Stream<Arguments> provideArgumentsOfDifferentTimersValue() {
+        return Stream.of(
+                Arguments.of(1, 1),
+                Arguments.of(IMMEDIATE_TIMER_VALUE, 1),
+                Arguments.of(1, IMMEDIATE_TIMER_VALUE),
+                Arguments.of(IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE)
+        );
     }
 }

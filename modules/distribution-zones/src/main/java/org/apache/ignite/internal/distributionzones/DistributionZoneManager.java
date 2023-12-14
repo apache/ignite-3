@@ -1404,8 +1404,7 @@ public class DistributionZoneManager implements IgniteComponent {
 
             CreateZoneEventParameters params = (CreateZoneEventParameters) parameters;
 
-            return onCreateZone(params.zoneDescriptor(), params.causalityToken())
-                    .thenCompose((ignored) -> falseCompletedFuture());
+            return onCreateZone(params.zoneDescriptor(), params.causalityToken()).thenApply((ignored) -> false);
         }));
 
         catalogManager.listen(ZONE_DROP, (parameters, exception) -> inBusyLock(busyLock, () -> {
