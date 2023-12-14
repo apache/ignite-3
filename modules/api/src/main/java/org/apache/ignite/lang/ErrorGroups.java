@@ -354,6 +354,9 @@ public class ErrorGroups {
 
         /** Coordinator tries to commit a transaction that has already been aborted. */
         public static final int TX_WAS_ABORTED_ERR = TX_ERR_GROUP.registerErrorCode((short) 15);
+
+        /** Coordinator tries to abort a transaction that has already been committed. */
+        public static final int TX_WAS_COMMITTED_ERR = TX_ERR_GROUP.registerErrorCode((short) 16);
     }
 
     /** Replicator error group. */

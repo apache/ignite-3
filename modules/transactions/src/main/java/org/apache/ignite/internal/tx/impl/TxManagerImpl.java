@@ -32,6 +32,7 @@ import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_READ_ONLY_TOO_OLD_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_WAS_ABORTED_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_WAS_COMMITTED_ERR;
 
 import java.io.IOException;
 import java.util.Collection;
@@ -404,13 +405,15 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     }
 
     private static CompletableFuture<Void> checkTxOutcome(boolean commit, UUID txId, TransactionMeta stateMeta) {
-        if ((stateMeta.txState() == COMMITTED) != commit) {
-            return CompletableFuture.failedFuture(new TransactionException(TX_WAS_ABORTED_ERR,
-                    "Failed to change the outcome of a finished transaction"
-                            + " [txId=" + txId + ", txState=" + stateMeta.txState() + "]."));
-        } else {
+        if ((stateMeta.txState() == COMMITTED) == commit) {
             return nullCompletedFuture();
         }
+
+        int result = (stateMeta.txState() == COMMITTED) && !commit ? TX_WAS_COMMITTED_ERR : TX_WAS_ABORTED_ERR;
+
+        return CompletableFuture.failedFuture(new TransactionException(result,
+                "Failed to change the outcome of a finished transaction"
+                        + " [txId=" + txId + ", txState=" + stateMeta.txState() + "]."));
     }
 
     private CompletableFuture<Void> prepareFinish(
