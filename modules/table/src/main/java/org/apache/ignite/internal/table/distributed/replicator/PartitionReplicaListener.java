@@ -827,6 +827,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             // This means the transaction is pending and we should trigger the recovery if there is no tx coordinator in topology.
             if (txStateMeta == null
                     || txStateMeta.txState() == ABANDONED
+                    || txStateMeta.txCoordinatorId() == null
                     || clusterNodeResolver.getById(txStateMeta.txCoordinatorId()) == null) {
                 // This means that primary replica for commit partition has changed, since the local node doesn't have the volatile tx
                 // state; and there is no final tx state in txStateStorage, or the tx coordinator left the cluster. But we can assume
@@ -1820,7 +1821,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 .thenApply(res -> null);
     }
 
-    private String getTxCoordinatorId(UUID txId) {
+    private @Nullable String getTxCoordinatorId(UUID txId) {
         TxStateMeta meta = txManager.stateMeta(txId);
 
         assert meta != null : "Trying to cleanup a transaction that was not enlisted, txId=" + txId;

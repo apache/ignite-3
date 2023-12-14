@@ -364,7 +364,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                 return oldMeta.finishing();
             }
 
-            return new TxStateMetaFinishing(localNodeId, commitPartition);
+            return new TxStateMetaFinishing(null, commitPartition);
         });
 
         // First check if the TX is already been finished. Wait for it and check the outcome.

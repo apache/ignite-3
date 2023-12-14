@@ -51,7 +51,7 @@ public class TxStateMeta implements TransactionMeta {
      */
     public TxStateMeta(
             TxState txState,
-            String txCoordinatorId,
+            @Nullable String txCoordinatorId,
             @Nullable TablePartitionId commitPartitionId,
             @Nullable HybridTimestamp commitTimestamp
     ) {
@@ -69,9 +69,9 @@ public class TxStateMeta implements TransactionMeta {
      */
     private TxStateMeta(
             TxState txState,
-            String txCoordinatorId,
-            TablePartitionId commitPartitionId,
-            HybridTimestamp commitTimestamp,
+            @Nullable String txCoordinatorId,
+            @Nullable TablePartitionId commitPartitionId,
+            @Nullable HybridTimestamp commitTimestamp,
             long lastAbandonedMarkerTs
     ) {
         this.txState = txState;
@@ -105,11 +105,11 @@ public class TxStateMeta implements TransactionMeta {
         return txState;
     }
 
-    public String txCoordinatorId() {
+    public @Nullable String txCoordinatorId() {
         return txCoordinatorId;
     }
 
-    public TablePartitionId commitPartitionId() {
+    public @Nullable TablePartitionId commitPartitionId() {
         return commitPartitionId;
     }
 
