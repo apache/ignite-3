@@ -27,6 +27,7 @@ import static org.apache.ignite.internal.catalog.events.CatalogEvent.ZONE_ALTER;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.ZONE_CREATE;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.ZONE_DROP;
 import static org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl.LOGICAL_TOPOLOGY_KEY;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertDataNodesFromManager;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertValueInStorage;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.extractZoneId;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
@@ -43,6 +44,10 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 import static org.apache.ignite.internal.util.IgniteUtils.startsWith;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.Mockito.doAnswer;
 
 import java.util.Arrays;
 import java.util.Set;
@@ -51,6 +56,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.events.AlterZoneEventParameters;
 import org.apache.ignite.internal.catalog.events.CreateZoneEventParameters;
 import org.apache.ignite.internal.catalog.events.DropZoneEventParameters;
@@ -68,6 +75,8 @@ import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.EntryEvent;
 import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
+import org.apache.ignite.internal.metastorage.server.If;
+import org.apache.ignite.internal.metastorage.server.raft.MetaStorageWriteHandler;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
@@ -75,6 +84,10 @@ import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
+import org.mockito.stubbing.Answer;
 
 /**
  * Tests for causality data nodes updating in {@link DistributionZoneManager}.
@@ -83,6 +96,8 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
     private static final String ZONE_NAME_2 = "zone2";
 
     private static final String ZONE_NAME_3 = "zone3";
+
+    private static final String ZONE_NAME_4 = "zone4";
 
     private static final LogicalNode NODE_0 =
             new LogicalNode("node_id_0", "node_name_0", new NetworkAddress("localhost", 123));
@@ -406,6 +421,210 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         Set<String> dataNodes3 = distributionZoneManager.dataNodes(scaleUpRevision, catalogManager.latestCatalogVersion(), zoneId)
                 .get(TIMEOUT, MILLISECONDS);
         assertEquals(TWO_NODES_NAMES, dataNodes3);
+    }
+
+    /**
+     * Tests that data nodes for a zone with non-immediate scale up/down on a zone creation will eventually return
+     * expected data nodes.
+     *
+     * @throws Exception If failed.
+     */
+    @Test
+    void testZoneWithNonImmediateTimersOnCreation() throws Exception {
+        createZone(ZONE_NAME, 1, 1, null);
+
+        topology.putNode(NODE_0);
+        topology.putNode(NODE_1);
+        topology.removeNodes(Set.of(NODE_1));
+
+        int zoneId = getZoneId(ZONE_NAME);
+
+        assertDataNodesFromManager(
+                distributionZoneManager,
+                metaStorageManager::appliedRevision,
+                catalogManager::latestCatalogVersion,
+                zoneId,
+                ONE_NODE,
+                TIMEOUT
+        );
+    }
+
+    /**
+     * Tests that data nodes for a zone with non-immediate down on a zone creation will eventually return
+     * expected data nodes.
+     *
+     * @throws Exception If failed.
+     */
+    @Test
+    void testZoneWithNonImmediateScaleDownTimerOnCreation() throws Exception {
+        createZone(ZONE_NAME, IMMEDIATE_TIMER_VALUE, 1, null);
+
+        topology.putNode(NODE_0);
+        long topologyRevision = putNodeInLogicalTopologyAndGetRevision(NODE_1, TWO_NODES);
+        topology.removeNodes(Set.of(NODE_1));
+
+        int zoneId = getZoneId(ZONE_NAME);
+
+        Set<String> dataNodes1 = distributionZoneManager.dataNodes(topologyRevision, catalogManager.latestCatalogVersion(), zoneId)
+                .get(TIMEOUT, MILLISECONDS);
+        assertEquals(TWO_NODES_NAMES, dataNodes1);
+
+        assertDataNodesFromManager(
+                distributionZoneManager,
+                metaStorageManager::appliedRevision,
+                catalogManager::latestCatalogVersion,
+                zoneId,
+                ONE_NODE,
+                TIMEOUT
+        );
+    }
+
+    /**
+     * Tests that data nodes for a zone with non-immediate scale up on a zone creation will eventually return
+     * expected data nodes.
+     *
+     * @throws Exception If failed.
+     */
+    @Test
+    void testZoneWithNonImmediateScaleUpTimerOnCreation() throws Exception {
+        createZone(ZONE_NAME, 1, IMMEDIATE_TIMER_VALUE, null);
+
+        topology.putNode(NODE_0);
+        topology.putNode(NODE_1);
+        long topologyRevision = removeNodeInLogicalTopologyAndGetRevision(Set.of(NODE_1), ONE_NODE);
+
+        int zoneId = getZoneId(ZONE_NAME);
+
+        Set<String> dataNodes1 = distributionZoneManager.dataNodes(topologyRevision, catalogManager.latestCatalogVersion(), zoneId)
+                .get(TIMEOUT, MILLISECONDS);
+        assertEquals(Set.of(), dataNodes1);
+
+        assertDataNodesFromManager(
+                distributionZoneManager,
+                metaStorageManager::appliedRevision,
+                catalogManager::latestCatalogVersion,
+                zoneId,
+                ONE_NODE,
+                TIMEOUT
+        );
+    }
+
+    /**
+     * Tests that data nodes for zones with different scale up/down configs are empty when creation of zones were before any
+     * topology event. In this test scenario we assume that initialisation of a zone was before the calling of the data nodes method.
+     *
+     * @throws Exception If failed.
+     */
+    @Test
+    void testEmptyDataNodesOnZoneCreationBeforeTopologyEvent() throws Exception {
+        createZone(ZONE_NAME, 1, 1, null);
+        createZone(ZONE_NAME_2, 1, IMMEDIATE_TIMER_VALUE, null);
+        createZone(ZONE_NAME_3, IMMEDIATE_TIMER_VALUE, 1, null);
+        createZone(ZONE_NAME_4, IMMEDIATE_TIMER_VALUE, 1, null);
+
+        int zoneId1 = getZoneId(ZONE_NAME);
+        int zoneId2 = getZoneId(ZONE_NAME_2);
+        int zoneId3 = getZoneId(ZONE_NAME_3);
+        int zoneId4 = getZoneId(ZONE_NAME_4);
+        int defaultZoneId = getZoneId(DEFAULT_ZONE_NAME);
+
+        Set<String> dataNodes = distributionZoneManager.dataNodes(
+                metaStorageManager.appliedRevision(),
+                catalogManager.latestCatalogVersion(),
+                zoneId1
+        ).get(TIMEOUT, MILLISECONDS);
+
+        assertEquals(emptySet(), dataNodes);
+
+        dataNodes = distributionZoneManager.dataNodes(
+                metaStorageManager.appliedRevision(),
+                catalogManager.latestCatalogVersion(),
+                zoneId2
+        ).get(TIMEOUT, MILLISECONDS);
+
+        assertEquals(emptySet(), dataNodes);
+
+        dataNodes = distributionZoneManager.dataNodes(
+                metaStorageManager.appliedRevision(),
+                catalogManager.latestCatalogVersion(),
+                zoneId3
+        ).get(TIMEOUT, MILLISECONDS);
+
+        assertEquals(emptySet(), dataNodes);
+
+        dataNodes = distributionZoneManager.dataNodes(
+                metaStorageManager.appliedRevision(),
+                catalogManager.latestCatalogVersion(),
+                zoneId4
+        ).get(TIMEOUT, MILLISECONDS);
+
+        assertEquals(emptySet(), dataNodes);
+
+        dataNodes = distributionZoneManager.dataNodes(
+                metaStorageManager.appliedRevision(),
+                catalogManager.latestCatalogVersion(),
+                defaultZoneId
+        ).get(TIMEOUT, MILLISECONDS);
+
+        assertEquals(emptySet(), dataNodes);
+    }
+
+    /**
+     * Tests that data nodes for zones with different scale up/down configs are empty when creation of zones were before any
+     * topology event. In this test scenario we assume that initialisation of a zone was after the calling of the data nodes method.
+     */
+    @ParameterizedTest
+    @MethodSource("provideArgumentsOfDifferentTimersValue")
+    void testEmptyDataNodesOnZoneCreationBeforeTopologyEventAndZoneInitialisation(int scaleUp, int scaleDown) {
+        CountDownLatch latch = new CountDownLatch(1);
+
+        AtomicBoolean reached = new AtomicBoolean();
+
+        catalogManager.listen(ZONE_CREATE, (parameters, exception) ->  {
+            assert exception == null : parameters;
+
+            CreateZoneEventParameters params = (CreateZoneEventParameters) parameters;
+
+            return CompletableFuture.runAsync(() -> {
+                try {
+                    Set<String> dataNodes = distributionZoneManager.dataNodes(
+                            params.causalityToken(),
+                            params.catalogVersion(),
+                            params.zoneDescriptor().id()
+                    ).get(TIMEOUT, MILLISECONDS);
+
+                    assertEquals(emptySet(), dataNodes);
+
+                    reached.set(true);
+                } catch (Exception e) {
+                    fail();
+                }
+            }).thenRun(latch::countDown).thenApply(ignored -> false);
+        });
+
+        doAnswer((Answer<CompletableFuture<Void>>) invocation -> CompletableFuture.runAsync(() -> {
+            try {
+                latch.await();
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+        }).thenCompose(v -> {
+            try {
+                return (CompletableFuture<Void>) invocation.callRealMethod();
+            } catch (Throwable e) {
+                throw new RuntimeException(e);
+            }
+        })).when(metaStorageManager).invoke(argThat(iif -> {
+            If iif1 = MetaStorageWriteHandler.toIf(iif);
+
+            byte[] zoneDataNodes = zoneDataNodesKey().bytes();
+
+            return iif1.andThen().update().operations().stream().anyMatch(op -> startsWith(op.key(), zoneDataNodes));
+        }));
+
+        createZone(ZONE_NAME, scaleUp, scaleDown, null);
+
+        assertTrue(reached.get());
     }
 
     /**
@@ -895,7 +1114,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
     }
 
     /**
-     * Schedule a scale up task which block execution of another scale up tasks.
+     * Schedule a scale up task which blocks execution of another scale up tasks.
      *
      * @return Latch to unblock execution of scale up tasks.
      */
@@ -928,7 +1147,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
     }
 
     /**
-     * Schedule a down up task which block execution of another scale down tasks.
+     * Schedule a scale down task which blocks execution of another scale down tasks.
      *
      * @return Latch to unblock execution of scale down tasks.
      */
@@ -1409,5 +1628,14 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         if (revisionFuture != null) {
             revisionFuture.complete(revision);
         }
+    }
+
+    private static Stream<Arguments> provideArgumentsOfDifferentTimersValue() {
+        return Stream.of(
+                Arguments.of(1, 1),
+                Arguments.of(IMMEDIATE_TIMER_VALUE, 1),
+                Arguments.of(1, IMMEDIATE_TIMER_VALUE),
+                Arguments.of(IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE)
+        );
     }
 }
