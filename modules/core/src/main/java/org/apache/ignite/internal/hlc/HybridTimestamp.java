@@ -267,4 +267,17 @@ public final class HybridTimestamp implements Comparable<HybridTimestamp>, Seria
     public static long maxClockSkew() {
         return CLOCK_SKEW;
     }
+
+    /**
+     * Returns a result of rounding this timestamp up 'to its physical part': that is, if the logical part is zero, the timestamp is
+     * returned as is; if it's non-zero, a new timestamp is returned that has physical part equal to the physical part of this
+     * timestamp plus one, and the logical part is zero.
+     */
+    public HybridTimestamp roundUpToPhysicalTick() {
+        if (getLogical() == 0) {
+            return this;
+        } else {
+            return new HybridTimestamp(getPhysical() + 1, 0);
+        }
+    }
 }
