@@ -24,12 +24,13 @@ public class CriteriaQueryOptions {
     /** Default options. */
     public static final CriteriaQueryOptions DEFAULT = builder().build();
 
+    /** Maximum number of rows per page. */
     private final int pageSize;
 
     /**
      * Constructor.
      *
-     * @param pageSize Page size.
+     * @param pageSize Maximum number of rows per page.
      */
     private CriteriaQueryOptions(int pageSize) {
         this.pageSize = pageSize;
@@ -45,9 +46,9 @@ public class CriteriaQueryOptions {
     }
 
     /**
-     * Gets a page size - the maximum number of result rows that can be fetched at a time.
+     * Returns a page size - the maximum number of result rows that can be fetched at a time.
      *
-     * @return Batch size.
+     * @return Maximum number of rows per page.
      */
     public int pageSize() {
         return pageSize;
@@ -57,13 +58,14 @@ public class CriteriaQueryOptions {
      * Builder.
      */
     public static class Builder {
+        /** Maximum number of rows per page. */
         private int pageSize = 1000;
 
         /**
-         * Sets the page size (the number of entries that will be sent to the cluster in one network call).
+         * Sets a page size - the maximum number of result rows that can be fetched at a time.
          *
-         * @param pageSize Page size.
-         * @return This builder instance.
+         * @param pageSize Maximum number of rows per page.
+         * @return {@code this} for chaining.
          */
         public Builder pageSize(int pageSize) {
             if (pageSize <= 0) {

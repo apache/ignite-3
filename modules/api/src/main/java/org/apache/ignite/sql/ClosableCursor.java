@@ -45,7 +45,9 @@ public interface ClosableCursor<T> extends Iterator<T>, AutoCloseable {
         return StreamSupport.stream(Spliterators.spliteratorUnknownSize(this, 0), false);
     }
 
-    /** {@inheritDoc} */
+    /**
+     * Invalidates a query result, stops the query, and cleans up query resources.
+     */
     @Override
     void close();
 }

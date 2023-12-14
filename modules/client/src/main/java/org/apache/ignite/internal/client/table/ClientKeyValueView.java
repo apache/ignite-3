@@ -49,12 +49,8 @@ import org.apache.ignite.internal.streamer.StreamerBatchSender;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.NullableValue;
 import org.apache.ignite.lang.UnexpectedNullValueException;
-import org.apache.ignite.sql.ClosableCursor;
-import org.apache.ignite.sql.async.AsyncClosableCursor;
 import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.KeyValueView;
-import org.apache.ignite.table.criteria.Criteria;
-import org.apache.ignite.table.criteria.CriteriaQueryOptions;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
@@ -546,22 +542,6 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
                 new RetryLimitPolicy().retryLimit(opts.retryLimit()));
 
         return ClientDataStreamer.streamData(publisher, opts, batchSender, provider, tbl);
-    }
-
-    @Override
-    public ClosableCursor<Entry<K, V>> queryCriteria(@Nullable Transaction tx, @Nullable Criteria criteria, CriteriaQueryOptions opts) {
-        //TODO: implement custom user mapping https://issues.apache.org/jira/browse/IGNITE-16116
-        throw new UnsupportedOperationException("Not implemented yet.");
-    }
-
-    @Override
-    public CompletableFuture<AsyncClosableCursor<Entry<K, V>>> queryCriteriaAsync(
-            @Nullable Transaction tx,
-            @Nullable Criteria criteria,
-            CriteriaQueryOptions opts
-    ) {
-        //TODO: implement custom user mapping https://issues.apache.org/jira/browse/IGNITE-16116
-        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     private static <T> T throwIfNull(T obj) {

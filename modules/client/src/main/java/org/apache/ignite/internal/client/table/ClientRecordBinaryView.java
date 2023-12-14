@@ -394,6 +394,7 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
             @Nullable Criteria criteria,
             CriteriaQueryOptions opts
     ) {
+        //TODO: implement serialization of criteria to SQL https://issues.apache.org/jira/browse/IGNITE-20879
         var query = "SELECT * FROM " + tbl.name();
 
         var statement = tbl.sql().statementBuilder().query(query).pageSize(opts.pageSize()).build();
