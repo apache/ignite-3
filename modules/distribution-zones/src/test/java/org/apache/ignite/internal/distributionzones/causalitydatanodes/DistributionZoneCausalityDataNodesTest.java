@@ -572,7 +572,6 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
     /**
      * Tests that data nodes for zones with different scale up/down configs are empty when creation of zones were before any
      * topology event. In this test scenario we assume that initialisation of a zone was after the calling of the data nodes method.
-     *
      */
     @ParameterizedTest
     @MethodSource("provideArgumentsOfDifferentTimersValue")
