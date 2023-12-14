@@ -350,35 +350,34 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         // than all the read timestamps processed before.
         // Every concurrent operation will now use a finish future from the finishing state meta and get only final transaction
         // state after the transaction is finished.
-        AtomicReference<CompletableFuture<TransactionMeta>> previousFinishFuture = new AtomicReference<>();
+
+        // First we check the current tx state to guarantee txFinish idempotence.
+        TxStateMeta txMeta = stateMeta(txId);
+
+        TxStateMetaFinishing finishingStateMeta =
+                txMeta == null
+                        ? new TxStateMetaFinishing(null, commitPartition)
+                        : txMeta.finishing();
 
         TxStateMeta stateMeta = updateTxMeta(txId, oldMeta -> {
-            if (oldMeta != null) {
-                if (oldMeta.txState() == FINISHING) {
-                    // Someone else has already triggered finish. We don't need to do anything, but wait for the result.
-                    previousFinishFuture.set(((TxStateMetaFinishing) oldMeta).txFinishFuture());
-
-                    return oldMeta;
-                }
-
-                return oldMeta.finishing();
+            if (oldMeta != null && oldMeta.txState() == FINISHING) {
+                return oldMeta;
             }
 
-            return new TxStateMetaFinishing(null, commitPartition);
+            return finishingStateMeta;
         });
 
-        // First check if the TX is already been finished. Wait for it and check the outcome.
-        if (previousFinishFuture.get() != null) {
-            return previousFinishFuture.get()
-                    .thenCompose(meta -> checkTxOutcome(commit, txId, meta));
+        // Means we failed to CAS the state, someone else did it.
+        if (finishingStateMeta != stateMeta) {
+            // If the state is FINISHING then someone else hase in in the middle of finishing this tx.
+            if (stateMeta.txState() == FINISHING) {
+                return ((TxStateMetaFinishing) stateMeta).txFinishFuture()
+                        .thenCompose(meta -> checkTxOutcome(commit, txId, meta));
+            } else {
+                // The TX has already been finished. Check whether it finished with the same outcome.
+                return checkTxOutcome(commit, txId, stateMeta);
+            }
         }
-
-        // Then check if the state is FINISHING. If it's not - someone else hase already finished the transaction.
-        if (stateMeta.txState() != FINISHING) {
-            return checkTxOutcome(commit, txId, stateMeta);
-        }
-
-        TxStateMetaFinishing finishingStateMeta = (TxStateMetaFinishing) stateMeta;
 
         TxContext tuple = txCtxMap.compute(txId, (uuid, tuple0) -> {
             if (tuple0 == null) {
