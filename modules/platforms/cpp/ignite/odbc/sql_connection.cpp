@@ -126,6 +126,7 @@ void sql_connection::init_socket() {
 
 sql_result sql_connection::internal_establish(const configuration &cfg) {
     m_config = cfg;
+    m_info.rebuild();
 
     if (!m_config.get_address().is_set() || m_config.get_address().get_value().empty()) {
         add_status_record("No valid address to connect.");

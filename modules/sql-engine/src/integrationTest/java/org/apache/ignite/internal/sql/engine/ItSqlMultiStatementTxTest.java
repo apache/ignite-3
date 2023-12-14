@@ -239,7 +239,7 @@ public class ItSqlMultiStatementTxTest extends BaseSqlMultiStatementTest {
                     + "COMMIT;"
             );
 
-            assertThrowsSqlException(RUNTIME_ERR, "/ by zero", () -> fetchAllCursors(cursor));
+            assertThrowsSqlException(RUNTIME_ERR, "Division by zero", () -> fetchAllCursors(cursor));
 
             verifyFinishedTxCount(1);
 

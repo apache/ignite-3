@@ -17,8 +17,27 @@
 
 package org.apache.ignite.internal.catalog.commands;
 
+import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateIdentifier;
+
+import org.apache.ignite.internal.catalog.CatalogCommand;
+import org.apache.ignite.internal.catalog.CatalogValidationException;
+
 /**
- * Marker interface for DDL command parameters.
+ * Abstract zone-related command.
+ *
+ * <p>Every zone-related command, disregard it going to create new zone or modify existing one,
+ * should specify name of the zone to be processed.
  */
-public interface DdlCommandParams {
+public abstract class AbstractZoneCommand implements CatalogCommand {
+    protected String zoneName;
+
+    AbstractZoneCommand(String zoneName) throws CatalogValidationException {
+        this.zoneName = zoneName;
+
+        validate();
+    }
+
+    private void validate() {
+        validateIdentifier(zoneName, "Name of the zone");
+    }
 }

@@ -28,6 +28,7 @@ namespace Apache.Ignite.Internal.Sql
     using Linq;
     using Proto;
     using Proto.BinaryTuple;
+    using Proto.MsgPack;
     using Transactions;
 
     /// <summary>
@@ -72,6 +73,28 @@ namespace Apache.Ignite.Internal.Sql
             }
 
             return new IgniteDbDataReader(resultSet);
+        }
+
+        /// <inheritdoc/>
+        public async Task ExecuteScriptAsync(SqlStatement script, params object?[]? args)
+        {
+            IgniteArgumentCheck.NotNull(script);
+
+            using var bufferWriter = ProtoCommon.GetMessageWriter();
+            WriteStatement(bufferWriter, script, args);
+
+            try
+            {
+                using var buf = await _socket.DoOutInOpAsync(ClientOp.SqlExecScript, bufferWriter).ConfigureAwait(false);
+            }
+            catch (SqlException e) when (e.Code == ErrorGroups.Sql.StmtParse)
+            {
+                throw new SqlException(
+                    e.TraceId,
+                    ErrorGroups.Sql.StmtValidation,
+                    "Invalid query, check inner exceptions for details: " + script,
+                    e);
+            }
         }
 
         /// <inheritdoc/>
@@ -134,9 +157,10 @@ namespace Apache.Ignite.Internal.Sql
         {
             IgniteArgumentCheck.NotNull(statement);
 
-            var tx = transaction.ToInternal();
+            Transaction? tx = transaction.ToInternal();
 
-            using var bufferWriter = Write();
+            using var bufferWriter = ProtoCommon.GetMessageWriter();
+            WriteStatement(bufferWriter, statement, args, tx, writeTx: true);
 
             try
             {
@@ -150,38 +174,24 @@ namespace Apache.Ignite.Internal.Sql
                 throw new SqlException(
                     e.TraceId,
                     ErrorGroups.Sql.StmtValidation,
-                    "Invalid query, check inner exceptions for details: " + statement.Query,
+                    "Invalid query, check inner exceptions for details: " + statement,
                     e);
             }
+        }
 
-            PooledArrayBuffer Write()
+        private static void WriteProperties(SqlStatement statement, ref MsgPackWriter w)
+        {
+            var props = statement.Properties;
+            w.Write(props.Count);
+            using var propTuple = new BinaryTupleBuilder(props.Count * 4);
+
+            foreach (var (key, val) in props)
             {
-                var writer = ProtoCommon.GetMessageWriter();
-                var w = writer.MessageWriter;
-
-                w.WriteTx(tx);
-                w.Write(statement.Schema);
-                w.Write(statement.PageSize);
-                w.Write((long)statement.Timeout.TotalMilliseconds);
-                w.WriteNil(); // Session timeout (unused, session is closed by the server immediately).
-
-                w.Write(statement.Properties.Count);
-                using var propTuple = new BinaryTupleBuilder(statement.Properties.Count * 4);
-
-                foreach (var (key, val) in statement.Properties)
-                {
-                    propTuple.AppendString(key);
-                    propTuple.AppendObjectWithType(val);
-                }
-
-                w.Write(propTuple.Build().Span);
-                w.Write(statement.Query);
-                w.WriteObjectCollectionAsBinaryTuple(args);
-
-                w.Write(_socket.ObservableTimestamp);
-
-                return writer;
+                propTuple.AppendString(key);
+                propTuple.AppendObjectWithType(val);
             }
+
+            w.Write(propTuple.Build().Span);
         }
 
         private static IIgniteTuple ReadTuple(IReadOnlyList<IColumnMetadata> cols, ref BinaryTupleReader tupleReader)
@@ -199,5 +209,29 @@ namespace Apache.Ignite.Internal.Sql
 
         private static RowReader<T> GetReaderFactory<T>(IReadOnlyList<IColumnMetadata> cols) =>
             ResultSelector.Get<T>(cols, selectorExpression: null, ResultSelectorOptions.None);
+
+        private void WriteStatement(
+            PooledArrayBuffer writer,
+            SqlStatement statement,
+            ICollection<object?>? args,
+            Transaction? tx = null,
+            bool writeTx = false)
+        {
+            var w = writer.MessageWriter;
+
+            if (writeTx)
+            {
+                w.WriteTx(tx);
+            }
+
+            w.Write(statement.Schema);
+            w.Write(statement.PageSize);
+            w.Write((long)statement.Timeout.TotalMilliseconds);
+            w.WriteNil(); // Session timeout (unused, session is closed by the server immediately).
+            WriteProperties(statement, ref w);
+            w.Write(statement.Query);
+            w.WriteObjectCollectionAsBinaryTuple(args);
+            w.Write(_socket.ObservableTimestamp);
+        }
     }
 }
