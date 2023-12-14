@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.tx;
 
 import static org.apache.ignite.internal.tx.TxState.ABANDONED;
-import static org.apache.ignite.internal.tx.TxState.FINISHING;
 import static org.apache.ignite.internal.tx.TxState.checkTransitionCorrectness;
 
 import java.util.Objects;
@@ -90,17 +89,6 @@ public class TxStateMeta implements TransactionMeta {
         assert checkTransitionCorrectness(txState, ABANDONED) : "Transaction state is incorrect [txState=" + txState + "].";
 
         return new TxStateMetaAbandoned(txCoordinatorId, commitPartitionId);
-    }
-
-    /**
-     * Creates a transaction state for the same transaction, but this one is marked finishing.
-     *
-     * @return Transaction state meta.
-     */
-    public TxStateMetaFinishing finishing() {
-        assert checkTransitionCorrectness(txState, FINISHING) : "Transaction state is incorrect [txState=" + txState + "].";
-
-        return new TxStateMetaFinishing(txCoordinatorId, commitPartitionId);
     }
 
     @Override

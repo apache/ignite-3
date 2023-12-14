@@ -22,6 +22,7 @@ import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
 import static org.apache.ignite.internal.tx.TxState.COMMITTED;
+import static org.apache.ignite.internal.tx.TxState.FINISHING;
 import static org.apache.ignite.internal.tx.TxState.PENDING;
 import static org.apache.ignite.internal.tx.TxState.checkTransitionCorrectness;
 import static org.apache.ignite.internal.tx.TxState.isFinalState;
@@ -349,7 +350,33 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         // than all the read timestamps processed before.
         // Every concurrent operation will now use a finish future from the finishing state meta and get only final transaction
         // state after the transaction is finished.
-        TxStateMetaFinishing finishingStateMeta = updateTxMeta(txId, TxStateMeta::finishing);
+        AtomicReference<CompletableFuture<TransactionMeta>> previousFinishFuture = new AtomicReference<>();
+
+        TxStateMeta stateMeta = updateTxMeta(txId, oldMeta -> {
+            if (oldMeta != null) {
+                if (oldMeta.txState() == FINISHING) {
+                    // Someone else has already triggered finish. We don't need to do anything, but wait for the result.
+                    previousFinishFuture.set(((TxStateMetaFinishing) oldMeta).txFinishFuture());
+                }
+
+                return new TxStateMetaFinishing(oldMeta.txCoordinatorId(), oldMeta.commitPartitionId());
+            }
+
+            return new TxStateMetaFinishing(localNodeId, commitPartition);
+        });
+
+        // First check if the TX is already been finished. Wait for it and check the outcome.
+        if (previousFinishFuture.get() != null) {
+            return previousFinishFuture.get()
+                    .thenCompose(meta -> checkTxOutcome(commit, txId, meta));
+        }
+
+        // Then check if the state is FINISHING. If it's not - someone else hase already finished the transaction.
+        if (stateMeta.txState() != FINISHING) {
+            return checkTxOutcome(commit, txId, stateMeta);
+        }
+
+        TxStateMetaFinishing finishingStateMeta = (TxStateMetaFinishing) stateMeta;
 
         TxContext tuple = txCtxMap.compute(txId, (uuid, tuple0) -> {
             if (tuple0 == null) {
@@ -373,6 +400,16 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                         txId,
                         finishingStateMeta.txFinishFuture()
                 ));
+    }
+
+    private static CompletableFuture<Void> checkTxOutcome(boolean commit, UUID txId, TransactionMeta stateMeta) {
+        if ((stateMeta.txState() == COMMITTED) != commit) {
+            return CompletableFuture.failedFuture(new TransactionException(TX_WAS_ABORTED_ERR,
+                    "Failed to change the outcome of a finished transaction"
+                            + " [txId=" + txId + ", txState=" + stateMeta.txState() + "]."));
+        } else {
+            return nullCompletedFuture();
+        }
     }
 
     private CompletableFuture<Void> prepareFinish(
