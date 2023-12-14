@@ -19,6 +19,7 @@ package org.apache.ignite.client.handler;
 
 import static org.apache.ignite.internal.jdbc.proto.IgniteQueryErrorCode.UNKNOWN;
 import static org.apache.ignite.internal.jdbc.proto.IgniteQueryErrorCode.UNSUPPORTED_OPERATION;
+import static org.apache.ignite.internal.sql.engine.SqlQueryType.DML;
 import static org.apache.ignite.internal.util.ArrayUtils.OBJECT_EMPTY_ARRAY;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Client.CONNECTION_ERR;
@@ -84,7 +85,7 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
     private static final Set<SqlQueryType> SELECT_STATEMENT_QUERIES = Set.of(SqlQueryType.QUERY, SqlQueryType.EXPLAIN);
 
     /** {@link SqlQueryType}s allowed in JDBC update statements. **/
-    private static final Set<SqlQueryType> UPDATE_STATEMENT_QUERIES = Set.of(SqlQueryType.DML, SqlQueryType.DDL);
+    private static final Set<SqlQueryType> UPDATE_STATEMENT_QUERIES = Set.of(DML, SqlQueryType.DDL);
 
     /** Sql query processor. */
     private final QueryProcessor processor;
@@ -392,18 +393,16 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
 
             switch (cur.queryType()) {
                 case EXPLAIN:
-                case QUERY: {
-                    List<ColumnMetadata> columns = cur.metadata().columns();
-
-                    return buildSingleRequest(batch, columns, cursorId, !hasNext, cur.queryType());
-                }
+                case QUERY:
                 case DML: {
-                    if (!validateDmlResult(cur.metadata(), hasNext)) {
+                    if (cur.queryType() == DML && !validateDmlResult(cur.metadata(), hasNext)) {
                         return new JdbcQuerySingleResult(Response.STATUS_FAILED,
                                 "Unexpected result for DML [query=" + req.sqlQuery() + ']');
                     }
 
-                    return new JdbcQuerySingleResult(cursorId, (long) batch.items().get(0).get(0));
+                    List<ColumnMetadata> columns = cur.metadata().columns();
+
+                    return buildSingleRequest(batch, columns, cursorId, !hasNext, cur.queryType());
                 }
                 case DDL:
                 case TX_CONTROL:
@@ -440,8 +439,9 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
         decimalScales = Arrays.copyOf(decimalScales, countOfDecimal);
 
         long updCount = 0;
-        if (queryType == SqlQueryType.DML) {
+        if (queryType == DML) {
             updCount = (long) batch.items().get(0).get(0);
+            return new JdbcQuerySingleResult(cursorId, updCount);
         }
 
         boolean isQuery = queryType == SqlQueryType.QUERY || queryType == SqlQueryType.EXPLAIN;

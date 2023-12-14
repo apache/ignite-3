@@ -32,7 +32,7 @@ import org.apache.ignite.internal.jdbc.proto.event.JdbcColumnMeta;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaColumnsResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryCloseRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryCloseResult;
-import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryFetchRequest;
+import org.apache.ignite.internal.jdbc.proto.event.JdbcFetchQueryResultsRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryFetchResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryMetadataRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQuerySingleResult;
@@ -62,7 +62,7 @@ public class JdbcQueryCursorHandlerImpl implements JdbcQueryCursorHandler {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<JdbcQueryFetchResult> fetchAsync(JdbcQueryFetchRequest req) {
+    public CompletableFuture<JdbcQueryFetchResult> fetchAsync(JdbcFetchQueryResultsRequest req) {
         AsyncSqlCursor<InternalSqlRow> asyncSqlCursor;
         try {
             asyncSqlCursor = resources.get(req.cursorId()).get(AsyncSqlCursor.class);
@@ -97,7 +97,7 @@ public class JdbcQueryCursorHandlerImpl implements JdbcQueryCursorHandler {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<JdbcQuerySingleResult> getMoreResultsAsync(JdbcQueryFetchRequest req) {
+    public CompletableFuture<JdbcQuerySingleResult> getMoreResultsAsync(JdbcFetchQueryResultsRequest req) {
         AsyncSqlCursor<InternalSqlRow> asyncSqlCursor;
         try {
             asyncSqlCursor = resources.get(req.cursorId()).get(AsyncSqlCursor.class);

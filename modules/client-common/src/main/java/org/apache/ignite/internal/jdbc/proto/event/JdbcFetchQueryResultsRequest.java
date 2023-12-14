@@ -23,9 +23,9 @@ import org.apache.ignite.internal.jdbc.proto.ClientMessage;
 import org.apache.ignite.internal.tostring.S;
 
 /**
- * JDBC query fetch request.
+ * JDBC query fetch results request.
  */
-public class JdbcQueryFetchRequest implements ClientMessage {
+public class JdbcFetchQueryResultsRequest implements ClientMessage {
     /** Cursor ID. */
     private long cursorId;
 
@@ -35,7 +35,7 @@ public class JdbcQueryFetchRequest implements ClientMessage {
     /**
      * Constructor.
      */
-    public JdbcQueryFetchRequest() {
+    public JdbcFetchQueryResultsRequest() {
     }
 
     /**
@@ -44,7 +44,7 @@ public class JdbcQueryFetchRequest implements ClientMessage {
      * @param cursorId Cursor ID.
      * @param fetchSize Fetch size.
      */
-    public JdbcQueryFetchRequest(long cursorId, int fetchSize) {
+    public JdbcFetchQueryResultsRequest(long cursorId, int fetchSize) {
         this.cursorId = cursorId;
         this.fetchSize = fetchSize;
     }
@@ -84,6 +84,6 @@ public class JdbcQueryFetchRequest implements ClientMessage {
     /** {@inheritDoc} */
     @Override
     public String toString() {
-        return S.toString(JdbcQueryFetchRequest.class, this);
+        return S.toString(JdbcFetchQueryResultsRequest.class, this);
     }
 }

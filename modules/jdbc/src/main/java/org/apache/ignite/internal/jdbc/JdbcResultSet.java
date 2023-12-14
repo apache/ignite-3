@@ -69,7 +69,7 @@ import org.apache.ignite.internal.jdbc.proto.event.JdbcColumnMeta;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaColumnsResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryCloseRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryCloseResult;
-import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryFetchRequest;
+import org.apache.ignite.internal.jdbc.proto.event.JdbcFetchQueryResultsRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryFetchResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryMetadataRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQuerySingleResult;
@@ -225,7 +225,7 @@ public class JdbcResultSet implements ResultSet {
 
     @Nullable JdbcResultSet getNextResultSet() throws SQLException {
         try {
-            JdbcQueryFetchRequest req = new JdbcQueryFetchRequest(cursorId, fetchSize);
+            JdbcFetchQueryResultsRequest req = new JdbcFetchQueryResultsRequest(cursorId, fetchSize);
             JdbcQuerySingleResult res = cursorHandler.getMoreResultsAsync(req).get();
 
             close0(true);
@@ -260,7 +260,7 @@ public class JdbcResultSet implements ResultSet {
         ensureNotClosed();
         if ((rowsIter == null || !rowsIter.hasNext()) && !finished) {
             try {
-                JdbcQueryFetchResult res = cursorHandler.fetchAsync(new JdbcQueryFetchRequest(cursorId, fetchSize)).get();
+                JdbcQueryFetchResult res = cursorHandler.fetchAsync(new JdbcFetchQueryResultsRequest(cursorId, fetchSize)).get();
 
                 if (!res.hasResults()) {
                     throw IgniteQueryErrorCode.createJdbcSqlException(res.err(), res.status());
