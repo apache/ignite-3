@@ -42,4 +42,9 @@ public interface ClusterTime {
      * @return Future.
      */
     CompletableFuture<Void> waitFor(HybridTimestamp time);
+
+    /**
+     * Current safe time.
+     */
+    HybridTimestamp currentSafeTime();
 }

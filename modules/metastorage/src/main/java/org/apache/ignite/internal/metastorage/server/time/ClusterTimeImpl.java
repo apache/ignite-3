@@ -230,6 +230,7 @@ public class ClusterTimeImpl implements ClusterTime, ManuallyCloseable {
     }
 
     @TestOnly
+    @Override
     public HybridTimestamp currentSafeTime() {
         return this.safeTime.current();
     }

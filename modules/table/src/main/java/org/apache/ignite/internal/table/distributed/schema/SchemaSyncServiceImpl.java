@@ -47,7 +47,7 @@ public class SchemaSyncServiceImpl implements SchemaSyncService {
         CompletableFuture<Void> future = clusterTime.waitFor(ts.subtractPhysicalTime(delayDurationMs.getAsLong()));
 
         if (!future.isDone()) {
-            LOGGER.info("Schema sync caused a wait, ts {}", ts);
+            LOGGER.info("Schema sync caused a wait, ts {}, current SafeTime {}", ts, clusterTime.currentSafeTime());
         }
 
         return future;
