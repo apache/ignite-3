@@ -351,39 +351,28 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         // state after the transaction is finished.
         TxStateMetaFinishing finishingStateMeta = updateTxMeta(txId, TxStateMeta::finishing);
 
-        AtomicBoolean performingFinish = new AtomicBoolean();
         TxContext tuple = txCtxMap.compute(txId, (uuid, tuple0) -> {
             if (tuple0 == null) {
                 tuple0 = new TxContext(); // No writes enlisted.
             }
 
-            if (!tuple0.isTxFinishing()) {
-                tuple0.finishTx();
-
-                performingFinish.set(true);
-            }
+            assert !tuple0.isTxFinishing() : "Transaction is already finished [id=" + uuid + "].";
 
             tuple0.finishTx();
 
             return tuple0;
         });
 
-        // This is a finishing thread.
-        if (performingFinish.get()) {
-            // Wait for commit acks first, then proceed with the finish request.
-            return tuple.performFinish(commit, ignored ->
-                    prepareFinish(
-                            observableTimestampTracker,
-                            commitPartition,
-                            commit,
-                            enlistedGroups,
-                            txId,
-                            finishingStateMeta.txFinishFuture()
-                    ));
-        }
-        // The method `performFinish` above has a side effect on `finishInProgressFuture` future,
-        // it kicks off another future that will complete it.
-        return tuple.finishInProgressFuture;
+        // Wait for commit acks first, then proceed with the finish request.
+        return tuple.performFinish(commit, ignored ->
+                prepareFinish(
+                        observableTimestampTracker,
+                        commitPartition,
+                        commit,
+                        enlistedGroups,
+                        txId,
+                        finishingStateMeta.txFinishFuture()
+                ));
     }
 
     private CompletableFuture<Void> prepareFinish(
