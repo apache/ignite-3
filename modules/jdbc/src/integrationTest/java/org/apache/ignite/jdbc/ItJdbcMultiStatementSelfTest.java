@@ -58,8 +58,8 @@ public class ItJdbcMultiStatementSelfTest extends AbstractJdbcSelfTest {
 
     @AfterEach
     void tearDown() throws Exception {
-        // only connection context.
-        assertEquals(1, openCursorsRegistered());
+        // only connection context or 0 if already closed.
+        assertTrue(openCursorsRegistered() <= 1);
     }
 
     @Test

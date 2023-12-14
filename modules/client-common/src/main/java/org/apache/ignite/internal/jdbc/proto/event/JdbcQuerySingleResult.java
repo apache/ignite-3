@@ -73,6 +73,7 @@ public class JdbcQuerySingleResult extends Response {
      * Constructor.
      *
      * @param hasNext {@code true} if more results are present.
+     * @param updCount Update counter.
      */
     public JdbcQuerySingleResult(boolean hasNext, long updCount) {
         hasResults = hasNext;

@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.jdbc;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
 import java.io.InputStream;
 import java.io.Reader;
@@ -219,7 +220,7 @@ public class JdbcResultSet implements ResultSet {
     }
 
     boolean holdResults() {
-        return rows != null && !rows.isEmpty();
+        return !nullOrEmpty(rows);
     }
 
     @Nullable JdbcResultSet getNextResultSet() throws SQLException {
