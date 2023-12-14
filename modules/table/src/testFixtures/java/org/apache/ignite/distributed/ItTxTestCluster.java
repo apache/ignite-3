@@ -469,13 +469,10 @@ public class ItTxTestCluster {
                         txManagers.get(assignment),
                         clocks.get(assignment),
                         nodeResolver,
-                        clusterServices.get(assignment).messagingService()
+                        clusterServices.get(assignment).messagingService(),
+                        placementDriver
                 );
                 transactionStateResolver.start();
-
-                for (int part = 0; part < assignments.size(); part++) {
-                    transactionStateResolver.updateAssignment(grpIds.get(part), assignments.get(part));
-                }
 
                 int indexId = globalIndexId++;
 
@@ -560,7 +557,8 @@ public class ItTxTestCluster {
                                         nodeResolver.getByConsistentId(assignment),
                                         new AlwaysSyncedSchemaSyncService(),
                                         catalogService,
-                                        placementDriver
+                                        placementDriver,
+                                        clusterServices.get(assignment).topologyService()
                                 );
 
                                 replicaManagers.get(assignment).startReplica(
@@ -656,7 +654,8 @@ public class ItTxTestCluster {
             ClusterNode localNode,
             SchemaSyncService schemaSyncService,
             CatalogService catalogService,
-            PlacementDriver placementDriver
+            PlacementDriver placementDriver,
+            ClusterNodeResolver clusterNodeResolver
     ) {
         return new PartitionReplicaListener(
                 mvDataStorage,
@@ -678,7 +677,8 @@ public class ItTxTestCluster {
                 localNode,
                 schemaSyncService,
                 catalogService,
-                placementDriver
+                placementDriver,
+                clusterNodeResolver
         );
     }
 
@@ -845,7 +845,8 @@ public class ItTxTestCluster {
                 clientTxManager,
                 clientClock,
                 nodeResolver,
-                client.messagingService()
+                client.messagingService(),
+                placementDriver
         );
 
         clientTxStateResolver.start();

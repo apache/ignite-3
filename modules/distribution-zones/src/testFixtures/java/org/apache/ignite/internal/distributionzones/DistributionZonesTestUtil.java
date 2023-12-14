@@ -44,12 +44,15 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogService;
-import org.apache.ignite.internal.catalog.commands.AlterZoneParams;
-import org.apache.ignite.internal.catalog.commands.CreateZoneParams;
+import org.apache.ignite.internal.catalog.commands.AlterZoneCommand;
+import org.apache.ignite.internal.catalog.commands.AlterZoneCommandBuilder;
+import org.apache.ignite.internal.catalog.commands.CreateZoneCommand;
+import org.apache.ignite.internal.catalog.commands.CreateZoneCommandBuilder;
 import org.apache.ignite.internal.catalog.commands.DataStorageParams;
-import org.apache.ignite.internal.catalog.commands.DropZoneParams;
+import org.apache.ignite.internal.catalog.commands.DropZoneCommand;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.lang.ByteArray;
@@ -126,7 +129,7 @@ public class DistributionZonesTestUtil {
             @Nullable String filter,
             @Nullable String dataStorage
     ) {
-        CreateZoneParams.Builder builder = CreateZoneParams.builder().zoneName(zoneName);
+        CreateZoneCommandBuilder builder = CreateZoneCommand.builder().zoneName(zoneName);
 
         if (partitions != null) {
             builder.partitions(partitions);
@@ -149,10 +152,10 @@ public class DistributionZonesTestUtil {
         }
 
         if (dataStorage != null) {
-            builder.dataStorage(DataStorageParams.builder().engine(dataStorage).build());
+            builder.dataStorageParams(DataStorageParams.builder().engine(dataStorage).build());
         }
 
-        assertThat(catalogManager.createZone(builder.build()), willCompleteSuccessfully());
+        assertThat(catalogManager.execute(builder.build()), willCompleteSuccessfully());
     }
 
     /**
@@ -283,6 +286,30 @@ public class DistributionZonesTestUtil {
         assertValueInStorage(
                 keyValueStorage,
                 zonesLogicalTopologyKey().bytes(),
+                ByteUtils::fromBytes,
+                nodes,
+                1000
+        );
+    }
+
+    /**
+     * Asserts {@link DistributionZonesUtil#zonesLogicalTopologyKey()} value in Meta Storage.
+     *
+     * @param clusterNodes Expected cluster nodes.
+     * @param metaStorageManager Meta Storage manager.
+     * @throws InterruptedException If thread was interrupted.
+     */
+    public static void assertLogicalTopologyInMetastorage(
+            @Nullable Set<LogicalNode> clusterNodes,
+            MetaStorageManager metaStorageManager
+    ) throws InterruptedException {
+        Set<NodeWithAttributes> nodes = clusterNodes == null
+                ? null
+                : clusterNodes.stream().map(n -> new NodeWithAttributes(n.name(), n.id(), n.userAttributes())).collect(toSet());
+
+        assertValueInStorage(
+                metaStorageManager,
+                zonesLogicalTopologyKey(),
                 ByteUtils::fromBytes,
                 nodes,
                 1000
@@ -489,7 +516,7 @@ public class DistributionZonesTestUtil {
             @Nullable Integer dataNodesAutoAdjustScaleDown,
             @Nullable String filter
     ) {
-        AlterZoneParams.Builder builder = AlterZoneParams.builder().zoneName(zoneName);
+        AlterZoneCommandBuilder builder = AlterZoneCommand.builder().zoneName(zoneName);
 
         if (replicas != null) {
             builder.replicas(replicas);
@@ -507,7 +534,7 @@ public class DistributionZonesTestUtil {
             builder.filter(filter);
         }
 
-        assertThat(catalogManager.alterZone(builder.build()), willCompleteSuccessfully());
+        assertThat(catalogManager.execute(builder.build()), willCompleteSuccessfully());
     }
 
     /**
@@ -517,7 +544,10 @@ public class DistributionZonesTestUtil {
      * @param zoneName Zone name.
      */
     public static void dropZone(CatalogManager catalogManager, String zoneName) {
-        assertThat(catalogManager.dropZone(DropZoneParams.builder().zoneName(zoneName).build()), willCompleteSuccessfully());
+        CatalogCommand dropCommand = DropZoneCommand.builder()
+                .zoneName(zoneName)
+                .build();
+        assertThat(catalogManager.execute(dropCommand), willCompleteSuccessfully());
     }
 
     /**

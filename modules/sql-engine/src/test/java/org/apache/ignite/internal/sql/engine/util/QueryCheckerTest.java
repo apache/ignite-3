@@ -32,6 +32,7 @@ import org.apache.ignite.internal.sql.engine.framework.NoOpTransaction;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.framework.TestCluster;
 import org.apache.ignite.internal.sql.engine.framework.TestNode;
+import org.apache.ignite.internal.sql.engine.prepare.ParameterMetadata;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
 import org.apache.ignite.internal.sql.engine.property.SqlProperties;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionWrapperImpl;
@@ -264,6 +265,12 @@ public class QueryCheckerTest extends BaseIgniteAbstractTest {
 
         TestQueryProcessor(TestNode node) {
             this.node = node;
+        }
+
+        @Override
+        public CompletableFuture<ParameterMetadata> prepareSingleAsync(SqlProperties properties,
+                @Nullable InternalTransaction transaction, String qry, Object... params) {
+            throw new UnsupportedOperationException();
         }
 
         @Override

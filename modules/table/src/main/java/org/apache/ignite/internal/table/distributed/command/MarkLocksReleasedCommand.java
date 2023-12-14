@@ -15,10 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.catalog.commands;
+package org.apache.ignite.internal.table.distributed.command;
+
+import org.apache.ignite.internal.table.distributed.TableMessageGroup.Commands;
+import org.apache.ignite.network.annotations.Transferable;
 
 /**
- * Marker interface for DDL command parameters.
+ * Command that is used to replicate the locks released update for tx state storage.
  */
-public interface DdlCommandParams {
+@Transferable(Commands.MARK_LOCKS_RELEASED)
+public interface MarkLocksReleasedCommand extends PartitionCommand {
 }

@@ -229,6 +229,7 @@ public class ClientSession implements AbstractSession {
 
         PayloadWriter payloadWriter = w -> {
             w.out().packString(defaultSchema);
+            w.out().packIntNullable(defaultPageSize);
             w.out().packLongNullable(defaultQueryTimeout);
             w.out().packLongNullable(defaultSessionTimeout);
 

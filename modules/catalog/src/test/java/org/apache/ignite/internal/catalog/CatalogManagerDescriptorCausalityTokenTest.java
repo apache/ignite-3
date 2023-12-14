@@ -44,9 +44,9 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
-import org.apache.ignite.internal.catalog.commands.AlterZoneParams;
-import org.apache.ignite.internal.catalog.commands.CreateZoneParams;
-import org.apache.ignite.internal.catalog.commands.RenameZoneParams;
+import org.apache.ignite.internal.catalog.commands.AlterZoneCommand;
+import org.apache.ignite.internal.catalog.commands.CreateZoneCommand;
+import org.apache.ignite.internal.catalog.commands.RenameZoneCommand;
 import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSortedIndexDescriptor;
@@ -345,9 +345,9 @@ public class CatalogManagerDescriptorCausalityTokenTest extends BaseCatalogManag
     public void testCreateZone() {
         String zoneName = ZONE_NAME + 1;
 
-        CreateZoneParams params = CreateZoneParams.builder().zoneName(zoneName).build();
+        CatalogCommand cmd = CreateZoneCommand.builder().zoneName(zoneName).build();
 
-        assertThat(manager.createZone(params), willCompleteSuccessfully());
+        assertThat(manager.execute(cmd), willCompleteSuccessfully());
 
         // Validate catalog version from the past.
         assertNull(manager.zone(zoneName, 0));
@@ -368,20 +368,20 @@ public class CatalogManagerDescriptorCausalityTokenTest extends BaseCatalogManag
     public void testRenameZone() {
         String zoneName = ZONE_NAME + 1;
 
-        CreateZoneParams createParams = CreateZoneParams.builder().zoneName(zoneName).build();
+        CatalogCommand cmd = CreateZoneCommand.builder().zoneName(zoneName).build();
 
-        assertThat(manager.createZone(createParams), willCompleteSuccessfully());
+        assertThat(manager.execute(cmd), willCompleteSuccessfully());
 
         long beforeDropTimestamp = clock.nowLong();
 
         String newZoneName = "RenamedZone";
 
-        RenameZoneParams renameZoneParams = RenameZoneParams.builder()
+        CatalogCommand renameZoneCmd = RenameZoneCommand.builder()
                 .zoneName(zoneName)
                 .newZoneName(newZoneName)
                 .build();
 
-        assertThat(manager.renameZone(renameZoneParams), willCompleteSuccessfully());
+        assertThat(manager.execute(renameZoneCmd), willCompleteSuccessfully());
 
         // Validate catalog version from the past.
         CatalogZoneDescriptor zone = manager.zone(zoneName, beforeDropTimestamp);
@@ -409,25 +409,22 @@ public class CatalogManagerDescriptorCausalityTokenTest extends BaseCatalogManag
     public void testAlterZone() {
         String zoneName = ZONE_NAME + 1;
 
-        CreateZoneParams createParams = CreateZoneParams.builder()
-                .zoneName(zoneName)
-                .filter("expression")
-                .build();
-
-        AlterZoneParams alterZoneParams = AlterZoneParams.builder()
+        CatalogCommand alterCmd = AlterZoneCommand.builder()
                 .zoneName(zoneName)
                 .dataNodesAutoAdjustScaleUp(3)
                 .dataNodesAutoAdjustScaleDown(4)
                 .filter("newExpression")
                 .build();
 
-        assertThat(manager.createZone(createParams), willCompleteSuccessfully());
+        CatalogCommand cmd = CreateZoneCommand.builder().zoneName(zoneName).filter("expression").build();
+
+        assertThat(manager.execute(cmd), willCompleteSuccessfully());
         CatalogZoneDescriptor zone = manager.zone(zoneName, clock.nowLong());
         assertNotNull(zone);
         long causalityToken = zone.updateToken();
         assertTrue(causalityToken > INITIAL_CAUSALITY_TOKEN);
 
-        assertThat(manager.alterZone(alterZoneParams), willCompleteSuccessfully());
+        assertThat(manager.execute(alterCmd), willCompleteSuccessfully());
 
         // Validate actual catalog.
         zone = manager.zone(zoneName, clock.nowLong());

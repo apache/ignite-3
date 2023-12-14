@@ -572,8 +572,7 @@ const char *connection_info::info_type_to_string(info_type type) {
 
 #undef DBG_STR_CASE
 
-connection_info::connection_info(const configuration &config)
-    : config(config) {
+void connection_info::rebuild() {
     //
     //======================= String Params =======================
     //
@@ -809,8 +808,7 @@ connection_info::connection_info(const configuration &config)
 
 #ifdef SQL_USER_NAME
     // A character string with the name used in a particular database, which can be different from the login name.
-    // TODO: IGNITE-19722 Report username here.
-    m_str_params[SQL_USER_NAME] = "ignite";
+    m_str_params[SQL_USER_NAME] = config.get_auth_identity().get_value();
 #endif // SQL_USER_NAME
 
     //
@@ -2524,6 +2522,11 @@ connection_info::connection_info(const configuration &config)
     //     keywords.
     m_short_params[SQL_NULL_COLLATION] = SQL_NC_END;
 #endif // SQL_NULL_COLLATION
+}
+
+connection_info::connection_info(const configuration &config)
+    : config(config) {
+    rebuild();
 }
 
 std::string connection_info::get_formatted_project_version() {
