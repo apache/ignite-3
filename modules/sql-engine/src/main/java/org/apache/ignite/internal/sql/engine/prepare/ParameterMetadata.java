@@ -15,21 +15,30 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Internal.Proto
-{
-    /// <summary>
-    /// Server to client message types.
-    /// </summary>
-    internal enum ServerMessageType
-    {
-        /// <summary>
-        /// Response to a request (initiated by the client).
-        /// </summary>
-        Response = 0,
+package org.apache.ignite.internal.sql.engine.prepare;
 
-        /// <summary>
-        /// Notification (initiated by the server).
-        /// </summary>
-        Notification = 1
+import java.util.List;
+import org.apache.ignite.internal.tostring.S;
+
+/**
+ * Metadata for dynamic parameters.
+ */
+public final class ParameterMetadata {
+
+    private final List<ParameterType> parameterTypes;
+
+    /** Constructor. */
+    public ParameterMetadata(List<ParameterType> parameterTypes) {
+        this.parameterTypes = parameterTypes;
+    }
+
+    /** Return metadata for each parameter. */
+    public List<ParameterType> parameterTypes() {
+        return parameterTypes;
+    }
+
+    @Override
+    public String toString() {
+        return S.toString(ParameterMetadata.class, this, "parametersTypes", parameterTypes);
     }
 }

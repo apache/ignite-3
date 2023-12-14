@@ -28,8 +28,12 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.catalog.commands.AlterTableAddColumnCommand;
 import org.apache.ignite.internal.catalog.commands.AlterTableDropColumnCommand;
+import org.apache.ignite.internal.catalog.commands.AlterZoneCommand;
+import org.apache.ignite.internal.catalog.commands.AlterZoneCommandBuilder;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.ColumnParams.Builder;
+import org.apache.ignite.internal.catalog.commands.CreateZoneCommand;
+import org.apache.ignite.internal.catalog.commands.CreateZoneCommandBuilder;
 import org.apache.ignite.internal.catalog.commands.DropTableCommand;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
@@ -257,6 +261,14 @@ public class CatalogTestUtils {
 
     static CatalogCommand addColumnParams(String tableName, ColumnParams... columns) {
         return AlterTableAddColumnCommand.builder().schemaName(DEFAULT_SCHEMA_NAME).tableName(tableName).columns(List.of(columns)).build();
+    }
+
+    public static CreateZoneCommandBuilder createZoneBuilder(String zoneName) {
+        return CreateZoneCommand.builder().zoneName(zoneName);
+    }
+
+    public static AlterZoneCommandBuilder alterZoneBuilder(String zoneName) {
+        return AlterZoneCommand.builder().zoneName(zoneName);
     }
 
     private static class TestUpdateLog implements UpdateLog {

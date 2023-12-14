@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.catalog;
 
 /**
- * This exception is thrown when table that going to be deleted not found in the schema.
+ * This exception is thrown when table not found in the schema.
  *
  * <p>This exception is used to properly handle IF EXISTS flag in ddl command handler.
  */

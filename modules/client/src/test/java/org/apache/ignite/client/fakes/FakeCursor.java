@@ -84,5 +84,8 @@ public class FakeCursor implements AsyncSqlCursor<InternalSqlRow> {
         throw new UnsupportedOperationException();
     }
 
-
+    @Override
+    public void onClose(Runnable callback) {
+        throw new UnsupportedOperationException();
+    }
 }

@@ -24,17 +24,31 @@ public class ResponseFlags {
     /** Partitions assignment flag. */
     private static final int PARTITION_ASSIGNMENT_FLAG = 1;
 
+    /** Notification flag. */
+    private static final int NOTIFICATION_FLAG = 2;
+
+    /** Error flag. */
+    private static final int ERROR_FLAG = 4;
+
     /**
      * Gets flags as int.
      *
      * @param partitionAssignmentChanged Assignment changed flag.
      * @return Flags as int.
      */
-    public static int getFlags(boolean partitionAssignmentChanged) {
+    public static int getFlags(boolean partitionAssignmentChanged, boolean isNotification, boolean hasError) {
         var flags = 0;
 
         if (partitionAssignmentChanged) {
             flags |= PARTITION_ASSIGNMENT_FLAG;
+        }
+
+        if (isNotification) {
+            flags |= NOTIFICATION_FLAG;
+        }
+
+        if (hasError) {
+            flags |= ERROR_FLAG;
         }
 
         return flags;
@@ -48,5 +62,25 @@ public class ResponseFlags {
      */
     public static boolean getPartitionAssignmentChangedFlag(int flags) {
         return (flags & PARTITION_ASSIGNMENT_FLAG) == PARTITION_ASSIGNMENT_FLAG;
+    }
+
+    /**
+     * Gets notification flag value.
+     *
+     * @param flags Flags.
+     * @return Whether notification is present.
+     */
+    public static boolean getNotificationFlag(int flags) {
+        return (flags & NOTIFICATION_FLAG) == NOTIFICATION_FLAG;
+    }
+
+    /**
+     * Gets error flag value.
+     *
+     * @param flags Flags.
+     * @return Whether error is present.
+     */
+    public static boolean getErrorFlag(int flags) {
+        return (flags & ERROR_FLAG) == ERROR_FLAG;
     }
 }

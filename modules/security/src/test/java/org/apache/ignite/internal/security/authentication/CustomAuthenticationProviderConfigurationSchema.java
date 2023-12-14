@@ -15,29 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.catalog.commands;
+package org.apache.ignite.internal.security.authentication;
 
-/**
- * DROP ZONE statement.
- */
-public class DropZoneParams extends AbstractZoneCommandParams {
-    /** Constructor. */
-    private DropZoneParams(String zoneName) {
-        super(zoneName);
-    }
+import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
+import org.apache.ignite.internal.security.authentication.configuration.AuthenticationProviderConfigurationSchema;
 
-    /** Creates parameters builder. */
-    public static Builder builder() {
-        return new Builder();
-    }
-
-    /**
-     * Parameters builder.
-     */
-    public static class Builder extends AbstractBuilder<DropZoneParams, Builder> {
-        @Override
-        protected DropZoneParams createParams() {
-            return new DropZoneParams(zoneName);
-        }
-    }
+/** Custom authentication configuration. */
+@PolymorphicConfigInstance(CustomAuthenticationProviderConfigurationSchema.TYPE)
+public class CustomAuthenticationProviderConfigurationSchema extends AuthenticationProviderConfigurationSchema {
+    static final String TYPE = "custom";
 }

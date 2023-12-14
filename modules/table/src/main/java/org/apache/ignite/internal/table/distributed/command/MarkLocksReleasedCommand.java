@@ -15,15 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.client.proto;
+package org.apache.ignite.internal.table.distributed.command;
+
+import org.apache.ignite.internal.table.distributed.TableMessageGroup.Commands;
+import org.apache.ignite.network.annotations.Transferable;
 
 /**
- * Server to client message types.
+ * Command that is used to replicate the locks released update for tx state storage.
  */
-public class ServerMessageType {
-    /** Response to a request (initiated by the client). */
-    public static final int RESPONSE = 0;
-
-    /** Notification (initiated by the server). */
-    public static final int NOTIFICATION = 1;
+@Transferable(Commands.MARK_LOCKS_RELEASED)
+public interface MarkLocksReleasedCommand extends PartitionCommand {
 }
