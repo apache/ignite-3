@@ -159,9 +159,10 @@ public class BallotBox implements Lifecycle<BallotBoxOptions>, Describer {
      * |newPendingIndex| should be |last_log_index| + 1.
      *
      * @param newPendingIndex pending index of new leader
+     * @param quorum quorum size
      * @return returns true if reset success
      */
-    public boolean resetPendingIndex(final long newPendingIndex) {
+    public boolean resetPendingIndex(final long newPendingIndex, final int quorum) {
         final long stamp = this.stampedLock.writeLock();
         try {
             if (!(this.pendingIndex == 0 && this.pendingMetaQueue.isEmpty())) {
@@ -175,6 +176,12 @@ public class BallotBox implements Lifecycle<BallotBoxOptions>, Describer {
                 return false;
             }
             this.pendingIndex = newPendingIndex;
+            if (quorum == 1) {
+                // It is safe to initiate lastCommittedIndex as last log one because in case of single peer no one will discard
+                // log records on leader election. It's not an optimisation, but a matter of correctness because otherwise there will be
+                // a race between readIndex evaluation and asynchronous log records application on node restart.
+                this.lastCommittedIndex = newPendingIndex - 1;
+            }
             this.closureQueue.resetFirstIndex(newPendingIndex);
             return true;
         }

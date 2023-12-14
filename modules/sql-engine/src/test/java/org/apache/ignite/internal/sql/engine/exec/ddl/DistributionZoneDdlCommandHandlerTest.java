@@ -25,10 +25,8 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
 import org.apache.ignite.internal.catalog.CatalogManager;
-import org.apache.ignite.internal.catalog.commands.AlterZoneParams;
-import org.apache.ignite.internal.catalog.commands.CreateZoneParams;
-import org.apache.ignite.internal.catalog.commands.DropZoneParams;
-import org.apache.ignite.internal.catalog.commands.RenameZoneParams;
+import org.apache.ignite.internal.catalog.commands.AlterZoneCommand;
+import org.apache.ignite.internal.catalog.commands.RenameZoneCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterZoneRenameCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterZoneSetCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.CreateZoneCommand;
@@ -62,7 +60,7 @@ public class DistributionZoneDdlCommandHandlerTest extends IgniteAbstractTest {
 
         invokeHandler(cmd);
 
-        verify(catalogManager).createZone(any(CreateZoneParams.class));
+        verify(catalogManager).execute(any(org.apache.ignite.internal.catalog.commands.CreateZoneCommand.class));
     }
 
     @Test
@@ -73,7 +71,7 @@ public class DistributionZoneDdlCommandHandlerTest extends IgniteAbstractTest {
 
         invokeHandler(renameCmd);
 
-        verify(catalogManager).renameZone(any(RenameZoneParams.class));
+        verify(catalogManager).execute(any(RenameZoneCommand.class));
     }
 
     @Test
@@ -83,7 +81,7 @@ public class DistributionZoneDdlCommandHandlerTest extends IgniteAbstractTest {
 
         invokeHandler(cmd);
 
-        verify(catalogManager).alterZone(any(AlterZoneParams.class));
+        verify(catalogManager).execute(any(AlterZoneCommand.class));
     }
 
     @Test
@@ -93,7 +91,7 @@ public class DistributionZoneDdlCommandHandlerTest extends IgniteAbstractTest {
 
         invokeHandler(cmd);
 
-        verify(catalogManager).dropZone(any(DropZoneParams.class));
+        verify(catalogManager).execute(any(org.apache.ignite.internal.catalog.commands.DropZoneCommand.class));
     }
 
     private void invokeHandler(DdlCommand cmd) {

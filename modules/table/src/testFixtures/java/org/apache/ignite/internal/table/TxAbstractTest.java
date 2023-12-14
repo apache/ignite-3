@@ -1999,7 +1999,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         Transaction tx = igniteTransactions.begin();
         accounts.recordView().delete(tx, makeKey(1));
 
-        // Imitate the restart of the client node, which is a tx coordinator, in order to make its volatile state of unavailable.
+        // Imitate the restart of the client node, which is a tx coordinator, in order to make its volatile state unavailable.
         // Now coordinator path of the write intent resolution has no effect, and we should fallback to commit partition path.
         UUID txId = ((ReadWriteTransactionImpl) tx).id();
 
@@ -2015,9 +2015,6 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         // Read-only.
         Transaction readOnlyTx = igniteTransactions.begin(new TransactionOptions().readOnly(true));
         assertEquals(100., accounts.recordView().get(readOnlyTx, makeKey(1)).doubleValue("balance"));
-
-        // Commit pending tx.
-        tx.commit();
     }
 
     @Test

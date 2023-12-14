@@ -18,10 +18,8 @@
 package org.apache.ignite.internal.sql.engine.prepare;
 
 import static java.util.Objects.requireNonNull;
-import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.Commons.shortRuleName;
 import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_PARSE_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 
 import java.io.PrintWriter;
 import java.io.Reader;
@@ -182,18 +180,8 @@ public class IgnitePlanner implements Planner, RelOptTable.ViewExpander {
     /** {@inheritDoc} */
     @Override
     public SqlNode parse(Reader reader) throws SqlParseException {
+        // This method is only used in tests.
         StatementParseResult parseResult = IgniteSqlParser.parse(reader, StatementParseResult.MODE);
-        Object[] parameters = ctx.parameters();
-
-        // Parse method is only used in tests.
-        if (parameters.length != parseResult.dynamicParamsCount()) {
-            String message = format(
-                    "Unexpected number of query parameters. Provided {} but there is only {} dynamic parameter(s).",
-                    parameters.length, parseResult.dynamicParamsCount()
-            );
-
-            throw new SqlException(STMT_VALIDATION_ERR, message);
-        }
 
         return parseResult.statement();
     }
@@ -210,9 +198,11 @@ public class IgnitePlanner implements Planner, RelOptTable.ViewExpander {
     public Pair<SqlNode, RelDataType> validateAndGetType(SqlNode sqlNode) {
         SqlNode validatedNode = validator().validate(sqlNode);
         RelDataType type = validator().getValidatedNodeType(validatedNode);
+        this.validatedSqlNode = validatedNode;
         return Pair.of(validatedNode, type);
     }
 
+    /** {@inheritDoc} */
     @Override
     public RelDataType getParameterRowType() {
         return requireNonNull(validator, "validator")
@@ -315,6 +305,8 @@ public class IgnitePlanner implements Planner, RelOptTable.ViewExpander {
                 }
             }
         }
+
+        this.validatedSqlNode = validatedNode;
 
         return new ValidationResult(validatedNode, type, origins, derived == null ? List.of() : derived);
     }
