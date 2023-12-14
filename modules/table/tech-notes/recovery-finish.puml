@@ -28,7 +28,7 @@ commitPartitionPrimary --[#red]> tx2Coordinator
 end
 
 
-group Coordinator commits and dies. Recovery. Reorder??
+group Coordinator commits and dies. Recovery. Reorder
 coordinator -[#green]> messaging: COMMIT TX0
 note over coordinator: Coordinator dies
 note over messaging: commit message is delayed in messaging
@@ -40,10 +40,10 @@ commitPartitionPrimary -[#red]> RAFT : Finish Command with ABORT
 RAFT -[#green]> RAFT : CAS tx state\nnull to COMMIT.
 RAFT -[#red]> RAFT : FAILED CAS tx state\nCOMMIT to ABORT.
 RAFT --[#red]> commitPartitionPrimary
-commitPartitionPrimary -[#red]> commitPartitionPrimary: store ABORT \nin a volatile map.\ABORT stored
+commitPartitionPrimary -[#red]> commitPartitionPrimary: store COMMIT \nin a volatile map.\nCOMMIT stored
 commitPartitionPrimary --[#red]> tx2Coordinator
 RAFT --[#green]> commitPartitionPrimary
-commitPartitionPrimary -[#green]> commitPartitionPrimary: store COMMIT \nin a volatile map.\nABORT is not changed
+commitPartitionPrimary -[#green]> commitPartitionPrimary: store COMMIT \nin a volatile map.\nCOMMIT is not changed
 
 commitPartitionPrimary --[#green]> coordinator !! : No recipient
 end
@@ -95,7 +95,7 @@ RAFT -[#red]> RAFT : CAS tx state\nnull to ABORT.
 RAFT --[#red]> commitPartitionPrimary
 commitPartitionPrimary -[#red]> commitPartitionPrimary: store ABORT \nin a volatile map.\nABORT stored
 commitPartitionPrimary2 -[#blue]> RAFT : Finish Command with ABORT
-RAFT -[#blue]> RAFT : FAILED CAS tx state\nABORT to nABORT.
+RAFT -[#blue]> RAFT : FAILED CAS tx state\nABORT to ABORT.
 RAFT --[#blue]> commitPartitionPrimary2
 commitPartitionPrimary2 -[#blue]> commitPartitionPrimary2: store ABORT \nin a volatile map.\nABORT stored
 commitPartitionPrimary --[#red]> tx2Coordinator

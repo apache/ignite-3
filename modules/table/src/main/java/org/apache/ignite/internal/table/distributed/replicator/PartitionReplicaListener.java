@@ -40,8 +40,9 @@ import static org.apache.ignite.internal.util.IgniteUtils.findAny;
 import static org.apache.ignite.internal.util.IgniteUtils.findFirst;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_COMMIT_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_FAILED_READ_WRITE_OPERATION_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_WAS_ABORTED_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ROLLBACK_ERR;
 import static org.apache.ignite.raft.jraft.util.internal.ThrowUtil.hasCause;
 
 import java.nio.ByteBuffer;
@@ -126,6 +127,7 @@ import org.apache.ignite.internal.table.distributed.command.UpdateAllCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateCommandBuilder;
 import org.apache.ignite.internal.table.distributed.command.WriteIntentSwitchCommand;
+import org.apache.ignite.internal.table.distributed.raft.UnexpectedTransactionStateException;
 import org.apache.ignite.internal.table.distributed.replication.request.BinaryRowMessage;
 import org.apache.ignite.internal.table.distributed.replication.request.BinaryTupleMessage;
 import org.apache.ignite.internal.table.distributed.replication.request.BuildIndexReplicaRequest;
@@ -152,8 +154,10 @@ import org.apache.ignite.internal.tx.Lock;
 import org.apache.ignite.internal.tx.LockKey;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.LockMode;
+import org.apache.ignite.internal.tx.TransactionAlreadyFinishedException;
 import org.apache.ignite.internal.tx.TransactionIds;
 import org.apache.ignite.internal.tx.TransactionMeta;
+import org.apache.ignite.internal.tx.TransactionResult;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
@@ -1621,16 +1625,18 @@ public class PartitionReplicaListener implements ReplicaListener {
             // - aborted
             // Other combinations of states are not possible.
 
-            // First, throw an exception if we are trying to abort an already committed tx.
-            assert !(txMeta.txState() == COMMITTED && !commit) : "Not allowed to abort an already committed transaction.";
-
             // If a 'commit' sees a tx in the ABORTED state (valid as per the explanation above), let the client know with an exception.
-            if (commit && txMeta.txState() == ABORTED) {
-                LOG.error("Failed to commit a transaction that is already aborted [txId={}].", txId);
+            if (commit != (txMeta.txState() == COMMITTED)) {
+                LOG.error("Failed to finish a transaction that is already finished [txId={}, expectedState={}, actualState={}].",
+                        txId,
+                        commit ? COMMITTED : ABORTED,
+                        txMeta.txState()
+                );
 
-                throw new TransactionException(TX_WAS_ABORTED_ERR,
-                        "Failed to change the outcome of a finished transaction"
-                                + " [txId=" + txId + ", txState=" + txMeta.txState() + "].");
+                throw new TransactionAlreadyFinishedException(
+                        "Failed to change the outcome of a finished transaction [txId=" + txId + "].",
+                        new TransactionResult(txMeta.txState(), txMeta.commitTimestamp())
+                );
             }
         }
 
@@ -1672,10 +1678,27 @@ public class PartitionReplicaListener implements ReplicaListener {
                                         .collect(toList())
                         )
                 )
-                .whenComplete((o, throwable) -> {
-                    TxState txState = commit ? COMMITTED : ABORTED;
+                .handle((txOutcome, ex) -> {
+                    if (ex != null) {
+                        // RAFT 'finish' command failed because the state has already been written by someone else.
+                        // In that case we throw a corresponding exception.
+                        if (ex instanceof UnexpectedTransactionStateException) {
+                            UnexpectedTransactionStateException utse = (UnexpectedTransactionStateException) ex;
+                            TransactionResult result = utse.transactionResult();
 
-                    markFinished(txId, txState, commitTimestamp);
+                            markFinished(txId, result.transactionState(), result.commitTimestamp());
+
+                            throw new TransactionAlreadyFinishedException(utse.getMessage(), utse.transactionResult());
+                        }
+                        // Otherwise we convert from the internal exception to the client one.
+                        throw new TransactionException(commit ? TX_COMMIT_ERR : TX_ROLLBACK_ERR, ex);
+                    }
+
+                    TransactionResult result = (TransactionResult) txOutcome;
+
+                    markFinished(txId, result.transactionState(), result.commitTimestamp());
+
+                    return null;
                 });
     }
 
@@ -2484,11 +2507,11 @@ public class PartitionReplicaListener implements ReplicaListener {
         });
     }
 
-    private void applyCmdWithRetryOnSafeTimeReorderException(Command cmd, CompletableFuture<Object> resultFuture) {
+    private <T> void applyCmdWithRetryOnSafeTimeReorderException(Command cmd, CompletableFuture<T> resultFuture) {
         applyCmdWithRetryOnSafeTimeReorderException(cmd, resultFuture, 0);
     }
 
-    private void applyCmdWithRetryOnSafeTimeReorderException(Command cmd, CompletableFuture<Object> resultFuture, int attemptsCounter) {
+    private <T> void applyCmdWithRetryOnSafeTimeReorderException(Command cmd, CompletableFuture<T> resultFuture, int attemptsCounter) {
         attemptsCounter++;
         if (attemptsCounter >= MAX_RETIES_ON_SAFE_TIME_REORDERING) {
             resultFuture.completeExceptionally(
@@ -2529,7 +2552,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                     resultFuture.completeExceptionally(ex);
                 }
             } else {
-                resultFuture.complete(res);
+                resultFuture.complete((T) res);
             }
         });
     }

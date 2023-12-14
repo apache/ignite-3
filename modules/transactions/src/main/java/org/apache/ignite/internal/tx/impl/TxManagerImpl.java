@@ -31,8 +31,6 @@ import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_READ_ONLY_TOO_OLD_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_WAS_ABORTED_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_WAS_COMMITTED_ERR;
 
 import java.io.IOException;
 import java.util.Collection;
@@ -75,7 +73,9 @@ import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.LockManager;
+import org.apache.ignite.internal.tx.TransactionAlreadyFinishedException;
 import org.apache.ignite.internal.tx.TransactionMeta;
+import org.apache.ignite.internal.tx.TransactionResult;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
@@ -87,7 +87,6 @@ import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.NetworkMessageHandler;
-import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -403,11 +402,10 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             return nullCompletedFuture();
         }
 
-        int errorCode = (stateMeta.txState() == COMMITTED) && !commit ? TX_WAS_COMMITTED_ERR : TX_WAS_ABORTED_ERR;
-
-        return CompletableFuture.failedFuture(new TransactionException(errorCode,
-                "Failed to change the outcome of a finished transaction"
-                        + " [txId=" + txId + ", txState=" + stateMeta.txState() + "]."));
+        return CompletableFuture.failedFuture(new TransactionAlreadyFinishedException(
+                "Failed to change the outcome of a finished transaction [txId=" + txId + "].",
+                new TransactionResult(stateMeta.txState(), stateMeta.commitTimestamp()))
+        );
     }
 
     private CompletableFuture<Void> prepareFinish(
@@ -474,20 +472,26 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                     if (ex != null) {
                         Throwable cause = ExceptionUtils.unwrapCause(ex);
 
-                        if (cause instanceof TransactionException) {
-                            TransactionException transactionException = (TransactionException) cause;
+                        if (cause instanceof TransactionAlreadyFinishedException) {
+                            TransactionAlreadyFinishedException transactionException = (TransactionAlreadyFinishedException) cause;
 
-                            if (transactionException.code() == TX_WAS_ABORTED_ERR) {
-                                updateTxMeta(txId, old -> {
-                                    TxStateMeta txStateMeta = new TxStateMeta(ABORTED, old.txCoordinatorId(), commitPartition, null);
+                            TransactionResult result = transactionException.transactionResult();
 
-                                    txFinishFuture.complete(txStateMeta);
+                            updateTxMeta(txId, old -> {
+                                TxStateMeta txStateMeta =
+                                        new TxStateMeta(
+                                                result.transactionState(),
+                                                old.txCoordinatorId(),
+                                                commitPartition,
+                                                result.commitTimestamp()
+                                        );
 
-                                    return txStateMeta;
-                                });
+                                txFinishFuture.complete(txStateMeta);
 
-                                return CompletableFuture.<Void>failedFuture(cause);
-                            }
+                                return txStateMeta;
+                            });
+
+                            return CompletableFuture.<Void>failedFuture(cause);
                         }
 
                         if (TransactionFailureHandler.isRecoverable(cause)) {
