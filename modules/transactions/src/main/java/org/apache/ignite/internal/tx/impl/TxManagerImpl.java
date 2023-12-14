@@ -403,9 +403,9 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             return nullCompletedFuture();
         }
 
-        int result = (stateMeta.txState() == COMMITTED) && !commit ? TX_WAS_COMMITTED_ERR : TX_WAS_ABORTED_ERR;
+        int errorCode = (stateMeta.txState() == COMMITTED) && !commit ? TX_WAS_COMMITTED_ERR : TX_WAS_ABORTED_ERR;
 
-        return CompletableFuture.failedFuture(new TransactionException(result,
+        return CompletableFuture.failedFuture(new TransactionException(errorCode,
                 "Failed to change the outcome of a finished transaction"
                         + " [txId=" + txId + ", txState=" + stateMeta.txState() + "]."));
     }
