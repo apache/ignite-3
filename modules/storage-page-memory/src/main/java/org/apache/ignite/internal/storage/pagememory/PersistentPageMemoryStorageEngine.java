@@ -34,17 +34,18 @@ import org.apache.ignite.internal.fileio.FileIoFactory;
 import org.apache.ignite.internal.fileio.RandomAccessFileIoFactory;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.pagememory.PageMemory;
-import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryDataRegionConfiguration;
-import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryDataRegionView;
+import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileConfiguration;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMetaManager;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointManager;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
 import org.apache.ignite.internal.storage.StorageException;
+import org.apache.ignite.internal.storage.configurations.StorageProfileView;
+import org.apache.ignite.internal.storage.configurations.StoragesConfiguration;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
-import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineConfiguration;
+import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryProfileStorageEngineConfiguration;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -56,7 +57,9 @@ public class PersistentPageMemoryStorageEngine implements StorageEngine {
 
     private final String igniteInstanceName;
 
-    private final PersistentPageMemoryStorageEngineConfiguration engineConfig;
+    private final PersistentPageMemoryProfileStorageEngineConfiguration engineConfig;
+
+    private final StoragesConfiguration storagesConfiguration = null;
 
     private final PageIoRegistry ioRegistry;
 
@@ -87,7 +90,7 @@ public class PersistentPageMemoryStorageEngine implements StorageEngine {
      */
     public PersistentPageMemoryStorageEngine(
             String igniteInstanceName,
-            PersistentPageMemoryStorageEngineConfiguration engineConfig,
+            PersistentPageMemoryProfileStorageEngineConfiguration engineConfig,
             PageIoRegistry ioRegistry,
             Path storagePath,
             @Nullable LongJvmPauseDetector longJvmPauseDetector
@@ -102,7 +105,7 @@ public class PersistentPageMemoryStorageEngine implements StorageEngine {
     /**
      * Returns a storage engine configuration.
      */
-    public PersistentPageMemoryStorageEngineConfiguration configuration() {
+    public PersistentPageMemoryProfileStorageEngineConfiguration configuration() {
         return engineConfig;
     }
 
@@ -155,14 +158,24 @@ public class PersistentPageMemoryStorageEngine implements StorageEngine {
         addDataRegion(DEFAULT_DATA_REGION_NAME);
 
         // TODO: IGNITE-17066 Add handling deleting/updating data regions configuration
-        engineConfig.regions().listenElements(new ConfigurationNamedListListener<>() {
+        storagesConfiguration.profiles().listenElements(new ConfigurationNamedListListener<StorageProfileView>() {
             @Override
-            public CompletableFuture<?> onCreate(ConfigurationNotificationEvent<PersistentPageMemoryDataRegionView> ctx) {
-                addDataRegion(ctx.newName(PersistentPageMemoryDataRegionView.class));
+            public CompletableFuture<?> onCreate(ConfigurationNotificationEvent<StorageProfileView> ctx) {
+                if (ctx.newValue() instanceof PersistentPageMemoryProfileConfiguration) {
+                    addDataRegion(ctx.newName(PersistentPageMemoryProfileConfiguration.class));
+                }
 
                 return nullCompletedFuture();
             }
         });
+//                engineConfig.regions().listenElements(new ConfigurationNamedListListener<>() {
+//                    @Override
+//                    public CompletableFuture<?> onCreate(ConfigurationNotificationEvent<PersistentPageMemoryDataRegionView> ctx) {
+//                        addDataRegion(ctx.newName(PersistentPageMemoryDataRegionView.class));
+//
+//                        return nullCompletedFuture();
+//                    }
+//                });
     }
 
     @Override
@@ -214,14 +227,17 @@ public class PersistentPageMemoryStorageEngine implements StorageEngine {
      * @param name Data region name.
      */
     private void addDataRegion(String name) {
-        PersistentPageMemoryDataRegionConfiguration dataRegionConfig = DEFAULT_DATA_REGION_NAME.equals(name)
-                ? engineConfig.defaultRegion()
-                : engineConfig.regions().get(name);
+//        PersistentPageMemoryDataRegionConfiguration dataRegionConfig = DEFAULT_DATA_REGION_NAME.equals(name)
+//                ? engineConfig.defaultRegion()
+//                : engineConfig.regions().get(name);
+        // TODO: why this cast is needed?
+        PersistentPageMemoryProfileConfiguration storageProfileConfiguration =
+                (PersistentPageMemoryProfileConfiguration) storagesConfiguration.profiles().get(name);
 
         int pageSize = engineConfig.pageSize().value();
 
         PersistentPageMemoryDataRegion dataRegion = new PersistentPageMemoryDataRegion(
-                dataRegionConfig,
+                storageProfileConfiguration,
                 ioRegistry,
                 filePageStoreManager,
                 partitionMetaManager,
