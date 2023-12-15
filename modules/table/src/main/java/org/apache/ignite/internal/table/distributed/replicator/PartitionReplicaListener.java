@@ -2496,7 +2496,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                         throw new IllegalStateException(e);
                     }
 
-                    applyCmdWithRetryOnSafeTimeReorderException(safeTimePropagatingCommand, resultFuture);
+                    applyCmdWithRetryOnSafeTimeReorderException(clonedSafeTimePropagatingCommand, resultFuture);
                 } else {
                     resultFuture.completeExceptionally(ex);
                 }
