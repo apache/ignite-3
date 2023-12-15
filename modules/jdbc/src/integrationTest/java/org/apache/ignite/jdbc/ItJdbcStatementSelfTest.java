@@ -794,6 +794,7 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
             stmt.execute(String.format("INSERT INTO TEST VALUES (%d, '1')", i));
         }
 
+        stmt.close();
         assertEquals(0, openCursorsRegistered() - initial);
     }
 

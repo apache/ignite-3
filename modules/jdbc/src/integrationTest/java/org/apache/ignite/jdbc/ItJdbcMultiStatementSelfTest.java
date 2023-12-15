@@ -17,6 +17,7 @@
 
 package org.apache.ignite.jdbc;
 
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -58,8 +59,15 @@ public class ItJdbcMultiStatementSelfTest extends AbstractJdbcSelfTest {
 
     @AfterEach
     void tearDown() throws Exception {
+        int openCursors = openCursorsRegistered();
+        // connection + not closed result set
+        assertTrue(openCursorsRegistered() <= 2, "Open cursors: " + openCursors);
+
+        stmt.close();
+
+        openCursors = openCursorsRegistered();
         // only connection context or 0 if already closed.
-        assertTrue(openCursorsRegistered() <= 1);
+        assertTrue(openCursorsRegistered() <= 1, "Open cursors: " + openCursors);
     }
 
     @Test
@@ -87,7 +95,7 @@ public class ItJdbcMultiStatementSelfTest extends AbstractJdbcSelfTest {
     }
 
     @Test
-    public void testCloseOnCompletion() throws Exception {
+    public void testCloseOnCompletionFirstRsClosed() throws Exception {
         stmt.execute("SELECT 1; SELECT 2");
         ResultSet rs1 = stmt.getResultSet();
 
@@ -100,6 +108,43 @@ public class ItJdbcMultiStatementSelfTest extends AbstractJdbcSelfTest {
         assertTrue(stmt.isClosed());
 
         assertThrows(SQLException.class, () -> stmt.getMoreResults(), "Statement is closed");
+    }
+
+    @Test
+    public void noMoreResultsArePossibleAfterCloseOnCompletion() throws Exception {
+        stmt.execute("SELECT 1; SELECT 2; SELECT 3");
+        assertTrue(stmt.getMoreResults());
+
+        stmt.closeOnCompletion();
+
+        assertFalse(stmt.getMoreResults());
+
+        assertTrue(stmt.isClosed());
+    }
+
+    @Test
+    public void requestMoreThanOneFetch() throws Exception {
+        int range = stmt.getFetchSize() + 100;
+        stmt.execute(format("START TRANSACTION; SELECT * FROM TABLE(system_range(0, {})); COMMIT;", range));
+        assertEquals(range + 1, getResultSetSize());
+
+        stmt.execute("START TRANSACTION; SELECT * FROM TABLE(system_range(0, 2000)); COMMIT;");
+        stmt.getMoreResults();
+        ResultSet rs = stmt.getResultSet();
+        rs.close();
+        stmt.getMoreResults();
+        getResultSetSize();
+    }
+
+    @Test
+    public void moreResultsAfterClosedRs() throws Exception {
+        stmt.execute("START TRANSACTION; SELECT 1; SELECT 2; COMMIT;");
+        stmt.getMoreResults();
+        ResultSet rs = stmt.getResultSet();
+        rs.close();
+        assertTrue(stmt.getMoreResults());
+        stmt.getResultSet().next();
+        assertEquals(2, stmt.getResultSet().getInt(1));
     }
 
     @Test

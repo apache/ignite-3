@@ -25,7 +25,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.DriverManager;
-import java.sql.ResultSet;
 import java.sql.SQLFeatureNotSupportedException;
 import java.sql.Statement;
 import java.util.ArrayList;
@@ -176,13 +175,6 @@ public class AbstractJdbcSelfTest extends BaseIgniteAbstractTest {
 
     /** Return a size of stored resources. Reflection based implementation, need to be refactored. */
     int openCursorsRegistered() throws Exception {
-        // a bit hack, instead of calling stmt.close(), gives a chance to catch potential forgiven cursor.
-        if (!stmt.isClosed()) {
-            stmt.execute("SELECT 1");
-            ResultSet rs = stmt.getResultSet();
-            rs.close();
-        }
-
         IgniteImpl ignite = (IgniteImpl) clusterNodes.get(0);
         IgniteComponent cliHnd = IgniteTestUtils.getFieldValue(ignite, "clientHandlerModule");
         Object clientInboundHandler = IgniteTestUtils.getFieldValue(cliHnd, "handler");

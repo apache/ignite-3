@@ -440,6 +440,12 @@ public class JdbcStatement implements Statement {
     public boolean getMoreResults(int curr) throws SQLException {
         ensureNotClosed();
 
+        // all previous results need to be closed at this point.
+        if (isCloseOnCompletion()) {
+            close();
+            return false;
+        }
+
         if (resSets == null || curRes >= resSets.size() || resSets.get(curRes) == null) {
             return false;
         }
@@ -724,6 +730,7 @@ public class JdbcStatement implements Statement {
             for (JdbcResultSet rs : resSets) {
                 if (!rs.isClosed()) {
                     allRsClosed = false;
+                    break;
                 }
             }
         }

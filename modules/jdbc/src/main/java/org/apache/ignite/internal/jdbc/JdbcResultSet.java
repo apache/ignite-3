@@ -66,10 +66,10 @@ import org.apache.ignite.internal.jdbc.proto.IgniteQueryErrorCode;
 import org.apache.ignite.internal.jdbc.proto.JdbcQueryCursorHandler;
 import org.apache.ignite.internal.jdbc.proto.SqlStateCode;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcColumnMeta;
+import org.apache.ignite.internal.jdbc.proto.event.JdbcFetchQueryResultsRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaColumnsResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryCloseRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryCloseResult;
-import org.apache.ignite.internal.jdbc.proto.event.JdbcFetchQueryResultsRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryFetchResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryMetadataRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQuerySingleResult;
@@ -155,6 +155,9 @@ public class JdbcResultSet implements ResultSet {
 
     /** Function to deserialize raw rows to list of objects. */
     private Function<BinaryTupleReader, List<Object>> transformer;
+
+    /** If {#code true} indicates that handler still holds cursor in resources. */
+    private boolean holdsResource = true;
 
     /**
      * Creates new result set.
@@ -304,20 +307,11 @@ public class JdbcResultSet implements ResultSet {
     /** {@inheritDoc} */
     @Override
     public void close() throws SQLException {
-        close0();
+        closed = true;
 
         if (closeStmt) {
             stmt.closeIfAllResultsClosed();
         }
-    }
-
-    /**
-     * Close cursor.
-     *
-     * @throws SQLException On error.
-     */
-    void close0() throws SQLException {
-        close0(false);
     }
 
     /**
@@ -326,9 +320,11 @@ public class JdbcResultSet implements ResultSet {
      * @throws SQLException On error.
      */
     void close0(boolean enforce) throws SQLException {
-        if (isClosed() || cursorId == null) {
+        if (!holdsResource && (isClosed() || cursorId == null)) {
             return;
         }
+
+        holdsResource = false;
 
         try {
             if (stmt != null && (!finished || (isQuery && !autoClose) || enforce)) {

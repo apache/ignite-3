@@ -29,10 +29,10 @@ import java.util.stream.Collectors;
 import org.apache.ignite.internal.jdbc.JdbcConverterUtils;
 import org.apache.ignite.internal.jdbc.proto.JdbcQueryCursorHandler;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcColumnMeta;
+import org.apache.ignite.internal.jdbc.proto.event.JdbcFetchQueryResultsRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaColumnsResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryCloseRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryCloseResult;
-import org.apache.ignite.internal.jdbc.proto.event.JdbcFetchQueryResultsRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryFetchResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryMetadataRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQuerySingleResult;
@@ -112,28 +112,30 @@ public class JdbcQueryCursorHandlerImpl implements JdbcQueryCursorHandler {
             return CompletableFuture.completedFuture(new JdbcQuerySingleResult(false, -1));
         }
 
-        return asyncSqlCursor.nextResult().thenCompose(cur -> cur.requestNextAsync(req.fetchSize())
-                .handle((batch, t) -> {
-                    if (t != null) {
-                        StringWriter sw = getWriterWithStackTrace(t);
+        return asyncSqlCursor.closeAsync().thenCompose(c -> asyncSqlCursor.nextResult())
+                .thenCompose(cur -> cur.requestNextAsync(req.fetchSize())
+                    .handle((batch, t) -> {
+                        if (t != null) {
+                            StringWriter sw = getWriterWithStackTrace(t);
 
-                        return new JdbcQuerySingleResult(Response.STATUS_FAILED,
-                                "Failed to fetch query results [curId=" + req.cursorId() + "]. Error message:" + sw);
-                    }
+                            return new JdbcQuerySingleResult(Response.STATUS_FAILED,
+                                    "Failed to fetch query results [curId=" + req.cursorId() + "]. Error message:" + sw);
+                        }
 
-                    try {
-                        SqlQueryType queryType = cur.queryType();
+                        try {
+                            SqlQueryType queryType = cur.queryType();
 
-                        long cursorId = resources.put(new ClientResource(cur, cur::closeAsync));
+                            long cursorId = resources.put(new ClientResource(cur, cur::closeAsync));
 
-                        List<ColumnMetadata> columns = cur.metadata().columns();
+                            List<ColumnMetadata> columns = cur.metadata().columns();
 
-                        return buildSingleRequest(batch, columns, cursorId, !batch.hasMore(), queryType);
-                    } catch (IgniteInternalCheckedException e) {
-                        return new JdbcQuerySingleResult(Response.STATUS_FAILED,
-                                "Unable to store query cursor.");
-                    }
-                }));
+                            return buildSingleRequest(batch, columns, cursorId, !batch.hasMore(), queryType);
+                        } catch (IgniteInternalCheckedException e) {
+                            return new JdbcQuerySingleResult(Response.STATUS_FAILED,
+                                    "Unable to store query cursor.");
+                        }
+                    })
+                );
     }
 
     /** {@inheritDoc} */
