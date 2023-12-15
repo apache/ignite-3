@@ -424,9 +424,14 @@ public class DummyInternalTableImpl extends InternalTableImpl {
      * Creates a {@link TxManager}.
      *
      * @param replicaSvc Replica service to use.
+     * @param placementDriver Placement driver.
      * @param txConfiguration Transaction configuration.
      */
-    public static TxManagerImpl txManager(ReplicaService replicaSvc, PlacementDriver placementDriver, TransactionConfiguration txConfiguration) {
+    public static TxManagerImpl txManager(
+            ReplicaService replicaSvc,
+            PlacementDriver placementDriver,
+            TransactionConfiguration txConfiguration
+    ) {
         TopologyService topologyService = mock(TopologyService.class);
         when(topologyService.localMember()).thenReturn(LOCAL_NODE);
 
@@ -494,8 +499,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
     }
 
     /**
-     * Dummy messaging service for tests purposes.
-     * It does not provide any messaging functionality, but allows to trigger events.
+     * Dummy messaging service for tests purposes. It does not provide any messaging functionality, but allows to trigger events.
      */
     private static class DummyMessagingService extends AbstractMessagingService {
         private final String localNodeName;
