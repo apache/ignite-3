@@ -38,6 +38,7 @@ import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.tx.IgniteTransactions;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
@@ -55,7 +56,11 @@ public class BaseSqlIntegrationTest extends ClusterPerClassIntegrationTest {
      * @return Instance of QueryChecker.
      */
     protected static QueryChecker assertQuery(String qry) {
-        return assertQuery(null, qry);
+        return assertQuery((InternalTransaction) null, qry);
+    }
+
+    protected static QueryChecker assertQuery(IgniteImpl node, String qry) {
+        return assertQuery(node, null, qry);
     }
 
     /**
@@ -65,9 +70,11 @@ public class BaseSqlIntegrationTest extends ClusterPerClassIntegrationTest {
      * @param qry Query to execute.
      * @return Instance of QueryChecker.
      */
-    protected static QueryChecker assertQuery(InternalTransaction tx, String qry) {
-        IgniteImpl node = CLUSTER.aliveNode();
+    protected static QueryChecker assertQuery(@Nullable InternalTransaction tx, String qry) {
+        return assertQuery(CLUSTER.aliveNode(), tx, qry);
+    }
 
+    private static QueryChecker assertQuery(IgniteImpl node, @Nullable InternalTransaction tx, String qry) {
         return queryCheckerFactory.create(node.queryEngine(), node.transactions(), tx, qry);
     }
 

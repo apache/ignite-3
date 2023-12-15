@@ -61,8 +61,8 @@ import org.junit.jupiter.api.Test;
 /**
  * Test scenarios for the distribution zone scale up and scale down.
  */
-public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneManagerTest {
-    private static final IgniteLogger LOG = Loggers.forClass(DistributionZoneManagerScaleUpTest.class);
+public class DistributionZoneManagerScaleUpScaleDownTest extends BaseDistributionZoneManagerTest {
+    private static final IgniteLogger LOG = Loggers.forClass(DistributionZoneManagerScaleUpScaleDownTest.class);
 
     private static final LogicalNode NODE_1 = new LogicalNode("1", "node1", new NetworkAddress("localhost", 123));
 
