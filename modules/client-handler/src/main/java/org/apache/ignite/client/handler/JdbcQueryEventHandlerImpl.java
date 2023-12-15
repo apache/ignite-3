@@ -421,6 +421,12 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
             boolean hasNext,
             SqlQueryType queryType
     ) {
+        long updCount = 0;
+        if (queryType == DML) {
+            updCount = (long) batch.items().get(0).get(0);
+            return new JdbcQuerySingleResult(cursorId, updCount);
+        }
+
         List<BinaryTupleReader> rows = new ArrayList<>(batch.items().size());
         for (InternalSqlRow item : batch.items()) {
             rows.add(item.asBinaryTuple());
@@ -437,12 +443,6 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
             }
         }
         decimalScales = Arrays.copyOf(decimalScales, countOfDecimal);
-
-        long updCount = 0;
-        if (queryType == DML) {
-            updCount = (long) batch.items().get(0).get(0);
-            return new JdbcQuerySingleResult(cursorId, updCount);
-        }
 
         boolean isQuery = queryType == SqlQueryType.QUERY || queryType == SqlQueryType.EXPLAIN;
 

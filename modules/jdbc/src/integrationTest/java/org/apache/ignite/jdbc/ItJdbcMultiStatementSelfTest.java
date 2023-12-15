@@ -91,17 +91,15 @@ public class ItJdbcMultiStatementSelfTest extends AbstractJdbcSelfTest {
         stmt.execute("SELECT 1; SELECT 2");
         ResultSet rs1 = stmt.getResultSet();
 
-        stmt.getMoreResults();
-        ResultSet rs2 = stmt.getResultSet();
-
         assertFalse(stmt.isCloseOnCompletion());
         stmt.closeOnCompletion();
         assertTrue(stmt.isCloseOnCompletion());
 
         assertFalse(stmt.isClosed());
         rs1.close();
-        rs2.close();
         assertTrue(stmt.isClosed());
+
+        assertThrows(SQLException.class, () -> stmt.getMoreResults(), "Statement is closed");
     }
 
     @Test
