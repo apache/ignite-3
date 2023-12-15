@@ -29,6 +29,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.fail;
 
 import com.google.common.collect.ImmutableList;
+import it.unimi.dsi.fastutil.ints.Int2ObjectArrayMap;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -105,6 +106,7 @@ import org.apache.ignite.internal.sql.engine.util.StatementChecker;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.type.NativeType;
+import org.apache.ignite.internal.util.Pair;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -225,16 +227,26 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
         return plannerCtx(sql, Collections.singleton(publicSchema), null, List.of(), disabledRules);
     }
 
-    private PlanningContext plannerCtx(
+    protected PlanningContext plannerCtx(
             String sql,
             Collection<IgniteSchema> schemas,
             HintStrategyTable hintStrategies,
             List<Object> params,
             String... disabledRules
     ) {
+
+        Int2ObjectArrayMap<Object> paramsMap = new Int2ObjectArrayMap<>();
+        for (int i = 0; i < params.size(); i++) {
+            Object value = params.get(i);
+            if (value != Unspecified.UNKNOWN) {
+                paramsMap.put(i, value);
+            }
+        }
+
         PlanningContext ctx = PlanningContext.builder()
                 .parentContext(baseQueryContext(schemas, hintStrategies, params.toArray()))
                 .query(sql)
+                .parameters(paramsMap)
                 .build();
 
         IgnitePlanner planner = ctx.planner();
@@ -267,6 +279,7 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
         if (hintStrategies != null) {
             relConvCfg = relConvCfg.withHintStrategyTable(hintStrategies);
         }
+
 
         return BaseQueryContext.builder()
                 .queryId(UUID.randomUUID())
@@ -971,14 +984,17 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
 
         PlanChecker() {
             super((schema, sql, params) -> {
-                return physicalPlan(sql, List.of(schema), HintStrategyTable.EMPTY,
-                        params, new NoopRelOptListener());
+                PlanningContext planningContext = plannerCtx(sql, List.of(schema), HintStrategyTable.EMPTY, params);
+                IgnitePlanner planner = planningContext.planner();
+                IgniteRel igniteRel = physicalPlan(planner, sql);
+
+                return new Pair<>(igniteRel, planner);
             });
         }
 
         /** {@inheritDoc} */
         @Override
-        protected void checkRel(IgniteRel igniteRel, IgniteSchema schema) {
+        protected void checkRel(IgniteRel igniteRel, IgnitePlanner planner, IgniteSchema schema) {
             checkSplitAndSerialization(igniteRel, schema);
         }
     }
@@ -1021,5 +1037,12 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
     /** Sets table size. */
     static Function<TableBuilder, TableBuilder> setSize(int size) {
         return t -> t.size(size);
+    }
+
+
+    /** Unspecified dynamic parameter. */
+    public enum Unspecified {
+        /** Placeholder for unspecified dynamic parameter. */
+        UNKNOWN
     }
 }

@@ -41,6 +41,7 @@ dependencies {
     testImplementation libs.hamcrest.core
     testImplementation libs.mockito.core
     testImplementation libs.mockito.junit
+    testImplementation libs.awaitility
 
     integrationTestImplementation libs.jetbrains.annotations
     integrationTestImplementation libs.awaitility

@@ -35,12 +35,15 @@ public class MultiStepPlan implements QueryPlan {
 
     private final IgniteRel root;
 
+    private final ParameterMetadata parameterMetadata;
+
     /** Constructor. */
-    public MultiStepPlan(PlanId id, SqlQueryType type, IgniteRel root, ResultSetMetadata meta) {
+    public MultiStepPlan(PlanId id, SqlQueryType type, IgniteRel root, ResultSetMetadata meta, ParameterMetadata parameterMetadata) {
         this.id = id;
         this.type = type;
         this.root = root;
         this.meta = meta;
+        this.parameterMetadata = parameterMetadata;
     }
 
     /** {@inheritDoc} */
@@ -53,6 +56,12 @@ public class MultiStepPlan implements QueryPlan {
     @Override
     public ResultSetMetadata metadata() {
         return meta;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public ParameterMetadata parameterMetadata() {
+        return parameterMetadata;
     }
 
     /** {@inheritDoc} */

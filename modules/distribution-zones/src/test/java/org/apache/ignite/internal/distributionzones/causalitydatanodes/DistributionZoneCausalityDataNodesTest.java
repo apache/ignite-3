@@ -27,6 +27,7 @@ import static org.apache.ignite.internal.catalog.events.CatalogEvent.ZONE_ALTER;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.ZONE_CREATE;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.ZONE_DROP;
 import static org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl.LOGICAL_TOPOLOGY_KEY;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertDataNodesFromManager;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertValueInStorage;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.extractZoneId;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
@@ -43,6 +44,10 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 import static org.apache.ignite.internal.util.IgniteUtils.startsWith;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.Mockito.doAnswer;
 
 import java.util.Arrays;
 import java.util.Set;
@@ -51,6 +56,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.events.AlterZoneEventParameters;
 import org.apache.ignite.internal.catalog.events.CreateZoneEventParameters;
 import org.apache.ignite.internal.catalog.events.DropZoneEventParameters;
@@ -68,6 +75,8 @@ import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.EntryEvent;
 import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
+import org.apache.ignite.internal.metastorage.server.If;
+import org.apache.ignite.internal.metastorage.server.raft.MetaStorageWriteHandler;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
@@ -75,6 +84,10 @@ import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
+import org.mockito.stubbing.Answer;
 
 /**
  * Tests for causality data nodes updating in {@link DistributionZoneManager}.
@@ -83,6 +96,8 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
     private static final String ZONE_NAME_2 = "zone2";
 
     private static final String ZONE_NAME_3 = "zone3";
+
+    private static final String ZONE_NAME_4 = "zone4";
 
     private static final LogicalNode NODE_0 =
             new LogicalNode("node_id_0", "node_name_0", new NetworkAddress("localhost", 123));
@@ -186,12 +201,14 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         // Check that data nodes value of both zone is NODE_0 and NODE_1.
         long topologyRevision1 = putNodeInLogicalTopologyAndGetRevision(NODE_1, TWO_NODES);
 
-        Set<String> dataNodes0 = distributionZoneManager.dataNodes(topologyRevision1, zoneId).get(TIMEOUT, MILLISECONDS);
+        Set<String> dataNodes0 = distributionZoneManager.dataNodes(topologyRevision1, catalogManager.latestCatalogVersion(), zoneId)
+                .get(TIMEOUT, MILLISECONDS);
         assertEquals(TWO_NODES_NAMES, dataNodes0);
 
         long dataNodesRevisionZone = dataNodesUpdateRevision.get(TIMEOUT, MILLISECONDS);
 
-        Set<String> dataNodes1 = distributionZoneManager.dataNodes(dataNodesRevisionZone, zoneId2).get(TIMEOUT, MILLISECONDS);
+        Set<String> dataNodes1 = distributionZoneManager.dataNodes(dataNodesRevisionZone, catalogManager.latestCatalogVersion(), zoneId2)
+                .get(TIMEOUT, MILLISECONDS);
         assertEquals(TWO_NODES_NAMES, dataNodes1);
 
         // Test steps.
@@ -205,16 +222,19 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         long topologyRevision2 = fireTopologyLeapAndGetRevision(twoNodes2);
 
         // Check that data nodes value of the zone with immediate timers with the topology update revision is NODE_0 and NODE_2.
-        Set<String> dataNodes3 = distributionZoneManager.dataNodes(topologyRevision2, zoneId).get(TIMEOUT, MILLISECONDS);
+        Set<String> dataNodes3 = distributionZoneManager.dataNodes(topologyRevision2, catalogManager.latestCatalogVersion(), zoneId)
+                .get(TIMEOUT, MILLISECONDS);
         assertEquals(twoNodesNames2, dataNodes3);
 
         // Check that data nodes value of the zone with not immediate timers with the topology update revision is NODE_0 and NODE_1.
-        Set<String> dataNodes4 = distributionZoneManager.dataNodes(topologyRevision2, zoneId2).get(TIMEOUT, MILLISECONDS);
+        Set<String> dataNodes4 = distributionZoneManager.dataNodes(topologyRevision2, catalogManager.latestCatalogVersion(), zoneId2)
+                .get(TIMEOUT, MILLISECONDS);
         assertEquals(TWO_NODES_NAMES, dataNodes4);
 
         // Check that data nodes value of the zone with not immediate timers with the data nodes update revision is NODE_0 and NODE_2.
         dataNodesRevisionZone = dataNodesUpdateRevision.get(TIMEOUT, MILLISECONDS);
-        Set<String> dataNodes5 = distributionZoneManager.dataNodes(dataNodesRevisionZone, zoneId2).get(TIMEOUT, MILLISECONDS);
+        Set<String> dataNodes5 = distributionZoneManager.dataNodes(dataNodesRevisionZone, catalogManager.latestCatalogVersion(), zoneId2)
+                .get(TIMEOUT, MILLISECONDS);
         assertEquals(twoNodesNames2, dataNodes5);
     }
 
@@ -243,10 +263,12 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         int defaultZoneId = getZoneId(DEFAULT_ZONE_NAME);
         int zoneId = getZoneId(ZONE_NAME);
 
-        Set<String> dataNodes0 = distributionZoneManager.dataNodes(topologyRevision1, defaultZoneId).get(TIMEOUT, MILLISECONDS);
+        Set<String> dataNodes0 = distributionZoneManager.dataNodes(topologyRevision1, catalogManager.latestCatalogVersion(), defaultZoneId)
+                .get(TIMEOUT, MILLISECONDS);
         assertEquals(TWO_NODES_NAMES, dataNodes0);
 
-        Set<String> dataNodes1 = distributionZoneManager.dataNodes(topologyRevision1, zoneId).get(TIMEOUT, MILLISECONDS);
+        Set<String> dataNodes1 = distributionZoneManager.dataNodes(topologyRevision1, catalogManager.latestCatalogVersion(), zoneId)
+                .get(TIMEOUT, MILLISECONDS);
         assertEquals(TWO_NODES_NAMES, dataNodes1);
 
         // Alter zones with not immediate scale up timer.
@@ -266,19 +288,26 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         long topologyRevision2 = fireTopologyLeapAndGetRevision(twoNodes2);
 
         // Check that data nodes value of zones is NODE_0 because scale up timer has not fired yet.
-        Set<String> dataNodes2 = distributionZoneManager.dataNodes(topologyRevision2, defaultZoneId).get(TIMEOUT, MILLISECONDS);
+        Set<String> dataNodes2 = distributionZoneManager.dataNodes(topologyRevision2, catalogManager.latestCatalogVersion(), defaultZoneId)
+                .get(TIMEOUT, MILLISECONDS);
         assertEquals(ONE_NODE_NAME, dataNodes2);
 
-        Set<String> dataNodes3 = distributionZoneManager.dataNodes(topologyRevision2, zoneId).get(TIMEOUT, MILLISECONDS);
+        Set<String> dataNodes3 = distributionZoneManager.dataNodes(topologyRevision2, catalogManager.latestCatalogVersion(), zoneId)
+                .get(TIMEOUT, MILLISECONDS);
         assertEquals(ONE_NODE_NAME, dataNodes3);
 
         // Check that data nodes value of zones is NODE_0 and NODE_2.
         long dataNodesRevisionZone0 = dataNodesUpdateRevision0.get(TIMEOUT, MILLISECONDS);
-        Set<String> dataNodes4 = distributionZoneManager.dataNodes(dataNodesRevisionZone0, defaultZoneId).get(TIMEOUT, MILLISECONDS);
+        Set<String> dataNodes4 = distributionZoneManager.dataNodes(
+                dataNodesRevisionZone0,
+                catalogManager.latestCatalogVersion(),
+                defaultZoneId
+        ).get(TIMEOUT, MILLISECONDS);
         assertEquals(twoNodesNames2, dataNodes4);
 
         long dataNodesRevisionZone1 = dataNodesUpdateRevision1.get(TIMEOUT, MILLISECONDS);
-        Set<String> dataNodes5 = distributionZoneManager.dataNodes(dataNodesRevisionZone1, zoneId).get(TIMEOUT, MILLISECONDS);
+        Set<String> dataNodes5 = distributionZoneManager.dataNodes(dataNodesRevisionZone1, catalogManager.latestCatalogVersion(), zoneId)
+                .get(TIMEOUT, MILLISECONDS);
         assertEquals(twoNodesNames2, dataNodes5);
     }
 
@@ -307,10 +336,12 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         int defaultZoneId = getZoneId(DEFAULT_ZONE_NAME);
         int zoneId = getZoneId(ZONE_NAME);
 
-        Set<String> dataNodes0 = distributionZoneManager.dataNodes(topologyRevision1, defaultZoneId).get(TIMEOUT, MILLISECONDS);
+        Set<String> dataNodes0 = distributionZoneManager.dataNodes(topologyRevision1, catalogManager.latestCatalogVersion(), defaultZoneId)
+                .get(TIMEOUT, MILLISECONDS);
         assertEquals(TWO_NODES_NAMES, dataNodes0);
 
-        Set<String> dataNodes1 = distributionZoneManager.dataNodes(topologyRevision1, zoneId).get(TIMEOUT, MILLISECONDS);
+        Set<String> dataNodes1 = distributionZoneManager.dataNodes(topologyRevision1, catalogManager.latestCatalogVersion(), zoneId)
+                .get(TIMEOUT, MILLISECONDS);
         assertEquals(TWO_NODES_NAMES, dataNodes1);
 
         // Test steps.
@@ -325,19 +356,26 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         long topologyRevision2 = fireTopologyLeapAndGetRevision(twoNodes2);
 
         // Check that data nodes value of zones is NODE_0, NODE_1 and NODE_2 because scale down timer has not fired yet.
-        Set<String> dataNodes2 = distributionZoneManager.dataNodes(topologyRevision2, defaultZoneId).get(TIMEOUT, MILLISECONDS);
+        Set<String> dataNodes2 = distributionZoneManager.dataNodes(topologyRevision2, catalogManager.latestCatalogVersion(), defaultZoneId)
+                .get(TIMEOUT, MILLISECONDS);
         assertEquals(THREE_NODES_NAMES, dataNodes2);
 
-        Set<String> dataNodes3 = distributionZoneManager.dataNodes(topologyRevision2, zoneId).get(TIMEOUT, MILLISECONDS);
+        Set<String> dataNodes3 = distributionZoneManager.dataNodes(topologyRevision2, catalogManager.latestCatalogVersion(), zoneId)
+                .get(TIMEOUT, MILLISECONDS);
         assertEquals(THREE_NODES_NAMES, dataNodes3);
 
         // Check that data nodes value of zones is NODE_0 and NODE_2.
         long dataNodesRevisionZone0 = dataNodesUpdateRevision0.get(TIMEOUT, MILLISECONDS);
-        Set<String> dataNodes4 = distributionZoneManager.dataNodes(dataNodesRevisionZone0, defaultZoneId).get(TIMEOUT, MILLISECONDS);
+        Set<String> dataNodes4 = distributionZoneManager.dataNodes(
+                dataNodesRevisionZone0,
+                catalogManager.latestCatalogVersion(),
+                defaultZoneId
+        ).get(TIMEOUT, MILLISECONDS);
         assertEquals(twoNodesNames2, dataNodes4);
 
         long dataNodesRevisionZone1 = dataNodesUpdateRevision1.get(TIMEOUT, MILLISECONDS);
-        Set<String> dataNodes5 = distributionZoneManager.dataNodes(dataNodesRevisionZone1, zoneId).get(TIMEOUT, MILLISECONDS);
+        Set<String> dataNodes5 = distributionZoneManager.dataNodes(dataNodesRevisionZone1, catalogManager.latestCatalogVersion(), zoneId)
+                .get(TIMEOUT, MILLISECONDS);
         assertEquals(twoNodesNames2, dataNodes5);
     }
 
@@ -359,7 +397,8 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         int zoneId = getZoneId(ZONE_NAME);
 
         // Check that data nodes value of the the zone is NODE_0.
-        Set<String> dataNodes1 = distributionZoneManager.dataNodes(topologyRevision1, zoneId).get(TIMEOUT, MILLISECONDS);
+        Set<String> dataNodes1 = distributionZoneManager.dataNodes(topologyRevision1, catalogManager.latestCatalogVersion(), zoneId)
+                .get(TIMEOUT, MILLISECONDS);
         assertEquals(ONE_NODE_NAME, dataNodes1);
 
         // Changes a scale up timer to not immediate.
@@ -371,15 +410,221 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         long topologyRevision2 = putNodeInLogicalTopologyAndGetRevision(NODE_1, TWO_NODES);
 
         // Check that data nodes value of the zone with the topology update revision is NODE_0 because scale up timer has not fired yet.
-        Set<String> dataNodes2 = distributionZoneManager.dataNodes(topologyRevision2, zoneId).get(TIMEOUT, MILLISECONDS);
+        Set<String> dataNodes2 = distributionZoneManager.dataNodes(topologyRevision2, catalogManager.latestCatalogVersion(), zoneId)
+                .get(TIMEOUT, MILLISECONDS);
         assertEquals(ONE_NODE_NAME, dataNodes2);
 
         // Change scale up value to immediate.
         long scaleUpRevision = alterZoneScaleUpAndGetRevision(ZONE_NAME, IMMEDIATE_TIMER_VALUE);
 
         // Check that data nodes value of the zone with the scale up update revision is NODE_0 and NODE_1.
-        Set<String> dataNodes3 = distributionZoneManager.dataNodes(scaleUpRevision, zoneId).get(TIMEOUT, MILLISECONDS);
+        Set<String> dataNodes3 = distributionZoneManager.dataNodes(scaleUpRevision, catalogManager.latestCatalogVersion(), zoneId)
+                .get(TIMEOUT, MILLISECONDS);
         assertEquals(TWO_NODES_NAMES, dataNodes3);
+    }
+
+    /**
+     * Tests that data nodes for a zone with non-immediate scale up/down on a zone creation will eventually return
+     * expected data nodes.
+     *
+     * @throws Exception If failed.
+     */
+    @Test
+    void testZoneWithNonImmediateTimersOnCreation() throws Exception {
+        createZone(ZONE_NAME, 1, 1, null);
+
+        topology.putNode(NODE_0);
+        topology.putNode(NODE_1);
+        topology.removeNodes(Set.of(NODE_1));
+
+        int zoneId = getZoneId(ZONE_NAME);
+
+        assertDataNodesFromManager(
+                distributionZoneManager,
+                metaStorageManager::appliedRevision,
+                catalogManager::latestCatalogVersion,
+                zoneId,
+                ONE_NODE,
+                TIMEOUT
+        );
+    }
+
+    /**
+     * Tests that data nodes for a zone with non-immediate down on a zone creation will eventually return
+     * expected data nodes.
+     *
+     * @throws Exception If failed.
+     */
+    @Test
+    void testZoneWithNonImmediateScaleDownTimerOnCreation() throws Exception {
+        createZone(ZONE_NAME, IMMEDIATE_TIMER_VALUE, 1, null);
+
+        topology.putNode(NODE_0);
+        long topologyRevision = putNodeInLogicalTopologyAndGetRevision(NODE_1, TWO_NODES);
+        topology.removeNodes(Set.of(NODE_1));
+
+        int zoneId = getZoneId(ZONE_NAME);
+
+        Set<String> dataNodes1 = distributionZoneManager.dataNodes(topologyRevision, catalogManager.latestCatalogVersion(), zoneId)
+                .get(TIMEOUT, MILLISECONDS);
+        assertEquals(TWO_NODES_NAMES, dataNodes1);
+
+        assertDataNodesFromManager(
+                distributionZoneManager,
+                metaStorageManager::appliedRevision,
+                catalogManager::latestCatalogVersion,
+                zoneId,
+                ONE_NODE,
+                TIMEOUT
+        );
+    }
+
+    /**
+     * Tests that data nodes for a zone with non-immediate scale up on a zone creation will eventually return
+     * expected data nodes.
+     *
+     * @throws Exception If failed.
+     */
+    @Test
+    void testZoneWithNonImmediateScaleUpTimerOnCreation() throws Exception {
+        createZone(ZONE_NAME, 1, IMMEDIATE_TIMER_VALUE, null);
+
+        topology.putNode(NODE_0);
+        topology.putNode(NODE_1);
+        long topologyRevision = removeNodeInLogicalTopologyAndGetRevision(Set.of(NODE_1), ONE_NODE);
+
+        int zoneId = getZoneId(ZONE_NAME);
+
+        Set<String> dataNodes1 = distributionZoneManager.dataNodes(topologyRevision, catalogManager.latestCatalogVersion(), zoneId)
+                .get(TIMEOUT, MILLISECONDS);
+        assertEquals(Set.of(), dataNodes1);
+
+        assertDataNodesFromManager(
+                distributionZoneManager,
+                metaStorageManager::appliedRevision,
+                catalogManager::latestCatalogVersion,
+                zoneId,
+                ONE_NODE,
+                TIMEOUT
+        );
+    }
+
+    /**
+     * Tests that data nodes for zones with different scale up/down configs are empty when creation of zones were before any
+     * topology event. In this test scenario we assume that initialisation of a zone was before the calling of the data nodes method.
+     *
+     * @throws Exception If failed.
+     */
+    @Test
+    void testEmptyDataNodesOnZoneCreationBeforeTopologyEvent() throws Exception {
+        createZone(ZONE_NAME, 1, 1, null);
+        createZone(ZONE_NAME_2, 1, IMMEDIATE_TIMER_VALUE, null);
+        createZone(ZONE_NAME_3, IMMEDIATE_TIMER_VALUE, 1, null);
+        createZone(ZONE_NAME_4, IMMEDIATE_TIMER_VALUE, 1, null);
+
+        int zoneId1 = getZoneId(ZONE_NAME);
+        int zoneId2 = getZoneId(ZONE_NAME_2);
+        int zoneId3 = getZoneId(ZONE_NAME_3);
+        int zoneId4 = getZoneId(ZONE_NAME_4);
+        int defaultZoneId = getZoneId(DEFAULT_ZONE_NAME);
+
+        Set<String> dataNodes = distributionZoneManager.dataNodes(
+                metaStorageManager.appliedRevision(),
+                catalogManager.latestCatalogVersion(),
+                zoneId1
+        ).get(TIMEOUT, MILLISECONDS);
+
+        assertEquals(emptySet(), dataNodes);
+
+        dataNodes = distributionZoneManager.dataNodes(
+                metaStorageManager.appliedRevision(),
+                catalogManager.latestCatalogVersion(),
+                zoneId2
+        ).get(TIMEOUT, MILLISECONDS);
+
+        assertEquals(emptySet(), dataNodes);
+
+        dataNodes = distributionZoneManager.dataNodes(
+                metaStorageManager.appliedRevision(),
+                catalogManager.latestCatalogVersion(),
+                zoneId3
+        ).get(TIMEOUT, MILLISECONDS);
+
+        assertEquals(emptySet(), dataNodes);
+
+        dataNodes = distributionZoneManager.dataNodes(
+                metaStorageManager.appliedRevision(),
+                catalogManager.latestCatalogVersion(),
+                zoneId4
+        ).get(TIMEOUT, MILLISECONDS);
+
+        assertEquals(emptySet(), dataNodes);
+
+        dataNodes = distributionZoneManager.dataNodes(
+                metaStorageManager.appliedRevision(),
+                catalogManager.latestCatalogVersion(),
+                defaultZoneId
+        ).get(TIMEOUT, MILLISECONDS);
+
+        assertEquals(emptySet(), dataNodes);
+    }
+
+    /**
+     * Tests that data nodes for zones with different scale up/down configs are empty when creation of zones were before any
+     * topology event. In this test scenario we assume that initialisation of a zone was after the calling of the data nodes method.
+     */
+    @ParameterizedTest
+    @MethodSource("provideArgumentsOfDifferentTimersValue")
+    void testEmptyDataNodesOnZoneCreationBeforeTopologyEventAndZoneInitialisation(int scaleUp, int scaleDown) {
+        CountDownLatch latch = new CountDownLatch(1);
+
+        AtomicBoolean reached = new AtomicBoolean();
+
+        catalogManager.listen(ZONE_CREATE, (parameters, exception) ->  {
+            assert exception == null : parameters;
+
+            CreateZoneEventParameters params = (CreateZoneEventParameters) parameters;
+
+            return CompletableFuture.runAsync(() -> {
+                try {
+                    Set<String> dataNodes = distributionZoneManager.dataNodes(
+                            params.causalityToken(),
+                            params.catalogVersion(),
+                            params.zoneDescriptor().id()
+                    ).get(TIMEOUT, MILLISECONDS);
+
+                    assertEquals(emptySet(), dataNodes);
+
+                    reached.set(true);
+                } catch (Exception e) {
+                    fail();
+                }
+            }).thenRun(latch::countDown).thenApply(ignored -> false);
+        });
+
+        doAnswer((Answer<CompletableFuture<Void>>) invocation -> CompletableFuture.runAsync(() -> {
+            try {
+                latch.await();
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+        }).thenCompose(v -> {
+            try {
+                return (CompletableFuture<Void>) invocation.callRealMethod();
+            } catch (Throwable e) {
+                throw new RuntimeException(e);
+            }
+        })).when(metaStorageManager).invoke(argThat(iif -> {
+            If iif1 = MetaStorageWriteHandler.toIf(iif);
+
+            byte[] zoneDataNodes = zoneDataNodesKey().bytes();
+
+            return iif1.andThen().update().operations().stream().anyMatch(op -> startsWith(op.key(), zoneDataNodes));
+        }));
+
+        createZone(ZONE_NAME, scaleUp, scaleDown, null);
+
+        assertTrue(reached.get());
     }
 
     /**
@@ -402,7 +647,8 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         int zoneId = getZoneId(ZONE_NAME);
 
         // Check that data nodes value of the the zone is NODE_0 and NODE_1.
-        Set<String> dataNodes1 = distributionZoneManager.dataNodes(topologyRevision1, zoneId).get(TIMEOUT, MILLISECONDS);
+        Set<String> dataNodes1 = distributionZoneManager.dataNodes(topologyRevision1, catalogManager.latestCatalogVersion(), zoneId)
+                .get(TIMEOUT, MILLISECONDS);
         assertEquals(TWO_NODES_NAMES, dataNodes1);
 
         // Test steps.
@@ -412,14 +658,16 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
         // Check that data nodes value of the zone with the topology update revision is NODE_0 and NODE_1
         // because scale down timer has not fired yet.
-        Set<String> dataNodes2 = distributionZoneManager.dataNodes(topologyRevision2, zoneId).get(TIMEOUT, MILLISECONDS);
+        Set<String> dataNodes2 = distributionZoneManager.dataNodes(topologyRevision2, catalogManager.latestCatalogVersion(), zoneId)
+                .get(TIMEOUT, MILLISECONDS);
         assertEquals(TWO_NODES_NAMES, dataNodes2);
 
         // Change scale down value to immediate.
         long scaleDownRevision = alterZoneScaleDownAndGetRevision(ZONE_NAME, IMMEDIATE_TIMER_VALUE);
 
         // Check that data nodes value of the zone with the scale down update revision is NODE_0.
-        Set<String> dataNodes3 = distributionZoneManager.dataNodes(scaleDownRevision, zoneId).get(TIMEOUT, MILLISECONDS);
+        Set<String> dataNodes3 = distributionZoneManager.dataNodes(scaleDownRevision, catalogManager.latestCatalogVersion(), zoneId)
+                .get(TIMEOUT, MILLISECONDS);
         assertEquals(ONE_NODE_NAME, dataNodes3);
     }
 
@@ -441,7 +689,8 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         int zoneId = getZoneId(ZONE_NAME);
 
         // Check that data nodes value of the zone is NODE_0.
-        Set<String> dataNodes1 = distributionZoneManager.dataNodes(topologyRevision1, zoneId).get(TIMEOUT, MILLISECONDS);
+        Set<String> dataNodes1 = distributionZoneManager.dataNodes(topologyRevision1, catalogManager.latestCatalogVersion(), zoneId)
+                .get(TIMEOUT, MILLISECONDS);
         assertEquals(ONE_NODE_NAME, dataNodes1);
 
         // Alter the zones with not immediate scale up timer.
@@ -460,15 +709,21 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
                 TIMEOUT
         );
 
+        int catalogVersionBeforeDrop = catalogManager.latestCatalogVersion();
+
         long dropRevision1 = dropZoneAndGetRevision(ZONE_NAME);
 
         // Check that data nodes value of the zone with the topology update revision is NODE_0 because scale up timer has not fired.
-        Set<String> dataNodes3 = distributionZoneManager.dataNodes(topologyRevision2, zoneId).get(TIMEOUT, MILLISECONDS);
+        Set<String> dataNodes3 = distributionZoneManager.dataNodes(topologyRevision2, catalogVersionBeforeDrop, zoneId)
+                .get(TIMEOUT, MILLISECONDS);
         assertEquals(ONE_NODE_NAME, dataNodes3);
 
         // Check that zones is removed and attempt to get data nodes throws an exception.
-        assertThrowsWithCause(() -> distributionZoneManager.dataNodes(dropRevision1, zoneId).get(TIMEOUT, MILLISECONDS),
-                DistributionZoneNotFoundException.class);
+        assertThrowsWithCause(
+                () -> distributionZoneManager.dataNodes(dropRevision1, catalogManager.latestCatalogVersion(), zoneId)
+                        .get(TIMEOUT, MILLISECONDS),
+                DistributionZoneNotFoundException.class
+        );
     }
 
     /**
@@ -491,7 +746,8 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         int zoneId = getZoneId(ZONE_NAME);
 
         // Check that data nodes value of the the zone is NODE_0 and NODE_1.
-        Set<String> dataNodes1 = distributionZoneManager.dataNodes(topologyRevision1, zoneId).get(TIMEOUT, MILLISECONDS);
+        Set<String> dataNodes1 = distributionZoneManager.dataNodes(topologyRevision1, catalogManager.latestCatalogVersion(), zoneId)
+                .get(TIMEOUT, MILLISECONDS);
         assertEquals(TWO_NODES_NAMES, dataNodes1);
 
         // Test steps.
@@ -507,16 +763,22 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
                 TIMEOUT
         );
 
+        int catalogVersionBeforeDrop = catalogManager.latestCatalogVersion();
+
         long dropRevision1 = dropZoneAndGetRevision(ZONE_NAME);
 
         // Check that data nodes value of the zone with the topology update revision is NODE_0 and NODE_1
         // because scale down timer has not fired.
-        Set<String> dataNodes2 = distributionZoneManager.dataNodes(topologyRevision2, zoneId).get(TIMEOUT, MILLISECONDS);
+        Set<String> dataNodes2 = distributionZoneManager.dataNodes(topologyRevision2, catalogVersionBeforeDrop, zoneId)
+                .get(TIMEOUT, MILLISECONDS);
         assertEquals(TWO_NODES_NAMES, dataNodes2);
 
         // Check that zones is removed and attempt to get data nodes throws an exception.
-        assertThrowsWithCause(() -> distributionZoneManager.dataNodes(dropRevision1, zoneId).get(TIMEOUT, MILLISECONDS),
-                DistributionZoneNotFoundException.class);
+        assertThrowsWithCause(
+                () -> distributionZoneManager.dataNodes(dropRevision1, catalogManager.latestCatalogVersion(), zoneId)
+                        .get(TIMEOUT, MILLISECONDS),
+                DistributionZoneNotFoundException.class
+        );
     }
 
     /**
@@ -541,10 +803,12 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         int defaultZoneId = getZoneId(DEFAULT_ZONE_NAME);
         int zoneId = getZoneId(ZONE_NAME);
 
-        Set<String> dataNodes0 = distributionZoneManager.dataNodes(topologyRevision1, defaultZoneId).get(TIMEOUT, MILLISECONDS);
+        Set<String> dataNodes0 = distributionZoneManager.dataNodes(topologyRevision1, catalogManager.latestCatalogVersion(), defaultZoneId)
+                .get(TIMEOUT, MILLISECONDS);
         assertEquals(ONE_NODE_NAME, dataNodes0);
 
-        Set<String> dataNodes1 = distributionZoneManager.dataNodes(topologyRevision1, zoneId).get(TIMEOUT, MILLISECONDS);
+        Set<String> dataNodes1 = distributionZoneManager.dataNodes(topologyRevision1, catalogManager.latestCatalogVersion(), zoneId)
+                .get(TIMEOUT, MILLISECONDS);
         assertEquals(ONE_NODE_NAME, dataNodes1);
 
         // Alter the zones with infinite timers.
@@ -563,10 +827,12 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
         // Check that data nodes value of the the zone is NODE_0.
         // The future didn't hang due to the fact that the actual data nodes value did not change.
-        Set<String> dataNodes2 = distributionZoneManager.dataNodes(filterRevision0, defaultZoneId).get(TIMEOUT, MILLISECONDS);
+        Set<String> dataNodes2 = distributionZoneManager.dataNodes(filterRevision0, catalogManager.latestCatalogVersion(), defaultZoneId)
+                .get(TIMEOUT, MILLISECONDS);
         assertEquals(ONE_NODE_NAME, dataNodes2);
 
-        Set<String> dataNodes3 = distributionZoneManager.dataNodes(filterRevision1, zoneId).get(TIMEOUT, MILLISECONDS);
+        Set<String> dataNodes3 = distributionZoneManager.dataNodes(filterRevision1, catalogManager.latestCatalogVersion(), zoneId)
+                .get(TIMEOUT, MILLISECONDS);
         assertEquals(ONE_NODE_NAME, dataNodes3);
     }
 
@@ -587,7 +853,12 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         );
 
         // Check that data nodes value of the zone with the create zone revision is NODE_0.
-        Set<String> dataNodes1 = distributionZoneManager.dataNodes(createZoneRevision, getZoneId(ZONE_NAME)).get(TIMEOUT, MILLISECONDS);
+        Set<String> dataNodes1 = distributionZoneManager.dataNodes(
+                createZoneRevision,
+                catalogManager.latestCatalogVersion(),
+                getZoneId(ZONE_NAME)
+        ).get(TIMEOUT, MILLISECONDS);
+
         assertEquals(ONE_NODE_NAME, dataNodes1);
     }
 
@@ -617,12 +888,18 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
         // Check that data nodes value of the zone with the revision lower than the create zone revision is absent.
         assertThrowsWithCause(
-                () -> distributionZoneManager.dataNodes(createZoneRevision - 1, zoneId).get(TIMEOUT, MILLISECONDS),
+                () -> distributionZoneManager.dataNodes(createZoneRevision - 1, catalogManager.latestCatalogVersion() - 1, zoneId)
+                        .get(TIMEOUT, MILLISECONDS),
                 DistributionZoneNotFoundException.class
         );
 
         // Check that data nodes value of the zone with the create zone revision is NODE_0 and NODE_1.
-        Set<String> dataNodes = distributionZoneManager.dataNodes(createZoneRevision, zoneId).get(TIMEOUT, MILLISECONDS);
+        Set<String> dataNodes = distributionZoneManager.dataNodes(
+                createZoneRevision,
+                catalogManager.latestCatalogVersion(),
+                zoneId
+        ).get(TIMEOUT, MILLISECONDS);
+
         assertEquals(TWO_NODES_NAMES, dataNodes);
 
         // Drop the zone.
@@ -630,7 +907,8 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
         // Check that data nodes value of the zone with the drop zone revision is absent.
         assertThrowsWithCause(
-                () -> distributionZoneManager.dataNodes(dropZoneRevision, zoneId).get(TIMEOUT, MILLISECONDS),
+                () -> distributionZoneManager.dataNodes(dropZoneRevision, catalogManager.latestCatalogVersion(), zoneId)
+                        .get(TIMEOUT, MILLISECONDS),
                 DistributionZoneNotFoundException.class
         );
     }
@@ -640,14 +918,28 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
     void validationTest() {
         int defaultZoneId = getZoneId(DEFAULT_ZONE_NAME);
 
-        assertThrowsWithCause(() -> distributionZoneManager.dataNodes(0, defaultZoneId).get(TIMEOUT, MILLISECONDS),
-                IllegalArgumentException.class);
+        assertThrowsWithCause(
+                () -> distributionZoneManager.dataNodes(0, catalogManager.latestCatalogVersion(), defaultZoneId).get(TIMEOUT, MILLISECONDS),
+                IllegalArgumentException.class
+        );
 
-        assertThrowsWithCause(() -> distributionZoneManager.dataNodes(-1, defaultZoneId).get(TIMEOUT, MILLISECONDS),
-                IllegalArgumentException.class);
+        assertThrowsWithCause(
+                () -> distributionZoneManager.dataNodes(
+                        -1,
+                        catalogManager.latestCatalogVersion(),
+                        defaultZoneId).get(TIMEOUT, MILLISECONDS),
+                IllegalArgumentException.class
+        );
 
-        assertThrowsWithCause(() -> distributionZoneManager.dataNodes(1, -1).get(TIMEOUT, MILLISECONDS),
-                IllegalArgumentException.class);
+        assertThrowsWithCause(
+                () -> distributionZoneManager.dataNodes(1, catalogManager.latestCatalogVersion(), -1).get(TIMEOUT, MILLISECONDS),
+                IllegalArgumentException.class
+        );
+
+        assertThrowsWithCause(
+                () -> distributionZoneManager.dataNodes(1, -1, defaultZoneId).get(TIMEOUT, MILLISECONDS),
+                IllegalArgumentException.class
+        );
     }
 
     /**
@@ -674,14 +966,18 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         int defaultZoneId = getZoneId(DEFAULT_ZONE_NAME);
         int zoneId = getZoneId(ZONE_NAME);
 
-        Set<String> dataNodes1 = distributionZoneManager.dataNodes(topologyRevision0, defaultZoneId).get(TIMEOUT, MILLISECONDS);
+        Set<String> dataNodes1 = distributionZoneManager.dataNodes(topologyRevision0, catalogManager.latestCatalogVersion(), defaultZoneId)
+                .get(TIMEOUT, MILLISECONDS);
         assertEquals(ONE_NODE_NAME, dataNodes1);
-        Set<String> dataNodes2 = distributionZoneManager.dataNodes(topologyRevision0, zoneId).get(TIMEOUT, MILLISECONDS);
+        Set<String> dataNodes2 = distributionZoneManager.dataNodes(topologyRevision0, catalogManager.latestCatalogVersion(), zoneId)
+                .get(TIMEOUT, MILLISECONDS);
         assertEquals(ONE_NODE_NAME, dataNodes2);
 
-        Set<String> dataNodes3 = distributionZoneManager.dataNodes(topologyRevision1, defaultZoneId).get(TIMEOUT, MILLISECONDS);
+        Set<String> dataNodes3 = distributionZoneManager.dataNodes(topologyRevision1, catalogManager.latestCatalogVersion(), defaultZoneId)
+                .get(TIMEOUT, MILLISECONDS);
         assertEquals(TWO_NODES_NAMES, dataNodes3);
-        Set<String> dataNodes4 = distributionZoneManager.dataNodes(topologyRevision1, zoneId).get(TIMEOUT, MILLISECONDS);
+        Set<String> dataNodes4 = distributionZoneManager.dataNodes(topologyRevision1, catalogManager.latestCatalogVersion(), zoneId)
+                .get(TIMEOUT, MILLISECONDS);
         assertEquals(TWO_NODES_NAMES, dataNodes4);
 
         Set<LogicalNode> twoNodes1 = Set.of(NODE_0, NODE_2);
@@ -693,14 +989,18 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         // Change logical topology. NODE_1 is left.
         long topologyRevision3 = removeNodeInLogicalTopologyAndGetRevision(Set.of(NODE_1), twoNodes1);
 
-        Set<String> dataNodes5 = distributionZoneManager.dataNodes(topologyRevision2, defaultZoneId).get(TIMEOUT, MILLISECONDS);
+        Set<String> dataNodes5 = distributionZoneManager.dataNodes(topologyRevision2, catalogManager.latestCatalogVersion(), defaultZoneId)
+                .get(TIMEOUT, MILLISECONDS);
         assertEquals(THREE_NODES_NAMES, dataNodes5);
-        Set<String> dataNodes6 = distributionZoneManager.dataNodes(topologyRevision2, zoneId).get(TIMEOUT, MILLISECONDS);
+        Set<String> dataNodes6 = distributionZoneManager.dataNodes(topologyRevision2, catalogManager.latestCatalogVersion(), zoneId)
+                .get(TIMEOUT, MILLISECONDS);
         assertEquals(THREE_NODES_NAMES, dataNodes6);
 
-        Set<String> dataNodes7 = distributionZoneManager.dataNodes(topologyRevision3, defaultZoneId).get(TIMEOUT, MILLISECONDS);
+        Set<String> dataNodes7 = distributionZoneManager.dataNodes(topologyRevision3, catalogManager.latestCatalogVersion(), defaultZoneId)
+                .get(TIMEOUT, MILLISECONDS);
         assertEquals(twoNodesNames1, dataNodes7);
-        Set<String> dataNodes8 = distributionZoneManager.dataNodes(topologyRevision3, zoneId).get(TIMEOUT, MILLISECONDS);
+        Set<String> dataNodes8 = distributionZoneManager.dataNodes(topologyRevision3, catalogManager.latestCatalogVersion(), zoneId)
+                .get(TIMEOUT, MILLISECONDS);
         assertEquals(twoNodesNames1, dataNodes8);
     }
 
@@ -713,7 +1013,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
      * @throws Exception If failed.
      */
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20604")
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20412")
     void checkDataNodesRepeated() throws Exception {
         prepareZonesWithOneDataNodes();
 
@@ -799,18 +1099,22 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         int zoneId2 = getZoneId(ZONE_NAME_2);
         int zoneId3 = getZoneId(ZONE_NAME_3);
 
-        Set<String> dataNodes1 = distributionZoneManager.dataNodes(topologyRevision0, defaultZoneId).get(TIMEOUT, MILLISECONDS);
+        Set<String> dataNodes1 = distributionZoneManager.dataNodes(topologyRevision0, catalogManager.latestCatalogVersion(), defaultZoneId)
+                .get(TIMEOUT, MILLISECONDS);
         assertEquals(TWO_NODES_NAMES, dataNodes1);
-        Set<String> dataNodes2 = distributionZoneManager.dataNodes(topologyRevision0, zoneId).get(TIMEOUT, MILLISECONDS);
+        Set<String> dataNodes2 = distributionZoneManager.dataNodes(topologyRevision0, catalogManager.latestCatalogVersion(), zoneId)
+                .get(TIMEOUT, MILLISECONDS);
         assertEquals(TWO_NODES_NAMES, dataNodes2);
-        Set<String> dataNodes3 = distributionZoneManager.dataNodes(topologyRevision0, zoneId2).get(TIMEOUT, MILLISECONDS);
+        Set<String> dataNodes3 = distributionZoneManager.dataNodes(topologyRevision0, catalogManager.latestCatalogVersion(), zoneId2)
+                .get(TIMEOUT, MILLISECONDS);
         assertEquals(TWO_NODES_NAMES, dataNodes3);
-        Set<String> dataNodes4 = distributionZoneManager.dataNodes(topologyRevision0, zoneId3).get(TIMEOUT, MILLISECONDS);
+        Set<String> dataNodes4 = distributionZoneManager.dataNodes(topologyRevision0, catalogManager.latestCatalogVersion(), zoneId3)
+                .get(TIMEOUT, MILLISECONDS);
         assertEquals(TWO_NODES_NAMES, dataNodes4);
     }
 
     /**
-     * Schedule a scale up task which block execution of another scale up tasks.
+     * Schedule a scale up task which blocks execution of another scale up tasks.
      *
      * @return Latch to unblock execution of scale up tasks.
      */
@@ -843,7 +1147,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
     }
 
     /**
-     * Schedule a down up task which block execution of another scale down tasks.
+     * Schedule a scale down task which blocks execution of another scale down tasks.
      *
      * @return Latch to unblock execution of scale down tasks.
      */
@@ -931,22 +1235,22 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
         assertEquals(
                 expectedDefaultZoneDataNodes,
-                distributionZoneManager.dataNodes(revision, defaultZoneId).get(TIMEOUT, MILLISECONDS)
+                distributionZoneManager.dataNodes(revision, catalogManager.latestCatalogVersion(), defaultZoneId).get(TIMEOUT, MILLISECONDS)
         );
 
         assertEquals(
                 expectedZone1DataNodes,
-                distributionZoneManager.dataNodes(revision, zoneId).get(TIMEOUT, MILLISECONDS)
+                distributionZoneManager.dataNodes(revision, catalogManager.latestCatalogVersion(), zoneId).get(TIMEOUT, MILLISECONDS)
         );
 
         assertEquals(
                 expectedZone2DataNodes,
-                distributionZoneManager.dataNodes(revision, zoneId2).get(TIMEOUT, MILLISECONDS)
+                distributionZoneManager.dataNodes(revision, catalogManager.latestCatalogVersion(), zoneId2).get(TIMEOUT, MILLISECONDS)
         );
 
         assertEquals(
                 expectedZone3DataNodes,
-                distributionZoneManager.dataNodes(revision, zoneId3).get(TIMEOUT, MILLISECONDS)
+                distributionZoneManager.dataNodes(revision, catalogManager.latestCatalogVersion(), zoneId3).get(TIMEOUT, MILLISECONDS)
         );
     }
 
@@ -1324,5 +1628,14 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         if (revisionFuture != null) {
             revisionFuture.complete(revision);
         }
+    }
+
+    private static Stream<Arguments> provideArgumentsOfDifferentTimersValue() {
+        return Stream.of(
+                Arguments.of(1, 1),
+                Arguments.of(IMMEDIATE_TIMER_VALUE, 1),
+                Arguments.of(1, IMMEDIATE_TIMER_VALUE),
+                Arguments.of(IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE)
+        );
     }
 }

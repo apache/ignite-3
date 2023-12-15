@@ -87,8 +87,8 @@ import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage
 import org.apache.ignite.internal.table.distributed.command.BuildIndexCommand;
 import org.apache.ignite.internal.table.distributed.command.FinishTxCommand;
 import org.apache.ignite.internal.table.distributed.command.TimedBinaryRowMessage;
-import org.apache.ignite.internal.table.distributed.command.TxCleanupCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateCommand;
+import org.apache.ignite.internal.table.distributed.command.WriteIntentSwitchCommand;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.replication.request.BinaryRowMessage;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
@@ -338,8 +338,8 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
         UpdateCommand updateCommand = mock(UpdateCommand.class);
         when(updateCommand.safeTime()).thenAnswer(v -> hybridClock.now());
 
-        TxCleanupCommand txCleanupCommand = mock(TxCleanupCommand.class);
-        when(txCleanupCommand.safeTime()).thenAnswer(v -> hybridClock.now());
+        WriteIntentSwitchCommand writeIntentSwitchCommand = mock(WriteIntentSwitchCommand.class);
+        when(writeIntentSwitchCommand.safeTime()).thenAnswer(v -> hybridClock.now());
 
         SafeTimeSyncCommand safeTimeSyncCommand = mock(SafeTimeSyncCommand.class);
         when(safeTimeSyncCommand.safeTime()).thenAnswer(v -> hybridClock.now());
@@ -351,7 +351,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
         commandListener.onWrite(List.of(
                 writeCommandCommandClosure(3, 1, updateCommand, commandClosureResultCaptor),
                 writeCommandCommandClosure(10, 1, updateCommand, commandClosureResultCaptor),
-                writeCommandCommandClosure(4, 1, txCleanupCommand, commandClosureResultCaptor),
+                writeCommandCommandClosure(4, 1, writeIntentSwitchCommand, commandClosureResultCaptor),
                 writeCommandCommandClosure(5, 1, safeTimeSyncCommand, commandClosureResultCaptor)
         ).iterator());
 
@@ -629,7 +629,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
                 .txCoordinatorId(UUID.randomUUID().toString())
                 .build());
 
-        invokeBatchedCommand(msgFactory.txCleanupCommand()
+        invokeBatchedCommand(msgFactory.writeIntentSwitchCommand()
                 .txId(txId)
                 .commit(true)
                 .commitTimestampLong(commitTimestamp.longValue())
@@ -672,7 +672,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
                 .txCoordinatorId(UUID.randomUUID().toString())
                 .build());
 
-        invokeBatchedCommand(msgFactory.txCleanupCommand()
+        invokeBatchedCommand(msgFactory.writeIntentSwitchCommand()
                 .txId(txId)
                 .commit(true)
                 .commitTimestampLong(commitTimestamp.longValue())
@@ -710,7 +710,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
                 .txCoordinatorId(UUID.randomUUID().toString())
                 .build());
 
-        invokeBatchedCommand(msgFactory.txCleanupCommand()
+        invokeBatchedCommand(msgFactory.writeIntentSwitchCommand()
                 .txId(txId)
                 .commit(true)
                 .commitTimestampLong(commitTimestamp.longValue())
@@ -759,7 +759,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
 
         HybridTimestamp commitTimestamp = hybridClock.now();
 
-        txIds.forEach(txId -> invokeBatchedCommand(msgFactory.txCleanupCommand()
+        txIds.forEach(txId -> invokeBatchedCommand(msgFactory.writeIntentSwitchCommand()
                 .txId(txId)
                 .commit(true)
                 .commitTimestampLong(commitTimestamp.longValue())
@@ -802,7 +802,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
 
         HybridTimestamp commitTimestamp = hybridClock.now();
 
-        txIds.forEach(txId -> invokeBatchedCommand(msgFactory.txCleanupCommand()
+        txIds.forEach(txId -> invokeBatchedCommand(msgFactory.writeIntentSwitchCommand()
                 .txId(txId)
                 .commit(true)
                 .commitTimestampLong(commitTimestamp.longValue())
@@ -879,7 +879,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
         long commitTimestamp = hybridClock.nowLong();
 
         txIds.forEach(txId -> invokeBatchedCommand(
-                msgFactory.txCleanupCommand()
+                msgFactory.writeIntentSwitchCommand()
                         .txId(txId)
                         .commit(true)
                         .commitTimestampLong(commitTimestamp)

@@ -33,6 +33,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.catalog.CatalogService;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
@@ -51,14 +52,16 @@ import org.apache.ignite.internal.table.distributed.schema.ValidationSchemasSour
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
-import org.apache.ignite.internal.tx.message.TxCleanupReplicaRequest;
+import org.apache.ignite.internal.tx.message.WriteIntentSwitchReplicaRequest;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.network.ClusterNodeResolver;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.TransactionException;
@@ -72,6 +75,9 @@ import org.junit.jupiter.api.TestInfo;
 public class ItTxDistributedTestSingleNodeNoCleanupMessage extends ItTxDistributedTestSingleNode {
     /** A list of background cleanup futures. */
     private final List<CompletableFuture<?>> cleanupFutures = new CopyOnWriteArrayList<>();
+
+    @InjectConfiguration
+    private TransactionConfiguration txConfiguration;
 
     /**
      * The constructor.
@@ -88,6 +94,7 @@ public class ItTxDistributedTestSingleNodeNoCleanupMessage extends ItTxDistribut
         txTestCluster = new ItTxTestCluster(
                 testInfo,
                 raftConfiguration,
+                txConfiguration,
                 workDir,
                 nodes(),
                 replicas(),
@@ -104,6 +111,7 @@ public class ItTxDistributedTestSingleNodeNoCleanupMessage extends ItTxDistribut
                     PlacementDriver placementDriver
             ) {
                 return new  TxManagerImpl(
+                        txConfiguration,
                         clusterService,
                         replicaSvc,
                         new HeapLockManager(),
@@ -143,7 +151,8 @@ public class ItTxDistributedTestSingleNodeNoCleanupMessage extends ItTxDistribut
                     ClusterNode localNode,
                     SchemaSyncService schemaSyncService,
                     CatalogService catalogService,
-                    PlacementDriver placementDriver
+                    PlacementDriver placementDriver,
+                    ClusterNodeResolver clusterNodeResolver
             ) {
                 return new PartitionReplicaListener(
                         mvDataStorage,
@@ -165,15 +174,16 @@ public class ItTxDistributedTestSingleNodeNoCleanupMessage extends ItTxDistribut
                         localNode,
                         schemaSyncService,
                         catalogService,
-                        placementDriver
+                        placementDriver,
+                        clusterNodeResolver
                 ) {
                     @Override
                     public CompletableFuture<ReplicaResult> invoke(ReplicaRequest request, String senderId) {
-                        if (request instanceof TxCleanupReplicaRequest) {
+                        if (request instanceof WriteIntentSwitchReplicaRequest) {
                             logger().info("Dropping cleanup request: {}", request);
 
                             releaseTxLocks(
-                                    ((TxCleanupReplicaRequest) request).txId(),
+                                    ((WriteIntentSwitchReplicaRequest) request).txId(),
                                     txManager.lockManager()
                             );
 

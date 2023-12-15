@@ -465,6 +465,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         public object? GetObject(int index, ColumnType columnType, int scale = 0) =>
             columnType switch
             {
+                ColumnType.Null => null,
                 ColumnType.Int8 => GetByteNullable(index),
                 ColumnType.Int16 => GetShortNullable(index),
                 ColumnType.Int32 => GetIntNullable(index),

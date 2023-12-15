@@ -25,15 +25,19 @@ import static org.apache.ignite.internal.util.ExceptionUtils.extractCodeFrom;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.IntStream;
+import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.message.TxRecoveryMessage;
 import org.apache.ignite.lang.ErrorGroups.Transactions;
 import org.apache.ignite.table.RecordView;
@@ -64,6 +68,17 @@ public class ItTransactionConflictTest extends ClusterPerTestIntegrationTest {
         });
     }
 
+    @Override
+    protected void customizeInitParameters(InitParametersBuilder builder) {
+        super.customizeInitParameters(builder);
+
+        builder.clusterConfiguration("{\n"
+                + "  \"transaction\": {\n"
+                + "  \"abandonedCheckTs\": 600000\n"
+                + "  }\n"
+                + "}\n");
+    }
+
     @Test
     public void test() throws Exception {
         TableImpl tbl = (TableImpl) node(0).tables().table(TABLE_NAME);
@@ -91,39 +106,56 @@ public class ItTransactionConflictTest extends ClusterPerTestIntegrationTest {
 
         log.info("Transaction coordinator is chosen [node={}].", txCrdNode.name());
 
+        Transaction oldRwTx = node(0).transactions().begin();
+
         UUID orphanTxId = startTransactionAndStopNode(txCrdNode);
 
         CompletableFuture<UUID> recoveryTxMsgCaptureFut = new CompletableFuture<>();
+        AtomicInteger msgCount = new AtomicInteger();
 
         commitPartNode.dropMessages((nodeName, msg) -> {
             if (msg instanceof TxRecoveryMessage) {
                 var recoveryTxMsg = (TxRecoveryMessage) msg;
 
                 recoveryTxMsgCaptureFut.complete(recoveryTxMsg.txId());
+
+                msgCount.incrementAndGet();
             }
 
             return false;
         });
 
-        runConflictingTransaction(node(0));
+        runConflictingTransaction(node(0), oldRwTx);
+        runConflictingTransaction(node(0), node(0).transactions().begin());
 
         assertThat(recoveryTxMsgCaptureFut, willCompleteSuccessfully());
 
         assertEquals(orphanTxId, recoveryTxMsgCaptureFut.join());
+        assertEquals(1, msgCount.get());
+
+        node(0).clusterConfiguration().getConfiguration(TransactionConfiguration.KEY).change(transactionChange ->
+                transactionChange.changeAbandonedCheckTs(1));
+
+        assertTrue(waitForCondition(() -> {
+            runConflictingTransaction(node(0), node(0).transactions().begin());
+
+            return msgCount.get() > 0;
+        }, 10_000));
     }
 
     /**
      * Runs a transaction that was expectedly finished with the lock conflict exception.
      *
      * @param node Transaction coordinator node.
+     * @param rwTx A transaction to create a lock conflict with an abandoned one.
      */
-    private void runConflictingTransaction(IgniteImpl node) {
+    private void runConflictingTransaction(IgniteImpl node, Transaction rwTx) {
         RecordView view = node.tables().table(TABLE_NAME).recordView();
 
         try {
-            Transaction rwTx2 = node.transactions().begin();
+            view.upsert(rwTx, Tuple.create().set("key", 42).set("val", "val2"));
 
-            view.upsert(rwTx2, Tuple.create().set("key", 42).set("val", "val2"));
+            fail("Lock conflict have to be detected.");
         } catch (Exception e) {
             assertEquals(Transactions.ACQUIRE_LOCK_ERR, extractCodeFrom(e));
 
@@ -132,8 +164,8 @@ public class ItTransactionConflictTest extends ClusterPerTestIntegrationTest {
     }
 
     /**
-     * Starts the transaction, takes a lock, and stops the transaction coordinator.
-     * The stopped node leaves the transaction in the pending state.
+     * Starts the transaction, takes a lock, and stops the transaction coordinator. The stopped node leaves the transaction in the pending
+     * state.
      *
      * @param node Transaction coordinator node.
      * @return Transaction id.
