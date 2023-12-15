@@ -237,12 +237,10 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     @Override
     public void onMessage(ByteBuf buf) {
         asyncContinuationExecutor.execute(() -> {
-            try {
-                processNextMessage(buf);
+            try (var unpacker = new ClientMessageUnpacker(buf)) {
+                processNextMessage(unpacker);
             } catch (Throwable t) {
                 close(t, false);
-            } finally {
-                buf.release();
             }
         });
     }
@@ -377,9 +375,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     /**
      * Process next message from the input stream and complete corresponding future.
      */
-    private void processNextMessage(ByteBuf buf) throws IgniteException {
-        var unpacker = new ClientMessageUnpacker(buf);
-
+    private void processNextMessage(ClientMessageUnpacker unpacker) throws IgniteException {
         if (protocolCtx == null) {
             // Process handshake.
             pendingReqs.remove(-1L).complete(unpacker);
