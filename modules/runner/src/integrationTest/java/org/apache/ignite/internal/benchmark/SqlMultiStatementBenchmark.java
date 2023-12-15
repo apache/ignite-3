@@ -144,25 +144,6 @@ public class SqlMultiStatementBenchmark extends AbstractMultiNodeBenchmark {
         state.executeScript(bh);
     }
 
-    private static class Parameters {
-        private final List<String> statements = new ArrayList<>();
-        private final String sqlScript;
-        private final Object[] sqlScriptArgs;
-
-        private Parameters(int count, Function<Integer, String> statementGenerator) {
-            IgniteStringBuilder buf = new IgniteStringBuilder();
-
-            for (int i = 0; i < count; i++) {
-                String statement = statementGenerator.apply(i);
-                statements.add(statement);
-                buf.app(statement).app(';');
-            }
-
-            sqlScript = buf.toString();
-            sqlScriptArgs = new Object[count];
-        }
-    }
-
     /**
      * Benchmark state for {@link #insert(InsertState, Blackhole)} and
      * {@link #insertScript(InsertState, Blackhole)} benchmarks.
@@ -206,10 +187,10 @@ public class SqlMultiStatementBenchmark extends AbstractMultiNodeBenchmark {
             int id0 = id++;
 
             for (int i = 0; i < statementsCount; i++) {
-                parameters.sqlScriptArgs[i] = id0;
+                parameters.scriptArgs[i] = id0;
             }
 
-            Iterator<InternalSqlRow> res = scriptExec.exec(parameters.sqlScript, parameters.sqlScriptArgs);
+            Iterator<InternalSqlRow> res = scriptExec.exec(parameters.script, parameters.scriptArgs);
 
             while (res.hasNext()) {
                 bh.consume(res.next());
@@ -264,7 +245,7 @@ public class SqlMultiStatementBenchmark extends AbstractMultiNodeBenchmark {
         }
 
         void executeScript(Blackhole bh) {
-            Iterator<?> res = scriptRun.exec(parameters.sqlScript);
+            Iterator<?> res = scriptRun.exec(parameters.script);
 
             while (res.hasNext()) {
                 bh.consume(res.next());
@@ -316,10 +297,10 @@ public class SqlMultiStatementBenchmark extends AbstractMultiNodeBenchmark {
             int key = random.nextInt(TABLE_SIZE);
 
             for (int i = 0; i < statementsCount; i++) {
-                parameters.sqlScriptArgs[i] = key;
+                parameters.scriptArgs[i] = key;
             }
 
-            Iterator<?> res = scriptRun.exec(parameters.sqlScript, parameters.sqlScriptArgs);
+            Iterator<?> res = scriptRun.exec(parameters.script, parameters.scriptArgs);
 
             while (res.hasNext()) {
                 bh.consume(res.next());
@@ -367,14 +348,33 @@ public class SqlMultiStatementBenchmark extends AbstractMultiNodeBenchmark {
 
         void executeScript(Blackhole bh) {
             for (int i = 0; i < statementsCount; i++) {
-                parameters.sqlScriptArgs[i] = random.nextInt(TABLE_SIZE);
+                parameters.scriptArgs[i] = random.nextInt(TABLE_SIZE);
             }
 
-            Iterator<?> res = scriptRun.exec(parameters.sqlScript, parameters.sqlScriptArgs);
+            Iterator<?> res = scriptRun.exec(parameters.script, parameters.scriptArgs);
 
             while (res.hasNext()) {
                 bh.consume(res.next());
             }
+        }
+    }
+
+    private static class Parameters {
+        private final List<String> statements = new ArrayList<>();
+        private final String script;
+        private final Object[] scriptArgs;
+
+        private Parameters(int count, Function<Integer, String> statementGenerator) {
+            IgniteStringBuilder buf = new IgniteStringBuilder();
+
+            for (int i = 0; i < count; i++) {
+                String statement = statementGenerator.apply(i);
+                statements.add(statement);
+                buf.app(statement).app(';');
+            }
+
+            script = buf.toString();
+            scriptArgs = new Object[count];
         }
     }
 
