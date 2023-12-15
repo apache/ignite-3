@@ -51,6 +51,7 @@ import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.TearDown;
 import org.openjdk.jmh.annotations.Threads;
 import org.openjdk.jmh.annotations.Warmup;
+import org.openjdk.jmh.infra.Blackhole;
 import org.openjdk.jmh.runner.Runner;
 import org.openjdk.jmh.runner.RunnerException;
 import org.openjdk.jmh.runner.options.Options;
@@ -101,9 +102,9 @@ public class SelectBenchmark extends AbstractMultiNodeBenchmark {
      * Benchmark for SQL select via embedded client.
      */
     @Benchmark
-    public void sqlGet(SqlState sqlState) {
+    public void sqlGet(SqlState sqlState, Blackhole bh) {
         try (var rs = sqlState.sql(SELECT_ALL_FROM_USERTABLE, random.nextInt(TABLE_SIZE))) {
-            rs.next();
+            bh.consume(rs.next());
         }
     }
 
@@ -111,19 +112,19 @@ public class SelectBenchmark extends AbstractMultiNodeBenchmark {
      * Benchmark for SQL script select via embedded client.
      */
     @Benchmark
-    public void sqlGetScript(SqlScriptState sqlScriptState) {
+    public void sqlGetScript(SqlScriptState sqlScriptState, Blackhole bh) {
         Iterator<InternalSqlRow> res = sqlScriptState.sql(SELECT_ALL_FROM_USERTABLE, random.nextInt(TABLE_SIZE));
 
-        res.next();
+        bh.consume(res.next());
     }
 
     /**
      * Benchmark for SQL select via thin client.
      */
     @Benchmark
-    public void sqlThinGet(SqlThinState sqlState) {
+    public void sqlThinGet(SqlThinState sqlState, Blackhole bh) {
         try (var rs = sqlState.sql(SELECT_ALL_FROM_USERTABLE, random.nextInt(TABLE_SIZE))) {
-            rs.next();
+            bh.consume(rs.next());
         }
     }
 
@@ -131,10 +132,10 @@ public class SelectBenchmark extends AbstractMultiNodeBenchmark {
      * Benchmark for JDBC get.
      */
     @Benchmark
-    public void jdbcGet(JdbcState state) throws SQLException {
+    public void jdbcGet(JdbcState state, Blackhole bh) throws SQLException {
         state.stmt.setInt(1, random.nextInt(TABLE_SIZE));
         try (ResultSet r = state.stmt.executeQuery()) {
-            r.next();
+            bh.consume(r.next());
         }
     }
 
@@ -142,12 +143,12 @@ public class SelectBenchmark extends AbstractMultiNodeBenchmark {
      * Benchmark for JDBC script get.
      */
     @Benchmark
-    public void jdbcGetScript(JdbcState state) throws SQLException {
+    public void jdbcGetScript(JdbcState state, Blackhole bh) throws SQLException {
         state.stmt.setInt(1, random.nextInt(TABLE_SIZE));
         state.stmt.execute();
 
         try (ResultSet r = state.stmt.getResultSet()) {
-            r.next();
+            bh.consume(r.next());
         }
     }
 
@@ -155,16 +156,18 @@ public class SelectBenchmark extends AbstractMultiNodeBenchmark {
      * Benchmark for KV get via embedded client.
      */
     @Benchmark
-    public void kvGet() {
-        keyValueView.get(null, Tuple.create().set("ycsb_key", random.nextInt(TABLE_SIZE)));
+    public void kvGet(Blackhole bh) {
+        Tuple val = keyValueView.get(null, Tuple.create().set("ycsb_key", random.nextInt(TABLE_SIZE)));
+        bh.consume(val);
     }
 
     /**
      * Benchmark for KV get via thin client.
      */
     @Benchmark
-    public void kvThinGet(KvThinState kvState) {
-        kvState.kvView().get(null, Tuple.create().set("ycsb_key", random.nextInt(TABLE_SIZE)));
+    public void kvThinGet(KvThinState kvState, Blackhole bh) {
+        Tuple val = kvState.kvView().get(null, Tuple.create().set("ycsb_key", random.nextInt(TABLE_SIZE)));
+        bh.consume(val);
     }
 
     /**
@@ -179,7 +182,7 @@ public class SelectBenchmark extends AbstractMultiNodeBenchmark {
     }
 
     /**
-     * Benchmark state for {@link #sqlGet(SqlState)}.
+     * Benchmark state for {@link #sqlGet(SqlState, Blackhole)}.
      *
      * <p>Holds {@link Session}.
      */
@@ -201,7 +204,7 @@ public class SelectBenchmark extends AbstractMultiNodeBenchmark {
     }
 
     /**
-     * Benchmark state for {@link #sqlGet(SqlState)}.
+     * Benchmark state for {@link #sqlGet(SqlState, Blackhole)}.
      *
      * <p>Holds {@link Session}.
      */
@@ -234,7 +237,7 @@ public class SelectBenchmark extends AbstractMultiNodeBenchmark {
     }
 
     /**
-     * Benchmark state for {@link #sqlThinGet(SqlThinState)}.
+     * Benchmark state for {@link #sqlThinGet(SqlThinState, Blackhole)}.
      *
      * <p>Holds {@link IgniteClient} and {@link Session}.
      */
@@ -269,7 +272,7 @@ public class SelectBenchmark extends AbstractMultiNodeBenchmark {
     }
 
     /**
-     * Benchmark state for {@link #jdbcGet(JdbcState)}.
+     * Benchmark state for {@link #jdbcGet(JdbcState, Blackhole)}.
      *
      * <p>Holds {@link Connection} and {@link PreparedStatement}.
      */
@@ -301,7 +304,7 @@ public class SelectBenchmark extends AbstractMultiNodeBenchmark {
     }
 
     /**
-     * Benchmark state for {@link #kvThinGet(KvThinState)}.
+     * Benchmark state for {@link #kvThinGet(KvThinState, Blackhole)}.
      *
      * <p>Holds {@link IgniteClient} and {@link KeyValueView} for the table.
      */

@@ -82,7 +82,7 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 public class SqlMultiStatementBenchmark extends AbstractMultiNodeBenchmark {
     private static final int TABLE_SIZE = 10_000;
 
-    @Param({"1"})
+    @Param({"1", "2"})
     private int clusterSize;
 
     @Param({"1", "2", "4"})
@@ -178,7 +178,7 @@ public class SqlMultiStatementBenchmark extends AbstractMultiNodeBenchmark {
 
             for (int i = 0; i < statementsCount; i++) {
                 try (ResultSet<?> rs = session.execute(null, parameters.statements.get(i), id0)) {
-                    // NO-OP
+                    bh.consume(rs);
                 }
             }
         }
