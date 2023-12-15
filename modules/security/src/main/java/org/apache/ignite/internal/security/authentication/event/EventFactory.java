@@ -17,12 +17,16 @@
 
 package org.apache.ignite.internal.security.authentication.event;
 
+import java.util.List;
+import java.util.function.BiFunction;
+import org.apache.ignite.internal.security.configuration.SecurityView;
+import org.jetbrains.annotations.Nullable;
+
 /**
- * Authentication events listener.
+ * Event producer for security configuration changes.
  */
-public interface AuthenticationListener {
-    /**
-     * Handle authentication event.
-     */
-    void onEvent(AuthenticationEvent event);
+@FunctionalInterface
+public interface EventFactory extends BiFunction<SecurityView, SecurityView, List<? extends AuthenticationEventParameters>> {
+    @Override
+    List<? extends AuthenticationEventParameters> apply(@Nullable SecurityView oldValue, SecurityView newValue);
 }

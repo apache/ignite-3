@@ -694,10 +694,7 @@ public class IgniteImpl implements Ignite {
     private AuthenticationManager createAuthenticationManager() {
         SecurityConfiguration securityConfiguration = clusterCfgMgr.configurationRegistry()
                 .getConfiguration(SecurityConfiguration.KEY);
-
-        AuthenticationManager manager = new AuthenticationManagerImpl();
-        securityConfiguration.listen(manager);
-        return manager;
+        return new AuthenticationManagerImpl(securityConfiguration);
     }
 
     private RestComponent createRestComponent(String name) {
@@ -823,6 +820,7 @@ public class IgniteImpl implements Ignite {
                             lifecycleManager.startComponents(
                                     catalogManager,
                                     clusterCfgMgr,
+                                    authenticationManager,
                                     placementDriverMgr,
                                     metricManager,
                                     distributionZoneManager,
@@ -1201,5 +1199,10 @@ public class IgniteImpl implements Ignite {
     @TestOnly
     public CatalogManager catalogManager() {
         return catalogManager;
+    }
+
+    @TestOnly
+    public ConfigurationRegistry clusterConfigurationRegistry() {
+        return clusterCfgMgr.configurationRegistry();
     }
 }

@@ -59,7 +59,7 @@ public class TestServer {
 
     private final TestSslConfig testSslConfig;
 
-    private final SecurityConfiguration securityConfiguration;
+    private final AuthenticationManager authenticationManager;
 
     private final ClientHandlerMetricSource metrics = new ClientHandlerMetricSource();
 
@@ -71,9 +71,9 @@ public class TestServer {
 
     TestServer(@Nullable TestSslConfig testSslConfig, @Nullable SecurityConfiguration securityConfiguration) {
         this.testSslConfig = testSslConfig;
-        this.securityConfiguration = securityConfiguration == null
-                ? mock(SecurityConfiguration.class)
-                : securityConfiguration;
+        this.authenticationManager = securityConfiguration == null
+                ? new DummyAuthenticationManager()
+                : new AuthenticationManagerImpl(securityConfiguration);
         this.generator = new ConfigurationTreeGenerator(ClientConnectorConfiguration.KEY, NetworkConfiguration.KEY);
         this.configurationManager = new ConfigurationManager(
                 List.of(ClientConnectorConfiguration.KEY, NetworkConfiguration.KEY),
@@ -97,6 +97,7 @@ public class TestServer {
 
     ClientHandlerModule start(TestInfo testInfo) {
         configurationManager.start();
+        authenticationManager.start();
 
         clientConnectorConfig().change(
                 local -> local
@@ -131,7 +132,7 @@ public class TestServer {
                 () -> CompletableFuture.completedFuture(UUID.randomUUID()),
                 mock(MetricManager.class),
                 metrics,
-                authenticationManager(),
+                authenticationManager,
                 new HybridClockImpl(),
                 new AlwaysSyncedSchemaSyncService(),
                 mock(CatalogService.class),
@@ -150,11 +151,5 @@ public class TestServer {
     private ClientConnectorConfiguration clientConnectorConfig() {
         var registry = configurationManager.configurationRegistry();
         return registry.getConfiguration(ClientConnectorConfiguration.KEY);
-    }
-
-    private AuthenticationManager authenticationManager() {
-        AuthenticationManagerImpl authenticationManager = new AuthenticationManagerImpl();
-        securityConfiguration.listen(authenticationManager);
-        return authenticationManager;
     }
 }
