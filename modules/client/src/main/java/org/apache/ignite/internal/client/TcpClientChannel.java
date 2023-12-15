@@ -36,7 +36,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
-import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -139,9 +138,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
 
         log = ClientUtils.logger(cfg.clientConfiguration(), TcpClientChannel.class);
 
-        asyncContinuationExecutor = cfg.clientConfiguration().asyncContinuationExecutor() == null
-                ? ForkJoinPool.commonPool()
-                : cfg.clientConfiguration().asyncContinuationExecutor();
+        asyncContinuationExecutor = ClientUtils.asyncContinuationExecutor(cfg.clientConfiguration());
 
         connectTimeout = cfg.clientConfiguration().connectTimeout();
         heartbeatTimeout = cfg.clientConfiguration().heartbeatTimeout();
@@ -236,15 +233,14 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     /** {@inheritDoc} */
     @Override
     public void onMessage(ByteBuf buf) {
-        asyncContinuationExecutor.execute(() -> {
-            try {
-                processNextMessage(buf);
-            } catch (Throwable t) {
-                close(t, false);
-            } finally {
-                buf.release();
-            }
-        });
+        // All messages are processed by asyncContinuationExecutor - DefaultEventExecutor is specified in NettyClientConnectionMultiplexer.
+        try {
+            processNextMessage(buf);
+        } catch (Throwable t) {
+            close(t, false);
+        } finally {
+            buf.release();
+        }
     }
 
     /** {@inheritDoc} */
