@@ -27,14 +27,19 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.pagememory.PageIdAllocator;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.datapage.DataPageReader;
@@ -125,6 +130,8 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
     /** Version chain update lock by row ID. */
     protected final LockByRowId lockByRowId = new LockByRowId();
+
+    private static final ConcurrentMap<String, AtomicInteger> threadsToOps = new ConcurrentHashMap<>();
 
     /**
      * Constructor.
@@ -321,6 +328,8 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
     @Override
     public ReadResult read(RowId rowId, HybridTimestamp timestamp) throws StorageException {
+        registerOperation();
+
         return busy(() -> {
             throwExceptionIfStorageNotInRunnableState();
 
@@ -341,6 +350,28 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
                 }
             });
         });
+    }
+
+    private static void registerOperation() {
+        threadsToOps.computeIfAbsent(threadNameBase(), k -> new AtomicInteger()).incrementAndGet();
+    }
+
+    private static final Pattern THREAD_NAME_PATTERN = Pattern.compile("^(.+)-(\\d+)$");
+
+    private static String threadNameBase() {
+        String name = Thread.currentThread().getName();
+
+        int index = name.indexOf("-_stripe_");
+        if (index >= 0) {
+            return name.substring(0, index);
+        }
+
+        Matcher matcher = THREAD_NAME_PATTERN.matcher(name);
+        if (matcher.matches()) {
+            return matcher.group(1);
+        }
+
+        return name;
     }
 
     private static boolean lookingForLatestVersion(HybridTimestamp timestamp) {
@@ -513,6 +544,8 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
             throws TxIdMismatchException, StorageException {
         assert rowId.partitionId() == partitionId : rowId;
 
+        registerOperation();
+
         return busy(() -> {
             throwExceptionIfStorageNotInRunnableOrRebalanceState(state.get(), this::createStorageInfo);
 
@@ -542,6 +575,8 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     public @Nullable BinaryRow abortWrite(RowId rowId) throws StorageException {
         assert rowId.partitionId() == partitionId : rowId;
 
+        registerOperation();
+
         return busy(() -> {
             throwExceptionIfStorageNotInRunnableState();
 
@@ -566,6 +601,8 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     @Override
     public void commitWrite(RowId rowId, HybridTimestamp timestamp) throws StorageException {
         assert rowId.partitionId() == partitionId : rowId;
+
+        registerOperation();
 
         busy(() -> {
             throwExceptionIfStorageNotInRunnableOrRebalanceState(state.get(), this::createStorageInfo);
@@ -600,6 +637,8 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     public void addWriteCommitted(RowId rowId, @Nullable BinaryRow row, HybridTimestamp commitTimestamp) throws StorageException {
         assert rowId.partitionId() == partitionId : rowId;
 
+        registerOperation();
+
         busy(() -> {
             throwExceptionIfStorageNotInRunnableOrRebalanceState(state.get(), this::createStorageInfo);
 
@@ -624,6 +663,8 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
     @Override
     public Cursor<ReadResult> scanVersions(RowId rowId) throws StorageException {
+        registerOperation();
+
         return busy(() -> {
             throwExceptionIfStorageNotInRunnableState();
 
@@ -641,6 +682,8 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
     @Override
     public PartitionTimestampCursor scan(HybridTimestamp timestamp) throws StorageException {
+        registerOperation();
+
         return busy(() -> {
             throwExceptionIfStorageNotInRunnableState();
 
@@ -709,6 +752,17 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         } catch (Exception e) {
             throw new StorageException(e);
         }
+
+        IgniteLogger logger = Loggers.forClass(this.getClass());
+
+        AtomicInteger total = new AtomicInteger();
+        threadsToOps.forEach((threadName, counter) -> {
+            logger.info("MV operation counts {}: {}", threadName, counter);
+
+            total.addAndGet(counter.get());
+        });
+
+        logger.info("MV total operation count: {}", total);
     }
 
     /**

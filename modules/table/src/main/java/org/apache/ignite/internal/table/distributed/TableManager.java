@@ -291,6 +291,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     /** Scan request executor. */
     private final ExecutorService scanRequestExecutor;
 
+    private final ExecutorService storageOperationsExecutor;
+
     /**
      * Separate executor for IO operations like partition storage initialization or partition raft group meta data persisting.
      */
@@ -446,6 +448,14 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 NamedThreadFactory.create(nodeName, "rebalance-scheduler", LOG));
 
         int cpus = Runtime.getRuntime().availableProcessors();
+
+        storageOperationsExecutor = new ThreadPoolExecutor(
+                Math.min(cpus * 3, 25),
+                Integer.MAX_VALUE,
+                100,
+                TimeUnit.MILLISECONDS,
+                new LinkedBlockingQueue<>(),
+                NamedThreadFactory.create(nodeName, "storage-operations", LOG));
 
         ioExecutor = new ThreadPoolExecutor(
                 Math.min(cpus * 3, 25),
@@ -880,6 +890,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 txManager,
                 lockMgr,
                 scanRequestExecutor,
+                storageOperationsExecutor,
                 partId,
                 tableId,
                 table.indexesLockers(partId),
@@ -986,6 +997,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 mvGc,
                 () -> shutdownAndAwaitTermination(rebalanceScheduler, 10, TimeUnit.SECONDS),
                 () -> shutdownAndAwaitTermination(ioExecutor, 10, TimeUnit.SECONDS),
+                () -> shutdownAndAwaitTermination(storageOperationsExecutor, 10, TimeUnit.SECONDS),
                 () -> shutdownAndAwaitTermination(txStateStoragePool, 10, TimeUnit.SECONDS),
                 () -> shutdownAndAwaitTermination(txStateStorageScheduledPool, 10, TimeUnit.SECONDS),
                 () -> shutdownAndAwaitTermination(scanRequestExecutor, 10, TimeUnit.SECONDS),

@@ -242,6 +242,8 @@ public class PartitionReplicaListener implements ReplicaListener {
     /** Runs async scan tasks for effective tail recursion execution (avoid deep recursive calls). */
     private final Executor scanRequestExecutor;
 
+    private final Executor storageOperationsExecutor;
+
     private final Supplier<Map<Integer, IndexLocker>> indexesLockers;
 
     private final ConcurrentMap<UUID, TxCleanupReadyFutureList> txCleanupReadyFutures = new ConcurrentHashMap<>();
@@ -317,11 +319,81 @@ public class PartitionReplicaListener implements ReplicaListener {
             CatalogService catalogService,
             PlacementDriver placementDriver
     ) {
+        this(
+                mvDataStorage,
+                raftClient,
+                txManager,
+                lockManager,
+                scanRequestExecutor,
+                Runnable::run,
+                partId,
+                tableId,
+                indexesLockers,
+                pkIndexStorage,
+                secondaryIndexStorages,
+                hybridClock,
+                safeTime,
+                txStateStorage,
+                transactionStateResolver,
+                storageUpdateHandler,
+                validationSchemasSource,
+                localNode,
+                schemaSyncService,
+                catalogService,
+                placementDriver
+        );
+    }
+
+    /**
+     * The constructor.
+     *
+     * @param mvDataStorage Data storage.
+     * @param raftClient Raft client.
+     * @param txManager Transaction manager.
+     * @param lockManager Lock manager.
+     * @param partId Partition id.
+     * @param tableId Table id.
+     * @param indexesLockers Index lock helper objects.
+     * @param pkIndexStorage Pk index storage.
+     * @param secondaryIndexStorages Secondary index storages.
+     * @param hybridClock Hybrid clock.
+     * @param safeTime Safe time clock.
+     * @param txStateStorage Transaction state storage.
+     * @param transactionStateResolver Transaction state resolver.
+     * @param storageUpdateHandler Handler that processes updates writing them to storage.
+     * @param localNode Instance of the local node.
+     * @param catalogService Catalog service.
+     * @param placementDriver Placement driver.
+     */
+    public PartitionReplicaListener(
+            MvPartitionStorage mvDataStorage,
+            RaftGroupService raftClient,
+            TxManager txManager,
+            LockManager lockManager,
+            Executor scanRequestExecutor,
+            Executor storageOperationsExecutor,
+            int partId,
+            int tableId,
+            Supplier<Map<Integer, IndexLocker>> indexesLockers,
+            Lazy<TableSchemaAwareIndexStorage> pkIndexStorage,
+            Supplier<Map<Integer, TableSchemaAwareIndexStorage>> secondaryIndexStorages,
+            HybridClock hybridClock,
+            PendingComparableValuesTracker<HybridTimestamp, Void> safeTime,
+            TxStateStorage txStateStorage,
+            TransactionStateResolver transactionStateResolver,
+            StorageUpdateHandler storageUpdateHandler,
+            ValidationSchemasSource validationSchemasSource,
+            ClusterNode localNode,
+            SchemaSyncService schemaSyncService,
+            CatalogService catalogService,
+            PlacementDriver placementDriver
+    ) {
         this.mvDataStorage = mvDataStorage;
         this.raftClient = raftClient;
         this.txManager = txManager;
         this.lockManager = lockManager;
         this.scanRequestExecutor = scanRequestExecutor;
+        this.storageOperationsExecutor = storageOperationsExecutor;
         this.indexesLockers = indexesLockers;
         this.pkIndexStorage = pkIndexStorage;
         this.secondaryIndexStorages = secondaryIndexStorages;
@@ -462,7 +534,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         }
 
         return ensureReplicaIsPrimary(request)
-                .thenCompose(isPrimary -> processRequest(request, isPrimary, senderId))
+                .thenComposeAsync(isPrimary -> processRequest(request, isPrimary, senderId), storageOperationsExecutor)
                 .thenApply(res -> {
                     if (res instanceof ReplicaResult) {
                         return (ReplicaResult) res;

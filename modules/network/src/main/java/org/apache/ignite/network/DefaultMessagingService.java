@@ -105,6 +105,8 @@ public class DefaultMessagingService extends AbstractMessagingService {
     private final ConcurrentMap<String, AtomicLong> lastSendStarts = new ConcurrentHashMap<>();
     private final ConcurrentMap<String, AtomicLong> lastSendEnds = new ConcurrentHashMap<>();
 
+    private final ConcurrentMap<ChannelKeyAndClass, AtomicInteger> sentClasses = new ConcurrentHashMap<>();
+
     private AtomicInteger sent(String fromConsistentId, String toConsistentId) {
         return sent.computeIfAbsent(new ChannelKey(fromConsistentId, toConsistentId), key -> new AtomicInteger());
     }
@@ -127,6 +129,13 @@ public class DefaultMessagingService extends AbstractMessagingService {
 
     private AtomicLong lastSendEnd(String consistentId) {
         return lastSendEnds.computeIfAbsent(consistentId, k -> new AtomicLong(-1));
+    }
+
+    private AtomicInteger sentClass(String fromConsistentId, String toConsistentId, Class<?> messageClass) {
+        return sentClasses.computeIfAbsent(
+                new ChannelKeyAndClass(new ChannelKey(fromConsistentId, toConsistentId), messageClass),
+                key -> new AtomicInteger()
+        );
     }
 
     /**
@@ -330,23 +339,24 @@ public class DefaultMessagingService extends AbstractMessagingService {
         }
 
         ClusterNode localMember = topologyService.localMember();
-        if (localMember != null) {
-            sent(localMember.name(), consistentId).incrementAndGet();
-            inFlight(localMember.name(), consistentId).incrementAndGet();
-            //sentMessages.put(message.messageId(), message);
-            long beforeSendingNanos = System.nanoTime();
-            sendNanoTimes.put(message.messageId(), beforeSendingNanos);
+        String localMemberName = localMember == null ? null : localMember.name();
 
-            long beforeSentNanos = System.nanoTime();
-            long lastSendStartNanos = lastSendStart(localMember.name()).getAndSet(beforeSentNanos);
+        sent(localMemberName, consistentId).incrementAndGet();
+        inFlight(localMemberName, consistentId).incrementAndGet();
+        sentClass(localMemberName, consistentId, message.getClass()).incrementAndGet();
+        //sentMessages.put(message.messageId(), message);
+        long beforeSendingNanos = System.nanoTime();
+        sendNanoTimes.put(message.messageId(), beforeSendingNanos);
 
-            if (lastSendStartNanos > 0) {
-                long nanosSinceLastSendStart = beforeSentNanos - lastSendStartNanos;
-                long millisSinceLastSendStart = TimeUnit.NANOSECONDS.toMillis(nanosSinceLastSendStart);
+        long beforeSentNanos = System.nanoTime();
+        long lastSendStartNanos = lastSendStart(localMemberName).getAndSet(beforeSentNanos);
 
-                if (millisSinceLastSendStart > 1000) {
-                    LOG.info("DDD {} ms since last send start, message is {}", millisSinceLastSendStart, message);
-                }
+        if (lastSendStartNanos > 0) {
+            long nanosSinceLastSendStart = beforeSentNanos - lastSendStartNanos;
+            long millisSinceLastSendStart = TimeUnit.NANOSECONDS.toMillis(nanosSinceLastSendStart);
+
+            if (millisSinceLastSendStart > 1000) {
+                LOG.info("DDD {} ms since last send start, message is {}", millisSinceLastSendStart, message);
             }
         }
 
@@ -410,6 +420,8 @@ public class DefaultMessagingService extends AbstractMessagingService {
      * @param correlationId Correlation id.
      */
     private void sendToSelf(NetworkMessage msg, @Nullable Long correlationId) {
+        sentClass(topologyService.localMember().name(), topologyService.localMember().name(), msg.getClass()).incrementAndGet();
+
         for (NetworkMessageHandler networkMessageHandler : getMessageHandlers(msg.groupType())) {
             networkMessageHandler.onReceived(msg, topologyService.localMember().name(), correlationId);
         }
@@ -625,6 +637,21 @@ public class DefaultMessagingService extends AbstractMessagingService {
 
         IgniteUtils.shutdownAndAwaitTermination(inboundExecutor, 10, TimeUnit.SECONDS);
         IgniteUtils.shutdownAndAwaitTermination(outboundExecutor, 10, TimeUnit.SECONDS);
+
+        AtomicInteger total = new AtomicInteger();
+        sentClasses.forEach((keyAndClass, count) -> {
+            LOG.info(
+                    "Hist {} -> {} ({}): {}",
+                    keyAndClass.channelKey.fromConsistentId,
+                    keyAndClass.channelKey.toConsistentId,
+                    keyAndClass.messageClass,
+                    count.get()
+            );
+
+            total.addAndGet(count.get());
+        });
+
+        LOG.info("Hist total {}", total.get());
     }
 
     // TODO: IGNITE-18493 - remove/move this
@@ -696,6 +723,40 @@ public class DefaultMessagingService extends AbstractMessagingService {
         public int hashCode() {
             int result = fromConsistentId != null ? fromConsistentId.hashCode() : 0;
             result = 31 * result + (toConsistentId != null ? toConsistentId.hashCode() : 0);
+            return result;
+        }
+    }
+
+    private static class ChannelKeyAndClass {
+        private final ChannelKey channelKey;
+        private final Class<?> messageClass;
+
+        private ChannelKeyAndClass(ChannelKey channelKey, Class<?> messageClass) {
+            this.channelKey = channelKey;
+            this.messageClass = messageClass;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+
+            ChannelKeyAndClass that = (ChannelKeyAndClass) o;
+
+            if (channelKey != null ? !channelKey.equals(that.channelKey) : that.channelKey != null) {
+                return false;
+            }
+            return messageClass != null ? messageClass.equals(that.messageClass) : that.messageClass == null;
+        }
+
+        @Override
+        public int hashCode() {
+            int result = channelKey != null ? channelKey.hashCode() : 0;
+            result = 31 * result + (messageClass != null ? messageClass.hashCode() : 0);
             return result;
         }
     }
