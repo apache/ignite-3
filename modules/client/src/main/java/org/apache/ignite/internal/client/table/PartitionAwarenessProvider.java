@@ -27,7 +27,7 @@ import org.jetbrains.annotations.Nullable;
  * 2. Transaction is used. Use specific channel.
  * 3. Null instance = No partition awareness and no transaction. Use any channel.
  */
-class PartitionAwarenessProvider {
+public class PartitionAwarenessProvider {
     private final @Nullable String nodeName;
 
     private final @Nullable Function<ClientSchema, Integer> hashFunc;

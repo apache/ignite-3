@@ -25,7 +25,7 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
-import static org.apache.ignite.internal.tx.TxState.COMMITED;
+import static org.apache.ignite.internal.tx.TxState.COMMITTED;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -361,7 +361,7 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
         int tableId = 2;
 
         for (int i = 0; i < txIds.size(); i++) {
-            TxState txState = i % 2 == 0 ? COMMITED : ABORTED;
+            TxState txState = i % 2 == 0 ? COMMITTED : ABORTED;
 
             storage.put(txIds.get(i), new TxMeta(txState, List.of(new TablePartitionId(tableId, TEST_PARTITION)), HYBRID_CLOCK.now()));
         }

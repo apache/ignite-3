@@ -173,25 +173,28 @@ public class CausalityDataNodesEngine {
             long lastScaleUpRevision = getRevisionsOfLastScaleUpEvent(causalityToken, catalogVersion, zoneId);
             long lastScaleDownRevision = getRevisionsOfLastScaleDownEvent(causalityToken, catalogVersion, zoneId);
 
+            Entry dataNodes = msManager.getLocally(zoneDataNodesKey(zoneId), causalityToken);
+
             if (createRevision != null && createRevision.equals(descLastUpdateRevision)
                     && descLastUpdateRevision >= lastScaleUpRevision
                     && descLastUpdateRevision >= lastScaleDownRevision
+                    && dataNodes.empty()
             ) {
-                // It means that the zone was created but the data nodes value had not updated yet.
+                // It means that the zone was created but the data nodes value had not been updated yet.
                 // So the data nodes value will be equals to the logical topology on the descLastUpdateRevision.
+                Entry topologyEntry = msManager.getLocally(zonesLogicalTopologyKey(), createRevision);
 
-                Entry topologyEntry = msManager.getLocally(zonesLogicalTopologyKey(), descLastUpdateRevision);
-
-                assert topologyEntry.value() != null : "Logical topology must be initialized.";
+                if (topologyEntry.empty()) {
+                    // A special case for a very first start of a node, when a creation of a zone was before the first topology event,
+                    // meaning that zonesLogicalTopologyKey() has not been updated yet, safe to return empty set here.
+                    return emptySet();
+                }
 
                 Set<NodeWithAttributes> logicalTopology = fromBytes(topologyEntry.value());
 
                 Set<Node> logicalTopologyNodes = logicalTopology.stream().map(n -> n.node()).collect(toSet());
 
-                Set<String> dataNodesNames = filterDataNodes(logicalTopologyNodes, filter,
-                        distributionZoneManager.nodesAttributes());
-
-                return dataNodesNames;
+                return filterDataNodes(logicalTopologyNodes, filter, distributionZoneManager.nodesAttributes());
             }
 
             ZoneState zoneState = zonesState.get(zoneId);

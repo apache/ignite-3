@@ -70,7 +70,7 @@ public class ItTxDistributedTestThreeNodesThreeReplicasCollocated extends ItTxDi
         assertTrue(waitForCondition(
                 () -> txTestCluster.txStateStorages.values().stream()
                         .map(txStateStorage -> txStateStorage.get(txId))
-                        .filter(txMeta -> txMeta != null && txMeta.txState() == TxState.COMMITED)
+                        .filter(txMeta -> txMeta != null && txMeta.txState() == TxState.COMMITTED)
                         .count() >= 2,
                 5_000));
     }

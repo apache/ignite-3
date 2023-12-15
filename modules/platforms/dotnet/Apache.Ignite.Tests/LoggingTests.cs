@@ -59,7 +59,7 @@ public class LoggingTests
         StringAssert.Contains("ClientFailoverSocket [Debug] Trying to establish secondary connections - awaiting 2 tasks", log);
         StringAssert.Contains("ClientFailoverSocket [Debug] 2 secondary connections established, 0 failed", log);
         StringAssert.Contains("[Trace] Sending request [requestId=1, op=TablesGet, remoteAddress=", log);
-        StringAssert.Contains("[Trace] Received response [requestId=1, remoteAddress=", log);
+        StringAssert.Contains("[Trace] Received response [requestId=1, flags=PartitionAssignmentChanged, remoteAddress=", log);
         StringAssert.Contains("op=SqlExec", log);
         StringAssert.Contains("[Debug] Connection closed gracefully", log);
     }

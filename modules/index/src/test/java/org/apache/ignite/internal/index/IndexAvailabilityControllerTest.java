@@ -43,7 +43,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogTestUtils;
-import org.apache.ignite.internal.catalog.commands.AlterZoneParams;
+import org.apache.ignite.internal.catalog.commands.AlterZoneCommand;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -316,7 +316,7 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
 
     private void changePartitionCountInCatalog(int newPartitions) {
         assertThat(
-                catalogManager.alterZone(AlterZoneParams.builder().zoneName(DEFAULT_ZONE_NAME).partitions(newPartitions).build()),
+                catalogManager.execute(AlterZoneCommand.builder().zoneName(DEFAULT_ZONE_NAME).partitions(newPartitions).build()),
                 willCompleteSuccessfully()
         );
 

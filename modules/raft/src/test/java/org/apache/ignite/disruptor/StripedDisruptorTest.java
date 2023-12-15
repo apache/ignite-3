@@ -76,10 +76,10 @@ public class StripedDisruptorTest extends IgniteAbstractTest {
 
             if (i % 10 == 0) {
                 assertTrue(IgniteTestUtils.waitForCondition(() -> handler1.applied == finalInt + 1, 10_000),
-                        IgniteStringFormatter.format("Batch was not commited [applied={}, expected={}, buffered={}]",
+                        IgniteStringFormatter.format("Batch was not committed [applied={}, expected={}, buffered={}]",
                                 handler1.applied, finalInt + 1, handler1.batch));
                 assertTrue(IgniteTestUtils.waitForCondition(() -> handler2.applied == finalInt + 1, 10_000),
-                        IgniteStringFormatter.format("Batch was not commited [applied={}, expected={}, buffered={}]",
+                        IgniteStringFormatter.format("Batch was not committed [applied={}, expected={}, buffered={}]",
                                 handler2.applied, finalInt + 1, handler2.batch));
             }
         }

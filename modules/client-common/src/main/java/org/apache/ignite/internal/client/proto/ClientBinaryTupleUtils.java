@@ -52,8 +52,8 @@ public class ClientBinaryTupleUtils {
             return null;
         }
 
-        int typeCode = reader.intValue(index);
-        ColumnType type = ColumnTypeConverter.fromOrdinalOrThrow(typeCode);
+        int typeId = reader.intValue(index);
+        ColumnType type = ColumnTypeConverter.fromIdOrThrow(typeId);
         int valIdx = index + 2;
 
         switch (type) {
@@ -115,7 +115,7 @@ public class ClientBinaryTupleUtils {
                 return reader.periodValue(valIdx);
 
             default:
-                throw unsupportedTypeException(typeCode);
+                throw unsupportedTypeException(typeId);
         }
     }
 
@@ -292,12 +292,12 @@ public class ClientBinaryTupleUtils {
 
 
     private static void appendTypeAndScale(BinaryTupleBuilder builder, ColumnType type, int scale) {
-        builder.appendInt(type.ordinal());
+        builder.appendInt(type.id());
         builder.appendInt(scale);
     }
 
     private static void appendTypeAndScale(BinaryTupleBuilder builder, ColumnType type) {
-        builder.appendInt(type.ordinal());
+        builder.appendInt(type.id());
         builder.appendInt(0);
     }
 
