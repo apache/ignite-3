@@ -21,6 +21,7 @@ import static org.apache.ignite.compute.JobState.CANCELED;
 import static org.apache.ignite.compute.JobState.COMPLETED;
 import static org.apache.ignite.compute.JobState.EXECUTING;
 import static org.apache.ignite.compute.JobState.FAILED;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.JobStatusMatcher.jobStatusWithState;
 import static org.apache.ignite.internal.testframework.matchers.JobStatusMatcher.jobStatusWithStateAndCreateTimeStartTime;
 import static org.awaitility.Awaitility.await;
@@ -126,7 +127,7 @@ class ComputeExecutorTest extends BaseIgniteAbstractTest {
         int maxRetries = 5;
 
         JobExecution<Integer> execution = computeExecutor.executeJob(
-                new ExecutionOptions(0, maxRetries),
+                ExecutionOptions.builder().maxRetries(maxRetries).build(),
                 RetryJobFail.class,
                 new Object[]{runTimes}
         );
@@ -153,7 +154,7 @@ class ComputeExecutorTest extends BaseIgniteAbstractTest {
         int maxRetries = 5;
 
         JobExecution<Integer> execution = computeExecutor.executeJob(
-                new ExecutionOptions(0, maxRetries),
+                ExecutionOptions.builder().maxRetries(maxRetries).build(),
                 RetryJobSuccess.class,
                 new Object[]{runTimes, maxRetries}
         );
@@ -174,6 +175,35 @@ class ComputeExecutorTest extends BaseIgniteAbstractTest {
             }
             return 0;
         }
+
+    }
+
+    @Test
+    void runJobOnce() {
+        AtomicInteger runTimes = new AtomicInteger();
+
+        int maxRetries = 5;
+
+        JobExecution<Integer> execution = computeExecutor.executeJob(
+                ExecutionOptions.builder().maxRetries(maxRetries).build(),
+                JobSuccess.class,
+                new Object[]{runTimes}
+        );
+
+        await().until(execution::status, jobStatusWithState(COMPLETED));
+
+        assertThat(execution.resultAsync(), willBe(1));
+        assertThat(runTimes.get(), is(1));
+    }
+
+    private static class JobSuccess implements ComputeJob<Integer> {
+
+        @Override
+        public Integer execute(JobExecutionContext context, Object... args) {
+            AtomicInteger runTimes = (AtomicInteger) args[0];
+            return runTimes.incrementAndGet();
+        }
+
     }
 
 }
