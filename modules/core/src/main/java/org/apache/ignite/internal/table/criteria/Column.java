@@ -20,22 +20,27 @@ package org.apache.ignite.internal.table.criteria;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * {@code StaticText} represents a static text element.
+ * {@code Column} represents a column.
  */
-public class StaticText implements CriteriaElement {
-    private final String text;
+public class Column implements CriteriaElement {
+    private final String name;
 
-    StaticText(String text) {
-        this.text = text;
+    /**
+     * Constructor.
+     *
+     * @param name A column name.
+     */
+    Column(String name) {
+        this.name = name.toUpperCase();
     }
 
     /**
-     * Gets text value.
+     * Gets column name.
      *
-     * @return A text.
+     * @return A column name.
      */
-    String getText() {
-        return text;
+    String getName() {
+        return name;
     }
 
     /** {@inheritDoc} */

@@ -17,16 +17,10 @@
 
 package org.apache.ignite.internal.table.criteria;
 
-import static java.util.stream.Collectors.toList;
-
-import java.util.Arrays;
-import java.util.List;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Defines a general typed expression in a Query instance. The generic type parameter is a reference to the type the expression is bound to.
+ * Defines a base element for a criteria.
  */
 public interface CriteriaElement {
     /**
@@ -37,122 +31,4 @@ public interface CriteriaElement {
      * @param context context of visit
      */
     <C> void accept(CriteriaVisitor<C> v, @Nullable C context);
-
-    /**
-     * Creates a criteria element that test the examined object is equal to the specified {@code value}.
-     * For example:
-     * <pre>
-     * columnValue("age", CriteriaElement.equalTo(35))
-     * </pre>
-     *
-     * @param <T> Value type.
-     * @param value Target value.
-     */
-    static <T> CriteriaElement equalTo(T value) {
-        return Operation.create("= {0}", List.of(new Argument<>(value)));
-    }
-
-    /**
-     * Creates a criteria element that test the examined object is greater than the specified {@code value}.
-     * For example:
-     * <pre>
-     * columnValue("age", CriteriaElement.greaterThan(35))
-     * </pre>
-     *
-     * @param <T> Value type.
-     * @param value Target value.
-     */
-    static <T> CriteriaElement greaterThan(T value) {
-        return Operation.create("> {0}", List.of(new Argument<>(value)));
-    }
-
-    /**
-     * Creates a criteria element that test the examined object is greater than or equal than the specified {@code value}.
-     * For example:
-     * <pre>
-     * columnValue("age", CriteriaElement.greaterThanOrEqualTo(35))
-     * </pre>
-     *
-     * @param <T> Value type.
-     * @param value Target value.
-     */
-    static <T> CriteriaElement greaterThanOrEqualTo(T value) {
-        return Operation.create(">= {0}", List.of(new Argument<>(value)));
-    }
-
-    /**
-     * Creates a criteria element that test the examined object is less than the specified {@code value}.
-     * For example:
-     * <pre>
-     * columnValue("age", CriteriaElement.lessThan(35))
-     * </pre>
-     *
-     * @param <T> Value type.
-     * @param value Target value.
-     */
-    static <T> CriteriaElement lessThan(T value) {
-        return Operation.create("< {0}", List.of(new Argument<>(value)));
-    }
-
-    /**
-     * Creates a criteria element that test the examined object is less than or equal than the specified {@code value}.
-     * For example:
-     * <pre>
-     * columnValue("age", CriteriaElement.lessThanOrEqualTo(35))
-     * </pre>
-     *
-     * @param <T> Value type.
-     * @param value Target value.
-     */
-    static <T> CriteriaElement lessThanOrEqualTo(T value) {
-        return Operation.create("<= {0}", List.of(new Argument<>(value)));
-    }
-
-    /**
-     * Creates a criteria element that test the examined object is null.
-     * For example:
-     * <pre>
-     * columnValue("age", CriteriaElement.nullValue())
-     * </pre>
-     *
-     * @param <T> Value type.
-     */
-    static <T> CriteriaElement nullValue() {
-        return new StaticText("IS NULL");
-    }
-
-    /**
-     * Creates a criteria element that test the examined object is not null.
-     * For example:
-     * <pre>
-     * columnValue("age", CriteriaElement.notNullValue())
-     * </pre>
-     *
-     * @param <T> Value type.
-     */
-    static <T> CriteriaElement notNullValue() {
-        return new StaticText("IS NOT NULL");
-    }
-
-    /**
-     * Creates a criteria element that test the examined object is is found within the specified {@code collection}.
-     * For example:
-     * <pre>
-     * columnValue("age", CriteriaElement.in(35, 36, 37))
-     * </pre>
-     *
-     * @param <T> Value type.
-     * @param values The collection in which matching items must be found.
-     */
-    static <T> CriteriaElement in(T... values) {
-        List<CriteriaElement> args = Arrays.stream(values)
-                .map(Argument::new)
-                .collect(toList());
-
-        var template = IntStream.range(0, args.size())
-                .mapToObj(i -> String.format("{%d}", i))
-                .collect(Collectors.joining(", ", "IN (", ")"));
-
-        return Operation.create(template, args);
-    }
 }

@@ -21,6 +21,12 @@ import static org.apache.ignite.internal.util.StringUtils.nullOrBlank;
 
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+import org.apache.ignite.internal.util.CollectionUtils;
+import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.table.criteria.Criteria;
 import org.jetbrains.annotations.Nullable;
 
@@ -28,8 +34,20 @@ import org.jetbrains.annotations.Nullable;
  * Serializes {@link Criteria} into into SQL.
  */
 public class SqlSerializer implements CriteriaVisitor<Void> {
+    private static final Map<Operator, String> ELEMENT_TEMPLATES = Map.of(
+            Operator.EQ, "{0} = {1}",
+            Operator.IS_NULL, "{0} IS NULL",
+            Operator.IS_NOT_NULL, "{0} IS NOT NULL",
+            Operator.GOE, "{0} >= {1}",
+            Operator.GT, "{0} > {1}",
+            Operator.LOE, "{0} <= {1}",
+            Operator.LT, "{0} < {1}",
+            Operator.NOT, "NOT {0}"
+    );
+
     @SuppressWarnings("StringBufferField")
     private final StringBuilder builder = new StringBuilder(128);
+
     private final List<Object> arguments = new LinkedList<>();
 
     /**
@@ -51,8 +69,51 @@ public class SqlSerializer implements CriteriaVisitor<Void> {
 
     /** {@inheritDoc} */
     @Override
-    public <T> void visit(StaticText text, @Nullable Void context) {
-        append(text.getText());
+    public <T> void visit(Column column, @Nullable Void context) {
+        append(column.getName());
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public <T> void visit(Expression expression, @Nullable Void context) {
+        var operator = expression.getOperator();
+        var elements = expression.getElements();
+
+        String template;
+
+        if (operator == Operator.AND || operator == Operator.OR) {
+            var delimiter = operator == Operator.AND ? ") AND (" : ") OR (";
+
+            template = IntStream.range(0, elements.length)
+                    .mapToObj(i -> String.format("{%d}", i))
+                    .collect(Collectors.joining(delimiter, "(", ")"));
+        } else if (operator == Operator.IN || operator == Operator.NOT_IN) {
+            var prefix = operator == Operator.IN ? "{0} IN (" : "{0} NOT (";
+
+            template = IntStream.range(1, elements.length)
+                    .mapToObj(i -> String.format("{%d}", i))
+                    .collect(Collectors.joining(", ", prefix, ")"));
+        } else {
+            template = ELEMENT_TEMPLATES.get(operator);
+        }
+
+        int end = 0;
+        var matcher = Pattern.compile("\\{(\\d+)\\}").matcher(template);
+
+        while (matcher.find()) {
+            if (matcher.start() > end) {
+                append(template.substring(end, matcher.start()));
+            }
+
+            int index = Integer.parseInt(matcher.group(1));
+            elements[index].accept(this, context);
+
+            end = matcher.end();
+        }
+
+        if (end < template.length()) {
+            append(template.substring(end));
+        }
     }
 
     /** {@inheritDoc} */
@@ -75,6 +136,9 @@ public class SqlSerializer implements CriteriaVisitor<Void> {
         private String tableName;
 
         @Nullable
+        private Map<String, ColumnType> columns;
+
+        @Nullable
         private Criteria where;
 
         /**
@@ -85,6 +149,18 @@ public class SqlSerializer implements CriteriaVisitor<Void> {
          */
         public SqlSerializer.Builder tableName(String tableName) {
             this.tableName = tableName;
+
+            return this;
+        }
+
+        /**
+         * Sets the columns to validate input.
+         *
+         * @param columns Columns with types.
+         * @return This builder instance.
+         */
+        public SqlSerializer.Builder columns(Map<String, ColumnType> columns) {
+            this.columns = columns;
 
             return this;
         }
@@ -111,12 +187,21 @@ public class SqlSerializer implements CriteriaVisitor<Void> {
             }
 
             var ser = new SqlSerializer()
-                    .append("SELECT * FROM ").append(tableName).append(" ");
+                    .append("SELECT * ")
+                    .append("FROM ").append(tableName);
 
-            if (where instanceof Operation) {
-                ser.append("WHERE ");
+            // In order to prevent moving of implementation to the ignite-api module.
+            if (where instanceof Expression) {
+                if (CollectionUtils.nullOrEmpty(columns)) {
+                    throw new IllegalArgumentException("The columns of the table must be specified to prevent SQL injection");
+                }
 
-                ((Operation) where).accept(ser, null);
+                var expression = (Expression) where;
+
+                expression.accept(ColumnValidator.INSTANCE, columns);
+
+                ser.append(" WHERE ");
+                expression.accept(ser, null);
             }
 
             return ser;

@@ -17,37 +17,37 @@
 
 package org.apache.ignite.internal.table.criteria;
 
+import java.util.Map;
+import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * {@code Argument} represents a general constant expression.
- *
- * @param <T> Argument type.
+ * Column validator.
  */
-public class Argument<T> implements CriteriaElement {
-    private final T value;
+class ColumnValidator implements CriteriaVisitor<Map<String, ColumnType>> {
+    static final ColumnValidator INSTANCE = new ColumnValidator();
 
-    /**
-     * Constructor.
-     *
-     * @param argument Argument value.
-     */
-    Argument(T argument) {
-        this.value = argument;
-    }
-
-    /**
-     * Gets argument value.
-     *
-     * @return A value.
-     */
-    T getValue() {
-        return value;
+    /** {@inheritDoc} */
+    @Override
+    public <T> void visit(Argument<T> argument, @Nullable Map<String, ColumnType> context) {
+        // No-op.
     }
 
     /** {@inheritDoc} */
     @Override
-    public <C> void accept(CriteriaVisitor<C> v, @Nullable C context) {
-        v.visit(this, context);
+    public <T> void visit(Column column, @Nullable Map<String, ColumnType> context) {
+        var colName = column.getName();
+
+        if (context != null && !context.containsKey(colName)) {
+            throw new IllegalArgumentException("Unexpected column name: " + colName);
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public <T> void visit(Expression expression, @Nullable Map<String, ColumnType> context) {
+        for (var element : expression.getElements()) {
+            element.accept(this, context);
+        }
     }
 }

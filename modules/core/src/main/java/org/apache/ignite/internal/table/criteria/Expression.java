@@ -17,35 +17,48 @@
 
 package org.apache.ignite.internal.table.criteria;
 
+import org.apache.ignite.table.criteria.Criteria;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * {@code Visitor} defines a visitor signature for {@link Matcher} instances.
- *
- * @param <C> Context type.
+ * {@code Expression} defines a general expression for a criteria query.
  */
-public interface CriteriaVisitor<C> {
-    /**
-     * Visit a {@link Argument} instance with the given context.
-     *
-     * @param argument Argument to visit
-     * @param context context of the visit or null, if not used
-     */
-    <T> void visit(Argument<T> argument, @Nullable C context);
+public class Expression implements Criteria, CriteriaElement {
+    private final Operator operator;
+    private final CriteriaElement[] elements;
 
     /**
-     * Visit a {@link Column} instance with the given context.
+     * Constructor.
      *
-     * @param column Column to visit
-     * @param context context of the visit or null, if not used
+     * @param operator Operator.
+     * @param elements Expression elements.
      */
-    <T> void visit(Column column, @Nullable C context);
+    Expression(Operator operator, CriteriaElement... elements) {
+        this.operator = operator;
+        this.elements = elements;
+    }
 
     /**
-     * Visit a {@link Expression} instance with the given context.
+     * Get a operator.
      *
-     * @param expression Expression to visit
-     * @param context context of the visit or null, if not used
+     * @return A operator.
      */
-    <T> void visit(Expression expression, @Nullable C context);
+    public Operator getOperator() {
+        return operator;
+    }
+
+    /**
+     * Get a condition elements.
+     *
+     * @return A condition elements.
+     */
+    public CriteriaElement[] getElements() {
+        return elements;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public <C> void accept(CriteriaVisitor<C> v, @Nullable C context) {
+        v.visit(this, context);
+    }
 }

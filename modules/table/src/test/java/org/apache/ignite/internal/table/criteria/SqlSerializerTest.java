@@ -17,14 +17,20 @@
 
 package org.apache.ignite.internal.table.criteria;
 
-import static org.apache.ignite.internal.table.criteria.CriteriaElement.equalTo;
-import static org.apache.ignite.internal.table.criteria.CriteriaElement.in;
 import static org.apache.ignite.internal.table.criteria.Criterias.and;
 import static org.apache.ignite.internal.table.criteria.Criterias.columnValue;
+import static org.apache.ignite.internal.table.criteria.Criterias.equalTo;
+import static org.apache.ignite.internal.table.criteria.Criterias.in;
 import static org.apache.ignite.internal.table.criteria.Criterias.not;
+import static org.apache.ignite.internal.table.criteria.Criterias.nullValue;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import java.util.Map;
+import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -35,10 +41,11 @@ class SqlSerializerTest {
     void testEquals() {
         var ser = new SqlSerializer.Builder()
                 .tableName("test")
+                .columns(Map.of("A", ColumnType.STRING))
                 .where(columnValue("a", equalTo("a")))
                 .build();
 
-        assertEquals("SELECT * FROM test WHERE a = ?", ser.toString());
+        assertEquals("SELECT * FROM test WHERE A = ?", ser.toString());
         assertArrayEquals(new Object[] {"a"}, ser.getArguments());
     }
 
@@ -46,10 +53,11 @@ class SqlSerializerTest {
     void testNonEquals() {
         var ser = new SqlSerializer.Builder()
                 .tableName("test")
+                .columns(Map.of("A", ColumnType.STRING))
                 .where(not(columnValue("a", equalTo("a"))))
                 .build();
 
-        assertEquals("SELECT * FROM test WHERE not a = ?", ser.toString());
+        assertEquals("SELECT * FROM test WHERE NOT A = ?", ser.toString());
         assertArrayEquals(new Object[] {"a"}, ser.getArguments());
     }
 
@@ -57,10 +65,11 @@ class SqlSerializerTest {
     void testIn() {
         var ser = new SqlSerializer.Builder()
                 .tableName("test")
+                .columns(Map.of("A", ColumnType.STRING))
                 .where(not(columnValue("a", in("a", "b", "c"))))
                 .build();
 
-        assertEquals("SELECT * FROM test WHERE not a IN (?, ?, ?)", ser.toString());
+        assertEquals("SELECT * FROM test WHERE NOT A IN (?, ?, ?)", ser.toString());
         assertArrayEquals(new Object[] {"a", "b", "c"}, ser.getArguments());
     }
 
@@ -68,10 +77,35 @@ class SqlSerializerTest {
     void testAnd() {
         var ser = new SqlSerializer.Builder()
                 .tableName("test")
-                .where(and(columnValue("a", equalTo("a")), not(columnValue("b", in("a", "b", "c")))))
+                .columns(Map.of("A", ColumnType.STRING, "B", ColumnType.STRING))
+                .where(and(columnValue("a", nullValue()), not(columnValue("b", in("a", "b", "c")))))
                 .build();
 
-        assertEquals("SELECT * FROM test WHERE (a = ?) AND (not b IN (?, ?, ?))", ser.toString());
-        assertArrayEquals(new Object[] {"a", "a", "b", "c"}, ser.getArguments());
+        assertEquals("SELECT * FROM test WHERE (A IS NULL) AND (NOT B IN (?, ?, ?))", ser.toString());
+        assertArrayEquals(new Object[] {"a", "b", "c"}, ser.getArguments());
+    }
+
+    @Test
+    void testSqlInjection() {
+        IllegalArgumentException iae = assertThrows(
+                IllegalArgumentException.class,
+                () -> new SqlSerializer.Builder()
+                        .tableName("test")
+                        .where(columnValue("a", equalTo("a")))
+                        .build()
+        );
+
+        assertThat(iae.getMessage(), containsString("The columns of the table must be specified to prevent SQL injection"));
+
+        iae = assertThrows(
+                IllegalArgumentException.class,
+                () -> new SqlSerializer.Builder()
+                        .tableName("test")
+                        .columns(Map.of("B", ColumnType.STRING))
+                        .where(columnValue("a", equalTo("a")))
+                        .build()
+        );
+
+        assertThat(iae.getMessage(), containsString("Unexpected column name: A"));
     }
 }
