@@ -243,9 +243,16 @@ public class MessageImplGenerator {
         MethodSpec cloneMethod = MethodSpec.methodBuilder("clone")
                 .addAnnotation(Override.class)
                 .addModifiers(Modifier.PUBLIC)
-                .returns(Object.class)
-                .addException(CloneNotSupportedException.class)
-                .addStatement("return super.clone()")
+                .returns(messageImplClassName)
+                .addCode(CodeBlock.builder()
+                        .beginControlFlow("try")
+                        .addStatement("return ($T) super.clone()", messageImplClassName)
+                        .endControlFlow()
+                        .beginControlFlow("catch (CloneNotSupportedException e)")
+                        .addStatement("// Never expected to be thrown because whole message class hierarchy implements clone()")
+                        .addStatement("throw new AssertionError(e)")
+                        .endControlFlow()
+                        .build())
                 .build();
 
         messageImpl.addMethod(cloneMethod);

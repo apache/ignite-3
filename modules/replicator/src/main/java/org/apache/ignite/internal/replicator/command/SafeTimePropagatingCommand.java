@@ -26,7 +26,7 @@ import org.apache.ignite.network.annotations.WithSetter;
 /**
  * Common interface for commands carrying safe time.
  */
-public interface SafeTimePropagatingCommand extends WriteCommand, Cloneable {
+public interface SafeTimePropagatingCommand extends WriteCommand {
     /**
      * Returns safe time.
      */
@@ -45,12 +45,5 @@ public interface SafeTimePropagatingCommand extends WriteCommand, Cloneable {
      */
     default HybridTimestamp safeTime() {
         return hybridTimestamp(safeTimeLong());
-    }
-
-    /**
-     * Public clone version that is implemented in generated *Impl class.
-     */
-    default Object clone() throws CloneNotSupportedException {
-        throw new CloneNotSupportedException();
     }
 }

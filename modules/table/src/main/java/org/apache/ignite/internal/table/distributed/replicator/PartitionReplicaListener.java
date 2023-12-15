@@ -2488,13 +2488,9 @@ public class PartitionReplicaListener implements ReplicaListener {
                         }
                     }
 
-                    SafeTimePropagatingCommand clonedSafeTimePropagatingCommand;
-                    try {
-                        clonedSafeTimePropagatingCommand = (SafeTimePropagatingCommand) safeTimePropagatingCommand.clone();
-                        clonedSafeTimePropagatingCommand.safeTimeLong(safeTimeForRetry.longValue());
-                    } catch (CloneNotSupportedException e) {
-                        throw new IllegalStateException(e);
-                    }
+                    SafeTimePropagatingCommand clonedSafeTimePropagatingCommand =
+                            (SafeTimePropagatingCommand) safeTimePropagatingCommand.clone();
+                    clonedSafeTimePropagatingCommand.safeTimeLong(safeTimeForRetry.longValue());
 
                     applyCmdWithRetryOnSafeTimeReorderException(clonedSafeTimePropagatingCommand, resultFuture);
                 } else {
