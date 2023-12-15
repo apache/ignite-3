@@ -20,6 +20,7 @@ package org.apache.ignite.internal.cli.commands.cluster.init;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
 import org.apache.ignite.internal.cli.commands.CliCommandTestNotInitializedIntegrationBase;
+import org.apache.ignite.internal.cli.commands.cliconfig.TestConfigManagerHelper;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -37,9 +38,7 @@ public class ItClusterInitTest extends CliCommandTestNotInitializedIntegrationBa
 
         resetOutput();
 
-        String clusterConfigurationFile = ItClusterInitTest.class.getClassLoader()
-                .getResource("cluster-configuration-with-enabled-auth.conf")
-                .getPath();
+        String clusterConfigurationFile = TestConfigManagerHelper.readClusterConfigurationWithEnabledAuth();
 
         execute(
                 "cluster", "init",
