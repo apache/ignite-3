@@ -47,5 +47,10 @@ public interface SafeTimePropagatingCommand extends WriteCommand, Cloneable {
         return hybridTimestamp(safeTimeLong());
     }
 
-    Object clone() throws CloneNotSupportedException;
+    /**
+     * Public clone version that is implemented in generated *Impl class.
+     */
+    default Object clone() throws CloneNotSupportedException {
+        throw new CloneNotSupportedException();
+    }
 }
