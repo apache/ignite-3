@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.sql.engine.property.SqlPropertiesHelper.emptyProperties;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
@@ -29,6 +30,8 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
@@ -57,7 +60,12 @@ public abstract class BaseSqlMultiStatementTest extends BaseSqlIntegrationTest {
 
     /** Fully executes multi-statements query without reading cursor data. */
     void executeScript(String query, Object ... params) {
-        fetchCursors(runScript(query, null, params), -1, true);
+        executeScript(query, null, params);
+    }
+
+    /** Fully executes multi-statements query without reading cursor data. */
+    void executeScript(String query, @Nullable InternalTransaction tx, Object ... params) {
+        iterateThroughResultsAndCloseThem(runScript(query, tx, params));
     }
 
     /** Initiates multi-statements query execution. */
@@ -99,6 +107,24 @@ public abstract class BaseSqlMultiStatementTest extends BaseSqlIntegrationTest {
         }
 
         return cursors;
+    }
+
+    private static void iterateThroughResultsAndCloseThem(AsyncSqlCursor<InternalSqlRow> cursor) {
+        Function<AsyncSqlCursor<InternalSqlRow>, CompletableFuture<AsyncSqlCursor<InternalSqlRow>>> traverser = new Function<>() {
+            @Override
+            public CompletableFuture<AsyncSqlCursor<InternalSqlRow>> apply(AsyncSqlCursor<InternalSqlRow> cur) {
+                return cur.closeAsync()
+                        .thenCompose(none -> {
+                            if (cur.hasNextResult()) {
+                                return cur.nextResult().thenCompose(this);
+                            } else {
+                                return completedFuture(cur);
+                            }
+                        });
+            }
+        };
+
+        await(completedFuture(cursor).thenCompose(traverser));
     }
 
     static void validateSingleResult(AsyncSqlCursor<InternalSqlRow> cursor, Object... expected) {

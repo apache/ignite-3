@@ -230,22 +230,18 @@ public class ItSqlMultiStatementTxTest extends BaseSqlMultiStatementTest {
 
     @Test
     void openedScriptTransactionRollsBackOnError() {
-        {
-            AsyncSqlCursor<InternalSqlRow> cursor = runScript(
-                    "START TRANSACTION READ WRITE;"
-                    + "INSERT INTO test VALUES(2);"
-                    + "INSERT INTO test VALUES(2/0);"
-                    + "SELECT 1;"
-                    + "COMMIT;"
-            );
+        String script = "START TRANSACTION READ WRITE;"
+                + "INSERT INTO test VALUES(2);"
+                + "INSERT INTO test VALUES(2/0);"
+                + "SELECT 1;"
+                + "COMMIT;";
 
-            assertThrowsSqlException(RUNTIME_ERR, "Division by zero", () -> fetchAllCursors(cursor));
+        assertThrowsSqlException(RUNTIME_ERR, "Division by zero", () -> executeScript(script));
 
-            verifyFinishedTxCount(1);
+        verifyFinishedTxCount(1);
 
-            assertQuery("select count(id) from test")
-                    .returns(0L).check();
-        }
+        assertQuery("select count(id) from test")
+                .returns(0L).check();
     }
 
     @Test

@@ -158,5 +158,10 @@ public class ScriptTransactionContext {
         public CompletableFuture<Void> rollback(Throwable cause) {
             return nullCompletedFuture();
         }
+
+        @Override
+        public boolean implicit() {
+            return true;
+        }
     }
 }
