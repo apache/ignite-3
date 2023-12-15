@@ -22,8 +22,6 @@ import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Executor;
-import java.util.concurrent.ForkJoinPool;
 import org.apache.ignite.client.ClientOperationType;
 import org.apache.ignite.client.IgniteClientConfiguration;
 import org.apache.ignite.internal.client.proto.ClientOp;
@@ -256,19 +254,5 @@ public class ClientUtils {
         return loggerFactory == null
                 ? Loggers.voidLogger()
                 : Loggers.forClass(cls, loggerFactory);
-    }
-
-    /**
-     * Gets the executor for async continuations from the configuration, or a default one if none is specified.
-     *
-     * @param cfg Config.
-     * @return Non-null executor.
-     */
-    public static Executor asyncContinuationExecutor(IgniteClientConfiguration cfg) {
-        Executor configuredExecutor = cfg.asyncContinuationExecutor();
-
-        return configuredExecutor == null
-                ? ForkJoinPool.commonPool()
-                : configuredExecutor;
     }
 }

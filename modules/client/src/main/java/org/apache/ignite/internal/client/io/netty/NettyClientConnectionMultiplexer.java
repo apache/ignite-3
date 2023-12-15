@@ -29,7 +29,6 @@ import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.handler.ssl.ClientAuth;
 import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslContextBuilder;
-import io.netty.util.concurrent.DefaultEventExecutor;
 import java.io.File;
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -46,7 +45,6 @@ import org.apache.ignite.client.IgniteClientConfiguration;
 import org.apache.ignite.client.IgniteClientConnectionException;
 import org.apache.ignite.client.SslConfiguration;
 import org.apache.ignite.internal.client.ClientMetricSource;
-import org.apache.ignite.internal.client.ClientUtils;
 import org.apache.ignite.internal.client.io.ClientConnection;
 import org.apache.ignite.internal.client.io.ClientConnectionMultiplexer;
 import org.apache.ignite.internal.client.io.ClientConnectionStateHandler;
@@ -86,11 +84,9 @@ public class NettyClientConnectionMultiplexer implements ClientConnectionMultipl
                 @Override
                 public void initChannel(SocketChannel ch) {
                     setupSsl(ch, clientCfg);
-                    ch.pipeline().addLast(new ClientMessageDecoder());
-
-                    // Handle events with asyncContinuationExecutor to avoid blocking the Netty worker thread.
                     ch.pipeline().addLast(
-                            new DefaultEventExecutor(ClientUtils.asyncContinuationExecutor(clientCfg)), new NettyClientMessageHandler());
+                            new ClientMessageDecoder(),
+                            new NettyClientMessageHandler());
                 }
             });
 
