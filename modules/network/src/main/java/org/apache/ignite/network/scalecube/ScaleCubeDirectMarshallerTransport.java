@@ -32,6 +32,7 @@ import org.apache.ignite.internal.network.NetworkMessagesFactory;
 import org.apache.ignite.internal.network.message.ScaleCubeMessage;
 import org.apache.ignite.internal.network.message.ScaleCubeMessageBuilder;
 import org.apache.ignite.internal.network.netty.ConnectionManager;
+import org.apache.ignite.network.ChannelType;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterNodeImpl;
 import org.apache.ignite.network.MessagingService;
@@ -52,6 +53,8 @@ import reactor.core.publisher.MonoProcessor;
 class ScaleCubeDirectMarshallerTransport implements Transport {
     /** Logger. */
     private static final IgniteLogger LOG = Loggers.forClass(Transport.class);
+
+    private static final ChannelType SYSTEM_CHANNEL_TYPE = ChannelType.register((short) 3, "System");
 
     /** Message subject. */
     private final DirectProcessor<Message> subject = DirectProcessor.create();
@@ -176,7 +179,7 @@ class ScaleCubeDirectMarshallerTransport implements Transport {
                 node = new ClusterNodeImpl(null, null, addr);
             }
 
-            return messagingService.send(node, fromMessage(message));
+            return messagingService.send(node, SYSTEM_CHANNEL_TYPE, fromMessage(message));
         });
     }
 

@@ -166,7 +166,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
             );
         }
 
-        return respond(recipient, msg, correlationId);
+        return respond(recipient, type, msg, correlationId);
     }
 
     @Override
