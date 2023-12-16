@@ -104,39 +104,39 @@ public class DefaultMessagingService extends AbstractMessagingService {
 
     private static final ConcurrentMap<String, Long> sendNanoTimes = new ConcurrentHashMap<>();
 
-    private final ConcurrentMap<String, AtomicLong> lastReceiveStarts = new ConcurrentHashMap<>();
-    private final ConcurrentMap<String, AtomicLong> lastSendStarts = new ConcurrentHashMap<>();
-    private final ConcurrentMap<String, AtomicLong> lastSendEnds = new ConcurrentHashMap<>();
+    private final ConcurrentMap<ConsistentIdAndChannelId, AtomicLong> lastReceiveStarts = new ConcurrentHashMap<>();
+    private final ConcurrentMap<ConsistentIdAndChannelId, AtomicLong> lastSendStarts = new ConcurrentHashMap<>();
+    private final ConcurrentMap<ConsistentIdAndChannelId, AtomicLong> lastSendEnds = new ConcurrentHashMap<>();
 
     private final ConcurrentMap<ChannelKeyAndClass, AtomicInteger> sentClasses = new ConcurrentHashMap<>();
 
-    private AtomicInteger sent(String fromConsistentId, String toConsistentId) {
-        return sent.computeIfAbsent(new ChannelKey(fromConsistentId, toConsistentId), key -> new AtomicInteger());
+    private AtomicInteger sent(String fromConsistentId, String toConsistentId, short channelId) {
+        return sent.computeIfAbsent(new ChannelKey(fromConsistentId, toConsistentId, channelId), key -> new AtomicInteger());
     }
 
-    private AtomicInteger received(String fromConsistentId, String toConsistentId) {
-        return received.computeIfAbsent(new ChannelKey(fromConsistentId, toConsistentId), key -> new AtomicInteger());
+    private AtomicInteger received(String fromConsistentId, String toConsistentId, short channelId) {
+        return received.computeIfAbsent(new ChannelKey(fromConsistentId, toConsistentId, channelId), key -> new AtomicInteger());
     }
 
-    private AtomicInteger inFlight(String fromConsistentId, String toConsistentId) {
-        return inFlight.computeIfAbsent(new ChannelKey(fromConsistentId, toConsistentId), key -> new AtomicInteger());
+    private AtomicInteger inFlight(String fromConsistentId, String toConsistentId, short channelId) {
+        return inFlight.computeIfAbsent(new ChannelKey(fromConsistentId, toConsistentId, channelId), key -> new AtomicInteger());
     }
 
-    private AtomicLong lastReceiveStart(String consistentId) {
-        return lastReceiveStarts.computeIfAbsent(consistentId, k -> new AtomicLong(-1));
+    private AtomicLong lastReceiveStart(String consistentId, short channelId) {
+        return lastReceiveStarts.computeIfAbsent(new ConsistentIdAndChannelId(consistentId, channelId), k -> new AtomicLong(-1));
     }
 
-    private AtomicLong lastSendStart(String consistentId) {
-        return lastSendStarts.computeIfAbsent(consistentId, k -> new AtomicLong(-1));
+    private AtomicLong lastSendStart(String consistentId, short channelId) {
+        return lastSendStarts.computeIfAbsent(new ConsistentIdAndChannelId(consistentId, channelId), k -> new AtomicLong(-1));
     }
 
-    private AtomicLong lastSendEnd(String consistentId) {
-        return lastSendEnds.computeIfAbsent(consistentId, k -> new AtomicLong(-1));
+    private AtomicLong lastSendEnd(String consistentId, short channelId) {
+        return lastSendEnds.computeIfAbsent(new ConsistentIdAndChannelId(consistentId, channelId), k -> new AtomicLong(-1));
     }
 
-    private AtomicInteger sentClass(String fromConsistentId, String toConsistentId, Class<?> messageClass) {
+    private AtomicInteger sentClass(String fromConsistentId, String toConsistentId, short channelId, Class<?> messageClass) {
         return sentClasses.computeIfAbsent(
-                new ChannelKeyAndClass(new ChannelKey(fromConsistentId, toConsistentId), messageClass),
+                new ChannelKeyAndClass(new ChannelKey(fromConsistentId, toConsistentId, channelId), messageClass),
                 key -> new AtomicInteger()
         );
     }
@@ -261,7 +261,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
             if (correlationId != null) {
                 onInvokeResponse(msg, correlationId);
             } else {
-                sendToSelf(msg, null);
+                sendToSelf(msg, type, null);
             }
 
             return nullCompletedFuture();
@@ -306,7 +306,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
         InetSocketAddress recipientAddress = new InetSocketAddress(recipient.address().host(), recipient.address().port());
 
         if (isSelf(recipient.name(), recipientAddress)) {
-            sendToSelf(msg, correlationId);
+            sendToSelf(msg, type, correlationId);
 
             return responseFuture;
         }
@@ -344,15 +344,15 @@ public class DefaultMessagingService extends AbstractMessagingService {
         ClusterNode localMember = topologyService.localMember();
         String localMemberName = localMember == null ? null : localMember.name();
 
-        sent(localMemberName, consistentId).incrementAndGet();
-        inFlight(localMemberName, consistentId).incrementAndGet();
-        sentClass(localMemberName, consistentId, message.getClass()).incrementAndGet();
+        sent(localMemberName, consistentId, type.id()).incrementAndGet();
+        inFlight(localMemberName, consistentId, type.id()).incrementAndGet();
+        sentClass(localMemberName, consistentId, type.id(), message.getClass()).incrementAndGet();
         //sentMessages.put(message.messageId(), message);
         long beforeSendingNanos = System.nanoTime();
         sendNanoTimes.put(message.messageId(), beforeSendingNanos);
 
         long beforeSentNanos = System.nanoTime();
-        long lastSendStartNanos = lastSendStart(localMemberName).getAndSet(beforeSentNanos);
+        long lastSendStartNanos = lastSendStart(localMemberName, type.id()).getAndSet(beforeSentNanos);
 
         if (lastSendStartNanos > 0) {
             long nanosSinceLastSendStart = beforeSentNanos - lastSendStartNanos;
@@ -394,7 +394,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
                     ClusterNode localMember1 = topologyService.localMember();
                     if (localMember1 != null) {
                         long afterSentNanos = System.nanoTime();
-                        long lastSendEndNanos = lastSendEnd(localMember1.name()).getAndSet(afterSentNanos);
+                        long lastSendEndNanos = lastSendEnd(localMember1.name(), type.id()).getAndSet(afterSentNanos);
 
                         if (lastSendEndNanos > 0) {
                             long nanosSinceLastSendEnd = afterSentNanos - lastSendEndNanos;
@@ -420,10 +420,11 @@ public class DefaultMessagingService extends AbstractMessagingService {
      * Sends a message to the current node.
      *
      * @param msg Message.
+     * @param type
      * @param correlationId Correlation id.
      */
-    private void sendToSelf(NetworkMessage msg, @Nullable Long correlationId) {
-        sentClass(topologyService.localMember().name(), topologyService.localMember().name(), msg.getClass()).incrementAndGet();
+    private void sendToSelf(NetworkMessage msg, ChannelType type, @Nullable Long correlationId) {
+        sentClass(topologyService.localMember().name(), topologyService.localMember().name(), type.id(), msg.getClass()).incrementAndGet();
 
         for (NetworkMessageHandler networkMessageHandler : getMessageHandlers(msg.groupType())) {
             networkMessageHandler.onReceived(msg, topologyService.localMember().name(), correlationId);
@@ -460,7 +461,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
         }
 
         long nowNanos = System.nanoTime();
-        long lastReceiveStartNanos = lastReceiveStart(obj.consistentId()).getAndSet(nowNanos);
+        long lastReceiveStartNanos = lastReceiveStart(obj.consistentId(), obj.connectionIndex()).getAndSet(nowNanos);
         if (lastReceiveStartNanos > 0) {
             long nanosSinceLastReceive = nowNanos - lastReceiveStartNanos;
             long millisSinceLastReceive = TimeUnit.NANOSECONDS.toMillis(nanosSinceLastReceive);
@@ -487,9 +488,9 @@ public class DefaultMessagingService extends AbstractMessagingService {
 
         ClusterNode localMember = topologyService.localMember();
         if (localMember != null) {
-            int sent = sent(obj.consistentId(), localMember.name()).get();
-            int received = received(obj.consistentId(), localMember.name()).incrementAndGet();
-            int inFlight = inFlight(obj.consistentId(), localMember.name()).decrementAndGet();
+            int sent = sent(obj.consistentId(), localMember.name(), obj.connectionIndex()).get();
+            int received = received(obj.consistentId(), localMember.name(), obj.connectionIndex()).incrementAndGet();
+            int inFlight = inFlight(obj.consistentId(), localMember.name(), obj.connectionIndex()).decrementAndGet();
 
             Long sentNanoTime = sendNanoTimes.remove(msg.messageId());
             if (sentNanoTime != null) {
@@ -710,10 +711,12 @@ public class DefaultMessagingService extends AbstractMessagingService {
     private static class ChannelKey {
         private final String fromConsistentId;
         private final String toConsistentId;
+        private final short channelId;
 
-        private ChannelKey(String fromConsistentId, String toConsistentId) {
+        private ChannelKey(String fromConsistentId, String toConsistentId, short channelId) {
             this.fromConsistentId = fromConsistentId;
             this.toConsistentId = toConsistentId;
+            this.channelId = channelId;
         }
 
         @Override
@@ -727,6 +730,9 @@ public class DefaultMessagingService extends AbstractMessagingService {
 
             ChannelKey that = (ChannelKey) o;
 
+            if (channelId != that.channelId) {
+                return false;
+            }
             if (fromConsistentId != null ? !fromConsistentId.equals(that.fromConsistentId) : that.fromConsistentId != null) {
                 return false;
             }
@@ -737,6 +743,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
         public int hashCode() {
             int result = fromConsistentId != null ? fromConsistentId.hashCode() : 0;
             result = 31 * result + (toConsistentId != null ? toConsistentId.hashCode() : 0);
+            result = 31 * result + channelId;
             return result;
         }
     }
@@ -771,6 +778,40 @@ public class DefaultMessagingService extends AbstractMessagingService {
         public int hashCode() {
             int result = channelKey != null ? channelKey.hashCode() : 0;
             result = 31 * result + (messageClass != null ? messageClass.hashCode() : 0);
+            return result;
+        }
+    }
+
+    private static class ConsistentIdAndChannelId {
+        private final String consistentId;
+        private final short channelId;
+
+        private ConsistentIdAndChannelId(String consistentId, short channelId) {
+            this.consistentId = consistentId;
+            this.channelId = channelId;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+
+            ConsistentIdAndChannelId that = (ConsistentIdAndChannelId) o;
+
+            if (channelId != that.channelId) {
+                return false;
+            }
+            return consistentId != null ? consistentId.equals(that.consistentId) : that.consistentId == null;
+        }
+
+        @Override
+        public int hashCode() {
+            int result = consistentId != null ? consistentId.hashCode() : 0;
+            result = 31 * result + channelId;
             return result;
         }
     }
