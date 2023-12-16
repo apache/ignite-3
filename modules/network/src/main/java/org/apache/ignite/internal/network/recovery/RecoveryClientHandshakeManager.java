@@ -387,7 +387,7 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
      * @return New message handler.
      */
     private MessageHandler createMessageHandler() {
-        return handler.createMessageHandler(remoteConsistentId);
+        return handler.createMessageHandler(remoteConsistentId, connectionId);
     }
 
     /**
