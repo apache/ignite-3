@@ -402,11 +402,13 @@ public class ClientRecordView<R> implements RecordView<R> {
                 .thenApply(resultSet -> new QueryCriteriaAsyncResultSet<>(resultSet, session::close));
     }
 
+    /** {@inheritDoc} */
     @Override
     public ClosableCursor<R> queryCriteria(@Nullable Transaction tx, @Nullable Criteria criteria, CriteriaQueryOptions opts) {
         return new SyncResultSetAdapter<>(executeAsync(tx, criteria, opts).join());
     }
 
+    /** {@inheritDoc} */
     @Override
     public CompletableFuture<AsyncClosableCursor<R>> queryCriteriaAsync(
             @Nullable Transaction tx,

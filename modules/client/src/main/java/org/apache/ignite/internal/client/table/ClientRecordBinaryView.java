@@ -406,11 +406,13 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
                 .thenApply(resultSet -> new QueryCriteriaAsyncResultSet<>(resultSet, session::close));
     }
 
+    /** {@inheritDoc} */
     @Override
     public ClosableCursor<Tuple> queryCriteria(@Nullable Transaction tx, @Nullable Criteria criteria, CriteriaQueryOptions opts) {
         return new SyncResultSetAdapter<>(executeAsync(tx, criteria, opts).join());
     }
 
+    /** {@inheritDoc} */
     @Override
     public CompletableFuture<AsyncClosableCursor<Tuple>> queryCriteriaAsync(
             @Nullable Transaction tx,

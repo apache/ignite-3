@@ -19,8 +19,9 @@ package org.apache.ignite.sql.async;
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.sql.ClosableCursor;
+import org.apache.ignite.sql.CursorClosedException;
 import org.apache.ignite.sql.NoRowSetExpectedException;
-import org.apache.ignite.table.KeyValueView;
+import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.criteria.Criteria;
 import org.apache.ignite.table.criteria.CriteriaQueryOptions;
@@ -32,7 +33,6 @@ import org.apache.ignite.tx.Transaction;
  * @param <T> The type of elements returned by this iterator.
  *
  * @see ClosableCursor
- * @see KeyValueView#queryCriteriaAsync(Transaction, Criteria, CriteriaQueryOptions)
  * @see RecordView#queryCriteriaAsync(Transaction, Criteria, CriteriaQueryOptions)
  */
 public interface AsyncClosableCursor<T> {
@@ -61,6 +61,8 @@ public interface AsyncClosableCursor<T> {
      * @return A future which will be completed when next page will be fetched and set as the current page.
      *     The future will return {@code this} for chaining.
      * @throws NoRowSetExpectedException if no row set is expected as a query result.
+     * @throws CursorClosedException if cursor is closed.
+     * @throws SqlException if there are no more pages.
      */
     CompletableFuture<? extends AsyncClosableCursor<T>> fetchNextPage();
 

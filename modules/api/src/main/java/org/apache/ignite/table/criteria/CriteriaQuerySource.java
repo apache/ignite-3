@@ -35,6 +35,7 @@ public interface CriteriaQuerySource<T> {
      *
      * @param tx Transaction to run a given query. Can be {@code null} to run within implicit transaction.
      * @param criteria If {@code null} then all entries will be returned.
+     * @return Criteria query results.
      * @throws SqlException If failed.
      */
     default ClosableCursor<T> queryCriteria(@Nullable Transaction tx, @Nullable Criteria criteria) {
@@ -47,6 +48,7 @@ public interface CriteriaQuerySource<T> {
      * @param tx Transaction to run a given query. Can be {@code null} to run within implicit transaction.
      * @param criteria If {@code null} then all entries will be returned.
      * @param opts Criteria query options.
+     * @return Criteria query results.
      * @throws SqlException If failed.
      */
     ClosableCursor<T> queryCriteria(@Nullable Transaction tx, @Nullable Criteria criteria, CriteriaQueryOptions opts);
