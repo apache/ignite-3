@@ -62,7 +62,6 @@ import org.apache.calcite.sql.SqlNodeList;
 import org.apache.calcite.sql.SqlUnknownLiteral;
 import org.apache.calcite.sql.ddl.SqlColumnDeclaration;
 import org.apache.calcite.sql.ddl.SqlDdlNodes;
-import org.apache.calcite.sql.ddl.SqlDropTable;
 import org.apache.calcite.sql.ddl.SqlKeyConstraint;
 import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.sql.type.SqlTypeName;
@@ -84,6 +83,7 @@ import org.apache.ignite.internal.sql.engine.sql.IgniteSqlCreateTable;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlCreateTableOption;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlCreateZone;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlDropIndex;
+import org.apache.ignite.internal.sql.engine.sql.IgniteSqlDropTable;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlDropZone;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlIndexType;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlZoneOption;
@@ -200,8 +200,8 @@ public class DdlSqlToCommandConverter {
             return convertCreateTable((IgniteSqlCreateTable) ddlNode, ctx);
         }
 
-        if (ddlNode instanceof SqlDropTable) {
-            return convertDropTable((SqlDropTable) ddlNode, ctx);
+        if (ddlNode instanceof IgniteSqlDropTable) {
+            return convertDropTable((IgniteSqlDropTable) ddlNode, ctx);
         }
 
         if (ddlNode instanceof IgniteSqlAlterTableAddColumn) {
@@ -479,11 +479,11 @@ public class DdlSqlToCommandConverter {
      * @param dropTblNode Root node of the given AST.
      * @param ctx Planning context.
      */
-    private DropTableCommand convertDropTable(SqlDropTable dropTblNode, PlanningContext ctx) {
+    private DropTableCommand convertDropTable(IgniteSqlDropTable dropTblNode, PlanningContext ctx) {
         DropTableCommand dropTblCmd = new DropTableCommand();
 
-        dropTblCmd.schemaName(deriveSchemaName(dropTblNode.name, ctx));
-        dropTblCmd.tableName(deriveObjectName(dropTblNode.name, ctx, "tableName"));
+        dropTblCmd.schemaName(deriveSchemaName(dropTblNode.name(), ctx));
+        dropTblCmd.tableName(deriveObjectName(dropTblNode.name(), ctx, "tableName"));
         dropTblCmd.ifTableExists(dropTblNode.ifExists);
 
         return dropTblCmd;

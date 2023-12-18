@@ -21,11 +21,12 @@ import static org.apache.ignite.internal.table.distributed.TableMessageGroup.GRO
 
 import org.apache.ignite.internal.table.distributed.command.BuildIndexCommand;
 import org.apache.ignite.internal.table.distributed.command.FinishTxCommand;
+import org.apache.ignite.internal.table.distributed.command.MarkLocksReleasedCommand;
 import org.apache.ignite.internal.table.distributed.command.TablePartitionIdMessage;
 import org.apache.ignite.internal.table.distributed.command.TimedBinaryRowMessage;
-import org.apache.ignite.internal.table.distributed.command.TxCleanupCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateAllCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateCommand;
+import org.apache.ignite.internal.table.distributed.command.WriteIntentSwitchCommand;
 import org.apache.ignite.internal.table.distributed.message.HasDataRequest;
 import org.apache.ignite.internal.table.distributed.message.HasDataResponse;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotMetaRequest;
@@ -192,8 +193,8 @@ public interface TableMessageGroup {
         /** Message type for {@link FinishTxCommand}. */
         short FINISH_TX = 40;
 
-        /** Message type for {@link TxCleanupCommand}. */
-        short TX_CLEANUP = 41;
+        /** Message type for {@link WriteIntentSwitchCommand}. */
+        short WRITE_INTENT_SWITCH = 41;
 
         /** Message type for {@link UpdateAllCommand}. */
         short UPDATE_ALL = 42;
@@ -206,5 +207,8 @@ public interface TableMessageGroup {
 
         /** Message type for {@link TablePartitionIdMessage}. */
         short TABLE_PARTITION_ID = 61;
+
+        /** Message type for {@link MarkLocksReleasedCommand}. */
+        short MARK_LOCKS_RELEASED = 62;
     }
 }

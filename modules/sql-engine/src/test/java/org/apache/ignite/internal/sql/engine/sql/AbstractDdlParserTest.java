@@ -17,8 +17,12 @@
 
 package org.apache.ignite.internal.sql.engine.sql;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 import java.util.function.Predicate;
 import org.apache.calcite.sql.SqlNode;
+import org.apache.calcite.sql.SqlWriter;
+import org.apache.calcite.sql.pretty.SqlPrettyWriter;
 import org.hamcrest.CustomMatcher;
 import org.hamcrest.Matcher;
 
@@ -34,7 +38,11 @@ public abstract class AbstractDdlParserTest {
      */
     protected SqlNode parse(String stmt) {
         StatementParseResult parseResult = IgniteSqlParser.parse(stmt, StatementParseResult.MODE);
-        return parseResult.statement();
+        SqlNode statement = parseResult.statement();
+
+        SqlNode clone = statement.clone(statement.getParserPosition());
+        assertEquals(statement.toString(), clone.toString(), "clone fails");
+        return statement;
     }
 
     /**
@@ -53,5 +61,23 @@ public abstract class AbstractDdlParserTest {
                 return item != null && cls.isAssignableFrom(item.getClass()) && pred.test((T) item);
             }
         };
+    }
+
+    /**
+     * Compares the result of calling {@link SqlNode#unparse(SqlWriter, int, int)}} on the given node with the expected string.
+     * Also compares the expected string on a cloned node.
+     */
+    protected static void expectUnparsed(SqlNode node, String expectedStmt) {
+        SqlPrettyWriter w = new SqlPrettyWriter();
+        node.unparse(w, 0, 0);
+
+        assertEquals(expectedStmt, w.toString(), "Unparsed does not match");
+
+        w.reset();
+
+        // Verify that clone works correctly.
+        SqlNode cloned = node.clone(node.getParserPosition());
+        cloned.unparse(w, 0, 0);
+        assertEquals(expectedStmt, w.toString(), "Unparsed does not match for cloned node");
     }
 }

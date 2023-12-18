@@ -23,6 +23,8 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import java.util.Arrays;
 import java.util.List;
+import org.apache.calcite.sql.SqlNode;
+import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -146,6 +148,51 @@ public class IgniteSqlParserTest {
                 Sql.STMT_PARSE_ERR,
                 "Failed to parse query: Invalid decimal literal. At line 1, column 16",
                 () -> IgniteSqlParser.parse("SELECT decimal '2a'", StatementParseResult.MODE));
+    }
+
+    @ParameterizedTest
+    @MethodSource("dmlStatements")
+    public void testDmlStatementsClone(String stmt) {
+        StatementParseResult single = IgniteSqlParser.parse(stmt, StatementParseResult.MODE);
+
+        SqlNode statement = single.statement();
+        SqlParserPos pos = statement.getParserPosition();
+
+        assertEquals(statement.clone(pos).toString(), statement.toString());
+    }
+
+    @ParameterizedTest
+    @MethodSource("dmlStatements")
+    public void testScriptDmlStatementsClone(String stmt) {
+        ScriptParseResult script = IgniteSqlParser.parse(stmt, ScriptParseResult.MODE);
+
+        StatementParseResult single = script.results().get(0);
+
+        SqlNode statement = single.statement();
+        SqlParserPos pos = statement.getParserPosition();
+
+        assertEquals(statement.clone(pos).toString(), statement.toString());
+    }
+
+    private static List<Arguments> dmlStatements() {
+        return List.of(
+                Arguments.of("UPDATE t SET x = 1"),
+                Arguments.of("UPDATE t SET x = 1 WHERE y = 2"),
+
+                Arguments.of("DELETE FROM t"),
+                Arguments.of("DELETE FROM t WHERE y = 2"),
+
+                Arguments.of("MERGE INTO T2 dst USING t1 src ON dst.c1 = src.c1"
+                        + " WHEN MATCHED THEN UPDATE SET c2 = 1"),
+
+                Arguments.of("MERGE INTO T2 dst USING t1 src ON dst.c1 = src.c1 "
+                        + "WHEN NOT MATCHED THEN INSERT (c1, c2, c3) VALUES (src.c1, src.c2, 1)"),
+
+                Arguments.of("MERGE INTO T2 dst USING t1 src ON dst.c1 = src.c1 "
+                        + "WHEN MATCHED THEN UPDATE SET c2 = 1 "
+                        + "WHEN NOT MATCHED THEN INSERT (c1, c2, c3) VALUES (src.c1, src.c2, 1)")
+
+        );
     }
 
     private static List<Arguments> multiStatementQueries() {

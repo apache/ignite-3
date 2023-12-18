@@ -25,6 +25,8 @@ import static org.apache.ignite.lang.ErrorGroups.Client.CONNECTION_ERR;
 
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import java.sql.Statement;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -32,6 +34,7 @@ import java.util.concurrent.CompletionStage;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.client.handler.requests.jdbc.JdbcMetadataCatalog;
 import org.apache.ignite.client.handler.requests.jdbc.JdbcQueryCursor;
+import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.jdbc.proto.JdbcQueryEventHandler;
 import org.apache.ignite.internal.jdbc.proto.JdbcStatementType;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcBatchExecuteRequest;
@@ -56,6 +59,7 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
+import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.QueryProperty;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
@@ -63,6 +67,7 @@ import org.apache.ignite.internal.sql.engine.property.SqlProperties;
 import org.apache.ignite.internal.sql.engine.property.SqlPropertiesHelper;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.ExceptionUtils;
+import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.tx.IgniteTransactions;
@@ -153,7 +158,7 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
         InternalTransaction tx = req.autoCommit() ? null : connectionContext.getOrStartTransaction();
         SqlProperties properties = createProperties(req.getStmtType());
 
-        CompletableFuture<AsyncSqlCursor<List<Object>>> result = processor.querySingleAsync(
+        CompletableFuture<AsyncSqlCursor<InternalSqlRow>> result = processor.querySingleAsync(
                 properties,
                 igniteTransactions,
                 tx,
@@ -272,7 +277,7 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
 
         SqlProperties properties = createProperties(JdbcStatementType.UPDATE_STATEMENT_TYPE);
 
-        CompletableFuture<AsyncSqlCursor<List<Object>>> result = processor.querySingleAsync(
+        CompletableFuture<AsyncSqlCursor<InternalSqlRow>> result = processor.querySingleAsync(
                 properties,
                 igniteTransactions,
                 tx,
@@ -360,7 +365,7 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
      * @param req Execution request.
      * @return JdbcQuerySingleResult filled with first batch of data.
      */
-    private CompletionStage<JdbcQuerySingleResult> createJdbcResult(AsyncSqlCursor<List<Object>> cur, JdbcQueryExecuteRequest req) {
+    private CompletionStage<JdbcQuerySingleResult> createJdbcResult(AsyncSqlCursor<InternalSqlRow> cur, JdbcQueryExecuteRequest req) {
         return cur.requestNextAsync(req.pageSize()).thenApply(batch -> {
             boolean hasNext = batch.hasMore();
 
@@ -376,7 +381,27 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
                         return new JdbcQuerySingleResult(Response.STATUS_FAILED,
                                 "Unable to store query cursor.");
                     }
-                    return new JdbcQuerySingleResult(cursorId, batch.items(), !hasNext);
+
+                    List<BinaryTupleReader> rows = new ArrayList<>(batch.items().size());
+                    for (InternalSqlRow item : batch.items()) {
+                        rows.add(item.asBinaryTuple());
+                    }
+
+                    List<ColumnMetadata> columns = cur.metadata().columns();
+
+                    int[] decimalScales = new int[columns.size()];
+                    List<ColumnType> schema = new ArrayList<>(columns.size());
+
+                    int countOfDecimal = 0;
+                    for (ColumnMetadata column : columns) {
+                        schema.add(column.type());
+                        if (column.type() == ColumnType.DECIMAL) {
+                            decimalScales[countOfDecimal++] = column.scale();
+                        }
+                    }
+                    decimalScales = Arrays.copyOf(decimalScales, countOfDecimal);
+
+                    return new JdbcQuerySingleResult(cursorId, rows, schema, decimalScales, !hasNext);
                 }
                 case DML:
                     if (!validateDmlResult(cur.metadata(), hasNext)) {

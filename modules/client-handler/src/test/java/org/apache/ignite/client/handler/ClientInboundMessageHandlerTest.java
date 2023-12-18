@@ -17,11 +17,15 @@
 
 package org.apache.ignite.client.handler;
 
+import static org.apache.ignite.internal.configuration.validation.TestValidationUtil.mockValidationContext;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.awaitility.Awaitility.await;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
 import io.netty.buffer.ByteBuf;
@@ -36,15 +40,23 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Consumer;
 import org.apache.ignite.client.handler.configuration.ClientConnectorConfiguration;
 import org.apache.ignite.compute.IgniteCompute;
+import org.apache.ignite.configuration.NamedListView;
+import org.apache.ignite.configuration.validation.ValidationContext;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.configuration.validation.TestValidationUtil;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.security.authentication.AuthenticationManager;
 import org.apache.ignite.internal.security.authentication.AuthenticationManagerImpl;
 import org.apache.ignite.internal.security.authentication.basic.BasicAuthenticationProviderChange;
+import org.apache.ignite.internal.security.authentication.configuration.AuthenticationProviderView;
+import org.apache.ignite.internal.security.authentication.configuration.validator.AuthenticationProvidersValidator;
+import org.apache.ignite.internal.security.authentication.validator.AuthenticationProvidersValidatorImpl;
+import org.apache.ignite.internal.security.configuration.SecurityChange;
 import org.apache.ignite.internal.security.configuration.SecurityConfiguration;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
@@ -68,6 +80,8 @@ import org.msgpack.core.MessagePack;
 @ExtendWith(ConfigurationExtension.class)
 class ClientInboundMessageHandlerTest extends BaseIgniteAbstractTest {
     private static final Duration TIMEOUT_OF_DURING = Duration.ofSeconds(2);
+
+    private static final String PROVIDER_NAME = "basic";
 
     @InjectConfiguration
     private ClientConnectorConfiguration configuration;
@@ -166,22 +180,16 @@ class ClientInboundMessageHandlerTest extends BaseIgniteAbstractTest {
         authenticationManager.listen(handler);
         securityConfiguration.listen(authenticationManager);
 
-        securityConfiguration.change(change -> {
+        changeConfiguration(change -> {
             change.changeEnabled(true);
-            change.changeAuthentication(authChange -> {
-                authChange.changeProviders(providersChange -> {
-                    providersChange.create("basic", basicChange -> {
-                        basicChange.convert(BasicAuthenticationProviderChange.class)
-                                .changeUsername("admin")
-                                .changePassword("password");
-                    }).create("basic1", basicChange -> {
-                        basicChange.convert(BasicAuthenticationProviderChange.class)
-                                .changeUsername("admin1")
-                                .changePassword("password");
+            change.changeAuthentication().changeProviders()
+                    .create(PROVIDER_NAME, providerChange -> {
+                        providerChange.convert(BasicAuthenticationProviderChange.class)
+                                .changeUsers()
+                                .create("admin", user -> user.changePassword("password"))
+                                .create("admin1", user -> user.changePassword("password"));
                     });
-                });
-            });
-        }).join();
+        });
 
         handler.channelRegistered(ctx);
     }
@@ -190,118 +198,35 @@ class ClientInboundMessageHandlerTest extends BaseIgniteAbstractTest {
     void disableAuthentication() throws IOException {
         handshake();
 
-        securityConfiguration.change(change -> {
-            change.changeEnabled(false);
-        }).join();
+        changeConfiguration(change -> change.changeEnabled(false));
 
         await().during(TIMEOUT_OF_DURING).untilAtomic(ctxClosed, is(false));
     }
 
     @Test
-    void enableAuthentication() throws InterruptedException, IOException {
-        securityConfiguration.change(change -> {
-            change.changeEnabled(false);
-        }).join();
+    void enableAuthentication() throws IOException {
+        changeConfiguration(change -> change.changeEnabled(false));
 
         handshake();
 
-        securityConfiguration.change(change -> {
-            change.changeEnabled(true);
-        }).join();
+        changeConfiguration(change -> change.changeEnabled(true));
 
         await().untilAtomic(ctxClosed, is(true));
     }
 
     @Test
-    void changeCurrentProvider() throws IOException {
+    void changeProvider() throws IOException {
         handshake();
 
-        securityConfiguration.change(change -> {
+        changeConfiguration(change -> {
             change.changeEnabled(true);
-            change.changeAuthentication(authChange -> {
-                authChange.changeProviders(providersChange -> {
-                    providersChange.update("basic", basicChange -> {
-                        basicChange.convert(BasicAuthenticationProviderChange.class)
-                                .changeUsername("admin")
-                                .changePassword("new-password");
-                    });
-                });
+            change.changeAuthentication().changeProviders().update(PROVIDER_NAME, providerChange -> {
+                providerChange.convert(BasicAuthenticationProviderChange.class)
+                        .changeUsers().update("admin", user -> user.changePassword("new-password"));
             });
-        }).join();
+        });
 
         await().untilAtomic(ctxClosed, is(true));
-    }
-
-    @Test
-    void changeAnotherProvider() throws IOException {
-        handshake();
-
-        securityConfiguration.change(change -> {
-            change.changeEnabled(true);
-            change.changeAuthentication(authChange -> {
-                authChange.changeProviders(providersChange -> {
-                    providersChange.update("basic1", basicChange -> {
-                        basicChange.convert(BasicAuthenticationProviderChange.class)
-                                .changeUsername("admin1")
-                                .changePassword("new-password");
-                    });
-                });
-            });
-        }).join();
-
-        await().during(TIMEOUT_OF_DURING).untilAtomic(ctxClosed, is(false));
-    }
-
-    @Test
-    void deleteCurrentProvider() throws IOException {
-        handshake();
-
-        securityConfiguration.change(change -> {
-            change.changeEnabled(true);
-            change.changeAuthentication(authChange -> {
-                authChange.changeProviders(providersChange -> {
-                    providersChange.delete("basic");
-                });
-            });
-        }).join();
-
-        await().untilAtomic(ctxClosed, is(true));
-    }
-
-    @Test
-    void deleteAnotherProvider() throws IOException {
-        handshake();
-
-        securityConfiguration.change(change -> {
-            change.changeEnabled(true);
-            change.changeAuthentication(authChange -> {
-                authChange.changeProviders(providersChange -> {
-                    providersChange.delete("basic1");
-                });
-            });
-        }).join();
-
-        await().during(TIMEOUT_OF_DURING).untilAtomic(ctxClosed, is(false));
-    }
-
-    @Test
-    void createNewProvider() throws IOException {
-        handshake();
-
-        securityConfiguration.change(change -> {
-            change.changeEnabled(true);
-            change.changeAuthentication(authChange -> {
-                authChange.changeProviders(providersChange -> {
-                    providersChange.create("basic2", basicChange -> {
-                        basicChange.convert(BasicAuthenticationProviderChange.class)
-                                .changeUsername("admin2")
-                                .changePassword("admin");
-                    });
-                });
-            });
-        }).join();
-
-        await().during(TIMEOUT_OF_DURING).untilAtomic(ctxClosed, is(false));
     }
 
     private void handshake() throws IOException {
@@ -315,7 +240,7 @@ class ClientInboundMessageHandlerTest extends BaseIgniteAbstractTest {
         packer.packBinaryHeader(0); // Features.
         packer.packInt(3); // Extensions.
         packer.packString("authn-type");
-        packer.packString("basic");
+        packer.packString(PROVIDER_NAME);
         packer.packString("authn-identity");
         packer.packString("admin");
         packer.packString("authn-secret");
@@ -326,5 +251,25 @@ class ClientInboundMessageHandlerTest extends BaseIgniteAbstractTest {
         handler.channelRead(ctx, byteBuf);
 
         verify(ctx).writeAndFlush(any());
+    }
+
+    private void changeConfiguration(Consumer<SecurityChange> changeConsumer) {
+        assertThat(securityConfiguration.change(changeConsumer), willCompleteSuccessfully());
+        validateConfiguration();
+    }
+
+    private void validateConfiguration() {
+        ValidationContext<NamedListView<? extends AuthenticationProviderView>> ctx = mockValidationContext(
+                null,
+                securityConfiguration.value().authentication().providers()
+        );
+
+        doReturn(securityConfiguration.value()).when(ctx).getNewRoot(SecurityConfiguration.KEY);
+
+        TestValidationUtil.validate(
+                AuthenticationProvidersValidatorImpl.INSTANCE,
+                mock(AuthenticationProvidersValidator.class),
+                ctx
+        );
     }
 }

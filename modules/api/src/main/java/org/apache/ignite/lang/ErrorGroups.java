@@ -264,6 +264,9 @@ public class ErrorGroups {
          * <p>See error message for details.
          */
         public static final int MAPPING_ERR = SQL_ERR_GROUP.registerErrorCode((short) 12);
+
+        /** Execution of transaction control statement inside an external transaction is forbidden. */
+        public static final int TX_CONTROL_INSIDE_EXTERNAL_TX_ERR = SQL_ERR_GROUP.registerErrorCode((short) 13);
     }
 
     /** Meta storage error group. */
@@ -516,6 +519,9 @@ public class ErrorGroups {
 
         /** Compute execution queue overflow error. */
         public static final int QUEUE_OVERFLOW_ERR = COMPUTE_ERR_GROUP.registerErrorCode((short) 4);
+
+        /** Compute job state transfer error. */
+        public static final int COMPUTE_JOB_STATE_TRANSITION_ERR = COMPUTE_ERR_GROUP.registerErrorCode((short) 5);
     }
 
     /** Catalog error group. */

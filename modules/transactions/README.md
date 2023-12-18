@@ -76,7 +76,7 @@ committing transaction can't be restarted.
 # Tx metadata
 Each node maintains a persistent tx map:
 
-txid -> txstate(ABORTED|COMMITED)
+txid -> txstate(ABORTED|COMMITTED)
 
 This map is used for a failover and for reading. Oldest entries in txid map must be cleaned to avoid unlimited grow.
 
@@ -202,7 +202,7 @@ Then a new leaseholder is elected, it checks for its pending transactions and as
 ## Coordinator fail
 Broadcast recovery (various strategies are possible: via gossip or dedicated node) is necessary (because we don't have 
 full tx topology on each enlisted node - because it's unknown until commit). All nodes are requested about local txs state. 
-If at least one is commiting, it's safe to commit.
+If at least one is committing, it's safe to commit.
 
 **Note: a failover handling is still work in progress.**
 

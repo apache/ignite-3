@@ -180,8 +180,9 @@ public class DistributionZoneRebalanceEngine {
         return IgniteUtils.inBusyLockAsync(busyLock, () -> {
             int zoneId = parameters.zoneDescriptor().id();
             long causalityToken = parameters.causalityToken();
+            int catalogVersion = parameters.catalogVersion();
 
-            return distributionZoneManager.dataNodes(causalityToken, zoneId)
+            return distributionZoneManager.dataNodes(causalityToken, catalogVersion, zoneId)
                     .thenCompose(dataNodes -> {
                         if (dataNodes.isEmpty()) {
                             return nullCompletedFuture();

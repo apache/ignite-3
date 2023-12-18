@@ -46,6 +46,7 @@ import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NodeFinder;
@@ -74,7 +75,10 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
 
     //TODO fsync can be turned on again after https://issues.apache.org/jira/browse/IGNITE-20195
     @InjectConfiguration("mock: { fsync: false }")
-    protected static RaftConfiguration raftConfiguration;
+    protected RaftConfiguration raftConfiguration;
+
+    @InjectConfiguration
+    protected TransactionConfiguration txConfiguration;
 
     /**
      * Returns a count of nodes.
@@ -124,6 +128,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
         txTestCluster = new ItTxTestCluster(
                 testInfo,
                 raftConfiguration,
+                txConfiguration,
                 workDir,
                 nodes(),
                 replicas(),
@@ -148,6 +153,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
     @AfterEach
     public void after() throws Exception {
         txTestCluster.shutdownCluster();
+        Mockito.framework().clearInlineMocks();
     }
 
     /**

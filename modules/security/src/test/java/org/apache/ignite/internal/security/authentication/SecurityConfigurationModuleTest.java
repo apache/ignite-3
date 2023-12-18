@@ -34,7 +34,7 @@ import org.apache.ignite.internal.configuration.SuperRootChangeImpl;
 import org.apache.ignite.internal.security.authentication.basic.BasicAuthenticationProviderChange;
 import org.apache.ignite.internal.security.authentication.basic.BasicAuthenticationProviderConfigurationSchema;
 import org.apache.ignite.internal.security.authentication.basic.BasicAuthenticationProviderView;
-import org.apache.ignite.internal.security.authentication.configuration.validator.AuthenticationProvidersValidatorImpl;
+import org.apache.ignite.internal.security.authentication.validator.AuthenticationProvidersValidatorImpl;
 import org.apache.ignite.internal.security.configuration.SecurityConfiguration;
 import org.apache.ignite.internal.security.configuration.SecurityView;
 import org.junit.jupiter.api.AfterEach;
@@ -107,8 +107,8 @@ class SecurityConfigurationModuleTest {
                 .get(0);
 
         assertAll(
-                () -> assertThat(defaultProvider.username(), equalTo("ignite")),
-                () -> assertThat(defaultProvider.password(), equalTo("ignite"))
+                () -> assertThat(defaultProvider.users().get(0).username(), equalTo("ignite")),
+                () -> assertThat(defaultProvider.users().get(0).password(), equalTo("ignite"))
         );
     }
 
@@ -117,8 +117,7 @@ class SecurityConfigurationModuleTest {
         rootChange.changeRoot(SecurityConfiguration.KEY).changeAuthentication(authenticationChange -> {
             authenticationChange.changeProviders().create("basic", change -> {
                 change.convert(BasicAuthenticationProviderChange.class)
-                        .changeUsername("admin")
-                        .changePassword("password");
+                        .changeUsers(users -> users.create("admin", user -> user.changePassword("password")));
             });
         });
 
@@ -133,8 +132,8 @@ class SecurityConfigurationModuleTest {
                 .get(0);
 
         assertAll(
-                () -> assertThat(defaultProvider.username(), equalTo("admin")),
-                () -> assertThat(defaultProvider.password(), equalTo("password"))
+                () -> assertThat(defaultProvider.users().get(0).username(), equalTo("admin")),
+                () -> assertThat(defaultProvider.users().get(0).password(), equalTo("password"))
         );
     }
 }

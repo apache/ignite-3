@@ -29,7 +29,7 @@ import org.junit.jupiter.api.Test;
 public class NoneDeadlockPreventionTest extends AbstractDeadlockPreventionTest {
     @Override
     protected DeadlockPreventionPolicy deadlockPreventionPolicy() {
-        return new DeadlockPreventionPolicy() { };
+        return DeadlockPreventionPolicy.NO_OP;
     }
 
     @Test

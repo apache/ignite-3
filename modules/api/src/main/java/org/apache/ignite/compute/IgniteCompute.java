@@ -35,11 +35,11 @@ public interface IgniteCompute {
     /**
      * Executes a {@link ComputeJob} of the given class on a single node from a set of candidate nodes.
      *
-     * @param nodes    Candidate nodes; the job will be executed on one of them.
-     * @param units    Deployment units. Can be empty.
+     * @param nodes Candidate nodes; the job will be executed on one of them.
+     * @param units Deployment units. Can be empty.
      * @param jobClassName Name of the job class to execute.
-     * @param args     Arguments of the job.
-     * @param <R>      Job result type
+     * @param args Arguments of the job.
+     * @param <R> Job result type.
      * @return CompletableFuture Job result.
      */
     <R> CompletableFuture<R> executeAsync(
@@ -52,11 +52,11 @@ public interface IgniteCompute {
     /**
      * Executes a {@link ComputeJob} of the given class on a single node from a set of candidate nodes.
      *
-     * @param nodes    Candidate nodes; the job will be executed on one of them.
-     * @param units    Deployment units. Can be empty.
+     * @param nodes Candidate nodes; the job will be executed on one of them.
+     * @param units Deployment units. Can be empty.
      * @param jobClassName Name of the job class to execute.
-     * @param args     Arguments of the job.
-     * @param <R>      Job result type
+     * @param args Arguments of the job.
+     * @param <R> Job result type
      * @return Job result.
      */
     <R> R execute(
@@ -153,8 +153,8 @@ public interface IgniteCompute {
      * @param nodes Nodes to execute the job on.
      * @param units Deployment units. Can be empty.
      * @param jobClassName Name of the job class to execute.
-     * @param args     Arguments of the job.
-     * @param <R>      Job result type.
+     * @param args Arguments of the job.
+     * @param <R> Job result type.
      * @return Map from node to job result future.
      */
     <R> Map<ClusterNode, CompletableFuture<R>> broadcastAsync(
