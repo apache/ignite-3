@@ -25,7 +25,6 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
@@ -169,8 +168,12 @@ public class ClientSession implements AbstractSession {
         PayloadReader<AsyncResultSet<T>> payloadReader = r -> new ClientAsyncResultSet<>(r.clientChannel(), r.in(), mapper);
 
         if (transaction != null) {
-            //noinspection resource
-            return internalTx(transaction).channel().serviceAsync(ClientOp.SQL_EXEC, payloadWriter, payloadReader);
+            try {
+                //noinspection resource
+                return ClientTransaction.get(transaction).channel().serviceAsync(ClientOp.SQL_EXEC, payloadWriter, payloadReader);
+            } catch (TransactionException e) {
+                return CompletableFuture.failedFuture(new SqlException(e.traceId(), e.code(), e.getMessage(), e));
+            }
         }
 
         return ch.serviceAsync(ClientOp.SQL_EXEC, payloadWriter, payloadReader);
@@ -360,13 +363,5 @@ public class ClientSession implements AbstractSession {
 
     private static <T> @Nullable T oneOf(@Nullable T a, @Nullable T b) {
         return a != null ? a : b;
-    }
-
-    private static ClientTransaction internalTx(Transaction transaction) {
-        try {
-            return ClientTransaction.get(transaction);
-        } catch (TransactionException e) {
-            throw new CompletionException(new SqlException(e.traceId(), e.code(), e.getMessage(), e));
-        }
     }
 }
