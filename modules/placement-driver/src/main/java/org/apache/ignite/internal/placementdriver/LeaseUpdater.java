@@ -300,13 +300,22 @@ public class LeaseUpdater {
 
         /** Updates leases in Meta storage. This method is supposed to be used in the busy lock. */
         private void updateLeaseBatchInternal() {
-            long outdatedLeaseThreshold = clock.now().getPhysical() + LEASE_INTERVAL / 2;
+            HybridTimestamp now = clock.now();
+
+            long outdatedLeaseThreshold = now.getPhysical() + LEASE_INTERVAL / 2;
 
             Leases leasesCurrent = leaseTracker.leasesCurrent();
             Map<ReplicationGroupId, Boolean> toBeNegotiated = new HashMap<>();
             Map<ReplicationGroupId, Lease> renewedLeases = new HashMap<>(leasesCurrent.leaseByGroupId());
 
-            for (Map.Entry<ReplicationGroupId, Set<Assignment>> entry : assignmentsTracker.assignments().entrySet()) {
+            Map<ReplicationGroupId, Set<Assignment>> currentAssignments = assignmentsTracker.assignments();
+            Set<ReplicationGroupId> currentAssignmentsReplicationGroupIds = currentAssignments.keySet();
+
+            // Remove all expired leases that are no longer present in assignments.
+            renewedLeases.entrySet().removeIf(e -> e.getValue().getExpirationTime().before(now) &&
+                    !currentAssignmentsReplicationGroupIds.contains(e.getKey()));
+
+            for (Map.Entry<ReplicationGroupId, Set<Assignment>> entry : currentAssignments.entrySet()) {
                 ReplicationGroupId grpId = entry.getKey();
 
                 Lease lease = leaseTracker.getLease(grpId);
