@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.placementdriver;
 
+import static java.util.stream.Collectors.groupingBy;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.or;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.value;
@@ -52,6 +53,7 @@ import org.apache.ignite.internal.placementdriver.message.StopLeaseProlongationM
 import org.apache.ignite.internal.placementdriver.negotiation.LeaseAgreement;
 import org.apache.ignite.internal.placementdriver.negotiation.LeaseNegotiator;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.thread.IgniteThread;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.network.ClusterNode;
@@ -68,10 +70,10 @@ public class LeaseUpdater {
     private static final IgniteLogger LOG = Loggers.forClass(LeaseUpdater.class);
 
     /** Update attempts interval in milliseconds. */
-    private static final long UPDATE_LEASE_MS = 500L;
+    private static final long UPDATE_LEASE_MS = 2500L;
 
     /** Lease holding interval. */
-    private static final long LEASE_INTERVAL = 10 * UPDATE_LEASE_MS;
+    private static final long LEASE_INTERVAL = 2 * UPDATE_LEASE_MS;
 
     /** The lock is available when the actor is changing state. */
     private final IgniteSpinBusyLock stateChangingLock = new IgniteSpinBusyLock();
@@ -357,6 +359,13 @@ public class LeaseUpdater {
             }
 
             byte[] renewedValue = new LeaseBatch(renewedLeases.values()).bytes();
+
+            LOG.info(
+                    "Writing leases, size {}, count {}, tables {}",
+                    renewedValue.length,
+                    renewedLeases.size(),
+                    renewedLeases.keySet().stream().map(TablePartitionId.class::cast).collect(groupingBy(TablePartitionId::tableId)).size()
+            );
 
             var key = PLACEMENTDRIVER_LEASES_KEY;
 
