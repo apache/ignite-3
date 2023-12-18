@@ -134,9 +134,10 @@ public class ConfigurationNotifier {
                 Serializable newLeaf = newInnerNode.traverseChild(key, leafNodeVisitor(), true);
 
                 if (newLeaf != oldLeaf) {
+                    // TODO: Remove null check after https://issues.apache.org/jira/browse/IGNITE-21101
                     DynamicProperty<Serializable> node = config != null ? dynamicProperty(config, key) : null;
                     notifyPublicListeners(
-                            listeners(dynamicProperty(config, key), ctx.notificationNum),
+                            listeners(node, ctx.notificationNum),
                             concat(mapIterable(anyConfigs, anyCfg -> listeners(dynamicProperty(anyCfg, key), ctx.notificationNum))),
                             oldLeaf,
                             newLeaf,

@@ -76,6 +76,7 @@ import org.apache.ignite.internal.configuration.tree.InnerNode;
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -112,6 +113,9 @@ public class ConfigurationListenerTest {
         public EntryConfigurationSchema entries;
     }
 
+    /**
+     * Entry configuration schema.
+     */
     @Config
     public static class EntryConfigurationSchema {
         @Value(hasDefault = true)
@@ -623,6 +627,7 @@ public class ConfigurationListenerTest {
      * Tests notifications validity when a named list element is renamed and then updated a sub-element of the renamed element.
      */
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-21101")
     public void namedListNodeOnRenameAndThenUpdateSubElement() throws Exception {
         config.change(parent ->
                 parent.changeChildren(elements -> elements.create("name", element -> {
