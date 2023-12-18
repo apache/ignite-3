@@ -306,8 +306,4 @@ public class TestClientHandlerModule implements IgniteComponent {
             super.channelRead(ctx, msg);
         }
     }
-
-    private static AuthenticationManager authenticationManager(SecurityConfiguration securityConfiguration) {
-        return new AuthenticationManagerImpl(securityConfiguration);
-    }
 }
