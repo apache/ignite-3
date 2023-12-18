@@ -43,6 +43,8 @@ import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.TestPageIoRegistry;
 import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryDataRegionConfiguration;
+import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryProfileChange;
+import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryProfileConfiguration;
 import org.apache.ignite.internal.pagememory.evict.PageEvictionTrackerNoOp;
 import org.apache.ignite.internal.pagememory.inmemory.VolatilePageMemory;
 import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolder;
@@ -66,7 +68,7 @@ public class AbstractFreeListTest extends BaseIgniteAbstractTest {
     private static final int BATCH_SIZE = 100;
 
     @InjectConfiguration
-    private VolatilePageMemoryDataRegionConfiguration dataRegionCfg;
+    private VolatilePageMemoryProfileConfiguration dataRegionCfg;
 
     @Nullable
     private PageMemory pageMemory;
@@ -162,7 +164,7 @@ public class AbstractFreeListTest extends BaseIgniteAbstractTest {
     }
 
     private PageMemory createPageMemory(int pageSize) throws Exception {
-        dataRegionCfg.change(c -> c.changeInitSize(MAX_SIZE).changeMaxSize(MAX_SIZE)).get(1, TimeUnit.SECONDS);
+        dataRegionCfg.change(c -> ((VolatilePageMemoryProfileChange) c).changeInitSize(MAX_SIZE).changeMaxSize(MAX_SIZE)).get(1, TimeUnit.SECONDS);
 
         TestPageIoRegistry ioRegistry = new TestPageIoRegistry();
 

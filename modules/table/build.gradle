@@ -52,6 +52,7 @@ dependencies {
     testImplementation project(':ignite-configuration')
     testImplementation project(':ignite-storage-api')
     testImplementation project(':ignite-storage-page-memory')
+    testImplementation project(':ignite-storage-configuration')
     testImplementation project(':ignite-network')
     testImplementation project(':ignite-core')
     testImplementation project(':ignite-raft')

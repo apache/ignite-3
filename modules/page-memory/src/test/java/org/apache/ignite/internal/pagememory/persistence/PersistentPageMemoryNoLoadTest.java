@@ -59,6 +59,8 @@ import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryCheckpointConfiguration;
 import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryDataRegionConfiguration;
+import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileChange;
+import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileConfiguration;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMeta.PartitionMetaSnapshot;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointManager;
@@ -82,7 +84,7 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
     private static PageIoRegistry ioRegistry;
 
     @InjectConfiguration
-    private PersistentPageMemoryDataRegionConfiguration dataRegionCfg;
+    private PersistentPageMemoryProfileConfiguration dataRegionCfg;
 
     @BeforeAll
     static void beforeAll() {
@@ -93,7 +95,7 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
 
     @BeforeEach
     void setUp() throws Exception {
-        dataRegionCfg.change(c -> c.changeSize(MAX_MEMORY_SIZE)).get(1, SECONDS);
+        dataRegionCfg.change(c -> ((PersistentPageMemoryProfileChange) c).changeSize(MAX_MEMORY_SIZE)).get(1, SECONDS);
     }
 
     @AfterAll
@@ -202,7 +204,7 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
 
         long systemPageSize = PAGE_SIZE + PAGE_OVERHEAD;
 
-        dataRegionCfg.change(c -> c.changeSize(128 * systemPageSize)).get(1, SECONDS);
+        dataRegionCfg.change(c -> ((PersistentPageMemoryProfileChange) c).changeSize(128 * systemPageSize)).get(1, SECONDS);
 
         PersistentPageMemory pageMemory = createPageMemory(
                 new long[]{100 * systemPageSize},

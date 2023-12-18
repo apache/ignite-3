@@ -50,14 +50,14 @@ public class PersistentPageMemoryDataRegionTest extends BaseIgniteAbstractTest {
 
         assertArrayEquals(
                 fill(new long[concurrencyLevel], dataRegionConfigView.size() / concurrencyLevel),
-                calculateSegmentSizes(dataRegionConfigView, concurrencyLevel)
+                calculateSegmentSizes(dataRegionConfigView.size(), concurrencyLevel)
         );
 
         dataRegionConfig.size().update(1024L).get(1, TimeUnit.SECONDS);
 
         assertArrayEquals(
                 fill(new long[concurrencyLevel], MiB),
-                calculateSegmentSizes(dataRegionConfig.value(), concurrencyLevel)
+                calculateSegmentSizes(dataRegionConfig.value().size(), concurrencyLevel)
         );
     }
 
@@ -65,19 +65,19 @@ public class PersistentPageMemoryDataRegionTest extends BaseIgniteAbstractTest {
     void testCalculateCheckpointBufferSize() throws Exception {
         dataRegionConfig.size().update(GiB / 4L).get(1, TimeUnit.SECONDS);
 
-        assertEquals(GiB / 4L, calculateCheckpointBufferSize(dataRegionConfig.value()));
+        assertEquals(GiB / 4L, calculateCheckpointBufferSize(dataRegionConfig.value().size()));
 
         dataRegionConfig.size().update(GiB / 2L).get(1, TimeUnit.SECONDS);
 
-        assertEquals(GiB / 4L, calculateCheckpointBufferSize(dataRegionConfig.value()));
+        assertEquals(GiB / 4L, calculateCheckpointBufferSize(dataRegionConfig.value().size()));
 
         dataRegionConfig.size().update(6L * GiB).get(1, TimeUnit.SECONDS);
 
-        assertEquals((6L * GiB) / 4L, calculateCheckpointBufferSize(dataRegionConfig.value()));
+        assertEquals((6L * GiB) / 4L, calculateCheckpointBufferSize(dataRegionConfig.value().size()));
 
         dataRegionConfig.size().update(8L * GiB).get(1, TimeUnit.SECONDS);
 
-        assertEquals(2L * GiB, calculateCheckpointBufferSize(dataRegionConfig.value()));
+        assertEquals(2L * GiB, calculateCheckpointBufferSize(dataRegionConfig.value().size()));
     }
 
     private long[] fill(long[] arr, long v) {

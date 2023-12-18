@@ -27,6 +27,7 @@ import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorageEngine;
+import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryProfileStorageEngineConfiguration;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineConfiguration;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -47,7 +48,7 @@ class PersistentPageMemoryHashIndexStorageTest extends AbstractPageMemoryHashInd
             @WorkDirectory
             Path workDir,
             @InjectConfiguration
-            PersistentPageMemoryStorageEngineConfiguration engineConfig
+            PersistentPageMemoryProfileStorageEngineConfiguration engineConfig
     ) {
         PageIoRegistry ioRegistry = new PageIoRegistry();
 
@@ -64,7 +65,7 @@ class PersistentPageMemoryHashIndexStorageTest extends AbstractPageMemoryHashInd
 
         tableStorage.start();
 
-        initialize(tableStorage, engineConfig);
+        initialize(tableStorage, engineConfig.pageSize().value());
     }
 
     @AfterEach
