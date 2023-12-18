@@ -29,6 +29,12 @@ public class Leases {
     @IgniteToStringExclude
     private final byte[] leasesBytes;
 
+    /**
+     * The constructor.
+     *
+     * @param leaseByGroupId Leases by group map.
+     * @param leasesBytes Serialized leases.
+     */
     public Leases(Map<ReplicationGroupId, Lease> leaseByGroupId, byte[] leasesBytes) {
         assert leaseByGroupId != null;
 
