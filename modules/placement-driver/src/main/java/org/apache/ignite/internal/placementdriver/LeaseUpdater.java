@@ -360,6 +360,7 @@ public class LeaseUpdater {
 
             var key = PLACEMENTDRIVER_LEASES_KEY;
 
+            LOG.info("Writing leases, renewedLeases =" + renewedLeases.size());
             msManager.invoke(
                     or(notExists(key), value(key).eq(leasesCurrent.leasesBytes())),
                     put(key, renewedValue),
