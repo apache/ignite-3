@@ -141,7 +141,7 @@ public class ItSqlMultiStatementTest extends BaseSqlMultiStatementTest {
             cursor.closeAsync();
 
             CompletableFuture<AsyncSqlCursor<InternalSqlRow>> curFut0 = cursor.nextResult();
-            assertThrowsSqlException(RUNTIME_ERR, "/ by zero", () -> await(curFut0));
+            assertThrowsSqlException(RUNTIME_ERR, "Division by zero", () -> await(curFut0));
         }
 
         // Validation error.

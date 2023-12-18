@@ -23,6 +23,9 @@ import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.sql.ColumnMetadata.UNDEFINED_PRECISION;
 import static org.apache.ignite.sql.ColumnMetadata.UNDEFINED_SCALE;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectArrayMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
@@ -307,16 +310,43 @@ public final class Commons {
     }
 
     /**
-     * ParametersMap.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Creates a map of parameters values from the given array of dynamic parameter values.
+     * All dynamic parameter should have their values specified.
      *
      * @param params Parameters.
      * @return Parameters map.
      */
     public static Map<String, Object> parametersMap(@Nullable Object[] params) {
-        HashMap<String, Object> res = new HashMap<>();
+        if (ArrayUtils.nullOrEmpty(params)) {
+            return Collections.emptyMap();
+        } else {
+            HashMap<String, Object> res = new HashMap<>();
 
-        return params != null ? populateParameters(res, params) : res;
+            populateParameters(res, params);
+
+            return res;
+        }
+    }
+
+    /**
+     * Creates an array from the given map in which array indices become map keys. e.g: [1, null, "3"] -> {0: 1, 1: null, 2: "3"}.
+     * If the given array is null, this method returns an empty map.
+     *
+     * @param params Array of values.
+     * @return Map of values.
+     */
+    public static Int2ObjectMap<Object> arrayToMap(@Nullable Object[] params) {
+        if (ArrayUtils.nullOrEmpty(params)) {
+            return Int2ObjectMaps.emptyMap();
+        } else {
+            Int2ObjectMap<Object> res = new Int2ObjectArrayMap<>(params.length);
+
+            for (int i = 0; i < params.length; i++) {
+                res.put(i, params[i]);
+            }
+
+            return res;
+        }
     }
 
     /**
@@ -324,15 +354,11 @@ public final class Commons {
      *
      * @param dst    Map to populate.
      * @param params Parameters.
-     * @return Parameters map.
      */
-    public static Map<String, Object> populateParameters(Map<String, Object> dst, @Nullable Object[] params) {
-        if (!ArrayUtils.nullOrEmpty(params)) {
-            for (int i = 0; i < params.length; i++) {
-                dst.put("?" + i, params[i]);
-            }
+    private static void populateParameters(Map<String, Object> dst, Object[] params) {
+        for (int i = 0; i < params.length; i++) {
+            dst.put("?" + i, params[i]);
         }
-        return dst;
     }
 
     /**

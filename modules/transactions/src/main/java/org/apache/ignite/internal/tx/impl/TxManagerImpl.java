@@ -280,10 +280,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
      * @return Current read timestamp.
      */
     private HybridTimestamp currentReadTimestamp(HybridTimestamp beginTx) {
-        return new HybridTimestamp(beginTx.getPhysical()
-                - idleSafeTimePropagationPeriodMsSupplier.getAsLong()
-                - HybridTimestamp.CLOCK_SKEW,
-                0
+        return beginTx.subtractPhysicalTime(
+                idleSafeTimePropagationPeriodMsSupplier.getAsLong() + HybridTimestamp.CLOCK_SKEW
         );
     }
 
@@ -293,8 +291,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     }
 
     @Override
-    public @Nullable TxStateMeta updateTxMeta(UUID txId, Function<TxStateMeta, TxStateMeta> updater) {
-        return inBusyLock(busyLock, () -> txStateVolatileStorage.updateMeta(txId, oldMeta -> {
+    public @Nullable <T extends TxStateMeta> T updateTxMeta(UUID txId, Function<TxStateMeta, TxStateMeta> updater) {
+        return txStateVolatileStorage.updateMeta(txId, oldMeta -> {
             TxStateMeta newMeta = updater.apply(oldMeta);
 
             if (newMeta == null) {
@@ -304,7 +302,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             TxState oldState = oldMeta == null ? null : oldMeta.txState();
 
             return checkTransitionCorrectness(oldState, newMeta.txState()) ? newMeta : oldMeta;
-        }));
+        });
     }
 
     @Override
@@ -334,6 +332,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             Map<TablePartitionId, Long> enlistedGroups,
             UUID txId
     ) {
+        LOG.debug("Finish [commit={}, txId={}, groups={}].", commit, txId, enlistedGroups);
+
         assert enlistedGroups != null;
 
         if (enlistedGroups.isEmpty()) {
@@ -349,7 +349,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         // than all the read timestamps processed before.
         // Every concurrent operation will now use a finish future from the finishing state meta and get only final transaction
         // state after the transaction is finished.
-        TxStateMetaFinishing finishingStateMeta = (TxStateMetaFinishing) updateTxMeta(txId, TxStateMeta::finishing);
+        TxStateMetaFinishing finishingStateMeta = updateTxMeta(txId, TxStateMeta::finishing);
 
         TxContext tuple = txCtxMap.compute(txId, (uuid, tuple0) -> {
             if (tuple0 == null) {

@@ -19,11 +19,13 @@ package org.apache.ignite.internal.distributionzones;
 
 import static java.util.Collections.emptySet;
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE_TIMER_VALUE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertDataNodesFromManager;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertLogicalTopologyInMetastorage;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertValueInStorage;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.dataNodes;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.toDataNodesMap;
@@ -31,7 +33,6 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleDownChangeTriggerKeyPrefix;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleUpChangeTriggerKeyPrefix;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLastHandledTopology;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesRecoverableStateRevision;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
@@ -63,6 +64,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.concurrent.CountDownLatch;
 import java.util.function.Consumer;
 import java.util.function.LongFunction;
 import java.util.stream.Stream;
@@ -86,7 +88,6 @@ import org.apache.ignite.internal.configuration.storage.DistributedConfiguration
 import org.apache.ignite.internal.configuration.storage.LocalFileConfigurationStorage;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.validation.ConfigurationValidatorImpl;
-import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager.Augmentation;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager.ZoneState;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
@@ -110,7 +111,6 @@ import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.scalecube.TestScaleCubeClusterServiceFactory;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -639,22 +639,15 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
     @ParameterizedTest
     @MethodSource("provideArgumentsRestartTests")
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19955")
     public void testScaleUpTimerIsRestoredAfterRestart(String zoneName) throws Exception {
         PartialNode node = startPartialNode(0);
-
-        createZoneOrAlterDefaultZone(node, zoneName, 1, 1);
 
         node.logicalTopology().putNode(A);
         node.logicalTopology().putNode(B);
 
-        assertValueInStorage(
-                metastore,
-                zonesLogicalTopologyKey(),
-                (v) -> ((Set<NodeWithAttributes>) fromBytes(v)).stream().map(NodeWithAttributes::nodeName).collect(toSet()),
-                Set.of(A.name(), B.name()),
-                10_000L
-        );
+        assertLogicalTopologyInMetastorage(Set.of(A, B), metastore);
+
+        createZoneOrAlterDefaultZone(node, zoneName, 1, 1);
 
         int zoneId = getZoneId(node, zoneName);
 
@@ -671,22 +664,28 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         );
 
         // Block scale up
-        startScaleUpBlocking = true;
+        CountDownLatch scaleUpLatch = blockScaleUpTaskExecution(zoneId, distributionZoneManager);
+
+        assertTrue(waitForCondition(() -> scaleUpLatch.getCount() == 1, TIMEOUT_MILLIS));
 
         node.logicalTopology().putNode(C);
         node.logicalTopology().removeNodes(Set.of(B));
+        node.logicalTopology().putNode(B);
 
-        assertValueInStorage(
-                metastore,
-                zoneDataNodesKey(zoneId),
-                (v) -> dataNodes(fromBytes(v)).stream().map(Node::nodeName).collect(toSet()),
-                Set.of(A.name()),
+        assertLogicalTopologyInMetastorage(Set.of(A, B, C), metastore);
+
+        assertDataNodesFromManager(
+                distributionZoneManager,
+                metastore::appliedRevision,
+                catalogManager::latestCatalogVersion,
+                zoneId,
+                Set.of(A, B),
                 TIMEOUT_MILLIS
         );
 
         node.stop();
 
-        startScaleUpBlocking = false;
+        scaleUpLatch.countDown();
 
         node = startPartialNode(0);
 
@@ -695,165 +694,9 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         catalogManager = getCatalogManager(node);
 
         assertDataNodesFromManager(distributionZoneManager, metastore::appliedRevision, catalogManager::latestCatalogVersion, zoneId,
-                Set.of(A, C), TIMEOUT_MILLIS);
+                Set.of(A, B, C), TIMEOUT_MILLIS);
 
         metastore = findComponent(node.startedComponents(), MetaStorageManager.class);
-
-        assertValueInStorage(
-                metastore,
-                zoneDataNodesKey(zoneId),
-                (v) -> dataNodes(fromBytes(v)).stream().map(Node::nodeName).collect(toSet()),
-                Set.of(A.name(), C.name()),
-                TIMEOUT_MILLIS
-        );
-    }
-
-    @ParameterizedTest
-    @MethodSource("provideArgumentsRestartTests")
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19955")
-    public void testScaleUpTriggeredByFilterUpdateIsRestoredAfterRestart(String zoneName) throws Exception {
-        PartialNode node = startPartialNode(0);
-
-        createZoneOrAlterDefaultZone(node, zoneName, 1, 1);
-
-        int zoneId = getZoneId(node, zoneName);
-
-        node.logicalTopology().putNode(A);
-
-        DistributionZoneManager distributionZoneManager = getDistributionZoneManager(node);
-        CatalogManager catalogManager = getCatalogManager(node);
-
-        assertDataNodesFromManager(distributionZoneManager, metastore::appliedRevision, catalogManager::latestCatalogVersion, zoneId,
-                Set.of(A), TIMEOUT_MILLIS);
-
-        alterZone(node, zoneName, INFINITE_TIMER_VALUE, null, null);
-
-        node.logicalTopology().putNode(B);
-
-        assertDataNodesFromManager(distributionZoneManager, metastore::appliedRevision, catalogManager::latestCatalogVersion, zoneId,
-                Set.of(A), TIMEOUT_MILLIS);
-
-        startScaleUpBlocking = true;
-
-        // Only Node B passes the filter
-        String filter = "$[?(@.dataRegionSize > 10)]";
-
-        alterZone(node, zoneName, null, null, filter);
-
-        assertValueInStorage(
-                metastore,
-                zoneDataNodesKey(zoneId),
-                (v) -> dataNodes(fromBytes(v)).stream().map(Node::nodeName).collect(toSet()),
-                Set.of(A.name()),
-                TIMEOUT_MILLIS
-        );
-
-        node.stop();
-
-        startScaleUpBlocking = false;
-
-        node = startPartialNode(0);
-
-        distributionZoneManager = getDistributionZoneManager(node);
-
-        assertDataNodesFromManager(distributionZoneManager, metastore::appliedRevision, catalogManager::latestCatalogVersion, zoneId,
-                Set.of(B), TIMEOUT_MILLIS);
-    }
-
-    @ParameterizedTest
-    @MethodSource("provideArgumentsRestartTests")
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20412")
-    public void testScaleUpsTriggeredByFilterUpdateAndNodeJoinAreRestoredAfterRestart(String zoneName) throws Exception {
-        PartialNode node = startPartialNode(0);
-
-        createZoneOrAlterDefaultZone(node, zoneName, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE);
-
-        node.logicalTopology().putNode(A);
-
-        int zoneId = getZoneId(node, zoneName);
-
-        DistributionZoneManager distributionZoneManager = getDistributionZoneManager(node);
-        CatalogManager catalogManager = getCatalogManager(node);
-
-        assertDataNodesFromManager(distributionZoneManager, metastore::appliedRevision, catalogManager::latestCatalogVersion, zoneId,
-                Set.of(A), TIMEOUT_MILLIS);
-
-        startScaleUpBlocking = true;
-
-        alterZone(node, zoneName, 100, null, null);
-
-        node.logicalTopology().putNode(B);
-
-        assertDataNodesFromManager(distributionZoneManager, metastore::appliedRevision, catalogManager::latestCatalogVersion, zoneId,
-                Set.of(A), TIMEOUT_MILLIS);
-
-        // Only Node B and C passes the filter
-        String filter = "$[?(@.dataRegionSize > 10)]";
-
-        alterZone(node, zoneName, null, null, filter);
-
-        node.logicalTopology().putNode(C);
-
-        node.logicalTopology().removeNodes(Set.of(A));
-
-        assertValueInStorage(
-                metastore,
-                zoneDataNodesKey(zoneId),
-                (v) -> dataNodes(fromBytes(v)).stream().map(Node::nodeName).collect(toSet()),
-                emptySet(),
-                TIMEOUT_MILLIS
-        );
-
-        node.stop();
-
-        startScaleUpBlocking = false;
-
-        node = startPartialNode(0);
-
-        distributionZoneManager = getDistributionZoneManager(node);
-
-        // Immediate timer triggered by filter update
-        assertDataNodesFromManager(distributionZoneManager, metastore::appliedRevision, catalogManager::latestCatalogVersion, zoneId,
-                Set.of(B), TIMEOUT_MILLIS);
-
-        ZoneState zoneState = distributionZoneManager.zonesState().get(zoneId);
-
-        // Timer scheduled after join of the node C
-        assertNotNull(zoneState.scaleUpTask());
-
-        alterZone(node, zoneName, IMMEDIATE_TIMER_VALUE, null, null);
-
-        assertDataNodesFromManager(distributionZoneManager, metastore::appliedRevision, catalogManager::latestCatalogVersion, zoneId,
-                Set.of(B, C), TIMEOUT_MILLIS);
-
-        metastore = findComponent(node.startedComponents(), MetaStorageManager.class);
-
-        assertValueInStorage(
-                metastore,
-                zoneDataNodesKey(zoneId),
-                (v) -> dataNodes(fromBytes(v)).stream().map(Node::nodeName).collect(toSet()),
-                Set.of(B.name(), C.name()),
-                TIMEOUT_MILLIS
-        );
-    }
-
-    @ParameterizedTest
-    @MethodSource("provideArgumentsRestartTests")
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19955")
-    public void testScaleDownTimerIsRestoredAfterRestart(String zoneName) throws Exception {
-        PartialNode node = startPartialNode(0);
-
-        createZoneOrAlterDefaultZone(node, zoneName, 1, 1);
-
-        int zoneId = getZoneId(node, zoneName);
-
-        // Block scale down
-        startScaleDownBlocking = true;
-
-        node.logicalTopology().putNode(A);
-        node.logicalTopology().putNode(B);
-        node.logicalTopology().removeNodes(Set.of(B));
-        node.logicalTopology().putNode(C);
 
         assertValueInStorage(
                 metastore,
@@ -862,14 +705,49 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
                 Set.of(A.name(), B.name(), C.name()),
                 TIMEOUT_MILLIS
         );
+    }
+
+    @ParameterizedTest
+    @MethodSource("provideArgumentsRestartTests")
+    public void testScaleDownTimerIsRestoredAfterRestart(String zoneName) throws Exception {
+        PartialNode node = startPartialNode(0);
+
+        node.logicalTopology().putNode(A);
+        node.logicalTopology().putNode(B);
+
+        assertLogicalTopologyInMetastorage(Set.of(A, B), metastore);
+
+        DistributionZoneManager distributionZoneManager = getDistributionZoneManager(node);
+        CatalogManager catalogManager = getCatalogManager(node);
+
+        createZoneOrAlterDefaultZone(node, zoneName, 1, 1);
+
+        int zoneId = getZoneId(node, zoneName);
+
+        // Block scale down
+        CountDownLatch scaleDownLatch = blockScaleDownTaskExecution(zoneId, distributionZoneManager);
+
+        assertTrue(waitForCondition(() -> scaleDownLatch.getCount() == 1, TIMEOUT_MILLIS));
+
+        node.logicalTopology().removeNodes(Set.of(B));
+        node.logicalTopology().putNode(C);
+
+        assertDataNodesFromManager(
+                distributionZoneManager,
+                metastore::appliedRevision,
+                catalogManager::latestCatalogVersion,
+                zoneId,
+                Set.of(A, B),
+                TIMEOUT_MILLIS
+        );
 
         node.stop();
 
-        startScaleDownBlocking = false;
+        scaleDownLatch.countDown();
 
         node = startPartialNode(0);
 
-        CatalogManager catalogManager = getCatalogManager(node);
+        catalogManager = getCatalogManager(node);
 
         assertDataNodesFromManager(
                 getDistributionZoneManager(node),
@@ -971,5 +849,54 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
             @Nullable String filter
     ) {
         DistributionZonesTestUtil.alterZone(getCatalogManager(node), zoneName, scaleUp, scaleDown, filter);
+    }
+
+    /**
+     * Schedule a scale up task which block execution of another scale up tasks.
+     * Note that because of the executor of scale up/scale down tasks is single-threaded, this
+     * method also blocks scale down tasks execution.
+     *
+     * @return Latch to unblock execution of scale up tasks.
+     */
+    private static CountDownLatch blockScaleUpTaskExecution(int zoneId, DistributionZoneManager distributionZoneManager) {
+        CountDownLatch scaleUpLatch = new CountDownLatch(2);
+
+        Runnable dummyScaleUpTask = () -> {
+            try {
+                scaleUpLatch.countDown();
+                scaleUpLatch.await(2 * TIMEOUT_MILLIS, MILLISECONDS);
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        };
+        distributionZoneManager.zonesState().get(zoneId)
+                .rescheduleScaleUp(IMMEDIATE_TIMER_VALUE, dummyScaleUpTask, zoneId);
+
+        return scaleUpLatch;
+    }
+
+    /**
+     * Schedule a scale down task which block execution of another scale down tasks.
+     * Note that because of the executor of scale up/scale down tasks is single-threaded, this
+     * method also blocks scale up tasks execution.
+     *
+     * @return Latch to unblock execution of scale down tasks.
+     */
+    private static CountDownLatch blockScaleDownTaskExecution(int zoneId, DistributionZoneManager distributionZoneManager) {
+        CountDownLatch scaleDownLatch = new CountDownLatch(2);
+
+        Runnable dummyScaleDownTask = () -> {
+            try {
+                scaleDownLatch.countDown();
+                scaleDownLatch.await(TIMEOUT_MILLIS, MILLISECONDS);
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        };
+
+        distributionZoneManager.zonesState().get(zoneId)
+                .rescheduleScaleDown(IMMEDIATE_TIMER_VALUE, dummyScaleDownTask, zoneId);
+
+        return scaleDownLatch;
     }
 }
