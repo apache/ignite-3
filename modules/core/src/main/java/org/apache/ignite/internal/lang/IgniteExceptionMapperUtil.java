@@ -29,8 +29,6 @@ import java.util.concurrent.CompletionException;
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.IgniteCheckedException;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.lang.TraceableException;
-import org.apache.ignite.sql.SqlException;
 
 /**
  * This utility class provides an ability to map Ignite internal exceptions to Ignite public ones.
@@ -117,39 +115,6 @@ public class IgniteExceptionMapperUtil {
 
         // There are no exception mappings for the given exception. This case should be considered as internal error.
         return new IgniteException(INTERNAL_ERR, origin);
-    }
-
-    /**
-     * This method provides a mapping from internal exception to SQL public ones.
-     *
-     * <p>The rules of mapping are the following:</p>
-     * <ul>
-     *     <li>any instance of {@link Error} is returned as is, except {@link AssertionError}
-     *     that will always be mapped to {@link SqlException} with the {@link Common#INTERNAL_ERR} error code.</li>
-     *     <li>any instance of {@link TraceableException} is wrapped into {@link SqlException}
-     *         with the original {@link TraceableException#traceId() traceUd} and {@link TraceableException#code() code}.</li>
-     *     <li>if there are no any mappers that can do a mapping from the given error to a public exception,
-     *     then {@link SqlException} with the {@link Common#INTERNAL_ERR} error code is returned.</li>
-     * </ul>
-     *
-     * @param origin Exception to be mapped.
-     * @return Public exception.
-     */
-    public static Throwable mapToPublicSqlException(Throwable origin) {
-        Throwable e = mapToPublicException(origin);
-        if (e instanceof Error) {
-            return e;
-        }
-        if (e instanceof SqlException) {
-            return e;
-        }
-
-        if (e instanceof TraceableException) {
-            TraceableException traceable = (TraceableException) e;
-            return new SqlException(traceable.traceId(), traceable.code(), e.getMessage(), e);
-        }
-
-        return new SqlException(INTERNAL_ERR, origin);
     }
 
     /**

@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.lang;
 
+import static org.apache.ignite.internal.lang.IgniteExceptionMapperUtil.mapToPublicException;
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
+
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.TraceableException;
 import org.apache.ignite.sql.SqlException;
@@ -42,7 +45,20 @@ public class SqlExceptionMapperUtil {
      * @param origin Exception to be mapped.
      * @return Public exception.
      */
-    public static Throwable mapToPublicSqlException(Throwable origin) { // TODO: Inline.
-        return IgniteExceptionMapperUtil.mapToPublicSqlException(origin);
+    public static Throwable mapToPublicSqlException(Throwable origin) {
+        Throwable e = mapToPublicException(origin);
+        if (e instanceof Error) {
+            return e;
+        }
+        if (e instanceof SqlException) {
+            return e;
+        }
+
+        if (e instanceof TraceableException) {
+            TraceableException traceable = (TraceableException) e;
+            return new SqlException(traceable.traceId(), traceable.code(), e.getMessage(), e);
+        }
+
+        return new SqlException(INTERNAL_ERR, origin);
     }
 }
