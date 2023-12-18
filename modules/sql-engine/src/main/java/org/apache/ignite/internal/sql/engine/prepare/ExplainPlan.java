@@ -60,6 +60,12 @@ public class ExplainPlan implements QueryPlan {
         return EXPLAIN_METADATA;
     }
 
+    /** {@inheritDoc} */
+    @Override
+    public ParameterMetadata parameterMetadata() {
+        return plan.parameterMetadata();
+    }
+
     public MultiStepPlan plan() {
         return plan;
     }
