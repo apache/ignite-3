@@ -31,10 +31,10 @@ import org.jetbrains.annotations.Nullable;
  */
 public interface CriteriaQuerySource<T> {
     /**
-     * Criteria query over cache entries.
+     * Criteria query over table entries.
      *
-     * @param tx Transaction to run a given query. Can be {@code null} to run within implicit transaction.
-     * @param criteria If {@code null} then all entries will be returned.
+     * @param tx Transaction to run a criteria query. Can be {@code null} to run within implicit transaction.
+     * @param criteria If {@code null} then all table entries will be returned.
      * @return Criteria query results.
      * @throws SqlException If failed.
      */
@@ -43,10 +43,10 @@ public interface CriteriaQuerySource<T> {
     }
 
     /**
-     * Criteria query over cache entries.
+     * Criteria query over table entries.
      *
-     * @param tx Transaction to run a given query. Can be {@code null} to run within implicit transaction.
-     * @param criteria If {@code null} then all entries will be returned.
+     * @param tx Transaction to run a criteria query. Can be {@code null} to run within implicit transaction.
+     * @param criteria If {@code null} then all table entries will be returned.
      * @param opts Criteria query options.
      * @return Criteria query results.
      * @throws SqlException If failed.
@@ -54,10 +54,10 @@ public interface CriteriaQuerySource<T> {
     ClosableCursor<T> queryCriteria(@Nullable Transaction tx, @Nullable Criteria criteria, CriteriaQueryOptions opts);
 
     /**
-     * Execute criteria query over cache entries in an asynchronous way.
+     * Execute criteria query over table entries in an asynchronous way.
      *
-     * @param tx Transaction to run a given query. Can be {@code null} to run within implicit transaction.
-     * @param criteria If {@code null} then all entries will be returned.
+     * @param tx Transaction to run a criteria query. Can be {@code null} to run within implicit transaction.
+     * @param criteria If {@code null} then all table entries will be returned.
      * @return Operation future.
      * @throws SqlException If failed.
      */
@@ -66,10 +66,10 @@ public interface CriteriaQuerySource<T> {
     }
 
     /**
-     * Execute criteria query over cache entries in an asynchronous way.
+     * Execute criteria query over table entries in an asynchronous way.
      *
-     * @param tx Transaction to run a given query. Can be {@code null} to run within implicit transaction.
-     * @param criteria If {@code null} then all entries will be returned.
+     * @param tx Transaction to run a criteria query. Can be {@code null} to run within implicit transaction.
+     * @param criteria If {@code null} then all table entries will be returned.
      * @param opts Criteria query options.
      * @return Operation future.
      * @throws SqlException If failed.

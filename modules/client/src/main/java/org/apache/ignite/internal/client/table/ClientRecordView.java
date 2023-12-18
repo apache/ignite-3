@@ -32,6 +32,8 @@ import org.apache.ignite.client.RetryLimitPolicy;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.proto.TuplePart;
+import org.apache.ignite.internal.client.sql.ClientSessionBuilder;
+import org.apache.ignite.internal.client.sql.ClientStatementBuilder;
 import org.apache.ignite.internal.sql.SyncResultSetAdapter;
 import org.apache.ignite.internal.streamer.StreamerBatchSender;
 import org.apache.ignite.internal.table.criteria.QueryCriteriaAsyncResultSet;
@@ -395,8 +397,8 @@ public class ClientRecordView<R> implements RecordView<R> {
         //TODO: implement serialization of criteria to SQL https://issues.apache.org/jira/browse/IGNITE-20879
         var query = "SELECT * FROM " + tbl.name();
 
-        Statement statement = tbl.sql().statementBuilder().query(query).pageSize(opts.pageSize()).build();
-        Session session = tbl.sql().createSession();
+        Statement statement = new ClientStatementBuilder().query(query).pageSize(opts.pageSize()).build();
+        Session session = new ClientSessionBuilder(tbl.channel()).build();
 
         return session.executeAsync(tx, ser.mapper(), statement)
                 .thenApply(resultSet -> new QueryCriteriaAsyncResultSet<>(resultSet, session::close));
