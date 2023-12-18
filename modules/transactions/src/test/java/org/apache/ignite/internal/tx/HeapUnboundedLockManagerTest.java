@@ -15,29 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.catalog.commands;
+package org.apache.ignite.internal.tx;
+
+import org.apache.ignite.internal.tx.impl.HeapUnboundedLockManager;
+import org.apache.ignite.internal.tx.impl.WaitDieDeadlockPreventionPolicy;
 
 /**
- * DROP ZONE statement.
+ * Test class for {@link HeapUnboundedLockManager}.
  */
-public class DropZoneParams extends AbstractZoneCommandParams {
-    /** Constructor. */
-    private DropZoneParams(String zoneName) {
-        super(zoneName);
+public class HeapUnboundedLockManagerTest extends AbstractLockManagerTest {
+    @Override
+    protected LockManager newInstance() {
+        return new HeapUnboundedLockManager(new WaitDieDeadlockPreventionPolicy());
     }
 
-    /** Creates parameters builder. */
-    public static Builder builder() {
-        return new Builder();
-    }
-
-    /**
-     * Parameters builder.
-     */
-    public static class Builder extends AbstractBuilder<DropZoneParams, Builder> {
-        @Override
-        protected DropZoneParams createParams() {
-            return new DropZoneParams(zoneName);
-        }
+    @Override
+    protected LockKey lockKey() {
+        return new LockKey("test");
     }
 }

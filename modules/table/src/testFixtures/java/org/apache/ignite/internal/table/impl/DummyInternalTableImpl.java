@@ -47,6 +47,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.Peer;
@@ -108,18 +109,18 @@ import org.apache.ignite.network.TopologyService;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Dummy table storage implementation.
  */
+@TestOnly
 public class DummyInternalTableImpl extends InternalTableImpl {
     public static final IgniteLogger LOG = Loggers.forClass(DummyInternalTableImpl.class);
 
     public static final NetworkAddress ADDR = new NetworkAddress("127.0.0.1", 2004);
 
     public static final ClusterNode LOCAL_NODE = new ClusterNodeImpl("id", "node", ADDR);
-
-    private static final TestPlacementDriver TEST_PLACEMENT_DRIVER = new TestPlacementDriver(LOCAL_NODE);
 
     // 2000 was picked to avoid negative time that we get when building read timestamp
     // in TxManagerImpl.currentReadTimestamp.
@@ -159,29 +160,24 @@ public class DummyInternalTableImpl extends InternalTableImpl {
      * @param txConfiguration Transaction configuration.
      */
     public DummyInternalTableImpl(ReplicaService replicaSvc, SchemaDescriptor schema, TransactionConfiguration txConfiguration) {
-        this(replicaSvc, new TestMvPartitionStorage(0), schema, txConfiguration);
+        this(replicaSvc, new TestMvPartitionStorage(0), schema, new TestPlacementDriver(LOCAL_NODE), txConfiguration);
     }
 
     /**
      * Creates a new local table.
      *
      * @param replicaSvc Replica service.
-     * @param txManager Transaction manager.
-     * @param crossTableUsage If this dummy table is going to be used in cross-table tests, it won't mock the calls of
-     *         ReplicaService by itself.
-     * @param transactionStateResolver Transaction state resolver.
-     * @param schema Schema descriptor.
-     * @param tracker Observable timestamp tracker.
+     * @param storage Storage.
+     * @param schema Schema.
+     * @param txConfiguration Transaction configuration.
      */
     public DummyInternalTableImpl(
             ReplicaService replicaSvc,
-            TxManager txManager,
-            boolean crossTableUsage,
-            @Nullable TransactionStateResolver transactionStateResolver,
+            MvPartitionStorage storage,
             SchemaDescriptor schema,
-            HybridTimestampTracker tracker
+            TransactionConfiguration txConfiguration
     ) {
-        this(replicaSvc, new TestMvPartitionStorage(0), txManager, crossTableUsage, transactionStateResolver, schema, tracker);
+        this(replicaSvc, storage, schema, new TestPlacementDriver(LOCAL_NODE), txConfiguration);
     }
 
     /**
@@ -196,16 +192,18 @@ public class DummyInternalTableImpl extends InternalTableImpl {
             ReplicaService replicaSvc,
             MvPartitionStorage mvPartStorage,
             SchemaDescriptor schema,
+            PlacementDriver placementDriver,
             TransactionConfiguration txConfiguration
     ) {
         this(
                 replicaSvc,
                 mvPartStorage,
-                txManager(replicaSvc, txConfiguration),
+                txManager(replicaSvc, placementDriver, txConfiguration),
                 false,
                 null,
                 schema,
-                new HybridTimestampTracker()
+                new HybridTimestampTracker(),
+                placementDriver
         );
     }
 
@@ -220,6 +218,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
      * @param transactionStateResolver Transaction state resolver.
      * @param schema Schema descriptor.
      * @param tracker Observable timestamp tracker.
+     * @param placementDriver Placement driver.
      */
     public DummyInternalTableImpl(
             ReplicaService replicaSvc,
@@ -228,7 +227,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
             boolean crossTableUsage,
             @Nullable TransactionStateResolver transactionStateResolver,
             SchemaDescriptor schema,
-            HybridTimestampTracker tracker
+            HybridTimestampTracker tracker,
+            PlacementDriver placementDriver
     ) {
         super(
                 "test",
@@ -242,7 +242,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 replicaSvc,
                 CLOCK,
                 tracker,
-                TEST_PLACEMENT_DRIVER,
+                placementDriver,
                 mock(IgniteSql.class)
         );
         RaftGroupService svc = raftGroupServiceByPartitionId.get(PART_ID);
@@ -381,7 +381,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 LOCAL_NODE,
                 new AlwaysSyncedSchemaSyncService(),
                 catalogService,
-                TEST_PLACEMENT_DRIVER,
+                new TestPlacementDriver(LOCAL_NODE),
                 mock(ClusterNodeResolver.class)
         );
 
@@ -426,9 +426,14 @@ public class DummyInternalTableImpl extends InternalTableImpl {
      * Creates a {@link TxManager}.
      *
      * @param replicaSvc Replica service to use.
+     * @param placementDriver Placement driver.
      * @param txConfiguration Transaction configuration.
      */
-    public static TxManagerImpl txManager(ReplicaService replicaSvc, TransactionConfiguration txConfiguration) {
+    public static TxManagerImpl txManager(
+            ReplicaService replicaSvc,
+            PlacementDriver placementDriver,
+            TransactionConfiguration txConfiguration
+    ) {
         TopologyService topologyService = mock(TopologyService.class);
         when(topologyService.localMember()).thenReturn(LOCAL_NODE);
 
@@ -444,7 +449,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 new HeapLockManager(),
                 CLOCK,
                 new TransactionIdGenerator(0xdeadbeef),
-                TEST_PLACEMENT_DRIVER,
+                placementDriver,
                 () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS
         );
 
@@ -496,8 +501,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
     }
 
     /**
-     * Dummy messaging service for tests purposes.
-     * It does not provide any messaging functionality, but allows to trigger events.
+     * Dummy messaging service for tests purposes. It does not provide any messaging functionality, but allows to trigger events.
      */
     private static class DummyMessagingService extends AbstractMessagingService {
         private final String localNodeName;
