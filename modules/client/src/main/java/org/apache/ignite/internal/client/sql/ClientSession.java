@@ -366,8 +366,7 @@ public class ClientSession implements AbstractSession {
         try {
             return ClientTransaction.get(transaction);
         } catch (TransactionException e) {
-            // TODO: error code? Check embedded behavior.
-            throw new SqlException(INTERNAL_ERR, e);
+            throw new SqlException(e.traceId(), e.code(), e.getMessage(), e);
         }
     }
 }
