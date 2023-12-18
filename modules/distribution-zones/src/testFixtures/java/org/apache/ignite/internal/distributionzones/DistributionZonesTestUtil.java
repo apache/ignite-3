@@ -489,7 +489,7 @@ public class DistributionZonesTestUtil {
             @Nullable Integer dataNodesAutoAdjustScaleDown,
             @Nullable String filter
     ) {
-        AlterZoneParams.Builder builder = AlterZoneParams.builder().zoneName(zoneName);
+        AlterZoneParams.Builder builder = AlterZoneParams.builder().zoneName(zoneName.toUpperCase());
 
         if (replicas != null) {
             builder.replicas(replicas);

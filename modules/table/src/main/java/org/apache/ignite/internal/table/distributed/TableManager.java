@@ -518,8 +518,15 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     }
 
     private void processAssignmentsOnRecovery(long recoveryRevision) {
+        var stableAssignmentsPrefix = new ByteArray(STABLE_ASSIGNMENTS_PREFIX);
         var pendingAssignmentsPrefix = new ByteArray(PENDING_ASSIGNMENTS_PREFIX);
 
+        startVv.update(recoveryRevision, (v, e) -> handleAssignmentsOnRecovery(
+                stableAssignmentsPrefix,
+                recoveryRevision,
+                (entry, rev) -> handleChangeStableAssignmentEvent(entry, rev, true),
+                "stable"
+        ));
         startVv.update(recoveryRevision, (v, e) -> handleAssignmentsOnRecovery(
                 pendingAssignmentsPrefix,
                 recoveryRevision,
@@ -1996,6 +2003,14 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             return nullCompletedFuture();
         }
 
+        return handleChangeStableAssignmentEvent(stableAssignmentsWatchEvent, evt.revision(), false);
+    }
+
+    protected CompletableFuture<Void> handleChangeStableAssignmentEvent(
+            Entry stableAssignmentsWatchEvent,
+            long revision,
+            boolean isRecovery
+    ) {
         int partitionId = extractPartitionNumber(stableAssignmentsWatchEvent.key());
         int tableId = extractTableId(stableAssignmentsWatchEvent.key(), STABLE_ASSIGNMENTS_PREFIX);
 
@@ -2015,34 +2030,47 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                             tablePartitionId,
                             stableAssignments,
                             pendingAssignments,
+                            isRecovery,
                             revision
                     );
                 }, ioExecutor);
+    }
+
+    private CompletableFuture<Void> updateClientsOnPartitionStop(
+            TablePartitionId tablePartitionId,
+            Set<Assignment> stableAssignments,
+            long revision
+    ) {
+        // Update raft client peers and learners according to the actual assignments.
+        return tablesById(revision).thenAccept(t -> {
+            t.get(tablePartitionId.tableId()).internalTable()
+                    .partitionRaftGroupService(tablePartitionId.partitionId())
+                    .updateConfiguration(configurationFromAssignments(stableAssignments));
+        });
     }
 
     private CompletableFuture<Void> stopAndDestroyPartitionAndUpdateClients(
             TablePartitionId tablePartitionId,
             Set<Assignment> stableAssignments,
             Set<Assignment> pendingAssignments,
+            boolean isRecovery,
             long revision
     ) {
-        // Update raft client peers and learners according to the actual assignments.
-        CompletableFuture<Void> raftClientUpdateFuture = tablesById(revision).thenAccept(t -> {
-            t.get(tablePartitionId.tableId()).internalTable()
-                    .partitionRaftGroupService(tablePartitionId.partitionId())
-                    .updateConfiguration(configurationFromAssignments(stableAssignments));
-        });
+        CompletableFuture<Void> clientUpdateFuture = isRecovery
+                // Updating clients is not needed on recovery.
+                ? nullCompletedFuture()
+                : updateClientsOnPartitionStop(tablePartitionId, stableAssignments, revision);
 
         boolean shouldStopLocalServices = Stream.concat(stableAssignments.stream(), pendingAssignments.stream())
                 .noneMatch(assignment -> assignment.consistentId().equals(localNode().name()));
 
         if (shouldStopLocalServices) {
             return allOf(
-                    raftClientUpdateFuture,
+                    clientUpdateFuture,
                     stopAndDestroyPartition(tablePartitionId, revision)
             );
         } else {
-            return raftClientUpdateFuture;
+            return clientUpdateFuture;
         }
     }
 
