@@ -39,6 +39,8 @@ import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.MarshallerException;
 import org.apache.ignite.sql.ClosableCursor;
+import org.apache.ignite.sql.Session;
+import org.apache.ignite.sql.Statement;
 import org.apache.ignite.sql.async.AsyncClosableCursor;
 import org.apache.ignite.sql.async.AsyncResultSet;
 import org.apache.ignite.table.DataStreamerOptions;
@@ -452,8 +454,8 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
         //TODO: implement serialization of criteria to SQL https://issues.apache.org/jira/browse/IGNITE-20879
         var query = "SELECT * FROM " + tbl.name();
 
-        var statement = tbl.sql().statementBuilder().query(query).pageSize(opts.pageSize()).build();
-        var session = tbl.sql().createSession();
+        Statement statement = tbl.sql().statementBuilder().query(query).pageSize(opts.pageSize()).build();
+        Session session = tbl.sql().createSession();
 
         return session.executeAsync(tx, statement)
                 .thenApply(resultSet -> new QueryCriteriaAsyncResultSet<>(resultSet, session::close));

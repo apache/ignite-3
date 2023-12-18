@@ -37,9 +37,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
+import java.util.Spliterators;
 import java.util.function.Function;
 import java.util.stream.Collector;
 import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -520,5 +522,17 @@ public final class CollectionUtils {
         }
 
         return Set.copyOf(set);
+    }
+
+    /**
+     * Gets a list based on an iterator.
+     *
+     * @param iterator The iterator to use.
+     * @return A list of the iterator contents.
+     * @throws NullPointerException if iterator parameter is null
+     */
+    public static <T> List<T> toList(Iterator<T> iterator) {
+        return StreamSupport.stream(Spliterators.spliteratorUnknownSize(iterator, 0), false)
+                .collect(Collectors.toList());
     }
 }

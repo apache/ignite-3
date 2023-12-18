@@ -18,10 +18,6 @@
 package org.apache.ignite.sql;
 
 import java.util.Iterator;
-import java.util.Spliterators;
-import java.util.stream.Stream;
-import java.util.stream.StreamSupport;
-import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.criteria.Criteria;
 import org.apache.ignite.table.criteria.CriteriaQueryOptions;
@@ -32,19 +28,9 @@ import org.apache.ignite.tx.Transaction;
  *
  * @param <T> The type of elements returned by this iterator.
  *
- * @see KeyValueView#queryCriteria(Transaction, Criteria, CriteriaQueryOptions)
  * @see RecordView#queryCriteria(Transaction, Criteria, CriteriaQueryOptions)
  */
 public interface ClosableCursor<T> extends Iterator<T>, AutoCloseable {
-    /**
-     * Returns a sequential Stream over the elements covered by this iterator.
-     *
-     * @return Sequential Stream over the elements covered by this iterator.
-     */
-    default Stream<T> stream() {
-        return StreamSupport.stream(Spliterators.spliteratorUnknownSize(this, 0), false);
-    }
-
     /**
      * Invalidates a query result, stops the query, and cleans up query resources.
      */

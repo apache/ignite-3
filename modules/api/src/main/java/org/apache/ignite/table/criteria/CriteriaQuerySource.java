@@ -33,7 +33,7 @@ public interface CriteriaQuerySource<T> {
     /**
      * Criteria query over cache entries.
      *
-     * @param tx Transaction to execute the query within or {@code null}.
+     * @param tx Transaction to run a given query. Can be {@code null} to run within implicit transaction.
      * @param criteria If {@code null} then all entries will be returned.
      * @throws SqlException If failed.
      */
@@ -44,7 +44,7 @@ public interface CriteriaQuerySource<T> {
     /**
      * Criteria query over cache entries.
      *
-     * @param tx Transaction to execute the query within or {@code null}.
+     * @param tx Transaction to run a given query. Can be {@code null} to run within implicit transaction.
      * @param criteria If {@code null} then all entries will be returned.
      * @param opts Criteria query options.
      * @throws SqlException If failed.
@@ -54,7 +54,7 @@ public interface CriteriaQuerySource<T> {
     /**
      * Execute criteria query over cache entries in an asynchronous way.
      *
-     * @param tx Transaction to execute the query within or {@code null}.
+     * @param tx Transaction to run a given query. Can be {@code null} to run within implicit transaction.
      * @param criteria If {@code null} then all entries will be returned.
      * @return Operation future.
      * @throws SqlException If failed.
@@ -66,7 +66,7 @@ public interface CriteriaQuerySource<T> {
     /**
      * Execute criteria query over cache entries in an asynchronous way.
      *
-     * @param tx Transaction to execute the query within or {@code null}.
+     * @param tx Transaction to run a given query. Can be {@code null} to run within implicit transaction.
      * @param criteria If {@code null} then all entries will be returned.
      * @param opts Criteria query options.
      * @return Operation future.

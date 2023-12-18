@@ -17,9 +17,9 @@
 
 package org.apache.ignite.internal.table;
 
-import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.CollectionUtils.toList;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.hasSize;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -37,11 +37,9 @@ import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.sql.Session;
+import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
-import org.hamcrest.FeatureMatcher;
-import org.hamcrest.Matcher;
-import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
@@ -112,9 +110,9 @@ public class ItCriteriaQueryTest extends BaseIgniteAbstractTest {
 
     @Test
     public void testBasicQueryCriteriaRecordBinaryView() {
-        var view = node.tables().table(TABLE_NAME).recordView();
+        RecordView<Tuple> view = node.tables().table(TABLE_NAME).recordView();
 
-        var res = view.queryCriteria(null, null).stream().collect(toList());
+        List<Tuple> res = toList(view.queryCriteria(null, null));
         assertThat(res, hasSize(15));
     }
 
@@ -123,7 +121,7 @@ public class ItCriteriaQueryTest extends BaseIgniteAbstractTest {
     public void testBasicQueryCriteriaRecordPojoView() {
         RecordView<TestPojo> view = node.tables().table(TABLE_NAME).recordView(TestPojo.class);
 
-        var res = view.queryCriteria(null, null).stream().collect(toList());
+        List<TestPojo> res = toList(view.queryCriteria(null, null));
         assertThat(res, hasSize(15));
     }
 
@@ -145,7 +143,7 @@ public class ItCriteriaQueryTest extends BaseIgniteAbstractTest {
     }
 
     private static void populateData(Ignite node, String tableName) {
-        var keyValueView = node.tables().table(tableName).keyValueView();
+        KeyValueView<Tuple, Tuple> keyValueView = node.tables().table(tableName).keyValueView();
 
         for (int val = 0; val < 15; val++) {
             Tuple tableKey = Tuple.create().set("key", val % 100);
@@ -154,21 +152,6 @@ public class ItCriteriaQueryTest extends BaseIgniteAbstractTest {
 
             keyValueView.put(null, tableKey, value);
         }
-    }
-
-    /**
-     * Creates a matcher for matching tuple value.
-     *
-     * @param valueMatcher Matcher for matching tuple value.
-     * @return Matcher for matching tuple value.
-     */
-    private static <T> Matcher<Tuple> tupleValue(String columnName, Matcher<T> valueMatcher) {
-        return new FeatureMatcher<>(valueMatcher, "A tuple with value", "value") {
-            @Override
-            protected @Nullable T featureValueOf(Tuple actual) {
-                return actual.value(columnName);
-            }
-        };
     }
 
     /**

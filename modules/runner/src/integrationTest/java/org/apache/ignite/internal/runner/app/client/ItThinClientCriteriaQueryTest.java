@@ -17,20 +17,23 @@
 
 package org.apache.ignite.internal.runner.app.client;
 
-import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.util.CollectionUtils.toList;
 import static org.apache.ignite.table.criteria.CriteriaQueryOptions.builder;
+import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.allOf;
+import static org.hamcrest.Matchers.containsInAnyOrder;
+import static org.hamcrest.Matchers.hasProperty;
 import static org.hamcrest.Matchers.hasSize;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Map;
 import org.apache.ignite.internal.testframework.WorkDirectory;
+import org.apache.ignite.sql.async.AsyncClosableCursor;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
-import org.hamcrest.FeatureMatcher;
-import org.hamcrest.Matcher;
-import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
@@ -51,12 +54,12 @@ public class ItThinClientCriteriaQueryTest extends ItAbstractThinClientTest {
 
     @Test
     public void testBasicQueryCriteriaRecordBinaryView() {
-        var view = client().tables().table(TABLE_NAME).recordView();
+        RecordView<Tuple> view = client().tables().table(TABLE_NAME).recordView();
 
-        var res = view.queryCriteria(null, null).stream().collect(toList());
+        List<Tuple> res = toList(view.queryCriteria(null, null));
         assertThat(res, hasSize(3));
 
-        var ars = view.queryCriteriaAsync(null, null, builder().pageSize(2).build()).join();
+        AsyncClosableCursor<Tuple> ars = view.queryCriteriaAsync(null, null, builder().pageSize(2).build()).join();
         assertEquals(2, ars.currentPageSize());
     }
 
@@ -64,10 +67,14 @@ public class ItThinClientCriteriaQueryTest extends ItAbstractThinClientTest {
     public void testBasicQueryCriteriaRecordPojoView() {
         RecordView<TestPojo> view = client().tables().table(TABLE_NAME).recordView(TestPojo.class);
 
-        var res = view.queryCriteria(null, null).stream().collect(toList());
-        assertThat(res, hasSize(3));
+        List<TestPojo> res = toList(view.queryCriteria(null, null));
+        assertThat(res, allOf(hasSize(3), containsInAnyOrder(
+                hasProperty(COLUMN_KEY, is(1)),
+                hasProperty(COLUMN_KEY, is(2)),
+                hasProperty(COLUMN_KEY, is(3))
+        )));
 
-        var ars = view.queryCriteriaAsync(null, null, builder().pageSize(2).build()).join();
+        AsyncClosableCursor<TestPojo> ars = view.queryCriteriaAsync(null, null, builder().pageSize(2).build()).join();
         assertEquals(2, ars.currentPageSize());
     }
 
@@ -77,20 +84,5 @@ public class ItThinClientCriteriaQueryTest extends ItAbstractThinClientTest {
         table.insert(null, Tuple.create(Map.of(COLUMN_KEY, 1, COLUMN_VAL, "1")));
         table.insert(null, Tuple.create(Map.of(COLUMN_KEY, 2, COLUMN_VAL, "2")));
         table.insert(null, Tuple.create(Map.of(COLUMN_KEY, 3, COLUMN_VAL, "3")));
-    }
-
-    /**
-     * Creates a matcher for matching tuple value.
-     *
-     * @param valueMatcher Matcher for matching tuple value.
-     * @return Matcher for matching tuple value.
-     */
-    private static <T> Matcher<Tuple> tupleValue(String columnName, Matcher<T> valueMatcher) {
-        return new FeatureMatcher<>(valueMatcher, "A tuple with value", "value") {
-            @Override
-            protected @Nullable T featureValueOf(Tuple actual) {
-                return actual.value(columnName);
-            }
-        };
     }
 }
