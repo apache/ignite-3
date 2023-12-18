@@ -34,6 +34,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Predicate;
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -70,10 +71,10 @@ public class LeaseUpdater {
     private static final IgniteLogger LOG = Loggers.forClass(LeaseUpdater.class);
 
     /** Update attempts interval in milliseconds. */
-    private static final long UPDATE_LEASE_MS = 2500L;
+    private static final long UPDATE_LEASE_MS = 500L;
 
     /** Lease holding interval. */
-    private static final long LEASE_INTERVAL = 2 * UPDATE_LEASE_MS;
+    private static final long LEASE_INTERVAL = 10 * UPDATE_LEASE_MS;
 
     /** The lock is available when the actor is changing state. */
     private final IgniteSpinBusyLock stateChangingLock = new IgniteSpinBusyLock();
@@ -113,6 +114,19 @@ public class LeaseUpdater {
     /** Node name. */
     private final String nodeName;
 
+    private final Predicate<Integer> isDroppedTable;
+
+    LeaseUpdater(
+            String nodeName,
+            ClusterService clusterService,
+            MetaStorageManager msManager,
+            LogicalTopologyService topologyService,
+            LeaseTracker leaseTracker,
+            HybridClock clock
+    ) {
+        this(nodeName, clusterService, msManager, topologyService, leaseTracker, clock, tableId -> false);
+    }
+
     /**
      * Constructor.
      *
@@ -128,7 +142,8 @@ public class LeaseUpdater {
             MetaStorageManager msManager,
             LogicalTopologyService topologyService,
             LeaseTracker leaseTracker,
-            HybridClock clock
+            HybridClock clock,
+            Predicate<Integer> isDroppedTable
     ) {
         this.nodeName = nodeName;
         this.clusterService = clusterService;
@@ -142,6 +157,8 @@ public class LeaseUpdater {
         this.updater = new Updater();
 
         clusterService.messagingService().addMessageHandler(PlacementDriverMessageGroup.class, new PlacementDriverActorMessageHandler());
+
+        this.isDroppedTable = isDroppedTable;
     }
 
     /** Initializes the class. */
@@ -307,6 +324,8 @@ public class LeaseUpdater {
             Leases leasesCurrent = leaseTracker.leasesCurrent();
             Map<ReplicationGroupId, Boolean> toBeNegotiated = new HashMap<>();
             Map<ReplicationGroupId, Lease> renewedLeases = new HashMap<>(leasesCurrent.leaseByGroupId());
+
+            renewedLeases.entrySet().removeIf(entry -> isDroppedTable.test(((TablePartitionId) entry.getKey()).tableId()));
 
             for (Map.Entry<ReplicationGroupId, Set<Assignment>> entry : assignmentsTracker.assignments().entrySet()) {
                 ReplicationGroupId grpId = entry.getKey();

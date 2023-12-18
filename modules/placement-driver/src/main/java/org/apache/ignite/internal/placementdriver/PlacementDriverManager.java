@@ -25,6 +25,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
+import java.util.function.Predicate;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -88,6 +89,31 @@ public class PlacementDriverManager implements IgniteComponent {
     /** Meta Storage manager. */
     private final MetaStorageManager metastore;
 
+    public PlacementDriverManager(
+            String nodeName,
+            MetaStorageManager metastore,
+            ReplicationGroupId replicationGroupId,
+            ClusterService clusterService,
+            Supplier<CompletableFuture<Set<String>>> placementDriverNodesNamesProvider,
+            LogicalTopologyService logicalTopologyService,
+            RaftManager raftManager,
+            TopologyAwareRaftGroupServiceFactory topologyAwareRaftGroupServiceFactory,
+            HybridClock clock
+    ) {
+        this(
+                nodeName,
+                metastore,
+                replicationGroupId,
+                clusterService,
+                placementDriverNodesNamesProvider,
+                logicalTopologyService,
+                raftManager,
+                topologyAwareRaftGroupServiceFactory,
+                clock,
+                tableId -> false
+        );
+    }
+
     /**
      * Constructor.
      *
@@ -110,7 +136,8 @@ public class PlacementDriverManager implements IgniteComponent {
             LogicalTopologyService logicalTopologyService,
             RaftManager raftManager,
             TopologyAwareRaftGroupServiceFactory topologyAwareRaftGroupServiceFactory,
-            HybridClock clock
+            HybridClock clock,
+            Predicate<Integer> isDroppedTable
     ) {
         this.replicationGroupId = replicationGroupId;
         this.clusterService = clusterService;
@@ -129,7 +156,8 @@ public class PlacementDriverManager implements IgniteComponent {
                 metastore,
                 logicalTopologyService,
                 leaseTracker,
-                clock
+                clock,
+                isDroppedTable
         );
     }
 

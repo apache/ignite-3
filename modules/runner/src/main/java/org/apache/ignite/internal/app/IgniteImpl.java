@@ -32,12 +32,14 @@ import java.util.ServiceLoader;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.function.BiPredicate;
 import java.util.function.Consumer;
 import java.util.function.LongFunction;
 import java.util.function.LongSupplier;
+import java.util.function.Predicate;
 import java.util.function.Supplier;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
@@ -48,8 +50,12 @@ import org.apache.ignite.configuration.ConfigurationDynamicDefaultsPatcher;
 import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
+import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.ClockWaiter;
 import org.apache.ignite.internal.catalog.configuration.SchemaSynchronizationConfiguration;
+import org.apache.ignite.internal.catalog.events.CatalogEvent;
+import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
+import org.apache.ignite.internal.catalog.events.DropTableEventParameters;
 import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
 import org.apache.ignite.internal.cluster.management.ClusterInitializer;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
@@ -91,6 +97,7 @@ import org.apache.ignite.internal.deployunit.IgniteDeployment;
 import org.apache.ignite.internal.deployunit.configuration.DeploymentConfiguration;
 import org.apache.ignite.internal.deployunit.metastore.DeploymentUnitStoreImpl;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
+import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.index.IndexBuildingManager;
@@ -99,6 +106,7 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
@@ -240,6 +248,8 @@ public class IgniteImpl implements Ignite {
 
     /** Placement driver manager. */
     private final PlacementDriverManager placementDriverMgr;
+
+    private final DroppedTablesTracker droppedTablesTracker;
 
     /** Configuration manager that handles cluster (distributed) configuration. */
     private final ConfigurationManager clusterCfgMgr;
@@ -476,6 +486,25 @@ public class IgniteImpl implements Ignite {
 
         Consumer<LongFunction<CompletableFuture<?>>> registry = c -> metaStorageMgr.registerRevisionUpdateListener(c::apply);
 
+        ReplicationConfiguration replicationConfig = clusterConfigRegistry.getConfiguration(ReplicationConfiguration.KEY);
+
+        LongSupplier partitionIdleSafeTimePropagationPeriodMsSupplier = partitionIdleSafeTimePropagationPeriodMsSupplier(replicationConfig);
+
+        SchemaSynchronizationConfiguration schemaSyncConfig = clusterConfigRegistry.getConfiguration(
+                SchemaSynchronizationConfiguration.KEY
+        );
+
+        LongSupplier delayDurationMsSupplier = delayDurationMsSupplier(schemaSyncConfig);
+
+        CatalogManagerImpl catalogManager = new CatalogManagerImpl(
+                new UpdateLogImpl(metaStorageMgr),
+                clockWaiter,
+                delayDurationMsSupplier,
+                partitionIdleSafeTimePropagationPeriodMsSupplier
+        );
+
+        droppedTablesTracker = new DroppedTablesTracker(catalogManager);
+
         placementDriverMgr = new PlacementDriverManager(
                 name,
                 metaStorageMgr,
@@ -485,12 +514,9 @@ public class IgniteImpl implements Ignite {
                 logicalTopologyService,
                 raftMgr,
                 topologyAwareRaftGroupServiceFactory,
-                clock
+                clock,
+                droppedTablesTracker
         );
-
-        ReplicationConfiguration replicationConfig = clusterConfigRegistry.getConfiguration(ReplicationConfiguration.KEY);
-
-        LongSupplier partitionIdleSafeTimePropagationPeriodMsSupplier = partitionIdleSafeTimePropagationPeriodMsSupplier(replicationConfig);
 
         replicaMgr = new ReplicaManager(
                 name,
@@ -527,19 +553,6 @@ public class IgniteImpl implements Ignite {
         volatileLogStorageFactoryCreator = new VolatileLogStorageFactoryCreator(workDir.resolve("volatile-log-spillout"));
 
         outgoingSnapshotsManager = new OutgoingSnapshotsManager(clusterSvc.messagingService());
-
-        SchemaSynchronizationConfiguration schemaSyncConfig = clusterConfigRegistry.getConfiguration(
-                SchemaSynchronizationConfiguration.KEY
-        );
-
-        LongSupplier delayDurationMsSupplier = delayDurationMsSupplier(schemaSyncConfig);
-
-        CatalogManagerImpl catalogManager = new CatalogManagerImpl(
-                new UpdateLogImpl(metaStorageMgr),
-                clockWaiter,
-                delayDurationMsSupplier,
-                partitionIdleSafeTimePropagationPeriodMsSupplier
-        );
 
         systemViewManager = new SystemViewManagerImpl(name, catalogManager);
         nodeAttributesCollector.register(systemViewManager);
@@ -819,6 +832,7 @@ public class IgniteImpl implements Ignite {
                             lifecycleManager.startComponents(
                                     catalogManager,
                                     clusterCfgMgr,
+                                    droppedTablesTracker,
                                     placementDriverMgr,
                                     metricManager,
                                     distributionZoneManager,
@@ -1197,5 +1211,39 @@ public class IgniteImpl implements Ignite {
     @TestOnly
     public CatalogManager catalogManager() {
         return catalogManager;
+    }
+
+    private static class DroppedTablesTracker implements IgniteComponent, Predicate<Integer> {
+        private final CatalogService catalogService;
+
+        private final Set<Integer> droppedTableIds = ConcurrentHashMap.newKeySet();
+
+        private DroppedTablesTracker(CatalogService catalogService) {
+            this.catalogService = catalogService;
+        }
+
+        @Override
+        public boolean test(Integer tableId) {
+            return droppedTableIds.contains(tableId);
+        }
+
+        @Override
+        public void start() {
+            catalogService.listen(CatalogEvent.TABLE_DROP, new EventListener<CatalogEventParameters>() {
+                @Override
+                public CompletableFuture<Boolean> notify(CatalogEventParameters parameters, @Nullable Throwable exception) {
+                    DropTableEventParameters event = (DropTableEventParameters) parameters;
+
+                    droppedTableIds.add(event.tableId());
+
+                    return completedFuture(false);
+                }
+            });
+        }
+
+        @Override
+        public void stop() throws Exception {
+            // No-op.
+        }
     }
 }
