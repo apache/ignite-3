@@ -25,7 +25,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Represents transaction result - the state and the commit timestamp.
+ * Represents transaction final result - the state and the commit timestamp.
  */
 public class TransactionResult implements Serializable {
     private static final long serialVersionUID = -4975086804837572978L;

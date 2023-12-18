@@ -1637,7 +1637,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 );
 
                 throw new TransactionAlreadyFinishedException(
-                        "Failed to change the outcome of a finished transaction [txId=" + txId + "].",
+                        "Failed to change the outcome of a finished transaction [txId=" + txId + ", txState=" + txMeta.txState() + "].",
                         new TransactionResult(txMeta.txState(), txMeta.commitTimestamp())
                 );
             }

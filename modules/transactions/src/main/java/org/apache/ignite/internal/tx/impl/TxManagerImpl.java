@@ -403,7 +403,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         }
 
         return CompletableFuture.failedFuture(new TransactionAlreadyFinishedException(
-                "Failed to change the outcome of a finished transaction [txId=" + txId + "].",
+                "Failed to change the outcome of a finished transaction [txId=" + txId + ", txState=" + stateMeta.txState() + "].",
                 new TransactionResult(stateMeta.txState(), stateMeta.commitTimestamp()))
         );
     }
@@ -477,19 +477,16 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
                             TransactionResult result = transactionException.transactionResult();
 
-                            updateTxMeta(txId, old -> {
-                                TxStateMeta txStateMeta =
-                                        new TxStateMeta(
-                                                result.transactionState(),
-                                                old.txCoordinatorId(),
-                                                commitPartition,
-                                                result.commitTimestamp()
-                                        );
+                            TxStateMeta updatedMeta = updateTxMeta(txId, old ->
+                                    new TxStateMeta(
+                                            result.transactionState(),
+                                            old.txCoordinatorId(),
+                                            commitPartition,
+                                            result.commitTimestamp()
+                                    )
+                            );
 
-                                txFinishFuture.complete(txStateMeta);
-
-                                return txStateMeta;
-                            });
+                            txFinishFuture.complete(updatedMeta);
 
                             return CompletableFuture.<Void>failedFuture(cause);
                         }
