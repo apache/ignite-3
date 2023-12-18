@@ -17,6 +17,7 @@
 
 package org.apache.ignite.client.handler;
 
+import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Client.HANDSHAKE_HEADER_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Client.PROTOCOL_COMPATIBILITY_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Client.PROTOCOL_ERR;
@@ -864,7 +865,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
                     + channelHandlerContext.channel().remoteAddress() + ", event=" + parameters.type() + ']');
             closeConnection();
         }
-        return CompletableFuture.completedFuture(false);
+        return falseCompletedFuture();
     }
 
     private boolean shouldCloseConnection(AuthenticationEventParameters parameters) {

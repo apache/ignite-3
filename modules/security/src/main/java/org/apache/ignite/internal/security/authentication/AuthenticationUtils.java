@@ -19,6 +19,7 @@ package org.apache.ignite.internal.security.authentication;
 
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.internal.security.authentication.basic.BasicAuthenticationProviderView;
+import org.apache.ignite.internal.security.authentication.basic.BasicProviderNotFoundException;
 import org.apache.ignite.internal.security.authentication.configuration.AuthenticationProviderView;
 
 /**
@@ -50,6 +51,6 @@ public final class AuthenticationUtils {
                 .filter(BasicAuthenticationProviderView.class::isInstance)
                 .map(BasicAuthenticationProviderView.class::cast)
                 .findFirst()
-                .orElseThrow();
+                .orElseThrow(BasicProviderNotFoundException::new);
     }
 }

@@ -103,16 +103,16 @@ public class AuthenticationManagerImpl
     public AuthenticationManagerImpl(SecurityConfiguration securityConfiguration) {
         this.securityConfiguration = securityConfiguration;
 
-        this.securityConfigurationListener = ctx -> {
+        securityConfigurationListener = ctx -> {
             refreshProviders(ctx.newValue());
             return nullCompletedFuture();
         };
 
-        this.securityEnabledDisabledEventFactory = new SecurityEnabledDisabledEventFactory(this::fireEvent);
+        securityEnabledDisabledEventFactory = new SecurityEnabledDisabledEventFactory(this::fireEvent);
 
-        this.userEventFactory = new UserEventFactory(this::fireEvent);
+        userEventFactory = new UserEventFactory(this::fireEvent);
 
-        this.providerEventFactory = new AuthenticationProviderEventFactory(
+        providerEventFactory = new AuthenticationProviderEventFactory(
                 securityConfiguration,
                 userEventFactory,
                 this::fireEvent

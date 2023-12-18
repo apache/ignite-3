@@ -15,18 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.security.authentication.event;
+package org.apache.ignite.internal.security.authentication.basic;
 
-import java.util.List;
-import java.util.function.BiFunction;
-import org.apache.ignite.internal.security.configuration.SecurityView;
-import org.jetbrains.annotations.Nullable;
+import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.lang.ErrorGroups.Authentication;
 
-/**
- * Event producer for security configuration changes.
- */
-@FunctionalInterface
-public interface EventFactory extends BiFunction<SecurityView, SecurityView, List<? extends AuthenticationEventParameters>> {
-    @Override
-    List<? extends AuthenticationEventParameters> apply(@Nullable SecurityView oldValue, SecurityView newValue);
+/** Thrown when there are no basic provider defined in the authentication configuration. */
+public class BasicProviderNotFoundException extends IgniteInternalException {
+    public BasicProviderNotFoundException() {
+        super(Authentication.BASIC_PROVIDER_ERR, "Basic authentication provider is not found");
+    }
 }
