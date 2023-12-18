@@ -42,6 +42,7 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.network.ClusterNode;
@@ -135,9 +136,11 @@ public abstract class ItComputeBaseTest extends ClusterPerTestIntegrationTest {
         IgniteException ex = assertThrows(IgniteException.class, () -> entryNode.compute()
                 .execute(Set.of(entryNode.node()), units(), failingJobClassName()));
 
-        assertThat(ex.getCause().getClass().getName(), is(jobExceptionClassName()));
-        assertThat(ex.getCause().getMessage(), is("Oops"));
-        assertThat(ex.getCause().getCause(), is(notNullValue()));
+        assertThat(ex.groupCode(), is(Common.COMMON_ERR_GROUP.groupCode()));
+        assertThat(ex.groupName(), is(Common.COMMON_ERR_GROUP.name()));
+        assertThat(ex.code(), is(Common.INTERNAL_ERR));
+        assertThat(ex.traceId(), is(notNullValue()));
+        assertThat(ex.getMessage(), is("Oops"));
     }
 
     @Test
