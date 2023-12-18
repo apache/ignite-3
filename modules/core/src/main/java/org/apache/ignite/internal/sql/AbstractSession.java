@@ -60,6 +60,7 @@ public interface AbstractSession extends Session {
         try {
             return new SyncResultSetAdapter<>(executeAsync(transaction, query, arguments).join());
         } catch (CompletionException e) {
+            // TODO: SqlExceptionMapperUtil.mapToPublicSqlException(e); ??
             throw ExceptionUtils.sneakyThrow(ExceptionUtils.copyExceptionWithCause(e));
         }
     }
