@@ -1608,24 +1608,27 @@ public class PartitionReplicaListener implements ReplicaListener {
             // The transaction is finished, but the locks are not released.
             // If we got here, it means we are retrying the finish request.
             // Let's make sure the desired state is valid.
-            // Tx logic does not allow to send a rollback over a finished transaction:
             // - The Coordinator calls use same tx state over retries, both abort and commit are possible.
-            // - Server side recovery (which is not implemented yet) may only change tx state to aborted.
+            // - Server side recovery may only change tx state to aborted.
             // - The Coordinator itself should prevent user calls with different proposed state to the one,
-            //   that was already triggered (e.g. the client side -> txCoordinator.commitAsync(); txCoordinator.rollbackAsync())
-            //
-            // To sum it up, the possible states that a 'commit' is allowed to see:
+            //   that was already triggered (e.g. the client side -> txCoordinator.commitAsync(); txCoordinator.rollbackAsync()).
+            // - A coordinator might send a commit, then die, but the commit message might still arrive at the commit partition primary.
+            //   If it arrived with a delay, another node might come across a write intent/lock from that tx
+            //   and realize that the coordinator is no longer available and start tx recovery.
+            //   The original commit message might arrive later than the recovery one,
+            //   hence a 'commit over rollback' case.
+            // The possible states that a 'commit' is allowed to see:
             // - null (if it's the first change state attempt)
             // - committed (if it was already updated in the previous attempt)
             // - aborted (if it was aborted by the initiate recovery logic,
             //   though this is a very unlikely case because initiate recovery will only roll back the tx if coordinator is dead).
             //
             // Within 'roll back' it's allowed to see:
-            // - null
-            // - aborted
-            // Other combinations of states are not possible.
+            // - null (if it's the first change state attempt)
+            // - aborted  (if it was already updated in the previous attempt or the result of a concurrent recovery)
+            // - commit (if initiate recovery has started, but a delayed message from the coordinator finally arrived and executed earlier).
 
-            // If a 'commit' sees a tx in the ABORTED state (valid as per the explanation above), let the client know with an exception.
+            // Let the client know a transaction has finished with a different outcome.
             if (commit != (txMeta.txState() == COMMITTED)) {
                 LOG.error("Failed to finish a transaction that is already finished [txId={}, expectedState={}, actualState={}].",
                         txId,

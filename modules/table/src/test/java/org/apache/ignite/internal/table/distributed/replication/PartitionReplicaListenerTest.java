@@ -29,6 +29,7 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
+import static org.apache.ignite.internal.tx.TxState.COMMITTED;
 import static org.apache.ignite.internal.tx.TxState.checkTransitionCorrectness;
 import static org.apache.ignite.internal.util.ArrayUtils.asList;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -161,6 +162,7 @@ import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TransactionIds;
 import org.apache.ignite.internal.tx.TransactionMeta;
+import org.apache.ignite.internal.tx.TransactionResult;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
@@ -259,6 +261,10 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
                 return v;
             });
+        } else if (cmd instanceof FinishTxCommand) {
+            FinishTxCommand command = (FinishTxCommand) cmd;
+
+            return completedFuture(new TransactionResult(command.commit() ? COMMITTED : ABORTED, command.commitTimestamp()));
         }
 
         return nullCompletedFuture();
