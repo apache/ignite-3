@@ -312,8 +312,8 @@ public class LeaseUpdater {
             Set<ReplicationGroupId> currentAssignmentsReplicationGroupIds = currentAssignments.keySet();
 
             // Remove all expired leases that are no longer present in assignments.
-            renewedLeases.entrySet().removeIf(e -> e.getValue().getExpirationTime().before(now) &&
-                    !currentAssignmentsReplicationGroupIds.contains(e.getKey()));
+            renewedLeases.entrySet().removeIf(e -> e.getValue().getExpirationTime().before(now)
+                    && !currentAssignmentsReplicationGroupIds.contains(e.getKey()));
 
             for (Map.Entry<ReplicationGroupId, Set<Assignment>> entry : currentAssignments.entrySet()) {
                 ReplicationGroupId grpId = entry.getKey();
