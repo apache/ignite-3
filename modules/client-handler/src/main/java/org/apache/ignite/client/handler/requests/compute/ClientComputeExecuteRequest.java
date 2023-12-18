@@ -21,12 +21,13 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.client.handler.NotificationSender;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.IgniteCompute;
-import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterService;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Compute execute request.
@@ -35,17 +36,17 @@ public class ClientComputeExecuteRequest {
     /**
      * Processes the request.
      *
-     * @param in        Unpacker.
-     * @param out       Packer.
-     * @param compute   Compute.
-     * @param cluster   Cluster.
+     * @param in                 Unpacker.
+     * @param compute            Compute.
+     * @param cluster            Cluster.
+     * @param notificationSender Notification sender.
      * @return Future.
      */
-    public static CompletableFuture<Void> process(
+    public static @Nullable CompletableFuture<Void> process(
             ClientMessageUnpacker in,
-            ClientMessagePacker out,
             IgniteCompute compute,
-            ClusterService cluster) {
+            ClusterService cluster,
+            NotificationSender notificationSender) {
         var nodeName = in.tryUnpackNil() ? null : in.unpackString();
 
         var node = nodeName == null
@@ -58,10 +59,12 @@ public class ClientComputeExecuteRequest {
 
         List<DeploymentUnit> deploymentUnits = unpackDeploymentUnits(in);
         String jobClassName = in.unpackString();
-
         Object[] args = unpackArgs(in);
 
-        return compute.executeAsync(Set.of(node), deploymentUnits, jobClassName, args).thenAccept(out::packObjectAsBinaryTuple);
+        compute.executeAsync(Set.of(node), deploymentUnits, jobClassName, args)
+                .whenComplete((res, err) -> notificationSender.sendNotification(w -> w.packObjectAsBinaryTuple(res), err));
+
+        return null;
     }
 
     /**

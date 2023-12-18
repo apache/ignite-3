@@ -34,6 +34,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Consumer;
 import javax.net.ssl.SSLException;
 import org.apache.ignite.client.handler.configuration.ClientConnectorView;
 import org.apache.ignite.client.handler.requests.cluster.ClientClusterGetNodesRequest;
@@ -89,7 +90,6 @@ import org.apache.ignite.internal.client.proto.ErrorExtensions;
 import org.apache.ignite.internal.client.proto.HandshakeExtension;
 import org.apache.ignite.internal.client.proto.ProtocolVersion;
 import org.apache.ignite.internal.client.proto.ResponseFlags;
-import org.apache.ignite.internal.client.proto.ServerMessageType;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.jdbc.proto.JdbcQueryCursorHandler;
@@ -409,24 +409,32 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         metrics.bytesSentAdd(bytes);
     }
 
-    private void writeError(long requestId, int opCode, Throwable err, ChannelHandlerContext ctx) {
-        LOG.warn("Error processing client request [connectionId=" + connectionId + ", id=" + requestId + ", op=" + opCode
-                + ", remoteAddress=" + ctx.channel().remoteAddress() + "]:" + err.getMessage(), err);
+    private void writeResponseHeader(
+            ClientMessagePacker packer, long requestId, ChannelHandlerContext ctx, boolean isNotification, boolean isError) {
+        packer.packLong(requestId);
+        writeFlags(packer, ctx, isNotification, isError);
 
-        var packer = getPacker(ctx.alloc());
+        // Include server timestamp in error and notification responses as well:
+        // an operation can modify data and then throw an exception (e.g. Compute task),
+        // so we still need to update client-side timestamp to preserve causality guarantees.
+        packer.packLong(observableTimestamp(null));
+    }
+
+    private void writeError(long requestId, int opCode, Throwable err, ChannelHandlerContext ctx, boolean isNotification) {
+        if (isNotification) {
+            LOG.warn("Error processing client notification [connectionId=" + connectionId + ", id=" + requestId
+                    + ", remoteAddress=" + ctx.channel().remoteAddress() + "]:" + err.getMessage(), err);
+        } else {
+            LOG.warn("Error processing client request [connectionId=" + connectionId + ", id=" + requestId + ", op=" + opCode
+                    + ", remoteAddress=" + ctx.channel().remoteAddress() + "]:" + err.getMessage(), err);
+        }
+
+        ClientMessagePacker packer = getPacker(ctx.alloc());
 
         try {
             assert err != null;
 
-            packer.packInt(ServerMessageType.RESPONSE);
-            packer.packLong(requestId);
-            writeFlags(packer, ctx);
-
-            // Include server timestamp in error response as well:
-            // an operation can modify data and then throw an exception (e.g. Compute task),
-            // so we still need to update client-side timestamp to preserve causality guarantees.
-            packer.packLong(observableTimestamp(null));
-
+            writeResponseHeader(packer, requestId, ctx, isNotification, true);
             writeErrorCore(err, packer);
 
             write(packer, ctx);
@@ -497,15 +505,13 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
                         + ", remoteAddress=" + ctx.channel().remoteAddress() + "]");
             }
 
-            out.packInt(ServerMessageType.RESPONSE);
             out.packLong(requestId);
-            writeFlags(out, ctx);
+            writeFlags(out, ctx, false, false);
 
             // Observable timestamp should be calculated after the operation is processed; reserve space, write later.
             int observableTimestampIdx = out.reserveLong();
-            out.packNil(); // No error.
 
-            var fut = processOperation(in, out, opCode);
+            CompletableFuture fut = processOperation(in, out, opCode, requestId);
 
             if (fut == null) {
                 // Operation completed synchronously.
@@ -530,7 +536,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
 
                     if (err != null) {
                         out.close();
-                        writeError(reqId, op, (Throwable) err, ctx);
+                        writeError(reqId, op, (Throwable) err, ctx, false);
 
                         metrics.requestsFailedIncrement();
                     } else {
@@ -550,7 +556,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
             in.close();
             out.close();
 
-            writeError(requestId, opCode, t, ctx);
+            writeError(requestId, opCode, t, ctx, false);
 
             metrics.requestsFailedIncrement();
         }
@@ -559,7 +565,8 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
     private @Nullable CompletableFuture processOperation(
             ClientMessageUnpacker in,
             ClientMessagePacker out,
-            int opCode
+            int opCode,
+            long requestId
     ) throws IgniteInternalCheckedException {
         switch (opCode) {
             case ClientOp.HEARTBEAT:
@@ -665,10 +672,10 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
                 return ClientTransactionRollbackRequest.process(in, resources, metrics);
 
             case ClientOp.COMPUTE_EXECUTE:
-                return ClientComputeExecuteRequest.process(in, out, compute, clusterService);
+                return ClientComputeExecuteRequest.process(in, compute, clusterService, notificationSender(requestId));
 
             case ClientOp.COMPUTE_EXECUTE_COLOCATED:
-                return ClientComputeExecuteColocatedRequest.process(in, out, compute, igniteTables);
+                return ClientComputeExecuteColocatedRequest.process(in, out, compute, igniteTables, notificationSender(requestId));
 
             case ClientOp.CLUSTER_GET_NODES:
                 return ClientClusterGetNodesRequest.process(out, clusterService);
@@ -696,7 +703,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         }
     }
 
-    private void writeFlags(ClientMessagePacker out, ChannelHandlerContext ctx) {
+    private void writeFlags(ClientMessagePacker out, ChannelHandlerContext ctx, boolean isNotification, boolean isError) {
         // Notify the client about primary replica change that happened for ANY table since the last request.
         // We can't assume that the client only uses uses a particular table (e.g. the one present in the replica tracker), because
         // the client can be connected to multiple nodes.
@@ -710,7 +717,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
                     + ctx.channel().remoteAddress() + ']');
         }
 
-        int flags = ResponseFlags.getFlags(primaryReplicasUpdated);
+        int flags = ResponseFlags.getFlags(primaryReplicasUpdated, isNotification, isError);
         out.packInt(flags);
 
         if (primaryReplicasUpdated) {
@@ -813,5 +820,33 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         if (channelHandlerContext != null) {
             channelHandlerContext.close();
         }
+    }
+
+    private void sendNotification(long requestId, @Nullable Consumer<ClientMessagePacker> writer, @Nullable Throwable err) {
+        if (err != null) {
+            writeError(requestId, -1, err, channelHandlerContext, true);
+            return;
+        }
+
+        var packer = getPacker(channelHandlerContext.alloc());
+
+        try {
+            writeResponseHeader(packer, requestId, channelHandlerContext, true, false);
+
+            if (writer != null) {
+                writer.accept(packer);
+            }
+
+            write(packer, channelHandlerContext);
+        } catch (Throwable t) {
+            packer.close();
+            exceptionCaught(channelHandlerContext, t);
+        }
+    }
+
+    private NotificationSender notificationSender(long requestId) {
+        // Notification can be sent before the response to the current request.
+        // This is fine, because the client registers a listener before sending the request.
+        return (writer, err) -> sendNotification(requestId, writer, err);
     }
 }

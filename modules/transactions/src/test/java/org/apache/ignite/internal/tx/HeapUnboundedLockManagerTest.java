@@ -15,10 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.catalog.commands;
+package org.apache.ignite.internal.tx;
+
+import org.apache.ignite.internal.tx.impl.HeapUnboundedLockManager;
+import org.apache.ignite.internal.tx.impl.WaitDieDeadlockPreventionPolicy;
 
 /**
- * Marker interface for DDL command parameters.
+ * Test class for {@link HeapUnboundedLockManager}.
  */
-public interface DdlCommandParams {
+public class HeapUnboundedLockManagerTest extends AbstractLockManagerTest {
+    @Override
+    protected LockManager newInstance() {
+        return new HeapUnboundedLockManager(new WaitDieDeadlockPreventionPolicy());
+    }
+
+    @Override
+    protected LockKey lockKey() {
+        return new LockKey("test");
+    }
 }

@@ -15,21 +15,29 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Internal.Proto
-{
-    /// <summary>
-    /// Server to client message types.
-    /// </summary>
-    internal enum ServerMessageType
-    {
-        /// <summary>
-        /// Response to a request (initiated by the client).
-        /// </summary>
-        Response = 0,
+package org.apache.ignite.internal.catalog.commands;
 
-        /// <summary>
-        /// Notification (initiated by the server).
-        /// </summary>
-        Notification = 1
+import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateIdentifier;
+
+import org.apache.ignite.internal.catalog.CatalogCommand;
+import org.apache.ignite.internal.catalog.CatalogValidationException;
+
+/**
+ * Abstract zone-related command.
+ *
+ * <p>Every zone-related command, disregard it going to create new zone or modify existing one,
+ * should specify name of the zone to be processed.
+ */
+public abstract class AbstractZoneCommand implements CatalogCommand {
+    protected String zoneName;
+
+    AbstractZoneCommand(String zoneName) throws CatalogValidationException {
+        this.zoneName = zoneName;
+
+        validate();
+    }
+
+    private void validate() {
+        validateIdentifier(zoneName, "Name of the zone");
     }
 }

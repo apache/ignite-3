@@ -103,6 +103,7 @@ import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.internal.util.Pair;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.network.ClusterNodeResolver;
 import org.hamcrest.CustomMatcher;
 import org.hamcrest.Matcher;
 import org.junit.jupiter.api.BeforeAll;
@@ -237,7 +238,8 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                 localNode,
                 new AlwaysSyncedSchemaSyncService(),
                 catalogService,
-                new TestPlacementDriver(localNode)
+                new TestPlacementDriver(localNode),
+                mock(ClusterNodeResolver.class)
         );
 
         kvMarshaller = new ReflectionMarshallerFactory().create(schemaDescriptor, Integer.class, Integer.class);
@@ -276,7 +278,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
         ((TestHashIndexStorage) pkStorage.get().storage()).clear();
         TEST_MV_PARTITION_STORAGE.clear();
 
-        locks().forEach(LOCK_MANAGER::release);
+        LOCK_MANAGER.releaseAll(TRANSACTION_ID);
     }
 
     /** Verifies the mode in which the lock was acquired on the index key for a particular operation. */

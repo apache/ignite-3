@@ -19,10 +19,6 @@ package org.apache.ignite.internal.catalog;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.catalog.commands.AlterZoneParams;
-import org.apache.ignite.internal.catalog.commands.CreateZoneParams;
-import org.apache.ignite.internal.catalog.commands.DropZoneParams;
-import org.apache.ignite.internal.catalog.commands.RenameZoneParams;
 import org.apache.ignite.internal.manager.IgniteComponent;
 
 /**
@@ -45,36 +41,4 @@ public interface CatalogManager extends IgniteComponent, CatalogService {
      * @return Future representing result of execution.
      */
     CompletableFuture<Void> execute(List<CatalogCommand> commands);
-
-    /**
-     * Creates new distribution zone.
-     *
-     * @param params Parameters.
-     * @return Operation future.
-     */
-    CompletableFuture<Void> createZone(CreateZoneParams params);
-
-    /**
-     * Drops distribution zone.
-     *
-     * @param params Parameters.
-     * @return Operation future.
-     */
-    CompletableFuture<Void> dropZone(DropZoneParams params);
-
-    /**
-     * Alter distribution zone.
-     *
-     * @param params Parameters.
-     * @return Operation future.
-     */
-    CompletableFuture<Void> alterZone(AlterZoneParams params);
-
-    /**
-     * Rename distribution zone.
-     *
-     * @param params Parameters.
-     * @return Operation future.
-     */
-    CompletableFuture<Void> renameZone(RenameZoneParams params);
 }

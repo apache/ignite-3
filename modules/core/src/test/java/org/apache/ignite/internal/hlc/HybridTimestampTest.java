@@ -144,4 +144,18 @@ class HybridTimestampTest {
         );
         assertThat(ex.getMessage(), startsWith("Time is out of bounds: "));
     }
+
+    @Test
+    void roundUpLeavesTsUnchangedWhenLogicalPartIsZero() {
+        var ts = new HybridTimestamp(1, 0);
+
+        assertThat(ts.roundUpToPhysicalTick(), is(ts));
+    }
+
+    @Test
+    void roundUpIncrementsPhysicalPartWhenLogicalPartIsNonZero() {
+        var ts = new HybridTimestamp(1, 1);
+
+        assertThat(ts.roundUpToPhysicalTick(), is(new HybridTimestamp(2, 0)));
+    }
 }

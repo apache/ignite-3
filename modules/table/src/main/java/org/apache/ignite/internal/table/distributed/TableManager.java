@@ -25,7 +25,6 @@ import static java.util.concurrent.CompletableFuture.anyOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.CompletableFuture.runAsync;
-import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.causality.IncrementalVersionedValue.dependingOn;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.partitionAssignments;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.tableAssignments;
@@ -263,9 +262,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     /** Started tables. */
     private final Map<Integer, TableImpl> startedTables = new ConcurrentHashMap<>();
 
-    /** Resolver that resolves a node consistent ID to cluster node. */
-    private final Function<String, ClusterNode> clusterNodeResolver;
-
     /** Busy lock to stop synchronously. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
@@ -414,15 +410,13 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         TopologyService topologyService = clusterService.topologyService();
 
-        clusterNodeResolver = topologyService::getByConsistentId;
-
         transactionStateResolver = new TransactionStateResolver(
                 replicaSvc,
                 txManager,
                 clock,
-                clusterNodeResolver,
-                topologyService::getById,
-                clusterService.messagingService()
+                topologyService,
+                clusterService.messagingService(),
+                placementDriver
         );
 
         schemaVersions = new SchemaVersionsImpl(schemaSyncService, catalogService, clock);
@@ -480,7 +474,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 metaStorageMgr,
                 clusterService.messagingService(),
                 topologyService,
-                clusterNodeResolver,
                 tableId -> latestTablesById().get(tableId)
         );
 
@@ -660,9 +653,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 PeersAndLearners newConfiguration = configurationFromAssignments(newPartAssignment);
 
                 TablePartitionId replicaGrpId = new TablePartitionId(tableId, partId);
-
-                transactionStateResolver.updateAssignment(replicaGrpId, newConfiguration.peers().stream().map(Peer::consistentId)
-                        .collect(toList()));
 
                 var safeTimeTracker = new PendingComparableValuesTracker<HybridTimestamp, Void>(
                         new HybridTimestamp(1, 0)
@@ -894,7 +884,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 localNode(),
                 schemaSyncService,
                 catalogService,
-                placementDriver
+                placementDriver,
+                clusterService.topologyService()
         );
     }
 
@@ -1123,7 +1114,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 tableName,
                 tableId,
                 new Int2ObjectOpenHashMap<>(partitions),
-                partitions, clusterNodeResolver, txManager, tableStorage,
+                partitions, clusterService.topologyService(), txManager, tableStorage,
                 txStateStorage, replicaSvc, clock, observableTimestampTracker, placementDriver);
 
         var table = new TableImpl(internalTable, lockMgr, schemaVersions);
@@ -1669,11 +1660,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         Set<Assignment> pendingAssignments = ByteUtils.fromBytes(pendingAssignmentsEntry.value());
 
         Set<Assignment> stableAssignments = ByteUtils.fromBytes(stableAssignmentsEntry.value());
-
-        transactionStateResolver.updateAssignment(
-                replicaGrpId,
-                stableAssignments.stream().filter(Assignment::isPeer).map(Assignment::consistentId).collect(toList())
-        );
 
         // Start a new Raft node and Replica if this node has appeared in the new assignments.
         boolean shouldStartLocalServices = pendingAssignments.stream()

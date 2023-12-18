@@ -20,7 +20,7 @@ package org.apache.ignite.distributed;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
-import static org.apache.ignite.internal.tx.TxState.COMMITED;
+import static org.apache.ignite.internal.tx.TxState.COMMITTED;
 import static org.apache.ignite.internal.tx.TxState.PENDING;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -152,7 +152,7 @@ public class ItTxStateLocalMapTest extends IgniteAbstractTest {
         checkLocalTxStateOnNodes(
                 tx.id(),
                 new TxStateMeta(
-                        commit ? COMMITED : ABORTED,
+                        commit ? COMMITTED : ABORTED,
                         coordinatorId,
                         tx.commitPartition(),
                         commit ? testCluster.clocks.get(coord.name()).now() : null

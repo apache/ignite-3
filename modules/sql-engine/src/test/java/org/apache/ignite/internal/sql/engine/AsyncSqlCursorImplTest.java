@@ -30,6 +30,8 @@ import java.util.concurrent.CompletionException;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.sql.api.ResultSetMetadataImpl;
 import org.apache.ignite.internal.sql.engine.framework.NoOpTransaction;
+import org.apache.ignite.internal.sql.engine.tx.QueryTransactionWrapper;
+import org.apache.ignite.internal.sql.engine.tx.QueryTransactionWrapperImpl;
 import org.apache.ignite.internal.util.AsyncCursor;
 import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
 import org.apache.ignite.internal.util.AsyncWrapper;
@@ -109,6 +111,6 @@ public class AsyncSqlCursorImplTest {
     }
 
     private static QueryTransactionWrapper newTxWrapper(boolean implicit) {
-        return new QueryTransactionWrapper(NoOpTransaction.readOnly("TX"), implicit);
+        return new QueryTransactionWrapperImpl(NoOpTransaction.readOnly("TX"), implicit);
     }
 }
