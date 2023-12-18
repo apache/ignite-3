@@ -18,16 +18,22 @@
 package org.apache.ignite.internal.benchmark;
 
 import static org.apache.ignite.internal.table.criteria.Criterias.columnValue;
+import static org.apache.ignite.internal.util.IgniteUtils.capacity;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.table.criteria.CriteriaElement;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.sql.ClosableCursor;
+import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.SqlRow;
-import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Tuple;
+import org.apache.ignite.table.criteria.Criteria;
+import org.jetbrains.annotations.Nullable;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -52,21 +58,19 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 @State(Scope.Benchmark)
 @Fork(1)
 @Threads(1)
-@Warmup(time = 2)
-@Measurement(time = 2)
-@BenchmarkMode({Mode.AverageTime, Mode.Throughput})
+@Warmup(iterations = 10, time = 2)
+@Measurement(iterations = 20, time = 2)
+@BenchmarkMode({Mode.AverageTime})
 @OutputTimeUnit(TimeUnit.MICROSECONDS)
 @SuppressWarnings({"WeakerAccess", "unused"})
-public class CriteriaBenchmark extends AbstractMultiNodeBenchmark {
-    private static final int TABLE_SIZE = 30_000;
+public class CriteriaSingleNodeBenchmark extends AbstractMultiNodeBenchmark {
+    private static final int TABLE_SIZE = 10_000;
     private static final String SELECT_ALL_FROM_USERTABLE = "select * from usertable where ycsb_key = ?";
 
     private final Random random = new Random();
 
-    @Param({"1", "2", "3"})
+    @Param("1")
     private int clusterSize;
-
-    private KeyValueView<Tuple, Tuple> keyValueView;
 
     /**
      * Fills the table with data.
@@ -74,16 +78,29 @@ public class CriteriaBenchmark extends AbstractMultiNodeBenchmark {
     @Setup
     public void setUp() {
         int id = 0;
+        var keyValueView = clusterNode.tables().table(TABLE_NAME).keyValueView();
 
-        keyValueView = clusterNode.tables().table(TABLE_NAME).keyValueView();
+        Tuple payload = Tuple.create();
+        for (int j = 1; j <= 10; j++) {
+            payload.set("field" + j, FIELD_VAL);
+        }
 
+        int batchSize = 10_000;
+        Map<Tuple, Tuple> batch = new HashMap<>(capacity(batchSize));
         for (int i = 0; i < TABLE_SIZE; i++) {
-            Tuple t = Tuple.create();
-            for (int j = 1; j <= 10; j++) {
-                t.set("field" + j, FIELD_VAL);
-            }
+            batch.put(Tuple.create().set("ycsb_key", i), payload);
 
-            keyValueView.put(null, Tuple.create().set("ycsb_key", id++), t);
+            if (batch.size() == batchSize) {
+                keyValueView.putAll(null, batch);
+
+                batch.clear();
+            }
+        }
+
+        if (!batch.isEmpty()) {
+            keyValueView.putAll(null, batch);
+
+            batch.clear();
         }
     }
 
@@ -91,16 +108,16 @@ public class CriteriaBenchmark extends AbstractMultiNodeBenchmark {
      * Benchmark for KV get via embedded client.
      */
     @Benchmark
-    public void kvGet() {
-        keyValueView.get(null, Tuple.create().set("ycsb_key", random.nextInt(TABLE_SIZE)));
+    public void kvGet(IgniteState state) {
+        state.get(Tuple.create().set("ycsb_key", random.nextInt(TABLE_SIZE)));
     }
 
     /**
      * Benchmark for SQL select via embedded client.
      */
     @Benchmark
-    public void sqlGet(SqlState sqlState) {
-        try (var rs = sqlState.sql(SELECT_ALL_FROM_USERTABLE, random.nextInt(TABLE_SIZE))) {
+    public void sqlGet(IgniteState state) {
+        try (var rs = state.sql(SELECT_ALL_FROM_USERTABLE, random.nextInt(TABLE_SIZE))) {
             rs.next();
         }
     }
@@ -109,8 +126,8 @@ public class CriteriaBenchmark extends AbstractMultiNodeBenchmark {
      * Benchmark for Criteria get via embedded client.
      */
     @Benchmark
-    public void criteriaGet() {
-        try (var cur = keyValueView.queryCriteria(null, columnValue("ycsb_key", CriteriaElement.equalTo(random.nextInt(TABLE_SIZE))))) {
+    public void criteriaGet(IgniteState state) {
+        try (var cur = state.queryCriteria(columnValue("ycsb_key", CriteriaElement.equalTo(random.nextInt(TABLE_SIZE))))) {
             cur.next();
         }
     }
@@ -120,7 +137,7 @@ public class CriteriaBenchmark extends AbstractMultiNodeBenchmark {
      */
     public static void main(String[] args) throws RunnerException {
         Options opt = new OptionsBuilder()
-                .include(".*" + CriteriaBenchmark.class.getSimpleName() + ".*")
+                .include(".*" + CriteriaSingleNodeBenchmark.class.getSimpleName() + ".*")
                 .param("fsync", "false")
                 .build();
 
@@ -128,13 +145,23 @@ public class CriteriaBenchmark extends AbstractMultiNodeBenchmark {
     }
 
     /**
-     * Benchmark state for {@link #sqlGet(SqlState)}.
+     * Benchmark state for {@link #kvGet(IgniteState)}, {@link #sqlGet(IgniteState)}, {@link #criteriaGet(IgniteState)}.
      *
      * <p>Holds {@link Session}.
      */
     @State(Scope.Benchmark)
-    public static class SqlState {
-        private final Session session = clusterNode.sql().createSession();
+    public static class IgniteState {
+        private Session session;
+
+        /**
+         * Initializes session and statement.
+         */
+        @Setup
+        public void setUp() {
+            IgniteSql sql = clusterNode.sql();
+
+            session = sql.createSession();
+        }
 
         /**
          * Closes resources.
@@ -144,8 +171,16 @@ public class CriteriaBenchmark extends AbstractMultiNodeBenchmark {
             IgniteUtils.closeAll(session);
         }
 
-        private ResultSet<SqlRow> sql(String sql, Object... args) {
-            return session.execute(null, sql, args);
+        @Nullable Tuple get(Tuple key) {
+            return clusterNode.tables().table(TABLE_NAME).keyValueView().get(null, key);
+        }
+
+        ResultSet<SqlRow> sql(String query, Object... args) {
+            return session.execute(null, query, args);
+        }
+
+        ClosableCursor<Tuple> queryCriteria(@Nullable Criteria criteria) {
+            return clusterNode.tables().table(TABLE_NAME).recordView().queryCriteria(null, criteria);
         }
     }
 

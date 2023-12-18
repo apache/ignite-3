@@ -17,19 +17,25 @@
 
 package org.apache.ignite.internal.benchmark;
 
+import static org.apache.ignite.internal.table.criteria.CriteriaElement.equalTo;
+import static org.apache.ignite.internal.table.criteria.Criterias.columnValue;
 import static org.apache.ignite.internal.util.IgniteUtils.capacity;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Random;
 import java.util.concurrent.TimeUnit;
+import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.sql.ClosableCursor;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Tuple;
+import org.apache.ignite.table.criteria.Criteria;
+import org.jetbrains.annotations.Nullable;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -40,7 +46,6 @@ import org.openjdk.jmh.annotations.Param;
 import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
-import org.openjdk.jmh.annotations.TearDown;
 import org.openjdk.jmh.annotations.Threads;
 import org.openjdk.jmh.annotations.Warmup;
 import org.openjdk.jmh.runner.Runner;
@@ -59,24 +64,25 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 @BenchmarkMode(Mode.AverageTime)
 @OutputTimeUnit(TimeUnit.MICROSECONDS)
 @SuppressWarnings({"WeakerAccess", "unused"})
-public class CriteriaIterationBenchmark extends AbstractMultiNodeBenchmark {
-    private static final IgniteLogger LOG = Loggers.forClass(CriteriaIterationBenchmark.class);
+public class CriteriaMultiNodeBenchmark extends AbstractMultiNodeBenchmark {
+    private static final IgniteLogger LOG = Loggers.forClass(CriteriaMultiNodeBenchmark.class);
 
-    private static final int TABLE_SIZE = 100_000;
+    private static final int TABLE_SIZE = 10_000;
+
+    private static final String SELECT_FROM_USERTABLE = "select * from usertable where ycsb_key = ?";
+
     private static final String SELECT_ALL_FROM_USERTABLE = "select * from usertable";
 
-    @Param("1")
-    private int clusterSize;
+    private final Random random = new Random();
 
-    private KeyValueView<Tuple, Tuple> keyValueView;
+    @Param("2")
+    private int clusterSize;
 
     /**
      * Fills the table with data.
      */
     @Setup
     public void setUp() {
-        keyValueView = clusterNode.tables().table(TABLE_NAME).keyValueView();
-
         KeyValueView<Tuple, Tuple> keyValueView = clusterNode.tables().table(TABLE_NAME).keyValueView();
 
         Tuple payload = Tuple.create();
@@ -104,24 +110,54 @@ public class CriteriaIterationBenchmark extends AbstractMultiNodeBenchmark {
     }
 
     /**
-     * Benchmark for SQL select via embedded client.
+     * Benchmark for SQL select via thin client.
      */
     @Benchmark
-    public void sqlIterate(SqlState sqlState) {
-        try (var rs = sqlState.sql(SELECT_ALL_FROM_USERTABLE)) {
-            while (rs.hasNext())
+    public void sqlGet(ThinClientState state) {
+        try (var session = state.createSession()) {
+            try (var rs = state.sql(session, SELECT_FROM_USERTABLE, random.nextInt(TABLE_SIZE))) {
                 rs.next();
+            }
+        }
+    }
+
+    /**
+     * Benchmark for Criteria get via thin client.
+     */
+    @Benchmark
+    public void criteriaGet(ThinClientState state) {
+        try (var cur = state.queryCriteria(columnValue("ycsb_key", equalTo(random.nextInt(TABLE_SIZE))))) {
+            cur.next();
+        }
+    }
+
+    /**
+     * Benchmark for SQL select via embedded client.
+     */
+//    @Benchmark
+    @Warmup(iterations = 1, time = 2)
+    @Measurement(iterations = 1, time = 2)
+    public void sqlIterate(ThinClientState state) {
+        try (var session = state.createSession()) {
+            try (var rs = state.sql(session, SELECT_ALL_FROM_USERTABLE)) {
+                while (rs.hasNext()) {
+                    rs.next();
+                }
+            }
         }
     }
 
     /**
      * Benchmark for Criteria get via embedded client.
      */
-    @Benchmark
-    public void criteriaIterate() {
-        try (var cur = keyValueView.queryCriteria(null, null)) {
-            while (cur.hasNext())
+//    @Benchmark
+    @Warmup(iterations = 1, time = 2)
+    @Measurement(iterations = 1, time = 2)
+    public void criteriaIterate(ThinClientState state) {
+        try (var cur = state.queryCriteria(null)) {
+            while (cur.hasNext()) {
                 cur.next();
+            }
         }
     }
 
@@ -130,7 +166,7 @@ public class CriteriaIterationBenchmark extends AbstractMultiNodeBenchmark {
      */
     public static void main(String[] args) throws RunnerException {
         Options opt = new OptionsBuilder()
-                .include(".*" + CriteriaIterationBenchmark.class.getSimpleName() + ".*")
+                .include(".*" + CriteriaMultiNodeBenchmark.class.getSimpleName() + ".*")
                 .param("fsync", "false")
                 .build();
 
@@ -138,24 +174,36 @@ public class CriteriaIterationBenchmark extends AbstractMultiNodeBenchmark {
     }
 
     /**
-     * Benchmark state for {@link #sqlIterate(SqlState)}.
+     * Benchmark state for {@link #sqlIterate(ThinClientState)} , {@link #criteriaIterate(ThinClientState)}.
      *
-     * <p>Holds {@link Session}.
+     * <p>Holds {@link IgniteClient} and {@link Session}.
      */
     @State(Scope.Benchmark)
-    public static class SqlState {
-        private final Session session = clusterNode.sql().createSession();
+    public static class ThinClientState {
+        private IgniteClient client;
 
         /**
-         * Closes resources.
+         * Initializes session and statement.
          */
-        @TearDown
-        public void tearDown() throws Exception {
-            IgniteUtils.closeAll(session);
+        @Setup
+        public void setUp() {
+            client = IgniteClient.builder().addresses("127.0.0.1:10800").build();
         }
 
-        private ResultSet<SqlRow> sql(String sql, Object... args) {
-            return session.execute(null, sql, args);
+        @Nullable Tuple get(Tuple key) {
+            return client.tables().table(TABLE_NAME).keyValueView().get(null, key);
+        }
+
+        Session createSession() {
+            return client.sql().createSession();
+        }
+
+        ResultSet<SqlRow> sql(Session session, String query, Object... args) {
+            return session.execute(null, query, args);
+        }
+
+        ClosableCursor<Tuple> queryCriteria(@Nullable Criteria criteria) {
+            return client.tables().table(TABLE_NAME).recordView().queryCriteria(null, criteria);
         }
     }
 
