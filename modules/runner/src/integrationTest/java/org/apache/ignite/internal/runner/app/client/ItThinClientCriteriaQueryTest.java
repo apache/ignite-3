@@ -79,7 +79,7 @@ public class ItThinClientCriteriaQueryTest extends ItAbstractThinClientTest {
     }
 
     private void populateData() {
-        var table = client().tables().table(TABLE_NAME).recordView();
+        RecordView<Tuple> table = client().tables().table(TABLE_NAME).recordView();
 
         table.insert(null, Tuple.create(Map.of(COLUMN_KEY, 1, COLUMN_VAL, "1")));
         table.insert(null, Tuple.create(Map.of(COLUMN_KEY, 2, COLUMN_VAL, "2")));
