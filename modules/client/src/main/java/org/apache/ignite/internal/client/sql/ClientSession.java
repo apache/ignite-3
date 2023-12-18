@@ -25,6 +25,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
@@ -365,7 +366,7 @@ public class ClientSession implements AbstractSession {
         try {
             return ClientTransaction.get(transaction);
         } catch (TransactionException e) {
-            throw new SqlException(e.traceId(), e.code(), e.getMessage(), e);
+            throw new CompletionException(new SqlException(e.traceId(), e.code(), e.getMessage(), e));
         }
     }
 }
