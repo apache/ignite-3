@@ -17,20 +17,20 @@
 
 package org.apache.ignite.internal.tx;
 
-import org.apache.ignite.internal.tx.impl.HeapLockManager;
+import org.apache.ignite.internal.tx.impl.HeapUnboundedLockManager;
 import org.apache.ignite.internal.tx.impl.WaitDieDeadlockPreventionPolicy;
 
 /**
- * Test class for {@link HeapLockManager}.
+ * Test class for {@link HeapUnboundedLockManager}.
  */
-public class HeapLockManagerTest extends AbstractLockManagerTest {
+public class HeapUnboundedLockManagerTest extends AbstractLockManagerTest {
     @Override
     protected LockManager newInstance() {
-        return new HeapLockManager(new WaitDieDeadlockPreventionPolicy());
+        return new HeapUnboundedLockManager(new WaitDieDeadlockPreventionPolicy());
     }
 
     @Override
     protected LockKey lockKey() {
-        return new LockKey(0, "test");
+        return new LockKey("test");
     }
 }

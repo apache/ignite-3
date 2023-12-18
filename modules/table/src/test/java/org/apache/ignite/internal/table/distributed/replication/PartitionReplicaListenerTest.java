@@ -184,6 +184,7 @@ import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.tx.TransactionException;
 import org.hamcrest.Matcher;
 import org.jetbrains.annotations.Nullable;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -243,7 +244,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 }
             }
 
-            lockManager.locks(cmd.txId()).forEachRemaining(lockManager::release);
+            lockManager.releaseAll(cmd.txId());
         } else if (cmd instanceof UpdateCommand) {
             pendingRows.compute(cmd.txId(), (txId, v) -> {
                 if (v == null) {
@@ -507,6 +508,11 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         kvMarshallerVersion2 = marshallerFor(schemaDescriptorVersion2);
 
         reset();
+    }
+
+    @AfterEach
+    public void clearMocks() {
+        Mockito.framework().clearInlineMocks();
     }
 
     private static SchemaDescriptor schemaDescriptorWith(int ver) {

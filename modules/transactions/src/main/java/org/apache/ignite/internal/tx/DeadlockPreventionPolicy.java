@@ -28,6 +28,11 @@ import org.jetbrains.annotations.Nullable;
  */
 public interface DeadlockPreventionPolicy {
     /**
+     * No-op policy which does nothing to prevent deadlocks.
+     */
+    DeadlockPreventionPolicy NO_OP = new DeadlockPreventionPolicy() {};
+
+    /**
      * Comparator for transaction ids that allows to set transaction priority, if deadlock prevention policy requires this priority.
      * The transaction with higher id has lower priority. If this comparator is {@code null} then behavior of any transaction
      * in case of conflict depends only on whether this transaction holds a lock or makes a request for lock acquisition.
