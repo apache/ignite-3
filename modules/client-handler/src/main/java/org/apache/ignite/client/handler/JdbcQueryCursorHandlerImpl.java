@@ -114,14 +114,7 @@ public class JdbcQueryCursorHandlerImpl implements JdbcQueryCursorHandler {
 
         return asyncSqlCursor.closeAsync().thenCompose(c -> asyncSqlCursor.nextResult())
                 .thenCompose(cur -> cur.requestNextAsync(req.fetchSize())
-                    .handle((batch, t) -> {
-                        if (t != null) {
-                            StringWriter sw = getWriterWithStackTrace(t);
-
-                            return new JdbcQuerySingleResult(Response.STATUS_FAILED,
-                                    "Failed to fetch query results [curId=" + req.cursorId() + "]. Error message:" + sw);
-                        }
-
+                    .thenApply(batch -> {
                         try {
                             SqlQueryType queryType = cur.queryType();
 
@@ -135,7 +128,16 @@ public class JdbcQueryCursorHandlerImpl implements JdbcQueryCursorHandler {
                                     "Unable to store query cursor.");
                         }
                     })
-                );
+                ).handle((res, t) -> {
+                    if (t != null) {
+                        StringWriter sw = getWriterWithStackTrace(t);
+
+                        return new JdbcQuerySingleResult(Response.STATUS_FAILED,
+                                "Failed to fetch query results [curId=" + req.cursorId() + "]. Error message:" + sw);
+                    }
+
+                    return res;
+                });
     }
 
     /** {@inheritDoc} */
