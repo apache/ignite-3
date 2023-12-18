@@ -19,14 +19,19 @@ package org.apache.ignite.internal.placementdriver.leases;
 
 import java.util.Map;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.tostring.IgniteToStringExclude;
+import org.apache.ignite.internal.tostring.S;
 
 /** Leases received from the metastore. */
 public class Leases {
     private final Map<ReplicationGroupId, Lease> leaseByGroupId;
 
+    @IgniteToStringExclude
     private final byte[] leasesBytes;
 
     public Leases(Map<ReplicationGroupId, Lease> leaseByGroupId, byte[] leasesBytes) {
+        assert leaseByGroupId != null;
+
         this.leaseByGroupId = leaseByGroupId;
         this.leasesBytes = leasesBytes;
     }
@@ -39,5 +44,10 @@ public class Leases {
     /** Returns an array of byte leases from the metastore. */
     public byte[] leasesBytes() {
         return leasesBytes;
+    }
+
+    @Override
+    public String toString() {
+        return S.toString(this);
     }
 }
