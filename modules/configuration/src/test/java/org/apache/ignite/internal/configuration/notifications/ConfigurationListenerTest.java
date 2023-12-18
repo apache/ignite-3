@@ -107,6 +107,15 @@ public class ConfigurationListenerTest {
     public static class ChildConfigurationSchema {
         @Value(hasDefault = true)
         public String str = "default";
+
+        @NamedConfigValue
+        public EntryConfigurationSchema entries;
+    }
+
+    @Config
+    public static class EntryConfigurationSchema {
+        @Value(hasDefault = true)
+        public String str = "default";
     }
 
     /**
@@ -609,6 +618,97 @@ public class ConfigurationListenerTest {
 
         assertEquals(List.of("parent", "elements", "rename"), log);
     }
+
+    /**
+     * Tests notifications validity when a named list element is renamed and then updated a sub-element of the renamed element.
+     */
+    @Test
+    public void namedListNodeOnRenameAndThenUpdateSubElement() throws Exception {
+        config.change(parent ->
+                parent.changeChildren(elements -> elements.create("name", element -> {
+                    element.changeEntries()
+                            .create("entry", entry -> entry.changeStr("default"));
+                }))
+        ).get(1, SECONDS);
+
+        List<String> log = new ArrayList<>();
+
+        config.listen(ctx -> {
+            log.add("parent");
+
+            return nullCompletedFuture();
+        });
+
+        config.child().listen(ctx -> {
+            log.add("child");
+
+            return nullCompletedFuture();
+        });
+
+        config.children().listen(ctx -> {
+            log.add("children");
+
+            return nullCompletedFuture();
+        });
+
+        config.children().listenElements(new ConfigurationNamedListListener<ChildView>() {
+            /** {@inheritDoc} */
+            @Override
+            public CompletableFuture<?> onCreate(ConfigurationNotificationEvent<ChildView> ctx) {
+                log.add("create");
+
+                return nullCompletedFuture();
+            }
+
+            /** {@inheritDoc} */
+            @Override
+            public CompletableFuture<?> onUpdate(ConfigurationNotificationEvent<ChildView> ctx) {
+                log.add("update");
+
+                return nullCompletedFuture();
+            }
+
+            /** {@inheritDoc} */
+            @Override
+            public CompletableFuture<?> onRename(
+                    ConfigurationNotificationEvent<ChildView> ctx
+            ) {
+                log.add("rename");
+
+                return nullCompletedFuture();
+            }
+
+            /** {@inheritDoc} */
+            @Override
+            public CompletableFuture<?> onDelete(ConfigurationNotificationEvent<ChildView> ctx) {
+                log.add("delete");
+
+                return nullCompletedFuture();
+            }
+        });
+
+        config.children().get("name").entries().get("entry").listen(ctx -> {
+            log.add("entry");
+
+            return nullCompletedFuture();
+        });
+
+        config.change(parent ->
+                parent.changeChildren(elements -> elements
+                        .rename("name", "newName")
+                )
+        ).get(1, SECONDS);
+
+        config.children().get("newName")
+                .entries()
+                .get("entry")
+                .str()
+                .update("foo")
+                .get(1, SECONDS);
+
+        assertEquals(List.of("parent", "elements", "rename"), log);
+    }
+
 
     /**
      * Tests notifications validity when a named list element is deleted.

@@ -76,7 +76,6 @@ import org.junit.platform.commons.support.HierarchyTraversalMode;
  * JUnit extension to inject configuration instances into test classes.
  *
  * @see InjectConfiguration
- * @see InjectRevisionListenerHolder
  */
 public class ConfigurationExtension implements BeforeEachCallback, AfterEachCallback,
         BeforeAllCallback, AfterAllCallback, ParameterResolver {
@@ -96,7 +95,7 @@ public class ConfigurationExtension implements BeforeEachCallback, AfterEachCall
     private static final List<Class<?>> POLYMORPHIC_EXTENSIONS;
 
     /** Map from root key name to configuration modules. */
-    private static final Map<String, List<ConfigurationModule>> ROOT_KEY_TO_MODULES = new HashMap<>();
+    private static final Map<String, ConfigurationModule> ROOT_KEY_TO_MODULES = new HashMap<>();
 
     static {
         // Automatically find all @InternalConfiguration and @PolymorphicConfigInstance classes
@@ -111,15 +110,7 @@ public class ConfigurationExtension implements BeforeEachCallback, AfterEachCall
             polymorphicExtensions.addAll(configurationModule.polymorphicSchemaExtensions());
 
             configurationModule.rootKeys().forEach(rootKey -> {
-                ROOT_KEY_TO_MODULES.compute(rootKey.key(), (key, modulesList) -> {
-                    if (modulesList == null) {
-                        modulesList = new ArrayList<>();
-                    }
-
-                    modulesList.add(configurationModule);
-
-                    return modulesList;
-                });
+                ROOT_KEY_TO_MODULES.put(rootKey.key(), configurationModule);
             });
         });
 
@@ -358,7 +349,7 @@ public class ConfigurationExtension implements BeforeEachCallback, AfterEachCall
     private static void patchWithDynamicDefaults(String rootName, SuperRoot superRoot) {
         if (ROOT_KEY_TO_MODULES.containsKey(rootName)) {
             SuperRootChangeImpl rootChange = new SuperRootChangeImpl(superRoot);
-            ROOT_KEY_TO_MODULES.get(rootName).forEach(module -> module.patchConfigurationWithDynamicDefaults(rootChange));
+            ROOT_KEY_TO_MODULES.get(rootName).patchConfigurationWithDynamicDefaults(rootChange);
         }
     }
 }

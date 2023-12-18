@@ -136,7 +136,7 @@ public class ConfigurationNotifier {
                 if (newLeaf != oldLeaf) {
                     DynamicProperty<Serializable> node = config != null ? dynamicProperty(config, key) : null;
                     notifyPublicListeners(
-                            listeners(node, ctx.notificationNum),
+                            listeners(dynamicProperty(config, key), ctx.notificationNum),
                             concat(mapIterable(anyConfigs, anyCfg -> listeners(dynamicProperty(anyCfg, key), ctx.notificationNum))),
                             oldLeaf,
                             newLeaf,

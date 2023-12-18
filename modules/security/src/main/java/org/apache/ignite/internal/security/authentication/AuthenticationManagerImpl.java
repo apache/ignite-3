@@ -125,6 +125,8 @@ public class AuthenticationManagerImpl
 
         securityConfiguration.enabled().listen(securityEnabledDisabledEventFactory);
 
+        securityConfiguration.authentication().providers().any().listen(providerEventFactory);
+
         securityConfiguration.authentication().providers().listenElements(providerEventFactory);
 
         String basicAuthenticationProviderName = findBasicProviderName(securityConfiguration.authentication().providers().value());
