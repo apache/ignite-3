@@ -73,6 +73,7 @@ import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryCloseResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryFetchResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryMetadataRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQuerySingleResult;
+import org.apache.ignite.internal.jdbc.proto.event.Response;
 import org.apache.ignite.internal.util.TransformingIterator;
 import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.Nullable;
@@ -234,6 +235,10 @@ public class JdbcResultSet implements ResultSet {
             close0(true);
 
             if (!res.hasResults()) {
+                if (res.status() == Response.STATUS_FAILED) {
+                    throw IgniteQueryErrorCode.createJdbcSqlException(res.err(), res.status());
+                }
+
                 return null;
             }
 
