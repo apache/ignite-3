@@ -1671,14 +1671,10 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     ) {
         ClusterNode localMember = localNode();
 
-        int partId = replicaGrpId.partitionId();
-
         // Start a new Raft node and Replica if this node has appeared in the new assignments.
         boolean shouldStartLocalGroupNode = pendingAssignments.stream()
                 .filter(assignment -> localMember.name().equals(assignment.consistentId()))
                 .anyMatch(assignment -> !stableAssignments.contains(assignment));
-
-        boolean shouldStartLocalPartitionService = !tbl.internalTable().partitionRaftGroupServiceStarted(partId);
 
         CompletableFuture<Void> localServicesStartFuture;
 

@@ -1559,12 +1559,6 @@ public class InternalTableImpl implements InternalTable {
 
     /** {@inheritDoc} */
     @Override
-    public boolean partitionRaftGroupServiceStarted(int partition) {
-        return raftGroupServiceByPartitionId.get(partition) != null;
-    }
-
-    /** {@inheritDoc} */
-    @Override
     public TxStateTableStorage txStateStorage() {
         return txStateStorage;
     }
