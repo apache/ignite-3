@@ -39,6 +39,7 @@ import static org.mockito.Mockito.when;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -47,6 +48,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiFunction;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
@@ -374,6 +376,43 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
         assertTrue(leaseExpired.get());
     }
 
+    @Test
+    public void testLeaseRemovedAfterExpirationAndAssignmetnsRemoval() throws Exception {
+        List<TablePartitionId> groupIds = List.of(
+                createTableAssignment(metaStorageManager, nextTableId.incrementAndGet(), List.of(nodeName)),
+                createTableAssignment(metaStorageManager, nextTableId.incrementAndGet(), List.of(nodeName))
+        );
+
+        Map<TablePartitionId, AtomicBoolean> leaseExpirationMap =
+                groupIds.stream().collect(Collectors.toMap(id -> id, id -> new AtomicBoolean()));
+
+        groupIds.forEach(groupId -> {
+            placementDriverManager.placementDriver().listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, (evt, e) -> {
+                log.info("Primary replica is expired [grp={}]", groupId);
+
+                leaseExpirationMap.get(groupId).set(true);
+
+                return falseCompletedFuture();
+            });
+        });
+
+        checkLeaseCreated(groupIds.get(0), true);
+        checkLeaseCreated(groupIds.get(1), true);
+
+        assertFalse(leaseExpirationMap.get(groupIds.get(0)).get());
+        assertFalse(leaseExpirationMap.get(groupIds.get(1)).get());
+
+        metaStorageManager.remove(fromString(STABLE_ASSIGNMENTS_PREFIX + groupIds.get(0)));
+
+        assertTrue(waitForCondition(() -> {
+            var fut = metaStorageManager.get(PLACEMENTDRIVER_LEASES_KEY);
+
+            // Only lease from grpPart0 should be removed.
+            return leaseFromBytes(fut.join().value(), groupIds.get(0)) == null
+                    && leaseFromBytes(fut.join().value(), groupIds.get(1)) != null;
+
+        }, 10_000));
+    }
 
     @Test
     public void testLeaseAccepted() throws Exception {

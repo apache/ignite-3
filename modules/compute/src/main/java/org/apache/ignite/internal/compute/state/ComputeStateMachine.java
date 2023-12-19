@@ -84,6 +84,14 @@ public interface ComputeStateMachine {
     void failJob(UUID jobId);
 
     /**
+     * Tries to transfer Compute Job to queued state from the {@link JobState#EXECUTING} state, used for retrying.
+     *
+     * @param jobId Compute job identifier.
+     * @throws IllegalJobStateTransition in case when job can't be transferred to failed state.
+     */
+    void queueJob(UUID jobId);
+
+    /**
      * Returns current status of Compute Job.
      *
      * @param jobId Compute job identifier.

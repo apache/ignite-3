@@ -203,9 +203,13 @@ public class JobStatusMatcher extends BaseMatcher<JobStatus> {
             mismatchDescription.appendText("was not a JobStatus: ").appendValue(actual);
         } else {
             JobStatus status = (JobStatus) actual;
+            mismatchDescription.appendText("state ");
             stateMatcher.describeMismatch(status.state(), mismatchDescription);
+            mismatchDescription.appendText(", create time ");
             createTimeMatcher.describeMismatch(status.createTime(), mismatchDescription);
+            mismatchDescription.appendText(", start time ");
             startTimeMatcher.describeMismatch(status.startTime(), mismatchDescription);
+            mismatchDescription.appendText(" and finish time ");
             finishTimeMatcher.describeMismatch(status.finishTime(), mismatchDescription);
         }
     }
@@ -218,7 +222,7 @@ public class JobStatusMatcher extends BaseMatcher<JobStatus> {
                 .appendDescriptionOf(createTimeMatcher)
                 .appendText(", start time ")
                 .appendDescriptionOf(startTimeMatcher)
-                .appendText(", and finish time ")
+                .appendText(" and finish time ")
                 .appendDescriptionOf(finishTimeMatcher);
     }
 }
