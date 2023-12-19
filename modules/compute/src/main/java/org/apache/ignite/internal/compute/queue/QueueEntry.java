@@ -33,7 +33,7 @@ import org.jetbrains.annotations.Nullable;
  *
  * @param <R> Compute job return type.
  */
-public class QueueEntry<R> implements Runnable, Comparable<QueueEntry<R>> {
+class QueueEntry<R> implements Runnable, Comparable<QueueEntry<R>> {
     private static final AtomicLong seq = new AtomicLong(Long.MIN_VALUE);
 
     private final CompletableFuture<R> future = new CompletableFuture<>();
@@ -65,7 +65,6 @@ public class QueueEntry<R> implements Runnable, Comparable<QueueEntry<R>> {
 
     @Override
     public void run() {
-
         lock.lock();
         try {
             workerThread = Thread.currentThread();
@@ -99,7 +98,7 @@ public class QueueEntry<R> implements Runnable, Comparable<QueueEntry<R>> {
     /**
      * Sets interrupt status of the worker thread.
      */
-    public void interrupt() {
+    void interrupt() {
         // Interrupt under the lock to prevent interrupting thread used by the pool for another task
         lock.lock();
         try {
@@ -117,7 +116,7 @@ public class QueueEntry<R> implements Runnable, Comparable<QueueEntry<R>> {
      *
      * @return {@code true} when the execution was interrupted externally.
      */
-    public boolean isInterrupted() {
+    boolean isInterrupted() {
         return isInterrupted;
     }
 
