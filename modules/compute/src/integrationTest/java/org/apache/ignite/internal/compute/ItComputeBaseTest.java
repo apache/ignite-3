@@ -19,7 +19,8 @@ package org.apache.ignite.internal.compute;
 
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
-import static org.apache.ignite.lang.ErrorGroups.Common.*;
+import static org.apache.ignite.lang.ErrorGroups.Common.COMMON_ERR_GROUP;
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.aMapWithSize;
 import static org.hamcrest.Matchers.containsString;
