@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.compute;
 
+import static org.apache.ignite.internal.compute.utils.ComputeTestUtils.*;
 import static org.apache.ignite.internal.deployunit.DeploymentStatus.DEPLOYED;
 import static org.apache.ignite.internal.deployunit.DeploymentStatus.OBSOLETE;
 import static org.apache.ignite.internal.deployunit.InitialDeployMode.MAJORITY;
@@ -26,11 +27,8 @@ import static org.apache.ignite.lang.ErrorGroups.Common.COMMON_ERR_GROUP;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.containsString;
-import static org.hamcrest.Matchers.instanceOf;
-import static org.hamcrest.Matchers.is;
-import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -43,8 +41,6 @@ import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.version.Version;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.deployunit.NodesToDeploy;
-import org.apache.ignite.lang.IgniteException;
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -117,16 +113,10 @@ class ItComputeTestStandalone extends ItComputeBaseTest {
         CompletableFuture<String> result = entryNode.compute()
                 .executeAsync(Set.of(entryNode.node()), nonExistingUnits, concatJobClassName(), "a", 42);
 
-        CompletionException ex0 = Assertions.assertThrows(CompletionException.class, () -> result.join());
+        CompletionException ex0 = assertThrows(CompletionException.class, result::join);
 
-        assertThat(ex0.getCause(), instanceOf(IgniteException.class));
-        IgniteException ex = (IgniteException) ex0.getCause();
-
-        assertThat(ex.groupCode(), is(COMMON_ERR_GROUP.groupCode()));
-        assertThat(ex.groupName(), is(COMMON_ERR_GROUP.name()));
-        assertThat(ex.code(), is(INTERNAL_ERR));
-        assertThat(ex.traceId(), is(notNullValue()));
-        assertThat(ex.getMessage(), containsString("org.example.ConcatJob. Deployment unit non-existing:1.0.0 doesn't exist"));
+        assertPublicException(ex0.getCause(), COMMON_ERR_GROUP, INTERNAL_ERR,
+                "org.example.ConcatJob. Deployment unit non-existing:1.0.0 doesn't exist");
     }
 
     @Test
@@ -180,16 +170,10 @@ class ItComputeTestStandalone extends ItComputeBaseTest {
 
         CompletableFuture<Void> failedJob = entryNode.compute().executeAsync(Set.of(entryNode.node()), units, "org.example.SleepJob", 2L);
 
-        CompletionException ex0 = Assertions.assertThrows(CompletionException.class, () -> failedJob.join());
-        assertThat(ex0.getCause(), instanceOf(IgniteException.class));
-        IgniteException ex = (IgniteException) ex0.getCause();
-
-        assertThat(ex.groupCode(), is(COMMON_ERR_GROUP.groupCode()));
-        assertThat(ex.groupName(), is(COMMON_ERR_GROUP.name()));
-        assertThat(ex.code(), is(INTERNAL_ERR));
-        assertThat(ex.traceId(), is(notNullValue()));
-        assertThat(ex.getMessage(), containsString("org.example.SleepJob. Deployment unit jobs:1.0.0 can't be used: "
-                + "[clusterStatus = OBSOLETE, nodeStatus = OBSOLETE]"));
+        CompletionException ex0 = assertThrows(CompletionException.class, failedJob::join);
+        assertPublicException(ex0.getCause(), COMMON_ERR_GROUP, INTERNAL_ERR,
+                "org.example.SleepJob. Deployment unit jobs:1.0.0 can't be used: "
+                + "[clusterStatus = OBSOLETE, nodeStatus = OBSOLETE]");
 
         assertThat(successJob, willCompleteSuccessfully());
     }

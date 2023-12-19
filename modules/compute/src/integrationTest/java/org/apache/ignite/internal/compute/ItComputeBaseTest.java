@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.compute;
 
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.compute.utils.ComputeTestUtils.assertPublicException;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.lang.ErrorGroups.Common.COMMON_ERR_GROUP;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
@@ -28,7 +29,6 @@ import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.in;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
-import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -137,29 +137,18 @@ public abstract class ItComputeBaseTest extends ClusterPerTestIntegrationTest {
         IgniteException ex = assertThrows(IgniteException.class, () -> entryNode.compute()
                 .execute(Set.of(entryNode.node()), units(), failingJobClassName()));
 
-        assertThat(ex.groupCode(), is(COMMON_ERR_GROUP.groupCode()));
-        assertThat(ex.groupName(), is(COMMON_ERR_GROUP.name()));
-        assertThat(ex.code(), is(INTERNAL_ERR));
-        assertThat(ex.traceId(), is(notNullValue()));
-        assertThat(ex.getMessage(), is("Oops"));
+        assertPublicException(ex, COMMON_ERR_GROUP, INTERNAL_ERR, "Oops");
     }
 
     @Test
     void executesFailingJobLocallyAsync() {
         IgniteImpl entryNode = node(0);
 
-        ExecutionException ex0 = assertThrows(ExecutionException.class, () -> entryNode.compute()
+        ExecutionException ex = assertThrows(ExecutionException.class, () -> entryNode.compute()
                 .executeAsync(Set.of(entryNode.node()), units(), failingJobClassName())
                 .get(1, TimeUnit.SECONDS));
 
-        assertThat(ex0.getCause(), instanceOf(IgniteException.class));
-        IgniteException ex = (IgniteException) ex0.getCause();
-
-        assertThat(ex.groupCode(), is(COMMON_ERR_GROUP.groupCode()));
-        assertThat(ex.groupName(), is(COMMON_ERR_GROUP.name()));
-        assertThat(ex.code(), is(INTERNAL_ERR));
-        assertThat(ex.traceId(), is(notNullValue()));
-        assertThat(ex.getMessage(), is("Oops"));
+        assertPublicException(ex.getCause(), COMMON_ERR_GROUP, INTERNAL_ERR, "Oops");
     }
 
     @Test
@@ -169,29 +158,18 @@ public abstract class ItComputeBaseTest extends ClusterPerTestIntegrationTest {
         IgniteException ex = assertThrows(IgniteException.class, () -> entryNode.compute()
                 .execute(Set.of(node(1).node(), node(2).node()), units(), failingJobClassName()));
 
-        assertThat(ex.groupCode(), is(COMMON_ERR_GROUP.groupCode()));
-        assertThat(ex.groupName(), is(COMMON_ERR_GROUP.name()));
-        assertThat(ex.code(), is(INTERNAL_ERR));
-        assertThat(ex.traceId(), is(notNullValue()));
-        assertThat(ex.getMessage(), is("Oops"));
+        assertPublicException(ex, COMMON_ERR_GROUP, INTERNAL_ERR, "Oops");
     }
 
     @Test
     void executesFailingJobOnRemoteNodesAsync() {
         Ignite entryNode = node(0);
 
-        ExecutionException ex0 = assertThrows(ExecutionException.class, () -> entryNode.compute()
+        ExecutionException ex = assertThrows(ExecutionException.class, () -> entryNode.compute()
                 .executeAsync(Set.of(node(1).node(), node(2).node()), units(), failingJobClassName())
                 .get(1, TimeUnit.SECONDS));
 
-        assertThat(ex0.getCause(), instanceOf(IgniteException.class));
-        IgniteException ex = (IgniteException) ex0.getCause();
-
-        assertThat(ex.groupCode(), is(COMMON_ERR_GROUP.groupCode()));
-        assertThat(ex.groupName(), is(COMMON_ERR_GROUP.name()));
-        assertThat(ex.code(), is(INTERNAL_ERR));
-        assertThat(ex.traceId(), is(notNullValue()));
-        assertThat(ex.getMessage(), is("Oops"));
+        assertPublicException(ex.getCause(), COMMON_ERR_GROUP, INTERNAL_ERR, "Oops");
     }
 
     @Test
@@ -236,14 +214,7 @@ public abstract class ItComputeBaseTest extends ClusterPerTestIntegrationTest {
                     .get(1, TimeUnit.SECONDS);
 
             assertThat(ex0, is(instanceOf(CompletionException.class)));
-            assertThat(ex0.getCause(), instanceOf(IgniteException.class));
-            IgniteException ex = (IgniteException) ex0.getCause();
-
-            assertThat(ex.groupCode(), is(COMMON_ERR_GROUP.groupCode()));
-            assertThat(ex.groupName(), is(COMMON_ERR_GROUP.name()));
-            assertThat(ex.code(), is(INTERNAL_ERR));
-            assertThat(ex.traceId(), is(notNullValue()));
-            assertThat(ex.getMessage(), is("Oops"));
+            assertPublicException(ex0.getCause(), COMMON_ERR_GROUP, INTERNAL_ERR, "Oops");
         }
     }
 
