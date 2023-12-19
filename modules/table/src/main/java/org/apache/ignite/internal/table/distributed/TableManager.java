@@ -1504,7 +1504,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                         }
 
                         return tableAsyncInternalBusy(tableDescriptor.id());
-                    }));
+                    }), ioExecutor);
         });
     }
 

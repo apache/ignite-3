@@ -198,6 +198,8 @@ public class PartitionReplicaListener implements ReplicaListener {
     /** Replication retries limit. */
     private static final int MAX_RETIES_ON_SAFE_TIME_REORDERING = 1000;
 
+    private static final Runnable NO_OP = () -> {};
+
     /** Replication group id. */
     private final TablePartitionId replicationGroupId;
 
@@ -348,7 +350,12 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         cursors = new ConcurrentSkipListMap<>(IgniteUuid.globalOrderComparator());
 
-        schemaCompatValidator = new SchemaCompatibilityValidator(validationSchemasSource, catalogService, schemaSyncService);
+        schemaCompatValidator = new SchemaCompatibilityValidator(
+                validationSchemasSource,
+                catalogService,
+                schemaSyncService,
+                requestOperationsExecutor
+        );
 
         placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, this::onPrimaryElected);
         placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, this::onPrimaryExpired);
@@ -480,7 +487,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     }
 
     private CompletableFuture<Void> switchToRequestOperationsThread() {
-        return runAsync(() -> {}, requestOperationsExecutor);
+        return runAsync(NO_OP, requestOperationsExecutor);
     }
 
     private CompletableFuture<?> processRequest(ReplicaRequest request, @Nullable Boolean isPrimary, String senderId) {
@@ -618,8 +625,19 @@ public class PartitionReplicaListener implements ReplicaListener {
             return nullCompletedFuture();
         }
 
-        return schemaSyncService.waitForMetadataCompleteness(opStartTs)
+        return waitForMetadataCompleteness(opStartTs)
                 .thenRun(() -> schemaCompatValidator.failIfTableDoesNotExistAt(opStartTs, tableId()));
+    }
+
+    /**
+     * Waits for metadata completeness for the given timestamp returning a future that will be completed
+     * on a correct thread corresponding to the current partition (and not a system thread).
+     *
+     * @param timestamp Timestamp for which to wait.
+     */
+    private CompletableFuture<Void> waitForMetadataCompleteness(HybridTimestamp timestamp) {
+        return schemaSyncService.waitForMetadataCompleteness(timestamp)
+                .thenCompose(unused -> switchToRequestOperationsThread());
     }
 
     /**
@@ -645,7 +663,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         }
 
         HybridTimestamp finalTsToWaitForSchema = tsToWaitForSchema;
-        return schemaSyncService.waitForMetadataCompleteness(finalTsToWaitForSchema)
+        return waitForMetadataCompleteness(finalTsToWaitForSchema)
                 .thenRun(() -> {
                     SchemaVersionAwareReplicaRequest versionAwareRequest = (SchemaVersionAwareReplicaRequest) request;
 
@@ -671,7 +689,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             tsToWaitForSchema = opTsIfDirectRo;
         }
 
-        return tsToWaitForSchema == null ? nullCompletedFuture() : schemaSyncService.waitForMetadataCompleteness(tsToWaitForSchema);
+        return tsToWaitForSchema == null ? nullCompletedFuture() : waitForMetadataCompleteness(tsToWaitForSchema);
     }
 
     /**
@@ -3614,7 +3632,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     private CompletableFuture<Void> validateRwReadAgainstSchemaAfterTakingLocks(UUID txId) {
         HybridTimestamp operationTimestamp = hybridClock.now();
 
-        return schemaSyncService.waitForMetadataCompleteness(operationTimestamp)
+        return waitForMetadataCompleteness(operationTimestamp)
                 .thenRun(() -> failIfSchemaChangedSinceTxStart(txId, operationTimestamp));
     }
 
@@ -3704,7 +3722,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     }
 
     private CompletableFuture<Integer> reliableCatalogVersionFor(HybridTimestamp ts) {
-        return schemaSyncService.waitForMetadataCompleteness(ts)
+        return waitForMetadataCompleteness(ts)
                 .thenApply(unused -> catalogService.activeCatalogVersion(ts.longValue()));
     }
 

@@ -26,6 +26,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.Executor;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
@@ -45,6 +46,7 @@ class SchemaCompatibilityValidator {
     private final ValidationSchemasSource validationSchemasSource;
     private final CatalogService catalogService;
     private final SchemaSyncService schemaSyncService;
+    private final Executor requestOperationsExecutor;
 
     // TODO: Remove entries from cache when compacting schemas in SchemaManager https://issues.apache.org/jira/browse/IGNITE-20789
     private final ConcurrentMap<TableDefinitionDiffKey, TableDefinitionDiff> diffCache = new ConcurrentHashMap<>();
@@ -60,11 +62,13 @@ class SchemaCompatibilityValidator {
     SchemaCompatibilityValidator(
             ValidationSchemasSource validationSchemasSource,
             CatalogService catalogService,
-            SchemaSyncService schemaSyncService
+            SchemaSyncService schemaSyncService,
+            Executor requestOperationsExecutor
     ) {
         this.validationSchemasSource = validationSchemasSource;
         this.catalogService = catalogService;
         this.schemaSyncService = schemaSyncService;
+        this.requestOperationsExecutor = requestOperationsExecutor;
     }
 
     /**
@@ -94,7 +98,7 @@ class SchemaCompatibilityValidator {
         assert commitTimestamp.compareTo(beginTimestamp) > 0;
 
         return schemaSyncService.waitForMetadataCompleteness(commitTimestamp)
-                .thenApply(ignored -> validateCommit(tableIds, commitTimestamp, beginTimestamp));
+                .thenApplyAsync(ignored -> validateCommit(tableIds, commitTimestamp, beginTimestamp), requestOperationsExecutor);
     }
 
     private CompatValidationResult validateCommit(Set<Integer> tableIds, HybridTimestamp commitTimestamp, HybridTimestamp beginTimestamp) {
@@ -197,8 +201,14 @@ class SchemaCompatibilityValidator {
         HybridTimestamp beginTimestamp = TransactionIds.beginTimestamp(txId);
 
         return schemaSyncService.waitForMetadataCompleteness(beginTimestamp)
-                .thenCompose(ignored -> validationSchemasSource.waitForSchemaAvailability(tableId, tupleSchemaVersion))
-                .thenApply(ignored -> validateBackwardSchemaCompatibility(tupleSchemaVersion, tableId, beginTimestamp));
+                .thenComposeAsync(
+                        ignored -> validationSchemasSource.waitForSchemaAvailability(tableId, tupleSchemaVersion),
+                        requestOperationsExecutor
+                )
+                .thenApplyAsync(
+                        ignored -> validateBackwardSchemaCompatibility(tupleSchemaVersion, tableId, beginTimestamp),
+                        requestOperationsExecutor
+                );
     }
 
     private CompatValidationResult validateBackwardSchemaCompatibility(
