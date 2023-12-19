@@ -290,7 +290,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             // TODO IGNITE-20296 Id of the node should come along with the message itself.
             ClusterNode sender = clusterNetSvc.topologyService().getByConsistentId(senderConsistentId);
 
-            assert sender != null;
+            assert sender != null : "The sender is undefined (should be fixed by https://issues.apache.org/jira/browse/IGNITE-20296 )";
 
             String senderId = sender.id();
 
