@@ -43,11 +43,16 @@ import org.junit.jupiter.api.Test;
  * Thin client authentication test.
  */
 public class ItThinClientAuthenticationTest extends ItAbstractThinClientTest {
+    private static final String PROVIDER_NAME = "default";
+
     private static final String USERNAME = "admin";
 
     private static final String PASSWORD = "password";
 
-    /** Client. */
+    private static final String USERNAME_TO_UPDATE = "developer";
+
+    private static final String PASSWORD_TO_UPDATE = "password";
+
     private IgniteClient clientWithAuth;
 
     private SecurityConfiguration securityConfiguration;
@@ -64,11 +69,19 @@ public class ItThinClientAuthenticationTest extends ItAbstractThinClientTest {
         CompletableFuture<Void> enableAuthentication = securityConfiguration.change(change -> {
             change.changeEnabled(true);
             change.changeAuthentication()
-                    .changeProviders()
-                    .update("default", provider -> {
-                        provider.convert(BasicAuthenticationProviderChange.class)
-                                .changeUsers()
-                                .createOrUpdate(USERNAME, user -> user.changePassword(PASSWORD));
+                    .changeProviders(providers -> {
+                        providers.namedListKeys().forEach(name -> {
+                            if (!name.equals(PROVIDER_NAME)) {
+                                providers.delete(name);
+                            }
+                        });
+
+                        providers.createOrUpdate(PROVIDER_NAME, provider -> {
+                            provider.convert(BasicAuthenticationProviderChange.class)
+                                    .changeUsers()
+                                    .createOrUpdate(USERNAME, user -> user.changePassword(PASSWORD))
+                                    .createOrUpdate(USERNAME_TO_UPDATE, user -> user.changePassword(PASSWORD_TO_UPDATE));
+                        });
                     });
         });
 
@@ -92,11 +105,11 @@ public class ItThinClientAuthenticationTest extends ItAbstractThinClientTest {
     void connectionIsNotClosedIfAnotherUserUpdated() {
         assertThat(
                 securityConfiguration.authentication().providers()
-                        .get("default")
+                        .get(PROVIDER_NAME)
                         .change(change -> {
                             change.convert(BasicAuthenticationProviderChange.class)
                                     .changeUsers()
-                                    .update("ignite", user -> user.changePassword(user.password() + "-changed"));
+                                    .update(USERNAME_TO_UPDATE, user -> user.changePassword(PASSWORD_TO_UPDATE + "-changed"));
                         }),
                 willCompleteSuccessfully()
         );
@@ -116,7 +129,7 @@ public class ItThinClientAuthenticationTest extends ItAbstractThinClientTest {
         assertThat(securityConfiguration.change(change -> {
             change.changeAuthentication()
                     .changeProviders()
-                    .update("default", provider -> {
+                    .update(PROVIDER_NAME, provider -> {
                         provider.convert(BasicAuthenticationProviderChange.class)
                                 .changeUsers()
                                 .update(USERNAME, user -> user.changePassword("newPassword"));
@@ -131,7 +144,7 @@ public class ItThinClientAuthenticationTest extends ItAbstractThinClientTest {
         assertThat(securityConfiguration.change(change -> {
             change.changeAuthentication()
                     .changeProviders()
-                    .update("default", provider -> {
+                    .update(PROVIDER_NAME, provider -> {
                         provider.convert(BasicAuthenticationProviderChange.class)
                                 .changeUsers()
                                 .delete(USERNAME);
