@@ -155,7 +155,7 @@ public class ClientTransaction implements Transaction {
 
         ClientTransaction clientTx = (ClientTransaction) tx;
 
-        var state = clientTx.state.get();
+        int state = clientTx.state.get();
 
         if (state == STATE_OPEN) {
             return clientTx;
