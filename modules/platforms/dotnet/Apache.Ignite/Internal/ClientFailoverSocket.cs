@@ -148,7 +148,7 @@ namespace Apache.Ignite.Internal
             ClientOp clientOp,
             PooledArrayBuffer? request = null,
             PreferredNode preferredNode = default,
-            TaskCompletionSource<PooledBuffer>? notificationHandler = null)
+            NotificationHandler? notificationHandler = null)
         {
             var (buffer, _) = await DoOutInOpAndGetSocketAsync(
                     clientOp,
@@ -178,7 +178,7 @@ namespace Apache.Ignite.Internal
             PooledArrayBuffer? request = null,
             PreferredNode preferredNode = default,
             IRetryPolicy? retryPolicyOverride = null,
-            TaskCompletionSource<PooledBuffer>? notificationHandler = null)
+            NotificationHandler? notificationHandler = null)
         {
             if (tx != null)
             {

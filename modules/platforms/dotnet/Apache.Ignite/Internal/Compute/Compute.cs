@@ -193,13 +193,14 @@ namespace Apache.Ignite.Internal.Compute
             using var writer = ProtoCommon.GetMessageWriter();
             Write();
 
-            // TODO: Use a different callback and ignore connection exceptions if there is no initial response.
-            // OR handle this in the socket?
-            var notificationHandler = new TaskCompletionSource<PooledBuffer>();
+            var notificationHandler = new NotificationHandler();
 
             using var res = await _socket.DoOutInOpAsync(
                     ClientOp.ComputeExecute, writer, PreferredNode.FromName(node.Name), notificationHandler)
                 .ConfigureAwait(false);
+
+            // TODO: Race condition - the connection may be closed before we set this flag
+            notificationHandler.IsResponseReceived = true;
 
             using var notificationRes = await notificationHandler.Task.ConfigureAwait(false);
             return Read(notificationRes);
@@ -269,11 +270,14 @@ namespace Apache.Ignite.Internal.Compute
                     using var bufferWriter = ProtoCommon.GetMessageWriter();
                     var colocationHash = Write(bufferWriter, table, schema);
                     var preferredNode = await table.GetPreferredNode(colocationHash, null).ConfigureAwait(false);
-                    var notificationHandler = new TaskCompletionSource<PooledBuffer>();
+                    var notificationHandler = new NotificationHandler();
 
                     using var res = await _socket.DoOutInOpAsync(
                             ClientOp.ComputeExecuteColocated, bufferWriter, preferredNode, notificationHandler)
                         .ConfigureAwait(false);
+
+                    // TODO: Race condition - the connection may be closed before we set this flag
+                    notificationHandler.IsResponseReceived = true;
 
                     using var notificationRes = await notificationHandler.Task.ConfigureAwait(false);
                     return Read(notificationRes);

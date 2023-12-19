@@ -64,7 +64,7 @@ namespace Apache.Ignite.Internal
         private readonly ConcurrentDictionary<long, TaskCompletionSource<PooledBuffer>> _requests = new();
 
         /** Current notification handlers, map from request id. */
-        private readonly ConcurrentDictionary<long, TaskCompletionSource<PooledBuffer>> _notificationHandlers = new();
+        private readonly ConcurrentDictionary<long, NotificationHandler> _notificationHandlers = new();
 
         /** Requests can be sent by one thread at a time.  */
         [SuppressMessage(
@@ -265,7 +265,7 @@ namespace Apache.Ignite.Internal
         public Task<PooledBuffer> DoOutInOpAsync(
             ClientOp clientOp,
             PooledArrayBuffer? request = null,
-            TaskCompletionSource<PooledBuffer>? notificationHandler = null)
+            NotificationHandler? notificationHandler = null)
         {
             var ex = _exception;
 
@@ -866,7 +866,7 @@ namespace Apache.Ignite.Internal
                 {
                     foreach (var reqId in _notificationHandlers.Keys.ToArray())
                     {
-                        if (_notificationHandlers.TryRemove(reqId, out var notificationHandler))
+                        if (_notificationHandlers.TryRemove(reqId, out var notificationHandler) && notificationHandler.IsResponseReceived)
                         {
                             notificationHandler.TrySetException(ex);
                         }
