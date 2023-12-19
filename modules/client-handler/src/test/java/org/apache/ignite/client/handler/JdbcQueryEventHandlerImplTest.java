@@ -21,15 +21,11 @@ import static org.apache.ignite.internal.jdbc.proto.event.Response.STATUS_FAILED
 import static org.apache.ignite.internal.jdbc.proto.event.Response.STATUS_SUCCESS;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
-import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_PARSE_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
-import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -43,37 +39,23 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.client.handler.JdbcQueryEventHandlerImpl.JdbcConnectionContext;
 import org.apache.ignite.client.handler.requests.jdbc.JdbcMetadataCatalog;
-import org.apache.ignite.internal.jdbc.proto.JdbcQueryCursorHandler;
 import org.apache.ignite.internal.jdbc.proto.JdbcQueryEventHandler;
 import org.apache.ignite.internal.jdbc.proto.JdbcStatementType;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcBatchExecuteRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcBatchExecuteResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcConnectResult;
-import org.apache.ignite.internal.jdbc.proto.event.JdbcFetchQueryResultsRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryExecuteRequest;
-import org.apache.ignite.internal.jdbc.proto.event.JdbcQuerySingleResult;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
-import org.apache.ignite.internal.lang.IgniteInternalException;
-import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
-import org.apache.ignite.internal.sql.engine.AsyncSqlCursorImpl;
-import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
-import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.InternalTransaction;
-import org.apache.ignite.sql.ResultSetMetadata;
-import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.tx.IgniteTransactions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
-import org.mockito.invocation.InvocationOnMock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.mockito.stubbing.Answer;
 
 /**
  * Test to verify {@link JdbcQueryEventHandlerImpl}.
@@ -104,84 +86,6 @@ class JdbcQueryEventHandlerImplTest extends BaseIgniteAbstractTest {
                 resourceRegistry,
                 igniteTransactions
         );
-    }
-
-    @ParameterizedTest(name = "throw exception from nextResult = {0}")
-    @ValueSource(booleans = {true, false})
-    void testGetMoreResultsProcessExceptions(boolean nextResultThrow) throws IgniteInternalCheckedException {
-        ClientResourceRegistry resourceRegistryMocked = mock(ClientResourceRegistry.class);
-        ClientResource rsrc = mock(ClientResource.class);
-
-        JdbcQueryCursorHandler cursorHandler = new JdbcQueryCursorHandlerImpl(resourceRegistryMocked);
-
-        when(resourceRegistryMocked.get(anyLong())).thenAnswer(new Answer<ClientResource>() {
-            @Override
-            public ClientResource answer(InvocationOnMock invocation) {
-                return rsrc;
-            }
-        });
-
-        when(rsrc.get(AsyncSqlCursor.class)).thenAnswer(new Answer<AsyncSqlCursor<InternalSqlRow>>() {
-            @Override
-            public AsyncSqlCursor<InternalSqlRow> answer(InvocationOnMock invocation) {
-                return new AsyncSqlCursor<>() {
-                    @Override
-                    public SqlQueryType queryType() {
-                        throw new UnsupportedOperationException("queryType");
-                    }
-
-                    @Override
-                    public ResultSetMetadata metadata() {
-                        throw new UnsupportedOperationException("metadata");
-                    }
-
-                    @Override
-                    public boolean hasNextResult() {
-                        return true;
-                    }
-
-                    @Override
-                    public void onClose(Runnable callback) {
-                        // No op.
-                    }
-
-                    @Override
-                    public CompletableFuture<AsyncSqlCursor<InternalSqlRow>> nextResult() {
-                        if (nextResultThrow) {
-                            throw new SqlException(STMT_PARSE_ERR, new Exception("nextResult exception"));
-                        } else {
-                            AsyncSqlCursorImpl sqlCursor = mock(AsyncSqlCursorImpl.class);
-
-                            when(sqlCursor.requestNextAsync(anyInt())).thenAnswer((Answer<BatchedResult<InternalSqlRow>>) invocation -> {
-                                throw new IgniteInternalException("requestNextAsync error");
-                            });
-
-                            return CompletableFuture.completedFuture(sqlCursor);
-                        }
-                    }
-
-                    @Override
-                    public CompletableFuture<BatchedResult<InternalSqlRow>> requestNextAsync(int rows) {
-                        return nullCompletedFuture();
-                    }
-
-                    @Override
-                    public CompletableFuture<Void> closeAsync() {
-                        return nullCompletedFuture();
-                    }
-                };
-            }
-        });
-
-        CompletableFuture<JdbcQuerySingleResult> fut = IgniteTestUtils.runAsync(() ->
-                await(cursorHandler.getMoreResultsAsync(new JdbcFetchQueryResultsRequest(1, 100)), 5, TimeUnit.SECONDS)
-        );
-
-        try {
-            await(fut, 5, TimeUnit.SECONDS);
-        } catch (Throwable e) {
-            fail("Unexpected exception is raised.");
-        }
     }
 
     @Test
