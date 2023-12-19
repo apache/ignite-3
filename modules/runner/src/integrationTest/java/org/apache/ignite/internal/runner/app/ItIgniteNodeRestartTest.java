@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.runner.app;
 
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.alterZone;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
@@ -1271,6 +1272,9 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         long recoveryRevision = restartedNode.metaStorageManager().recoveryFinishedFuture().join();
 
+        PeersAndLearners configuration = PeersAndLearners.fromConsistentIds(nodes.stream().map(IgniteImpl::name)
+                .collect(toSet()), Set.of());
+
         for (int p = 0; p < partitions; p++) {
             TablePartitionId tablePartitionId = new TablePartitionId(table.tableId(), p);
 
@@ -1280,12 +1284,9 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
             boolean shouldBe = assignment.stream().anyMatch(n -> n.consistentId().equals(restartedNode.name()));
 
-            PeersAndLearners configuration = PeersAndLearners.fromConsistentIds(assignment.stream().map(a -> a.consistentId()).collect(
-                    Collectors.toSet()), Set.of());
-
             Peer peer = configuration.peer(restartedNode.name());
 
-            boolean isStarted = peer == null ? false : restartedNode.raftManager().isStarted(new RaftNodeId(tablePartitionId, peer));
+            boolean isStarted = restartedNode.raftManager().isStarted(new RaftNodeId(tablePartitionId, peer));
 
             assertEquals(shouldBe, isStarted);
         }
