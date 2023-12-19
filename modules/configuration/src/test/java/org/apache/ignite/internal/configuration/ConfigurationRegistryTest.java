@@ -21,6 +21,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.configuration.annotation.ConfigurationType.LOCAL;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -31,6 +32,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import java.io.Serializable;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import org.apache.ignite.configuration.annotation.Config;
@@ -187,6 +189,38 @@ public class ConfigurationRegistryTest {
         } finally {
             registry.stop();
         }
+    }
+
+    @Test
+    void testPolymorphicGet() throws Exception {
+        ConfigurationRegistry registry = new ConfigurationRegistry(
+                List.of(SixthRootConfiguration.KEY),
+                new TestConfigurationStorage(LOCAL),
+                new ConfigurationTreeGenerator(
+                        List.of(SixthRootConfiguration.KEY),
+                        List.of(),
+                        List.of(
+                                Fourth0PolymorphicConfigurationSchema.class
+                        )
+                ),
+                new TestConfigurationValidator()
+        );
+        registry.start();
+
+        var configuration = registry.getConfiguration(SixthRootConfiguration.KEY).polyNamed();
+        CompletableFuture<Void> future = configuration.change(c -> {
+            c.create(
+                    "fourth0",
+                    fourthPolymorphicChange -> fourthPolymorphicChange.convert(Fourth0PolymorphicChange.class)
+            );
+        });
+
+        assertThat(future, willCompleteSuccessfully());
+
+        UUID internalId = configuration.internalIds().get(0);
+        assertThat(configuration.get(internalId), instanceOf(Fourth0PolymorphicConfiguration.class));
+
+        registry.stop();
     }
 
     @Test

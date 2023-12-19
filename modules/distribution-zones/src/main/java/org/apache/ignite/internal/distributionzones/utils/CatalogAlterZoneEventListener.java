@@ -24,18 +24,16 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogService;
-import org.apache.ignite.internal.catalog.commands.AlterZoneParams;
-import org.apache.ignite.internal.catalog.commands.RenameZoneParams;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.events.AlterZoneEventParameters;
 import org.apache.ignite.internal.event.EventListener;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Event listener for changing the distribution zone and its fields via {@link CatalogManager#alterZone(AlterZoneParams)} or
- * {@link CatalogManager#renameZone(RenameZoneParams)}.
+ * Event listener for changing the distribution zone and its fields.
  *
  * <p>To listen for changes to the distribution zone and / or any of the fields, you need to override the methods:</p>
  * <ul>
@@ -125,7 +123,7 @@ public class CatalogAlterZoneEventListener implements EventListener<AlterZoneEve
     }
 
     /**
-     * Called when a zone change via {@link CatalogManager#alterZone(AlterZoneParams)}.
+     * Called when the zone changes via {@link CatalogManager#execute(CatalogCommand)}.
      *
      * @param parameters Zone update parameters.
      * @param oldZone Old value.
@@ -136,7 +134,8 @@ public class CatalogAlterZoneEventListener implements EventListener<AlterZoneEve
     }
 
     /**
-     * Called when a zone change via {@link CatalogManager#alterZone(AlterZoneParams)} with a non-null {@link AlterZoneParams#partitions()}.
+     * Called when the zone changes via {@link CatalogManager#execute(CatalogCommand)} with a non-null
+     * {@link CatalogZoneDescriptor#partitions()}.
      *
      * @param parameters Zone update parameters.
      * @param oldPartitions Old value.
@@ -147,7 +146,8 @@ public class CatalogAlterZoneEventListener implements EventListener<AlterZoneEve
     }
 
     /**
-     * Called when a zone change via {@link CatalogManager#alterZone(AlterZoneParams)} with a non-null {@link AlterZoneParams#replicas()}.
+     * Called when the zone changes via {@link CatalogManager#execute(CatalogCommand)} with a non-null
+     * {@link CatalogZoneDescriptor#replicas()}.
      *
      * @param parameters Zone update parameters.
      * @param oldReplicas Old value.
@@ -158,7 +158,8 @@ public class CatalogAlterZoneEventListener implements EventListener<AlterZoneEve
     }
 
     /**
-     * Called when a zone change via {@link CatalogManager#alterZone(AlterZoneParams)} with a non-null {@link AlterZoneParams#filter()}.
+     * Called when the zone changes via {@link CatalogManager#execute(CatalogCommand)} with a non-null
+     * {@link CatalogZoneDescriptor#filter()}.
      *
      * @param parameters Zone update parameters.
      * @param oldFilter Old value.
@@ -169,8 +170,8 @@ public class CatalogAlterZoneEventListener implements EventListener<AlterZoneEve
     }
 
     /**
-     * Called when a zone change via {@link CatalogManager#alterZone(AlterZoneParams)} with a non-null
-     * {@link AlterZoneParams#dataNodesAutoAdjust()}.
+     * Called when the zone changes via {@link CatalogManager#execute(CatalogCommand)} with a non-null
+     * {@link CatalogZoneDescriptor#dataNodesAutoAdjust()}.
      *
      * @param parameters Zone update parameters.
      * @param oldAutoAdjust Old value.
@@ -181,8 +182,8 @@ public class CatalogAlterZoneEventListener implements EventListener<AlterZoneEve
     }
 
     /**
-     * Called when a zone change via {@link CatalogManager#alterZone(AlterZoneParams)} with a non-null
-     * {@link AlterZoneParams#dataNodesAutoAdjustScaleUp()}.
+     * Called when a zone change via {@link CatalogManager#execute(CatalogCommand)} with a non-null
+     * {@link CatalogZoneDescriptor#dataNodesAutoAdjustScaleUp()}.
      *
      * @param parameters Zone update parameters.
      * @param oldAutoAdjustScaleUp Old value.
@@ -193,8 +194,8 @@ public class CatalogAlterZoneEventListener implements EventListener<AlterZoneEve
     }
 
     /**
-     * Called when a zone change via {@link CatalogManager#alterZone(AlterZoneParams)} with a non-null
-     * {@link AlterZoneParams#dataNodesAutoAdjustScaleDown()}.
+     * Called when a zone change via {@link CatalogManager#execute(CatalogCommand)} with a non-null
+     * {@link CatalogZoneDescriptor#dataNodesAutoAdjustScaleDown()}.
      *
      * @param parameters Zone update parameters.
      * @param oldAutoAdjustScaleDown Old value.

@@ -638,13 +638,13 @@ public class DistributionZoneManager implements IgniteComponent {
                             newTopology.version()
                     );
                 } else if (res.getAsBoolean()) {
-                    LOG.debug(
+                    LOG.info(
                             "Distribution zones' logical topology and version keys were updated [topology = {}, version = {}]",
                             Arrays.toString(logicalTopology.toArray()),
                             newTopology.version()
                     );
                 } else {
-                    LOG.debug(
+                    LOG.info(
                             "Failed to update distribution zones' logical topology and version keys [topology = {}, version = {}]",
                             Arrays.toString(logicalTopology.toArray()),
                             newTopology.version()
@@ -1404,8 +1404,7 @@ public class DistributionZoneManager implements IgniteComponent {
 
             CreateZoneEventParameters params = (CreateZoneEventParameters) parameters;
 
-            return onCreateZone(params.zoneDescriptor(), params.causalityToken())
-                    .thenCompose((ignored) -> falseCompletedFuture());
+            return onCreateZone(params.zoneDescriptor(), params.causalityToken()).thenApply((ignored) -> false);
         }));
 
         catalogManager.listen(ZONE_DROP, (parameters, exception) -> inBusyLock(busyLock, () -> {

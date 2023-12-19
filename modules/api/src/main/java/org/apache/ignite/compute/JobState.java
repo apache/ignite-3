@@ -49,5 +49,5 @@ public enum JobState {
     /**
      * The job was successfully cancelled.
      */
-    CANCELED
+    CANCELED;
 }

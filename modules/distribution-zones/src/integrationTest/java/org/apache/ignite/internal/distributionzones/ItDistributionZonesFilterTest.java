@@ -48,7 +48,6 @@ import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.sql.Session;
 import org.intellij.lang.annotations.Language;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -100,7 +99,6 @@ public class ItDistributionZonesFilterTest extends ClusterPerTestIntegrationTest
      *
      * @throws Exception If failed.
      */
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19955")
     @Test
     void testFilteredDataNodesPropagatedToStable() throws Exception {
         String filter = "'$[?(@.region == \"US\" && @.storage == \"SSD\")]'";
@@ -169,7 +167,6 @@ public class ItDistributionZonesFilterTest extends ClusterPerTestIntegrationTest
      *
      * @throws Exception If failed.
      */
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19955")
     @Test
     void testAlteringFiltersPropagatedDataNodesToStableImmediately() throws Exception {
         String filter = "'$[?(@.region == \"US\" && @.storage == \"SSD\")]'";
@@ -227,7 +224,6 @@ public class ItDistributionZonesFilterTest extends ClusterPerTestIntegrationTest
      *
      * @throws Exception If failed.
      */
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19955")
     @Test
     void testEmptyDataNodesDoNotPropagatedToStableAfterAlteringFilter() throws Exception {
         String filter = "'$[?(@.region == \"US\" && @.storage == \"SSD\")]'";
@@ -453,7 +449,7 @@ public class ItDistributionZonesFilterTest extends ClusterPerTestIntegrationTest
     }
 
     private static String alterZoneSql(String filter) {
-        return String.format("ALTER ZONE \"%s\" SET \"DATA_NODES_FILTER\" = '%s'", ZONE_NAME, filter);
+        return String.format("ALTER ZONE \"%s\" SET \"DATA_NODES_FILTER\" = %s", ZONE_NAME, filter);
     }
 
     private static String alterZoneSql(int replicas) {

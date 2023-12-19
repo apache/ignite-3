@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.prepare;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 import org.apache.calcite.plan.Context;
@@ -58,17 +60,21 @@ public final class PlanningContext implements Context {
     /** Flag indicated if planning has been canceled due to timeout. */
     private boolean timeouted = false;
 
+    private final Int2ObjectMap<Object> parameters;
+
     /** Private constructor, used by a builder. */
     private PlanningContext(
             Context parentCtx,
             String qry,
-            long plannerTimeout
+            long plannerTimeout,
+            Int2ObjectMap<Object> parameters
     ) {
         this.qry = qry;
         this.parentCtx = parentCtx;
 
         startTs = FastTimestamps.coarseCurrentTimeMillis();
         this.plannerTimeout = plannerTimeout;
+        this.parameters = parameters;
     }
 
     /** Get framework config. */
@@ -82,8 +88,8 @@ public final class PlanningContext implements Context {
     }
 
     /** Get query parameters. */
-    public Object[] parameters() {
-        return unwrap(BaseQueryContext.class).parameters();
+    public Int2ObjectMap<Object> parameters() {
+        return parameters;
     }
 
     // Helper methods
@@ -185,24 +191,36 @@ public final class PlanningContext implements Context {
      * Planner context builder.
      */
     public static class Builder {
+
         private Context parentCtx = Contexts.empty();
 
         private String qry;
 
         private long plannerTimeout;
 
+        private Int2ObjectMap<Object> parameters = Int2ObjectMaps.emptyMap();
+
+        /** Parent context. */
         public Builder parentContext(Context parentCtx) {
             this.parentCtx = parentCtx;
             return this;
         }
 
+        /** SQL statement. */
         public Builder query(String qry) {
             this.qry = qry;
             return this;
         }
 
+        /** Planner timeout. */
         public Builder plannerTimeout(long plannerTimeout) {
             this.plannerTimeout = plannerTimeout;
+            return this;
+        }
+
+        /** Values of dynamic parameters to assist with type inference. */
+        public Builder parameters(Int2ObjectMap<Object> parameters) {
+            this.parameters = parameters;
             return this;
         }
 
@@ -212,7 +230,7 @@ public final class PlanningContext implements Context {
          * @return Planner context.
          */
         public PlanningContext build() {
-            return new PlanningContext(parentCtx, qry, plannerTimeout);
+            return new PlanningContext(parentCtx, qry, plannerTimeout, parameters);
         }
     }
 }

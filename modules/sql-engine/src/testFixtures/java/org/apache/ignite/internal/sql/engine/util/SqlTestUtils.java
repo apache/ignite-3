@@ -22,7 +22,10 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.core.StringContains.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.fail;
 
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.time.Duration;
@@ -33,18 +36,24 @@ import java.time.LocalTime;
 import java.time.Period;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
+import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.Iterator;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 import org.apache.calcite.sql.type.SqlTypeName;
+import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.type.UuidType;
 import org.apache.ignite.lang.ErrorGroup;
 import org.apache.ignite.lang.ErrorGroups;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.SqlException;
+import org.hamcrest.CoreMatchers;
+import org.hamcrest.StringDescription;
 import org.junit.jupiter.api.function.Executable;
 
 /**
@@ -87,6 +96,34 @@ public class SqlTestUtils {
         ErrorGroup expectedErrorGroup = ErrorGroups.errorGroupByCode(expectedCode);
         String expectedError = format("{}-{}", expectedErrorGroup.name(), expectedErrorCode);
         String actualError = format("{}-{}", ex.groupName(), ex.errorCode());
+
+        boolean errorMatches = expectedError.equals(actualError);
+        boolean errorMessageMatches = CoreMatchers.containsString(expectedMessage).matches(ex.getMessage());
+
+        if (!errorMatches || !errorMessageMatches) {
+            StringWriter sw = new StringWriter();
+
+            try (PrintWriter pw = new PrintWriter(sw)) {
+                StringDescription description = new StringDescription();
+
+                if (errorMatches) {
+                    description.appendText("Error code does not match. Expected: ");
+                    description.appendValue(expectedError);
+                    description.appendText(" actual: ");
+                    description.appendValue(actualError);
+                } else {
+                    description.appendText("Error message does not match. Expected to include: ");
+                    description.appendValue(expectedMessage);
+                    description.appendText(" actual: ");
+                    description.appendValue(ex.getMessage());
+                }
+
+                pw.println(description);
+                ex.printStackTrace(pw);
+            }
+
+            fail(sw.toString());
+        }
 
         assertEquals(expectedError, actualError, "Error does not match. " + ex);
         assertThat("Error message", ex.getMessage(), containsString(expectedMessage));
@@ -213,4 +250,29 @@ public class SqlTestUtils {
                 throw new IllegalArgumentException("unsupported type " + type);
         }
     }
+
+    /**
+     * Converts list of {@link InternalSqlRow} to list of list of objects, where internal list represent a row with fields.
+     *
+     * @param rows List of rows to be converted.
+     * @return List of converted rows.
+     */
+    public static List<List<Object>> convertSqlRows(List<InternalSqlRow> rows) {
+        return rows.stream().map(SqlTestUtils::convertSqlRowToObjects).collect(Collectors.toList());
+    }
+
+    /**
+     * Converts {@link InternalSqlRow} to list of objects, where each of list elements represents a field.
+     *
+     * @param row {@link InternalSqlRow} need to be converted.
+     * @return Converted value.
+     */
+    public static List<Object> convertSqlRowToObjects(InternalSqlRow row) {
+        List<Object> result = new ArrayList<>(row.fieldCount());
+        for (int i = 0; i < row.fieldCount(); i++) {
+            result.add(row.get(i));
+        }
+        return result;
+    }
+
 }

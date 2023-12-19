@@ -17,17 +17,15 @@
 
 package org.apache.ignite.client.handler.requests.sql;
 
-import static org.apache.ignite.client.handler.requests.sql.ClientSqlExecuteRequest.readSessionProperties;
+import static org.apache.ignite.client.handler.requests.sql.ClientSqlCommon.readSession;
 
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.Session;
-import org.apache.ignite.sql.Session.SessionBuilder;
 
 /**
  * Client SQL execute script request.
@@ -45,7 +43,7 @@ public class ClientSqlExecuteScriptRequest {
             IgniteSql sql,
             IgniteTransactionsImpl transactions
     ) {
-        Session session = readSession(in, sql);
+        Session session = readSession(in, sql, transactions);
         String script = in.unpackString();
         Object[] arguments = in.unpackObjectArrayFromBinaryTuple();
 
@@ -60,25 +58,5 @@ public class ClientSqlExecuteScriptRequest {
         transactions.updateObservableTimestamp(clientTs);
 
         return session.executeScriptAsync(script, arguments);
-    }
-
-    private static Session readSession(ClientMessageUnpacker in, IgniteSql sql) {
-        SessionBuilder sessionBuilder = sql.sessionBuilder();
-
-        if (!in.tryUnpackNil()) {
-            sessionBuilder.defaultSchema(in.unpackString());
-        }
-
-        if (!in.tryUnpackNil()) {
-            sessionBuilder.defaultQueryTimeout(in.unpackLong(), TimeUnit.MILLISECONDS);
-        }
-
-        if (!in.tryUnpackNil()) {
-            sessionBuilder.idleTimeout(in.unpackLong(), TimeUnit.MILLISECONDS);
-        }
-
-        readSessionProperties(in, sessionBuilder);
-
-        return sessionBuilder.build();
     }
 }
