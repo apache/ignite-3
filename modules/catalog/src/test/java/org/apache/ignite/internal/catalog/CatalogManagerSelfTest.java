@@ -1444,6 +1444,39 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         }
     }
 
+    // TODO: remove after IGNITE-20378 is implemented.
+    @Test
+    public void userFutureCompletesAfterClusterWideActivationWithAdditionalIdleSafeTimePeriodHappens() throws Exception {
+        long delayDuration = TimeUnit.DAYS.toMillis(365);
+        long partitionIdleSafeTimePropagationPeriod = TimeUnit.DAYS.toDays(365);
+
+        HybridTimestamp startTs = clock.now();
+
+        CatalogManagerImpl manager = new CatalogManagerImpl(updateLog, clockWaiter, delayDuration, partitionIdleSafeTimePropagationPeriod);
+
+        manager.start();
+
+        try {
+            CompletableFuture<Void> createTableFuture = manager.execute(simpleTable(TABLE_NAME));
+
+            assertFalse(createTableFuture.isDone());
+
+            ArgumentCaptor<HybridTimestamp> tsCaptor = ArgumentCaptor.forClass(HybridTimestamp.class);
+
+            verify(clockWaiter, timeout(10_000)).waitFor(tsCaptor.capture());
+            HybridTimestamp userWaitTs = tsCaptor.getValue();
+            assertThat(
+                    userWaitTs.getPhysical() - startTs.getPhysical(),
+                    greaterThanOrEqualTo(
+                            delayDuration + HybridTimestamp.maxClockSkew()
+                                    + partitionIdleSafeTimePropagationPeriod + HybridTimestamp.maxClockSkew()
+                    )
+            );
+        } finally {
+            manager.stop();
+        }
+    }
+
     @Test
     void testGetCatalogEntityInCatalogEvent() {
         CompletableFuture<Void> result = new CompletableFuture<>();
