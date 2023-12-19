@@ -336,7 +336,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
                             .roundUpToPhysicalTick();
                     // TODO: this addition has to be removed when IGNITE-20378 is implemented.
                     HybridTimestamp tsSafeForRoReadingInPastOptimization = clusterWideEnsuredActivationTs.addPhysicalTime(
-                            partitionIdleSafeTimePropagationPeriodMsSupplier.getAsLong()
+                            partitionIdleSafeTimePropagationPeriodMsSupplier.getAsLong() + HybridTimestamp.maxClockSkew()
                     );
 
                     return clockWaiter.waitFor(tsSafeForRoReadingInPastOptimization);
