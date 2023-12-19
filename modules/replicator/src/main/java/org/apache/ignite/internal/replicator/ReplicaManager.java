@@ -288,7 +288,11 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             Replica replica = replicaFut.join();
 
             // TODO IGNITE-20296 Id of the node should come along with the message itself.
-            String senderId = clusterNetSvc.topologyService().getByConsistentId(senderConsistentId).id();
+            ClusterNode sender = clusterNetSvc.topologyService().getByConsistentId(senderConsistentId);
+
+            assert sender != null;
+
+            String senderId = sender.id();
 
             CompletableFuture<ReplicaResult> resFut = replica.processRequest(request, senderId);
 
