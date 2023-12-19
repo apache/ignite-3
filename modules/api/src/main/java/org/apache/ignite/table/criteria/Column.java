@@ -15,45 +15,32 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.criteria;
+package org.apache.ignite.table.criteria;
 
-import org.apache.ignite.table.criteria.Criteria;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * {@code Expression} defines a general expression for a criteria query.
+ * Represents a column reference for criteria query.
  */
-public class Expression implements Criteria, CriteriaElement {
-    private final Operator operator;
-    private final CriteriaElement[] elements;
+public class Column implements Criteria {
+    private final String name;
 
     /**
      * Constructor.
      *
-     * @param operator Operator.
-     * @param elements Expression elements.
+     * @param name A column name.
      */
-    Expression(Operator operator, CriteriaElement... elements) {
-        this.operator = operator;
-        this.elements = elements;
+    Column(String name) {
+        this.name = name.toUpperCase();
     }
 
     /**
-     * Get a operator.
+     * Gets column name.
      *
-     * @return A operator.
+     * @return A column name.
      */
-    public Operator getOperator() {
-        return operator;
-    }
-
-    /**
-     * Get a condition elements.
-     *
-     * @return A condition elements.
-     */
-    public CriteriaElement[] getElements() {
-        return elements;
+    public String getName() {
+        return name;
     }
 
     /** {@inheritDoc} */

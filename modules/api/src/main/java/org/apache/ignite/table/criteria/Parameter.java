@@ -15,33 +15,33 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.criteria;
+package org.apache.ignite.table.criteria;
 
 import org.jetbrains.annotations.Nullable;
 
 /**
- * {@code Argument} represents a general constant expression.
+ * Represents a parameter for criteria query.
  *
- * @param <T> Argument type.
+ * @param <T> Parameter type.
  */
-public class Argument<T> implements CriteriaElement {
+public class Parameter<T> implements Criteria {
     private final T value;
 
     /**
      * Constructor.
      *
-     * @param argument Argument value.
+     * @param value Parameter value.
      */
-    Argument(T argument) {
-        this.value = argument;
+    Parameter(T value) {
+        this.value = value;
     }
 
     /**
-     * Gets argument value.
+     * Gets parameter value.
      *
      * @return A value.
      */
-    T getValue() {
+    public T getValue() {
         return value;
     }
 

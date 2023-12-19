@@ -15,41 +15,30 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.criteria;
+package org.apache.ignite.table.criteria;
 
 /**
- * Defines a matcher for a expression instance.
+ * Provides the operators for the criteria query grammar.
+ *
+ * @see Condition
+ * @see Expression
  */
-public class Matcher {
-    private final Operator operator;
-    private final CriteriaElement[] elements;
+public enum Operator {
+    // General
+    EQ,
+    IS_NULL,
+    IS_NOT_NULL,
 
-    /**
-     * Constructor.
-     *
-     * @param operator Operator.
-     * @param elements Expression elements.
-     */
-    Matcher(Operator operator, CriteriaElement... elements) {
-        this.operator = operator;
-        this.elements = elements;
-    }
+    // Comparable
+    GOE,
+    GT,
+    LOE,
+    LT,
+    IN,
+    NOT_IN,
 
-    /**
-     * Get a operator.
-     *
-     * @return A operator.
-     */
-    public Operator getOperator() {
-        return operator;
-    }
-
-    /**
-     * Get a condition elements.
-     *
-     * @return A condition elements.
-     */
-    public CriteriaElement[] getElements() {
-        return elements;
-    }
+    // Boolean
+    NOT,
+    AND,
+    OR
 }

@@ -15,20 +15,44 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.criteria;
-
-import org.jetbrains.annotations.Nullable;
+package org.apache.ignite.table.criteria;
 
 /**
- * Defines a base element for a criteria.
+ * Represents an condition with operator and elements for criteria query.
+ *
+ * @see Criteria
  */
-public interface CriteriaElement {
+public class Condition {
+    private final Operator operator;
+
+    private final Criteria[] elements;
+
     /**
-     * Accept the visitor with the given context.
+     * Constructor.
      *
-     * @param <C> context type
-     * @param v visitor
-     * @param context context of visit
+     * @param operator Condition operator.
+     * @param elements Condition elements.
      */
-    <C> void accept(CriteriaVisitor<C> v, @Nullable C context);
+    Condition(Operator operator, Criteria... elements) {
+        this.operator = operator;
+        this.elements = elements;
+    }
+
+    /**
+     * Get a condition operator.
+     *
+     * @return A condition operator.
+     */
+    public Operator getOperator() {
+        return operator;
+    }
+
+    /**
+     * Get a condition elements.
+     *
+     * @return A condition elements.
+     */
+    public Criteria[] getElements() {
+        return elements;
+    }
 }

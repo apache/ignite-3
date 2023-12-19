@@ -17,20 +17,19 @@
 
 package org.apache.ignite.internal.table.criteria;
 
-import static org.apache.ignite.internal.table.criteria.Criterias.and;
-import static org.apache.ignite.internal.table.criteria.Criterias.columnValue;
-import static org.apache.ignite.internal.table.criteria.Criterias.equalTo;
-import static org.apache.ignite.internal.table.criteria.Criterias.in;
-import static org.apache.ignite.internal.table.criteria.Criterias.not;
-import static org.apache.ignite.internal.table.criteria.Criterias.nullValue;
+import static org.apache.ignite.table.criteria.Criteria.and;
+import static org.apache.ignite.table.criteria.Criteria.columnValue;
+import static org.apache.ignite.table.criteria.Criteria.equalTo;
+import static org.apache.ignite.table.criteria.Criteria.in;
+import static org.apache.ignite.table.criteria.Criteria.not;
+import static org.apache.ignite.table.criteria.Criteria.nullValue;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import java.util.Map;
-import org.apache.ignite.sql.ColumnType;
+import java.util.Set;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -41,7 +40,7 @@ class SqlSerializerTest {
     void testEquals() {
         var ser = new SqlSerializer.Builder()
                 .tableName("test")
-                .columns(Map.of("A", ColumnType.STRING))
+                .columns(Set.of("A"))
                 .where(columnValue("a", equalTo("a")))
                 .build();
 
@@ -53,7 +52,7 @@ class SqlSerializerTest {
     void testNonEquals() {
         var ser = new SqlSerializer.Builder()
                 .tableName("test")
-                .columns(Map.of("A", ColumnType.STRING))
+                .columns(Set.of("A"))
                 .where(not(columnValue("a", equalTo("a"))))
                 .build();
 
@@ -65,7 +64,7 @@ class SqlSerializerTest {
     void testIn() {
         var ser = new SqlSerializer.Builder()
                 .tableName("test")
-                .columns(Map.of("A", ColumnType.STRING))
+                .columns(Set.of("A"))
                 .where(not(columnValue("a", in("a", "b", "c"))))
                 .build();
 
@@ -77,7 +76,7 @@ class SqlSerializerTest {
     void testAnd() {
         var ser = new SqlSerializer.Builder()
                 .tableName("test")
-                .columns(Map.of("A", ColumnType.STRING, "B", ColumnType.STRING))
+                .columns(Set.of("A", "B"))
                 .where(and(columnValue("a", nullValue()), not(columnValue("b", in("a", "b", "c")))))
                 .build();
 
@@ -101,7 +100,7 @@ class SqlSerializerTest {
                 IllegalArgumentException.class,
                 () -> new SqlSerializer.Builder()
                         .tableName("test")
-                        .columns(Map.of("B", ColumnType.STRING))
+                        .columns(Set.of("B"))
                         .where(columnValue("a", equalTo("a")))
                         .build()
         );

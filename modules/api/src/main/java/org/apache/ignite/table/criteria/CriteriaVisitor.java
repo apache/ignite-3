@@ -15,23 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.criteria;
+package org.apache.ignite.table.criteria;
 
 import org.jetbrains.annotations.Nullable;
 
 /**
- * {@code Visitor} defines a visitor signature for {@link Matcher} instances.
+ * A visitor to traverse an criteria tree.
  *
  * @param <C> Context type.
  */
 public interface CriteriaVisitor<C> {
     /**
-     * Visit a {@link Argument} instance with the given context.
+     * Visit a {@link Parameter} instance with the given context.
      *
-     * @param argument Argument to visit
+     * @param argument Parameter to visit
      * @param context context of the visit or null, if not used
      */
-    <T> void visit(Argument<T> argument, @Nullable C context);
+    <T> void visit(Parameter<T> argument, @Nullable C context);
 
     /**
      * Visit a {@link Column} instance with the given context.
@@ -48,4 +48,12 @@ public interface CriteriaVisitor<C> {
      * @param context context of the visit or null, if not used
      */
     <T> void visit(Expression expression, @Nullable C context);
+
+    /**
+     * Visit a {@link Criteria} instance with the given context.
+     *
+     * @param criteria Criteria to visit
+     * @param context context of the visit or null, if not used
+     */
+    <T> void visit(Criteria criteria, @Nullable C context);
 }

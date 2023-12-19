@@ -22,12 +22,17 @@ import static org.apache.ignite.internal.util.StringUtils.nullOrBlank;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.util.CollectionUtils;
-import org.apache.ignite.sql.ColumnType;
+import org.apache.ignite.table.criteria.Column;
 import org.apache.ignite.table.criteria.Criteria;
+import org.apache.ignite.table.criteria.CriteriaVisitor;
+import org.apache.ignite.table.criteria.Expression;
+import org.apache.ignite.table.criteria.Operator;
+import org.apache.ignite.table.criteria.Parameter;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -61,7 +66,7 @@ public class SqlSerializer implements CriteriaVisitor<Void> {
 
     /** {@inheritDoc} */
     @Override
-    public <T> void visit(Argument<T> argument, @Nullable Void context) {
+    public <T> void visit(Parameter<T> argument, @Nullable Void context) {
         append("?");
 
         arguments.add(argument.getValue());
@@ -118,6 +123,12 @@ public class SqlSerializer implements CriteriaVisitor<Void> {
 
     /** {@inheritDoc} */
     @Override
+    public <T> void visit(Criteria criteria, @Nullable Void context) {
+        criteria.accept(this, context);
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public String toString() {
         return builder.toString();
     }
@@ -136,7 +147,7 @@ public class SqlSerializer implements CriteriaVisitor<Void> {
         private String tableName;
 
         @Nullable
-        private Map<String, ColumnType> columns;
+        private Set<String> columnNames;
 
         @Nullable
         private Criteria where;
@@ -154,19 +165,19 @@ public class SqlSerializer implements CriteriaVisitor<Void> {
         }
 
         /**
-         * Sets the columns to validate input.
+         * Sets the valid table column names to prevent SQL injection.
          *
-         * @param columns Columns with types.
+         * @param columnNames Acceptable columns names.
          * @return This builder instance.
          */
-        public SqlSerializer.Builder columns(Map<String, ColumnType> columns) {
-            this.columns = columns;
+        public SqlSerializer.Builder columns(Set<String> columnNames) {
+            this.columnNames = columnNames;
 
             return this;
         }
 
         /**
-         * Add the given where expressions.
+         * Set the given criteria.
          *
          * @param where where condition.
          */
@@ -177,9 +188,9 @@ public class SqlSerializer implements CriteriaVisitor<Void> {
         }
 
         /**
-         * Builds the options.
+         * Builds the SQL query.
          *
-         * @return Criteria query options.
+         * @return SQL query text and arguments.
          */
         public SqlSerializer build() {
             if (nullOrBlank(tableName)) {
@@ -190,18 +201,15 @@ public class SqlSerializer implements CriteriaVisitor<Void> {
                     .append("SELECT * ")
                     .append("FROM ").append(tableName);
 
-            // In order to prevent moving of implementation to the ignite-api module.
-            if (where instanceof Expression) {
-                if (CollectionUtils.nullOrEmpty(columns)) {
+            if (where != null) {
+                if (CollectionUtils.nullOrEmpty(columnNames)) {
                     throw new IllegalArgumentException("The columns of the table must be specified to prevent SQL injection");
                 }
 
-                var expression = (Expression) where;
-
-                expression.accept(ColumnValidator.INSTANCE, columns);
+                ColumnValidator.INSTANCE.visit(where, columnNames);
 
                 ser.append(" WHERE ");
-                expression.accept(ser, null);
+                ser.visit(where, null);
             }
 
             return ser;
