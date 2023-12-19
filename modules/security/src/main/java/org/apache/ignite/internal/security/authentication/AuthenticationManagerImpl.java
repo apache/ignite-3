@@ -122,16 +122,13 @@ public class AuthenticationManagerImpl
     @Override
     public void start() {
         securityConfiguration.listen(securityConfigurationListener);
-
         securityConfiguration.enabled().listen(securityEnabledDisabledEventFactory);
-
         securityConfiguration.authentication().providers().listenElements(providerEventFactory);
 
         String basicAuthenticationProviderName = findBasicProviderName(securityConfiguration.authentication().providers().value());
         BasicAuthenticationProviderConfiguration basicAuthenticationProviderConfiguration = (BasicAuthenticationProviderConfiguration)
                 securityConfiguration.authentication().providers().get(basicAuthenticationProviderName);
-
-        userEventFactory.subscribe(basicAuthenticationProviderConfiguration);
+        basicAuthenticationProviderConfiguration.users().listenElements(userEventFactory);
     }
 
     @Override
@@ -139,7 +136,11 @@ public class AuthenticationManagerImpl
         securityConfiguration.stopListen(securityConfigurationListener);
         securityConfiguration.enabled().stopListen(securityEnabledDisabledEventFactory);
         securityConfiguration.authentication().providers().stopListenElements(providerEventFactory);
-        userEventFactory.unsubscribe();
+
+        String basicAuthenticationProviderName = findBasicProviderName(securityConfiguration.authentication().providers().value());
+        BasicAuthenticationProviderConfiguration basicAuthenticationProviderConfiguration = (BasicAuthenticationProviderConfiguration)
+                securityConfiguration.authentication().providers().get(basicAuthenticationProviderName);
+        basicAuthenticationProviderConfiguration.users().stopListenElements(userEventFactory);
     }
 
     /**

@@ -22,10 +22,8 @@ import java.util.function.Function;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.apache.ignite.internal.security.authentication.AuthenticationUtils;
-import org.apache.ignite.internal.security.authentication.basic.BasicAuthenticationProviderConfiguration;
 import org.apache.ignite.internal.security.authentication.basic.BasicUserView;
 import org.apache.ignite.internal.security.authentication.configuration.AuthenticationView;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Event factory for user configuration changes. Fires events when basic users are added, removed or updated.
@@ -33,34 +31,8 @@ import org.jetbrains.annotations.Nullable;
 public class UserEventFactory implements ConfigurationNamedListListener<BasicUserView> {
     private final Function<AuthenticationEventParameters, CompletableFuture<Void>> notifier;
 
-    @Nullable
-    private BasicAuthenticationProviderConfiguration subscription;
-
     public UserEventFactory(Function<AuthenticationEventParameters, CompletableFuture<Void>> notifier) {
         this.notifier = notifier;
-    }
-
-    /**
-     * Subscribes to user basic authentication provider configuration changes. Unsubscribes from previous subscription.
-     *
-     * @param configuration Configuration.
-     */
-    public synchronized void subscribe(@Nullable BasicAuthenticationProviderConfiguration configuration) {
-        unsubscribe();
-        if (configuration != null) {
-            configuration.users().listenElements(this);
-            subscription = configuration;
-        }
-    }
-
-    /**
-     * Unsubscribes from user basic authentication provider configuration changes.
-     */
-    public synchronized void unsubscribe() {
-        if (subscription != null) {
-            subscription.users().stopListenElements(this);
-            subscription = null;
-        }
     }
 
     @Override
