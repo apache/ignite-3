@@ -247,23 +247,13 @@ public class CatalogUtils {
             }
         }
 
-        if (newPrecision != null && !origin.type().precisionAllowed()) {
-            listener.onFailure("Changing the precision for column of type '{}' is not allowed", origin.type(), newType);
-            return false;
-        }
-
         if (newPrecision != null && newPrecision != origin.precision()) {
             listener.onFailure("Changing the precision for column of type '{}' is not allowed", origin.type(), newType);
             return false;
         }
 
-        if (newScale != null && (!origin.type().scaleAllowed() || newScale != origin.scale())) {
+        if (newScale != null && newScale != origin.scale()) {
             listener.onFailure("Changing the scale for column of type '{}' is not allowed", origin.type(), newType);
-            return false;
-        }
-
-        if (newLength != null && !origin.type().lengthAllowed()) {
-            listener.onFailure("Changing the length for column of type '{}' is not allowed", origin.type(), newType);
             return false;
         }
 
