@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
@@ -31,28 +32,26 @@ import java.util.function.Function;
 import org.apache.ignite.client.RetryLimitPolicy;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
-import org.apache.ignite.internal.sql.SyncResultSetAdapter;
+import org.apache.ignite.internal.client.sql.ClientSessionBuilder;
+import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.streamer.StreamerBatchSender;
 import org.apache.ignite.internal.table.criteria.QueryCriteriaAsyncResultSet;
-import org.apache.ignite.internal.table.criteria.SqlSerializer;
-import org.apache.ignite.sql.ClosableCursor;
-import org.apache.ignite.sql.async.AsyncClosableCursor;
+import org.apache.ignite.internal.table.criteria.SqlRowProjection;
+import org.apache.ignite.sql.ResultSetMetadata;
+import org.apache.ignite.sql.Session;
+import org.apache.ignite.sql.SqlRow;
+import org.apache.ignite.sql.Statement;
 import org.apache.ignite.sql.async.AsyncResultSet;
 import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
-import org.apache.ignite.table.criteria.Criteria;
-import org.apache.ignite.table.criteria.CriteriaQueryOptions;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Client record view implementation for binary user-object representation.
  */
-public class ClientRecordBinaryView implements RecordView<Tuple> {
-    /** Underlying table. */
-    private final ClientTable tbl;
-
+public class ClientRecordBinaryView extends AbstractClientView<Tuple>  implements RecordView<Tuple> {
     /** Tuple serializer. */
     private final ClientTupleSerializer ser;
 
@@ -62,9 +61,8 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
      * @param tbl Table.
      */
     public ClientRecordBinaryView(ClientTable tbl) {
-        assert tbl != null;
+        super(tbl);
 
-        this.tbl = tbl;
         ser = new ClientTupleSerializer(tbl.tableId());
     }
 
@@ -390,35 +388,22 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
         return ClientDataStreamer.streamData(publisher, opts, batchSender, provider, tbl);
     }
 
-    private CompletableFuture<AsyncResultSet<Tuple>> executeAsync(
-            @Nullable Transaction tx,
-            @Nullable Criteria criteria,
-            CriteriaQueryOptions opts
-    ) {
-        var sqlSer = new SqlSerializer.Builder()
-                .tableName(tbl.name())
-                .where(criteria)
-                .build();
 
-        var statement = tbl.sql().statementBuilder().query(sqlSer.toString()).pageSize(opts.pageSize()).build();
-        var session = tbl.sql().createSession();
-
-        return session.executeAsync(tx, statement, sqlSer.getArguments())
-                .thenApply(resultSet -> new QueryCriteriaAsyncResultSet<>(session, null, resultSet));
-    }
-
+    /** {@inheritDoc} */
     @Override
-    public ClosableCursor<Tuple> queryCriteria(@Nullable Transaction tx, @Nullable Criteria criteria, CriteriaQueryOptions opts) {
-        return new SyncResultSetAdapter<>(executeAsync(tx, criteria, opts).join());
-    }
-
-    @Override
-    public CompletableFuture<AsyncClosableCursor<Tuple>> queryCriteriaAsync(
+    protected CompletableFuture<AsyncResultSet<Tuple>> executeQueryAsync(
+            ClientSchema schema,
             @Nullable Transaction tx,
-            @Nullable Criteria criteria,
-            CriteriaQueryOptions opts
+            Statement statement,
+            @Nullable Object... arguments
     ) {
-        return executeAsync(tx, criteria, opts)
-                .thenApply(Function.identity());
+        Session session = new ClientSessionBuilder(tbl.channel()).build();
+
+        return session.executeAsync(tx, statement, arguments)
+                .thenApply(resultSet -> {
+                    List<Integer> idxMapping = indexMapping(schema.columns(), 0, schema.columns().length, resultSet.metadata());
+
+                    return new QueryCriteriaAsyncResultSet<>(resultSet, (row) -> new SqlRowProjection(row, idxMapping), session::close);
+                });
     }
 }

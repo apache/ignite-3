@@ -15,34 +15,44 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.criteria;
-
-import org.jetbrains.annotations.Nullable;
+package org.apache.ignite.table.criteria;
 
 /**
- * Defines a general typed expression in a Query instance. The generic type parameter is a reference to the type the expression is bound to.
+ * Represents an condition with operator and elements for criteria query.
+ *
+ * @see Criteria
  */
-public interface CriteriaElement {
-    /**
-     * Accept the visitor with the given context.
-     *
-     * @param <C> context type
-     * @param v visitor
-     * @param context context of visit
-     */
-    <C> void accept(CriteriaVisitor<C> v, @Nullable C context);
+public class Condition {
+    private final Operator operator;
+
+    private final Criteria[] elements;
 
     /**
-     * Creates a criteria element that test the examined object is equal to the specified {@code value}.
-     * For example:
-     * <pre>
-     * columnValue("age", CriteriaElement.equalTo(35))
-     * </pre>
+     * Constructor.
      *
-     * @param <T> Value type.
-     * @param value Target value.
+     * @param operator Condition operator.
+     * @param elements Condition elements.
      */
-    static <T> CriteriaElement equalTo(T value) {
-        return new Argument<>(value);
+    Condition(Operator operator, Criteria... elements) {
+        this.operator = operator;
+        this.elements = elements;
+    }
+
+    /**
+     * Get a condition operator.
+     *
+     * @return A condition operator.
+     */
+    public Operator getOperator() {
+        return operator;
+    }
+
+    /**
+     * Get a condition elements.
+     *
+     * @return A condition elements.
+     */
+    public Criteria[] getElements() {
+        return elements;
     }
 }

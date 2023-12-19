@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 
 import java.util.Collection;
 import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
@@ -33,13 +34,15 @@ import java.util.function.Function;
 import org.apache.ignite.client.RetryLimitPolicy;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
+import org.apache.ignite.internal.client.sql.ClientSessionBuilder;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.streamer.StreamerBatchSender;
 import org.apache.ignite.internal.table.criteria.QueryCriteriaAsyncResultSet;
 import org.apache.ignite.internal.table.criteria.SqlRowProjection;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.NullableValue;
-import org.apache.ignite.sql.SqlException;
+import org.apache.ignite.sql.ResultSetMetadata;
+import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.Statement;
 import org.apache.ignite.sql.async.AsyncResultSet;
@@ -468,39 +471,29 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
         return ClientDataStreamer.streamData(publisher, opts, batchSender, provider, tbl);
     }
 
-    /**
-     * Criteria query over cache entries.
-     *
-     * @param tx Transaction to execute the query within or {@code null}.
-     * @param statement SQL statement to execute.
-     * @param arguments Arguments for the statement.
-     * @throws SqlException If failed.
-     */
+    /** {@inheritDoc} */
     @Override
-    CompletableFuture<AsyncResultSet<Entry<Tuple, Tuple>>> executeQueryAsync(
+    protected CompletableFuture<AsyncResultSet<Entry<Tuple, Tuple>>> executeQueryAsync(
+            ClientSchema schema,
             @Nullable Transaction tx,
             Statement statement,
             @Nullable Object... arguments
     ) {
-        return tbl.getLatestSchema()
-                .thenCompose((schema) -> {
-                    var session = tbl.sql().createSession();
+        Session session = new ClientSessionBuilder(tbl.channel()).build();
 
-                    return session.executeAsync(tx, statement, arguments)
-                            .thenApply(resultSet -> {
-                                var metadata = resultSet.metadata();
+        return session.executeAsync(tx, statement, arguments)
+                .thenApply(resultSet -> {
+                    ResultSetMetadata metadata = resultSet.metadata();
 
-                                var keyMapping = indexMapping(schema.columns(), 0, schema.keyColumnCount(), metadata);
-                                var valMapping = indexMapping(schema.columns(), schema.keyColumnCount(), schema.columns().length, metadata);
+                    List<Integer> keyMapping = indexMapping(schema.columns(), 0, schema.keyColumnCount(), metadata);
+                    List<Integer> valMapping = indexMapping(schema.columns(), schema.keyColumnCount(), schema.columns().length, metadata);
 
-                                Function<SqlRow, Entry<Tuple, Tuple>> mapper = (row) ->
-                                        new IgniteBiTuple<>(
-                                                new SqlRowProjection(row, keyMapping),
-                                                new SqlRowProjection(row, valMapping)
-                                        );
+                    Function<SqlRow, Entry<Tuple, Tuple>> mapper = (row) -> new IgniteBiTuple<>(
+                            new SqlRowProjection(row, keyMapping),
+                            new SqlRowProjection(row, valMapping)
+                    );
 
-                                return new QueryCriteriaAsyncResultSet<>(session, mapper, resultSet);
-                            });
+                    return new QueryCriteriaAsyncResultSet<>(resultSet, mapper, session::close);
                 });
     }
 }

@@ -15,22 +15,37 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.sql;
+package org.apache.ignite.table.criteria;
 
-import java.util.Iterator;
-import org.apache.ignite.table.criteria.CriteriaQuerySource;
+import org.jetbrains.annotations.Nullable;
 
 /**
- * An iterator over a query results.
- *
- * @param <T> The type of elements returned by this iterator.
- *
- * @see CriteriaQuerySource
+ * Represents a column reference for criteria query.
  */
-public interface ClosableCursor<T> extends Iterator<T>, AutoCloseable {
+public class Column implements Criteria {
+    private final String name;
+
     /**
-     * Invalidates a query result, stops the query, and cleans up query resources.
+     * Constructor.
+     *
+     * @param name A column name.
      */
+    Column(String name) {
+        this.name = name.toUpperCase();
+    }
+
+    /**
+     * Gets column name.
+     *
+     * @return A column name.
+     */
+    public String getName() {
+        return name;
+    }
+
+    /** {@inheritDoc} */
     @Override
-    void close();
+    public <C> void accept(CriteriaVisitor<C> v, @Nullable C context) {
+        v.visit(this, context);
+    }
 }

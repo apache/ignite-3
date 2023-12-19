@@ -15,27 +15,47 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.criteria;
+package org.apache.ignite.table.criteria;
 
 import org.jetbrains.annotations.Nullable;
 
 /**
- * {@code StaticText} represents a static text element.
+ * Defines a expression for a criteria query with operator and it's arguments.
+ *
+ * @see Criteria
  */
-public class StaticText implements CriteriaElement {
-    private final String text;
+public class Expression implements Criteria {
+    private final Operator operator;
 
-    StaticText(String text) {
-        this.text = text;
+    private final Criteria[] elements;
+
+    /**
+     * Constructor.
+     *
+     * @param operator Operator.
+     * @param elements Criteria elements.
+     */
+    Expression(Operator operator, Criteria... elements) {
+        this.operator = operator;
+        this.elements = elements;
     }
 
     /**
-     * Gets text value.
+     * Get a operator.
      *
-     * @return A text.
+     * @return A operator.
      */
-    String getText() {
-        return text;
+    public Operator getOperator() {
+        return operator;
+    }
+
+    /**
+     * Get a condition elements.
+     *
+     * @return A condition elements.
+     */
+    public Criteria[] getElements() {
+        return elements;
     }
 
     /** {@inheritDoc} */

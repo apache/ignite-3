@@ -30,6 +30,7 @@ import java.util.function.Function;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
+import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
 import org.apache.ignite.internal.schema.row.Row;
@@ -42,6 +43,7 @@ import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.MarshallerException;
 import org.apache.ignite.lang.NullableValue;
+import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.Statement;
 import org.apache.ignite.sql.async.AsyncResultSet;
@@ -565,30 +567,13 @@ public class KeyValueBinaryViewImpl extends AbstractTableView<Entry<Tuple, Tuple
 
     /** {@inheritDoc} */
     @Override
-    protected CompletableFuture<AsyncResultSet<Entry<Tuple, Tuple>>> executeQueryAsync(
-            @Nullable Transaction tx,
-            Statement statement,
-            @Nullable Object... arguments
-    ) {
-        return withSchemaSync(tx, (schemaVersion) -> {
-            var schema = rowConverter.registry().schema(schemaVersion);
-            var session = tbl.sql().createSession();
+    protected @Nullable Function<SqlRow, Entry<Tuple, Tuple>> queryResultMapper(SchemaDescriptor schema, ResultSetMetadata metadata) {
+        var keyIndexMapping = indexMapping(schema.keyColumns().columns(), metadata);
+        var valIndexMapping = indexMapping(schema.valueColumns().columns(), metadata);
 
-            return session.executeAsync(tx, statement, arguments)
-                    .thenApply(resultSet -> {
-                        var metadata = resultSet.metadata();
-
-                        var keyIndexMapping = indexMapping(schema.keyColumns().columns(), metadata);
-                        var valIndexMapping = indexMapping(schema.valueColumns().columns(), metadata);
-
-                        Function<SqlRow, Entry<Tuple, Tuple>> mapper = (row) ->
-                                new IgniteBiTuple<>(
-                                        new SqlRowProjection(row, keyIndexMapping),
-                                        new SqlRowProjection(row, valIndexMapping)
-                                );
-
-                        return new QueryCriteriaAsyncResultSet<>(session, mapper, resultSet);
-                    });
-        });
+        return (row) -> new IgniteBiTuple<>(
+                new SqlRowProjection(row, keyIndexMapping),
+                new SqlRowProjection(row, valIndexMapping)
+        );
     }
 }

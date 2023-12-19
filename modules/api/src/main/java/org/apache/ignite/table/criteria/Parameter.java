@@ -15,33 +15,39 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.criteria;
+package org.apache.ignite.table.criteria;
 
-import java.util.List;
-import org.apache.ignite.table.criteria.Criteria;
+import org.jetbrains.annotations.Nullable;
 
 /**
- * Basic building blocks for performing criteria queries.
+ * Represents a parameter for criteria query.
+ *
+ * @param <T> Parameter type.
  */
-public class Criterias {
+public class Parameter<T> implements Criteria {
+    private final T value;
+
     /**
-     * Creates a predicate that tests whether the column value is equal to the given value.
+     * Constructor.
      *
-     * @param columnName Column name.
-     * @param element Expression.
-     * @return the created <b>equal</b> predicate instance.
+     * @param value Parameter value.
      */
-    public static Operation columnValue(String columnName, CriteriaElement element) {
-        return Operation.create("{0} = {1}", List.of(new StaticText(columnName), element));
+    Parameter(T value) {
+        this.value = value;
     }
 
     /**
-     * Creates the negation of the predicate.
+     * Gets parameter value.
      *
-     * @param criteria Criteria.
-     * @return the created <b>not</b> predicate instance.
+     * @return A value.
      */
-    public static <T> Criteria not(Operation criteria) {
-        return Operation.create("not {0}", List.of(criteria));
+    public T getValue() {
+        return value;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public <C> void accept(CriteriaVisitor<C> v, @Nullable C context) {
+        v.visit(this, context);
     }
 }

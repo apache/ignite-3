@@ -18,19 +18,26 @@
 package org.apache.ignite.sql.async;
 
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.sql.ClosableCursor;
+import org.apache.ignite.sql.CursorClosedException;
 import org.apache.ignite.sql.NoRowSetExpectedException;
+import org.apache.ignite.sql.SqlException;
+import org.apache.ignite.table.criteria.CriteriaQuerySource;
 
 /**
- * Closeable cursor.
+ * Provides methods for iterate over query results in an asynchronous way.
  *
- * @param <T> Type of elements.
+ * @param <T> The type of elements returned by this iterator.
+ *
+ * @see ClosableCursor
+ * @see CriteriaQuerySource
  */
 public interface AsyncClosableCursor<T> {
     /**
      * Returns the current page content if the query returns rows.
      *
      * @return Iterable set of rows.
-     * @throws NoRowSetExpectedException if no row set is returned.
+     * @throws NoRowSetExpectedException If no row set is returned.
      */
     Iterable<T> currentPage();
 
@@ -38,21 +45,23 @@ public interface AsyncClosableCursor<T> {
      * Returns the current page size if the query return rows.
      *
      * @return The size of {@link #currentPage()}.
-     * @throws NoRowSetExpectedException if no row set is returned.
+     * @throws NoRowSetExpectedException If no row set is returned.
      */
     int currentPageSize();
 
     /**
      * Fetches the next page of results asynchronously.
-     * The future that is completed with the same {@code AsyncResultSet} object.
      * The current page is changed after the future completion.
      * The methods {@link #currentPage()}, {@link #currentPageSize()}, {@link #hasMorePages()}
      * use the current page and return consistent results between complete last page future and call {@code fetchNextPage}.
      *
-     * @return Operation future.
-     * @throws NoRowSetExpectedException if no row set is expected as a query result.
+     * @return A future which will be completed when next page will be fetched and set as the current page.
+     *     The future will return {@code this} for chaining.
+     * @throws NoRowSetExpectedException If no row set is expected as a query result.
+     * @throws CursorClosedException If cursor is closed.
+     * @throws SqlException If there are no more pages.
      */
-    CompletableFuture<? extends AsyncResultSet<T>> fetchNextPage();
+    CompletableFuture<? extends AsyncClosableCursor<T>> fetchNextPage();
 
     /**
      * Indicates whether there are more pages of results.
@@ -64,7 +73,7 @@ public interface AsyncClosableCursor<T> {
     /**
      * Invalidates a query result, stops the query, and cleans up query resources.
      *
-     * @return Operation future.
+     * @return A future which will be completed when the resources will be actually released.
      */
     CompletableFuture<Void> closeAsync();
 }

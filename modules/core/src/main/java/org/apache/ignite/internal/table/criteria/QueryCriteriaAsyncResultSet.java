@@ -22,36 +22,32 @@ import static org.apache.ignite.internal.util.CollectionUtils.mapIterable;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import org.apache.ignite.sql.ResultSetMetadata;
-import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.async.AsyncResultSet;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Wrapper over {@link AsyncResultSet} for criteria queries.
- * <ul>
- * <li>Close {@link Session} when wrapped {@link AsyncResultSet} is closed</li>
- * <li>Map objects contained by wrapped result set to target value</li>
- * </ul>
  */
 public class QueryCriteriaAsyncResultSet<T, R> implements AsyncResultSet<T> {
-    private final Session session;
+    /** Wrapped async result set. */
+    private final AsyncResultSet<R> ars;
 
     @Nullable
     private final Function<R, T> mapper;
 
-    private final AsyncResultSet<R> ars;
+    private final Runnable closeRun;
 
     /**
      * Constructor.
      *
-     * @param session Session instance.
-     * @param mapper Mapper.
      * @param ars Asynchronous result set.
+     * @param mapper Mapper.
+     * @param closeRun Callback to be invoked after result is closed.
      */
-    public QueryCriteriaAsyncResultSet(Session session, @Nullable Function<R, T> mapper, AsyncResultSet<R> ars) {
-        this.session = session;
-        this.mapper = mapper;
+    public QueryCriteriaAsyncResultSet(AsyncResultSet<R> ars, @Nullable Function<R, T> mapper, Runnable closeRun) {
         this.ars = ars;
+        this.mapper = mapper;
+        this.closeRun = closeRun;
     }
 
     /** {@inheritDoc} */
@@ -70,7 +66,13 @@ public class QueryCriteriaAsyncResultSet<T, R> implements AsyncResultSet<T> {
     @Override
     public CompletableFuture<? extends AsyncResultSet<T>> fetchNextPage() {
         return ars.fetchNextPage()
-                .thenApply((rs) -> new QueryCriteriaAsyncResultSet<>(session, mapper, rs));
+            .thenApply((rs) -> {
+                if (!hasMorePages()) {
+                    closeRun.run();
+                }
+
+                return new QueryCriteriaAsyncResultSet<>(rs, mapper, closeRun);
+            });
     }
 
     /** {@inheritDoc} */
@@ -82,8 +84,7 @@ public class QueryCriteriaAsyncResultSet<T, R> implements AsyncResultSet<T> {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> closeAsync() {
-        return ars.closeAsync()
-                .thenCompose((ignored) -> session.closeAsync());
+        return ars.closeAsync().thenRun(closeRun);
     }
 
     /** {@inheritDoc} */

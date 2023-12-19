@@ -19,17 +19,40 @@ package org.apache.ignite.internal.table.criteria;
 
 import static org.apache.ignite.internal.util.StringUtils.nullOrBlank;
 
+import java.util.Collection;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+import org.apache.ignite.internal.util.CollectionUtils;
+import org.apache.ignite.table.criteria.Column;
 import org.apache.ignite.table.criteria.Criteria;
+import org.apache.ignite.table.criteria.CriteriaVisitor;
+import org.apache.ignite.table.criteria.Expression;
+import org.apache.ignite.table.criteria.Operator;
+import org.apache.ignite.table.criteria.Parameter;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Serializes {@link Criteria} into into SQL.
  */
 public class SqlSerializer implements CriteriaVisitor<Void> {
+    private static final Map<Operator, String> ELEMENT_TEMPLATES = Map.of(
+            Operator.EQ, "{0} = {1}",
+            Operator.IS_NULL, "{0} IS NULL",
+            Operator.IS_NOT_NULL, "{0} IS NOT NULL",
+            Operator.GOE, "{0} >= {1}",
+            Operator.GT, "{0} > {1}",
+            Operator.LOE, "{0} <= {1}",
+            Operator.LT, "{0} < {1}",
+            Operator.NOT, "NOT {0}"
+    );
+
     @SuppressWarnings("StringBufferField")
     private final StringBuilder builder = new StringBuilder(128);
+
     private final List<Object> arguments = new LinkedList<>();
 
     /**
@@ -43,7 +66,7 @@ public class SqlSerializer implements CriteriaVisitor<Void> {
 
     /** {@inheritDoc} */
     @Override
-    public <T> void visit(Argument<T> argument, @Nullable Void context) {
+    public <T> void visit(Parameter<T> argument, @Nullable Void context) {
         append("?");
 
         arguments.add(argument.getValue());
@@ -51,8 +74,57 @@ public class SqlSerializer implements CriteriaVisitor<Void> {
 
     /** {@inheritDoc} */
     @Override
-    public <T> void visit(StaticText text, @Nullable Void context) {
-        append(text.getText());
+    public <T> void visit(Column column, @Nullable Void context) {
+        append(column.getName());
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public <T> void visit(Expression expression, @Nullable Void context) {
+        var operator = expression.getOperator();
+        var elements = expression.getElements();
+
+        String template;
+
+        if (operator == Operator.AND || operator == Operator.OR) {
+            var delimiter = operator == Operator.AND ? ") AND (" : ") OR (";
+
+            template = IntStream.range(0, elements.length)
+                    .mapToObj(i -> String.format("{%d}", i))
+                    .collect(Collectors.joining(delimiter, "(", ")"));
+        } else if (operator == Operator.IN || operator == Operator.NOT_IN) {
+            var prefix = operator == Operator.IN ? "{0} IN (" : "{0} NOT (";
+
+            template = IntStream.range(1, elements.length)
+                    .mapToObj(i -> String.format("{%d}", i))
+                    .collect(Collectors.joining(", ", prefix, ")"));
+        } else {
+            template = ELEMENT_TEMPLATES.get(operator);
+        }
+
+        int end = 0;
+        var matcher = Pattern.compile("\\{(\\d+)\\}").matcher(template);
+
+        while (matcher.find()) {
+            if (matcher.start() > end) {
+                append(template.substring(end, matcher.start()));
+            }
+
+            int index = Integer.parseInt(matcher.group(1));
+            elements[index].accept(this, context);
+
+            end = matcher.end();
+        }
+
+        if (end < template.length()) {
+            append(template.substring(end));
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public <T> void visit(Criteria criteria, @Nullable Void context) {
+        criteria.accept(this, context);
     }
 
     /** {@inheritDoc} */
@@ -75,6 +147,9 @@ public class SqlSerializer implements CriteriaVisitor<Void> {
         private String tableName;
 
         @Nullable
+        private Collection<String> columnNames;
+
+        @Nullable
         private Criteria where;
 
         /**
@@ -90,7 +165,19 @@ public class SqlSerializer implements CriteriaVisitor<Void> {
         }
 
         /**
-         * Add the given where expressions.
+         * Sets the valid table column names to prevent SQL injection.
+         *
+         * @param columnNames Acceptable columns names.
+         * @return This builder instance.
+         */
+        public SqlSerializer.Builder columns(Collection<String> columnNames) {
+            this.columnNames = columnNames;
+
+            return this;
+        }
+
+        /**
+         * Set the given criteria.
          *
          * @param where where condition.
          */
@@ -101,9 +188,9 @@ public class SqlSerializer implements CriteriaVisitor<Void> {
         }
 
         /**
-         * Builds the options.
+         * Builds the SQL query.
          *
-         * @return Criteria query options.
+         * @return SQL query text and arguments.
          */
         public SqlSerializer build() {
             if (nullOrBlank(tableName)) {
@@ -111,12 +198,18 @@ public class SqlSerializer implements CriteriaVisitor<Void> {
             }
 
             var ser = new SqlSerializer()
-                    .append("SELECT * FROM ").append(tableName).append(" ");
+                    .append("SELECT * ")
+                    .append("FROM ").append(tableName);
 
-            if (where instanceof Operation) {
-                ser.append("WHERE ");
+            if (where != null) {
+                if (CollectionUtils.nullOrEmpty(columnNames)) {
+                    throw new IllegalArgumentException("The columns of the table must be specified to prevent SQL injection");
+                }
 
-                ((Operation) where).accept(ser, null);
+                ColumnValidator.INSTANCE.visit(where, columnNames);
+
+                ser.append(" WHERE ");
+                ser.visit(where, null);
             }
 
             return ser;

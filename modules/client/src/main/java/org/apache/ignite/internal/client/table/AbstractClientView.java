@@ -19,10 +19,13 @@ package org.apache.ignite.internal.client.table;
 
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toSet;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.client.sql.ClientStatementBuilder;
 import org.apache.ignite.internal.sql.SyncResultSetAdapter;
 import org.apache.ignite.internal.table.criteria.SqlSerializer;
 import org.apache.ignite.lang.ErrorGroups.Sql;
@@ -93,16 +96,50 @@ abstract class AbstractClientView<R> implements CriteriaQuerySource<R> {
     /**
      * Criteria query over cache entries.
      *
-     * @param tx Transaction to execute the query within or {@code null}.
+     * @param schema Schema.
+     * @param tx Transaction to execute the statement within or {@code null}.
      * @param statement SQL statement to execute.
      * @param arguments Arguments for the statement.
+     * @return Operation future.
      * @throws SqlException If failed.
      */
-    abstract CompletableFuture<AsyncResultSet<R>> executeQueryAsync(
+    protected abstract CompletableFuture<AsyncResultSet<R>> executeQueryAsync(
+            ClientSchema schema,
             @Nullable Transaction tx,
             Statement statement,
             @Nullable Object... arguments
     );
+
+    /**
+     * Criteria query over cache entries.
+     *
+     * @param tx Transaction to execute the query within or {@code null} to run within implicit transaction.
+     * @param criteria Will accept all the entries if {@code null}.
+     * @param opts Criteria query options.
+     * @throws SqlException If failed.
+     */
+    private CompletableFuture<AsyncResultSet<R>> executeQueryAsync(
+            @Nullable Transaction tx,
+            @Nullable Criteria criteria,
+            CriteriaQueryOptions opts
+    ) {
+        return tbl.getLatestSchema()
+                .thenCompose((schema) -> {
+                    Set<String> columnNames = Arrays.stream(schema.columns())
+                            .map(ClientColumn::name)
+                            .collect(toSet());
+
+                    SqlSerializer ser = new SqlSerializer.Builder()
+                            .tableName(tbl.name())
+                            .columns(columnNames)
+                            .where(criteria)
+                            .build();
+
+                    Statement statement = new ClientStatementBuilder().query(ser.toString()).pageSize(opts.pageSize()).build();
+
+                    return executeQueryAsync(schema, tx, statement, ser.getArguments());
+                });
+    }
 
     /** {@inheritDoc} */
     @Override
@@ -111,14 +148,7 @@ abstract class AbstractClientView<R> implements CriteriaQuerySource<R> {
             @Nullable Criteria criteria,
             CriteriaQueryOptions opts
     ) {
-        var ser = new SqlSerializer.Builder()
-                .tableName(tbl.name())
-                .where(criteria)
-                .build();
-
-        var statement = tbl.sql().statementBuilder().query(ser.toString()).pageSize(opts.pageSize()).build();
-
-        return new SyncResultSetAdapter<>(executeQueryAsync(tx, statement, ser.getArguments()).join());
+        return new SyncResultSetAdapter<>(executeQueryAsync(tx, criteria, opts).join());
     }
 
     /** {@inheritDoc} */
@@ -128,14 +158,7 @@ abstract class AbstractClientView<R> implements CriteriaQuerySource<R> {
             @Nullable Criteria criteria,
             CriteriaQueryOptions opts
     ) {
-        var ser = new SqlSerializer.Builder()
-                .tableName(tbl.name())
-                .where(criteria)
-                .build();
-
-        var statement = tbl.sql().statementBuilder().query(ser.toString()).pageSize(opts.pageSize()).build();
-
-        return executeQueryAsync(tx, statement, ser.getArguments())
+        return executeQueryAsync(tx, criteria, opts)
                 .thenApply(identity());
     }
 }

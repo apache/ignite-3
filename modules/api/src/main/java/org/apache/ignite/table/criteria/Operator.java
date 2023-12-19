@@ -15,39 +15,30 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.criteria;
-
-import org.jetbrains.annotations.Nullable;
+package org.apache.ignite.table.criteria;
 
 /**
- * {@code Argument} represents a general constant expression.
+ * Provides the operators for the criteria query grammar.
  *
- * @param <T> Argument type.
+ * @see Condition
+ * @see Expression
  */
-public class Argument<T> implements CriteriaElement {
-    private final T value;
+public enum Operator {
+    // General
+    EQ,
+    IS_NULL,
+    IS_NOT_NULL,
 
-    /**
-     * Create a new argument of the given type for the given object.
-     *
-     * @param argument Argument value.
-     */
-    Argument(T argument) {
-        this.value = argument;
-    }
+    // Comparable
+    GOE,
+    GT,
+    LOE,
+    LT,
+    IN,
+    NOT_IN,
 
-    /**
-     * Gets argument value.
-     *
-     * @return A value.
-     */
-    T getValue() {
-        return value;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public <C> void accept(CriteriaVisitor<C> v, @Nullable C context) {
-        v.visit(this, context);
-    }
+    // Boolean
+    NOT,
+    AND,
+    OR
 }
