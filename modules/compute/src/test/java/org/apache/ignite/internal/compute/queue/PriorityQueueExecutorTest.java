@@ -20,6 +20,7 @@ package org.apache.ignite.internal.compute.queue;
 import static org.apache.ignite.compute.JobState.CANCELED;
 import static org.apache.ignite.compute.JobState.COMPLETED;
 import static org.apache.ignite.compute.JobState.EXECUTING;
+import static org.apache.ignite.compute.JobState.FAILED;
 import static org.apache.ignite.compute.JobState.QUEUED;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willTimeoutIn;
@@ -28,13 +29,13 @@ import static org.apache.ignite.internal.testframework.matchers.JobStatusMatcher
 import static org.apache.ignite.internal.testframework.matchers.JobStatusMatcher.jobStatusWithStateAndCreateTimeStartTime;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
 
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.compute.JobStatus;
 import org.apache.ignite.internal.compute.configuration.ComputeConfiguration;
 import org.apache.ignite.internal.compute.state.InMemoryComputeStateMachine;
@@ -233,10 +234,7 @@ public class PriorityQueueExecutorTest extends BaseIgniteAbstractTest {
             }
         });
 
-        JobStatus executingStatus = await().until(
-                execution::status,
-                jobStatusWithState(equalTo(EXECUTING))
-        );
+        JobStatus executingStatus = await().until(execution::status, jobStatusWithState(EXECUTING));
 
         execution.cancel();
 
@@ -256,10 +254,7 @@ public class PriorityQueueExecutorTest extends BaseIgniteAbstractTest {
             return 0;
         });
 
-        JobStatus executingStatus = await().until(
-                execution::status,
-                jobStatusWithState(equalTo(EXECUTING))
-        );
+        JobStatus executingStatus = await().until(execution::status, jobStatusWithState(EXECUTING));
 
         execution.cancel();
 
@@ -309,6 +304,60 @@ public class PriorityQueueExecutorTest extends BaseIgniteAbstractTest {
         assertThat(execution.resultAsync(), willTimeoutIn(100, TimeUnit.MILLISECONDS));
     }
 
+    @Test
+    void retryTaskFail() {
+        initExecutor(1);
+
+        AtomicInteger runTimes = new AtomicInteger();
+
+        int maxRetries = 5;
+
+        QueueExecution<Object> execution = priorityQueueExecutor.submit(() -> {
+            runTimes.incrementAndGet();
+            throw new RuntimeException();
+        }, 0, maxRetries);
+
+        await().until(execution::status, jobStatusWithState(FAILED));
+
+        assertThat(runTimes.get(), is(maxRetries + 1));
+    }
+
+    @Test
+    void retryTaskSuccess() {
+        initExecutor(1);
+
+        AtomicInteger runTimes = new AtomicInteger();
+
+        int maxRetries = 5;
+
+        QueueExecution<Object> execution = priorityQueueExecutor.submit(() -> {
+            if (runTimes.incrementAndGet() <= maxRetries) {
+                throw new RuntimeException();
+            }
+            return 0;
+        }, 0, maxRetries);
+
+        await().until(execution::status, jobStatusWithState(COMPLETED));
+
+        assertThat(runTimes.get(), is(maxRetries + 1));
+    }
+
+    @Test
+    void defaultTaskIsNotRetried() {
+        initExecutor(1);
+
+        AtomicInteger runTimes = new AtomicInteger();
+
+        QueueExecution<Object> execution = priorityQueueExecutor.submit(() -> {
+            runTimes.incrementAndGet();
+            throw new RuntimeException();
+        });
+
+        await().until(execution::status, jobStatusWithState(FAILED));
+
+        assertThat(runTimes.get(), is(1));
+    }
+
     private void initExecutor(int threads) {
         initExecutor(threads, Integer.MAX_VALUE);
     }
@@ -327,10 +376,14 @@ public class PriorityQueueExecutorTest extends BaseIgniteAbstractTest {
     }
 
     private <R> CompletableFuture<R> submit(Callable<R> job) {
-        return priorityQueueExecutor.submit(job).resultAsync();
+        return submit(job, 0);
     }
 
     private <R> CompletableFuture<R> submit(Callable<R> job, int priority) {
-        return priorityQueueExecutor.submit(job, priority).resultAsync();
+        return submit(job, priority, 0);
+    }
+
+    private <R> CompletableFuture<R> submit(Callable<R> job, int priority, int maxRetries) {
+        return priorityQueueExecutor.submit(job, priority, maxRetries).resultAsync();
     }
 }

@@ -575,7 +575,7 @@ TEST_F(transaction_test, transaction_error) {
             try {
                 insert_test_value(conn2.m_statement, 2, "test_2");
             } catch (const odbc_exception &err) {
-                EXPECT_THAT(err.message, testing::HasSubstr("Failed to acquire a lock due to a conflict"));
+                EXPECT_THAT(err.message, testing::HasSubstr("Failed to acquire a lock due to a possible deadlock"));
                 // TODO: IGNITE-19944 Propagate SQL errors from engine to driver
                 EXPECT_EQ(err.sql_state, "HY000");
                 throw;

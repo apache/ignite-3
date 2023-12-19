@@ -40,6 +40,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
+import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.Nullable;
@@ -58,11 +59,11 @@ public class CatalogUtils {
      * Default filter of distribution zone, which is a {@link com.jayway.jsonpath.JsonPath} expression for including all attributes of
      * nodes.
      */
-    public static final String DEFAULT_FILTER = "$..*";
+    public static final String DEFAULT_FILTER = "'$..*'";
 
     /** Default distribution zone storage engine. */
     // TODO: IGNITE-19719 Should be defined differently
-    public static final String DEFAULT_STORAGE_ENGINE = "aipersist";
+    public static final String DEFAULT_STORAGE_ENGINE = IgniteSystemProperties.getString("IGNITE_DEFAULT_STORAGE_ENGINE", "aipersist");
 
     /** Default distribution zone storage engine data region. */
     // TODO: IGNITE-19719 Must be storage engine specific

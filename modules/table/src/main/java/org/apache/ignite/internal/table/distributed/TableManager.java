@@ -226,9 +226,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     /** Transaction state resolver. */
     private final TransactionStateResolver transactionStateResolver;
 
-    /** Here a table future stores during creation (until the table can be provided to client). */
-    private final Map<Integer, CompletableFuture<Table>> tableCreateFuts = new ConcurrentHashMap<>();
-
     /**
      * Versioned store for tables by id. Only table instances are created here, local storages and RAFT groups may not be initialized yet.
      *
@@ -1148,8 +1145,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             pendingTables.remove(tableId);
         }));
 
-        tablesById(causalityToken).thenRun(() -> inBusyLock(busyLock, () -> completeApiCreateFuture(table)));
-
         // TODO should be reworked in IGNITE-16763
 
         // TODO: https://issues.apache.org/jira/browse/IGNITE-19913 Possible performance degradation.
@@ -1208,23 +1203,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         txStateTableStorage.start();
 
         return txStateTableStorage;
-    }
-
-    /**
-     * Completes appropriate future to return result from API {@link TableManager#createTableLocally}.
-     *
-     * @param table Table.
-     */
-    private void completeApiCreateFuture(TableImpl table) {
-        LOG.trace("Finish creating table: name={}, id={}", table.name(), table.tableId());
-
-        CompletableFuture<Table> tblFut = tableCreateFuts.get(table.tableId());
-
-        if (tblFut != null) {
-            tblFut.complete(table);
-
-            tableCreateFuts.values().removeIf(fut -> fut == tblFut);
-        }
     }
 
     /**

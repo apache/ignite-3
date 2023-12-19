@@ -332,6 +332,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             Map<TablePartitionId, Long> enlistedGroups,
             UUID txId
     ) {
+        LOG.debug("Finish [commit={}, txId={}, groups={}].", commit, txId, enlistedGroups);
+
         assert enlistedGroups != null;
 
         if (enlistedGroups.isEmpty()) {

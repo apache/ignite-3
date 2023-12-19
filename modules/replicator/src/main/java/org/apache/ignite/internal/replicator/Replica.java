@@ -231,8 +231,7 @@ public class Replica {
             HybridTimestamp leaseStartTime,
             HybridTimestamp leaseExpirationTime
     ) {
-        LOG.info("Lease accepted, group=" + groupId() + ", leaseStartTime=" + leaseStartTime + ", leaseExpirationTime="
-                + leaseExpirationTime);
+        LOG.info("Lease accepted [group=" + groupId() + ", leaseStartTime=" + leaseStartTime + "].");
 
         this.leaseExpirationTime = leaseExpirationTime;
 
