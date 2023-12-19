@@ -33,6 +33,7 @@ import java.util.function.BiConsumer;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.internal.client.ClientUtils;
+import org.apache.ignite.internal.client.PayloadInputChannel;
 import org.apache.ignite.internal.client.PayloadOutputChannel;
 import org.apache.ignite.internal.client.ReliableChannel;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
@@ -231,12 +232,13 @@ public class ClientCompute implements IgniteCompute {
 
                     packJob(w.out(), units, jobClassName, args);
                 },
-                r -> null,
+                PayloadInputChannel::clientChannel,
                 node.name(),
                 null,
                 (r, err) -> {
                     // TODO: This might be called multiple times due to retries; so a failure from one disconnect makes the future
                     // forever failed.
+                    // We should somehow prevent completing the future if retries are triggered.
                     if (err != null) {
                         notificationFut.completeExceptionally(err);
                     } else {
@@ -245,7 +247,7 @@ public class ClientCompute implements IgniteCompute {
                     }
                 });
 
-        return reqFut.thenCompose(v -> notificationFut);
+        return reqFut.thenCompose(requestCh -> notificationFut);
     }
 
     private static ClusterNode randomNode(Set<ClusterNode> nodes) {
