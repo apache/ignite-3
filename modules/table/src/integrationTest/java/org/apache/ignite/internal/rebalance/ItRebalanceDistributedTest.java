@@ -715,8 +715,15 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
         if (replicasNum == nodes.size()) {
             assertTrue(waitForCondition(
-                    () -> ((TableImpl) nodes.get(0).tableManager.table(TABLE_NAME)).internalTable()
-                            .partitionRaftGroupServiceStarted(partNum),
+                    () -> {
+                        try {
+                            return ((TableImpl) nodes.get(0).tableManager.table(TABLE_NAME))
+                                    .internalTable().partitionRaftGroupService(partNum) != null;
+                        } catch (IgniteInternalException e) {
+                            // Raft group service not found.
+                            return false;
+                        }
+                    },
                     (long) AWAIT_TIMEOUT_MILLIS * nodes.size()
             ));
         }
