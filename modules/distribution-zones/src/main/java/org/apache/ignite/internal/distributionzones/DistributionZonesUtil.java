@@ -536,21 +536,25 @@ public class DistributionZonesUtil {
     /**
      * Filters storage profiles.
      *
-     * @param nodeStorageProfiles Node's storage profiles.
+     * @param node Node with storage profile attributes.
      * @param zoneStorageProfiles Zone's storage profiles.
      * @return True, if matches, false otherwise.
      */
     public static boolean filterStorageProfiles(
-            List<String> nodeStorageProfiles,
+            NodeWithAttributes node,
             List<CatalogStorageProfileDescriptor> zoneStorageProfiles
     ) {
+        if (node.storageProfiles() == null) {
+            return false;
+        }
+
         List<String> zoneStorageProfilesNames = zoneStorageProfiles.stream()
                 .map(CatalogStorageProfileDescriptor::storageProfile)
                 .collect(Collectors.toList());
 
         // TODO:
         return zoneStorageProfilesNames.contains(DUMMY_STORAGE_PROFILE)
-                || new HashSet<>(nodeStorageProfiles).containsAll(zoneStorageProfilesNames);
+                || new HashSet<>(node.storageProfiles()).containsAll(zoneStorageProfilesNames);
     }
 
     /**
@@ -575,11 +579,7 @@ public class DistributionZonesUtil {
         }
         return dataNodes.stream()
                 .filter(n -> filterNodeAttributes(nodesAttributes.get(n.nodeId()).nodeAttributes(), zoneDescriptor.filter()))
-                .filter(
-                        n -> filterStorageProfiles(
-                                nodesAttributes.get(n.nodeId()).storageProfiles(), zoneDescriptor.storageProfiles().profiles()
-                        )
-                )
+                .filter(n -> filterStorageProfiles(nodesAttributes.get(n.nodeId()), zoneDescriptor.storageProfiles().profiles()))
                 .map(Node::nodeName)
                 .collect(toSet());
     }

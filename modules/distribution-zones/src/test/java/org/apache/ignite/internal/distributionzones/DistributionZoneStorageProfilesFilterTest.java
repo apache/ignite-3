@@ -24,6 +24,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 /** Tests storage profiles filtering. */
@@ -31,36 +32,40 @@ public class DistributionZoneStorageProfilesFilterTest {
     @Test
     void testStorageProfilesScenario1() {
         List<String> nodeStorageProfiles = List.of("qwe", "asd", "zxc");
+        NodeWithAttributes node = new NodeWithAttributes("n", "id", Map.of(), nodeStorageProfiles);
 
         String zoneStorageProfiles = "qwe,asd";
 
-        assertTrue(filterStorageProfiles(nodeStorageProfiles, fromParams(parseStorageProfiles(zoneStorageProfiles)).profiles()));
+        assertTrue(filterStorageProfiles(node, fromParams(parseStorageProfiles(zoneStorageProfiles)).profiles()));
     }
 
     @Test
     void testStorageProfilesScenario2() {
         List<String> nodeStorageProfiles = List.of("asd", "zxc");
+        NodeWithAttributes node = new NodeWithAttributes("n", "id", Map.of(), nodeStorageProfiles);
 
         String zoneStorageProfiles = "qwe,asd";
 
-        assertFalse(filterStorageProfiles(nodeStorageProfiles, fromParams(parseStorageProfiles(zoneStorageProfiles)).profiles()));
+        assertFalse(filterStorageProfiles(node, fromParams(parseStorageProfiles(zoneStorageProfiles)).profiles()));
     }
 
     @Test
     void testStorageProfilesScenario3() {
         List<String> nodeStorageProfiles = List.of("asd", "zxc");
+        NodeWithAttributes node = new NodeWithAttributes("n", "id", Map.of(), nodeStorageProfiles);
 
         String zoneStorageProfiles = "zxc,asd";
 
-        assertTrue(filterStorageProfiles(nodeStorageProfiles, fromParams(parseStorageProfiles(zoneStorageProfiles)).profiles()));
+        assertTrue(filterStorageProfiles(node, fromParams(parseStorageProfiles(zoneStorageProfiles)).profiles()));
     }
 
     @Test
     void testStorageProfilesScenario4() {
         List<String> nodeStorageProfiles = List.of("asd", "zxc");
+        NodeWithAttributes node = new NodeWithAttributes("n", "id", Map.of(), nodeStorageProfiles);
 
         String zoneStorageProfiles = "zxc,   asd";
 
-        assertTrue(filterStorageProfiles(nodeStorageProfiles, fromParams(parseStorageProfiles(zoneStorageProfiles)).profiles()));
+        assertTrue(filterStorageProfiles(node, fromParams(parseStorageProfiles(zoneStorageProfiles)).profiles()));
     }
 }

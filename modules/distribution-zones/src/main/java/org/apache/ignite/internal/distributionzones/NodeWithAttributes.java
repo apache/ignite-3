@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.distributionzones;
 
 import java.io.Serializable;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
@@ -44,9 +43,7 @@ public class NodeWithAttributes implements Serializable {
      * @param nodeAttributes Key value map of node's attributes.
      */
     public NodeWithAttributes(String nodeName, String nodeId, Map<String, String> nodeAttributes) {
-        this.node = new Node(nodeName, nodeId);
-        this.nodeAttributes = nodeAttributes;
-        this.storageProfiles = Collections.emptyList();
+        this(nodeName, nodeId, nodeAttributes, List.of());
     }
 
     /**
@@ -59,8 +56,8 @@ public class NodeWithAttributes implements Serializable {
      */
     NodeWithAttributes(String nodeName, String nodeId, Map<String, String> nodeAttributes, List<String> storageProfiles) {
         this.node = new Node(nodeName, nodeId);
-        this.nodeAttributes = nodeAttributes;
-        this.storageProfiles = storageProfiles;
+        this.nodeAttributes = nodeAttributes == null ? Map.of() : nodeAttributes;
+        this.storageProfiles = storageProfiles == null ? List.of() : storageProfiles;
     }
 
     @Override
