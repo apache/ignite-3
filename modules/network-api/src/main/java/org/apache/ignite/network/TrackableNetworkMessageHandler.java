@@ -24,7 +24,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Trackable message handler that will log long-running messages.
  */
-public class TrackableNetworkMessageHandler implements NetworkMessageHandler{
+public class TrackableNetworkMessageHandler implements NetworkMessageHandler {
     private static final IgniteLogger LOG = Loggers.forClass(TrackableNetworkMessageHandler.class);
 
     /**
