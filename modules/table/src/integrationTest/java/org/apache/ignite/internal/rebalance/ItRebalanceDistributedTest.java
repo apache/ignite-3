@@ -153,6 +153,8 @@ import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryDataSto
 import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryDataStorageModule;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineConfiguration;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryStorageEngineConfiguration;
+import org.apache.ignite.internal.storage.rocksdb.RocksDbDataStorageModule;
+import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfiguration;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.table.TableViewInternal;
@@ -858,6 +860,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     List.of(NetworkConfiguration.KEY,
                             PersistentPageMemoryStorageEngineConfiguration.KEY,
                             VolatilePageMemoryStorageEngineConfiguration.KEY,
+                            RocksDbStorageEngineConfiguration.KEY,
                             RestConfiguration.KEY,
                             ClientConnectorConfiguration.KEY),
                     new LocalFileConfigurationStorage(configPath, nodeCfgGenerator),
@@ -974,7 +977,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
             DataStorageModules dataStorageModules = new DataStorageModules(List.of(
                     new PersistentPageMemoryDataStorageModule(),
                     new VolatilePageMemoryDataStorageModule(),
-                    new TestDataStorageModule()
+                    new TestDataStorageModule(),
+                    new RocksDbDataStorageModule()
             ));
 
             Path storagePath = dir.resolve("storage");
