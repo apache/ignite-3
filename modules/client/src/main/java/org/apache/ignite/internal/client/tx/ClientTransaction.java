@@ -18,9 +18,12 @@
 package org.apache.ignite.internal.client.tx;
 
 import static org.apache.ignite.internal.client.ClientUtils.sync;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_FAILED_READ_WRITE_OPERATION_ERR;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.client.ClientChannel;
 import org.apache.ignite.internal.client.proto.ClientOp;
@@ -32,6 +35,15 @@ import org.apache.ignite.tx.TransactionException;
  * Client transaction.
  */
 public class ClientTransaction implements Transaction {
+    /** Open state. */
+    private static final int STATE_OPEN = 0;
+
+    /** Committed state. */
+    private static final int STATE_COMMITTED = 1;
+
+    /** Rolled back state. */
+    private static final int STATE_ROLLED_BACK = 2;
+
     /** Channel that the transaction belongs to. */
     private final ClientChannel ch;
 
@@ -40,6 +52,9 @@ public class ClientTransaction implements Transaction {
 
     /** The future used on repeated commit/rollback. */
     private final AtomicReference<CompletableFuture<Void>> finishFut = new AtomicReference<>();
+
+    /** State. */
+    private final AtomicInteger state = new AtomicInteger(STATE_OPEN);
 
     /** Read-only flag. */
     private final boolean isReadOnly;
@@ -87,6 +102,8 @@ public class ClientTransaction implements Transaction {
             return finishFut.get();
         }
 
+        setState(STATE_COMMITTED);
+
         CompletableFuture<Void> mainFinishFut = ch.serviceAsync(ClientOp.TX_COMMIT, w -> w.out().packLong(id), r -> null);
 
         mainFinishFut.handle((res, e) -> finishFut.get().complete(null));
@@ -106,6 +123,8 @@ public class ClientTransaction implements Transaction {
         if (!finishFut.compareAndSet(null, new CompletableFuture<>())) {
             return finishFut.get();
         }
+
+        setState(STATE_ROLLED_BACK);
 
         CompletableFuture<Void> mainFinishFut = ch.serviceAsync(ClientOp.TX_ROLLBACK, w -> w.out().packLong(id), r -> null);
 
@@ -134,6 +153,23 @@ public class ClientTransaction implements Transaction {
                     + "'. Use IgniteClient.transactions() to start transactions.");
         }
 
-        return (ClientTransaction) tx;
+        ClientTransaction clientTx = (ClientTransaction) tx;
+
+        int state = clientTx.state.get();
+
+        if (state == STATE_OPEN) {
+            return clientTx;
+        }
+
+        // Match org.apache.ignite.internal.tx.TxState enum:
+        String stateStr = state == STATE_COMMITTED ? "COMMITTED" : "ABORTED";
+
+        throw new TransactionException(
+                TX_FAILED_READ_WRITE_OPERATION_ERR,
+                format("Transaction is already finished [id={}, state={}].", clientTx.id, stateStr));
+    }
+
+    private void setState(int state) {
+        this.state.compareAndExchange(STATE_OPEN, state);
     }
 }
