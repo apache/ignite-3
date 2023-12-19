@@ -1682,7 +1682,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         CompletableFuture<Void> localServicesStartFuture;
 
-        if (shouldStartLocalGroupNode || shouldStartLocalPartitionService) {
+        if (shouldStartLocalGroupNode) {
             localServicesStartFuture = localPartsByTableIdVv.get(revision)
                     .thenComposeAsync(oldMap -> {
                         if (shouldStartLocalGroupNode) {
