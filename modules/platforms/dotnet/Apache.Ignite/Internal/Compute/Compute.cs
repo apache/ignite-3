@@ -199,7 +199,7 @@ namespace Apache.Ignite.Internal.Compute
                     ClientOp.ComputeExecute, writer, PreferredNode.FromName(node.Name), notificationHandler)
                 .ConfigureAwait(false);
 
-            // TODO: Race condition - the connection may be closed before we set this flag
+            // TODO: Race condition - the connection may be closed before we set this flag, so we ignore the failure and get stuck.
             notificationHandler.IsResponseReceived = true;
 
             using var notificationRes = await notificationHandler.Task.ConfigureAwait(false);
