@@ -158,7 +158,9 @@ import org.apache.ignite.internal.table.distributed.schema.SchemaVersionsImpl;
 import org.apache.ignite.internal.table.distributed.schema.ThreadLocalPartitionCommandsMarshaller;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.table.distributed.storage.PartitionStorages;
+import org.apache.ignite.internal.thread.LogUncaughtExceptionHandler;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.StripedThreadPoolExecutor;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
@@ -282,6 +284,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
     /** Scan request executor. */
     private final ExecutorService scanRequestExecutor;
+
+    /** Executor for operations executed by PartitionReplicaListeners on their partitions. */
+    private final StripedThreadPoolExecutor partitionOperationsExecutor;
 
     /**
      * Separate executor for IO operations like partition storage initialization or partition raft group meta data persisting.
@@ -435,6 +440,14 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 NamedThreadFactory.create(nodeName, "rebalance-scheduler", LOG));
 
         int cpus = Runtime.getRuntime().availableProcessors();
+
+        partitionOperationsExecutor = new StripedThreadPoolExecutor(
+                Math.min(cpus * 3, 25),
+                NamedThreadFactory.threadPrefix(nodeName, "storage-operations"),
+                new LogUncaughtExceptionHandler(LOG),
+                false,
+                0
+        );
 
         ioExecutor = new ThreadPoolExecutor(
                 Math.min(cpus * 3, 25),
@@ -852,6 +865,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 txManager,
                 lockMgr,
                 scanRequestExecutor,
+                partitionOperationsExecutor.commandExecutor(partId),
                 partId,
                 tableId,
                 table.indexesLockers(partId),
@@ -959,6 +973,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 mvGc,
                 () -> shutdownAndAwaitTermination(rebalanceScheduler, 10, TimeUnit.SECONDS),
                 () -> shutdownAndAwaitTermination(ioExecutor, 10, TimeUnit.SECONDS),
+                () -> shutdownAndAwaitTermination(partitionOperationsExecutor, 10, TimeUnit.SECONDS),
                 () -> shutdownAndAwaitTermination(txStateStoragePool, 10, TimeUnit.SECONDS),
                 () -> shutdownAndAwaitTermination(txStateStorageScheduledPool, 10, TimeUnit.SECONDS),
                 () -> shutdownAndAwaitTermination(scanRequestExecutor, 10, TimeUnit.SECONDS),

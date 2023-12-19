@@ -492,6 +492,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 txManager,
                 lockManager,
                 Runnable::run,
+                Runnable::run,
                 PART_ID,
                 TABLE_ID,
                 () -> Map.of(pkLocker.id(), pkLocker, sortedIndexId, sortedIndexLocker, hashIndexId, hashIndexLocker),

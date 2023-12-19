@@ -663,6 +663,7 @@ public class ItTxTestCluster {
                 txManager,
                 txManager.lockManager(),
                 Runnable::run,
+                Runnable::run,
                 partId,
                 tableId,
                 indexesLockers,

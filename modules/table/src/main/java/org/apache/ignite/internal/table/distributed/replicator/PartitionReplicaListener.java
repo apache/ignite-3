@@ -21,6 +21,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestampToLong;
@@ -242,6 +243,8 @@ public class PartitionReplicaListener implements ReplicaListener {
     /** Runs async scan tasks for effective tail recursion execution (avoid deep recursive calls). */
     private final Executor scanRequestExecutor;
 
+    private final Executor requestOperationsExecutor;
+
     private final Supplier<Map<Integer, IndexLocker>> indexesLockers;
 
     private final ConcurrentMap<UUID, TxCleanupReadyFutureList> txCleanupReadyFutures = new ConcurrentHashMap<>();
@@ -303,6 +306,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             TxManager txManager,
             LockManager lockManager,
             Executor scanRequestExecutor,
+            Executor requestOperationsExecutor,
             int partId,
             int tableId,
             Supplier<Map<Integer, IndexLocker>> indexesLockers,
@@ -325,6 +329,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         this.txManager = txManager;
         this.lockManager = lockManager;
         this.scanRequestExecutor = scanRequestExecutor;
+        this.requestOperationsExecutor = requestOperationsExecutor;
         this.indexesLockers = indexesLockers;
         this.pkIndexStorage = pkIndexStorage;
         this.secondaryIndexStorages = secondaryIndexStorages;
@@ -462,7 +467,8 @@ public class PartitionReplicaListener implements ReplicaListener {
 
     @Override
     public CompletableFuture<ReplicaResult> invoke(ReplicaRequest request, String senderId) {
-        return ensureReplicaIsPrimary(request)
+        return switchToRequestOperationsThread()
+                .thenCompose(unused -> ensureReplicaIsPrimary(request))
                 .thenCompose(isPrimary -> processRequest(request, isPrimary, senderId))
                 .thenApply(res -> {
                     if (res instanceof ReplicaResult) {
@@ -471,6 +477,10 @@ public class PartitionReplicaListener implements ReplicaListener {
                         return new ReplicaResult(res, null);
                     }
                 });
+    }
+
+    private CompletableFuture<Void> switchToRequestOperationsThread() {
+        return runAsync(() -> {}, requestOperationsExecutor);
     }
 
     private CompletableFuture<?> processRequest(ReplicaRequest request, @Nullable Boolean isPrimary, String senderId) {

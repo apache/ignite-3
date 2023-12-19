@@ -213,6 +213,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                 newTxManager(),
                 LOCK_MANAGER,
                 Runnable::run,
+                Runnable::run,
                 PART_ID,
                 TABLE_ID,
                 () -> Map.of(
