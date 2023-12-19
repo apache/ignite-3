@@ -2006,7 +2006,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 }, ioExecutor);
     }
 
-    private CompletableFuture<Void> updateClientsOnPartitionStop(
+    private CompletableFuture<Void> updatePartitionClients(
             TablePartitionId tablePartitionId,
             Set<Assignment> stableAssignments,
             long revision
@@ -2029,7 +2029,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         CompletableFuture<Void> clientUpdateFuture = isRecovery
                 // Updating clients is not needed on recovery.
                 ? nullCompletedFuture()
-                : updateClientsOnPartitionStop(tablePartitionId, stableAssignments, revision);
+                : updatePartitionClients(tablePartitionId, stableAssignments, revision);
 
         boolean shouldStopLocalServices = Stream.concat(stableAssignments.stream(), pendingAssignments.stream())
                 .noneMatch(assignment -> assignment.consistentId().equals(localNode().name()));
