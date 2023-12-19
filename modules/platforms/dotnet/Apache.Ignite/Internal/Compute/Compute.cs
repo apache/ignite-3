@@ -193,6 +193,8 @@ namespace Apache.Ignite.Internal.Compute
             using var writer = ProtoCommon.GetMessageWriter();
             Write();
 
+            // TODO: Use a different callback and ignore connection exceptions if there is no initial response.
+            // OR handle this in the socket?
             var notificationHandler = new TaskCompletionSource<PooledBuffer>();
 
             using var res = await _socket.DoOutInOpAsync(
