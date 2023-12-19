@@ -25,17 +25,17 @@ import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Represents an object which can be queried with criteria.
+ * Represents criteria query facade which can be used to iterate through table entries filtered by some criterion.
  *
- * @param <T> Entry type.
+ * @param <T> The type of elements returned by iterator.
  */
 public interface CriteriaQuerySource<T> {
     /**
-     * Criteria query over table entries.
+     * Filter table entries by some criterion.
      *
-     * @param tx Transaction to run a criteria query. Can be {@code null} to run within implicit transaction.
-     * @param criteria If {@code null} then all table entries will be returned.
-     * @return Criteria query results.
+     * @param tx Transaction to filter table entries within or {@code null} to run within implicit transaction.
+     * @param criteria Will accept all the entries if {@code null}.
+     * @return Iterator for table entries filtered by some criterion.
      * @throws SqlException If failed.
      */
     default ClosableCursor<T> queryCriteria(@Nullable Transaction tx, @Nullable Criteria criteria) {
@@ -43,21 +43,21 @@ public interface CriteriaQuerySource<T> {
     }
 
     /**
-     * Criteria query over table entries.
+     * Filter table entries by some criterion.
      *
-     * @param tx Transaction to run a criteria query. Can be {@code null} to run within implicit transaction.
-     * @param criteria If {@code null} then all table entries will be returned.
+     * @param tx Transaction to filter table entries within or {@code null} to run within implicit transaction.
+     * @param criteria Will accept all the entries if {@code null}.
      * @param opts Criteria query options.
-     * @return Criteria query results.
+     * @return Iterator for table entries filtered by some criterion.
      * @throws SqlException If failed.
      */
     ClosableCursor<T> queryCriteria(@Nullable Transaction tx, @Nullable Criteria criteria, CriteriaQueryOptions opts);
 
     /**
-     * Execute criteria query over table entries in an asynchronous way.
+     * Filter table entries by some criterion in an asynchronous way.
      *
-     * @param tx Transaction to run a criteria query. Can be {@code null} to run within implicit transaction.
-     * @param criteria If {@code null} then all table entries will be returned.
+     * @param tx Transaction to filter table entries within or {@code null} to run within implicit transaction.
+     * @param criteria Will accept all the entries if {@code null}.
      * @return Operation future.
      * @throws SqlException If failed.
      */
@@ -66,10 +66,10 @@ public interface CriteriaQuerySource<T> {
     }
 
     /**
-     * Execute criteria query over table entries in an asynchronous way.
+     * Filter table entries by some criterion in an asynchronous way.
      *
-     * @param tx Transaction to run a criteria query. Can be {@code null} to run within implicit transaction.
-     * @param criteria If {@code null} then all table entries will be returned.
+     * @param tx Transaction to filter table entries within or {@code null} to run within implicit transaction.
+     * @param criteria Will accept all the entries if {@code null}.
      * @param opts Criteria query options.
      * @return Operation future.
      * @throws SqlException If failed.

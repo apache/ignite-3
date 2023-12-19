@@ -18,17 +18,14 @@
 package org.apache.ignite.sql;
 
 import java.util.Iterator;
-import org.apache.ignite.table.RecordView;
-import org.apache.ignite.table.criteria.Criteria;
-import org.apache.ignite.table.criteria.CriteriaQueryOptions;
-import org.apache.ignite.tx.Transaction;
+import org.apache.ignite.table.criteria.CriteriaQuerySource;
 
 /**
  * An iterator over a query results.
  *
  * @param <T> The type of elements returned by this iterator.
  *
- * @see RecordView#queryCriteria(Transaction, Criteria, CriteriaQueryOptions)
+ * @see CriteriaQuerySource
  */
 public interface ClosableCursor<T> extends Iterator<T>, AutoCloseable {
     /**

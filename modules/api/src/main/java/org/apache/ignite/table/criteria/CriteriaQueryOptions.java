@@ -18,7 +18,9 @@
 package org.apache.ignite.table.criteria;
 
 /**
- * Criteria query options. See {@link CriteriaQuerySource} for more information.
+ * Options useful for tuning the criteria query.
+ *
+ * @see CriteriaQuerySource
  */
 public class CriteriaQueryOptions {
     /** Default options. */

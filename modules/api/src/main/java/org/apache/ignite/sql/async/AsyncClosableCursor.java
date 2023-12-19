@@ -22,10 +22,7 @@ import org.apache.ignite.sql.ClosableCursor;
 import org.apache.ignite.sql.CursorClosedException;
 import org.apache.ignite.sql.NoRowSetExpectedException;
 import org.apache.ignite.sql.SqlException;
-import org.apache.ignite.table.RecordView;
-import org.apache.ignite.table.criteria.Criteria;
-import org.apache.ignite.table.criteria.CriteriaQueryOptions;
-import org.apache.ignite.tx.Transaction;
+import org.apache.ignite.table.criteria.CriteriaQuerySource;
 
 /**
  * Provides methods for iterate over query results in an asynchronous way.
@@ -33,7 +30,7 @@ import org.apache.ignite.tx.Transaction;
  * @param <T> The type of elements returned by this iterator.
  *
  * @see ClosableCursor
- * @see RecordView#queryCriteriaAsync(Transaction, Criteria, CriteriaQueryOptions)
+ * @see CriteriaQuerySource
  */
 public interface AsyncClosableCursor<T> {
     /**
