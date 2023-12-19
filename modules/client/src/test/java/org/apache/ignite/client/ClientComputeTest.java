@@ -100,7 +100,6 @@ public class ClientComputeTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-21034")
     public void testClientRetriesComputeJobOnPrimaryAndDefaultNodes() throws Exception {
         initServers(reqId -> reqId % 3 == 0);
 
