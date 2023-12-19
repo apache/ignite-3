@@ -20,11 +20,16 @@ package org.apache.ignite.internal.compute;
 import static org.apache.ignite.internal.deployunit.DeploymentStatus.DEPLOYED;
 import static org.apache.ignite.internal.deployunit.DeploymentStatus.OBSOLETE;
 import static org.apache.ignite.internal.deployunit.InitialDeployMode.MAJORITY;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.lang.ErrorGroups.Common.COMMON_ERR_GROUP;
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.instanceOf;
+import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 
 import java.io.IOException;
@@ -33,10 +38,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.version.Version;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.deployunit.NodesToDeploy;
+import org.apache.ignite.lang.IgniteException;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -109,13 +117,16 @@ class ItComputeTestStandalone extends ItComputeBaseTest {
         CompletableFuture<String> result = entryNode.compute()
                 .executeAsync(Set.of(entryNode.node()), nonExistingUnits, concatJobClassName(), "a", 42);
 
-        assertThat(
-                result,
-                willThrow(
-                        ClassNotFoundException.class,
-                        "org.example.ConcatJob. Deployment unit non-existing:1.0.0 doesn't exist"
-                )
-        );
+        CompletionException ex0 = Assertions.assertThrows(CompletionException.class, () -> result.join());
+
+        assertThat(ex0.getCause(), instanceOf(IgniteException.class));
+        IgniteException ex = (IgniteException) ex0.getCause();
+
+        assertThat(ex.groupCode(), is(COMMON_ERR_GROUP.groupCode()));
+        assertThat(ex.groupName(), is(COMMON_ERR_GROUP.name()));
+        assertThat(ex.code(), is(INTERNAL_ERR));
+        assertThat(ex.traceId(), is(notNullValue()));
+        assertThat(ex.getMessage(), containsString("org.example.ConcatJob. Deployment unit non-existing:1.0.0 doesn't exist"));
     }
 
     @Test
@@ -169,11 +180,17 @@ class ItComputeTestStandalone extends ItComputeBaseTest {
 
         CompletableFuture<Void> failedJob = entryNode.compute().executeAsync(Set.of(entryNode.node()), units, "org.example.SleepJob", 2L);
 
-        assertThat(failedJob, willThrow(
-                ClassNotFoundException.class,
-                "org.example.SleepJob. Deployment unit jobs:1.0.0 can't be used: "
-                        + "[clusterStatus = OBSOLETE, nodeStatus = OBSOLETE]")
-        );
+        CompletionException ex0 = Assertions.assertThrows(CompletionException.class, () -> failedJob.join());
+        assertThat(ex0.getCause(), instanceOf(IgniteException.class));
+        IgniteException ex = (IgniteException) ex0.getCause();
+
+        assertThat(ex.groupCode(), is(COMMON_ERR_GROUP.groupCode()));
+        assertThat(ex.groupName(), is(COMMON_ERR_GROUP.name()));
+        assertThat(ex.code(), is(INTERNAL_ERR));
+        assertThat(ex.traceId(), is(notNullValue()));
+        assertThat(ex.getMessage(), containsString("org.example.SleepJob. Deployment unit jobs:1.0.0 can't be used: "
+                + "[clusterStatus = OBSOLETE, nodeStatus = OBSOLETE]"));
+
         assertThat(successJob, willCompleteSuccessfully());
     }
 
