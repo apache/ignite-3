@@ -29,11 +29,12 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiConsumer;
+import org.apache.ignite.client.IgniteClientConnectionException;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.internal.client.ClientUtils;
-import org.apache.ignite.internal.client.PayloadInputChannel;
 import org.apache.ignite.internal.client.PayloadOutputChannel;
 import org.apache.ignite.internal.client.ReliableChannel;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
@@ -220,6 +221,7 @@ public class ClientCompute implements IgniteCompute {
 
     private <R> CompletableFuture<R> executeOnOneNode(ClusterNode node, List<DeploymentUnit> units, String jobClassName, Object[] args) {
         CompletableFuture<R> notificationFut = new CompletableFuture<>();
+        AtomicBoolean responseReceived = new AtomicBoolean();
 
         var reqFut = ch.serviceAsync(
                 ClientOp.COMPUTE_EXECUTE,
@@ -232,13 +234,17 @@ public class ClientCompute implements IgniteCompute {
 
                     packJob(w.out(), units, jobClassName, args);
                 },
-                PayloadInputChannel::clientChannel,
+                unusedCh -> responseReceived.compareAndSet(false, true),
                 node.name(),
                 null,
                 (r, err) -> {
-                    // TODO: This might be called multiple times due to retries; so a failure from one disconnect makes the future
-                    // forever failed.
-                    // We should somehow prevent completing the future if retries are triggered.
+                    if (!responseReceived.get() && err instanceof IgniteClientConnectionException) {
+                        // Connection has failed before we received a response for the task execution request.
+                        // We should not fail the notificationFut because retries are possible.
+                        // If there are no retries, compound future will fail anyway due to reqFut failure.
+                        return;
+                    }
+
                     if (err != null) {
                         notificationFut.completeExceptionally(err);
                     } else {
