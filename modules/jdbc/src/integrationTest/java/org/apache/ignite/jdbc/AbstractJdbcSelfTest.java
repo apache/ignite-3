@@ -174,7 +174,7 @@ public class AbstractJdbcSelfTest extends BaseIgniteAbstractTest {
     }
 
     /** Return a size of stored resources. Reflection based implementation, need to be refactored. */
-    int openCursorsRegistered() throws Exception {
+    int openCursorsRegistered() {
         IgniteImpl ignite = (IgniteImpl) clusterNodes.get(0);
         IgniteComponent cliHnd = IgniteTestUtils.getFieldValue(ignite, "clientHandlerModule");
         Object clientInboundHandler = IgniteTestUtils.getFieldValue(cliHnd, "handler");
