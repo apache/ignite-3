@@ -25,6 +25,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 
 import com.typesafe.config.ConfigFactory;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import org.apache.ignite.client.BasicAuthenticator;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.internal.app.IgniteImpl;
@@ -85,6 +86,24 @@ public class ItThinClientAuthenticationTest extends ItAbstractThinClientTest {
     @AfterEach
     void tearDown() throws Exception {
         IgniteUtils.closeAll(clientWithAuth);
+    }
+
+    @Test
+    void connectionIsNotClosedIfAnotherUserUpdated() {
+        assertThat(
+                securityConfiguration.authentication().providers()
+                        .get("default")
+                        .change(change -> {
+                            change.convert(BasicAuthenticationProviderChange.class)
+                                    .changeUsers()
+                                    .update("ignite", user -> user.changePassword(user.password() + "-changed"));
+                        }),
+                willCompleteSuccessfully()
+        );
+
+        // Connection should be alive after update.
+        await().during(3, TimeUnit.SECONDS)
+                .until(() -> checkConnection(clientWithAuth), willCompleteSuccessfully());
     }
 
     @Test

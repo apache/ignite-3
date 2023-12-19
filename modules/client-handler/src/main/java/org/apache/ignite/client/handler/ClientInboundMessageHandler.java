@@ -869,27 +869,27 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
     }
 
     private boolean shouldCloseConnection(AuthenticationEventParameters parameters) {
-        readWriteLock.readLock().lock();
-        try {
-            switch (parameters.type()) {
-                case AUTHENTICATION_ENABLED:
-                    return true;
-                case AUTHENTICATION_PROVIDER_REMOVED:
-                case AUTHENTICATION_PROVIDER_UPDATED:
-                    return currentUserAffected((AuthenticationProviderEventParameters) parameters);
-                case USER_REMOVED:
-                case USER_UPDATED:
-                    return currentUserAffected((UserEventParameters) parameters);
-                default:
-                    return false;
-            }
-        } finally {
-            readWriteLock.readLock().unlock();
+        switch (parameters.type()) {
+            case AUTHENTICATION_ENABLED:
+                return true;
+            case AUTHENTICATION_PROVIDER_REMOVED:
+            case AUTHENTICATION_PROVIDER_UPDATED:
+                return currentUserAffected((AuthenticationProviderEventParameters) parameters);
+            case USER_REMOVED:
+            case USER_UPDATED:
+                return currentUserAffected((UserEventParameters) parameters);
+            default:
+                return false;
         }
     }
 
     private boolean currentUserAffected(AuthenticationProviderEventParameters parameters) {
-        return clientContext != null && clientContext.userDetails().providerName().equals(parameters.name());
+        readWriteLock.readLock().lock();
+        try {
+            return clientContext != null && clientContext.userDetails().providerName().equals(parameters.name());
+        } finally {
+            readWriteLock.readLock().unlock();
+        }
     }
 
     private boolean currentUserAffected(UserEventParameters parameters) {
