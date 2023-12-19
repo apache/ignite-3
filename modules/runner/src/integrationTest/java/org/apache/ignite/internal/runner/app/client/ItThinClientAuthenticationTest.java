@@ -17,15 +17,18 @@
 
 package org.apache.ignite.internal.runner.app.client;
 
+import static org.apache.ignite.internal.configuration.hocon.HoconConverter.hoconSource;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowWithCauseOrSuppressed;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 
+import com.typesafe.config.ConfigFactory;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.BasicAuthenticator;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.security.authentication.basic.BasicAuthenticationProviderChange;
 import org.apache.ignite.internal.security.configuration.SecurityConfiguration;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -55,8 +58,7 @@ public class ItThinClientAuthenticationTest extends ItAbstractThinClientTest {
 
     @BeforeEach
     void setUp() {
-        IgniteImpl server = (IgniteImpl) server();
-        securityConfiguration = server.clusterConfiguration().getConfiguration(SecurityConfiguration.KEY);
+        securityConfiguration = clusterConfigurationRegistry().getConfiguration(SecurityConfiguration.KEY);
 
         CompletableFuture<Void> enableAuthentication = securityConfiguration.change(change -> {
             change.changeEnabled(true);
@@ -120,10 +122,53 @@ public class ItThinClientAuthenticationTest extends ItAbstractThinClientTest {
         await().until(() -> checkConnection(clientWithAuth), willThrowWithCauseOrSuppressed(InvalidCredentialsException.class));
     }
 
+    @Test
+    void renameBasicProviderAndThenChangeUserPassword() {
+        updateClusterConfiguration("{\n"
+                + "security.authentication.providers.basic={\n"
+                + "type=basic,\n"
+                + "users=[{username=newuser,password=newpassword}]},"
+                + "security.authentication.providers.default=null\n"
+                + "}");
+
+        try (IgniteClient client = IgniteClient.builder()
+                .authenticator(BasicAuthenticator.builder().username("newuser").password("newpassword").build())
+                .reconnectThrottlingRetries(0)
+                .addresses(getClientAddresses().toArray(new String[0]))
+                .build()) {
+
+            checkConnection(client);
+
+            securityConfiguration.authentication().providers()
+                    .get("basic")
+                    .change(change -> {
+                        change.convert(BasicAuthenticationProviderChange.class)
+                                .changeUsers()
+                                .update("newuser", user -> user.changePassword("newpassword-changed"));
+                    }).join();
+
+            await().until(() -> checkConnection(client), willThrowWithCauseOrSuppressed(InvalidCredentialsException.class));
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     private static CompletableFuture<Void> checkConnection(IgniteClient client) {
         try (Session session = client.sql().createSession()) {
             return session.executeAsync(null, "select 1 as num, 'hello' as str")
                     .thenApply(ignored -> null);
         }
+    }
+
+    private void updateClusterConfiguration(String hocon) {
+        assertThat(
+                clusterConfigurationRegistry().change(hoconSource(ConfigFactory.parseString(hocon).root())),
+                willCompleteSuccessfully()
+        );
+    }
+
+    private ConfigurationRegistry clusterConfigurationRegistry() {
+        IgniteImpl server = (IgniteImpl) server();
+        return server.clusterConfiguration();
     }
 }

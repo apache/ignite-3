@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.security.authentication.AuthenticationU
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
@@ -196,6 +197,7 @@ public class AuthenticationManagerImpl
         NamedListView<? extends AuthenticationProviderView> providers = view.providers();
 
         return providers.stream()
+                .sorted(Comparator.comparing((AuthenticationProviderView o) -> o.name()))
                 .map(AuthenticatorFactory::create)
                 .collect(Collectors.toList());
     }

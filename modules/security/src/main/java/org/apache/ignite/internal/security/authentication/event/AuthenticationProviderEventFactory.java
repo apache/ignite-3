@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.security.authentication.event;
 
+import static org.apache.ignite.internal.security.authentication.configuration.AuthenticationProviderConfigurationSchema.TYPE_BASIC;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.concurrent.CompletableFuture;
@@ -25,7 +26,6 @@ import org.apache.ignite.configuration.notifications.ConfigurationNamedListListe
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.apache.ignite.internal.security.authentication.basic.BasicAuthenticationProviderConfiguration;
 import org.apache.ignite.internal.security.authentication.configuration.AuthenticationProviderConfiguration;
-import org.apache.ignite.internal.security.authentication.configuration.AuthenticationProviderConfigurationSchema;
 import org.apache.ignite.internal.security.authentication.configuration.AuthenticationProviderView;
 import org.apache.ignite.internal.security.configuration.SecurityConfiguration;
 
@@ -64,7 +64,7 @@ public class AuthenticationProviderEventFactory implements ConfigurationNamedLis
     }
 
     private void onCreate(AuthenticationProviderView providerView) {
-        if (AuthenticationProviderConfigurationSchema.TYPE_BASIC.equals(providerView.type())) {
+        if (TYPE_BASIC.equals(providerView.type())) {
             AuthenticationProviderConfiguration configuration = securityConfiguration.authentication()
                     .providers()
                     .get(providerView.name());
@@ -88,8 +88,7 @@ public class AuthenticationProviderEventFactory implements ConfigurationNamedLis
 
     @Override
     public CompletableFuture<?> onUpdate(ConfigurationNotificationEvent<AuthenticationProviderView> ctx) {
-        if (AuthenticationProviderConfigurationSchema.TYPE_BASIC.equals(ctx.oldValue().type())
-                && ctx.oldValue().type().equals(ctx.newValue().type())) {
+        if (TYPE_BASIC.equals(ctx.oldValue().type()) && ctx.oldValue().type().equals(ctx.newValue().type())) {
             return nullCompletedFuture();
         } else {
             return notifier.apply(AuthenticationProviderEventParameters.updated(ctx.newValue().name()));
