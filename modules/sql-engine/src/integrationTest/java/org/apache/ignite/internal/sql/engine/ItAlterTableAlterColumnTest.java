@@ -20,6 +20,7 @@ package org.apache.ignite.internal.sql.engine;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.math.BigDecimal;
@@ -28,6 +29,7 @@ import java.util.List;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.engine.util.MetadataMatcher;
+import org.apache.ignite.internal.util.StringUtils;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.AfterEach;
@@ -72,8 +74,14 @@ public class ItAlterTableAlterColumnTest extends BaseSqlIntegrationTest {
 
     private static void checkTypeAwareness(Object val, List<List<Object>> res) {
         if (val instanceof String) {
-            String initVal0 = ((String) val).substring(1, ((String) val).length() - 1);
-            assertEquals(initVal0, res.get(0).get(0));
+            if (((String) val).startsWith("x'")) {
+                String initVal0 = ((String) val).substring(2, ((String) val).length() - 1);
+                byte[] bytes = StringUtils.fromHexString(initVal0);
+                assertArrayEquals(bytes, (byte[]) res.get(0).get(0));
+            } else {
+                String initVal0 = ((String) val).substring(1, ((String) val).length() - 1);
+                assertEquals(initVal0, res.get(0).get(0));
+            }
         } else {
             assertEquals(val, res.get(0).get(0));
         }
@@ -88,6 +96,8 @@ public class ItAlterTableAlterColumnTest extends BaseSqlIntegrationTest {
         arguments.add(Arguments.of("FLOAT", Float.MAX_VALUE, ColumnType.DOUBLE, "DOUBLE", Double.MAX_VALUE));
         arguments.add(Arguments.of("VARCHAR(10)", "'" + "c".repeat(10) + "'", ColumnType.STRING,
                 "VARCHAR(20)", "'" + "c".repeat(20) + "'"));
+        arguments.add(Arguments.of("VARBINARY(1)", "x'01'", ColumnType.BYTE_ARRAY,
+                "VARBINARY(2)", "x'0102'"));
 
         return arguments.stream();
     }
@@ -108,6 +118,7 @@ public class ItAlterTableAlterColumnTest extends BaseSqlIntegrationTest {
     }
 
     @Test
+    @SuppressWarnings("ThrowableNotThrown")
     public void testDecimalDecreasePrecision() {
         sql("CREATE TABLE t1 (ID INT PRIMARY KEY, DECIMAL_C2 DECIMAL(2))");
         sql("ALTER TABLE t1 ALTER COLUMN DECIMAL_C2 SET DATA TYPE DECIMAL");
