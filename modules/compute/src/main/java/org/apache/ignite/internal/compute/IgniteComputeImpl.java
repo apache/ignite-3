@@ -20,6 +20,7 @@ package org.apache.ignite.internal.compute;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toUnmodifiableMap;
 
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -27,6 +28,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadLocalRandom;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.IgniteCompute;
@@ -39,6 +41,7 @@ import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.lang.util.IgniteNameUtils;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.network.TopologyEventHandler;
 import org.apache.ignite.network.TopologyService;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
@@ -48,6 +51,8 @@ import org.apache.ignite.table.mapper.Mapper;
  */
 public class IgniteComputeImpl implements IgniteCompute {
     private static final String DEFAULT_SCHEMA_NAME = "PUBLIC";
+
+    private final Map<ClusterNode, List<RemoteExecutionRequest>> runningJobs = new ConcurrentHashMap<>();
 
     private final TopologyService topologyService;
     private final IgniteTablesInternal tables;
@@ -75,7 +80,46 @@ public class IgniteComputeImpl implements IgniteCompute {
             throw new IllegalArgumentException("nodes must not be empty.");
         }
 
-        return new JobExecutionWrapper<>(executeOnOneNode(randomNode(nodes), units, jobClassName, args));
+        Set<ClusterNode> candidates = new HashSet<>(nodes);
+        ClusterNode candidate = randomNode(candidates);
+
+        candidates.remove(candidate);
+
+        RemoteExecutionRequest req = new RemoteExecutionRequest();
+        req.worker = candidate;
+        req.units = units;
+        req.jobClassName = jobClassName;
+        req.args = args;
+        req.failoverCandidates = candidates;
+
+        runningJobs.put(candidate, List.of(req));
+
+        var handler = new NodeLeftTopologyEventHandler();
+        handler.runningJobs = runningJobs;
+        handler.parent = this;
+        topologyService.addEventHandler(handler);
+
+        return new JobExecutionWrapper<>(executeOnOneNode(candidate, units, jobClassName, args);
+    }
+
+    private static class RemoteExecutionRequest {
+        ClusterNode worker;
+        List<DeploymentUnit> units;
+        String jobClassName;
+        Object[] args;
+        Set<ClusterNode> failoverCandidates;
+    }
+
+    public static class NodeLeftTopologyEventHandler implements TopologyEventHandler {
+        Map<ClusterNode, List<RemoteExecutionRequest>> runningJobs;
+        IgniteComputeImpl parent;
+
+        @Override
+        public void onDisappeared(ClusterNode member) {
+           runningJobs.get(member).forEach(req -> {
+               parent.executeOnOneNode(req.failoverCandidates.stream().findFirst().get(), req.units, req.jobClassName, req.args));
+           });
+        }
     }
 
     /** {@inheritDoc} */

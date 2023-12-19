@@ -88,6 +88,7 @@ public class ComputeExecutorImpl implements ComputeExecutor {
 
     @Override
     public void start() {
+        // todo: start twice?
         stateMachine.start();
         executorService = new PriorityQueueExecutor(
                 configuration,
