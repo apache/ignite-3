@@ -235,6 +235,8 @@ public class ClientCompute implements IgniteCompute {
                 node.name(),
                 null,
                 (r, err) -> {
+                    // TODO: This might be called multiple times due to retries; so a failure from one disconnect makes the future
+                    // forever failed.
                     if (err != null) {
                         notificationFut.completeExceptionally(err);
                     } else {
