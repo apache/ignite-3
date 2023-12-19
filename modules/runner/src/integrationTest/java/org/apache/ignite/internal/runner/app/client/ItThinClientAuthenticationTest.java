@@ -45,21 +45,21 @@ import org.junit.jupiter.api.Test;
 public class ItThinClientAuthenticationTest extends ItAbstractThinClientTest {
     private static final String PROVIDER_NAME = "default";
 
-    private static final String USERNAME = "admin";
+    private static final String USERNAME_1 = "admin";
 
-    private static final String PASSWORD = "password";
+    private static final String PASSWORD_1 = "password";
 
-    private static final String USERNAME_TO_UPDATE = "developer";
+    private static final String USERNAME_2 = "developer";
 
-    private static final String PASSWORD_TO_UPDATE = "password";
+    private static final String PASSWORD_2 = "password";
 
     private IgniteClient clientWithAuth;
 
     private SecurityConfiguration securityConfiguration;
 
     private final BasicAuthenticator basicAuthenticator = BasicAuthenticator.builder()
-            .username(USERNAME)
-            .password(PASSWORD)
+            .username(USERNAME_1)
+            .password(PASSWORD_1)
             .build();
 
     @BeforeEach
@@ -79,8 +79,8 @@ public class ItThinClientAuthenticationTest extends ItAbstractThinClientTest {
                         providers.createOrUpdate(PROVIDER_NAME, provider -> {
                             provider.convert(BasicAuthenticationProviderChange.class)
                                     .changeUsers()
-                                    .createOrUpdate(USERNAME, user -> user.changePassword(PASSWORD))
-                                    .createOrUpdate(USERNAME_TO_UPDATE, user -> user.changePassword(PASSWORD_TO_UPDATE));
+                                    .createOrUpdate(USERNAME_1, user -> user.changePassword(PASSWORD_1))
+                                    .createOrUpdate(USERNAME_2, user -> user.changePassword(PASSWORD_2));
                         });
                     });
         });
@@ -109,7 +109,7 @@ public class ItThinClientAuthenticationTest extends ItAbstractThinClientTest {
                         .change(change -> {
                             change.convert(BasicAuthenticationProviderChange.class)
                                     .changeUsers()
-                                    .update(USERNAME_TO_UPDATE, user -> user.changePassword(PASSWORD_TO_UPDATE + "-changed"));
+                                    .update(USERNAME_2, user -> user.changePassword(PASSWORD_2 + "-changed"));
                         }),
                 willCompleteSuccessfully()
         );
@@ -132,7 +132,7 @@ public class ItThinClientAuthenticationTest extends ItAbstractThinClientTest {
                     .update(PROVIDER_NAME, provider -> {
                         provider.convert(BasicAuthenticationProviderChange.class)
                                 .changeUsers()
-                                .update(USERNAME, user -> user.changePassword("newPassword"));
+                                .update(USERNAME_1, user -> user.changePassword("newPassword"));
                     });
         }), willCompleteSuccessfully());
 
@@ -147,7 +147,7 @@ public class ItThinClientAuthenticationTest extends ItAbstractThinClientTest {
                     .update(PROVIDER_NAME, provider -> {
                         provider.convert(BasicAuthenticationProviderChange.class)
                                 .changeUsers()
-                                .delete(USERNAME);
+                                .delete(USERNAME_1);
                     });
         }), willCompleteSuccessfully());
 
