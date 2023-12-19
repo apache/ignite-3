@@ -37,7 +37,7 @@ public interface AsyncClosableCursor<T> {
      * Returns the current page content if the query returns rows.
      *
      * @return Iterable set of rows.
-     * @throws NoRowSetExpectedException if no row set is returned.
+     * @throws NoRowSetExpectedException If no row set is returned.
      */
     Iterable<T> currentPage();
 
@@ -45,7 +45,7 @@ public interface AsyncClosableCursor<T> {
      * Returns the current page size if the query return rows.
      *
      * @return The size of {@link #currentPage()}.
-     * @throws NoRowSetExpectedException if no row set is returned.
+     * @throws NoRowSetExpectedException If no row set is returned.
      */
     int currentPageSize();
 
@@ -57,9 +57,9 @@ public interface AsyncClosableCursor<T> {
      *
      * @return A future which will be completed when next page will be fetched and set as the current page.
      *     The future will return {@code this} for chaining.
-     * @throws NoRowSetExpectedException if no row set is expected as a query result.
-     * @throws CursorClosedException if cursor is closed.
-     * @throws SqlException if there are no more pages.
+     * @throws NoRowSetExpectedException If no row set is expected as a query result.
+     * @throws CursorClosedException If cursor is closed.
+     * @throws SqlException If there are no more pages.
      */
     CompletableFuture<? extends AsyncClosableCursor<T>> fetchNextPage();
 
