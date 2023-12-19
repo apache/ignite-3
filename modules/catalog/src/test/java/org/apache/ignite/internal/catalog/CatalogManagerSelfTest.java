@@ -37,6 +37,7 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_P
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_REPLICA_COUNT;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_SCALE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_STORAGE_ENGINE;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DUMMY_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE_TIMER_VALUE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.pkIndexName;
@@ -105,6 +106,7 @@ import org.apache.ignite.internal.catalog.commands.DropIndexCommand;
 import org.apache.ignite.internal.catalog.commands.DropZoneCommand;
 import org.apache.ignite.internal.catalog.commands.MakeIndexAvailableCommand;
 import org.apache.ignite.internal.catalog.commands.RenameZoneCommand;
+import org.apache.ignite.internal.catalog.commands.StorageProfileParams;
 import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
@@ -1161,6 +1163,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
                 .dataNodesAutoAdjust(73)
                 .filter("expression")
                 .dataStorageParams(DataStorageParams.builder().engine("test_engine").dataRegion("test_region").build())
+                .storageProfilesParams(List.of(StorageProfileParams.builder().storageProfile("test_profile").build()))
                 .build();
 
         assertThat(manager.execute(cmd), willCompleteSuccessfully());
@@ -1189,6 +1192,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertEquals("expression", zone.filter());
         assertEquals("test_engine", zone.dataStorage().engine());
         assertEquals("test_region", zone.dataStorage().dataRegion());
+        assertEquals("test_profile", zone.storageProfiles().profiles().get(0).storageProfile());
     }
 
     @Test
@@ -1304,6 +1308,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
                 .dataNodesAutoAdjustScaleDown(4)
                 .filter("newExpression")
                 .dataStorageParams(DataStorageParams.builder().engine("test_engine").dataRegion("test_region").build())
+                .storageProfilesParams(List.of(StorageProfileParams.builder().storageProfile("test_profile").build()))
                 .build();
 
         assertThat(manager.execute(cmd), willCompleteSuccessfully());
@@ -1323,6 +1328,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertEquals("newExpression", zone.filter());
         assertEquals("test_engine", zone.dataStorage().engine());
         assertEquals("test_region", zone.dataStorage().dataRegion());
+        assertEquals("test_profile", zone.storageProfiles().profiles().get(0).storageProfile());
     }
 
     @Test
@@ -1616,6 +1622,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertEquals(DEFAULT_FILTER, zone.filter());
         assertEquals(DEFAULT_STORAGE_ENGINE, zone.dataStorage().engine());
         assertEquals(DEFAULT_DATA_REGION, zone.dataStorage().dataRegion());
+        assertEquals(DUMMY_STORAGE_PROFILE, zone.storageProfiles().defaultProfile().storageProfile());
     }
 
     @Test

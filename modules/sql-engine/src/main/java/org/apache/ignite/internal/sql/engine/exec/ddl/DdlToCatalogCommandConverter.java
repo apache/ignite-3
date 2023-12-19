@@ -19,6 +19,8 @@ package org.apache.ignite.internal.sql.engine.exec.ddl;
 
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_DATA_REGION;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_STORAGE_ENGINE;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DUMMY_STORAGE_PROFILE;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.parseStorageProfiles;
 
 import java.util.List;
 import java.util.Objects;
@@ -88,6 +90,9 @@ class DdlToCatalogCommandConverter {
         String engine = Objects.requireNonNullElse(cmd.dataStorage(), DEFAULT_STORAGE_ENGINE);
         String dataRegion = (String) cmd.dataStorageOptions().getOrDefault("dataRegion", DEFAULT_DATA_REGION);
 
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-20990 get rid of dummy storages.
+        String storageProfiles = cmd.storageProfiles() == null ? DUMMY_STORAGE_PROFILE : cmd.storageProfiles();
+
         return org.apache.ignite.internal.catalog.commands.CreateZoneCommand.builder()
                 .zoneName(cmd.zoneName())
                 .partitions(cmd.partitions())
@@ -97,6 +102,7 @@ class DdlToCatalogCommandConverter {
                 .dataNodesAutoAdjustScaleUp(cmd.dataNodesAutoAdjustScaleUp())
                 .dataNodesAutoAdjustScaleDown(cmd.dataNodesAutoAdjustScaleDown())
                 .dataStorageParams(DataStorageParams.builder().engine(engine).dataRegion(dataRegion).build())
+                .storageProfilesParams(parseStorageProfiles(storageProfiles))
                 .build();
     }
 

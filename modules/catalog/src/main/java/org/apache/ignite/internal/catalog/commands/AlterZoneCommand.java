@@ -31,6 +31,7 @@ import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
 import org.apache.ignite.internal.catalog.descriptors.CatalogDataStorageDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogStorageProfilesDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.storage.AlterZoneEntry;
 import org.apache.ignite.internal.catalog.storage.UpdateEntry;
@@ -58,6 +59,8 @@ public class AlterZoneCommand extends AbstractZoneCommand {
 
     private final @Nullable DataStorageParams dataStorageParams;
 
+    private final @Nullable List<StorageProfileParams> storageProfileParams;
+
     /**
      * Constructor.
      *
@@ -69,6 +72,7 @@ public class AlterZoneCommand extends AbstractZoneCommand {
      * @param dataNodesAutoAdjustScaleDown Timeout in seconds between node left topology event itself and data nodes switch.
      * @param filter Nodes filter.
      * @param dataStorageParams Data storage params.
+     * @param storageProfileParams Storage profiles params.
      * @throws CatalogValidationException if any of restrictions above is violated.
      */
     private AlterZoneCommand(
@@ -79,7 +83,8 @@ public class AlterZoneCommand extends AbstractZoneCommand {
             @Nullable Integer dataNodesAutoAdjustScaleUp,
             @Nullable Integer dataNodesAutoAdjustScaleDown,
             @Nullable String filter,
-            @Nullable DataStorageParams dataStorageParams
+            @Nullable DataStorageParams dataStorageParams,
+            @Nullable List<StorageProfileParams> storageProfileParams
     ) throws CatalogValidationException {
         super(zoneName);
 
@@ -90,6 +95,7 @@ public class AlterZoneCommand extends AbstractZoneCommand {
         this.dataNodesAutoAdjustScaleDown = dataNodesAutoAdjustScaleDown;
         this.filter = filter;
         this.dataStorageParams = dataStorageParams;
+        this.storageProfileParams = storageProfileParams;
 
         validate();
     }
@@ -121,6 +127,9 @@ public class AlterZoneCommand extends AbstractZoneCommand {
         CatalogDataStorageDescriptor dataStorageDescriptor = dataStorageParams != null
                 ? fromParams(dataStorageParams) : previous.dataStorage();
 
+        CatalogStorageProfilesDescriptor storageProfiles = storageProfileParams != null
+                ? fromParams(storageProfileParams) : previous.storageProfiles();
+
         return new CatalogZoneDescriptor(
                 previous.id(),
                 previous.name(),
@@ -130,7 +139,8 @@ public class AlterZoneCommand extends AbstractZoneCommand {
                 Objects.requireNonNullElse(scaleUp, previous.dataNodesAutoAdjustScaleUp()),
                 Objects.requireNonNullElse(scaleDown, previous.dataNodesAutoAdjustScaleDown()),
                 Objects.requireNonNullElse(filter, previous.filter()),
-                dataStorageDescriptor
+                dataStorageDescriptor,
+                storageProfiles
         );
     }
 
@@ -169,6 +179,8 @@ public class AlterZoneCommand extends AbstractZoneCommand {
         private @Nullable String filter;
 
         private @Nullable DataStorageParams dataStorageParams;
+
+        private @Nullable List<StorageProfileParams> storageProfileParams;
 
         @Override
         public AlterZoneCommandBuilder zoneName(String zoneName) {
@@ -227,6 +239,13 @@ public class AlterZoneCommand extends AbstractZoneCommand {
         }
 
         @Override
+        public AlterZoneCommandBuilder storageProfilesParams(@Nullable List<StorageProfileParams> params) {
+            this.storageProfileParams = params;
+
+            return this;
+        }
+
+        @Override
         public CatalogCommand build() {
             return new AlterZoneCommand(
                     zoneName,
@@ -236,7 +255,9 @@ public class AlterZoneCommand extends AbstractZoneCommand {
                     dataNodesAutoAdjustScaleUp,
                     dataNodesAutoAdjustScaleDown,
                     filter,
-                    dataStorageParams);
+                    dataStorageParams,
+                    storageProfileParams
+            );
         }
     }
 }

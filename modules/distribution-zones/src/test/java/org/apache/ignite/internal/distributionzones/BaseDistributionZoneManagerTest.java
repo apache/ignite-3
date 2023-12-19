@@ -159,6 +159,23 @@ public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstract
         );
     }
 
+    protected void createZone(
+            String zoneName,
+            @Nullable Integer dataNodesAutoAdjustScaleUp,
+            @Nullable Integer dataNodesAutoAdjustScaleDown,
+            @Nullable String filter,
+            @Nullable String storageProfiles
+    ) {
+        DistributionZonesTestUtil.createZone(
+                catalogManager,
+                zoneName,
+                dataNodesAutoAdjustScaleUp,
+                dataNodesAutoAdjustScaleDown,
+                filter,
+                storageProfiles
+        );
+    }
+
     protected void alterZone(
             String zoneName,
             @Nullable Integer dataNodesAutoAdjustScaleUp,

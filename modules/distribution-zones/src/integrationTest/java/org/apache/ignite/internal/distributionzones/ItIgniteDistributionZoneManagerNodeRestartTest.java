@@ -326,7 +326,8 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         assertDataNodesFromManager(distributionZoneManager, metastore::appliedRevision, catalogManager::latestCatalogVersion, zoneId,
                 Set.of(A, B, C), TIMEOUT_MILLIS);
 
-        Map<String, Map<String, String>> nodeAttributesBeforeRestart = distributionZoneManager.nodesAttributes();
+        // TODO
+        Map<String, NodeWithAttributes> nodeAttributesBeforeRestart = distributionZoneManager.nodesAttributes();
 
         node.stop();
 
@@ -334,7 +335,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
         distributionZoneManager = getDistributionZoneManager(node);
 
-        Map<String, Map<String, String>> nodeAttributesAfterRestart = distributionZoneManager.nodesAttributes();
+        Map<String, NodeWithAttributes> nodeAttributesAfterRestart = distributionZoneManager.nodesAttributes();
 
         assertEquals(3, nodeAttributesAfterRestart.size());
 

@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.distributionzones;
 
 import java.io.Serializable;
+import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 
@@ -32,9 +34,33 @@ public class NodeWithAttributes implements Serializable {
 
     private final Map<String, String> nodeAttributes;
 
+    private final List<String> storageProfiles;
+
+    /**
+     * Constructor.
+     *
+     * @param nodeName Node name.
+     * @param nodeId Node consistent identifier.
+     * @param nodeAttributes Key value map of node's attributes.
+     */
     public NodeWithAttributes(String nodeName, String nodeId, Map<String, String> nodeAttributes) {
         this.node = new Node(nodeName, nodeId);
         this.nodeAttributes = nodeAttributes;
+        this.storageProfiles = Collections.emptyList();
+    }
+
+    /**
+     * Constructor.
+     *
+     * @param nodeName Node name.
+     * @param nodeId Node consistent identifier.
+     * @param nodeAttributes Key value map of node's attributes.
+     * @param storageProfiles List of supported storage profiles on the node.
+     */
+    NodeWithAttributes(String nodeName, String nodeId, Map<String, String> nodeAttributes, List<String> storageProfiles) {
+        this.node = new Node(nodeName, nodeId);
+        this.nodeAttributes = nodeAttributes;
+        this.storageProfiles = storageProfiles;
     }
 
     @Override
@@ -71,6 +97,10 @@ public class NodeWithAttributes implements Serializable {
 
     public Map<String, String> nodeAttributes() {
         return nodeAttributes;
+    }
+
+    public List<String> storageProfiles() {
+        return storageProfiles;
     }
 
     @Override

@@ -167,8 +167,6 @@ public class CausalityDataNodesEngine {
 
             long descLastUpdateRevision = zoneDescriptor.updateToken();
 
-            String filter = zoneDescriptor.filter();
-
             // Get revisions of the last scale up and scale down event which triggered immediate data nodes recalculation.
             long lastScaleUpRevision = getRevisionsOfLastScaleUpEvent(causalityToken, catalogVersion, zoneId);
             long lastScaleDownRevision = getRevisionsOfLastScaleDownEvent(causalityToken, catalogVersion, zoneId);
@@ -194,7 +192,7 @@ public class CausalityDataNodesEngine {
 
                 Set<Node> logicalTopologyNodes = logicalTopology.stream().map(n -> n.node()).collect(toSet());
 
-                return filterDataNodes(logicalTopologyNodes, filter, distributionZoneManager.nodesAttributes());
+                return filterDataNodes(logicalTopologyNodes, zoneDescriptor, distributionZoneManager.nodesAttributes());
             }
 
             ZoneState zoneState = zonesState.get(zoneId);
@@ -255,7 +253,7 @@ public class CausalityDataNodesEngine {
             }
 
             // Apply the filter to get the final data nodes set.
-            return filterDataNodes(finalDataNodes, filter, distributionZoneManager.nodesAttributes());
+            return filterDataNodes(finalDataNodes, zoneDescriptor, distributionZoneManager.nodesAttributes());
         }));
     }
 

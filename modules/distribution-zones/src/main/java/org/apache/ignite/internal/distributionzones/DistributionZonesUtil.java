@@ -21,6 +21,7 @@ import static java.util.Collections.emptyMap;
 import static java.util.stream.Collectors.toMap;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_FILTER;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DUMMY_STORAGE_PROFILE;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.and;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.exists;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
@@ -36,11 +37,17 @@ import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
 import com.jayway.jsonpath.InvalidPathException;
 import com.jayway.jsonpath.JsonPath;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ThreadPoolExecutor;
+import java.util.stream.Collectors;
+import org.apache.ignite.internal.catalog.commands.StorageProfileParams;
+import org.apache.ignite.internal.catalog.descriptors.CatalogStorageProfileDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager.ZoneState;
 import org.apache.ignite.internal.lang.ByteArray;
@@ -386,9 +393,9 @@ public class DistributionZonesUtil {
      * @param topologyVersion Logical topology version.
      * @return Update command for the meta storage.
      */
-    public static Update updateLogicalTopologyAndVersion(Set<LogicalNode> logicalTopology, long topologyVersion) {
+    static Update updateLogicalTopologyAndVersion(Set<LogicalNode> logicalTopology, long topologyVersion) {
         Set<NodeWithAttributes> topologyFromCmg = logicalTopology.stream()
-                .map(n -> new NodeWithAttributes(n.name(), n.id(), n.userAttributes()))
+                .map(n -> new NodeWithAttributes(n.name(), n.id(), n.userAttributes(), n.storageProfiles()))
                 .collect(toSet());
 
         return ops(
@@ -498,7 +505,7 @@ public class DistributionZonesUtil {
      * @param filter Valid {@link JsonPath} filter of JSON fields.
      * @return True if {@code nodeAttributes} satisfy {@code filter}, false otherwise. Returns true if {@code nodeAttributes} is empty.
      */
-    public static boolean filter(Map<String, String> nodeAttributes, String filter) {
+    public static boolean filterNodeAttributes(Map<String, String> nodeAttributes, String filter) {
         if (filter.equals(DEFAULT_FILTER)) {
             return true;
         }
@@ -527,23 +534,68 @@ public class DistributionZonesUtil {
     }
 
     /**
+     * Filters storage profiles.
+     *
+     * @param nodeStorageProfiles Node's storage profiles.
+     * @param zoneStorageProfiles Zone's storage profiles.
+     * @return True, if matches, false otherwise.
+     */
+    public static boolean filterStorageProfiles(
+            List<String> nodeStorageProfiles,
+            List<CatalogStorageProfileDescriptor> zoneStorageProfiles
+    ) {
+        List<String> zoneStorageProfilesNames = zoneStorageProfiles.stream()
+                .map(CatalogStorageProfileDescriptor::storageProfile)
+                .collect(Collectors.toList());
+
+        // TODO:
+        return zoneStorageProfilesNames.contains(DUMMY_STORAGE_PROFILE)
+                || new HashSet<>(nodeStorageProfiles).containsAll(zoneStorageProfilesNames);
+    }
+
+    /**
      * Filters {@code dataNodes} according to the provided {@code filter}.
      * Nodes' attributes are taken from {@code nodesAttributes} map.
      *
      * @param dataNodes Data nodes.
-     * @param filter Filter for data nodes.
+     * @param zoneDescriptor Zone descriptor.
      * @param nodesAttributes Nodes' attributes which used for filtering.
      * @return Filtered data nodes.
      */
     public static Set<String> filterDataNodes(
             Set<Node> dataNodes,
-            String filter,
-            Map<String, Map<String, String>> nodesAttributes
+            CatalogZoneDescriptor zoneDescriptor,
+            Map<String, NodeWithAttributes> nodesAttributes
     ) {
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-20990 is not implemented yet.
+        // We need to handle properly situation when nodesAttributes is empty, because it can lead to NPE in both filterNodeAttributes and
+        // filterStorageProfiles
+        if (nodesAttributes.isEmpty()) {
+            return dataNodes.stream().map(Node::nodeName).collect(toSet());
+        }
         return dataNodes.stream()
-                .filter(n -> filter(nodesAttributes.get(n.nodeId()), filter))
+                .filter(n -> filterNodeAttributes(nodesAttributes.get(n.nodeId()).nodeAttributes(), zoneDescriptor.filter()))
+                .filter(
+                        n -> filterStorageProfiles(
+                                nodesAttributes.get(n.nodeId()).storageProfiles(), zoneDescriptor.storageProfiles().profiles()
+                        )
+                )
                 .map(Node::nodeName)
                 .collect(toSet());
+    }
+
+    /**
+     * Parse string representation of storage profiles.
+     *
+     * @param storageProfiles String representation of storage profiles.
+     * @return List of storage profile params
+     */
+    public static List<StorageProfileParams> parseStorageProfiles(String storageProfiles) {
+        List<String> items = Arrays.asList(storageProfiles.split("\\s*,\\s*"));
+
+        return items.stream()
+                .map(p -> StorageProfileParams.builder().storageProfile(p).build())
+                .collect(Collectors.toList());
     }
 
     /**
