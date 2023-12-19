@@ -35,10 +35,12 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.placementdriver.leases.LeaseTracker;
+import org.apache.ignite.internal.raft.Marshaller;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftManager;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
+import org.apache.ignite.internal.raft.util.ThreadLocalOptimizedMarshaller;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.network.ClusterNode;
@@ -121,7 +123,9 @@ public class PlacementDriverManager implements IgniteComponent {
 
         this.raftClientFuture = new CompletableFuture<>();
 
-        this.leaseTracker = new LeaseTracker(metastore);
+        Marshaller marshaller = new ThreadLocalOptimizedMarshaller(clusterService.serializationRegistry());
+
+        this.leaseTracker = new LeaseTracker(metastore, marshaller);
 
         this.leaseUpdater = new LeaseUpdater(
                 nodeName,
@@ -129,7 +133,8 @@ public class PlacementDriverManager implements IgniteComponent {
                 metastore,
                 logicalTopologyService,
                 leaseTracker,
-                clock
+                clock,
+                marshaller
         );
     }
 

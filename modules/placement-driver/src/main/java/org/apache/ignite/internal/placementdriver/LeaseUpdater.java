@@ -51,6 +51,7 @@ import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessage
 import org.apache.ignite.internal.placementdriver.message.StopLeaseProlongationMessage;
 import org.apache.ignite.internal.placementdriver.negotiation.LeaseAgreement;
 import org.apache.ignite.internal.placementdriver.negotiation.LeaseNegotiator;
+import org.apache.ignite.internal.raft.Marshaller;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.thread.IgniteThread;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -101,6 +102,7 @@ public class LeaseUpdater {
 
     /** Closure to update leases. */
     private final Updater updater;
+    private final Marshaller marshaller;
 
     /** Dedicated thread to update leases. */
     private IgniteThread updaterThread;
@@ -119,6 +121,7 @@ public class LeaseUpdater {
      * @param topologyService Topology service.
      * @param leaseTracker Lease tracker.
      * @param clock Cluster clock.
+     * @param marshaller
      */
     LeaseUpdater(
             String nodeName,
@@ -126,13 +129,14 @@ public class LeaseUpdater {
             MetaStorageManager msManager,
             LogicalTopologyService topologyService,
             LeaseTracker leaseTracker,
-            HybridClock clock
-    ) {
+            HybridClock clock,
+            Marshaller marshaller) {
         this.nodeName = nodeName;
         this.clusterService = clusterService;
         this.msManager = msManager;
         this.leaseTracker = leaseTracker;
         this.clock = clock;
+        this.marshaller = marshaller;
 
         this.longLeaseInterval = IgniteSystemProperties.getLong("IGNITE_LONG_LEASE", 120_000);
         this.assignmentsTracker = new AssignmentsTracker(msManager);
@@ -231,7 +235,7 @@ public class LeaseUpdater {
 
         return msManager.invoke(
                 or(notExists(key), value(key).eq(leasesCurrent.leasesBytes())),
-                put(key, new LeaseBatch(renewedLeases).bytes()),
+                put(key, marshaller.marshall(new LeaseBatch(renewedLeases).toMessage())),
                 noop()
         );
     }
@@ -365,7 +369,7 @@ public class LeaseUpdater {
                 }
             }
 
-            byte[] renewedValue = new LeaseBatch(renewedLeases.values()).bytes();
+            byte[] renewedValue = marshaller.marshall(new LeaseBatch(renewedLeases.values()).toMessage());
 
             var key = PLACEMENTDRIVER_LEASES_KEY;
 
