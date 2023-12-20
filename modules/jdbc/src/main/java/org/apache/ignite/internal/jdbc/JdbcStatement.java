@@ -450,11 +450,25 @@ public class JdbcStatement implements Statement {
             return false;
         }
 
-        JdbcResultSet nextResultSet = resSets.get(curRes).getNextResultSet();
+        JdbcResultSet nextResultSet;
+        SQLException exceptionally = null;
+
+        try {
+            // just a stub if exception is raised inside multiple statements.
+            // all further execution is not processed.
+            nextResultSet = resSets.get(curRes).getNextResultSet();
+        } catch (SQLException ex) {
+            nextResultSet = null;
+            exceptionally = ex;
+        }
 
         resSets.add(nextResultSet);
 
         curRes++;
+
+        if (exceptionally != null) {
+            throw exceptionally;
+        }
 
         if (resSets != null) {
             assert curRes <= resSets.size() : "Invalid results state: [resultsCount=" + resSets.size() + ", curRes=" + curRes + ']';

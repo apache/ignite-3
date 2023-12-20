@@ -89,9 +89,11 @@ public class ItJdbcMultiStatementSelfTest extends AbstractJdbcSelfTest {
 
     @Test
     public void testSimpleQueryError() throws Exception {
-        boolean res = stmt.execute("SELECT 1; SELECT 1/0");
+        boolean res = stmt.execute("SELECT 1; SELECT 1/0; SELECT 2");
         assertTrue(res);
         assertThrows(SQLException.class, () -> stmt.getMoreResults());
+        //next after exception
+        assertFalse(stmt.getMoreResults());
     }
 
     @Test
