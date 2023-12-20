@@ -80,7 +80,7 @@ public class JdbcStatement implements Statement {
     private int pageSize = DFLT_PAGE_SIZE;
 
     /** Result sets. */
-    private volatile List<JdbcResultSet> resSets;
+    private volatile @Nullable List<JdbcResultSet> resSets;
 
     /** Batch. */
     private List<String> batch;
