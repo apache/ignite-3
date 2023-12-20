@@ -443,7 +443,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         partitionOperationsExecutor = new StripedThreadPoolExecutor(
                 Math.min(cpus * 3, 25),
-                NamedThreadFactory.threadPrefix(nodeName, "storage-operations"),
+                NamedThreadFactory.threadPrefix(nodeName, "partition-operations"),
                 new LogUncaughtExceptionHandler(LOG),
                 false,
                 0
