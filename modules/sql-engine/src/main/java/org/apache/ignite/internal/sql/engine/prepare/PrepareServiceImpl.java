@@ -17,11 +17,15 @@
 
 package org.apache.ignite.internal.sql.engine.prepare;
 
+import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.sql.engine.prepare.CacheKey.EMPTY_CLASS_ARRAY;
 import static org.apache.ignite.internal.sql.engine.prepare.PlannerHelper.optimize;
 import static org.apache.ignite.internal.sql.engine.trait.TraitUtils.distributionPresent;
+import static org.apache.ignite.internal.util.IgniteUtils.igniteClassLoader;
 import static org.apache.ignite.lang.ErrorGroups.Sql.PLANNING_TIMEOUT_ERR;
 
+import io.github.classgraph.ClassGraph;
+import io.github.classgraph.ScanResult;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -35,6 +39,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 import org.apache.calcite.plan.RelOptPlanner;
+import org.apache.calcite.rel.RelNode;
+import org.apache.calcite.rel.metadata.JaninoRelMetadataProvider;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.calcite.sql.SqlDdl;
@@ -109,6 +115,24 @@ public class PrepareServiceImpl implements PrepareService {
     private final MetricManager metricManager;
 
     private final SqlPlanCacheMetricSource sqlPlanCacheMetricSource;
+
+    static {
+        // Warm-up to reduce the impact of class loading on the first query planning time.
+        try (ScanResult scanResult = new ClassGraph().acceptPackages("org.apache.ignite.internal.sql.engine.rel")
+                .addClassLoader(igniteClassLoader())
+                .enableClassInfo().scan()
+        ) {
+            List<Class<? extends RelNode>> types = scanResult.getClassesImplementing(IgniteRel.class.getName())
+                    .filter(classInfo -> !classInfo.isInterface())
+                    .filter(classInfo -> !classInfo.isAbstract())
+                    .stream().map(classInfo -> (Class<? extends RelNode>) classInfo.loadClass()).collect(toList());
+
+            JaninoRelMetadataProvider.DEFAULT.register(types);
+        }
+
+        // Preload related classes.
+        PlannerPhase.values();
+    }
 
     /**
      * Factory method.
