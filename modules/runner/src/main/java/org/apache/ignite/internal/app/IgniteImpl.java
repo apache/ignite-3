@@ -1201,6 +1201,7 @@ public class IgniteImpl implements Ignite {
         return catalogManager;
     }
 
+    /** Returns the cluster's configuration manager. */
     @TestOnly
     public ConfigurationRegistry clusterConfigurationRegistry() {
         return clusterCfgMgr.configurationRegistry();
