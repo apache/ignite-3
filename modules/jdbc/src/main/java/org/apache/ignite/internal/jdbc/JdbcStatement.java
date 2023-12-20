@@ -440,6 +440,22 @@ public class JdbcStatement implements Statement {
     public boolean getMoreResults(int curr) throws SQLException {
         ensureNotClosed();
 
+        if (resSets != null) {
+            assert curRes <= resSets.size() : "Invalid results state: [resultsCount=" + resSets.size() + ", curRes=" + curRes + ']';
+
+            switch (curr) {
+                case CLOSE_CURRENT_RESULT:
+                    break;
+
+                case CLOSE_ALL_RESULTS:
+                case KEEP_CURRENT_RESULT:
+                    throw new SQLFeatureNotSupportedException("Multiple open results is not supported.");
+
+                default:
+                    throw new SQLException("Invalid 'curr' parameter.");
+            }
+        }
+
         // all previous results need to be closed at this point.
         if (isCloseOnCompletion()) {
             close();
@@ -468,22 +484,6 @@ public class JdbcStatement implements Statement {
 
         if (exceptionally != null) {
             throw exceptionally;
-        }
-
-        if (resSets != null) {
-            assert curRes <= resSets.size() : "Invalid results state: [resultsCount=" + resSets.size() + ", curRes=" + curRes + ']';
-
-            switch (curr) {
-                case CLOSE_CURRENT_RESULT:
-                    break;
-
-                case CLOSE_ALL_RESULTS:
-                case KEEP_CURRENT_RESULT:
-                    throw new SQLFeatureNotSupportedException("Multiple open results is not supported.");
-
-                default:
-                    throw new SQLException("Invalid 'curr' parameter.");
-            }
         }
 
         return nextResultSet != null && nextResultSet.holdResults();
