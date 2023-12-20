@@ -33,9 +33,6 @@ public class TrackableNetworkMessageHandler implements NetworkMessageHandler {
     /**
      * If message handling takes more time, than this constant, we will log warning message with some information.
      */
-    // TODO: I don't know which value to use here, let's discuss in the PR. On the one hand every IO should be highlighted and thus
-    // TODO: the value should be rather small, on the other hand, currently we have lots of slow messages and we will just flood the log
-    // TODO: will log running ones. So for now, I believe we should set rather big value here in order to ease test failure analysis.
     private static final int MESSAGING_PROCESSING_LOG_THRESHOLD_MILLIS = 5;
 
     private final NetworkMessageHandler targetHandler;
