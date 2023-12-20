@@ -1,0 +1,26 @@
+@startuml
+
+!pragma teoz true
+group Successful commit
+coordinator -> commitPartitionPrimary: COMMIT
+commitPartitionPrimary -> RAFT : Finish Command
+RAFT -> RAFT : CAS tx state null to COMMIT.
+RAFT --> commitPartitionPrimary
+commitPartitionPrimary -> commitPartitionPrimary: store COMMIT \nin a volatile map.\nCOMMIT Stored
+commitPartitionPrimary --> coordinator
+end
+
+group Response timeout
+coordinator -> commitPartitionPrimary: COMMIT
+commitPartitionPrimary -> RAFT : Finish Command
+RAFT -> RAFT : CAS tx state null to COMMIT.
+RAFT --> commitPartitionPrimary
+commitPartitionPrimary -> commitPartitionPrimary: store COMMIT \nin a volatile map.\nCOMMIT Stored
+commitPartitionPrimary --> coordinator !! : response timeout
+
+coordinator -> commitPartitionPrimary: COMMIT - durable finish
+commitPartitionPrimary -> commitPartitionPrimary: TX already finished.
+commitPartitionPrimary --> coordinator
+end
+
+@enduml
