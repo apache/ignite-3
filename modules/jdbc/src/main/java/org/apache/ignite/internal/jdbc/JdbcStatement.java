@@ -173,7 +173,7 @@ public class JdbcStatement implements Statement {
         Function<BinaryTupleReader, List<Object>> transformer = createTransformer(columnTypes, decimalScales);
 
         resSets.add(new JdbcResultSet(handler, this, executeResult.cursorId(), pageSize,
-                executeResult.last(), executeResult.items(), executeResult.isQuery(), false, executeResult.updateCount(),
+                executeResult.last(), executeResult.items(), executeResult.isQuery(), executeResult.updateCount(),
                 closeOnCompletion, columnTypes.size(), transformer));
 
         assert !resSets.isEmpty() : "At least one results set is expected";
@@ -475,10 +475,6 @@ public class JdbcStatement implements Statement {
 
             switch (curr) {
                 case CLOSE_CURRENT_RESULT:
-                    if (curRes > 0) {
-                        resSets.get(curRes - 1).close0(false);
-                    }
-
                     break;
 
                 case CLOSE_ALL_RESULTS:
@@ -719,7 +715,7 @@ public class JdbcStatement implements Statement {
         if (resSets != null) {
             for (JdbcResultSet rs : resSets) {
                 if (rs != null) {
-                    rs.close0(true);
+                    rs.close0();
                 }
             }
 

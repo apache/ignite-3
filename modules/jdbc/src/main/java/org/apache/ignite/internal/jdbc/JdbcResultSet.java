@@ -136,9 +136,6 @@ public class JdbcResultSet implements ResultSet {
     /** Is query flag. */
     private boolean isQuery;
 
-    /** Auto close server cursors flag. */
-    private boolean autoClose;
-
     /** Update count. */
     private long updCnt;
 
@@ -170,14 +167,13 @@ public class JdbcResultSet implements ResultSet {
      * @param finished    Finished flag.
      * @param rows        Rows.
      * @param isQry       Is Result ser for Select query.
-     * @param autoClose   Is automatic close of server cursors enabled.
      * @param updCnt      Update count.
      * @param closeStmt   Close statement on the result set close.
      * @param columnCount Count of columns in resultSet row.
      * @param transformer Function to deserialize raw rows to list of objects.
      */
     JdbcResultSet(JdbcQueryCursorHandler handler, JdbcStatement stmt, Long cursorId, int fetchSize, boolean finished,
-            List<BinaryTupleReader> rows, boolean isQry, boolean autoClose, long updCnt, boolean closeStmt, int columnCount,
+            List<BinaryTupleReader> rows, boolean isQry, long updCnt, boolean closeStmt, int columnCount,
             Function<BinaryTupleReader, List<Object>> transformer) {
         assert stmt != null;
         assert fetchSize > 0;
@@ -188,7 +184,6 @@ public class JdbcResultSet implements ResultSet {
         this.fetchSize = fetchSize;
         this.finished = finished;
         this.isQuery = isQry;
-        this.autoClose = autoClose;
         this.closeStmt = closeStmt;
         this.columnCount = columnCount;
         this.transformer = transformer;
@@ -232,7 +227,7 @@ public class JdbcResultSet implements ResultSet {
             JdbcFetchQueryResultsRequest req = new JdbcFetchQueryResultsRequest(cursorId, fetchSize);
             JdbcQuerySingleResult res = cursorHandler.getMoreResultsAsync(req).get();
 
-            close0(true);
+            close0();
 
             if (!res.hasResults()) {
                 if (res.status() == Response.STATUS_FAILED) {
@@ -252,7 +247,7 @@ public class JdbcResultSet implements ResultSet {
             Function<BinaryTupleReader, List<Object>> transformer = createTransformer(columnTypes, decimalScales);
 
             return new JdbcResultSet(cursorHandler, stmt, cursorId0, fetchSize, res.last(), res.items(),
-                    res.isQuery(), autoClose, res.updateCount(), closeStmt, columnTypes.size(), transformer);
+                    res.isQuery(), res.updateCount(), closeStmt, columnTypes.size(), transformer);
         } catch (InterruptedException e) {
             throw new SQLException("Thread was interrupted.", e);
         } catch (ExecutionException e) {
@@ -324,7 +319,7 @@ public class JdbcResultSet implements ResultSet {
      *
      * @throws SQLException On error.
      */
-    void close0(boolean enforce) throws SQLException {
+    void close0() throws SQLException {
         if (!holdsResource && (isClosed() || cursorId == null)) {
             return;
         }
@@ -332,7 +327,7 @@ public class JdbcResultSet implements ResultSet {
         holdsResource = false;
 
         try {
-            if (stmt != null && (!finished || (isQuery && !autoClose) || enforce)) {
+            if (stmt != null) {
                 JdbcQueryCloseResult res = cursorHandler.closeAsync(new JdbcQueryCloseRequest(cursorId)).get();
 
                 if (!res.hasResults()) {
@@ -2266,7 +2261,7 @@ public class JdbcResultSet implements ResultSet {
      * @throws SQLException On error.
      */
     private void initMeta() throws SQLException {
-        if (finished && (!isQuery || autoClose)) {
+        if (finished && !isQuery) {
             throw new SQLException("Server cursor is already closed.", SqlStateCode.INVALID_CURSOR_STATE);
         }
 
