@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.compute;
 
-import static org.apache.ignite.internal.compute.utils.ComputeTestUtils.*;
+import static org.apache.ignite.internal.compute.utils.ComputeTestUtils.assertPublicException;
 import static org.apache.ignite.internal.deployunit.DeploymentStatus.DEPLOYED;
 import static org.apache.ignite.internal.deployunit.DeploymentStatus.OBSOLETE;
 import static org.apache.ignite.internal.deployunit.InitialDeployMode.MAJORITY;
@@ -77,11 +77,6 @@ class ItComputeTestStandalone extends ItComputeBaseTest {
     @Override
     protected String failingJobClassName() {
         return "org.example.FailingJob";
-    }
-
-    @Override
-    protected String jobExceptionClassName() {
-        return "org.example.JobException";
     }
 
     @Test

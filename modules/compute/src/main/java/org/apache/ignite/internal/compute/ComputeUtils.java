@@ -30,7 +30,6 @@ import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.version.Version;
 import org.apache.ignite.internal.compute.message.DeploymentUnitMsg;
 import org.apache.ignite.internal.compute.message.ExecuteResponse;
-import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteException;
 
 /**
@@ -63,7 +62,7 @@ public class ComputeUtils {
 
             return constructor.newInstance();
         } catch (ReflectiveOperationException e) {
-            throw new IgniteInternalException(
+            throw new IgniteException(
                     CLASS_INITIALIZATION_ERR,
                     "Cannot instantiate job",
                     e
@@ -83,7 +82,7 @@ public class ComputeUtils {
         try {
             return (Class<ComputeJob<R>>) Class.forName(jobClassName, true, jobClassLoader);
         } catch (ClassNotFoundException e) {
-            throw new IgniteInternalException(
+            throw new IgniteException(
                     CLASS_INITIALIZATION_ERR,
                     "Cannot load job class by name '" + jobClassName + "'",
                     e

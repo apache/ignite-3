@@ -50,11 +50,6 @@ class ItComputeTestBaseEmbedded extends ItComputeBaseTest {
         return FailingJob.class.getName();
     }
 
-    @Override
-    protected String jobExceptionClassName() {
-        return JobException.class.getName();
-    }
-
     private static class ConcatJob implements ComputeJob<String> {
         /** {@inheritDoc} */
         @Override

@@ -22,6 +22,7 @@ import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 
+import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.ErrorGroup;
 import org.apache.ignite.lang.IgniteException;
 import org.hamcrest.Matchers;
@@ -44,7 +45,9 @@ public class ComputeTestUtils {
             int expectedErrorCode,
             String containMessage
     ) {
-        assertThat(throwable, instanceOf(IgniteException.class));
+        Throwable cause = ExceptionUtils.unwrapCause(throwable);
+
+        assertThat(cause, instanceOf(IgniteException.class));
         IgniteException ex = (IgniteException) throwable;
 
         assertThat(ex.groupCode(), is(expectedErrorGroup.groupCode()));
