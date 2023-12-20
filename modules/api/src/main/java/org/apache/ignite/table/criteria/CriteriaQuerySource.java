@@ -25,17 +25,17 @@ import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Represents criteria query facade which can be used to iterate through table entries filtered by some predicate.
+ * Represents a criteria query facade that can be used to executes a query to a view using a predicate.
  *
  * @param <T> The type of elements returned by iterator.
  */
 public interface CriteriaQuerySource<T> {
     /**
-     * Filter table entries by some predicate.
+     * Executes a query to a view using a predicate.
      *
-     * @param tx Transaction to filter table entries within or {@code null} to run within implicit transaction.
-     * @param criteria Will accept all the entries if {@code null}.
-     * @return Iterator for table entries filtered by some predicate.
+     * @param tx Transaction to execute the query within or {@code null} to run within implicit transaction.
+     * @param criteria The predicate to filter entries or {@code null} to return all entries in view.
+     * @return Iterator with query results.
      * @throws SqlException If failed.
      */
     default ClosableCursor<T> queryCriteria(@Nullable Transaction tx, @Nullable Criteria criteria) {
@@ -43,22 +43,22 @@ public interface CriteriaQuerySource<T> {
     }
 
     /**
-     * Filter table entries by some predicate.
+     * Executes a query to a view using a predicate.
      *
-     * @param tx Transaction to filter table entries within or {@code null} to run within implicit transaction.
-     * @param criteria Will accept all the entries if {@code null}.
+     * @param tx Transaction to execute the query within or {@code null} to run within implicit transaction.
+     * @param criteria The predicate to filter entries or {@code null} to return all entries in view.
      * @param opts Criteria query options.
-     * @return Iterator for table entries filtered by some predicate.
+     * @return Iterator with query results.
      * @throws SqlException If failed.
      */
     ClosableCursor<T> queryCriteria(@Nullable Transaction tx, @Nullable Criteria criteria, CriteriaQueryOptions opts);
 
     /**
-     * Filter table entries by some predicate in an asynchronous way.
+     * Executes a query to a view using a predicate in an asynchronous way.
      *
-     * @param tx Transaction to filter table entries within or {@code null} to run within implicit transaction.
-     * @param criteria Will accept all the entries if {@code null}.
-     * @return Operation future.
+     * @param tx Transaction to execute the query within or {@code null} to run within implicit transaction.
+     * @param criteria The predicate to filter entries or {@code null} to return all entries in view.
+     * @return Future that represents the pending completion of the operation.
      * @throws SqlException If failed.
      */
     default CompletableFuture<? extends AsyncClosableCursor<T>> queryCriteriaAsync(@Nullable Transaction tx, @Nullable Criteria criteria) {
@@ -66,12 +66,12 @@ public interface CriteriaQuerySource<T> {
     }
 
     /**
-     * Filter table entries by some predicate in an asynchronous way.
+     * Executes a query to a view using a predicate in an asynchronous way.
      *
-     * @param tx Transaction to filter table entries within or {@code null} to run within implicit transaction.
-     * @param criteria Will accept all the entries if {@code null}.
+     * @param tx Transaction to execute the query within or {@code null} to run within implicit transaction.
+     * @param criteria The predicate to filter entries or {@code null} to return all entries in view.
      * @param opts Criteria query options.
-     * @return Operation future.
+     * @return Future that represents the pending completion of the operation.
      * @throws SqlException If failed.
      */
     CompletableFuture<? extends AsyncClosableCursor<T>> queryCriteriaAsync(

@@ -18,7 +18,6 @@
 package org.apache.ignite.sql.async;
 
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.sql.ClosableCursor;
 import org.apache.ignite.sql.CursorClosedException;
 import org.apache.ignite.sql.NoRowSetExpectedException;
 import org.apache.ignite.sql.SqlException;
@@ -29,7 +28,6 @@ import org.apache.ignite.table.criteria.CriteriaQuerySource;
  *
  * @param <T> The type of elements returned by this iterator.
  *
- * @see ClosableCursor
  * @see CriteriaQuerySource
  */
 public interface AsyncClosableCursor<T> {
