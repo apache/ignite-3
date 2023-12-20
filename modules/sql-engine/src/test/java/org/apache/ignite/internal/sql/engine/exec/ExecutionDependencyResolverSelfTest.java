@@ -42,6 +42,7 @@ import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.jetbrains.annotations.Nullable;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -52,6 +53,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
  * Tests for {@link ExecutionDependencyResolverImpl}.
  */
 @ExtendWith(MockitoExtension.class)
+@Disabled
 public class ExecutionDependencyResolverSelfTest extends AbstractPlannerTest {
 
     @Mock

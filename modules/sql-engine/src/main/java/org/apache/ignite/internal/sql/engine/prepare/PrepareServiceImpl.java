@@ -63,6 +63,7 @@ import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.internal.util.ExceptionUtils;
+import org.apache.ignite.internal.util.FastTimestamps;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ColumnType;
@@ -332,6 +333,9 @@ public class PrepareServiceImpl implements PrepareService {
                 IgniteRel clonedTree = Cloner.clone(igniteRel, Commons.emptyCluster());
 
                 ResultSetMetadata resultSetMetadata = resultSetMetadata(validated.dataType(), validated.origins(), validated.aliases());
+
+                LOG.info(">xxx> planning done in " + (FastTimestamps.coarseCurrentTimeMillis() - ctx.startTs()) + " ms.");
+
                 return new MultiStepPlan(nextPlanId(), SqlQueryType.QUERY, clonedTree, resultSetMetadata, parameterMetadata);
             }, planningPool));
 
