@@ -66,7 +66,8 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor {
      * @param tableVersion Version of the table.
      * @param columns Table column descriptors.
      * @param pkCols Primary key column names.
-     * @param colocationCols Colocation column names.
+     * @param causalityToken Token of the update of the descriptor.
+     * @param creationToken Token of the creation of the table descriptor.
      */
     public CatalogTableDescriptor(
             int id,
