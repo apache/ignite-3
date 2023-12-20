@@ -33,7 +33,7 @@ public class PayloadInputChannel implements AutoCloseable {
 
     /** Optional notification future. */
     @Nullable
-    private final CompletableFuture<?> notificationFut;
+    private final CompletableFuture<PayloadInputChannel> notificationFut;
 
     /**
      * Constructor.
@@ -41,7 +41,7 @@ public class PayloadInputChannel implements AutoCloseable {
      * @param ch Channel.
      * @param in Unpacker.
      */
-    PayloadInputChannel(ClientChannel ch, ClientMessageUnpacker in, @Nullable CompletableFuture<?> notificationFut) {
+    PayloadInputChannel(ClientChannel ch, ClientMessageUnpacker in, @Nullable CompletableFuture<PayloadInputChannel> notificationFut) {
         this.in = in;
         this.ch = ch;
         this.notificationFut = notificationFut;
@@ -70,7 +70,7 @@ public class PayloadInputChannel implements AutoCloseable {
      *
      * @return Notification future.
      */
-    @Nullable public CompletableFuture<?> notificationFuture() {
+    @Nullable public CompletableFuture<PayloadInputChannel> notificationFuture() {
         return notificationFut;
     }
 

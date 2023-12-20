@@ -35,6 +35,7 @@ import org.apache.ignite.client.IgniteClientConnectionException;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.internal.client.ClientUtils;
+import org.apache.ignite.internal.client.PayloadInputChannel;
 import org.apache.ignite.internal.client.PayloadOutputChannel;
 import org.apache.ignite.internal.client.ReliableChannel;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
@@ -220,9 +221,6 @@ public class ClientCompute implements IgniteCompute {
     }
 
     private <R> CompletableFuture<R> executeOnOneNode(ClusterNode node, List<DeploymentUnit> units, String jobClassName, Object[] args) {
-        CompletableFuture<R> notificationFut = new CompletableFuture<>();
-        AtomicBoolean responseReceived = new AtomicBoolean();
-
         var reqFut = ch.serviceAsync(
                 ClientOp.COMPUTE_EXECUTE,
                 w -> {
@@ -234,26 +232,14 @@ public class ClientCompute implements IgniteCompute {
 
                     packJob(w.out(), units, jobClassName, args);
                 },
-                unusedCh -> responseReceived.compareAndSet(false, true),
+                ch -> ch,
                 node.name(),
                 null,
-                (r, err) -> {
-                    if (!responseReceived.get() && err instanceof IgniteClientConnectionException) {
-                        // Connection has failed before we received a response for the task execution request.
-                        // We should not fail the notificationFut because retries are possible.
-                        // If there are no retries, compound future will fail anyway due to reqFut failure.
-                        return;
-                    }
+                true);
 
-                    if (err != null) {
-                        notificationFut.completeExceptionally(err);
-                    } else {
-                        assert r != null;
-                        notificationFut.complete((R) r.in().unpackObjectFromBinaryTuple());
-                    }
-                });
-
-        return reqFut.thenCompose(requestCh -> notificationFut);
+        return reqFut
+                .thenCompose(PayloadInputChannel::notificationFuture)
+                .thenApply(r -> (R) r.in().unpackObjectFromBinaryTuple());
     }
 
     private static ClusterNode randomNode(Set<ClusterNode> nodes) {
