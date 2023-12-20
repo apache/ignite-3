@@ -148,7 +148,6 @@ import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.DataStorageModules;
 import org.apache.ignite.internal.storage.StorageException;
-import org.apache.ignite.internal.storage.configurations.DummyStorageEngineConfigurationSchema;
 import org.apache.ignite.internal.storage.configurations.DummyStorageProfileConfigurationSchema;
 import org.apache.ignite.internal.storage.configurations.StoragesConfiguration;
 import org.apache.ignite.internal.storage.impl.TestDataStorageModule;
@@ -877,7 +876,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     List.of(),
                     List.of(
                             UnsafeMemoryAllocatorConfigurationSchema.class,
-                            DummyStorageEngineConfigurationSchema.class,
                             DummyStorageProfileConfigurationSchema.class
                     )
             );

@@ -93,15 +93,7 @@ public class DataStorageModules {
             Path storagePath,
             @Nullable LongJvmPauseDetector longJvmPauseDetector
     ) {
-        StoragesConfiguration storagesConfiguration = configRegistry.getConfiguration(StoragesConfiguration.KEY);
-
-        var configuredStorageEnginesKeys = storagesConfiguration.engines().value()
-                .stream()
-                .map(StorageEngineView::name)
-                .collect(Collectors.toUnmodifiableSet());
-
         return modules.entrySet().stream()
-                .filter(e -> configuredStorageEnginesKeys.contains(e.getKey()))
                 .collect(toUnmodifiableMap(
                         Entry::getKey,
                         e -> e.getValue().createEngine(igniteInstanceName, configRegistry, storagePath, longJvmPauseDetector)

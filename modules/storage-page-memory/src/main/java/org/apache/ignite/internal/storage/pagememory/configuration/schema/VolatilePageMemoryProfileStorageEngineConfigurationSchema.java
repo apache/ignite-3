@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.storage.pagememory.configuration.schema;
 
+import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.validation.Immutable;
@@ -29,8 +30,8 @@ import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryStorageEn
 /**
  * Root configuration for {@link VolatilePageMemoryStorageEngine}.
  */
-@PolymorphicConfigInstance("aimem")
-public class VolatilePageMemoryProfileStorageEngineConfigurationSchema extends StorageEngineConfigurationSchema {
+@Config
+public class VolatilePageMemoryProfileStorageEngineConfigurationSchema {
     /** Page size in bytes. */
     @Immutable
     @PowerOfTwo

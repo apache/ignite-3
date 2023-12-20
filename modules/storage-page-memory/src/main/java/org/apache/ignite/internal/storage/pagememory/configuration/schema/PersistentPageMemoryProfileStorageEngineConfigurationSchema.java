@@ -17,21 +17,20 @@
 
 package org.apache.ignite.internal.storage.pagememory.configuration.schema;
 
+import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
-import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.validation.Immutable;
 import org.apache.ignite.configuration.validation.PowerOfTwo;
 import org.apache.ignite.configuration.validation.Range;
 import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryCheckpointConfigurationSchema;
-import org.apache.ignite.internal.storage.configurations.StorageEngineConfigurationSchema;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorageEngine;
 
 /**
  * Root configuration for {@link PersistentPageMemoryStorageEngine}.
  */
-@PolymorphicConfigInstance("aipersist")
-public class PersistentPageMemoryProfileStorageEngineConfigurationSchema extends StorageEngineConfigurationSchema {
+@Config
+public class PersistentPageMemoryProfileStorageEngineConfigurationSchema {
 
     @Immutable
     @PowerOfTwo

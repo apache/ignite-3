@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.storage.rocksdb.configuration.schema;
 
+import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.validation.Range;
@@ -26,8 +27,8 @@ import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine;
 /**
  * Root configuration for {@link RocksDbStorageEngine}.
  */
-@PolymorphicConfigInstance("rocksDb")
-public class RocksDbProfileStorageEngineConfigurationSchema extends StorageEngineConfigurationSchema {
+@Config
+public class RocksDbProfileStorageEngineConfigurationSchema {
     /** Delay before executing a flush triggered by RAFT. */
     @Range(min = 0)
     @Value(hasDefault = true)

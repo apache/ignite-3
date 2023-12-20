@@ -28,6 +28,7 @@ import org.apache.ignite.internal.storage.DataStorageModule;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.configurations.StoragesConfiguration;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
+import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistPageMemoryStorageEngineExtensionConfiguration;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryProfileStorageEngineConfiguration;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryProfileStorageEngineConfigurationSchema;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineConfiguration;
@@ -53,10 +54,8 @@ public class PersistentPageMemoryDataStorageModule implements DataStorageModule 
             @Nullable LongJvmPauseDetector longJvmPauseDetector
     ) throws StorageException {
         PersistentPageMemoryProfileStorageEngineConfiguration engineConfig =
-                (PersistentPageMemoryProfileStorageEngineConfiguration) configRegistry
-                        .getConfiguration(StoragesConfiguration.KEY)
-                        .engines()
-                        .get(name());
+                ((PersistPageMemoryStorageEngineExtensionConfiguration) configRegistry
+                        .getConfiguration(StoragesConfiguration.KEY).engines()).aipersist();
 
         assert engineConfig != null;
 

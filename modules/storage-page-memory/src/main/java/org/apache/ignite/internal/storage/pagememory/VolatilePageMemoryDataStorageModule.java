@@ -32,6 +32,7 @@ import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryProfileStorageEngineConfiguration;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryProfileStorageEngineConfiguration;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryStorageEngineConfiguration;
+import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryStorageEngineExtensionConfiguration;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -54,10 +55,8 @@ public class VolatilePageMemoryDataStorageModule implements DataStorageModule {
             @Nullable LongJvmPauseDetector longJvmPauseDetector
     ) throws StorageException {
         VolatilePageMemoryProfileStorageEngineConfiguration engineConfig =
-                (VolatilePageMemoryProfileStorageEngineConfiguration) configRegistry
-                        .getConfiguration(StoragesConfiguration.KEY)
-                        .engines()
-                        .get(name());
+                ((VolatilePageMemoryStorageEngineExtensionConfiguration) configRegistry
+                        .getConfiguration(StoragesConfiguration.KEY).engines()).aimem();
 
         assert engineConfig != null;
 

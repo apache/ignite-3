@@ -17,16 +17,13 @@
 
 package org.apache.ignite.internal.storage.configurations;
 
+import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.PolymorphicConfig;
 import org.apache.ignite.configuration.annotation.PolymorphicId;
 
 /**
  * Storage engine configuration schema.
  */
-@PolymorphicConfig
+@Config
 public class StorageEngineConfigurationSchema {
-
-    /** Storage engine name. */
-    @PolymorphicId
-    public String name;
 }

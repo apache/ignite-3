@@ -19,6 +19,7 @@ package org.apache.ignite.internal.storage.configurations;
 
 import static org.apache.ignite.configuration.annotation.ConfigurationType.LOCAL;
 
+import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
 
@@ -31,7 +32,7 @@ public class StoragesConfigurationSchema {
     /**
      * Storage engines configuration.
      */
-    @NamedConfigValue
+    @ConfigValue
     public StorageEngineConfigurationSchema engines;
 
     /**
