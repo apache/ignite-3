@@ -1636,6 +1636,37 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
     }
 
     @Test
+    public void testTableCreationToken() {
+        createSomeTable(TABLE_NAME);
+
+        CatalogTableDescriptor table = manager.table(TABLE_NAME, Long.MAX_VALUE);
+
+        long expectedCreationToken = table.updateToken();
+
+        assertEquals(expectedCreationToken, table.creationToken());
+
+        CompletableFuture<Void> future = manager.execute(
+                AlterTableAlterColumnCommand.builder()
+                        .schemaName(SCHEMA_NAME)
+                        .tableName(TABLE_NAME)
+                        .columnName("val1")
+                        .type(INT64)
+                        .build()
+        );
+        assertThat(future, willCompleteSuccessfully());
+
+        table = manager.table(TABLE_NAME, Long.MAX_VALUE);
+
+        assertThat(table.tableVersion(), is(2));
+
+        assertEquals(expectedCreationToken, table.creationToken());
+
+        table = manager.table(tableId(TABLE_NAME), 1);
+
+        assertEquals(expectedCreationToken, table.creationToken());
+    }
+
+    @Test
     void testCreateZoneWithDefaults() {
         assertThat(manager.execute(CreateZoneCommand.builder().zoneName(ZONE_NAME + 1).build()), willBe(nullValue()));
 

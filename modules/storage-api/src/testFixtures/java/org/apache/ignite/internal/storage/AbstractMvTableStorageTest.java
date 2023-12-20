@@ -784,6 +784,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
                 ),
                 List.of("INTKEY"),
                 null,
+                INITIAL_CAUSALITY_TOKEN,
                 INITIAL_CAUSALITY_TOKEN
         );
 
