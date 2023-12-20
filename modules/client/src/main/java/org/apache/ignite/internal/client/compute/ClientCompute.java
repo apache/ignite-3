@@ -239,7 +239,12 @@ public class ClientCompute implements IgniteCompute {
 
         return reqFut
                 .thenCompose(PayloadInputChannel::notificationFuture)
-                .thenApply(r -> (R) r.in().unpackObjectFromBinaryTuple());
+                .thenApply(r -> {
+                    // Notifications require explicit input close.
+                    try (r) {
+                        return (R) r.in().unpackObjectFromBinaryTuple();
+                    }
+                });
     }
 
     private static ClusterNode randomNode(Set<ClusterNode> nodes) {

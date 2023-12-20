@@ -443,6 +443,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             if (err != null) {
                 handler.completeExceptionally(err);
             } else {
+                unpacker.retain();
                 handler.complete(new PayloadInputChannel(this, unpacker, null));
             }
         } catch (Exception e) {
