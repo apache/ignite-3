@@ -244,7 +244,7 @@ public class OrphanDetector {
      * @return True when the transaction coordinator is alive, false otherwise.
      */
     private boolean isTxCoordinatorAlive(TxStateMeta txState) {
-        return topologyService.getById(txState.txCoordinatorId()) != null;
+        return txState.txCoordinatorId() != null && topologyService.getById(txState.txCoordinatorId()) != null;
     }
 
     /**
