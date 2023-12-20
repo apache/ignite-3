@@ -33,6 +33,8 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Tests for queries containing multiple sql statements, separated by ";".
@@ -96,31 +98,70 @@ public class ItJdbcMultiStatementSelfTest extends AbstractJdbcSelfTest {
         assertFalse(stmt.getMoreResults());
     }
 
-    @Test
-    public void testCloseOnCompletionFirstRsClosed() throws Exception {
-        stmt.execute("SELECT 1; SELECT 2");
-        ResultSet rs1 = stmt.getResultSet();
+    @ParameterizedTest(name = "closeOnCompletion = {0}")
+    @ValueSource(booleans = {true, false})
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-21129")
+    public void testCloseOnCompletionFirstRsClosed(boolean closeOnCompletion) throws Exception {
+        stmt.execute("SELECT 1; DROP TABLE IF EXISTS TEST_TX; SELECT 1; ");
+        ResultSet rs = stmt.getResultSet();
 
-        assertFalse(stmt.isCloseOnCompletion());
-        stmt.closeOnCompletion();
-        assertTrue(stmt.isCloseOnCompletion());
+        if (closeOnCompletion) {
+            stmt.closeOnCompletion();
+        }
 
+        rs.close();
         assertFalse(stmt.isClosed());
-        rs1.close();
-        assertTrue(stmt.isClosed());
 
-        assertThrows(SQLException.class, () -> stmt.getMoreResults(), "Statement is closed");
+        stmt.getMoreResults();
+        stmt.getResultSet();
+
+        stmt.getMoreResults();
+        rs = stmt.getResultSet();
+
+        rs.close();
+
+        if (closeOnCompletion) {
+            assertTrue(stmt.isClosed());
+        } else {
+            assertFalse(stmt.isClosed());
+        }
+    }
+
+    @ParameterizedTest(name = "closeOnCompletion = {0}")
+    @ValueSource(booleans = {true, false})
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-21129")
+    public void testCloseOnCompletionFirstRsClosed2(boolean closeOnCompletion) throws Exception {
+        stmt.execute("SELECT 1; DROP TABLE IF EXISTS TEST_TX;");
+        ResultSet rs = stmt.getResultSet();
+
+        if (closeOnCompletion) {
+            stmt.closeOnCompletion();
+        }
+
+        rs.close();
+
+        if (closeOnCompletion) {
+            assertTrue(stmt.isClosed());
+        } else {
+            assertFalse(stmt.isClosed());
+        }
     }
 
     @Test
     public void noMoreResultsArePossibleAfterCloseOnCompletion() throws Exception {
         stmt.execute("SELECT 1; SELECT 2; SELECT 3");
+        // SELECT 2;
         assertTrue(stmt.getMoreResults());
 
         stmt.closeOnCompletion();
 
-        assertFalse(stmt.getMoreResults());
+        // SELECT 3;
+        assertTrue(stmt.getMoreResults());
+        assertFalse(stmt.isClosed());
 
+        // no more results, auto close statement
+        assertFalse(stmt.getMoreResults());
+        assertThrows(SQLException.class, () -> stmt.getMoreResults(), "Statement is closed");
         assertTrue(stmt.isClosed());
     }
 

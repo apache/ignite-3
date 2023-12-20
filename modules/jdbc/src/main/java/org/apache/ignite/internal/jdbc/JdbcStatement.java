@@ -402,7 +402,7 @@ public class JdbcStatement implements Statement {
             return null;
         }
 
-        JdbcResultSet rs = resSets.get(curRes);
+        @Nullable JdbcResultSet rs = resSets.get(curRes);
 
         if (rs == null || !rs.isQuery()) {
             return null;
@@ -420,7 +420,7 @@ public class JdbcStatement implements Statement {
             return -1;
         }
 
-        JdbcResultSet rs = resSets.get(curRes);
+        @Nullable JdbcResultSet rs = resSets.get(curRes);
 
         if (rs == null || rs.isQuery()) {
             return -1;
@@ -456,12 +456,6 @@ public class JdbcStatement implements Statement {
             }
         }
 
-        // all previous results need to be closed at this point.
-        if (isCloseOnCompletion()) {
-            close();
-            return false;
-        }
-
         if (resSets == null || curRes >= resSets.size() || resSets.get(curRes) == null) {
             return false;
         }
@@ -476,6 +470,12 @@ public class JdbcStatement implements Statement {
         } catch (SQLException ex) {
             nextResultSet = null;
             exceptionally = ex;
+        }
+
+        // all previous results need to be closed at this point.
+        if (nextResultSet == null && isCloseOnCompletion()) {
+            close();
+            return false;
         }
 
         resSets.add(nextResultSet);
