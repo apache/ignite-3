@@ -25,11 +25,13 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Iterator;
 import java.util.Random;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
+import org.apache.ignite.internal.sql.engine.property.SqlProperties;
 import org.apache.ignite.internal.sql.engine.property.SqlPropertiesHelper;
 import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -109,11 +111,21 @@ public class SelectBenchmark extends AbstractMultiNodeBenchmark {
     }
 
     /**
-     * Benchmark for SQL script select via embedded client.
+     * Benchmark for SQL select via embedded client using internal API.
      */
     @Benchmark
-    public void sqlGetScript(SqlScriptState sqlScriptState, Blackhole bh) {
-        Iterator<InternalSqlRow> res = sqlScriptState.sql(SELECT_ALL_FROM_USERTABLE, random.nextInt(TABLE_SIZE));
+    public void sqlGetInternal(SqlInternalApiState sqlInternalApiState, Blackhole bh) {
+        Iterator<InternalSqlRow> res = sqlInternalApiState.query(SELECT_ALL_FROM_USERTABLE, random.nextInt(TABLE_SIZE));
+
+        bh.consume(res.next());
+    }
+
+    /**
+     * Benchmark for SQL script select via embedded client using internal API.
+     */
+    @Benchmark
+    public void sqlGetInternalScript(SqlInternalApiState sqlInternalApiState, Blackhole bh) {
+        Iterator<InternalSqlRow> res = sqlInternalApiState.script(SELECT_ALL_FROM_USERTABLE, random.nextInt(TABLE_SIZE));
 
         bh.consume(res.next());
     }
@@ -204,12 +216,12 @@ public class SelectBenchmark extends AbstractMultiNodeBenchmark {
     }
 
     /**
-     * Benchmark state for {@link #sqlGet(SqlState, Blackhole)}.
-     *
-     * <p>Holds {@link Session}.
+     * Benchmark state for {@link #sqlGetInternalScript(SqlInternalApiState, Blackhole)} and
+     * {@link #sqlGetInternal(SqlInternalApiState, Blackhole)}.
      */
     @State(Scope.Benchmark)
-    public static class SqlScriptState {
+    public static class SqlInternalApiState {
+        private final SqlProperties properties = SqlPropertiesHelper.emptyProperties();
         private final QueryProcessor queryProc = clusterNode.queryEngine();
         private int pageSize;
 
@@ -223,11 +235,16 @@ public class SelectBenchmark extends AbstractMultiNodeBenchmark {
             IgniteUtils.closeAll(session);
         }
 
-        private Iterator<InternalSqlRow> sql(String sql, Object... args) {
-            AsyncSqlCursor<InternalSqlRow> cursor = queryProc.queryScriptAsync(
-                    SqlPropertiesHelper.emptyProperties(), clusterNode.transactions(), null, sql, args
-            ).join();
+        private Iterator<InternalSqlRow> query(String sql, Object... args) {
+            return handleFirstBatch(queryProc.querySingleAsync(properties, clusterNode.transactions(), null, sql, args));
+        }
 
+        private Iterator<InternalSqlRow> script(String sql, Object... args) {
+            return handleFirstBatch(queryProc.queryScriptAsync(properties, clusterNode.transactions(), null, sql, args));
+        }
+
+        private Iterator<InternalSqlRow> handleFirstBatch(CompletableFuture<AsyncSqlCursor<InternalSqlRow>> cursorFut) {
+            AsyncSqlCursor<InternalSqlRow> cursor = cursorFut.join();
             BatchedResult<InternalSqlRow> res = cursor.requestNextAsync(pageSize).join();
 
             cursor.closeAsync();

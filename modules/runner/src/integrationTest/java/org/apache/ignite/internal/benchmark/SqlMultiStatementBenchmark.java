@@ -37,7 +37,6 @@ import org.apache.ignite.internal.sql.engine.property.SqlProperties;
 import org.apache.ignite.internal.sql.engine.property.SqlPropertiesHelper;
 import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.IgniteTransactions;
@@ -150,7 +149,7 @@ public class SqlMultiStatementBenchmark extends AbstractMultiNodeBenchmark {
      */
     @State(Scope.Benchmark)
     public static class InsertState {
-        private ScriptRunner scriptExec;
+        private QueryRunner queryRunner;
         private Parameters parameters;
         private Session session;
 
@@ -159,7 +158,7 @@ public class SqlMultiStatementBenchmark extends AbstractMultiNodeBenchmark {
         public void setUp() {
             session = clusterNode.sql().createSession();
             parameters = new Parameters(statementsCount, n -> createInsertStatement("T" + n));
-            scriptExec = new ScriptRunner(
+            queryRunner = new QueryRunner(
                     clusterNode.queryEngine(),
                     clusterNode.transactions(),
                     session.defaultPageSize()
@@ -177,8 +176,10 @@ public class SqlMultiStatementBenchmark extends AbstractMultiNodeBenchmark {
             int id0 = id++;
 
             for (int i = 0; i < statementsCount; i++) {
-                try (ResultSet<?> rs = session.execute(null, parameters.statements.get(i), id0)) {
-                    bh.consume(rs);
+                Iterator<?> res = queryRunner.execQuery(parameters.statements.get(i), id0);
+
+                while (res.hasNext()) {
+                    bh.consume(res.next());
                 }
             }
         }
@@ -190,7 +191,7 @@ public class SqlMultiStatementBenchmark extends AbstractMultiNodeBenchmark {
                 parameters.scriptArgs[i] = id0;
             }
 
-            Iterator<InternalSqlRow> res = scriptExec.exec(parameters.script, parameters.scriptArgs);
+            Iterator<InternalSqlRow> res = queryRunner.execScript(parameters.script, parameters.scriptArgs);
 
             while (res.hasNext()) {
                 bh.consume(res.next());
@@ -213,7 +214,7 @@ public class SqlMultiStatementBenchmark extends AbstractMultiNodeBenchmark {
      */
     @State(Scope.Benchmark)
     public static class CountState {
-        private ScriptRunner scriptRun;
+        private QueryRunner queryRunner;
         private Parameters parameters;
         private Session session;
 
@@ -224,7 +225,7 @@ public class SqlMultiStatementBenchmark extends AbstractMultiNodeBenchmark {
 
             session = clusterNode.sql().createSession();
             parameters = new Parameters(statementsCount, n -> format("select count(*) from T{}", n));
-            scriptRun = new ScriptRunner(
+            queryRunner = new QueryRunner(
                     clusterNode.queryEngine(),
                     clusterNode.transactions(),
                     session.defaultPageSize()
@@ -238,14 +239,16 @@ public class SqlMultiStatementBenchmark extends AbstractMultiNodeBenchmark {
 
         void executeQuery(Blackhole bh) {
             for (int i = 0; i < statementsCount; i++) {
-                try (ResultSet<?> rs = session.execute(null, parameters.statements.get(i))) {
-                    bh.consume(rs.next());
+                Iterator<?> res = queryRunner.execQuery(parameters.statements.get(i));
+
+                while (res.hasNext()) {
+                    bh.consume(res.next());
                 }
             }
         }
 
         void executeScript(Blackhole bh) {
-            Iterator<?> res = scriptRun.exec(parameters.script);
+            Iterator<?> res = queryRunner.execScript(parameters.script);
 
             while (res.hasNext()) {
                 bh.consume(res.next());
@@ -260,7 +263,7 @@ public class SqlMultiStatementBenchmark extends AbstractMultiNodeBenchmark {
     @State(Scope.Benchmark)
     public static class SelectSingleKeyMultipleTablesState {
         private final Random random = new Random();
-        private ScriptRunner scriptRun;
+        private QueryRunner queryRunner;
         private Parameters parameters;
         private Session session;
 
@@ -271,7 +274,7 @@ public class SqlMultiStatementBenchmark extends AbstractMultiNodeBenchmark {
 
             session = clusterNode.sql().createSession();
             parameters = new Parameters(statementsCount, n -> format("select * from T{} where ycsb_key=?", n));
-            scriptRun = new ScriptRunner(
+            queryRunner = new QueryRunner(
                     clusterNode.queryEngine(),
                     clusterNode.transactions(),
                     session.defaultPageSize()
@@ -287,8 +290,10 @@ public class SqlMultiStatementBenchmark extends AbstractMultiNodeBenchmark {
             int key = random.nextInt(TABLE_SIZE);
 
             for (int i = 0; i < statementsCount; i++) {
-                try (ResultSet<?> rs = session.execute(null, parameters.statements.get(i), key)) {
-                    bh.consume(rs.next());
+                Iterator<?> res = queryRunner.execQuery(parameters.statements.get(i), key);
+
+                while (res.hasNext()) {
+                    bh.consume(res.next());
                 }
             }
         }
@@ -300,7 +305,7 @@ public class SqlMultiStatementBenchmark extends AbstractMultiNodeBenchmark {
                 parameters.scriptArgs[i] = key;
             }
 
-            Iterator<?> res = scriptRun.exec(parameters.script, parameters.scriptArgs);
+            Iterator<?> res = queryRunner.execScript(parameters.script, parameters.scriptArgs);
 
             while (res.hasNext()) {
                 bh.consume(res.next());
@@ -315,7 +320,7 @@ public class SqlMultiStatementBenchmark extends AbstractMultiNodeBenchmark {
     @State(Scope.Benchmark)
     public static class SelectMultipleKeysSingleTableState {
         private final Random random = new Random();
-        private ScriptRunner scriptRun;
+        private QueryRunner queryRunner;
         private Parameters parameters;
         private Session session;
 
@@ -326,7 +331,7 @@ public class SqlMultiStatementBenchmark extends AbstractMultiNodeBenchmark {
 
             session = clusterNode.sql().createSession();
             parameters = new Parameters(statementsCount, ignore -> "select * from T0 where ycsb_key=?");
-            scriptRun = new ScriptRunner(
+            queryRunner = new QueryRunner(
                     clusterNode.queryEngine(),
                     clusterNode.transactions(),
                     session.defaultPageSize()
@@ -340,8 +345,10 @@ public class SqlMultiStatementBenchmark extends AbstractMultiNodeBenchmark {
 
         void executeQuery(Blackhole bh) {
             for (int i = 0; i < statementsCount; i++) {
-                try (ResultSet<?> rs = session.execute(null, parameters.statements.get(i), random.nextInt(TABLE_SIZE))) {
-                    bh.consume(rs.next());
+                Iterator<?> res = queryRunner.execQuery(parameters.statements.get(i), random.nextInt(TABLE_SIZE));
+
+                while (res.hasNext()) {
+                    bh.consume(res.next());
                 }
             }
         }
@@ -351,7 +358,7 @@ public class SqlMultiStatementBenchmark extends AbstractMultiNodeBenchmark {
                 parameters.scriptArgs[i] = random.nextInt(TABLE_SIZE);
             }
 
-            Iterator<?> res = scriptRun.exec(parameters.script, parameters.scriptArgs);
+            Iterator<?> res = queryRunner.execScript(parameters.script, parameters.scriptArgs);
 
             while (res.hasNext()) {
                 bh.consume(res.next());
@@ -378,20 +385,27 @@ public class SqlMultiStatementBenchmark extends AbstractMultiNodeBenchmark {
         }
     }
 
-    /** Executes SQL script using internal API. */
-    private static class ScriptRunner {
+    /** Executes SQL query/script using internal API. */
+    private static class QueryRunner {
         private final SqlProperties props = SqlPropertiesHelper.emptyProperties();
         private final QueryProcessor queryProcessor;
         private final IgniteTransactions transactions;
         private final int pageSize;
 
-        ScriptRunner(QueryProcessor queryProcessor, IgniteTransactions transactions, int pageSize) {
+        QueryRunner(QueryProcessor queryProcessor, IgniteTransactions transactions, int pageSize) {
             this.queryProcessor = queryProcessor;
             this.transactions = transactions;
             this.pageSize = pageSize;
         }
 
-        Iterator<InternalSqlRow> exec(String sql, Object ... args) {
+        Iterator<InternalSqlRow> execQuery(String sql, Object ... args) {
+            AsyncSqlCursor<InternalSqlRow> cursor =
+                    queryProcessor.querySingleAsync(props, transactions, null, sql, args).join();
+
+            return new InternalResultsIterator(cursor, pageSize);
+        }
+
+        Iterator<InternalSqlRow> execScript(String sql, Object ... args) {
             AsyncSqlCursor<InternalSqlRow> cursor =
                     queryProcessor.queryScriptAsync(props, transactions, null, sql, args).join();
 
