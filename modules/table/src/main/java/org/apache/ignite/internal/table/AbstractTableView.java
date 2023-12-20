@@ -27,14 +27,12 @@ import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.lang.IgniteExceptionMapperUtil;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.sql.SyncResultSetAdapter;
-import org.apache.ignite.internal.table.criteria.QueryCriteriaAsyncResultSet;
 import org.apache.ignite.internal.table.criteria.SqlSerializer;
 import org.apache.ignite.internal.table.distributed.replicator.InternalSchemaVersionMismatchException;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
@@ -44,11 +42,8 @@ import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.ClosableCursor;
 import org.apache.ignite.sql.ResultSetMetadata;
-import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.SqlException;
-import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.Statement;
-import org.apache.ignite.sql.async.AsyncClosableCursor;
 import org.apache.ignite.sql.async.AsyncResultSet;
 import org.apache.ignite.table.criteria.Criteria;
 import org.apache.ignite.table.criteria.CriteriaQueryOptions;
@@ -156,7 +151,11 @@ abstract class AbstractTableView<R> implements CriteriaQuerySource<R> {
      * @param metadata Metadata for query results.
      * @return Index mapping.
      */
-    static List<Integer> indexMapping(Column[] columns, ResultSetMetadata metadata) {
+    static List<Integer> indexMapping(Column[] columns, @Nullable ResultSetMetadata metadata) {
+        if (metadata == null) {
+            throw new IgniteException(Sql.RUNTIME_ERR, "Metadata can't be null.");
+        }
+
         return Arrays.stream(columns)
                 .map(Column::name)
                 .map((columnName) -> {
@@ -172,26 +171,31 @@ abstract class AbstractTableView<R> implements CriteriaQuerySource<R> {
     }
 
     /**
-     * Get mapper from {@code SqlRow} to view entry.
+     * Executes SQL statement and maps results.
      *
-     * @param schema Schema descriptor.
-     * @param metadata ResultSet Metadata.
-     * @return Unmarshaller for query results.
-     */
-    protected abstract @Nullable Function<SqlRow, R> queryResultMapper(
-            SchemaDescriptor schema,
-            @Nullable ResultSetMetadata metadata
-    );
-
-    /**
-     * Criteria query over cache entries.
-     *
-     * @param tx Transaction to execute the query within or {@code null}.
-     * @param criteria Will accept all the entries if {@code null}.
-     * @param opts Criteria query options.
+     * @param schema Schema.
+     * @param tx Transaction to execute the query within or {@code null} to run within implicit transaction.
+     * @param statement SQL statement to execute.
+     * @param arguments Arguments for the statement.
+     * @return Future that represents the pending completion of the operation.
      * @throws SqlException If failed.
      */
-    private CompletableFuture<AsyncResultSet<R>> executeQueryAsync(
+    protected abstract CompletableFuture<AsyncResultSet<R>> executeQueryAsync(
+            SchemaDescriptor schema,
+            @Nullable Transaction tx,
+            Statement statement,
+            @Nullable Object... arguments
+    );
+
+    /** {@inheritDoc} */
+    @Override
+    public ClosableCursor<R> queryCriteria(@Nullable Transaction tx, @Nullable Criteria criteria, CriteriaQueryOptions opts) {
+        return new SyncResultSetAdapter<>(queryCriteriaAsync(tx, criteria, opts).join());
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<AsyncResultSet<R>> queryCriteriaAsync(
             @Nullable Transaction tx,
             @Nullable Criteria criteria,
             CriteriaQueryOptions opts
@@ -205,37 +209,10 @@ abstract class AbstractTableView<R> implements CriteriaQuerySource<R> {
                     .where(criteria)
                     .build();
 
-            Session session = tbl.sql().createSession();
             Statement statement = tbl.sql().statementBuilder().query(ser.toString()).pageSize(opts.pageSize()).build();
 
-            return session.executeAsync(tx, statement, ser.getArguments())
-                    .thenApply(resultSet -> {
-                        ResultSetMetadata metadata = resultSet.metadata();
-
-                        if (metadata == null) {
-                            throw new IgniteException(Sql.RUNTIME_ERR, "Metadata can't be null.");
-                        }
-
-                        return new QueryCriteriaAsyncResultSet<>(resultSet, queryResultMapper(schema, metadata), session::close);
-                    });
+            return executeQueryAsync(schema, tx, statement, ser.getArguments());
         });
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public ClosableCursor<R> queryCriteria(@Nullable Transaction tx, @Nullable Criteria criteria, CriteriaQueryOptions opts) {
-        return new SyncResultSetAdapter<>(executeQueryAsync(tx, criteria, opts).join());
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public CompletableFuture<AsyncClosableCursor<R>> queryCriteriaAsync(
-            @Nullable Transaction tx,
-            @Nullable Criteria criteria,
-            CriteriaQueryOptions opts
-    ) {
-        return executeQueryAsync(tx, criteria, opts)
-                .thenApply(identity());
     }
 
     private static boolean isOrCausedBy(Class<? extends Exception> exceptionClass, @Nullable Throwable ex) {

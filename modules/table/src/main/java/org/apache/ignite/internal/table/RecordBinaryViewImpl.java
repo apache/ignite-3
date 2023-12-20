@@ -24,21 +24,26 @@ import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
-import java.util.function.Function;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
+import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshaller;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.streamer.StreamerBatchSender;
+import org.apache.ignite.internal.table.criteria.QueryCriteriaAsyncResultSet;
+import org.apache.ignite.internal.table.criteria.SqlRowProjection;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.MarshallerException;
 import org.apache.ignite.sql.ResultSetMetadata;
-import org.apache.ignite.sql.SqlRow;
+import org.apache.ignite.sql.Session;
+import org.apache.ignite.sql.Statement;
+import org.apache.ignite.sql.async.AsyncResultSet;
 import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
@@ -441,7 +446,22 @@ public class RecordBinaryViewImpl extends AbstractTableView<Tuple> implements Re
 
     /** {@inheritDoc} */
     @Override
-    protected @Nullable Function<SqlRow, Tuple> queryResultMapper(SchemaDescriptor schema, @Nullable ResultSetMetadata metadata) {
-        return null;
+    protected CompletableFuture<AsyncResultSet<Tuple>> executeQueryAsync(
+            SchemaDescriptor schema,
+            @Nullable Transaction tx,
+            Statement statement,
+            @Nullable Object... arguments
+    ) {
+        Session session = tbl.sql().createSession();
+
+        return session.executeAsync(tx, statement, arguments)
+                .thenApply(resultSet -> {
+                    ResultSetMetadata metadata = resultSet.metadata();
+
+                    Column[] cols = ArrayUtils.concat(schema.keyColumns().columns(), schema.valueColumns().columns());
+                    List<Integer> idxMapping = indexMapping(cols, metadata);
+
+                    return new QueryCriteriaAsyncResultSet<>(resultSet, (row) -> new SqlRowProjection(row, idxMapping), session::close);
+                });
     }
 }

@@ -44,6 +44,7 @@ import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.MarshallerException;
 import org.apache.ignite.lang.NullableValue;
 import org.apache.ignite.sql.ResultSetMetadata;
+import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.Statement;
 import org.apache.ignite.sql.async.AsyncResultSet;
@@ -567,13 +568,27 @@ public class KeyValueBinaryViewImpl extends AbstractTableView<Entry<Tuple, Tuple
 
     /** {@inheritDoc} */
     @Override
-    protected @Nullable Function<SqlRow, Entry<Tuple, Tuple>> queryResultMapper(SchemaDescriptor schema, ResultSetMetadata metadata) {
-        var keyIndexMapping = indexMapping(schema.keyColumns().columns(), metadata);
-        var valIndexMapping = indexMapping(schema.valueColumns().columns(), metadata);
+    protected CompletableFuture<AsyncResultSet<Entry<Tuple, Tuple>>> executeQueryAsync(
+            SchemaDescriptor schema,
+            @Nullable Transaction tx,
+            Statement statement,
+            @Nullable Object... arguments
+    ) {
+        Session session = tbl.sql().createSession();
 
-        return (row) -> new IgniteBiTuple<>(
-                new SqlRowProjection(row, keyIndexMapping),
-                new SqlRowProjection(row, valIndexMapping)
-        );
+        return session.executeAsync(tx, statement, arguments)
+                .thenApply(resultSet -> {
+                    ResultSetMetadata metadata = resultSet.metadata();
+
+                    List<Integer> keyIndexMapping = indexMapping(schema.keyColumns().columns(), metadata);
+                    List<Integer> valIndexMapping = indexMapping(schema.valueColumns().columns(), metadata);
+
+                    Function<SqlRow, Entry<Tuple, Tuple>> mapper = (row) -> new IgniteBiTuple<>(
+                            new SqlRowProjection(row, keyIndexMapping),
+                            new SqlRowProjection(row, valIndexMapping)
+                    );
+
+                    return new QueryCriteriaAsyncResultSet<>(resultSet, mapper, session::close);
+                });
     }
 }

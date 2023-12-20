@@ -31,16 +31,19 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
 import java.util.function.Function;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
+import org.apache.ignite.internal.marshaller.Marshaller;
 import org.apache.ignite.internal.marshaller.MarshallerException;
 import org.apache.ignite.internal.marshaller.TupleReader;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
+import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.marshaller.KvMarshaller;
 import org.apache.ignite.internal.schema.marshaller.reflection.KvMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.streamer.StreamerBatchSender;
+import org.apache.ignite.internal.table.criteria.QueryCriteriaAsyncResultSet;
 import org.apache.ignite.internal.table.criteria.SqlRowProjection;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
 import org.apache.ignite.internal.tx.InternalTransaction;
@@ -50,7 +53,10 @@ import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.NullableValue;
 import org.apache.ignite.lang.UnexpectedNullValueException;
 import org.apache.ignite.sql.ResultSetMetadata;
+import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.SqlRow;
+import org.apache.ignite.sql.Statement;
+import org.apache.ignite.sql.async.AsyncResultSet;
 import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.mapper.Mapper;
@@ -695,25 +701,39 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
 
     /** {@inheritDoc} */
     @Override
-    protected @Nullable Function<SqlRow, Entry<K, V>> queryResultMapper(SchemaDescriptor schema, @Nullable ResultSetMetadata metadata) {
-        var keyCols = schema.keyColumns().columns();
-        var valCols = schema.valueColumns().columns();
+    protected CompletableFuture<AsyncResultSet<Entry<K, V>>> executeQueryAsync(
+            SchemaDescriptor schema,
+            @Nullable Transaction tx,
+            Statement statement,
+            @Nullable Object... arguments
+    ) {
+        Session session = tbl.sql().createSession();
 
-        var keyIndexMapping = indexMapping(schema.keyColumns().columns(), metadata);
-        var valIndexMapping = indexMapping(schema.valueColumns().columns(), metadata);
+        return session.executeAsync(tx, statement, arguments)
+                .thenApply(resultSet -> {
+                    ResultSetMetadata metadata = resultSet.metadata();
 
-        var keyMarsh = createMarshaller(toMarshallerColumns(keyCols), keyMapper, false, true);
-        var valMarsh = createMarshaller(toMarshallerColumns(valCols), valueMapper, false, true);
+                    Column[] keyCols = schema.keyColumns().columns();
+                    Column[] valCols = schema.valueColumns().columns();
 
-        return (row) -> {
-            try {
-                return new IgniteBiTuple<>(
-                        (K) keyMarsh.readObject(new TupleReader(new SqlRowProjection(row, keyIndexMapping)), null),
-                        (V) valMarsh.readObject(new TupleReader(new SqlRowProjection(row, valIndexMapping)), null)
-                );
-            } catch (org.apache.ignite.internal.marshaller.MarshallerException e) {
-                throw new IgniteException(Sql.RUNTIME_ERR, "Failed to map SQL result set: " + e.getMessage(), e);
-            }
-        };
+                    List<Integer> keyIndexMapping = indexMapping(schema.keyColumns().columns(), metadata);
+                    List<Integer> valIndexMapping = indexMapping(schema.valueColumns().columns(), metadata);
+
+                    Marshaller keyMarsh = createMarshaller(toMarshallerColumns(keyCols), keyMapper, false, true);
+                    Marshaller valMarsh = createMarshaller(toMarshallerColumns(valCols), valueMapper, false, true);
+
+                    Function<SqlRow, Entry<K, V>> mapper = (row) -> {
+                        try {
+                            return new IgniteBiTuple<>(
+                                    (K) keyMarsh.readObject(new TupleReader(new SqlRowProjection(row, keyIndexMapping)), null),
+                                    (V) valMarsh.readObject(new TupleReader(new SqlRowProjection(row, valIndexMapping)), null)
+                            );
+                        } catch (org.apache.ignite.internal.marshaller.MarshallerException e) {
+                            throw new IgniteException(Sql.RUNTIME_ERR, "Failed to map SQL result set: " + e.getMessage(), e);
+                        }
+                    };
+
+                    return new QueryCriteriaAsyncResultSet<>(resultSet, mapper, session::close);
+                });
     }
 }

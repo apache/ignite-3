@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.client.table;
 
-import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 
@@ -34,7 +33,6 @@ import org.apache.ignite.sql.ClosableCursor;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.sql.Statement;
-import org.apache.ignite.sql.async.AsyncClosableCursor;
 import org.apache.ignite.sql.async.AsyncResultSet;
 import org.apache.ignite.table.criteria.Criteria;
 import org.apache.ignite.table.criteria.CriteriaQueryOptions;
@@ -94,13 +92,13 @@ abstract class AbstractClientView<R> implements CriteriaQuerySource<R> {
     }
 
     /**
-     * Criteria query over cache entries.
+     * Executes SQL statement and maps results.
      *
      * @param schema Schema.
-     * @param tx Transaction to execute the statement within or {@code null}.
+     * @param tx Transaction to execute the query within or {@code null} to run within implicit transaction.
      * @param statement SQL statement to execute.
      * @param arguments Arguments for the statement.
-     * @return Operation future.
+     * @return Future that represents the pending completion of the operation.
      * @throws SqlException If failed.
      */
     protected abstract CompletableFuture<AsyncResultSet<R>> executeQueryAsync(
@@ -110,15 +108,19 @@ abstract class AbstractClientView<R> implements CriteriaQuerySource<R> {
             @Nullable Object... arguments
     );
 
-    /**
-     * Criteria query over cache entries.
-     *
-     * @param tx Transaction to execute the query within or {@code null} to run within implicit transaction.
-     * @param criteria Will accept all the entries if {@code null}.
-     * @param opts Criteria query options.
-     * @throws SqlException If failed.
-     */
-    private CompletableFuture<AsyncResultSet<R>> executeQueryAsync(
+    /** {@inheritDoc} */
+    @Override
+    public ClosableCursor<R> queryCriteria(
+            @Nullable Transaction tx,
+            @Nullable Criteria criteria,
+            CriteriaQueryOptions opts
+    ) {
+        return new SyncResultSetAdapter<>(queryCriteriaAsync(tx, criteria, opts).join());
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<AsyncResultSet<R>> queryCriteriaAsync(
             @Nullable Transaction tx,
             @Nullable Criteria criteria,
             CriteriaQueryOptions opts
@@ -139,26 +141,5 @@ abstract class AbstractClientView<R> implements CriteriaQuerySource<R> {
 
                     return executeQueryAsync(schema, tx, statement, ser.getArguments());
                 });
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public ClosableCursor<R> queryCriteria(
-            @Nullable Transaction tx,
-            @Nullable Criteria criteria,
-            CriteriaQueryOptions opts
-    ) {
-        return new SyncResultSetAdapter<>(executeQueryAsync(tx, criteria, opts).join());
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public CompletableFuture<AsyncClosableCursor<R>> queryCriteriaAsync(
-            @Nullable Transaction tx,
-            @Nullable Criteria criteria,
-            CriteriaQueryOptions opts
-    ) {
-        return executeQueryAsync(tx, criteria, opts)
-                .thenApply(identity());
     }
 }

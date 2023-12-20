@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table;
 
+import static org.apache.ignite.internal.marshaller.Marshaller.createMarshaller;
 import static org.apache.ignite.internal.schema.marshaller.MarshallerUtil.toMarshallerColumns;
 
 import java.util.ArrayList;
@@ -31,12 +32,14 @@ import org.apache.ignite.internal.marshaller.Marshaller;
 import org.apache.ignite.internal.marshaller.TupleReader;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
+import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.marshaller.RecordMarshaller;
 import org.apache.ignite.internal.schema.marshaller.reflection.RecordMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.streamer.StreamerBatchSender;
+import org.apache.ignite.internal.table.criteria.QueryCriteriaAsyncResultSet;
 import org.apache.ignite.internal.table.criteria.SqlRowProjection;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
 import org.apache.ignite.internal.tx.InternalTransaction;
@@ -45,7 +48,10 @@ import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.MarshallerException;
 import org.apache.ignite.sql.ResultSetMetadata;
+import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.SqlRow;
+import org.apache.ignite.sql.Statement;
+import org.apache.ignite.sql.async.AsyncResultSet;
 import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.mapper.Mapper;
@@ -533,18 +539,32 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
 
     /** {@inheritDoc} */
     @Override
-    protected @Nullable Function<SqlRow, R> queryResultMapper(SchemaDescriptor schema, @Nullable ResultSetMetadata metadata) {
-        var valCols = ArrayUtils.concat(schema.keyColumns().columns(), schema.valueColumns().columns());
-        var valIdxMapping = indexMapping(valCols, metadata);
+    protected CompletableFuture<AsyncResultSet<R>> executeQueryAsync(
+            SchemaDescriptor schema,
+            @Nullable Transaction tx,
+            Statement statement,
+            @Nullable Object... arguments
+    ) {
+        Session session = tbl.sql().createSession();
 
-        var marsh = Marshaller.createMarshaller(toMarshallerColumns(valCols), mapper, false, true);
+        return session.executeAsync(tx, statement, arguments)
+                .thenApply(resultSet -> {
+                    ResultSetMetadata metadata = resultSet.metadata();
 
-        return (row) -> {
-            try {
-                return (R) marsh.readObject(new TupleReader(new SqlRowProjection(row, valIdxMapping)), null);
-            } catch (org.apache.ignite.internal.marshaller.MarshallerException e) {
-                throw new IgniteException(Sql.RUNTIME_ERR, "Failed to map SQL result set: " + e.getMessage(), e);
-            }
-        };
+                    Column[] valCols = ArrayUtils.concat(schema.keyColumns().columns(), schema.valueColumns().columns());
+                    List<Integer> valIdxMapping = indexMapping(valCols, metadata);
+
+                    Marshaller marsh = createMarshaller(toMarshallerColumns(valCols), mapper, false, true);
+
+                    Function<SqlRow, R> mapper = (row) -> {
+                        try {
+                            return (R) marsh.readObject(new TupleReader(new SqlRowProjection(row, valIdxMapping)), null);
+                        } catch (org.apache.ignite.internal.marshaller.MarshallerException e) {
+                            throw new IgniteException(Sql.RUNTIME_ERR, "Failed to map SQL result set: " + e.getMessage(), e);
+                        }
+                    };
+
+                    return new QueryCriteriaAsyncResultSet<>(resultSet, mapper, session::close);
+                });
     }
 }
