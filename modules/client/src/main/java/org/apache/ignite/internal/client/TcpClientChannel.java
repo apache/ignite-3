@@ -716,7 +716,9 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         @Nullable
         private final CompletableFuture<PayloadInputChannel> notificationFut;
 
-        private ClientRequestFuture(@Nullable PayloadReader<T> payloadReader, @Nullable CompletableFuture<PayloadInputChannel> notificationFut) {
+        private ClientRequestFuture(
+                @Nullable PayloadReader<T> payloadReader,
+                @Nullable CompletableFuture<PayloadInputChannel> notificationFut) {
             this.payloadReader = payloadReader;
             this.notificationFut = notificationFut;
         }
