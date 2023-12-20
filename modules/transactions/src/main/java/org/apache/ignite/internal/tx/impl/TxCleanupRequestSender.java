@@ -64,6 +64,17 @@ public class TxCleanupRequestSender {
     }
 
     /**
+     * Sends unlock request to the nodes than initiated recovery.
+     *
+     * @param node Target node.
+     * @param txId Transaction id.
+     * @return Completable future of Void.
+     */
+    public CompletableFuture<Void> cleanup(String node, UUID txId) {
+        return sendCleanupMessageWithRetries(false, null, txId, node, null);
+    }
+
+    /**
      * Sends cleanup request to the primary nodes of each one of {@code partitions}.
      *
      * @param partitions Enlisted partition groups.
@@ -123,7 +134,7 @@ public class TxCleanupRequestSender {
             @Nullable HybridTimestamp commitTimestamp,
             UUID txId,
             String node,
-            Collection<TablePartitionId> partitions
+            @Nullable Collection<TablePartitionId> partitions
     ) {
         Collection<ReplicationGroupId> enlistedPartitions = (Collection<ReplicationGroupId>) (Collection<?>) partitions;
 
@@ -138,6 +149,12 @@ public class TxCleanupRequestSender {
                             //  either have a new mapping of primary to its partitions
                             // or will run `switchWriteIntentsOnPartitions` for partitions with no primary.
                             // At the end of the day all write intents will be properly converted.
+                            if (partitions == null) {
+                                // If we don't have any partition, which is the recovery case,
+                                // just try again with the same node.
+                                return sendCleanupMessageWithRetries(commit, commitTimestamp, txId, node, partitions);
+                            }
+
                             return cleanup(partitions, commit, commitTimestamp, txId);
                         }
 
