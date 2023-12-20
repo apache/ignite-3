@@ -19,6 +19,7 @@ package org.apache.ignite.network;
 
 import static org.apache.ignite.internal.tostring.IgniteToStringBuilder.includeSensitive;
 
+import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.jetbrains.annotations.Nullable;
@@ -35,7 +36,7 @@ public class TrackableNetworkMessageHandler implements NetworkMessageHandler {
     // TODO: I don't know which value to use here, let's discuss in the PR. On the one hand every IO should be highlighted and thus
     // TODO: the value should be rather small, on the other hand, currently we have lots of slow messages and we will just flood the log
     // TODO: will log running ones. So for now, I believe we should set rather big value here in order to ease test failure analysis.
-    private static final int WATCH_EVENT_PROCESSING_LOG_THRESHOLD_NANOS = 1_000_000;
+    private static final int MESSAGING_PROCESSING_LOG_THRESHOLD_MILLIS = 5;
 
     private final NetworkMessageHandler targetHandler;
 
@@ -53,12 +54,12 @@ public class TrackableNetworkMessageHandler implements NetworkMessageHandler {
     }
 
     private static void maybeLogLongProcessing(NetworkMessage message, long startTimeNanos) {
-        long durationNanos = System.nanoTime() - startTimeNanos;
+        long durationMillis = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTimeNanos);
 
-        if (durationNanos > WATCH_EVENT_PROCESSING_LOG_THRESHOLD_NANOS) {
+        if (durationMillis > MESSAGING_PROCESSING_LOG_THRESHOLD_MILLIS) {
             LOG.warn(
-                    "Message handling has been too long [duration={}ns, message=[{}]]",
-                    durationNanos,
+                    "Message handling has been too long [duration={}ms, message=[{}]]",
+                    durationMillis,
                     // Message may include sensitive data, however it seems useful to print full message content while testing.
                     includeSensitive() ? message : message.getClass()
             );
