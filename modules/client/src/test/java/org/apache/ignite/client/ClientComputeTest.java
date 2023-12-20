@@ -100,7 +100,6 @@ public class ClientComputeTest extends BaseIgniteAbstractTest {
 
     @Test
     public void testClientRetriesComputeJobOnPrimaryAndDefaultNodes() throws Exception {
-        // TODO: The test passes if we comment out handler.consume() in TcpClientChannel#close
         initServers(reqId -> reqId % 3 == 0);
 
         try (var client = getClient(server3)) {

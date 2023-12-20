@@ -325,14 +325,7 @@ public class ClientCompute implements IgniteCompute {
                 },
                 r -> null,
                 partitionAwarenessProvider,
-                (r, err) -> {
-                    if (err != null) {
-                        notificationFut.completeExceptionally(err);
-                    } else {
-                        assert r != null;
-                        notificationFut.complete((R) r.in().unpackObjectFromBinaryTuple());
-                    }
-                });
+                true);
 
         return reqFut.thenCompose(v -> notificationFut);
     }
