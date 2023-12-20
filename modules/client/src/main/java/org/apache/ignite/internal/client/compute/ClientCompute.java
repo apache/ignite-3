@@ -29,9 +29,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadLocalRandom;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiConsumer;
-import org.apache.ignite.client.IgniteClientConnectionException;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.internal.client.ClientUtils;
@@ -300,8 +298,6 @@ public class ClientCompute implements IgniteCompute {
             List<DeploymentUnit> units,
             String jobClassName,
             Object[] args) {
-        CompletableFuture<R> notificationFut = new CompletableFuture<>();
-
         var reqFut = t.doSchemaOutOpAsync(
                 ClientOp.COMPUTE_EXECUTE_COLOCATED,
                 (schema, outputChannel) -> {
@@ -314,11 +310,18 @@ public class ClientCompute implements IgniteCompute {
 
                     packJob(w, units, jobClassName, args);
                 },
-                r -> null,
+                ch -> ch,
                 partitionAwarenessProvider,
                 true);
 
-        return reqFut.thenCompose(v -> notificationFut);
+        return reqFut
+                .thenCompose(PayloadInputChannel::notificationFuture)
+                .thenApply(r -> {
+                    // Notifications require explicit input close.
+                    try (r) {
+                        return (R) r.in().unpackObjectFromBinaryTuple();
+                    }
+                });
     }
 
     private CompletableFuture<ClientTable> getTable(String tableName) {
