@@ -25,16 +25,16 @@ import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Represents a criteria query facade that can be used to executes a query to a view using a predicate.
+ * Represents a criteria query facade that can be used to executes a query to a record view using a predicate.
  *
  * @param <T> The type of elements returned by iterator.
  */
 public interface CriteriaQuerySource<T> {
     /**
-     * Executes a query to a view using a predicate.
+     * Executes a query to a record view using a predicate.
      *
      * @param tx Transaction to execute the query within or {@code null} to run within implicit transaction.
-     * @param criteria The predicate to filter entries or {@code null} to return all entries in view.
+     * @param criteria The predicate to filter entries or {@code null} to return all entries in record view.
      * @return Iterator with query results.
      * @throws SqlException If failed.
      */
@@ -43,10 +43,10 @@ public interface CriteriaQuerySource<T> {
     }
 
     /**
-     * Executes a query to a view using a predicate.
+     * Executes a query to a record view using a predicate.
      *
      * @param tx Transaction to execute the query within or {@code null} to run within implicit transaction.
-     * @param criteria The predicate to filter entries or {@code null} to return all entries in view.
+     * @param criteria The predicate to filter entries or {@code null} to return all entries in record view.
      * @param opts Criteria query options.
      * @return Iterator with query results.
      * @throws SqlException If failed.
@@ -54,10 +54,10 @@ public interface CriteriaQuerySource<T> {
     Cursor<T> queryCriteria(@Nullable Transaction tx, @Nullable Criteria criteria, CriteriaQueryOptions opts);
 
     /**
-     * Executes a query to a view using a predicate in an asynchronous way.
+     * Executes a query to a record view using a predicate in an asynchronous way.
      *
      * @param tx Transaction to execute the query within or {@code null} to run within implicit transaction.
-     * @param criteria The predicate to filter entries or {@code null} to return all entries in view.
+     * @param criteria The predicate to filter entries or {@code null} to return all entries in record view.
      * @return Future that represents the pending completion of the operation.
      * @throws SqlException If failed.
      */
@@ -66,10 +66,10 @@ public interface CriteriaQuerySource<T> {
     }
 
     /**
-     * Executes a query to a view using a predicate in an asynchronous way.
+     * Executes a query to a record view using a predicate in an asynchronous way.
      *
      * @param tx Transaction to execute the query within or {@code null} to run within implicit transaction.
-     * @param criteria The predicate to filter entries or {@code null} to return all entries in view.
+     * @param criteria The predicate to filter entries or {@code null} to return all entries in record view.
      * @param opts Criteria query options.
      * @return Future that represents the pending completion of the operation.
      * @throws SqlException If failed.
