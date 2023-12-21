@@ -61,7 +61,7 @@ public interface CriteriaQuerySource<T> {
      * @return Future that represents the pending completion of the operation.
      * @throws SqlException If failed.
      */
-    default CompletableFuture<? extends AsyncClosableCursor<T>> queryCriteriaAsync(@Nullable Transaction tx, @Nullable Criteria criteria) {
+    default CompletableFuture<AsyncClosableCursor<T>> queryCriteriaAsync(@Nullable Transaction tx, @Nullable Criteria criteria) {
         return queryCriteriaAsync(tx, criteria, CriteriaQueryOptions.DEFAULT);
     }
 
