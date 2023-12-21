@@ -60,7 +60,7 @@ public class KeyValueViewPrimitiveTests : IgniteTestsBase
 
         var recView = table!.RecordBinaryView;
         await recView.UpsertAsync(null, new IgniteTuple { ["ID"] = 1L, ["VAL"] = 1L });
-        await recView.UpsertAsync(null, new IgniteTuple { ["ID"] = 1L, ["VAL"] = null });
+        await recView.UpsertAsync(null, new IgniteTuple { ["ID"] = 2L, ["VAL"] = null });
 
         var view = table.GetKeyValueView<long, long?>();
         var res1 = await view.GetAsync(null, 1);
@@ -74,7 +74,6 @@ public class KeyValueViewPrimitiveTests : IgniteTestsBase
         Assert.AreEqual(null, res2.Value);
 
         Assert.IsFalse(res3.HasValue);
-        Assert.AreEqual(null, res3.Value);
     }
 
     [Test]
