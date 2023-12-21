@@ -46,8 +46,6 @@ namespace Apache.Ignite.Internal.Buffers
         /** Length. */
         private readonly int _length;
 
-        private readonly object? _metadata;
-
         /// <summary>
         /// Initializes a new instance of the <see cref="PooledBuffer"/> struct.
         /// </summary>
@@ -60,13 +58,13 @@ namespace Apache.Ignite.Internal.Buffers
             _bytes = bytes;
             _position = position;
             _length = length;
-            _metadata = metadata;
+            Metadata = metadata;
         }
 
         /// <summary>
         /// Gets the optional metadata.
         /// </summary>
-        public object? Metadata => _metadata;
+        public object? Metadata { get; }
 
         /// <summary>
         /// Gets a <see cref="MsgPackReader"/> for this buffer.
