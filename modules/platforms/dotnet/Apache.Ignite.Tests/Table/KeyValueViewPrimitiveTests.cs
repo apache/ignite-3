@@ -85,18 +85,10 @@ public class KeyValueViewPrimitiveTests : IgniteTestsBase
         await Client.Sql.ExecuteAsync(null, "CREATE TABLE IF NOT EXISTS TestPutGetNullable (ID BIGINT PRIMARY KEY, VAL BIGINT)");
 
         var table = await Client.Tables.GetTableAsync("TestPutGetNullable");
-        var recView = table!.RecordBinaryView;
-        var view = table.GetKeyValueView<long, long>();
+        var view = table!.GetKeyValueView<long, long>();
 
-        await recView.UpsertAsync(null, new IgniteTuple { ["ID"] = 1L, ["VAL"] = 1L });
-        await recView.UpsertAsync(null, new IgniteTuple { ["ID"] = 2L, ["VAL"] = null });
-
-        var res1 = await view.GetAsync(null, 1);
-        Assert.IsTrue(res1.HasValue);
-        Assert.AreEqual(1, res1.Value);
-
-        var ex = Assert.ThrowsAsync<InvalidOperationException>(async () => await view.GetAsync(null, 2));
-        Assert.AreEqual("TODO: Proper error message explaining the problem", ex!.Message);
+        var ex = Assert.ThrowsAsync<IgniteClientException>(async () => await view.GetAsync(null, 2));
+        Assert.AreEqual("Can't map 'System.Int64' to column 'VAL' - column is nullable, but field is not.", ex!.Message);
     }
 
     [Test]
