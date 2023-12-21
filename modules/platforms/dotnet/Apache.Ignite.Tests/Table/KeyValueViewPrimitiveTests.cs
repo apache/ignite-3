@@ -67,8 +67,13 @@ public class KeyValueViewPrimitiveTests : IgniteTestsBase
         var res2 = await view.GetAsync(null, 2);
         var res3 = await view.GetAsync(null, 3);
 
+        Assert.IsTrue(res1.HasValue);
         Assert.AreEqual(1, res1.Value);
+
+        Assert.IsTrue(res2.HasValue);
         Assert.AreEqual(null, res2.Value);
+
+        Assert.IsFalse(res3.HasValue);
         Assert.AreEqual(null, res3.Value);
     }
 
