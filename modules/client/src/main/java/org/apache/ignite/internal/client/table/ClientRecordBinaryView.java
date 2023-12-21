@@ -32,14 +32,13 @@ import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.sql.ClientSessionBuilder;
 import org.apache.ignite.internal.client.sql.ClientStatementBuilder;
-import org.apache.ignite.internal.sql.SyncResultSetAdapter;
+import org.apache.ignite.internal.sql.SyncClosableCursorAdapter;
 import org.apache.ignite.internal.streamer.StreamerBatchSender;
-import org.apache.ignite.internal.table.criteria.QueryCriteriaAsyncResultSet;
+import org.apache.ignite.internal.table.criteria.QueryCriteriaAsyncCursor;
 import org.apache.ignite.sql.ClosableCursor;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.Statement;
 import org.apache.ignite.sql.async.AsyncClosableCursor;
-import org.apache.ignite.sql.async.AsyncResultSet;
 import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
@@ -392,7 +391,15 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
         return ClientDataStreamer.streamData(publisher, opts, batchSender, provider, tbl);
     }
 
-    private CompletableFuture<AsyncResultSet<Tuple>> executeAsync(
+    /** {@inheritDoc} */
+    @Override
+    public ClosableCursor<Tuple> queryCriteria(@Nullable Transaction tx, @Nullable Criteria criteria, CriteriaQueryOptions opts) {
+        return new SyncClosableCursorAdapter<>(sync(queryCriteriaAsync(tx, criteria, opts)));
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<AsyncClosableCursor<Tuple>> queryCriteriaAsync(
             @Nullable Transaction tx,
             @Nullable Criteria criteria,
             CriteriaQueryOptions opts
@@ -404,22 +411,6 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
         Session session = new ClientSessionBuilder(tbl.channel()).build();
 
         return session.executeAsync(tx, statement)
-                .thenApply(resultSet -> new QueryCriteriaAsyncResultSet<>(resultSet, session::close));
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public ClosableCursor<Tuple> queryCriteria(@Nullable Transaction tx, @Nullable Criteria criteria, CriteriaQueryOptions opts) {
-        return new SyncResultSetAdapter<>(executeAsync(tx, criteria, opts).join());
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public CompletableFuture<? extends AsyncClosableCursor<Tuple>> queryCriteriaAsync(
-            @Nullable Transaction tx,
-            @Nullable Criteria criteria,
-            CriteriaQueryOptions opts
-    ) {
-        return executeAsync(tx, criteria, opts);
+                .thenApply(resultSet -> new QueryCriteriaAsyncCursor<>(resultSet, session::close));
     }
 }

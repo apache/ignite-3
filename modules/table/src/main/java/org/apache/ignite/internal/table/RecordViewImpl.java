@@ -32,9 +32,9 @@ import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.marshaller.RecordMarshaller;
 import org.apache.ignite.internal.schema.marshaller.reflection.RecordMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
-import org.apache.ignite.internal.sql.SyncResultSetAdapter;
+import org.apache.ignite.internal.sql.SyncClosableCursorAdapter;
 import org.apache.ignite.internal.streamer.StreamerBatchSender;
-import org.apache.ignite.internal.table.criteria.QueryCriteriaAsyncResultSet;
+import org.apache.ignite.internal.table.criteria.QueryCriteriaAsyncCursor;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.lang.MarshallerException;
@@ -42,7 +42,6 @@ import org.apache.ignite.sql.ClosableCursor;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.Statement;
 import org.apache.ignite.sql.async.AsyncClosableCursor;
-import org.apache.ignite.sql.async.AsyncResultSet;
 import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.criteria.Criteria;
@@ -531,7 +530,15 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
         return DataStreamer.streamData(publisher, options, batchSender, partitioner);
     }
 
-    private CompletableFuture<AsyncResultSet<R>> executeAsync(
+    /** {@inheritDoc} */
+    @Override
+    public ClosableCursor<R> queryCriteria(@Nullable Transaction tx, @Nullable Criteria criteria, CriteriaQueryOptions opts) {
+        return new SyncClosableCursorAdapter<>(sync(queryCriteriaAsync(tx, criteria, opts)));
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<AsyncClosableCursor<R>> queryCriteriaAsync(
             @Nullable Transaction tx,
             @Nullable Criteria criteria,
             CriteriaQueryOptions opts
@@ -543,22 +550,6 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
         Session session = tbl.sql().createSession();
 
         return session.executeAsync(tx, mapper, statement)
-                .thenApply(resultSet -> new QueryCriteriaAsyncResultSet<>(resultSet, session::close));
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public ClosableCursor<R> queryCriteria(@Nullable Transaction tx, @Nullable Criteria criteria, CriteriaQueryOptions opts) {
-        return new SyncResultSetAdapter<>(executeAsync(tx, criteria, opts).join());
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public CompletableFuture<? extends AsyncClosableCursor<R>> queryCriteriaAsync(
-            @Nullable Transaction tx,
-            @Nullable Criteria criteria,
-            CriteriaQueryOptions opts
-    ) {
-        return executeAsync(tx, criteria, opts);
+                .thenApply(resultSet -> new QueryCriteriaAsyncCursor<>(resultSet, session::close));
     }
 }

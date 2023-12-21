@@ -24,16 +24,15 @@ import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
-import java.util.function.Function;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshaller;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
 import org.apache.ignite.internal.schema.row.Row;
-import org.apache.ignite.internal.sql.SyncResultSetAdapter;
+import org.apache.ignite.internal.sql.SyncClosableCursorAdapter;
 import org.apache.ignite.internal.streamer.StreamerBatchSender;
-import org.apache.ignite.internal.table.criteria.QueryCriteriaAsyncResultSet;
+import org.apache.ignite.internal.table.criteria.QueryCriteriaAsyncCursor;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.lang.IgniteException;
@@ -42,7 +41,6 @@ import org.apache.ignite.sql.ClosableCursor;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.Statement;
 import org.apache.ignite.sql.async.AsyncClosableCursor;
-import org.apache.ignite.sql.async.AsyncResultSet;
 import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
@@ -445,7 +443,15 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
         return DataStreamer.streamData(publisher, options, batchSender, partitioner);
     }
 
-    protected CompletableFuture<AsyncResultSet<Tuple>> executeAsync(
+    /** {@inheritDoc} */
+    @Override
+    public ClosableCursor<Tuple> queryCriteria(@Nullable Transaction tx, @Nullable Criteria criteria, CriteriaQueryOptions opts) {
+        return new SyncClosableCursorAdapter<>(sync(queryCriteriaAsync(tx, criteria, opts)));
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<AsyncClosableCursor<Tuple>> queryCriteriaAsync(
             @Nullable Transaction tx,
             @Nullable Criteria criteria,
             CriteriaQueryOptions opts
@@ -457,22 +463,6 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
         Session session = tbl.sql().createSession();
 
         return session.executeAsync(tx, statement)
-                .thenApply(resultSet -> new QueryCriteriaAsyncResultSet<>(resultSet, session::close));
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public ClosableCursor<Tuple> queryCriteria(@Nullable Transaction tx, @Nullable Criteria criteria, CriteriaQueryOptions opts) {
-        return new SyncResultSetAdapter<>(executeAsync(tx, criteria, opts).join());
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public CompletableFuture<? extends AsyncClosableCursor<Tuple>> queryCriteriaAsync(
-            @Nullable Transaction tx,
-            @Nullable Criteria criteria,
-            CriteriaQueryOptions opts
-    ) {
-        return executeAsync(tx, criteria, opts);
+                .thenApply(resultSet -> new QueryCriteriaAsyncCursor<>(resultSet, session::close));
     }
 }

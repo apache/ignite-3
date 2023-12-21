@@ -18,14 +18,13 @@
 package org.apache.ignite.internal.table.criteria;
 
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.sql.ResultSetMetadata;
+import org.apache.ignite.sql.async.AsyncClosableCursor;
 import org.apache.ignite.sql.async.AsyncResultSet;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Wrapper over {@link AsyncResultSet} for criteria queries.
  */
-public class QueryCriteriaAsyncResultSet<T> implements AsyncResultSet<T> {
+public class QueryCriteriaAsyncCursor<T> implements AsyncClosableCursor<T> {
     private final AsyncResultSet<T> ars;
 
     private final Runnable closeRun;
@@ -36,7 +35,7 @@ public class QueryCriteriaAsyncResultSet<T> implements AsyncResultSet<T> {
      * @param ars Asynchronous result set.
      * @param closeRun Callback to be invoked after result is closed.
      */
-    public QueryCriteriaAsyncResultSet(AsyncResultSet<? extends T> ars, Runnable closeRun) {
+    public QueryCriteriaAsyncCursor(AsyncResultSet<? extends T> ars, Runnable closeRun) {
         this.ars = (AsyncResultSet<T>) ars;
         this.closeRun = closeRun;
     }
@@ -74,29 +73,5 @@ public class QueryCriteriaAsyncResultSet<T> implements AsyncResultSet<T> {
     @Override
     public CompletableFuture<Void> closeAsync() {
         return ars.closeAsync().thenRun(closeRun);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public @Nullable ResultSetMetadata metadata() {
-        return ars.metadata();
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public boolean hasRowSet() {
-        return ars.hasRowSet();
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public long affectedRows() {
-        return ars.affectedRows();
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public boolean wasApplied() {
-        return ars.wasApplied();
     }
 }
