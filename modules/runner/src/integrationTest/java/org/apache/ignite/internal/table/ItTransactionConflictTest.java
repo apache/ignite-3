@@ -24,25 +24,42 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.util.ExceptionUtils.extractCodeFrom;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.IntStream;
 import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.message.ErrorTimestampAwareReplicaResponse;
+import org.apache.ignite.internal.replicator.message.TimestampAwareReplicaResponse;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.internal.tx.TransactionAlreadyFinishedException;
+import org.apache.ignite.internal.tx.TxMeta;
+import org.apache.ignite.internal.tx.TxState;
+import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
+import org.apache.ignite.internal.tx.message.TxFinishReplicaRequest;
 import org.apache.ignite.internal.tx.message.TxRecoveryMessage;
+import org.apache.ignite.internal.tx.message.TxStateCommitPartitionRequest;
+import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.ErrorGroups.Transactions;
+import org.apache.ignite.network.ClusterService;
+import org.apache.ignite.network.DefaultMessagingService;
+import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
+import org.apache.ignite.tx.TransactionOptions;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
@@ -145,6 +162,490 @@ public class ItTransactionConflictTest extends ClusterPerTestIntegrationTest {
         }, 10_000));
     }
 
+    @Test
+    public void testAbandonedTxIsReverted() throws Exception {
+        TableImpl tbl = (TableImpl) node(0).tables().table(TABLE_NAME);
+
+        var tblReplicationGrp = new TablePartitionId(tbl.tableId(), 0);
+
+        CompletableFuture<ReplicaMeta> primaryReplicaFut = node(0).placementDriver().awaitPrimaryReplica(
+                tblReplicationGrp,
+                node(0).clock().now(),
+                10,
+                SECONDS
+        );
+
+        assertThat(primaryReplicaFut, willCompleteSuccessfully());
+
+        String leaseholder = primaryReplicaFut.join().getLeaseholder();
+
+        IgniteImpl commitPartNode = IntStream.range(0, initialNodes()).mapToObj(this::node).filter(n -> leaseholder.equals(n.name()))
+                .findFirst().get();
+
+        log.info("Transaction commit partition is determined [node={}].", commitPartNode.name());
+
+        IgniteImpl txCrdNode = IntStream.range(1, initialNodes()).mapToObj(this::node).filter(n -> !leaseholder.equals(n.name()))
+                .findFirst().get();
+
+        log.info("Transaction coordinator is chosen [node={}].", txCrdNode.name());
+
+        UUID orphanTxId = startTransactionAndStopNode(txCrdNode);
+
+        CompletableFuture<UUID> recoveryTxMsgCaptureFut = new CompletableFuture<>();
+        AtomicInteger msgCount = new AtomicInteger();
+
+        commitPartNode.dropMessages((nodeName, msg) -> {
+            if (msg instanceof TxRecoveryMessage) {
+                var recoveryTxMsg = (TxRecoveryMessage) msg;
+
+                recoveryTxMsgCaptureFut.complete(recoveryTxMsg.txId());
+
+                msgCount.incrementAndGet();
+            }
+
+            return false;
+        });
+
+        runConflictingTransaction(node(0), node(0).transactions().begin());
+
+        assertThat(recoveryTxMsgCaptureFut, willCompleteSuccessfully());
+
+        assertEquals(orphanTxId, recoveryTxMsgCaptureFut.join());
+        assertEquals(1, msgCount.get());
+
+        assertTrue(waitForCondition(() -> txStoredState(commitPartNode, orphanTxId) == TxState.ABORTED, 10_000));
+    }
+
+    @Test
+    public void testWriteIntentRecoverNoCoordinator() throws Exception {
+        TableImpl tbl = (TableImpl) node(0).tables().table(TABLE_NAME);
+
+        var tblReplicationGrp = new TablePartitionId(tbl.tableId(), 0);
+
+        CompletableFuture<ReplicaMeta> primaryReplicaFut = node(0).placementDriver().awaitPrimaryReplica(
+                tblReplicationGrp,
+                node(0).clock().now(),
+                10,
+                SECONDS
+        );
+
+        assertThat(primaryReplicaFut, willCompleteSuccessfully());
+
+        String leaseholder = primaryReplicaFut.join().getLeaseholder();
+
+        IgniteImpl commitPartNode = IntStream.range(0, initialNodes()).mapToObj(this::node).filter(n -> leaseholder.equals(n.name()))
+                .findFirst().get();
+
+        log.info("Transaction commit partition is determined [node={}].", commitPartNode.name());
+
+        IgniteImpl txCrdNode = IntStream.range(1, initialNodes()).mapToObj(this::node).filter(n -> !leaseholder.equals(n.name()))
+                .findFirst().get();
+
+        log.info("Transaction coordinator is chosen [node={}].", txCrdNode.name());
+
+        UUID orphanTxId = startTransactionAndStopNode(txCrdNode);
+
+        AtomicInteger msgCount = new AtomicInteger();
+
+        IgniteImpl roCoordNode = node(0);
+
+        log.info("RO Transaction coordinator is chosen [node={}].", roCoordNode.name());
+
+        commitPartNode.dropMessages((nodeName, msg) -> {
+            if (msg instanceof TxStateCommitPartitionRequest) {
+                msgCount.incrementAndGet();
+
+                assertEquals(TxState.ABANDONED, txVolatileState(commitPartNode, orphanTxId));
+            }
+
+            return false;
+        });
+
+        Transaction recoveryTxRO = roCoordNode.transactions().begin(new TransactionOptions().readOnly(true));
+
+        runReadOnlyTransaction(roCoordNode, recoveryTxRO);
+
+        assertEquals(1, msgCount.get());
+
+        assertTrue(waitForCondition(() -> txStoredState(commitPartNode, orphanTxId) == TxState.ABORTED, 10_000));
+    }
+
+    /**
+     * Coordinator sends a commit message and dies. The message eventually reaches the commit partition and gets executed.
+     * The expected outcome of the transaction is COMMIT.
+     */
+    @Test
+    public void testSendCommitAndDie() throws Exception {
+        TableImpl tbl = (TableImpl) node(0).tables().table(TABLE_NAME);
+
+        var tblReplicationGrp = new TablePartitionId(tbl.tableId(), 0);
+
+        CompletableFuture<ReplicaMeta> primaryReplicaFut = node(0).placementDriver().awaitPrimaryReplica(
+                tblReplicationGrp,
+                node(0).clock().now(),
+                10,
+                SECONDS
+        );
+
+        assertThat(primaryReplicaFut, willCompleteSuccessfully());
+
+        String leaseholder = primaryReplicaFut.join().getLeaseholder();
+
+        IgniteImpl commitPartNode = IntStream.range(0, initialNodes()).mapToObj(this::node).filter(n -> leaseholder.equals(n.name()))
+                .findFirst().get();
+
+        log.info("Transaction commit partition is determined [node={}].", commitPartNode.name());
+
+        IgniteImpl txCrdNode = IntStream.range(1, initialNodes()).mapToObj(this::node).filter(n -> !leaseholder.equals(n.name()))
+                .findFirst().get();
+
+        log.info("Transaction coordinator is chosen [node={}].", txCrdNode.name());
+
+        InternalTransaction orphanTx = (InternalTransaction) createRwTransaction(txCrdNode);
+
+        CompletableFuture<TxFinishReplicaRequest> finishRequestCaptureFut = new CompletableFuture<>();
+        AtomicReference<String> targetName = new AtomicReference<>();
+
+        // Intercept the commit message, prevent it form being sent. We will kill this node anyway.
+        txCrdNode.dropMessages((nodeName, msg) -> {
+            if (msg instanceof TxFinishReplicaRequest) {
+                var finishTxMsg = (TxFinishReplicaRequest) msg;
+
+                finishRequestCaptureFut.complete(finishTxMsg);
+                targetName.set(nodeName);
+
+                return true;
+            }
+
+            return false;
+        });
+
+        // Initiate commit.
+        orphanTx.commitAsync();
+
+        assertThat(finishRequestCaptureFut, willCompleteSuccessfully());
+
+        // Stop old coordinator.
+        String txCrdNodeId = txCrdNode.id();
+
+        txCrdNode.stop();
+
+        assertTrue(waitForCondition(
+                () -> node(0).clusterNodes().stream().filter(n -> txCrdNodeId.equals(n.id())).count() == 0,
+                10_000)
+        );
+
+        // The state on the commit partition is still PENDING.
+        assertEquals(TxState.PENDING, txVolatileState(commitPartNode, orphanTx.id()));
+
+        // Continue the COMMIT message flow.
+        CompletableFuture<NetworkMessage> finishRequest =
+                messaging(commitPartNode).invoke(targetName.get(), finishRequestCaptureFut.join(), 3000);
+
+        assertThat(finishRequest, willCompleteSuccessfully());
+
+        // The conflicting transaction should see an already committed TX.
+        runRWTransactionNoError(node(0), node(0).transactions().begin());
+
+        assertTrue(waitForCondition(() -> txStoredState(commitPartNode, orphanTx.id()) == TxState.COMMITTED, 10_000));
+    }
+
+    /**
+     * Coordinator sends a commit message and dies. Another tx initiates recovery and aborts this transaction.
+     * The commit message eventually reaches the commit partition and gets executed but the outcome is ABORTED.
+     */
+    @Test
+    public void testCommitAndDieRecoveryFirst() throws Exception {
+        TableImpl tbl = (TableImpl) node(0).tables().table(TABLE_NAME);
+
+        var tblReplicationGrp = new TablePartitionId(tbl.tableId(), 0);
+
+        CompletableFuture<ReplicaMeta> primaryReplicaFut = node(0).placementDriver().awaitPrimaryReplica(
+                tblReplicationGrp,
+                node(0).clock().now(),
+                10,
+                SECONDS
+        );
+
+        assertThat(primaryReplicaFut, willCompleteSuccessfully());
+
+        String leaseholder = primaryReplicaFut.join().getLeaseholder();
+
+        IgniteImpl commitPartNode = IntStream.range(0, initialNodes()).mapToObj(this::node).filter(n -> leaseholder.equals(n.name()))
+                .findFirst().get();
+
+        log.info("Transaction commit partition is determined [node={}].", commitPartNode.name());
+
+        IgniteImpl txCrdNode = IntStream.range(1, initialNodes()).mapToObj(this::node).filter(n -> !leaseholder.equals(n.name()))
+                .findFirst().get();
+
+        log.info("Transaction coordinator is chosen [node={}].", txCrdNode.name());
+
+        InternalTransaction orphanTx = (InternalTransaction) createRwTransaction(txCrdNode);
+
+        CompletableFuture<TxFinishReplicaRequest> finishRequestCaptureFut = new CompletableFuture<>();
+        AtomicReference<String> targetName = new AtomicReference<>();
+
+        // Intercept the commit message, prevent it form being sent. We will kill this node anyway.
+        txCrdNode.dropMessages((nodeName, msg) -> {
+            if (msg instanceof TxFinishReplicaRequest) {
+                var finishTxMsg = (TxFinishReplicaRequest) msg;
+
+                finishRequestCaptureFut.complete(finishTxMsg);
+                targetName.set(nodeName);
+
+                return true;
+            }
+
+            return false;
+        });
+
+        // Initiate commit.
+        orphanTx.commitAsync();
+
+        assertThat(finishRequestCaptureFut, willCompleteSuccessfully());
+
+        // Stop old coordinator.
+        String txCrdNodeId = txCrdNode.id();
+
+        txCrdNode.stop();
+
+        assertTrue(waitForCondition(
+                () -> node(0).clusterNodes().stream().filter(n -> txCrdNodeId.equals(n.id())).count() == 0,
+                10_000)
+        );
+
+        // The state on the commit partition is still PENDING.
+        assertEquals(TxState.PENDING, txVolatileState(commitPartNode, orphanTx.id()));
+
+        IgniteImpl newTxCoord = node(0);
+
+        runRWTransactionNoError(newTxCoord, newTxCoord.transactions().begin());
+
+        assertTrue(waitForCondition(() -> txStoredState(commitPartNode, orphanTx.id()) == TxState.ABORTED, 10_000));
+
+        CompletableFuture<NetworkMessage> commitRequest =
+                messaging(commitPartNode).invoke(targetName.get(), finishRequestCaptureFut.join(), 3000);
+
+        assertThat(commitRequest, willCompleteSuccessfully());
+
+        NetworkMessage response = commitRequest.join();
+
+        assertInstanceOf(ErrorTimestampAwareReplicaResponse.class, response);
+
+        ErrorTimestampAwareReplicaResponse errorResponse = (ErrorTimestampAwareReplicaResponse) response;
+
+        assertInstanceOf(TransactionAlreadyFinishedException.class, ExceptionUtils.unwrapCause(errorResponse.throwable()));
+
+        assertTrue(waitForCondition(() -> txStoredState(commitPartNode, orphanTx.id()) == TxState.ABORTED, 10_000));
+    }
+
+    /**
+     * Coordinator sends a commit message and dies. Another tx initiates recovery and aborts this transaction.
+     * The commit message eventually reaches the commit partition and gets executed but the outcome is ABORTED.
+     * Here COMMIT is sent after the locks were released.
+     */
+    @Test
+    public void testCommitAndDieRecoveryFirstWaitLocksReleased() throws Exception {
+        TableImpl tbl = (TableImpl) node(0).tables().table(TABLE_NAME);
+
+        var tblReplicationGrp = new TablePartitionId(tbl.tableId(), 0);
+
+        CompletableFuture<ReplicaMeta> primaryReplicaFut = node(0).placementDriver().awaitPrimaryReplica(
+                tblReplicationGrp,
+                node(0).clock().now(),
+                10,
+                SECONDS
+        );
+
+        assertThat(primaryReplicaFut, willCompleteSuccessfully());
+
+        String leaseholder = primaryReplicaFut.join().getLeaseholder();
+
+        IgniteImpl commitPartNode = IntStream.range(0, initialNodes()).mapToObj(this::node).filter(n -> leaseholder.equals(n.name()))
+                .findFirst().get();
+
+        log.info("Transaction commit partition is determined [node={}].", commitPartNode.name());
+
+        IgniteImpl txCrdNode = IntStream.range(1, initialNodes()).mapToObj(this::node).filter(n -> !leaseholder.equals(n.name()))
+                .findFirst().get();
+
+        log.info("Transaction coordinator is chosen [node={}].", txCrdNode.name());
+
+        InternalTransaction orphanTx = (InternalTransaction) createRwTransaction(txCrdNode);
+
+        CompletableFuture<TxFinishReplicaRequest> finishRequestCaptureFut = new CompletableFuture<>();
+        AtomicReference<String> targetName = new AtomicReference<>();
+
+        // Intercept the commit message, prevent it form being sent. We will kill this node anyway.
+        txCrdNode.dropMessages((nodeName, msg) -> {
+            if (msg instanceof TxFinishReplicaRequest) {
+                var finishTxMsg = (TxFinishReplicaRequest) msg;
+
+                finishRequestCaptureFut.complete(finishTxMsg);
+                targetName.set(nodeName);
+
+                return true;
+            }
+
+            return false;
+        });
+
+        // Initiate commit.
+        orphanTx.commitAsync();
+
+        assertThat(finishRequestCaptureFut, willCompleteSuccessfully());
+
+        // Stop old coordinator.
+        String txCrdNodeId = txCrdNode.id();
+
+        txCrdNode.stop();
+
+        assertTrue(waitForCondition(
+                () -> node(0).clusterNodes().stream().filter(n -> txCrdNodeId.equals(n.id())).count() == 0,
+                10_000)
+        );
+
+        // The state on the commit partition is still PENDING.
+        assertEquals(TxState.PENDING, txVolatileState(commitPartNode, orphanTx.id()));
+
+        IgniteImpl newTxCoord = node(0);
+
+        runRWTransactionNoError(newTxCoord, newTxCoord.transactions().begin());
+
+        assertTrue(waitForCondition(() -> txStoredState(commitPartNode, orphanTx.id()) == TxState.ABORTED, 10_000));
+
+        assertTrue(waitForCondition(() -> txStoredMeta(commitPartNode, orphanTx.id()).locksReleased(), 10_000));
+
+        CompletableFuture<NetworkMessage> commitRequest =
+                messaging(commitPartNode).invoke(targetName.get(), finishRequestCaptureFut.join(), 3000);
+
+        assertThat(commitRequest, willCompleteSuccessfully());
+
+        NetworkMessage response = commitRequest.join();
+
+        assertInstanceOf(TimestampAwareReplicaResponse.class, response);
+
+        assertTrue(waitForCondition(() -> txStoredState(commitPartNode, orphanTx.id()) == TxState.ABORTED, 10_000));
+    }
+
+    @Test
+    public void testRecoveryIsTriggeredOnce() throws Exception {
+        TableImpl tbl = (TableImpl) node(0).tables().table(TABLE_NAME);
+
+        var tblReplicationGrp = new TablePartitionId(tbl.tableId(), 0);
+
+        CompletableFuture<ReplicaMeta> primaryReplicaFut = node(0).placementDriver().awaitPrimaryReplica(
+                tblReplicationGrp,
+                node(0).clock().now(),
+                10,
+                SECONDS
+        );
+
+        assertThat(primaryReplicaFut, willCompleteSuccessfully());
+
+        String leaseholder = primaryReplicaFut.join().getLeaseholder();
+
+        IgniteImpl commitPartNode = IntStream.range(0, initialNodes()).mapToObj(this::node).filter(n -> leaseholder.equals(n.name()))
+                .findFirst().get();
+
+        log.info("Transaction commit partition is determined [node={}].", commitPartNode.name());
+
+        IgniteImpl txCrdNode = IntStream.range(1, initialNodes()).mapToObj(this::node).filter(n -> !leaseholder.equals(n.name()))
+                .findFirst().get();
+
+        log.info("Transaction coordinator is chosen [node={}].", txCrdNode.name());
+
+        UUID orphanTxId = startTransactionAndStopNode(txCrdNode);
+
+        log.info("Orphan tx [id={}]", orphanTxId);
+
+        CompletableFuture<UUID> recoveryTxMsgCaptureFut = new CompletableFuture<>();
+        AtomicInteger msgCount = new AtomicInteger();
+
+        commitPartNode.dropMessages((nodeName, msg) -> {
+            if (msg instanceof TxRecoveryMessage) {
+                var recoveryTxMsg = (TxRecoveryMessage) msg;
+
+                recoveryTxMsgCaptureFut.complete(recoveryTxMsg.txId());
+
+                msgCount.incrementAndGet();
+            }
+
+            return false;
+        });
+
+        IgniteImpl newCoordNode = node(0);
+
+        log.info("New Transaction coordinator is chosen [node={}].", newCoordNode.name());
+
+        // Run RW transaction.
+        Transaction rwTx1 = commitPartNode.transactions().begin();
+
+        UUID rwTx1Id = ((InternalTransaction) rwTx1).id();
+
+        log.info("First concurrent tx [id={}]", rwTx1Id);
+
+        runConflictingTransaction(commitPartNode, rwTx1);
+
+        Transaction rwTx2 = newCoordNode.transactions().begin();
+
+        UUID rwTx2Id = ((InternalTransaction) rwTx2).id();
+
+        log.info("Second concurrent tx [id={}]", rwTx2Id);
+
+        runRWTransactionNoError(newCoordNode, rwTx2);
+
+        assertThat(recoveryTxMsgCaptureFut, willCompleteSuccessfully());
+
+        assertEquals(orphanTxId, recoveryTxMsgCaptureFut.join());
+        assertEquals(1, msgCount.get());
+
+        rwTx2.commit();
+
+        assertTrue(waitForCondition(() -> txStoredState(commitPartNode, orphanTxId) == TxState.ABORTED, 10_000));
+        assertTrue(waitForCondition(() -> txStoredState(commitPartNode, rwTx1Id) == TxState.ABORTED, 10_000));
+        assertTrue(waitForCondition(() -> txStoredState(commitPartNode, rwTx2Id) == TxState.COMMITTED, 10_000));
+
+        assertTrue(waitForCondition(() -> txStoredMeta(commitPartNode, orphanTxId).locksReleased(), 10_000));
+        assertTrue(waitForCondition(() -> txStoredMeta(commitPartNode, rwTx1Id).locksReleased(), 10_000));
+        assertTrue(waitForCondition(() -> txStoredMeta(commitPartNode, rwTx2Id).locksReleased(), 10_000));
+
+        Transaction rwTx3 = newCoordNode.transactions().begin();
+
+        log.info("Start RW tx {}", ((InternalTransaction) rwTx3).id());
+
+        runRWTransactionNoError(newCoordNode, rwTx3);
+
+        rwTx3.commit();
+
+        assertTrue(waitForCondition(() -> txStoredState(commitPartNode, ((InternalTransaction) rwTx3).id()) == TxState.COMMITTED, 10_000));
+    }
+
+    private DefaultMessagingService messaging(IgniteImpl node) {
+        ClusterService coordinatorService = IgniteTestUtils.getFieldValue(node, IgniteImpl.class, "clusterSvc");
+
+        return (DefaultMessagingService) coordinatorService.messagingService();
+    }
+
+    private @Nullable TxState txVolatileState(IgniteImpl node, UUID txId) {
+        TxStateMeta txMeta = node.txManager().stateMeta(txId);
+
+        return txMeta == null ? null : txMeta.txState();
+    }
+
+    private @Nullable TxState txStoredState(IgniteImpl node, UUID txId) {
+        TxMeta txMeta = txStoredMeta(node, txId);
+
+        return txMeta == null ? null : txMeta.txState();
+    }
+
+    private @Nullable TxMeta txStoredMeta(IgniteImpl node, UUID txId) {
+        InternalTable internalTable = ((TableViewInternal) node.tables().table(TABLE_NAME)).internalTable();
+
+        return internalTable.txStateStorage().getTxStateStorage(0).get(txId);
+    }
+
     /**
      * Runs a transaction that was expectedly finished with the lock conflict exception.
      *
@@ -158,6 +659,36 @@ public class ItTransactionConflictTest extends ClusterPerTestIntegrationTest {
             view.upsert(rwTx, Tuple.create().set("key", 42).set("val", "val2"));
 
             fail("Lock conflict have to be detected.");
+        } catch (Exception e) {
+            assertEquals(Transactions.ACQUIRE_LOCK_ERR, extractCodeFrom(e));
+
+            log.info("Expected lock conflict.", e);
+        }
+    }
+
+    private void runRWTransactionNoError(IgniteImpl node, Transaction rwTx) {
+        RecordView view = node.tables().table(TABLE_NAME).recordView();
+
+        try {
+            view.upsert(rwTx, Tuple.create().set("key", 42).set("val", "val2"));
+        } catch (Exception e) {
+            assertEquals(Transactions.ACQUIRE_LOCK_ERR, extractCodeFrom(e));
+
+            log.info("Expected lock conflict.", e);
+        }
+    }
+
+    /**
+     * Runs a RO transaction to trigger recovery on write intent resolutioin.
+     *
+     * @param node Transaction coordinator node.
+     * @param roTx A transaction to resolve write intents from the abandoned TX.
+     */
+    private void runReadOnlyTransaction(IgniteImpl node, Transaction roTx) {
+        RecordView view = node.tables().table(TABLE_NAME).recordView();
+
+        try {
+            view.get(roTx, Tuple.create().set("key", 42));
         } catch (Exception e) {
             assertEquals(Transactions.ACQUIRE_LOCK_ERR, extractCodeFrom(e));
 
@@ -189,5 +720,21 @@ public class ItTransactionConflictTest extends ClusterPerTestIntegrationTest {
                 10_000)
         );
         return ((InternalTransaction) rwTx1).id();
+    }
+
+    /**
+     * Creates RW the transaction.
+     *
+     * @param node Transaction coordinator node.
+     * @return Transaction id.
+     */
+    private Transaction createRwTransaction(IgniteImpl node) {
+        RecordView view = node.tables().table(TABLE_NAME).recordView();
+
+        Transaction rwTx1 = node.transactions().begin();
+
+        view.upsert(rwTx1, Tuple.create().set("key", 42).set("val", "val1"));
+
+        return rwTx1;
     }
 }
