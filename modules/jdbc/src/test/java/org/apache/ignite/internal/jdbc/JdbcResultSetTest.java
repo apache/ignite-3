@@ -19,8 +19,10 @@ package org.apache.ignite.internal.jdbc;
 
 import static org.apache.ignite.internal.jdbc.proto.IgniteQueryErrorCode.codeToSqlState;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
@@ -30,12 +32,14 @@ import java.sql.SQLException;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.jdbc.proto.JdbcQueryCursorHandler;
+import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryCloseRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryCloseResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQuerySingleResult;
 import org.apache.ignite.internal.jdbc.proto.event.Response;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 /** Unit test for JdbcResultSet. */
@@ -65,6 +69,28 @@ public class JdbcResultSetTest extends BaseIgniteAbstractTest {
         assertEquals(errorStr, actualMessage);
         assertEquals(codeToSqlState(Response.STATUS_FAILED), ex.getSQLState());
 
-        verify(rs).close0();
+        verify(rs).close0(anyBoolean());
+    }
+
+    @Test
+    public void checkClose() throws SQLException {
+        JdbcQueryCursorHandler handler = mock(JdbcQueryCursorHandler.class);
+        JdbcStatement stmt = mock(JdbcStatement.class);
+
+        JdbcResultSet rs = spy(new JdbcResultSet(handler, stmt, 1L, 1, true, List.of(), true, 0, false, 1, null));
+
+        JdbcQueryCloseResult closeRequest = mock(JdbcQueryCloseResult.class);
+
+        when(closeRequest.hasResults()).thenReturn(true);
+
+        when(handler.closeAsync(any())).thenReturn(CompletableFuture.completedFuture(closeRequest));
+
+        rs.close();
+
+        ArgumentCaptor<JdbcQueryCloseRequest> argument = ArgumentCaptor.forClass(JdbcQueryCloseRequest.class);
+
+        verify(handler).closeAsync(argument.capture());
+
+        assertFalse(argument.getValue().removeFromResources());
     }
 }

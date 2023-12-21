@@ -61,15 +61,54 @@ public class ItJdbcMultiStatementSelfTest extends AbstractJdbcSelfTest {
 
     @AfterEach
     void tearDown() throws Exception {
-        int openCursors = openCursorsRegistered();
+        int openCursorResources = openResources();
         // connection + not closed result set
-        assertTrue(openCursorsRegistered() <= 2, "Open cursors: " + openCursors);
+        assertTrue(openResources() <= 2, "Open cursors: " + openCursorResources);
 
         stmt.close();
 
-        openCursors = openCursorsRegistered();
+        openCursorResources = openResources();
         // only connection context or 0 if already closed.
-        assertTrue(openCursorsRegistered() <= 1, "Open cursors: " + openCursors);
+        assertTrue(openResources() <= 1, "Open cursors: " + openCursorResources);
+        assertEquals(0, openCursors());
+    }
+
+    @Test
+    public void testAllStatementsAppliedIfExecutedWithFailure() throws Exception {
+        stmt.execute("SELECT COUNT(*) FROM TEST_TX");
+        try (ResultSet rs = stmt.getResultSet()) {
+            assertTrue(rs.next());
+            assertEquals(4, rs.getInt(1));
+        }
+
+        // pk violation exception
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-21133
+        stmt.execute("START TRANSACTION; INSERT INTO TEST_TX VALUES (1, 1, '1'); COMMIT");
+        stmt.execute("SELECT COUNT(*) FROM TEST_TX");
+        try (ResultSet rs = stmt.getResultSet()) {
+            assertTrue(rs.next());
+            assertEquals(4, rs.getInt(1));
+        }
+    }
+
+    @Test
+    public void testAllStatementsAppliedIfExecutedWithoutFailure() throws Exception {
+        // no pk violation
+        stmt.execute("START TRANSACTION; INSERT INTO TEST_TX VALUES (5, 5, '5'); COMMIT");
+        stmt.execute("SELECT COUNT(*) FROM TEST_TX");
+        try (ResultSet rs = stmt.getResultSet()) {
+            assertTrue(rs.next());
+            assertEquals(5, rs.getInt(1));
+        }
+    }
+
+    @Test
+    public void testEmptyResults() throws Exception {
+        boolean res = stmt.execute("SELECT 1; SELECT 1 FROM table(system_range(1, 0))");
+        assertTrue(res);
+        assertEquals(-1, stmt.getUpdateCount());
+        assertTrue(stmt.getMoreResults());
+        assertFalse(stmt.getMoreResults());
     }
 
     @Test

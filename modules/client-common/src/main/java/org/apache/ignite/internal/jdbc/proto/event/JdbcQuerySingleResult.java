@@ -18,14 +18,12 @@
 package org.apache.ignite.internal.jdbc.proto.event;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.tostring.S;
-import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.sql.ColumnType;
 
 /**
@@ -53,10 +51,14 @@ public class JdbcQuerySingleResult extends Response {
     /** Decimal scales in appearance order. Can be empty in case no any decimal columns. */
     private int[] decimalScales;
 
+    /** {@code true} if results are available, {@code false} otherwise. */
+    private boolean hasResult = true;
+
     /**
-     * Constructor. For deserialization purposes only.
+     * Constructor.
      */
     public JdbcQuerySingleResult() {
+        hasResult = false;
     }
 
     /**
@@ -67,17 +69,8 @@ public class JdbcQuerySingleResult extends Response {
      */
     public JdbcQuerySingleResult(int status, String err) {
         super(status, err);
-    }
 
-    /**
-     * Constructor.
-     *
-     * @param hasNext {@code true} if more results are present.
-     * @param updCount Update counter.
-     */
-    public JdbcQuerySingleResult(boolean hasNext, long updCount) {
-        hasResults = hasNext;
-        this.updateCnt = updCount;
+        hasResult = false;
     }
 
     /**
@@ -87,12 +80,10 @@ public class JdbcQuerySingleResult extends Response {
      * @param rowTuples Serialized SQL result rows.
      * @param columnTypes Ordered list of types of columns in serialized rows.
      * @param decimalScales Decimal scales in appearance order.
-     * @param isQuery {@code true} if query is SELECT/EXPLAIN.
-     * @param updateCnt Update count.
      * @param last     Flag indicates the query has no unfetched results.
      */
     public JdbcQuerySingleResult(long cursorId, List<BinaryTupleReader> rowTuples, List<ColumnType> columnTypes, int[] decimalScales,
-            boolean last, boolean isQuery, long updateCnt) {
+            boolean last) {
         super();
 
         Objects.requireNonNull(rowTuples);
@@ -103,8 +94,7 @@ public class JdbcQuerySingleResult extends Response {
         this.decimalScales = decimalScales;
 
         this.last = last;
-        this.isQuery = isQuery;
-        this.updateCnt = updateCnt;
+        this.isQuery = true;
 
         hasResults = true;
 
@@ -119,15 +109,10 @@ public class JdbcQuerySingleResult extends Response {
     public JdbcQuerySingleResult(long cursorId, long updateCnt) {
         super();
 
-        this.last = true;
-        this.isQuery = false;
         this.updateCnt = updateCnt;
-        this.rowTuples = Collections.emptyList();
-        columnTypes = Collections.emptyList();
-        this.decimalScales = ArrayUtils.INT_EMPTY_ARRAY;
         this.cursorId = cursorId;
 
-        hasResults = true;
+        hasResults = false;
     }
 
     /**
@@ -184,6 +169,11 @@ public class JdbcQuerySingleResult extends Response {
         return isQuery;
     }
 
+    /** Results availability flag. */
+    public boolean hasResult() {
+        return hasResult;
+    }
+
     /**
      * Get the update count.
      *
@@ -197,16 +187,20 @@ public class JdbcQuerySingleResult extends Response {
     @Override
     public void writeBinary(ClientMessagePacker packer) {
         super.writeBinary(packer);
-        packer.packLong(updateCnt);
+
+        packer.packBoolean(hasResult);
+        if (hasResult) {
+            packer.packLong(updateCnt);
+
+            if (cursorId != null) {
+                packer.packLong(cursorId);
+            } else {
+                packer.packNil();
+            }
+        }
 
         if (!hasResults) {
             return;
-        }
-
-        if (cursorId != null) {
-            packer.packLong(cursorId);
-        } else {
-            packer.packNil();
         }
 
         packer.packBoolean(isQuery);
@@ -230,17 +224,21 @@ public class JdbcQuerySingleResult extends Response {
     @Override
     public void readBinary(ClientMessageUnpacker unpacker) {
         super.readBinary(unpacker);
-        updateCnt = unpacker.unpackLong();
+        hasResult = unpacker.unpackBoolean();
+        if (hasResult) {
+            updateCnt = unpacker.unpackLong();
+
+            if (unpacker.tryUnpackNil()) {
+                cursorId = null;
+            } else {
+                cursorId = unpacker.unpackLong();
+            }
+        }
 
         if (!hasResults) {
             return;
         }
 
-        if (unpacker.tryUnpackNil()) {
-            cursorId = null;
-        } else {
-            cursorId = unpacker.unpackLong();
-        }
         isQuery = unpacker.unpackBoolean();
         last = unpacker.unpackBoolean();
 

@@ -36,6 +36,7 @@ import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
@@ -174,12 +175,19 @@ public class AbstractJdbcSelfTest extends BaseIgniteAbstractTest {
     }
 
     /** Return a size of stored resources. Reflection based implementation, need to be refactored. */
-    int openCursorsRegistered() {
+    int openResources() {
         IgniteImpl ignite = (IgniteImpl) clusterNodes.get(0);
         IgniteComponent cliHnd = IgniteTestUtils.getFieldValue(ignite, "clientHandlerModule");
         Object clientInboundHandler = IgniteTestUtils.getFieldValue(cliHnd, "handler");
         Object rsrc = IgniteTestUtils.getFieldValue(clientInboundHandler, "resources");
         Map resources = IgniteTestUtils.getFieldValue(rsrc, "res");
         return resources.size();
+    }
+
+    /** Returns a size of opened cursors. */
+    int openCursors() {
+        IgniteImpl ignite = (IgniteImpl) clusterNodes.get(0);
+        SqlQueryProcessor queryProcessor = (SqlQueryProcessor) ignite.queryEngine();
+        return queryProcessor.openedCursors();
     }
 }

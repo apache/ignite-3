@@ -45,7 +45,6 @@ import org.apache.ignite.internal.jdbc.proto.event.JdbcBatchExecuteRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcBatchExecuteResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryExecuteRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQuerySingleResult;
-import org.apache.ignite.internal.jdbc.proto.event.Response;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.sql.ColumnType;
@@ -140,9 +139,9 @@ public class JdbcStatement implements Statement {
         JdbcQueryExecuteRequest req = new JdbcQueryExecuteRequest(stmtType, schema, pageSize, maxRows, sql, args,
                 conn.getAutoCommit(), multiStatement);
 
-        Response res;
+        JdbcQueryExecuteResponse res;
         try {
-            res = conn.handler().queryAsync(conn.connectionId(), req).get();
+            res = (JdbcQueryExecuteResponse) conn.handler().queryAsync(conn.connectionId(), req).get();
         } catch (InterruptedException e) {
             throw new SQLException("Thread was interrupted.", e);
         } catch (ExecutionException e) {
@@ -151,23 +150,22 @@ public class JdbcStatement implements Statement {
             throw new SQLException("Query execution canceled.", SqlStateCode.QUERY_CANCELLED, e);
         }
 
-        if (!res.hasResults()) {
+        if (!res.hasResult()) {
             throw IgniteQueryErrorCode.createJdbcSqlException(res.err(), res.status());
         }
 
-        JdbcQueryExecuteResponse result = (JdbcQueryExecuteResponse) res;
+        JdbcQuerySingleResult executeResult = res.result();
 
-        JdbcQuerySingleResult executeResult = result.result();
-
-        if (!executeResult.hasResults()) {
+        if (!executeResult.hasResult()) {
             throw IgniteQueryErrorCode.createJdbcSqlException(executeResult.err(), executeResult.status());
         }
 
         resSets = new ArrayList<>();
 
-        JdbcQueryCursorHandler handler = new JdbcClientQueryCursorHandler(result.getChannel());
+        JdbcQueryCursorHandler handler = new JdbcClientQueryCursorHandler(res.getChannel());
 
         List<ColumnType> columnTypes = executeResult.columnTypes();
+        columnTypes = columnTypes == null ? List.of() : columnTypes;
         int[] decimalScales = executeResult.decimalScales();
 
         Function<BinaryTupleReader, List<Object>> transformer = createTransformer(columnTypes, decimalScales);
@@ -394,8 +392,7 @@ public class JdbcStatement implements Statement {
 
     /** {@inheritDoc} */
     @Override
-    @Nullable
-    public ResultSet getResultSet() throws SQLException {
+    public @Nullable ResultSet getResultSet() throws SQLException {
         ensureNotClosed();
 
         if (resSets == null || curRes >= resSets.size()) {
@@ -437,13 +434,13 @@ public class JdbcStatement implements Statement {
 
     /** {@inheritDoc} */
     @Override
-    public boolean getMoreResults(int curr) throws SQLException {
+    public boolean getMoreResults(int current) throws SQLException {
         ensureNotClosed();
 
         if (resSets != null) {
             assert curRes <= resSets.size() : "Invalid results state: [resultsCount=" + resSets.size() + ", curRes=" + curRes + ']';
 
-            switch (curr) {
+            switch (current) {
                 case CLOSE_CURRENT_RESULT:
                     break;
 
@@ -452,7 +449,7 @@ public class JdbcStatement implements Statement {
                     throw new SQLFeatureNotSupportedException("Multiple open results is not supported.");
 
                 default:
-                    throw new SQLException("Invalid 'curr' parameter.");
+                    throw new SQLException("Invalid 'current' parameter.");
             }
         }
 
@@ -472,15 +469,15 @@ public class JdbcStatement implements Statement {
             exceptionally = ex;
         }
 
+        resSets.add(nextResultSet);
+
+        curRes++;
+
         // all previous results need to be closed at this point.
         if (nextResultSet == null && isCloseOnCompletion()) {
             close();
             return false;
         }
-
-        resSets.add(nextResultSet);
-
-        curRes++;
 
         if (exceptionally != null) {
             throw exceptionally;
@@ -692,7 +689,7 @@ public class JdbcStatement implements Statement {
      * @return isQuery flag.
      */
     protected boolean isQuery() {
-        return resSets.get(0).isQuery();
+        return Objects.requireNonNull(resSets).get(0).isQuery();
     }
 
     /**
@@ -712,10 +709,35 @@ public class JdbcStatement implements Statement {
      * @throws SQLException On error.
      */
     void closeResults() throws SQLException {
+        @Nullable JdbcResultSet last = null;
+
         if (resSets != null) {
-            for (JdbcResultSet rs : resSets) {
-                if (rs != null) {
-                    rs.close0();
+            JdbcResultSet lastRs = resSets.get(resSets.size() - 1);
+            boolean allFetched = lastRs == null;
+
+            if (allFetched) {
+                for (JdbcResultSet rs : resSets) {
+                    if (rs != null) {
+                        rs.close0(true);
+                    }
+                }
+            } else {
+                try {
+                    last = lastRs.getNextResultSet();
+                } catch (SQLException ex) {
+                    // TODO: https://issues.apache.org/jira/browse/IGNITE-21133
+                    // implicitly silent close previous result set.
+                }
+
+                if (last != null) {
+                    while (last != null) {
+                        try {
+                            last = last.getNextResultSet();
+                        } catch (SQLException ex) {
+                            // TODO: https://issues.apache.org/jira/browse/IGNITE-21133
+                            // implicitly silent close previous result set.
+                        }
+                    }
                 }
             }
 

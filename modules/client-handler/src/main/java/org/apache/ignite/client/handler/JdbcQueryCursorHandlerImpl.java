@@ -18,6 +18,7 @@
 package org.apache.ignite.client.handler;
 
 import static org.apache.ignite.client.handler.JdbcQueryEventHandlerImpl.buildSingleRequest;
+import static org.apache.ignite.internal.jdbc.proto.IgniteQueryErrorCode.UNSUPPORTED_OPERATION;
 
 import java.io.PrintWriter;
 import java.io.StringWriter;
@@ -109,7 +110,7 @@ public class JdbcQueryCursorHandlerImpl implements JdbcQueryCursorHandler {
         }
 
         if (!asyncSqlCursor.hasNextResult()) {
-            return CompletableFuture.completedFuture(new JdbcQuerySingleResult(false, -1));
+            return CompletableFuture.completedFuture(new JdbcQuerySingleResult());
         }
 
         return asyncSqlCursor.closeAsync().thenCompose(c -> asyncSqlCursor.nextResult())
@@ -120,9 +121,25 @@ public class JdbcQueryCursorHandlerImpl implements JdbcQueryCursorHandler {
 
                             long cursorId = resources.put(new ClientResource(cur, cur::closeAsync));
 
-                            List<ColumnMetadata> columns = cur.metadata().columns();
+                            switch (queryType) {
+                                case EXPLAIN:
+                                case QUERY: {
+                                    List<ColumnMetadata> columns = cur.metadata().columns();
 
-                            return buildSingleRequest(batch, columns, cursorId, !batch.hasMore(), queryType);
+                                    return buildSingleRequest(batch, columns, cursorId, !batch.hasMore());
+                                }
+                                case DML: {
+                                    long updCount = (long) batch.items().get(0).get(0);
+
+                                    return new JdbcQuerySingleResult(cursorId, updCount);
+                                }
+                                case DDL:
+                                case TX_CONTROL:
+                                    return new JdbcQuerySingleResult(cursorId, 0);
+                                default:
+                                    return new JdbcQuerySingleResult(UNSUPPORTED_OPERATION,
+                                            "Query type is not supported yet [queryType=" + cur.queryType() + ']');
+                            }
                         } catch (IgniteInternalCheckedException e) {
                             return new JdbcQuerySingleResult(Response.STATUS_FAILED,
                                     "Unable to store query cursor.");
@@ -145,7 +162,11 @@ public class JdbcQueryCursorHandlerImpl implements JdbcQueryCursorHandler {
     public CompletableFuture<JdbcQueryCloseResult> closeAsync(JdbcQueryCloseRequest req) {
         AsyncSqlCursor<List<Object>> asyncSqlCursor;
         try {
-            asyncSqlCursor = resources.remove(req.cursorId()).get(AsyncSqlCursor.class);
+            if (req.removeFromResources()) {
+                asyncSqlCursor = resources.remove(req.cursorId()).get(AsyncSqlCursor.class);
+            } else {
+                asyncSqlCursor = resources.get(req.cursorId()).get(AsyncSqlCursor.class);
+            }
         } catch (IgniteInternalCheckedException e) {
             StringWriter sw = getWriterWithStackTrace(e);
 

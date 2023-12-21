@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.jdbc;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
 import java.io.InputStream;
 import java.io.Reader;
@@ -219,7 +218,7 @@ public class JdbcResultSet implements ResultSet {
     }
 
     boolean holdResults() {
-        return !nullOrEmpty(rows);
+        return rows != null;
     }
 
     @Nullable JdbcResultSet getNextResultSet() throws SQLException {
@@ -227,9 +226,9 @@ public class JdbcResultSet implements ResultSet {
             JdbcFetchQueryResultsRequest req = new JdbcFetchQueryResultsRequest(cursorId, fetchSize);
             JdbcQuerySingleResult res = cursorHandler.getMoreResultsAsync(req).get();
 
-            close0();
+            close0(true);
 
-            if (!res.hasResults()) {
+            if (!res.hasResult()) {
                 if (res.status() == Response.STATUS_FAILED) {
                     throw IgniteQueryErrorCode.createJdbcSqlException(res.err(), res.status());
                 }
@@ -246,8 +245,10 @@ public class JdbcResultSet implements ResultSet {
 
             Function<BinaryTupleReader, List<Object>> transformer = createTransformer(columnTypes, decimalScales);
 
+            int colCount = columnTypes == null ? 0 : columnTypes.size();
+
             return new JdbcResultSet(cursorHandler, stmt, cursorId0, fetchSize, res.last(), res.items(),
-                    res.isQuery(), res.updateCount(), closeStmt, columnTypes.size(), transformer);
+                    res.isQuery(), res.updateCount(), closeStmt, colCount, transformer);
         } catch (InterruptedException e) {
             throw new SQLException("Thread was interrupted.", e);
         } catch (ExecutionException e) {
@@ -307,7 +308,7 @@ public class JdbcResultSet implements ResultSet {
     /** {@inheritDoc} */
     @Override
     public void close() throws SQLException {
-        closed = true;
+        close0(false);
 
         if (closeStmt) {
             stmt.closeIfAllResultsClosed();
@@ -317,18 +318,20 @@ public class JdbcResultSet implements ResultSet {
     /**
      * Close result set.
      *
+     * @param removeFromResources If {@code true} cursor need to be removed from client resources.
+     *
      * @throws SQLException On error.
      */
-    void close0() throws SQLException {
+    void close0(boolean removeFromResources) throws SQLException {
         if (!holdsResource && (isClosed() || cursorId == null)) {
             return;
         }
 
-        holdsResource = false;
+        holdsResource = !removeFromResources;
 
         try {
             if (stmt != null) {
-                JdbcQueryCloseResult res = cursorHandler.closeAsync(new JdbcQueryCloseRequest(cursorId)).get();
+                JdbcQueryCloseResult res = cursorHandler.closeAsync(new JdbcQueryCloseRequest(cursorId, removeFromResources)).get();
 
                 if (!res.hasResults()) {
                     throw IgniteQueryErrorCode.createJdbcSqlException(res.err(), res.status());

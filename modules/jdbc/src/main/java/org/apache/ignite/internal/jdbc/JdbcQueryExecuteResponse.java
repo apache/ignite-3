@@ -75,6 +75,10 @@ public class JdbcQueryExecuteResponse extends Response {
         return result.hasResults();
     }
 
+    boolean hasResult() {
+        return result.hasResult();
+    }
+
     /**
      * Get the query results.
      *

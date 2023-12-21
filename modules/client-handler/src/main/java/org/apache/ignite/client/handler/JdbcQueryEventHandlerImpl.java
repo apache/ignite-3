@@ -393,16 +393,20 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
 
             switch (cur.queryType()) {
                 case EXPLAIN:
-                case QUERY:
+                case QUERY: {
+                    List<ColumnMetadata> columns = cur.metadata().columns();
+
+                    return buildSingleRequest(batch, columns, cursorId, !hasNext);
+                }
                 case DML: {
-                    if (cur.queryType() == DML && !validateDmlResult(cur.metadata(), hasNext)) {
+                    if (!validateDmlResult(cur.metadata(), hasNext)) {
                         return new JdbcQuerySingleResult(Response.STATUS_FAILED,
                                 "Unexpected result for DML [query=" + req.sqlQuery() + ']');
                     }
 
-                    List<ColumnMetadata> columns = cur.metadata().columns();
+                    long updCount = (long) batch.items().get(0).get(0);
 
-                    return buildSingleRequest(batch, columns, cursorId, !hasNext, cur.queryType());
+                    return new JdbcQuerySingleResult(cursorId, updCount);
                 }
                 case DDL:
                 case TX_CONTROL:
@@ -418,15 +422,8 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
             BatchedResult<InternalSqlRow> batch,
             List<ColumnMetadata> columns,
             long cursorId,
-            boolean hasNext,
-            SqlQueryType queryType
+            boolean hasNext
     ) {
-        long updCount = 0;
-        if (queryType == DML) {
-            updCount = (long) batch.items().get(0).get(0);
-            return new JdbcQuerySingleResult(cursorId, updCount);
-        }
-
         List<BinaryTupleReader> rows = new ArrayList<>(batch.items().size());
         for (InternalSqlRow item : batch.items()) {
             rows.add(item.asBinaryTuple());
@@ -444,9 +441,7 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
         }
         decimalScales = Arrays.copyOf(decimalScales, countOfDecimal);
 
-        boolean isQuery = queryType == SqlQueryType.QUERY || queryType == SqlQueryType.EXPLAIN;
-
-        return new JdbcQuerySingleResult(cursorId, rows, schema, decimalScales, hasNext, isQuery, updCount);
+        return new JdbcQuerySingleResult(cursorId, rows, schema, decimalScales, hasNext);
     }
 
     /**
