@@ -664,7 +664,6 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
      * Test ensures that an exception during data prefetching is propagated to the callback.
      */
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-21052")
     public void testErrorIsPropagatedToPrefetchCallback() {
         ExecutionService execService = executionServices.get(0);
         CompletableFuture<Void> prefetchFut = new CompletableFuture<>();

@@ -17,17 +17,9 @@
 
 package org.apache.ignite.internal.sql.engine.metadata;
 
-import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.internal.util.IgniteUtils.igniteClassLoader;
-
-import io.github.classgraph.ClassGraph;
-import io.github.classgraph.ScanResult;
-import java.util.List;
-import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.metadata.JaninoRelMetadataProvider;
 import org.apache.calcite.rel.metadata.RelMetadataProvider;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
-import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 
 /**
  * See {@link RelMetadataQuery}.

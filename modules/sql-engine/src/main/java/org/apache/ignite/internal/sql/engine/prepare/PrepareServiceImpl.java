@@ -116,24 +116,6 @@ public class PrepareServiceImpl implements PrepareService {
 
     private final SqlPlanCacheMetricSource sqlPlanCacheMetricSource;
 
-    static {
-        // Warm-up to reduce the impact of class loading on the first query planning time.
-        try (ScanResult scanResult = new ClassGraph().acceptPackages("org.apache.ignite.internal.sql.engine.rel")
-                .addClassLoader(igniteClassLoader())
-                .enableClassInfo().scan()
-        ) {
-            List<Class<? extends RelNode>> types = scanResult.getClassesImplementing(IgniteRel.class.getName())
-                    .filter(classInfo -> !classInfo.isInterface())
-                    .filter(classInfo -> !classInfo.isAbstract())
-                    .stream().map(classInfo -> (Class<? extends RelNode>) classInfo.loadClass()).collect(toList());
-
-            JaninoRelMetadataProvider.DEFAULT.register(types);
-        }
-
-        // Preload related classes.
-        PlannerPhase.values();
-    }
-
     /**
      * Factory method.
      *
@@ -358,7 +340,7 @@ public class PrepareServiceImpl implements PrepareService {
 
                 ResultSetMetadata resultSetMetadata = resultSetMetadata(validated.dataType(), validated.origins(), validated.aliases());
 
-                LOG.info(">xxx> planning done in " + (FastTimestamps.coarseCurrentTimeMillis() - ctx.startTs()) + " ms.");
+                LOG.info(">xxx> planning done in " + (FastTimestamps.coarseCurrentTimeMillis() - ctx.startTs()) + " ms. " + ctx.query());
 
                 return new MultiStepPlan(nextPlanId(), SqlQueryType.QUERY, clonedTree, resultSetMetadata, parameterMetadata);
             }, planningPool));

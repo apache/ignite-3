@@ -133,6 +133,12 @@ public class IgnitePlanner implements Planner, RelOptTable.ViewExpander {
 
     private RelOptCluster cluster;
 
+    static {
+        // Preload some classes to reduce first planning time.
+        //noinspection ResultOfMethodCallIgnored
+        PlannerPhase.values();
+    }
+
     /**
      * Constructor.
      *
