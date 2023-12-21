@@ -262,7 +262,7 @@ namespace Apache.Ignite.Internal
         /// <param name="request">Request data.</param>
         /// <param name="notificationHandler">Notification handler.</param>
         /// <returns>Response data.</returns>
-        public Task<PooledBuffer> DoOutInOpAsync(
+        public async Task<PooledBuffer> DoOutInOpAsync(
             ClientOp clientOp,
             PooledArrayBuffer? request = null,
             NotificationHandler? notificationHandler = null)
@@ -296,38 +296,29 @@ namespace Apache.Ignite.Internal
 
             Metrics.RequestsActiveIncrement();
 
-            SendRequestAsync(request, clientOp, requestId)
-                .AsTask()
-                .ContinueWith(
-                    (task, state) =>
-                    {
-                        var completionSource = (TaskCompletionSource<PooledBuffer>)state!;
+            try
+            {
+                await SendRequestAsync(request, clientOp, requestId).ConfigureAwait(false);
+                return await taskCompletionSource.Task.ConfigureAwait(false);
+            }
+            catch (Exception e)
+            {
+                if (_requests.TryRemove(requestId, out _))
+                {
+                    Metrics.RequestsFailed.Add(1);
+                    Metrics.RequestsActiveDecrement();
+                }
 
-                        if (task.IsCanceled || task.Exception?.GetBaseException() is OperationCanceledException or ObjectDisposedException)
-                        {
-                            // Canceled task means Dispose was called.
-                            completionSource.TrySetException(
-                                new IgniteClientConnectionException(ErrorGroups.Client.Connection, "Connection closed."));
-                        }
-                        else if (task.Exception != null)
-                        {
-                            completionSource.TrySetException(task.Exception);
-                        }
+                _notificationHandlers.TryRemove(requestId, out _);
 
-                        if (_requests.TryRemove(requestId, out _))
-                        {
-                            Metrics.RequestsFailed.Add(1);
-                            Metrics.RequestsActiveDecrement();
-                        }
+                if (e is OperationCanceledException or ObjectDisposedException)
+                {
+                    // Canceled task means Dispose was called.
+                    throw new IgniteClientConnectionException(ErrorGroups.Client.Connection, "Connection closed.", e);
+                }
 
-                        _notificationHandlers.TryRemove(requestId, out _);
-                    },
-                    taskCompletionSource,
-                    CancellationToken.None,
-                    TaskContinuationOptions.NotOnRanToCompletion,
-                    TaskScheduler.Default);
-
-            return taskCompletionSource.Task;
+                throw;
+            }
         }
 
         /// <inheritdoc/>
