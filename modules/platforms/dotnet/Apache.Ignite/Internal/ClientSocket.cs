@@ -291,6 +291,8 @@ namespace Apache.Ignite.Internal
 
             if (notificationHandler != null)
             {
+                // TODO: Refactor to a boolean flag.
+                notificationHandler = new NotificationHandler();
                 _notificationHandlers[requestId] = notificationHandler;
             }
 
@@ -299,7 +301,11 @@ namespace Apache.Ignite.Internal
             try
             {
                 await SendRequestAsync(request, clientOp, requestId).ConfigureAwait(false);
-                return await taskCompletionSource.Task.ConfigureAwait(false);
+                PooledBuffer resBuf = await taskCompletionSource.Task.ConfigureAwait(false);
+
+                return notificationHandler == null
+                    ? resBuf
+                    : resBuf.WithMetadata(notificationHandler);
             }
             catch (Exception e)
             {
@@ -857,7 +863,7 @@ namespace Apache.Ignite.Internal
                 {
                     foreach (var reqId in _notificationHandlers.Keys.ToArray())
                     {
-                        if (_notificationHandlers.TryRemove(reqId, out var notificationHandler) && notificationHandler.IsResponseReceived)
+                        if (_notificationHandlers.TryRemove(reqId, out var notificationHandler))
                         {
                             notificationHandler.TrySetException(ex);
                         }

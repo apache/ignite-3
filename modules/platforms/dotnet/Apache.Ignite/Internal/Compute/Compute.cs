@@ -193,19 +193,13 @@ namespace Apache.Ignite.Internal.Compute
             using var writer = ProtoCommon.GetMessageWriter();
             Write();
 
-            var notificationHandler = new NotificationHandler();
-
-            using var res = await _socket.DoOutInOpAsync(
-                    ClientOp.ComputeExecute, writer, PreferredNode.FromName(node.Name), notificationHandler)
+            using PooledBuffer res = await _socket.DoOutInOpAsync(
+                    ClientOp.ComputeExecute, writer, PreferredNode.FromName(node.Name), new NotificationHandler())
                 .ConfigureAwait(false);
 
-            // TODO: Race condition - the connection may be closed before we set this flag, so we ignore the failure and get stuck.
-            // The result of DoOutInOpAsync call should include the notification handler somehow,
-            // so we won't have to share it across retries.
-            // Same in Java.
-            notificationHandler.IsResponseReceived = true;
-
+            var notificationHandler = (NotificationHandler)res.Metadata!;
             using var notificationRes = await notificationHandler.Task.ConfigureAwait(false);
+
             return Read(notificationRes);
 
             void Write()
@@ -273,16 +267,14 @@ namespace Apache.Ignite.Internal.Compute
                     using var bufferWriter = ProtoCommon.GetMessageWriter();
                     var colocationHash = Write(bufferWriter, table, schema);
                     var preferredNode = await table.GetPreferredNode(colocationHash, null).ConfigureAwait(false);
-                    var notificationHandler = new NotificationHandler();
 
                     using var res = await _socket.DoOutInOpAsync(
-                            ClientOp.ComputeExecuteColocated, bufferWriter, preferredNode, notificationHandler)
+                            ClientOp.ComputeExecuteColocated, bufferWriter, preferredNode, new NotificationHandler())
                         .ConfigureAwait(false);
 
-                    // TODO: Race condition - the connection may be closed before we set this flag
-                    notificationHandler.IsResponseReceived = true;
-
+                    var notificationHandler = (NotificationHandler)res.Metadata!;
                     using var notificationRes = await notificationHandler.Task.ConfigureAwait(false);
+
                     return Read(notificationRes);
                 }
                 catch (IgniteException e) when (e.Code == ErrorGroups.Client.TableIdNotFound)

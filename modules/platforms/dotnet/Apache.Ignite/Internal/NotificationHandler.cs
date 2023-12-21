@@ -25,14 +25,5 @@ using Buffers;
 /// </summary>
 internal sealed class NotificationHandler : TaskCompletionSource<PooledBuffer>
 {
-    private volatile bool _isResponseReceived;
-
-    /// <summary>
-    /// Gets or sets a value indicating whether a response for notification-initiating request has been received.
-    /// </summary>
-    public bool IsResponseReceived
-    {
-        get => _isResponseReceived;
-        set => _isResponseReceived = value;
-    }
+    // No-op.
 }
