@@ -17,15 +17,11 @@
 
 package org.apache.ignite.internal.sql.engine.prepare;
 
-import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.sql.engine.prepare.CacheKey.EMPTY_CLASS_ARRAY;
 import static org.apache.ignite.internal.sql.engine.prepare.PlannerHelper.optimize;
 import static org.apache.ignite.internal.sql.engine.trait.TraitUtils.distributionPresent;
-import static org.apache.ignite.internal.util.IgniteUtils.igniteClassLoader;
 import static org.apache.ignite.lang.ErrorGroups.Sql.PLANNING_TIMEOUT_ERR;
 
-import io.github.classgraph.ClassGraph;
-import io.github.classgraph.ScanResult;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -39,8 +35,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 import org.apache.calcite.plan.RelOptPlanner;
-import org.apache.calcite.rel.RelNode;
-import org.apache.calcite.rel.metadata.JaninoRelMetadataProvider;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.calcite.sql.SqlDdl;
@@ -69,7 +63,6 @@ import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.internal.util.ExceptionUtils;
-import org.apache.ignite.internal.util.FastTimestamps;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ColumnType;
@@ -339,9 +332,6 @@ public class PrepareServiceImpl implements PrepareService {
                 IgniteRel clonedTree = Cloner.clone(igniteRel, Commons.emptyCluster());
 
                 ResultSetMetadata resultSetMetadata = resultSetMetadata(validated.dataType(), validated.origins(), validated.aliases());
-
-                LOG.info(">xxx> planning done in " + (FastTimestamps.coarseCurrentTimeMillis() - ctx.startTs()) + " ms. " + ctx.query());
-
                 return new MultiStepPlan(nextPlanId(), SqlQueryType.QUERY, clonedTree, resultSetMetadata, parameterMetadata);
             }, planningPool));
 
