@@ -66,9 +66,13 @@ import org.apache.ignite.internal.table.distributed.command.TablePartitionIdMess
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteSingleRowReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replicator.action.RequestType;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
+import org.apache.ignite.internal.thread.LogUncaughtExceptionHandler;
+import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.StripedThreadPoolExecutor;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.tx.test.TestTransactionIds;
 import org.apache.ignite.internal.type.NativeTypes;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
@@ -106,6 +110,8 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
 
     private ClusterService clusterService;
 
+    private StripedThreadPoolExecutor requestsExecutor;
+
     @BeforeEach
     public void setup() {
         var networkAddress = new NetworkAddress(getLocalAddress(), NODE_PORT_BASE + 1);
@@ -121,13 +127,22 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
         // This test is run without Meta storage.
         when(cmgManager.metaStorageNodes()).thenReturn(emptySetCompletedFuture());
 
+        requestsExecutor = new StripedThreadPoolExecutor(
+                5,
+                NamedThreadFactory.threadPrefix(NODE_NAME, "partition-operations"),
+                new LogUncaughtExceptionHandler(log),
+                false,
+                0
+        );
+
         replicaManager = new ReplicaManager(
                 NODE_NAME,
                 clusterService,
                 cmgManager,
                 clock,
                 Set.of(TableMessageGroup.class, TxMessageGroup.class),
-                new TestPlacementDriver(clusterService.topologyService().localMember())
+                new TestPlacementDriver(clusterService.topologyService().localMember()),
+                requestsExecutor
         );
 
         replicaManager.start();
@@ -135,6 +150,8 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
 
     @AfterEach
     public void teardown() {
+        IgniteUtils.shutdownAndAwaitTermination(requestsExecutor, 10, TimeUnit.SECONDS);
+
         clusterService.stop();
     }
 

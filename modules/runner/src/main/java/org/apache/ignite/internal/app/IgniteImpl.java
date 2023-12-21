@@ -213,6 +213,8 @@ public class IgniteImpl implements Ignite {
     /** Lifecycle manager. */
     private final LifecycleManager lifecycleManager;
 
+    private final ThreadPools threadPools;
+
     /** Vault manager. */
     private final VaultManager vaultMgr;
 
@@ -333,6 +335,8 @@ public class IgniteImpl implements Ignite {
         longJvmPauseDetector = new LongJvmPauseDetector(name);
 
         lifecycleManager = new LifecycleManager(name);
+
+        threadPools = new ThreadPools(name);
 
         vaultMgr = createVault(name, workDir);
 
@@ -500,6 +504,7 @@ public class IgniteImpl implements Ignite {
                 clock,
                 Set.of(TableMessageGroup.class, TxMessageGroup.class),
                 placementDriverMgr.placementDriver(),
+                threadPools.partitionOperationsExecutor(),
                 partitionIdleSafeTimePropagationPeriodMsSupplier
         );
 
@@ -821,6 +826,7 @@ public class IgniteImpl implements Ignite {
                         // Start all other components after the join request has completed and the node has been validated.
                         try {
                             lifecycleManager.startComponents(
+                                    threadPools,
                                     catalogManager,
                                     clusterCfgMgr,
                                     placementDriverMgr,
