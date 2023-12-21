@@ -29,7 +29,10 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.compute.JobExecution;
@@ -92,7 +95,12 @@ public class IgniteComputeImpl implements IgniteCompute {
         req.args = args;
         req.failoverCandidates = candidates;
 
+        RemoteCompletableFutureWrapper<R> futureWrapper = new RemoteCompletableFutureWrapper<>(
+                executeOnOneNode(candidate, units, jobClassName, args));
+        req.future = futureWrapper;
+
         runningJobs.put(candidate, List.of(req));
+
 
         var handler = new NodeLeftTopologyEventHandler();
         handler.runningJobs = runningJobs;
@@ -100,14 +108,16 @@ public class IgniteComputeImpl implements IgniteCompute {
         topologyService.addEventHandler(handler);
 
         return new JobExecutionWrapper<>(executeOnOneNode(candidate, units, jobClassName, args);
+        return futureWrapper;
     }
 
-    private static class RemoteExecutionRequest {
+    private static class RemoteExecutionRequest<T> {
         ClusterNode worker;
         List<DeploymentUnit> units;
         String jobClassName;
         Object[] args;
         Set<ClusterNode> failoverCandidates;
+        RemoteCompletableFutureWrapper<T> future;
     }
 
     public static class NodeLeftTopologyEventHandler implements TopologyEventHandler {
@@ -117,7 +127,17 @@ public class IgniteComputeImpl implements IgniteCompute {
         @Override
         public void onDisappeared(ClusterNode member) {
            runningJobs.get(member).forEach(req -> {
-               parent.executeOnOneNode(req.failoverCandidates.stream().findFirst().get(), req.units, req.jobClassName, req.args));
+               var futureWrapper = req.future;
+               if (req.failoverCandidates.isEmpty()) {
+                   futureWrapper.completeExceptionally(new IgniteInternalException("No failover candidates left"));
+                   return;
+               };
+
+               var remoteFuture = parent.executeOnOneNode(
+                           (ClusterNode) req.failoverCandidates.stream().findFirst().get(), req.units, req.jobClassName, req.args
+               );
+
+               futureWrapper.setFuture(remoteFuture));
            });
         }
     }
@@ -146,6 +166,44 @@ public class IgniteComputeImpl implements IgniteCompute {
         }
 
         return iterator.next();
+    }
+
+    class RemoteCompletableFutureWrapper<T> extends CompletableFuture<T> {
+        private CompletableFuture<T> remoteCompletableFuture;
+
+        public RemoteCompletableFutureWrapper(CompletableFuture<T> remoteCompletableFuture) {
+            this.remoteCompletableFuture = remoteCompletableFuture;
+        }
+
+        public void setFuture(CompletableFuture<T> fut) {
+            remoteCompletableFuture = fut;
+        }
+
+        @Override
+        public boolean cancel(boolean mayInterruptIfRunning) {
+            return remoteCompletableFuture.cancel(mayInterruptIfRunning);
+        }
+
+        @Override
+        public boolean isCancelled() {
+            return remoteCompletableFuture.isCancelled();
+        }
+
+        @Override
+        public boolean isDone() {
+            return remoteCompletableFuture.isDone();
+        }
+
+        @Override
+        public T get() throws InterruptedException, ExecutionException {
+            return remoteCompletableFuture.get();
+        }
+
+        @Override
+        public T get(long timeout, TimeUnit unit)
+                throws InterruptedException, ExecutionException, TimeoutException {
+            return remoteCompletableFuture.get(timeout, unit);
+        }
     }
 
     private <R> JobExecution<R> executeOnOneNode(
