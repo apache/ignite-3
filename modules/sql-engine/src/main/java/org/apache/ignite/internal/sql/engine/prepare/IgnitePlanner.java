@@ -134,7 +134,8 @@ public class IgnitePlanner implements Planner, RelOptTable.ViewExpander {
     private RelOptCluster cluster;
 
     static {
-        // Preload some classes to reduce first planning time.
+        // Preload some classes so that the time spent is not taken
+        // into account when measuring query planning timeout.
         //noinspection ResultOfMethodCallIgnored
         PlannerPhase.values();
     }
