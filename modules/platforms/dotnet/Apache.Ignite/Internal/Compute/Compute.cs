@@ -194,7 +194,7 @@ namespace Apache.Ignite.Internal.Compute
             Write();
 
             using PooledBuffer res = await _socket.DoOutInOpAsync(
-                    ClientOp.ComputeExecute, writer, PreferredNode.FromName(node.Name), new NotificationHandler())
+                    ClientOp.ComputeExecute, writer, PreferredNode.FromName(node.Name), expectNotifications: true)
                 .ConfigureAwait(false);
 
             var notificationHandler = (NotificationHandler)res.Metadata!;
@@ -269,7 +269,7 @@ namespace Apache.Ignite.Internal.Compute
                     var preferredNode = await table.GetPreferredNode(colocationHash, null).ConfigureAwait(false);
 
                     using var res = await _socket.DoOutInOpAsync(
-                            ClientOp.ComputeExecuteColocated, bufferWriter, preferredNode, new NotificationHandler())
+                            ClientOp.ComputeExecuteColocated, bufferWriter, preferredNode, expectNotifications: true)
                         .ConfigureAwait(false);
 
                     var notificationHandler = (NotificationHandler)res.Metadata!;

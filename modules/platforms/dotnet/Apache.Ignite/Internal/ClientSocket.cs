@@ -260,12 +260,12 @@ namespace Apache.Ignite.Internal
         /// </summary>
         /// <param name="clientOp">Client op code.</param>
         /// <param name="request">Request data.</param>
-        /// <param name="notificationHandler">Notification handler.</param>
+        /// <param name="expectNotifications">Whether to expect notifications as a result of the operation.</param>
         /// <returns>Response data.</returns>
         public async Task<PooledBuffer> DoOutInOpAsync(
             ClientOp clientOp,
             PooledArrayBuffer? request = null,
-            NotificationHandler? notificationHandler = null)
+            bool expectNotifications = false)
         {
             var ex = _exception;
 
@@ -289,9 +289,9 @@ namespace Apache.Ignite.Internal
             var taskCompletionSource = new TaskCompletionSource<PooledBuffer>();
             _requests[requestId] = taskCompletionSource;
 
-            if (notificationHandler != null)
+            NotificationHandler? notificationHandler = null;
+            if (expectNotifications)
             {
-                // TODO: Refactor to a boolean flag.
                 notificationHandler = new NotificationHandler();
                 _notificationHandlers[requestId] = notificationHandler;
             }

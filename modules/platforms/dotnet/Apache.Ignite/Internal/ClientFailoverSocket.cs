@@ -142,13 +142,13 @@ namespace Apache.Ignite.Internal
         /// <param name="clientOp">Client op code.</param>
         /// <param name="request">Request data.</param>
         /// <param name="preferredNode">Preferred node.</param>
-        /// <param name="notificationHandler">Notification handler.</param>
+        /// <param name="expectNotifications">Whether to expect notifications as a result of the operation.</param>
         /// <returns>Response data and socket.</returns>
         public async Task<PooledBuffer> DoOutInOpAsync(
             ClientOp clientOp,
             PooledArrayBuffer? request = null,
             PreferredNode preferredNode = default,
-            NotificationHandler? notificationHandler = null)
+            bool expectNotifications = false)
         {
             var (buffer, _) = await DoOutInOpAndGetSocketAsync(
                     clientOp,
@@ -156,7 +156,7 @@ namespace Apache.Ignite.Internal
                     request,
                     preferredNode,
                     retryPolicyOverride: null,
-                    notificationHandler)
+                    expectNotifications)
                 .ConfigureAwait(false);
 
             return buffer;
@@ -170,7 +170,7 @@ namespace Apache.Ignite.Internal
         /// <param name="request">Request data.</param>
         /// <param name="preferredNode">Preferred node.</param>
         /// <param name="retryPolicyOverride">Retry policy.</param>
-        /// <param name="notificationHandler">Notification handler.</param>
+        /// <param name="expectNotifications">Whether to expect notifications as a result of the operation.</param>
         /// <returns>Response data and socket.</returns>
         public async Task<(PooledBuffer Buffer, ClientSocket Socket)> DoOutInOpAndGetSocketAsync(
             ClientOp clientOp,
@@ -178,7 +178,7 @@ namespace Apache.Ignite.Internal
             PooledArrayBuffer? request = null,
             PreferredNode preferredNode = default,
             IRetryPolicy? retryPolicyOverride = null,
-            NotificationHandler? notificationHandler = null)
+            bool expectNotifications = false)
         {
             if (tx != null)
             {
@@ -188,7 +188,7 @@ namespace Apache.Ignite.Internal
                 }
 
                 // Use tx-specific socket without retry and failover.
-                var buffer = await tx.Socket.DoOutInOpAsync(clientOp, request, notificationHandler).ConfigureAwait(false);
+                var buffer = await tx.Socket.DoOutInOpAsync(clientOp, request, expectNotifications).ConfigureAwait(false);
                 return (buffer, tx.Socket);
             }
 
@@ -201,7 +201,7 @@ namespace Apache.Ignite.Internal
                 {
                     var socket = await GetSocketAsync(preferredNode).ConfigureAwait(false);
 
-                    var buffer = await socket.DoOutInOpAsync(clientOp, request, notificationHandler).ConfigureAwait(false);
+                    var buffer = await socket.DoOutInOpAsync(clientOp, request, expectNotifications).ConfigureAwait(false);
 
                     return (buffer, socket);
                 }
