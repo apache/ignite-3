@@ -199,7 +199,6 @@ namespace Apache.Ignite.Internal.Compute
 
             var notificationHandler = (NotificationHandler)res.Metadata!;
             using var notificationRes = await notificationHandler.Task.ConfigureAwait(false);
-
             return Read(notificationRes);
 
             void Write()
@@ -274,7 +273,6 @@ namespace Apache.Ignite.Internal.Compute
 
                     var notificationHandler = (NotificationHandler)res.Metadata!;
                     using var notificationRes = await notificationHandler.Task.ConfigureAwait(false);
-
                     return Read(notificationRes);
                 }
                 catch (IgniteException e) when (e.Code == ErrorGroups.Client.TableIdNotFound)
