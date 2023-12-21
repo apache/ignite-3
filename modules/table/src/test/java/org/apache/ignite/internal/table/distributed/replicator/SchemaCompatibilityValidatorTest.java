@@ -105,7 +105,7 @@ class SchemaCompatibilityValidatorTest extends BaseIgniteAbstractTest {
     void createValidatorAndInitMocks() {
         lenient().when(catalogService.table(TABLE_ID, commitTimestamp.longValue())).thenReturn(mock(CatalogTableDescriptor.class));
 
-        validator = new SchemaCompatibilityValidator(schemasSource, catalogService, new AlwaysSyncedSchemaSyncService(), Runnable::run);
+        validator = new SchemaCompatibilityValidator(schemasSource, catalogService, new AlwaysSyncedSchemaSyncService());
     }
 
     @ParameterizedTest

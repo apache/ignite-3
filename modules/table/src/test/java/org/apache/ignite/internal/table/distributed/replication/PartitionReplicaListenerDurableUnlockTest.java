@@ -158,7 +158,6 @@ public class PartitionReplicaListenerDurableUnlockTest extends IgniteAbstractTes
                 txManager,
                 new HeapLockManager(),
                 Runnable::run,
-                Runnable::run,
                 PART_ID,
                 TABLE_ID,
                 Map::of,

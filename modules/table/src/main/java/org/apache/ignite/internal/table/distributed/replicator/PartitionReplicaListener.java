@@ -21,7 +21,6 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
-import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestampToLong;
@@ -198,8 +197,6 @@ public class PartitionReplicaListener implements ReplicaListener {
     /** Replication retries limit. */
     private static final int MAX_RETIES_ON_SAFE_TIME_REORDERING = 1000;
 
-    private static final Runnable NO_OP = () -> {};
-
     /** Replication group id. */
     private final TablePartitionId replicationGroupId;
 
@@ -244,8 +241,6 @@ public class PartitionReplicaListener implements ReplicaListener {
 
     /** Runs async scan tasks for effective tail recursion execution (avoid deep recursive calls). */
     private final Executor scanRequestExecutor;
-
-    private final Executor requestOperationsExecutor;
 
     private final Supplier<Map<Integer, IndexLocker>> indexesLockers;
 
@@ -308,7 +303,6 @@ public class PartitionReplicaListener implements ReplicaListener {
             TxManager txManager,
             LockManager lockManager,
             Executor scanRequestExecutor,
-            Executor requestOperationsExecutor,
             int partId,
             int tableId,
             Supplier<Map<Integer, IndexLocker>> indexesLockers,
@@ -331,7 +325,6 @@ public class PartitionReplicaListener implements ReplicaListener {
         this.txManager = txManager;
         this.lockManager = lockManager;
         this.scanRequestExecutor = scanRequestExecutor;
-        this.requestOperationsExecutor = requestOperationsExecutor;
         this.indexesLockers = indexesLockers;
         this.pkIndexStorage = pkIndexStorage;
         this.secondaryIndexStorages = secondaryIndexStorages;
@@ -350,12 +343,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         cursors = new ConcurrentSkipListMap<>(IgniteUuid.globalOrderComparator());
 
-        schemaCompatValidator = new SchemaCompatibilityValidator(
-                validationSchemasSource,
-                catalogService,
-                schemaSyncService,
-                requestOperationsExecutor
-        );
+        schemaCompatValidator = new SchemaCompatibilityValidator(validationSchemasSource, catalogService, schemaSyncService);
 
         placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, this::onPrimaryElected);
         placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, this::onPrimaryExpired);
@@ -474,8 +462,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
     @Override
     public CompletableFuture<ReplicaResult> invoke(ReplicaRequest request, String senderId) {
-        return switchToRequestOperationsThread()
-                .thenCompose(unused -> ensureReplicaIsPrimary(request))
+        return ensureReplicaIsPrimary(request)
                 .thenCompose(isPrimary -> processRequest(request, isPrimary, senderId))
                 .thenApply(res -> {
                     if (res instanceof ReplicaResult) {
@@ -484,10 +471,6 @@ public class PartitionReplicaListener implements ReplicaListener {
                         return new ReplicaResult(res, null);
                     }
                 });
-    }
-
-    private CompletableFuture<Void> switchToRequestOperationsThread() {
-        return runAsync(NO_OP, requestOperationsExecutor);
     }
 
     private CompletableFuture<?> processRequest(ReplicaRequest request, @Nullable Boolean isPrimary, String senderId) {
@@ -625,19 +608,8 @@ public class PartitionReplicaListener implements ReplicaListener {
             return nullCompletedFuture();
         }
 
-        return waitForMetadataCompleteness(opStartTs)
+        return schemaSyncService.waitForMetadataCompleteness(opStartTs)
                 .thenRun(() -> schemaCompatValidator.failIfTableDoesNotExistAt(opStartTs, tableId()));
-    }
-
-    /**
-     * Waits for metadata completeness for the given timestamp returning a future that will be completed
-     * on a correct thread corresponding to the current partition (and not a system thread).
-     *
-     * @param timestamp Timestamp for which to wait.
-     */
-    private CompletableFuture<Void> waitForMetadataCompleteness(HybridTimestamp timestamp) {
-        return schemaSyncService.waitForMetadataCompleteness(timestamp)
-                .thenCompose(unused -> switchToRequestOperationsThread());
     }
 
     /**
@@ -663,7 +635,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         }
 
         HybridTimestamp finalTsToWaitForSchema = tsToWaitForSchema;
-        return waitForMetadataCompleteness(finalTsToWaitForSchema)
+        return schemaSyncService.waitForMetadataCompleteness(finalTsToWaitForSchema)
                 .thenRun(() -> {
                     SchemaVersionAwareReplicaRequest versionAwareRequest = (SchemaVersionAwareReplicaRequest) request;
 
@@ -689,7 +661,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             tsToWaitForSchema = opTsIfDirectRo;
         }
 
-        return tsToWaitForSchema == null ? nullCompletedFuture() : waitForMetadataCompleteness(tsToWaitForSchema);
+        return tsToWaitForSchema == null ? nullCompletedFuture() : schemaSyncService.waitForMetadataCompleteness(tsToWaitForSchema);
     }
 
     /**
@@ -3632,7 +3604,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     private CompletableFuture<Void> validateRwReadAgainstSchemaAfterTakingLocks(UUID txId) {
         HybridTimestamp operationTimestamp = hybridClock.now();
 
-        return waitForMetadataCompleteness(operationTimestamp)
+        return schemaSyncService.waitForMetadataCompleteness(operationTimestamp)
                 .thenRun(() -> failIfSchemaChangedSinceTxStart(txId, operationTimestamp));
     }
 
@@ -3722,7 +3694,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     }
 
     private CompletableFuture<Integer> reliableCatalogVersionFor(HybridTimestamp ts) {
-        return waitForMetadataCompleteness(ts)
+        return schemaSyncService.waitForMetadataCompleteness(ts)
                 .thenApply(unused -> catalogService.activeCatalogVersion(ts.longValue()));
     }
 

@@ -365,7 +365,6 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 this.txManager,
                 this.txManager.lockManager(),
                 Runnable::run,
-                Runnable::run,
                 PART_ID,
                 tableId,
                 () -> Map.of(pkLocker.id(), pkLocker),
