@@ -341,6 +341,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
             ),
             List.of("intKey", "strKey"),
             null,
+            INITIAL_CAUSALITY_TOKEN,
             INITIAL_CAUSALITY_TOKEN
     );
 
