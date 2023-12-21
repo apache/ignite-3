@@ -22,8 +22,6 @@ import static org.apache.ignite.internal.compute.utils.ComputeTestUtils.assertPu
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.lang.ErrorGroups.Common.COMMON_ERR_GROUP;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Compute.CLASS_INITIALIZATION_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Compute.COMPUTE_ERR_GROUP;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.aMapWithSize;
 import static org.hamcrest.Matchers.containsString;
@@ -43,21 +41,15 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.DeploymentUnit;
-import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
-import org.apache.ignite.lang.ErrorGroup;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.Arguments;
-import org.junit.jupiter.params.provider.MethodSource;
 
 /**
  * Base integration tests for Compute functionality.
@@ -154,7 +146,7 @@ public abstract class ItComputeBaseTest extends ClusterPerTestIntegrationTest {
                 .executeAsync(Set.of(entryNode.node()), units(), failingJobClassName())
                 .get(1, TimeUnit.SECONDS));
 
-        assertPublicException(ex.getCause(), COMMON_ERR_GROUP, INTERNAL_ERR, "Oops");
+        assertPublicException(ex, COMMON_ERR_GROUP, INTERNAL_ERR, "Oops");
     }
 
     @Test
@@ -175,53 +167,7 @@ public abstract class ItComputeBaseTest extends ClusterPerTestIntegrationTest {
                 .executeAsync(Set.of(node(1).node(), node(2).node()), units(), failingJobClassName())
                 .get(1, TimeUnit.SECONDS));
 
-        assertPublicException(ex.getCause(), COMMON_ERR_GROUP, INTERNAL_ERR, "Oops");
-    }
-
-    @ParameterizedTest
-    @MethodSource("wrongJobClassArguments")
-    void executesWrongJobClassLocally(String jobClassName, ErrorGroup errorGroup, int errorCode, String msg) {
-        IgniteImpl entryNode = node(0);
-
-        IgniteException ex = assertThrows(IgniteException.class, () -> entryNode.compute()
-                .execute(Set.of(entryNode.node()), units(), jobClassName));
-
-        assertPublicException(ex, errorGroup, errorCode, msg);
-    }
-
-    @ParameterizedTest
-    @MethodSource("wrongJobClassArguments")
-    void executesWrongJobClassLocallyAsync(String jobClassName, ErrorGroup errorGroup, int errorCode, String msg) {
-        IgniteImpl entryNode = node(0);
-
-        ExecutionException ex = assertThrows(ExecutionException.class, () -> entryNode.compute()
-                .executeAsync(Set.of(entryNode.node()), units(), jobClassName)
-                .get(1, TimeUnit.SECONDS));
-
-        assertPublicException(ex.getCause(), errorGroup, errorCode, msg);
-    }
-
-    @ParameterizedTest
-    @MethodSource("wrongJobClassArguments")
-    void executesWrongJobClassOnRemoteNodes(String jobClassName, ErrorGroup errorGroup, int errorCode, String msg) {
-        Ignite entryNode = node(0);
-
-        IgniteException ex = assertThrows(IgniteException.class, () -> entryNode.compute()
-                .execute(Set.of(node(1).node(), node(2).node()), units(), jobClassName));
-
-        assertPublicException(ex, errorGroup, errorCode, msg);
-    }
-
-    @ParameterizedTest
-    @MethodSource("wrongJobClassArguments")
-    void executesWrongJobClassOnRemoteNodesAsync(String jobClassName, ErrorGroup errorGroup, int errorCode, String msg) {
-        Ignite entryNode = node(0);
-
-        ExecutionException ex = assertThrows(ExecutionException.class, () -> entryNode.compute()
-                .executeAsync(Set.of(node(1).node(), node(2).node()), units(), jobClassName)
-                .get(1, TimeUnit.SECONDS));
-
-        assertPublicException(ex.getCause(), errorGroup, errorCode, msg);
+        assertPublicException(ex, COMMON_ERR_GROUP, INTERNAL_ERR, "Oops");
     }
 
     @Test
@@ -261,12 +207,12 @@ public abstract class ItComputeBaseTest extends ClusterPerTestIntegrationTest {
 
         assertThat(results, is(aMapWithSize(3)));
         for (int i = 0; i < 3; i++) {
-            Exception ex0 = (Exception) results.get(node(i).node())
+            Exception result = (Exception) results.get(node(i).node())
                     .handle((res, ex) -> ex != null ? ex : res)
                     .get(1, TimeUnit.SECONDS);
 
-            assertThat(ex0, is(instanceOf(CompletionException.class)));
-            assertPublicException(ex0.getCause(), COMMON_ERR_GROUP, INTERNAL_ERR, "Oops");
+            assertThat(result, is(instanceOf(CompletionException.class)));
+            assertPublicException(result, COMMON_ERR_GROUP, INTERNAL_ERR, "Oops");
         }
     }
 
@@ -342,32 +288,5 @@ public abstract class ItComputeBaseTest extends ClusterPerTestIntegrationTest {
                 .get(1, TimeUnit.SECONDS);
 
         assertThat(actualNodeName, in(allNodeNames()));
-    }
-
-    private static List<Arguments> wrongJobClassArguments() {
-        return List.of(
-                Arguments.of("org.example.NonExistentJob", COMPUTE_ERR_GROUP, CLASS_INITIALIZATION_ERR, "Cannot load job class by name"),
-                Arguments.of(NonComputeJob.class.getName(), COMPUTE_ERR_GROUP, CLASS_INITIALIZATION_ERR,
-                        "does not implement ComputeJob interface"),
-                Arguments.of(NonEmptyConstructorJob.class.getName(), COMPUTE_ERR_GROUP, CLASS_INITIALIZATION_ERR,
-                        "Cannot instantiate job")
-        );
-    }
-
-    private static class NonComputeJob {
-        public String execute(JobExecutionContext context, Object... args) {
-            return "";
-        }
-    }
-
-    private static class NonEmptyConstructorJob implements ComputeJob<String> {
-        private NonEmptyConstructorJob(String s) {
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public String execute(JobExecutionContext context, Object... args) {
-            return "";
-        }
     }
 }

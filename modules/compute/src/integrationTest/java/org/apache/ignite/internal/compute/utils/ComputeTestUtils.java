@@ -32,7 +32,7 @@ import org.hamcrest.Matchers;
  */
 public class ComputeTestUtils {
     /**
-     * <em>Assert</em> that passed throwable is a public exception {@link IgniteException} with expected error code and message.
+     * <em>Assert</em> that passed throwable is a public exception with expected error group, code and message.
      *
      * @param throwable exception to check.
      * @param expectedErrorGroup - expected {@link ErrorGroup}.
@@ -45,10 +45,29 @@ public class ComputeTestUtils {
             int expectedErrorCode,
             String containMessage
     ) {
+        assertPublicException(throwable, IgniteException.class, expectedErrorGroup, expectedErrorCode, containMessage);
+    }
+
+    /**
+     * <em>Assert</em> that passed throwable is a public exception with expected type, error group, code and message.
+     *
+     * @param throwable - exception to check.
+     * @param expectedType - expected public exception type.
+     * @param expectedErrorGroup - expected {@link ErrorGroup}.
+     * @param expectedErrorCode - expected error code.
+     * @param containMessage - message that exception should contain.
+     */
+    public static void assertPublicException(
+            Throwable throwable,
+            Class<? extends IgniteException> expectedType,
+            ErrorGroup expectedErrorGroup,
+            int expectedErrorCode,
+            String containMessage
+    ) {
         Throwable cause = ExceptionUtils.unwrapCause(throwable);
 
-        assertThat(cause, instanceOf(IgniteException.class));
-        IgniteException ex = (IgniteException) throwable;
+        assertThat(cause, instanceOf(expectedType));
+        IgniteException ex = expectedType.cast(cause);
 
         assertThat(ex.groupCode(), is(expectedErrorGroup.groupCode()));
         assertThat(ex.groupName(), is(expectedErrorGroup.name()));

@@ -24,6 +24,7 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.atomic.AtomicReference;
+import org.apache.ignite.compute.ComputeException;
 import org.apache.ignite.compute.JobStatus;
 import org.apache.ignite.internal.compute.state.ComputeStateMachine;
 import org.apache.ignite.internal.compute.state.IllegalJobStateTransition;
@@ -115,7 +116,7 @@ class QueueExecutionImpl<R> implements QueueExecution<R> {
         try {
             executor.execute(queueEntry);
         } catch (QueueOverflowException e) {
-            result.completeExceptionally(new IgniteException(QUEUE_OVERFLOW_ERR, e));
+            result.completeExceptionally(new ComputeException(QUEUE_OVERFLOW_ERR, e));
             return;
         }
 

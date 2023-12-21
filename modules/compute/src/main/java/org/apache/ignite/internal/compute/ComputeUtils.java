@@ -25,12 +25,12 @@ import java.lang.reflect.Constructor;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
+import org.apache.ignite.compute.ComputeException;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.version.Version;
 import org.apache.ignite.internal.compute.message.DeploymentUnitMsg;
 import org.apache.ignite.internal.compute.message.ExecuteResponse;
-import org.apache.ignite.lang.IgniteException;
 
 /**
  * Utility class for compute.
@@ -47,7 +47,7 @@ public class ComputeUtils {
      */
     public static <R> ComputeJob<R> instantiateJob(Class<? extends ComputeJob<R>> computeJobClass) {
         if (!(ComputeJob.class.isAssignableFrom(computeJobClass))) {
-            throw new IgniteException(
+            throw new ComputeException(
                     CLASS_INITIALIZATION_ERR,
                     "'" + computeJobClass.getName() + "' does not implement ComputeJob interface"
             );
@@ -62,7 +62,7 @@ public class ComputeUtils {
 
             return constructor.newInstance();
         } catch (ReflectiveOperationException e) {
-            throw new IgniteException(
+            throw new ComputeException(
                     CLASS_INITIALIZATION_ERR,
                     "Cannot instantiate job",
                     e
@@ -82,7 +82,7 @@ public class ComputeUtils {
         try {
             return (Class<ComputeJob<R>>) Class.forName(jobClassName, true, jobClassLoader);
         } catch (ClassNotFoundException e) {
-            throw new IgniteException(
+            throw new ComputeException(
                     CLASS_INITIALIZATION_ERR,
                     "Cannot load job class by name '" + jobClassName + "'",
                     e

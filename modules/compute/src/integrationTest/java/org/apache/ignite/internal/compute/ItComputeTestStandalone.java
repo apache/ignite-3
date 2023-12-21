@@ -110,7 +110,7 @@ class ItComputeTestStandalone extends ItComputeBaseTest {
 
         CompletionException ex0 = assertThrows(CompletionException.class, result::join);
 
-        assertPublicException(ex0.getCause(), COMMON_ERR_GROUP, INTERNAL_ERR,
+        assertPublicException(ex0, COMMON_ERR_GROUP, INTERNAL_ERR,
                 "org.example.ConcatJob. Deployment unit non-existing:1.0.0 doesn't exist");
     }
 
@@ -166,7 +166,7 @@ class ItComputeTestStandalone extends ItComputeBaseTest {
         CompletableFuture<Void> failedJob = entryNode.compute().executeAsync(Set.of(entryNode.node()), units, "org.example.SleepJob", 2L);
 
         CompletionException ex0 = assertThrows(CompletionException.class, failedJob::join);
-        assertPublicException(ex0.getCause(), COMMON_ERR_GROUP, INTERNAL_ERR,
+        assertPublicException(ex0, COMMON_ERR_GROUP, INTERNAL_ERR,
                 "org.example.SleepJob. Deployment unit jobs:1.0.0 can't be used: "
                 + "[clusterStatus = OBSOLETE, nodeStatus = OBSOLETE]");
 
