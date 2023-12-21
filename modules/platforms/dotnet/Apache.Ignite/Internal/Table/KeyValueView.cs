@@ -36,7 +36,6 @@ using Serialization;
 /// <typeparam name="TV">Value type.</typeparam>
 internal sealed class KeyValueView<TK, TV> : IKeyValueView<TK, TV>
     where TK : notnull
-    where TV : notnull
 {
     /** Record view. */
     private readonly RecordView<KvPair<TK, TV>> _recordView;
