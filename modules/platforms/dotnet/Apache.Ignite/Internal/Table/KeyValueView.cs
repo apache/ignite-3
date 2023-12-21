@@ -46,6 +46,7 @@ internal sealed class KeyValueView<TK, TV> : IKeyValueView<TK, TV>
     /// <param name="recordView">Record view.</param>
     public KeyValueView(RecordView<KvPair<TK, TV>> recordView)
     {
+        // TODO: Add a check for TV nullability? Which cases are we going to catch?
         _recordView = recordView;
     }
 
