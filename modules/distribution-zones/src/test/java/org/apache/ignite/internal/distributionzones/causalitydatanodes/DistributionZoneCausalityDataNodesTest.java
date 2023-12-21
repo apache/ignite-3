@@ -50,12 +50,13 @@ import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.doAnswer;
 
 import java.util.Arrays;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Stream;
@@ -999,77 +1000,19 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
     void checkDataNodesRepeatedOnNodeAdded() throws Exception {
         prepareZonesWithTwoDataNodes();
 
-        prepareZonesTimerValuesToTest();
+        Map<Integer, Set<String>> expectedDataNodes = new HashMap<>();
+        expectedDataNodes.put(getZoneId(DEFAULT_ZONE_NAME), Set.of(NODE_0.name(), NODE_1.name(), NODE_2.name()));
+        expectedDataNodes.put(getZoneId(ZONE_NAME), Set.of(NODE_0.name(), NODE_1.name(), NODE_2.name()));
+        expectedDataNodes.put(getZoneId(ZONE_NAME_2), Set.of(NODE_0.name(), NODE_1.name()));
+        expectedDataNodes.put(getZoneId(ZONE_NAME_3), Set.of(NODE_0.name(), NODE_1.name()));
 
-        CountDownLatch latch = new CountDownLatch(1);
+        Map<Integer, Set<String>> expectedDataNodes1 = new HashMap<>(expectedDataNodes);
+        expectedDataNodes1.put(getZoneId(ZONE_NAME_4), Set.of(NODE_0.name(), NODE_1.name()));
 
-        AtomicBoolean reached = new AtomicBoolean();
+        Map<Integer, Set<String>> expectedDataNodes2 = new HashMap<>(expectedDataNodes);
+        expectedDataNodes2.put(getZoneId(ZONE_NAME_4), Set.of(NODE_0.name(), NODE_1.name(), NODE_2.name()));
 
-        Set<String> expectedDefaultZoneDataNodes = Set.of(NODE_0.name(), NODE_1.name(), NODE_2.name());
-        Set<String> expectedZone1DataNodes = Set.of(NODE_0.name(), NODE_1.name(), NODE_2.name());
-        Set<String> expectedZone2DataNodes = Set.of(NODE_0.name(), NODE_1.name());
-        Set<String> expectedZone3DataNodes = Set.of(NODE_0.name(), NODE_1.name());
-        Set<String> expectedZone4DataNodes1 = Set.of(NODE_0.name(), NODE_1.name());
-        Set<String> expectedZone4DataNodes2 = Set.of(NODE_0.name(), NODE_1.name(), NODE_2.name());
-
-        AtomicLong topologyUpdateRevision = new AtomicLong();
-
-        WatchListener testListener = createLogicalTopologyWatchListenerToCheckDataNodes(
-                topologyUpdateRevision,
-                latch,
-                reached,
-                expectedDefaultZoneDataNodes,
-                expectedZone1DataNodes,
-                expectedZone2DataNodes,
-                expectedZone3DataNodes,
-                expectedZone4DataNodes1
-        );
-
-        metaStorageManager.registerPrefixWatch(zonesLogicalTopologyPrefix(), testListener);
-
-        blockDataNodesUpdatesInMetaStorage(latch);
-
-        Set<LogicalNode> topology1 = Set.of(NODE_0, NODE_1, NODE_2);
-
-        // Change logical topology. NODE_2 is added.
-        long topologyRevision = putNodeInLogicalTopologyAndGetRevision(NODE_2, topology1);
-        waitForCondition(() -> metaStorageManager.appliedRevision() >= topologyRevision, TIMEOUT);
-
-        assertEquals(topologyRevision, topologyUpdateRevision.get());
-
-        latch.await();
-
-        assertTrue(reached.get());
-
-        // Check that data nodes values are changed in the meta storage after ms invokes updated the meta storage.
-        checkThatDataNodesIsChangedInMetastorage(
-                expectedDefaultZoneDataNodes,
-                expectedZone1DataNodes,
-                expectedZone2DataNodes,
-                expectedZone3DataNodes,
-                expectedZone4DataNodes2
-        );
-
-        // Check that data nodes values are idempotented.
-        // Data nodes from the meta storage manager only used to calculate current data nodes because the meta storage are updated and
-        // topology augmentation maps were cleared.
-        checkDataNodes(
-                topologyUpdateRevision.get(),
-                expectedDefaultZoneDataNodes,
-                expectedZone1DataNodes,
-                expectedZone2DataNodes,
-                expectedZone3DataNodes,
-                expectedZone4DataNodes1
-        );
-
-        checkDataNodes(
-                metaStorageManager.appliedRevision(),
-                expectedDefaultZoneDataNodes,
-                expectedZone1DataNodes,
-                expectedZone2DataNodes,
-                expectedZone3DataNodes,
-                expectedZone4DataNodes2
-        );
+        checkDataNodesRepeated(expectedDataNodes1, expectedDataNodes2, true);
     }
 
     /**
@@ -1084,18 +1027,31 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
     void checkDataNodesRepeatedOnNodeRemoved() throws Exception {
         prepareZonesWithTwoDataNodes();
 
+        Map<Integer, Set<String>> expectedDataNodes = new HashMap<>();
+        expectedDataNodes.put(getZoneId(DEFAULT_ZONE_NAME), Set.of(NODE_0.name()));
+        expectedDataNodes.put(getZoneId(ZONE_NAME), Set.of(NODE_0.name(), NODE_1.name()));
+        expectedDataNodes.put(getZoneId(ZONE_NAME_2), Set.of(NODE_0.name()));
+        expectedDataNodes.put(getZoneId(ZONE_NAME_3), Set.of(NODE_0.name(), NODE_1.name()));
+
+        Map<Integer, Set<String>> expectedDataNodes1 = new HashMap<>(expectedDataNodes);
+        expectedDataNodes1.put(getZoneId(ZONE_NAME_4), Set.of(NODE_0.name(), NODE_1.name()));
+
+        Map<Integer, Set<String>> expectedDataNodes2 = new HashMap<>(expectedDataNodes);
+        expectedDataNodes2.put(getZoneId(ZONE_NAME_4), Set.of(NODE_0.name()));
+
+        checkDataNodesRepeated(expectedDataNodes1, expectedDataNodes2, false);
+    }
+
+    private void checkDataNodesRepeated(
+            Map<Integer, Set<String>> expectedDataNodesOnTopologyUpdateEvent,
+            Map<Integer, Set<String>> expectedDataNodesAfterTimersAreExpired,
+            boolean addNode
+    ) throws Exception {
         prepareZonesTimerValuesToTest();
 
         CountDownLatch latch = new CountDownLatch(1);
 
         AtomicBoolean reached = new AtomicBoolean();
-
-        Set<String> expectedDefaultZoneDataNodes = Set.of(NODE_0.name());
-        Set<String> expectedZone1DataNodes = Set.of(NODE_0.name(), NODE_1.name());
-        Set<String> expectedZone2DataNodes = Set.of(NODE_0.name());
-        Set<String> expectedZone3DataNodes = Set.of(NODE_0.name(), NODE_1.name());
-        Set<String> expectedZone4DataNodes1 = Set.of(NODE_0.name(), NODE_1.name());
-        Set<String> expectedZone4DataNodes2 = Set.of(NODE_0.name());
 
         AtomicLong topologyUpdateRevision = new AtomicLong();
 
@@ -1103,22 +1059,32 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
                 topologyUpdateRevision,
                 latch,
                 reached,
-                expectedDefaultZoneDataNodes,
-                expectedZone1DataNodes,
-                expectedZone2DataNodes,
-                expectedZone3DataNodes,
-                expectedZone4DataNodes1
+                expectedDataNodesOnTopologyUpdateEvent
         );
 
         metaStorageManager.registerPrefixWatch(zonesLogicalTopologyPrefix(), testListener);
 
         blockDataNodesUpdatesInMetaStorage(latch);
 
-        Set<LogicalNode> topology1 = Set.of(NODE_0);
+        Set<LogicalNode> newTopology = new HashSet<>();
+        newTopology.add(NODE_0);
+        newTopology.add(NODE_1);
 
-        // Change logical topology. NODE_1 is removed.
-        long topologyRevision = removeNodeInLogicalTopologyAndGetRevision(Set.of(NODE_1), topology1);
-        waitForCondition(() -> metaStorageManager.appliedRevision() >= topologyRevision, TIMEOUT);
+        long topologyRevision;
+
+        if (addNode) {
+            newTopology.add(NODE_2);
+
+            // Change logical topology. NODE_2 is added.
+            topologyRevision = putNodeInLogicalTopologyAndGetRevision(NODE_2, newTopology);
+            waitForCondition(() -> metaStorageManager.appliedRevision() >= topologyRevision, TIMEOUT);
+        } else {
+            newTopology.remove(NODE_1);
+
+            // Change logical topology. NODE_1 is removed.
+            topologyRevision = removeNodeInLogicalTopologyAndGetRevision(Set.of(NODE_1), newTopology);
+            waitForCondition(() -> metaStorageManager.appliedRevision() >= topologyRevision, TIMEOUT);
+        }
 
         assertEquals(topologyRevision, topologyUpdateRevision.get());
 
@@ -1127,34 +1093,14 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         assertTrue(reached.get());
 
         // Check that data nodes values are changed in the meta storage after ms invokes updated the meta storage.
-        checkThatDataNodesIsChangedInMetastorage(
-                expectedDefaultZoneDataNodes,
-                expectedZone1DataNodes,
-                expectedZone2DataNodes,
-                expectedZone3DataNodes,
-                expectedZone4DataNodes2
-        );
+        checkThatDataNodesIsChangedInMetastorage(expectedDataNodesAfterTimersAreExpired);
 
         // Check that data nodes values are idempotented.
         // Data nodes from the meta storage manager only used to calculate current data nodes because the meta storage are updated and
         // topology augmentation maps were cleared.
-        checkDataNodes(
-                topologyUpdateRevision.get(),
-                expectedDefaultZoneDataNodes,
-                expectedZone1DataNodes,
-                expectedZone2DataNodes,
-                expectedZone3DataNodes,
-                expectedZone4DataNodes1
-        );
+        checkDataNodes(topologyUpdateRevision.get(), expectedDataNodesOnTopologyUpdateEvent);
 
-        checkDataNodes(
-                metaStorageManager.appliedRevision(),
-                expectedDefaultZoneDataNodes,
-                expectedZone1DataNodes,
-                expectedZone2DataNodes,
-                expectedZone3DataNodes,
-                expectedZone4DataNodes2
-        );
+        checkDataNodes(metaStorageManager.appliedRevision(), expectedDataNodesAfterTimersAreExpired);
     }
 
     /**
@@ -1175,40 +1121,28 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         topology.putNode(NODE_0);
 
         // Change logical topology. NODE_1 is added.
-        long topologyRevision0 = putNodeInLogicalTopologyAndGetRevision(NODE_1, TWO_NODES);
+        long topologyRevision = putNodeInLogicalTopologyAndGetRevision(NODE_1, TWO_NODES);
 
-        int defaultZoneId = getZoneId(DEFAULT_ZONE_NAME);
-        int zoneId = getZoneId(ZONE_NAME);
-        int zoneId2 = getZoneId(ZONE_NAME_2);
-        int zoneId3 = getZoneId(ZONE_NAME_3);
-        int zoneId4 = getZoneId(ZONE_NAME_4);
+        Set<Integer> zoneIds = Set.of(
+                getZoneId(DEFAULT_ZONE_NAME),
+                getZoneId(ZONE_NAME),
+                getZoneId(ZONE_NAME_2),
+                getZoneId(ZONE_NAME_3),
+                getZoneId(ZONE_NAME_4)
+        );
 
-        Set<String> dataNodes1 = distributionZoneManager.dataNodes(topologyRevision0, catalogManager.latestCatalogVersion(), defaultZoneId)
-                .get(TIMEOUT, MILLISECONDS);
-        assertEquals(TWO_NODES_NAMES, dataNodes1);
-        Set<String> dataNodes2 = distributionZoneManager.dataNodes(topologyRevision0, catalogManager.latestCatalogVersion(), zoneId)
-                .get(TIMEOUT, MILLISECONDS);
-        assertEquals(TWO_NODES_NAMES, dataNodes2);
-        Set<String> dataNodes3 = distributionZoneManager.dataNodes(topologyRevision0, catalogManager.latestCatalogVersion(), zoneId2)
-                .get(TIMEOUT, MILLISECONDS);
-        assertEquals(TWO_NODES_NAMES, dataNodes3);
-        Set<String> dataNodes4 = distributionZoneManager.dataNodes(topologyRevision0, catalogManager.latestCatalogVersion(), zoneId3)
-                .get(TIMEOUT, MILLISECONDS);
-        assertEquals(TWO_NODES_NAMES, dataNodes4);
-        Set<String> dataNodes5 = distributionZoneManager.dataNodes(topologyRevision0, catalogManager.latestCatalogVersion(), zoneId4)
-                .get(TIMEOUT, MILLISECONDS);
-        assertEquals(TWO_NODES_NAMES, dataNodes5);
+        for (Integer zoneId : zoneIds) {
+            Set<String> dataNodes = distributionZoneManager.dataNodes(topologyRevision, catalogManager.latestCatalogVersion(), zoneId)
+                    .get(TIMEOUT, MILLISECONDS);
+            assertEquals(TWO_NODES_NAMES, dataNodes);
+        }
     }
 
     private WatchListener createLogicalTopologyWatchListenerToCheckDataNodes(
             AtomicLong topologyUpdateRevision,
             CountDownLatch latch,
             AtomicBoolean reached,
-            Set<String> expectedDefaultZoneDataNodes,
-            Set<String> expectedZone1DataNodes,
-            Set<String> expectedZone2DataNodes,
-            Set<String> expectedZone3DataNodes,
-            Set<String> expectedZone4DataNodes
+            Map<Integer, Set<String>> expectedDataNodes
     ) {
         return new WatchListener() {
             @Override
@@ -1227,17 +1161,10 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
                     try {
                         // Check that data nodes values are changed according to scale up and down timers.
                         // Data nodes from the meta storage manager and topology augmentation maps are used to calculate current data nodes.
-                        checkDataNodes(
-                                topologyUpdateRevision.get(),
-                                expectedDefaultZoneDataNodes,
-                                expectedZone1DataNodes,
-                                expectedZone2DataNodes,
-                                expectedZone3DataNodes,
-                                expectedZone4DataNodes
-                        );
+                        checkDataNodes(topologyUpdateRevision.get(), expectedDataNodes);
 
                         // Check that data nodes values are not changed in the meta storage.
-                        checkThatDataNodesIsNotChangedInMetastorage();
+                        checkThatDataNodesIsNotChangedInMetastorage(expectedDataNodes.keySet());
 
                         reached.set(true);
                     } catch (Exception e) {
@@ -1252,52 +1179,16 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         };
     }
 
-    private void checkThatDataNodesIsNotChangedInMetastorage() throws Exception {
-        int defaultZoneId = getZoneId(DEFAULT_ZONE_NAME);
-        int zoneId = getZoneId(ZONE_NAME);
-        int zoneId2 = getZoneId(ZONE_NAME_2);
-        int zoneId3 = getZoneId(ZONE_NAME_3);
-        int zoneId4 = getZoneId(ZONE_NAME_4);
-
-        assertValueInStorage(
-                metaStorageManager,
-                zoneDataNodesKey(defaultZoneId),
-                (v) -> DistributionZonesUtil.dataNodes(fromBytes(v)).stream().map(Node::nodeName).collect(toSet()),
-                TWO_NODES_NAMES,
-                TIMEOUT
-        );
-
-        assertValueInStorage(
-                metaStorageManager,
-                zoneDataNodesKey(zoneId),
-                (v) -> DistributionZonesUtil.dataNodes(fromBytes(v)).stream().map(Node::nodeName).collect(toSet()),
-                TWO_NODES_NAMES,
-                TIMEOUT
-        );
-
-        assertValueInStorage(
-                metaStorageManager,
-                zoneDataNodesKey(zoneId2),
-                (v) -> DistributionZonesUtil.dataNodes(fromBytes(v)).stream().map(Node::nodeName).collect(toSet()),
-                TWO_NODES_NAMES,
-                TIMEOUT
-        );
-
-        assertValueInStorage(
-                metaStorageManager,
-                zoneDataNodesKey(zoneId3),
-                (v) -> DistributionZonesUtil.dataNodes(fromBytes(v)).stream().map(Node::nodeName).collect(toSet()),
-                TWO_NODES_NAMES,
-                TIMEOUT
-        );
-
-        assertValueInStorage(
-                metaStorageManager,
-                zoneDataNodesKey(zoneId4),
-                (v) -> DistributionZonesUtil.dataNodes(fromBytes(v)).stream().map(Node::nodeName).collect(toSet()),
-                TWO_NODES_NAMES,
-                TIMEOUT
-        );
+    private void checkThatDataNodesIsNotChangedInMetastorage(Set<Integer> zoneIds) throws Exception {
+        for (Integer zoneId : zoneIds) {
+            assertValueInStorage(
+                    metaStorageManager,
+                    zoneDataNodesKey(zoneId),
+                    (v) -> DistributionZonesUtil.dataNodes(fromBytes(v)).stream().map(Node::nodeName).collect(toSet()),
+                    TWO_NODES_NAMES,
+                    TIMEOUT
+            );
+        }
     }
 
     /**
@@ -1305,96 +1196,29 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
      */
     private void checkDataNodes(
             long revision,
-            Set<String> expectedDefaultZoneDataNodes,
-            Set<String> expectedZone1DataNodes,
-            Set<String> expectedZone2DataNodes,
-            Set<String> expectedZone3DataNodes,
-            Set<String> expectedZone4DataNodes
-    ) throws ExecutionException, InterruptedException, TimeoutException {
-        int defaultZoneId = getZoneId(DEFAULT_ZONE_NAME);
-        int zoneId = getZoneId(ZONE_NAME);
-        int zoneId2 = getZoneId(ZONE_NAME_2);
-        int zoneId3 = getZoneId(ZONE_NAME_3);
-        int zoneId4 = getZoneId(ZONE_NAME_4);
-
-        assertEquals(
-                expectedDefaultZoneDataNodes,
-                distributionZoneManager.dataNodes(revision, catalogManager.latestCatalogVersion(), defaultZoneId).get(TIMEOUT, MILLISECONDS)
-        );
-
-        assertEquals(
-                expectedZone1DataNodes,
-                distributionZoneManager.dataNodes(revision, catalogManager.latestCatalogVersion(), zoneId).get(TIMEOUT, MILLISECONDS)
-        );
-
-        assertEquals(
-                expectedZone2DataNodes,
-                distributionZoneManager.dataNodes(revision, catalogManager.latestCatalogVersion(), zoneId2).get(TIMEOUT, MILLISECONDS)
-        );
-
-        assertEquals(
-                expectedZone3DataNodes,
-                distributionZoneManager.dataNodes(revision, catalogManager.latestCatalogVersion(), zoneId3).get(TIMEOUT, MILLISECONDS)
-        );
-
-        assertEquals(
-                expectedZone4DataNodes,
-                distributionZoneManager.dataNodes(revision, catalogManager.latestCatalogVersion(), zoneId4).get(TIMEOUT, MILLISECONDS)
-        );
+            Map<Integer, Set<String>> expectedDataNodes
+    ) throws Exception {
+        for (Map.Entry<Integer, Set<String>> entry : expectedDataNodes.entrySet()) {
+            assertEquals(
+                    entry.getValue(),
+                    distributionZoneManager.dataNodes(revision, catalogManager.latestCatalogVersion(), entry.getKey())
+                            .get(TIMEOUT, MILLISECONDS)
+            );
+        }
     }
 
     private void checkThatDataNodesIsChangedInMetastorage(
-            Set<String> dataNodes1,
-            Set<String> dataNodes2,
-            Set<String> dataNodes3,
-            Set<String> dataNodes4,
-            Set<String> dataNodes5
+            Map<Integer, Set<String>> expectedDataNodes
     ) throws Exception {
-        int defaultZoneId = getZoneId(DEFAULT_ZONE_NAME);
-        int zoneId = getZoneId(ZONE_NAME);
-        int zoneId2 = getZoneId(ZONE_NAME_2);
-        int zoneId3 = getZoneId(ZONE_NAME_3);
-        int zoneId4 = getZoneId(ZONE_NAME_4);
-
-        assertValueInStorage(
-                metaStorageManager,
-                zoneDataNodesKey(defaultZoneId),
-                (v) -> DistributionZonesUtil.dataNodes(fromBytes(v)).stream().map(Node::nodeName).collect(toSet()),
-                dataNodes1,
-                TIMEOUT
-        );
-
-        assertValueInStorage(
-                metaStorageManager,
-                zoneDataNodesKey(zoneId),
-                (v) -> DistributionZonesUtil.dataNodes(fromBytes(v)).stream().map(Node::nodeName).collect(toSet()),
-                dataNodes2,
-                TIMEOUT
-        );
-
-        assertValueInStorage(
-                metaStorageManager,
-                zoneDataNodesKey(zoneId2),
-                (v) -> DistributionZonesUtil.dataNodes(fromBytes(v)).stream().map(Node::nodeName).collect(toSet()),
-                dataNodes3,
-                TIMEOUT
-        );
-
-        assertValueInStorage(
-                metaStorageManager,
-                zoneDataNodesKey(zoneId3),
-                (v) -> DistributionZonesUtil.dataNodes(fromBytes(v)).stream().map(Node::nodeName).collect(toSet()),
-                dataNodes4,
-                TIMEOUT
-        );
-
-        assertValueInStorage(
-                metaStorageManager,
-                zoneDataNodesKey(zoneId4),
-                (v) -> DistributionZonesUtil.dataNodes(fromBytes(v)).stream().map(Node::nodeName).collect(toSet()),
-                dataNodes5,
-                TIMEOUT
-        );
+        for (Map.Entry<Integer, Set<String>> entry : expectedDataNodes.entrySet()) {
+            assertValueInStorage(
+                    metaStorageManager,
+                    zoneDataNodesKey(entry.getKey()),
+                    (v) -> DistributionZonesUtil.dataNodes(fromBytes(v)).stream().map(Node::nodeName).collect(toSet()),
+                    entry.getValue(),
+                    TIMEOUT
+            );
+        }
     }
 
     private void prepareZonesTimerValuesToTest() {
