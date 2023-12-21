@@ -1541,7 +1541,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @return future result of the operation.
      */
     // TODO: need to properly handle primary replica changes https://issues.apache.org/jira/browse/IGNITE-17615
-    private CompletableFuture<Void> processTxFinishAction(TxFinishReplicaRequest request, String txCoordinatorId) {
+    private CompletableFuture<TransactionResult> processTxFinishAction(TxFinishReplicaRequest request, String txCoordinatorId) {
         // TODO: https://issues.apache.org/jira/browse/IGNITE-19170 Use ZonePartitionIdMessage and remove cast
         Collection<TablePartitionId> enlistedGroups = (Collection<TablePartitionId>) (Collection<?>) request.groups();
 
@@ -1551,15 +1551,17 @@ public class PartitionReplicaListener implements ReplicaListener {
             HybridTimestamp commitTimestamp = request.commitTimestamp();
 
             return schemaCompatValidator.validateCommit(txId, enlistedGroups, commitTimestamp)
-                    .thenCompose(validationResult -> {
-                        return finishAndCleanup(
-                                enlistedGroups,
-                                validationResult.isSuccessful(),
-                                validationResult.isSuccessful() ? commitTimestamp : null,
-                                txId,
-                                txCoordinatorId
-                        ).thenAccept(unused -> throwIfSchemaValidationOnCommitFailed(validationResult));
-                    });
+                    .thenCompose(validationResult ->
+                            finishAndCleanup(
+                                    enlistedGroups,
+                                    validationResult.isSuccessful(),
+                                    validationResult.isSuccessful() ? commitTimestamp : null,
+                                    txId,
+                                    txCoordinatorId
+                            ).thenApply(txResult -> {
+                                throwIfSchemaValidationOnCommitFailed(validationResult);
+                                return txResult;
+                            }));
         } else {
             // Aborting.
             return finishAndCleanup(enlistedGroups, false, null, txId, txCoordinatorId);
@@ -1582,7 +1584,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         }
     }
 
-    private CompletableFuture<Void> finishAndCleanup(
+    private CompletableFuture<TransactionResult> finishAndCleanup(
             Collection<TablePartitionId> enlistedPartitions,
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp,
@@ -1602,7 +1604,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             // Even if the outcome is different (the transaction was aborted, but we want to commit it),
             // we return 'success' to be in alignment with common transaction handling.
             if (txMeta.locksReleased()) {
-                return nullCompletedFuture();
+                return completedFuture(new TransactionResult(txMeta.txState(), txMeta.commitTimestamp()));
             }
 
             // The transaction is finished, but the locks are not released.
@@ -1644,8 +1646,11 @@ public class PartitionReplicaListener implements ReplicaListener {
         }
 
         return finishTransaction(enlistedPartitions, txId, commit, commitTimestamp, txCoordinatorId)
-                .thenCompose(v -> txManager.cleanup(enlistedPartitions, commit, commitTimestamp, txId))
-                .thenRun(() -> markLocksReleased(txId));
+                .thenCompose(txResult ->
+                        txManager.cleanup(enlistedPartitions, commit, commitTimestamp, txId)
+                                .thenRun(() -> markLocksReleased(txId))
+                                .thenApply(v -> txResult)
+                );
     }
 
     /**
@@ -1658,7 +1663,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param txCoordinatorId Transaction coordinator id.
      * @return Future to wait of the finish.
      */
-    private CompletableFuture<Object> finishTransaction(
+    private CompletableFuture<TransactionResult> finishTransaction(
             Collection<TablePartitionId> aggregatedGroupIds,
             UUID txId,
             boolean commit,
@@ -1701,7 +1706,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                     markFinished(txId, result.transactionState(), result.commitTimestamp());
 
-                    return null;
+                    return result;
                 });
     }
 
@@ -1972,7 +1977,14 @@ public class PartitionReplicaListener implements ReplicaListener {
             return failedFuture(new TransactionException(TX_FAILED_READ_WRITE_OPERATION_ERR, "Transaction is already finished."));
         }
 
-        CompletableFuture<T> fut = op.get();
+        CompletableFuture<T> fut;
+        try {
+            fut = op.get();
+        } catch (Throwable ex) {
+            cleanupReadyFut.completeExceptionally(ex);
+
+            throw ex;
+        }
 
         fut.whenComplete((v, th) -> {
             if (th != null) {

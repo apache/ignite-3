@@ -80,7 +80,7 @@ public class ItTransactionConflictTest extends ClusterPerTestIntegrationTest {
     }
 
     @Test
-    public void test() throws Exception {
+    public void testMultipleRecoveryRequestsIssued() throws Exception {
         TableImpl tbl = (TableImpl) node(0).tables().table(TABLE_NAME);
 
         var tblReplicationGrp = new TablePartitionId(tbl.tableId(), 0);
@@ -120,6 +120,10 @@ public class ItTransactionConflictTest extends ClusterPerTestIntegrationTest {
                 recoveryTxMsgCaptureFut.complete(recoveryTxMsg.txId());
 
                 msgCount.incrementAndGet();
+
+                // Drop only the first recovery to emulate a lost message.
+                // Another one should be issued eventually.
+                return msgCount.get() == 1;
             }
 
             return false;
@@ -139,7 +143,7 @@ public class ItTransactionConflictTest extends ClusterPerTestIntegrationTest {
         assertTrue(waitForCondition(() -> {
             runConflictingTransaction(node(0), node(0).transactions().begin());
 
-            return msgCount.get() > 0;
+            return msgCount.get() > 1;
         }, 10_000));
     }
 

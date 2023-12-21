@@ -17,11 +17,10 @@
 
 package org.apache.ignite.internal.tx.impl;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
-import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.tx.TxState.ABANDONED;
 import static org.apache.ignite.internal.tx.TxState.isFinalState;
+import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.FastTimestamps.coarseCurrentTimeMillis;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.ACQUIRE_LOCK_ERR;
@@ -31,7 +30,6 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.configuration.ConfigurationValue;
 import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.hlc.HybridClock;
-import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
@@ -143,31 +141,19 @@ public class OrphanDetector {
         lockManager.removeListener(LockEvent.LOCK_CONFLICT, lockConflictListener);
     }
 
-    private CompletableFuture<Boolean> lockConflictListener(LockEventParameters params, Throwable e) {
-        try {
-            checkTxOrphaned(params.lockHolderTx());
-        } catch (NodeStoppingException ex) {
-            return failedFuture(ex);
-        }
-
-        return completedFuture(false);
-    }
-
     /**
      * Sends {@link TxRecoveryMessage} if the transaction is orphaned.
-     *
-     * @param txId Transaction id that holds a lock.
      */
-    private void checkTxOrphaned(UUID txId) throws NodeStoppingException {
+    private CompletableFuture<Boolean> lockConflictListener(LockEventParameters params, Throwable e) {
         if (busyLock.enterBusy()) {
             try {
-                checkTxOrphanedInternal(txId);
+                checkTxOrphanedInternal(params.lockHolderTx());
             } finally {
                 busyLock.leaveBusy();
             }
         }
 
-        throw new NodeStoppingException();
+        return falseCompletedFuture();
     }
 
     /**
@@ -184,7 +170,7 @@ public class OrphanDetector {
             return;
         }
 
-        if (isRecoveryNeeded(txId, txState)) {
+        if (makeTxAbandoned(txId, txState)) {
             LOG.info(
                     "Conflict was found, and the coordinator of the transaction that holds a lock is not available "
                             + "[txId={}, txCrd={}].",
@@ -248,25 +234,21 @@ public class OrphanDetector {
     }
 
     /**
-     * Checks whether the recovery transaction message is required to be sent or not.
+     * Set TX state to {@link org.apache.ignite.internal.tx.TxState#ABANDONED}.
      *
      * @param txId Transaction id.
      * @param txState Transaction meta state.
-     * @return True when transaction recovery is needed, false otherwise.
+     * @return True when TX state was set to ABANDONED.
      */
-    private boolean isRecoveryNeeded(UUID txId, TxStateMeta txState) {
-        if (txState == null
-                || isFinalState(txState.txState())
-                || isTxAbandonedRecently(txState)) {
+    private boolean makeTxAbandoned(UUID txId, TxStateMeta txState) {
+        if (!isRecoveryNeeded(txState)) {
             return false;
         }
 
         TxStateMetaAbandoned txAbandonedState = txState.abandoned();
 
         TxStateMeta updatedTxState = txLocalStateStorage.updateMeta(txId, txStateMeta -> {
-            if (txStateMeta != null
-                    && !isFinalState(txStateMeta.txState())
-                    && (txStateMeta.txState() != ABANDONED || isTxAbandonedRecently(txStateMeta))) {
+            if (isRecoveryNeeded(txStateMeta)) {
                 return txAbandonedState;
             }
 
@@ -274,6 +256,18 @@ public class OrphanDetector {
         });
 
         return txAbandonedState == updatedTxState;
+    }
+
+    /**
+     * Checks whether the recovery transaction message should to be sent.
+     *
+     * @param txState Transaction meta state.
+     * @return True when transaction recovery is needed, false otherwise.
+     */
+    private boolean isRecoveryNeeded(TxStateMeta txState) {
+        return txState != null
+                && !isFinalState(txState.txState())
+                && !isTxAbandonedRecently(txState);
     }
 
     /**
