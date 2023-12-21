@@ -21,6 +21,7 @@ import static java.util.concurrent.CompletableFuture.allOf;
 import static org.apache.ignite.internal.util.CollectionUtils.first;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
+import com.github.benmanes.caffeine.cache.Caffeine;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.ints.IntObjectPair;
@@ -30,6 +31,7 @@ import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executor;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -63,7 +65,7 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
     private final ExecutionTargetProvider targetProvider;
     private final Cache<PlanId, FragmentsTemplate> templatesCache;
     private final Executor taskExecutor;
-
+    private final ConcurrentMap<PlanId, CompletableFuture<List<MappedFragment>>> mappingCache;
 
     /**
      * Constructor.
@@ -85,6 +87,10 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
         this.targetProvider = targetProvider;
         this.templatesCache = cacheFactory.create(cacheSize);
         this.taskExecutor = taskExecutor;
+        this.mappingCache = Caffeine.newBuilder()
+                .maximumSize(cacheSize)
+                .<PlanId, CompletableFuture<List<MappedFragment>>>build()
+                .asMap();
     }
 
     @Override
@@ -97,6 +103,10 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
     }
 
     private CompletableFuture<List<MappedFragment>> map0(MultiStepPlan multiStepPlan) {
+        return mappingCache.computeIfAbsent(multiStepPlan.id(), planId -> mapPlan(multiStepPlan));
+    }
+
+    private CompletableFuture<List<MappedFragment>> mapPlan(MultiStepPlan multiStepPlan) {
         List<String> nodes = topologyHolder.nodes();
         MappingContext context = new MappingContext(localNodeName, nodes);
 
@@ -281,6 +291,10 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
         return newFragments;
     }
 
+    private void invalidateFragmentsCache() {
+        mappingCache.clear();
+    }
+
     /**
      * Holder for topology snapshots that guarantees monotonically increasing versions.
      */
@@ -289,6 +303,8 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
         private long ver = Long.MIN_VALUE;
 
         void update(LogicalTopologySnapshot topologySnapshot) {
+            invalidateFragmentsCache();
+
             synchronized (this) {
                 if (ver < topologySnapshot.version()) {
                     nodes = deriveNodeNames(topologySnapshot);
