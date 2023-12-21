@@ -30,7 +30,6 @@ import org.apache.ignite.internal.compute.state.ComputeStateMachine;
 import org.apache.ignite.internal.compute.state.IllegalJobStateTransition;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.lang.IgniteException;
 import org.jetbrains.annotations.Nullable;
 
 /**
