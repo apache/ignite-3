@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.metastorage.dsl.Conditions.value;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.noop;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.placementdriver.PlacementDriverManager.PLACEMENTDRIVER_LEASES_KEY;
+import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -32,6 +33,9 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
@@ -51,8 +55,9 @@ import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessage
 import org.apache.ignite.internal.placementdriver.message.StopLeaseProlongationMessage;
 import org.apache.ignite.internal.placementdriver.negotiation.LeaseAgreement;
 import org.apache.ignite.internal.placementdriver.negotiation.LeaseNegotiator;
+import org.apache.ignite.internal.placementdriver.org.apache.ignite.internal.placementdriver.event.AssignmentsTrackerEvent;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.thread.IgniteThread;
+import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
@@ -68,10 +73,10 @@ public class LeaseUpdater {
     private static final IgniteLogger LOG = Loggers.forClass(LeaseUpdater.class);
 
     /** Update attempts interval in milliseconds. */
-    private static final long UPDATE_LEASE_MS = 500L;
+    private static final long UPDATE_LEASE_MS = 2500L;
 
     /** Lease holding interval. */
-    private static final long LEASE_INTERVAL = 10 * UPDATE_LEASE_MS;
+    private static final long LEASE_INTERVAL = 2 * UPDATE_LEASE_MS;
 
     /** The lock is available when the actor is changing state. */
     private final IgniteSpinBusyLock stateChangingLock = new IgniteSpinBusyLock();
@@ -102,8 +107,8 @@ public class LeaseUpdater {
     /** Closure to update leases. */
     private final Updater updater;
 
-    /** Dedicated thread to update leases. */
-    private IgniteThread updaterThread;
+    /** Dedicated single-thread executor to update leases. */
+    private volatile ScheduledExecutorService updaterExecutor;
 
     /** Processor to communicate with the leaseholder to negotiate the lease. */
     private LeaseNegotiator leaseNegotiator;
@@ -169,9 +174,22 @@ public class LeaseUpdater {
 
             leaseNegotiator = new LeaseNegotiator(clusterService);
 
-            updaterThread = new IgniteThread(nodeName, "lease-updater", updater);
+            updaterExecutor = Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory(nodeName + "-lease-updater", LOG));
 
-            updaterThread.start();
+            // TODO: sanpwc proper start and stop.
+            updaterExecutor.scheduleWithFixedDelay(updater, 0, UPDATE_LEASE_MS, TimeUnit.MILLISECONDS);
+
+            assignmentsTracker.listen(AssignmentsTrackerEvent.ASSIGNMENTS_CHANGED, ((parameters, exception) -> {
+                // Logic of adding and removing listeners seems more complicated and error prone in comparison to the one
+                // where every node processes the event but checks whether it is active internally. In any case it is an optimization that
+                // allows to detect new partition updates faster, if it'll be missed common scheduler will catch it up.
+                if (active()) {
+                    updaterExecutor.submit(updater);
+                }
+
+                return falseCompletedFuture();
+            }));
+
         } finally {
             stateChangingLock.unblock();
         }
@@ -192,9 +210,16 @@ public class LeaseUpdater {
 
             leaseNegotiator = null;
 
-            updaterThread.interrupt();
+            // TODO: sanpwc write proper comment.
+            // We do shutdownNow() right away without doing usual shutdown()+awaitTermination() because
+            // this would make us wait till all the scheduled tasks get executed (which might take a lot
+            // of time). An alternative would be to track all ScheduledFutures (which are not same as the
+            // user-facing futures we return from the tracker), but we don't need them for anything else,
+            // so it's simpler to just use shutdownNow().
+            updaterExecutor.shutdownNow();
 
-            this.updaterThread = null;
+            // TODO: sanpwc rename?
+            this.updaterExecutor = null;
 
         } finally {
             stateChangingLock.unblock();
@@ -302,8 +327,6 @@ public class LeaseUpdater {
         private void updateLeaseBatchInternal() {
             HybridTimestamp now = clock.now();
 
-            long outdatedLeaseThreshold = now.getPhysical() + LEASE_INTERVAL / 2;
-
             Leases leasesCurrent = leaseTracker.leasesCurrent();
             Map<ReplicationGroupId, Boolean> toBeNegotiated = new HashMap<>();
             Map<ReplicationGroupId, Lease> renewedLeases = new HashMap<>(leasesCurrent.leaseByGroupId());
@@ -341,27 +364,26 @@ public class LeaseUpdater {
                     }
                 }
 
-                // The lease is expired or close to this.
-                if (lease.getExpirationTime().getPhysical() < outdatedLeaseThreshold) {
-                    ClusterNode candidate = nextLeaseHolder(
-                            entry.getValue(),
-                            lease.isProlongable() ? lease.getLeaseholder() : null
-                    );
+                // Prolong existing leases.
+                // TODO: sanpwc check that expiration timestamp for prolong leases will be calculated correctly.
+                ClusterNode candidate = nextLeaseHolder(
+                        entry.getValue(),
+                        lease.isProlongable() ? lease.getLeaseholder() : null
+                );
 
-                    if (candidate == null) {
-                        continue;
-                    }
+                if (candidate == null) {
+                    continue;
+                }
 
-                    // We can't prolong the expired lease because we already have an interval of time when the lease was not active,
-                    // so we must start a negotiation round from the beginning; the same we do for the groups that don't have
-                    // leaseholders at all.
-                    if (isLeaseOutdated(lease)) {
-                        // New lease is granting.
-                        writeNewLease(grpId, lease, candidate, renewedLeases, toBeNegotiated);
-                    } else if (lease.isProlongable() && candidate.id().equals(lease.getLeaseholderId())) {
-                        // Old lease is renewing.
-                        prolongLease(grpId, lease, renewedLeases);
-                    }
+                // We can't prolong the expired lease because we already have an interval of time when the lease was not active,
+                // so we must start a negotiation round from the beginning; the same we do for the groups that don't have
+                // leaseholders at all.
+                if (isLeaseOutdated(lease)) {
+                    // New lease is granting.
+                    writeNewLease(grpId, lease, candidate, renewedLeases, toBeNegotiated);
+                } else if (lease.isProlongable() && candidate.id().equals(lease.getLeaseholderId())) {
+                    // Old lease is renewing.
+                    prolongLease(grpId, lease, renewedLeases);
                 }
             }
 

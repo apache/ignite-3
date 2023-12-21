@@ -28,6 +28,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.affinity.Assignment;
+import org.apache.ignite.internal.event.AbstractEventProducer;
+import org.apache.ignite.internal.event.VoidEventParameters;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -36,6 +38,7 @@ import org.apache.ignite.internal.metastorage.EntryEvent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
+import org.apache.ignite.internal.placementdriver.org.apache.ignite.internal.placementdriver.event.AssignmentsTrackerEvent;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.util.ByteUtils;
@@ -45,7 +48,7 @@ import org.apache.ignite.internal.util.Cursor;
 /**
  * The class tracks assignment of all replication groups.
  */
-public class AssignmentsTracker {
+public class AssignmentsTracker extends AbstractEventProducer<AssignmentsTrackerEvent, VoidEventParameters> {
     /** Ignite logger. */
     private static final IgniteLogger LOG = Loggers.forClass(AssignmentsTracker.class);
 
@@ -171,6 +174,9 @@ public class AssignmentsTracker {
      * Triggers to renew leases forcibly. The method wakes up the monitor of {@link LeaseUpdater}.
      */
     private void triggerToRenewLeases() {
-        //TODO: IGNITE-18879 Implement lease maintenance.
+        fireEvent(
+                AssignmentsTrackerEvent.ASSIGNMENTS_CHANGED,
+                new VoidEventParameters()
+        );
     }
 }
