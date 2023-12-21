@@ -242,8 +242,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 replicaSvc,
                 CLOCK,
                 tracker,
-                placementDriver,
-                mock(IgniteSql.class)
+                placementDriver
         );
         RaftGroupService svc = raftGroupServiceByPartitionId.get(PART_ID);
 

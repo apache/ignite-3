@@ -476,9 +476,4 @@ public class FakeInternalTable implements InternalTable {
     public @Nullable PendingComparableValuesTracker<Long, Void> getPartitionStorageIndexTracker(int partitionId) {
         return null;
     }
-
-    @Override
-    public IgniteSql sql() {
-        return null;
-    }
 }

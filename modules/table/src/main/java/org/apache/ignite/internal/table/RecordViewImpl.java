@@ -39,6 +39,7 @@ import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.lang.MarshallerException;
 import org.apache.ignite.sql.ClosableCursor;
+import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.Statement;
 import org.apache.ignite.sql.async.AsyncClosableCursor;
@@ -70,9 +71,16 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
      * @param schemaRegistry Schema registry.
      * @param schemaVersions Schema versions access.
      * @param mapper Record class mapper.
+     * @param sql Ignite SQL facade.
      */
-    public RecordViewImpl(InternalTable tbl, SchemaRegistry schemaRegistry, SchemaVersions schemaVersions, Mapper<R> mapper) {
-        super(tbl, schemaVersions, schemaRegistry);
+    public RecordViewImpl(
+            InternalTable tbl,
+            SchemaRegistry schemaRegistry,
+            SchemaVersions schemaVersions,
+            Mapper<R> mapper,
+            IgniteSql sql
+    ) {
+        super(tbl, schemaVersions, schemaRegistry, sql);
 
         this.mapper = mapper;
         marshallerFactory = (schema) -> new RecordMarshallerImpl<>(schema, mapper);
@@ -546,8 +554,8 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
         //TODO: implement serialization of criteria to SQL https://issues.apache.org/jira/browse/IGNITE-20879
         var query = "SELECT * FROM " + tbl.name();
 
-        Statement statement = tbl.sql().statementBuilder().query(query).pageSize(opts.pageSize()).build();
-        Session session = tbl.sql().createSession();
+        Statement statement = sql.statementBuilder().query(query).pageSize(opts.pageSize()).build();
+        Session session = sql.createSession();
 
         return session.executeAsync(tx, mapper, statement)
                 .thenApply(resultSet -> new QueryCriteriaAsyncCursor<>(resultSet, session::close));

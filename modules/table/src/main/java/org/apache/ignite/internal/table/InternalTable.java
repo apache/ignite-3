@@ -480,11 +480,4 @@ public interface InternalTable extends ManuallyCloseable {
      * @param partitionId Partition ID.
      */
     @Nullable PendingComparableValuesTracker<Long, Void> getPartitionStorageIndexTracker(int partitionId);
-
-    /**
-     * Returns a facade for the SQL query engine.
-     *
-     * @return Ignite SQL facade.
-     */
-    IgniteSql sql();
 }

@@ -38,6 +38,7 @@ import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.MarshallerException;
 import org.apache.ignite.sql.ClosableCursor;
+import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.Statement;
 import org.apache.ignite.sql.async.AsyncClosableCursor;
@@ -61,9 +62,10 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
      * @param tbl The table.
      * @param schemaRegistry Table schema registry.
      * @param schemaVersions Schema versions access.
+     * @param sql Ignite SQL facade.
      */
-    public RecordBinaryViewImpl(InternalTable tbl, SchemaRegistry schemaRegistry, SchemaVersions schemaVersions) {
-        super(tbl, schemaVersions, schemaRegistry);
+    public RecordBinaryViewImpl(InternalTable tbl, SchemaRegistry schemaRegistry, SchemaVersions schemaVersions, IgniteSql sql) {
+        super(tbl, schemaVersions, schemaRegistry, sql);
 
         marshallerCache = new TupleMarshallerCache(schemaRegistry);
     }
@@ -459,8 +461,8 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
         //TODO: implement serialization of criteria to SQL https://issues.apache.org/jira/browse/IGNITE-20879
         var query = "SELECT * FROM " + tbl.name();
 
-        Statement statement = tbl.sql().statementBuilder().query(query).pageSize(opts.pageSize()).build();
-        Session session = tbl.sql().createSession();
+        Statement statement = sql.statementBuilder().query(query).pageSize(opts.pageSize()).build();
+        Session session = sql.createSession();
 
         return session.executeAsync(tx, statement)
                 .thenApply(resultSet -> new QueryCriteriaAsyncCursor<>(resultSet, session::close));

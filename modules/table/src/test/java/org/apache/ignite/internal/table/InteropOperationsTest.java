@@ -58,6 +58,7 @@ import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.MessagingService;
+import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
@@ -136,13 +137,14 @@ public class InteropOperationsTest extends BaseIgniteAbstractTest {
 
         SchemaVersions schemaVersions = new ConstantSchemaVersions(schemaVersion);
 
-        table = new TableImpl(intTable, schemaRegistry, new HeapLockManager(), schemaVersions);
-        kvBinView = new KeyValueBinaryViewImpl(intTable, schemaRegistry, schemaVersions);
+        table = new TableImpl(intTable, schemaRegistry, new HeapLockManager(), schemaVersions, mock(IgniteSql.class));
+        kvBinView = new KeyValueBinaryViewImpl(intTable, schemaRegistry, schemaVersions, mock(IgniteSql.class));
 
         kvView = new KeyValueViewImpl<>(
                 intTable,
                 schemaRegistry,
                 schemaVersions,
+                mock(IgniteSql.class),
                 Mapper.of(Long.class, "id"),
                 Mapper.of(Value.class)
         );

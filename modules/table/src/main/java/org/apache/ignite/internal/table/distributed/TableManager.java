@@ -1118,9 +1118,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 tableId,
                 new Int2ObjectOpenHashMap<>(partitions),
                 partitions, clusterService.topologyService(), txManager, tableStorage,
-                txStateStorage, replicaSvc, clock, observableTimestampTracker, placementDriver, sql.get());
+                txStateStorage, replicaSvc, clock, observableTimestampTracker, placementDriver);
 
-        var table = new TableImpl(internalTable, lockMgr, schemaVersions);
+        var table = new TableImpl(internalTable, lockMgr, schemaVersions, sql.get());
 
         // TODO: IGNITE-18595 We need to do something different to wait for indexes before full rebalancing
         table.addIndexesToWait(collectTableIndexIds(tableId, catalogVersion, onNodeRecovery));

@@ -628,12 +628,12 @@ public class ItTxTestCluster {
                         startClient ? clientReplicaSvc : replicaServices.get(localNodeName),
                         startClient ? clientClock : clocks.get(localNodeName),
                         timestampTracker,
-                        placementDriver,
-                        mock(IgniteSql.class)
+                        placementDriver
                 ),
                 new DummySchemaManagerImpl(schemaDescriptor),
                 clientTxManager.lockManager(),
-                new ConstantSchemaVersions(SCHEMA_VERSION)
+                new ConstantSchemaVersions(SCHEMA_VERSION),
+                mock(IgniteSql.class)
         );
     }
 
