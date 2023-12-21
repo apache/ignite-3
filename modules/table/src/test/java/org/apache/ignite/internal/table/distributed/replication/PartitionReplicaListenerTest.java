@@ -28,6 +28,8 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
+import static org.apache.ignite.internal.tx.TxState.ABORTED;
+import static org.apache.ignite.internal.tx.TxState.COMMITTED;
 import static org.apache.ignite.internal.tx.TxState.checkTransitionCorrectness;
 import static org.apache.ignite.internal.util.ArrayUtils.asList;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -49,6 +51,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.atLeast;
 import static org.mockito.Mockito.doAnswer;
@@ -159,6 +162,7 @@ import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TransactionIds;
 import org.apache.ignite.internal.tx.TransactionMeta;
+import org.apache.ignite.internal.tx.TransactionResult;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
@@ -179,6 +183,7 @@ import org.apache.ignite.network.ClusterNodeImpl;
 import org.apache.ignite.network.ClusterNodeResolver;
 import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.network.NetworkAddress;
+import org.apache.ignite.network.SingleClusterNodeResolver;
 import org.apache.ignite.network.TopologyService;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.tx.TransactionException;
@@ -256,6 +261,10 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
                 return v;
             });
+        } else if (cmd instanceof FinishTxCommand) {
+            FinishTxCommand command = (FinishTxCommand) cmd;
+
+            return completedFuture(new TransactionResult(command.commit() ? COMMITTED : ABORTED, command.commitTimestamp()));
         }
 
         return nullCompletedFuture();
@@ -332,6 +341,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
             ),
             List.of("intKey", "strKey"),
             null,
+            INITIAL_CAUSALITY_TOKEN,
             INITIAL_CAUSALITY_TOKEN
     );
 
@@ -501,7 +511,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 schemaSyncService,
                 catalogService,
                 new TestPlacementDriver(localNode),
-                mock(ClusterNodeResolver.class)
+                new SingleClusterNodeResolver(localNode)
         );
 
         kvMarshaller = marshallerFor(schemaDescriptor);
@@ -547,6 +557,14 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
     @Test
     public void testTxStateReplicaRequestEmptyState() throws Exception {
+        doAnswer(invocation -> {
+            UUID txId = invocation.getArgument(4);
+
+            txManager.updateTxMeta(txId, old -> new TxStateMeta(ABORTED, localNode.id(), commitPartitionId, null));
+
+            return nullCompletedFuture();
+        }).when(txManager).finish(any(), any(), anyBoolean(), any(), any());
+
         CompletableFuture<ReplicaResult> fut = partitionReplicaListener.invoke(TX_MESSAGES_FACTORY.txStateCommitPartitionRequest()
                 .groupId(grpId)
                 .txId(newTxId())
@@ -555,7 +573,9 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
         TransactionMeta txMeta = (TransactionMeta) fut.get(1, TimeUnit.SECONDS).result();
 
-        assertNull(txMeta);
+        assertNotNull(txMeta);
+
+        assertEquals(ABORTED, txMeta.txState());
     }
 
     @Test
@@ -1878,6 +1898,9 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         }).when(txManager).updateTxMeta(any(), any());
 
         doAnswer(invocation -> nullCompletedFuture()).when(txManager).executeCleanupAsync(any(Runnable.class));
+
+        doAnswer(invocation -> nullCompletedFuture()).when(txManager).finish(any(), any(), anyBoolean(), any(), any());
+        doAnswer(invocation -> nullCompletedFuture()).when(txManager).cleanup(anyString(), any());
     }
 
     private void testWritesAreSuppliedWithRequiredCatalogVersion(RequestType requestType, RwListenerInvocation listenerInvocation) {

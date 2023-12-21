@@ -96,6 +96,7 @@ public class MakeIndexAvailableCommandValidationTest extends AbstractCommandVali
                 List.of(tableColumn(columnName)),
                 List.of(columnName),
                 null,
+                1,
                 1
         );
     }

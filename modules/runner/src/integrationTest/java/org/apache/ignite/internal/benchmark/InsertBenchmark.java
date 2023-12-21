@@ -78,6 +78,14 @@ public class InsertBenchmark extends AbstractMultiNodeBenchmark {
     }
 
     /**
+     * Benchmark for SQL script insert via embedded client.
+     */
+    @Benchmark
+    public void sqlInsertScript(SqlState state) {
+        state.executeScript();
+    }
+
+    /**
      * Benchmark for KV insert via embedded client.
      */
     @Benchmark
@@ -91,6 +99,14 @@ public class InsertBenchmark extends AbstractMultiNodeBenchmark {
     @Benchmark
     public void jdbcInsert(JdbcState state) throws SQLException {
         state.executeQuery();
+    }
+
+    /**
+     * Benchmark for JDBC script insert.
+     */
+    @Benchmark
+    public void jdbcInsertScript(JdbcState state) throws SQLException {
+        state.executeScript();
     }
 
     /**
@@ -121,7 +137,7 @@ public class InsertBenchmark extends AbstractMultiNodeBenchmark {
     }
 
     /**
-     * Benchmark state for {@link #sqlInsert(SqlState)}.
+     * Benchmark state for {@link #sqlInsert(SqlState)} and {@link #sqlInsertScript(SqlState)}.
      *
      * <p>Holds {@link Session} and {@link Statement}.
      */
@@ -158,6 +174,10 @@ public class InsertBenchmark extends AbstractMultiNodeBenchmark {
             try (ResultSet<?> rs = session.execute(null, statement, id++)) {
                 // NO-OP
             }
+        }
+
+        void executeScript() {
+            session.executeScript(statement.query(), id++);
         }
     }
 
@@ -204,7 +224,7 @@ public class InsertBenchmark extends AbstractMultiNodeBenchmark {
     }
 
     /**
-     * Benchmark state for {@link #jdbcInsert(JdbcState)}.
+     * Benchmark state for {@link #jdbcInsert(JdbcState)} and {@link #jdbcInsertScript(JdbcState)}.
      *
      * <p>Holds {@link Connection} and {@link PreparedStatement}.
      */
@@ -240,6 +260,11 @@ public class InsertBenchmark extends AbstractMultiNodeBenchmark {
         void executeQuery() throws SQLException {
             stmt.setInt(1, id++);
             stmt.executeUpdate();
+        }
+
+        void executeScript() throws SQLException {
+            stmt.setInt(1, id++);
+            stmt.execute();
         }
     }
 

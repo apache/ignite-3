@@ -559,7 +559,7 @@ public class ItTxTestCluster {
                                         new AlwaysSyncedSchemaSyncService(),
                                         catalogService,
                                         placementDriver,
-                                        clusterServices.get(assignment).topologyService()
+                                        nodeResolver
                                 );
 
                                 replicaManagers.get(assignment).startReplica(
