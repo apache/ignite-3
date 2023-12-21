@@ -422,6 +422,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 metaStorageMgr,
                 schemaManager,
                 view -> new LocalLogStorageFactory(),
+                threadPools.partitionOperationsExecutor(),
                 hybridClock,
                 new OutgoingSnapshotsManager(clusterSvc.messagingService()),
                 topologyAwareRaftGroupServiceFactory,

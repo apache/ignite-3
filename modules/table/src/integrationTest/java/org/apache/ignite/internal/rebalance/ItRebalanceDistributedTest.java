@@ -1052,6 +1052,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     metaStorageManager,
                     schemaManager,
                     view -> new LocalLogStorageFactory(),
+                    threadPools.partitionOperationsExecutor(),
                     new HybridClockImpl(),
                     new OutgoingSnapshotsManager(clusterService.messagingService()),
                     topologyAwareRaftGroupServiceFactory,

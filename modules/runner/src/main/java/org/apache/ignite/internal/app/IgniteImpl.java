@@ -599,6 +599,7 @@ public class IgniteImpl implements Ignite {
                 metaStorageMgr,
                 schemaManager,
                 volatileLogStorageFactoryCreator,
+                threadPools.partitionOperationsExecutor(),
                 clock,
                 outgoingSnapshotsManager,
                 topologyAwareRaftGroupServiceFactory,
