@@ -54,12 +54,15 @@ public class KeyValueViewPrimitiveTests : IgniteTestsBase
     public async Task TestPutGetNullable()
     {
         // TODO: Refactor this test somehow.
-        await Client.Sql.ExecuteAsync(null, "CREATE TABLE TestPutGetNullable (ID BIGINT PRIMARY KEY, VAL BIGINT)");
-        await Client.Sql.ExecuteAsync(null, "INSERT INTO TestPutGetNullable VALUES (1, 1), (2, NULL)");
+        await Client.Sql.ExecuteAsync(null, "CREATE TABLE IF NOT EXISTS TestPutGetNullable (ID BIGINT PRIMARY KEY, VAL BIGINT)");
 
         var table = await Client.Tables.GetTableAsync("TestPutGetNullable");
-        var view = table!.GetKeyValueView<long, long>();
 
+        var recView = table!.RecordBinaryView;
+        await recView.UpsertAsync(null, new IgniteTuple { ["ID"] = 1L, ["VAL"] = 1L });
+        await recView.UpsertAsync(null, new IgniteTuple { ["ID"] = 1L, ["VAL"] = null });
+
+        var view = table.GetKeyValueView<long, long>();
         var res1 = await view.GetAsync(null, 1);
         var res2 = await view.GetAsync(null, 2);
     }
