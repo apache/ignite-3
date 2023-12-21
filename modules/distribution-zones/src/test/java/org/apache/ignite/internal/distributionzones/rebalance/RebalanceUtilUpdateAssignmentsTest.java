@@ -95,6 +95,7 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
             List.of(new CatalogTableColumnDescriptor("k1", ColumnType.INT32, false, 0, 0, 0, null)),
             List.of("k1"),
             null,
+            INITIAL_CAUSALITY_TOKEN,
             INITIAL_CAUSALITY_TOKEN
     );
 
