@@ -17,7 +17,10 @@
 
 package org.apache.ignite.internal.tx.impl;
 
+import static java.util.Collections.emptyMap;
+import static java.util.Collections.emptySet;
 import static java.util.concurrent.CompletableFuture.allOf;
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.util.ExceptionUtils.withCause;
 import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_UNAVAILABLE_ERR;
@@ -96,6 +99,10 @@ public class PlacementDriverHelper {
      *         failed to find the primary for.
      */
     public CompletableFuture<PartitionData> findPrimaryReplicas(Collection<TablePartitionId> partitions) {
+        if (partitions == null || partitions.isEmpty()) {
+            return completedFuture(new PartitionData(emptyMap(), emptySet()));
+        }
+
         HybridTimestamp timestamp = clock.now();
 
         Map<TablePartitionId, CompletableFuture<ReplicaMeta>> primaryReplicaFutures = new HashMap<>();
@@ -121,7 +128,7 @@ public class PlacementDriverHelper {
 
                         TablePartitionId partition = entry.getKey();
 
-                        if (meta != null) {
+                        if (meta != null && meta.getLeaseholder() != null) {
                             partitionsByNode.computeIfAbsent(meta.getLeaseholder(), s -> new HashSet<>())
                                     .add(partition);
                         } else {

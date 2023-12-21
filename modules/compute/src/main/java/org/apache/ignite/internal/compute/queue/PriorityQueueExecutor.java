@@ -17,21 +17,15 @@
 
 package org.apache.ignite.internal.compute.queue;
 
-import static java.util.concurrent.CompletableFuture.failedFuture;
-import static org.apache.ignite.lang.ErrorGroups.Compute.QUEUE_OVERFLOW_ERR;
-
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.Callable;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.compute.configuration.ComputeConfiguration;
-import org.apache.ignite.internal.compute.executor.QueueExecutionImpl;
 import org.apache.ignite.internal.compute.state.ComputeStateMachine;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.lang.IgniteException;
 
 /**
  * Compute job executor with priority mechanism.
@@ -71,50 +65,31 @@ public class PriorityQueueExecutor {
     /**
      * Submit job for execution. Job can be started immediately if queue is empty or will be added to queue with provided priority.
      *
+     * @param <R> Job result type.
      * @param job Execute job callable.
      * @param priority Job priority.
-     * @param <R> Job result type.
+     * @param maxRetries Number of retries of the execution after failure, {@code 0} means the execution will not be retried.
      * @return Completable future which will be finished when compute job finished.
      */
-    public <R> QueueExecution<R> submit(Callable<R> job, int priority) {
+    public <R> QueueExecution<R> submit(Callable<R> job, int priority, int maxRetries) {
         Objects.requireNonNull(job);
 
         UUID jobId = stateMachine.initJob();
-        QueueEntry<R> queueEntry = new QueueEntry<>(() -> {
-            stateMachine.executeJob(jobId);
-            return job.call();
-        }, priority);
-
-        return new QueueExecutionImpl<>(jobId, queueEntry, execute(queueEntry, jobId), executor, stateMachine);
+        QueueExecutionImpl<R> execution = new QueueExecutionImpl<>(jobId, job, priority, executor, stateMachine);
+        execution.run(maxRetries);
+        return execution;
     }
 
     /**
-     * Submit job for execution. Job can be started immediately if queue is empty or will be added to queue with default priority.
+     * Submit job for execution. Job can be started immediately if queue is empty or will be added to queue with default priority and no
+     * retries.
      *
      * @param job Execute job callable.
      * @param <R> Job result type.
      * @return Completable future which will be finished when compute job finished.
      */
     public <R> QueueExecution<R> submit(Callable<R> job) {
-        return submit(job, 0);
-    }
-
-    private <R> CompletableFuture<R> execute(QueueEntry<R> queueEntry, UUID jobId) {
-        try {
-            executor.execute(queueEntry);
-        } catch (QueueOverflowException e) {
-            return failedFuture(new IgniteException(QUEUE_OVERFLOW_ERR, e));
-        }
-        return queueEntry.toFuture()
-                .whenComplete((r, throwable) -> {
-                    if (queueEntry.isInterrupted()) {
-                        stateMachine.cancelJob(jobId);
-                    } else if (throwable != null) {
-                        stateMachine.failJob(jobId);
-                    } else {
-                        stateMachine.completeJob(jobId);
-                    }
-                });
+        return submit(job, 0, 0);
     }
 
     /**

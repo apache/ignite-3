@@ -205,14 +205,14 @@ public class TransactionStateResolver {
 
     private void resolveTxStateFromTxCoordinator(
             UUID txId,
-            String coordinatorId,
+            @Nullable String coordinatorId,
             TablePartitionId commitGrpId,
             HybridTimestamp timestamp,
             CompletableFuture<TransactionMeta> txMetaFuture
     ) {
         updateLocalTxMapAfterDistributedStateResolved(txId, txMetaFuture);
 
-        ClusterNode coordinator = clusterNodeResolver.getById(coordinatorId);
+        ClusterNode coordinator = coordinatorId == null ? null : clusterNodeResolver.getById(coordinatorId);
 
         if (coordinator == null) {
             // This means the coordinator node have either left the cluster or restarted.

@@ -40,8 +40,9 @@ import static org.apache.ignite.internal.util.IgniteUtils.findAny;
 import static org.apache.ignite.internal.util.IgniteUtils.findFirst;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_COMMIT_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_FAILED_READ_WRITE_OPERATION_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_WAS_ABORTED_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ROLLBACK_ERR;
 import static org.apache.ignite.raft.jraft.util.internal.ThrowUtil.hasCause;
 
 import java.nio.ByteBuffer;
@@ -126,6 +127,7 @@ import org.apache.ignite.internal.table.distributed.command.UpdateAllCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateCommandBuilder;
 import org.apache.ignite.internal.table.distributed.command.WriteIntentSwitchCommand;
+import org.apache.ignite.internal.table.distributed.raft.UnexpectedTransactionStateException;
 import org.apache.ignite.internal.table.distributed.replication.request.BinaryRowMessage;
 import org.apache.ignite.internal.table.distributed.replication.request.BinaryTupleMessage;
 import org.apache.ignite.internal.table.distributed.replication.request.BuildIndexReplicaRequest;
@@ -147,12 +149,15 @@ import org.apache.ignite.internal.table.distributed.replication.request.ReadWrit
 import org.apache.ignite.internal.table.distributed.replicator.action.RequestType;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
 import org.apache.ignite.internal.table.distributed.schema.ValidationSchemasSource;
+import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.Lock;
 import org.apache.ignite.internal.tx.LockKey;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.LockMode;
+import org.apache.ignite.internal.tx.TransactionAlreadyFinishedException;
 import org.apache.ignite.internal.tx.TransactionIds;
 import org.apache.ignite.internal.tx.TransactionMeta;
+import org.apache.ignite.internal.tx.TransactionResult;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
@@ -488,7 +493,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         }
 
         if (request instanceof TxRecoveryMessage) {
-            return processTxRecoveryMessage((TxRecoveryMessage) request);
+            return processTxRecoveryMessage((TxRecoveryMessage) request, senderId);
         }
 
         HybridTimestamp opTsIfDirectRo = (request instanceof ReadOnlyDirectReplicaRequest) ? hybridClock.now() : null;
@@ -505,49 +510,65 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param request Tx recovery request.
      * @return The future is complete when the transaction state is finalized.
      */
-    private CompletableFuture<Void> processTxRecoveryMessage(TxRecoveryMessage request) {
+    private CompletableFuture<Void> processTxRecoveryMessage(TxRecoveryMessage request, String senderId) {
         UUID txId = request.txId();
 
         TxMeta txMeta = txStateStorage.get(txId);
 
         // Check whether a transaction has already been finished.
-        boolean transactionAlreadyFinished = txMeta != null && isFinalState(txMeta.txState());
-
-        if (transactionAlreadyFinished) {
-            return nullCompletedFuture();
+        if (txMeta != null && isFinalState(txMeta.txState())) {
+            return recoverFinishedTx(txId, txMeta)
+                    // If the sender has sent a recovery message, it failed to handle it on its own,
+                    // so sending cleanup to the sender for the transaction we know is finished.
+                    .whenComplete((v, ex) -> runCleanupOnNode(txId, senderId));
         }
 
         LOG.info("Orphan transaction has to be aborted [tx={}].", txId);
 
-        return triggerTxRecovery(txId)
-                .thenApply(v -> null);
+        return triggerTxRecovery(txId, senderId);
+    }
+
+    private CompletableFuture<Void> recoverFinishedTx(UUID txId, TxMeta txMeta) {
+        if (txMeta.locksReleased() || txMeta.enlistedPartitions().isEmpty()) {
+            // Nothing to do if the locks have been released already or there are no enlistedPartitions available.
+            return nullCompletedFuture();
+        }
+
+        // Otherwise run a cleanup on the known set of partitions.
+        return (CompletableFuture<Void>) durableCleanup(txId, txMeta);
     }
 
     /**
-     * Starts tx recovery process. Returns the future containing transaction meta with its final state that completes
-     * when the recovery is completed.
+     * Run cleanup on a node.
      *
      * @param txId Transaction id.
-     * @return Tx recovery future, or failed future if the tx recovery is not possible.
+     * @param nodeId Node id (inconsistent).
      */
-    private CompletableFuture<TransactionMeta> triggerTxRecovery(UUID txId) {
-        // TODO: IGNITE-20735 Implement initiate recovery handling logic. This part has to be fully rewritten.
-        TxStateMeta txStateMeta = txManager.stateMeta(txId);
+    private CompletableFuture<Void> runCleanupOnNode(UUID txId, String nodeId) {
+        // Get node id of the sender to send back cleanup requests.
+        String nodeConsistentId = clusterNodeResolver.getConsistentIdById(nodeId);
 
-        if (txStateMeta == null || txStateMeta.txState() == ABANDONED) {
-            txStateStorage.put(txId, new TxMeta(ABORTED, List.of(), null));
-            return completedFuture(
-                    txManager.updateTxMeta(txId, old -> {
-                        if (old == null) {
-                            return new TxStateMeta(ABORTED, null, replicationGroupId, null);
-                        } else {
-                            return new TxStateMeta(ABORTED, old.txCoordinatorId(), replicationGroupId, null);
-                        }
-                    })
-            );
-        } else {
-            return completedFuture(txStateMeta);
-        }
+        return nodeConsistentId == null ? nullCompletedFuture() : txManager.cleanup(nodeConsistentId, txId);
+    }
+
+    /**
+     * Abort the abandoned transaction.
+     *
+     * @param txId Transaction id.
+     * @param senderId Sender inconsistent id.
+     */
+    private CompletableFuture<Void> triggerTxRecovery(UUID txId, String senderId) {
+        // If the transaction state is pending, then the transaction should be rolled back,
+        // meaning that the state is changed to aborted and a corresponding cleanup request
+        // is sent in a common durable manner to a partition that have initiated recovery.
+        return txManager.finish(
+                        new HybridTimestampTracker(),
+                        replicationGroupId,
+                        false,
+                        Map.of(replicationGroupId, 0L), // term is not required for the rollback.
+                        txId
+                )
+                .whenComplete((v, ex) -> runCleanupOnNode(txId, senderId));
     }
 
     /**
@@ -777,6 +798,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                     if (txMeta != null && txMeta.txState() == FINISHING) {
                         assert txMeta instanceof TxStateMetaFinishing : txMeta;
+
                         return ((TxStateMetaFinishing) txMeta).txFinishFuture();
                     } else if (txMeta == null || !isFinalState(txMeta.txState())) {
                         // Try to trigger recovery, if needed. If the transaction will be aborted, the proper ABORTED state will be sent
@@ -795,8 +817,13 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param txStateMeta Transaction meta.
      * @return Tx recovery future, or completed future if the recovery isn't needed, or failed future if the recovery is not possible.
      */
-    private CompletableFuture<TransactionMeta> triggerTxRecoveryOnTxStateResolutionIfNeeded(UUID txId, @Nullable TxStateMeta txStateMeta) {
-        assert txStateMeta == null || !isFinalState(txStateMeta.txState()) : "Unexpected transaction state: " + txStateMeta;
+    private CompletableFuture<TransactionMeta> triggerTxRecoveryOnTxStateResolutionIfNeeded(
+            UUID txId,
+            @Nullable TxStateMeta txStateMeta
+    ) {
+        // The state is either null or PENDING or ABANDONED, other states have been filtered out previously.
+        assert txStateMeta == null || txStateMeta.txState() == PENDING || txStateMeta.txState() == ABANDONED
+                : "Unexpected transaction state: " + txStateMeta;
 
         TxMeta txMeta = txStateStorage.get(txId);
 
@@ -804,19 +831,25 @@ public class PartitionReplicaListener implements ReplicaListener {
             // This means the transaction is pending and we should trigger the recovery if there is no tx coordinator in topology.
             if (txStateMeta == null
                     || txStateMeta.txState() == ABANDONED
+                    || txStateMeta.txCoordinatorId() == null
                     || clusterNodeResolver.getById(txStateMeta.txCoordinatorId()) == null) {
                 // This means that primary replica for commit partition has changed, since the local node doesn't have the volatile tx
                 // state; and there is no final tx state in txStateStorage, or the tx coordinator left the cluster. But we can assume
                 // that as the coordinator (or information about it) is missing, there is  no need to wait a finish request from
                 // tx coordinator, the transaction can't be committed at all.
-                return triggerTxRecovery(txId);
+                return triggerTxRecovery(txId, localNode.id())
+                        .handle((v, ex) ->
+                                CompletableFuture.<TransactionMeta>completedFuture(txManager.stateMeta(txId)))
+                        .thenCompose(v -> v);
             } else {
                 assert txStateMeta != null && txStateMeta.txState() == PENDING : "Unexpected transaction state: " + txStateMeta;
+
                 return completedFuture(txStateMeta);
             }
         } else {
             // Recovery is not needed.
             assert isFinalState(txMeta.txState()) : "Unexpected transaction state: " + txMeta;
+
             return completedFuture(txMeta);
         }
     }
@@ -1187,17 +1220,19 @@ public class PartitionReplicaListener implements ReplicaListener {
         BinaryTuple exactKey = request.exactKey().asBinaryTuple();
 
         return lockManager.acquire(txId, new LockKey(indexId), LockMode.IS).thenCompose(idxLock -> { // Index IS lock
-            return lockManager.acquire(txId, new LockKey(tableId()), LockMode.IS).thenCompose(tblLock -> { // Table IS lock
-                return lockManager.acquire(txId, new LockKey(indexId, exactKey.byteBuffer()), LockMode.S)
-                        .thenCompose(indRowLock -> { // Hash index bucket S lock
-                            Cursor<RowId> cursor = (Cursor<RowId>) cursors.computeIfAbsent(cursorId, id -> indexStorage.get(exactKey));
+            return lockManager.acquire(txId, new LockKey(tableId()), LockMode.IS) // Table IS lock
+                    .thenCompose(tblLock -> {
+                        return lockManager.acquire(txId, new LockKey(indexId, exactKey.byteBuffer()), LockMode.S)
+                                .thenCompose(indRowLock -> { // Hash index bucket S lock
+                                    Cursor<RowId> cursor = (Cursor<RowId>) cursors.computeIfAbsent(cursorId,
+                                            id -> indexStorage.get(exactKey));
 
-                            var result = new ArrayList<BinaryRow>(batchCount);
+                                    var result = new ArrayList<BinaryRow>(batchCount);
 
-                            return continueIndexLookup(txId, cursor, batchCount, result)
-                                    .thenApply(ignore -> result);
-                        });
-            });
+                                    return continueIndexLookup(txId, cursor, batchCount, result)
+                                            .thenApply(ignore -> result);
+                                });
+                    });
         });
     }
 
@@ -1230,45 +1265,47 @@ public class PartitionReplicaListener implements ReplicaListener {
         int flags = request.flags();
 
         return lockManager.acquire(txId, new LockKey(indexId), LockMode.IS).thenCompose(idxLock -> { // Index IS lock
-            return lockManager.acquire(txId, new LockKey(tableId()), LockMode.IS).thenCompose(tblLock -> { // Table IS lock
-                var comparator = new BinaryTupleComparator(indexStorage.indexDescriptor().columns());
+            return lockManager.acquire(txId, new LockKey(tableId()), LockMode.IS) // Table IS lock
+                    .thenCompose(tblLock -> {
+                        var comparator = new BinaryTupleComparator(indexStorage.indexDescriptor().columns());
 
-                Predicate<IndexRow> isUpperBoundAchieved = indexRow -> {
-                    if (indexRow == null) {
-                        return true;
-                    }
+                        Predicate<IndexRow> isUpperBoundAchieved = indexRow -> {
+                            if (indexRow == null) {
+                                return true;
+                            }
 
-                    if (upperBound == null) {
-                        return false;
-                    }
+                            if (upperBound == null) {
+                                return false;
+                            }
 
-                    ByteBuffer buffer = upperBound.byteBuffer();
+                            ByteBuffer buffer = upperBound.byteBuffer();
 
-                    if ((flags & SortedIndexStorage.LESS_OR_EQUAL) != 0) {
-                        byte boundFlags = buffer.get(0);
+                            if ((flags & SortedIndexStorage.LESS_OR_EQUAL) != 0) {
+                                byte boundFlags = buffer.get(0);
 
-                        buffer.put(0, (byte) (boundFlags | BinaryTupleCommon.EQUALITY_FLAG));
-                    }
+                                buffer.put(0, (byte) (boundFlags | BinaryTupleCommon.EQUALITY_FLAG));
+                            }
 
-                    return comparator.compare(indexRow.indexColumns().byteBuffer(), buffer) >= 0;
-                };
+                            return comparator.compare(indexRow.indexColumns().byteBuffer(), buffer) >= 0;
+                        };
 
-                Cursor<IndexRow> cursor = (Cursor<IndexRow>) cursors.computeIfAbsent(cursorId,
-                        id -> indexStorage.scan(
-                                lowerBound,
-                                // We have to handle upperBound on a level of replication listener,
-                                // for correctness of taking of a range lock.
-                                null,
-                                flags
-                        ));
+                        Cursor<IndexRow> cursor = (Cursor<IndexRow>) cursors.computeIfAbsent(cursorId,
+                                id -> indexStorage.scan(
+                                        lowerBound,
+                                        // We have to handle upperBound on a level of replication listener,
+                                        // for correctness of taking of a range lock.
+                                        null,
+                                        flags
+                                ));
 
-                SortedIndexLocker indexLocker = (SortedIndexLocker) indexesLockers.get().get(indexId);
+                        SortedIndexLocker indexLocker = (SortedIndexLocker) indexesLockers.get().get(indexId);
 
-                var result = new ArrayList<BinaryRow>(batchCount);
+                        var result = new ArrayList<BinaryRow>(batchCount);
 
-                return continueIndexScan(txId, schemaAwareIndexStorage, indexLocker, cursor, batchCount, result, isUpperBoundAchieved)
-                        .thenApply(ignore -> result);
-            });
+                        return continueIndexScan(txId, schemaAwareIndexStorage, indexLocker, cursor, batchCount, result,
+                                isUpperBoundAchieved)
+                                .thenApply(ignore -> result);
+                    });
         });
     }
 
@@ -1571,33 +1608,38 @@ public class PartitionReplicaListener implements ReplicaListener {
             // The transaction is finished, but the locks are not released.
             // If we got here, it means we are retrying the finish request.
             // Let's make sure the desired state is valid.
-            // Tx logic does not allow to send a rollback over a finished transaction:
             // - The Coordinator calls use same tx state over retries, both abort and commit are possible.
-            // - Server side recovery (which is not implemented yet) may only change tx state to aborted.
+            // - Server side recovery may only change tx state to aborted.
             // - The Coordinator itself should prevent user calls with different proposed state to the one,
-            //   that was already triggered (e.g. the client side -> txCoordinator.commitAsync(); txCoordinator.rollbackAsync())
-            //
-            // To sum it up, the possible states that a 'commit' is allowed to see:
+            //   that was already triggered (e.g. the client side -> txCoordinator.commitAsync(); txCoordinator.rollbackAsync()).
+            // - A coordinator might send a commit, then die, but the commit message might still arrive at the commit partition primary.
+            //   If it arrived with a delay, another node might come across a write intent/lock from that tx
+            //   and realize that the coordinator is no longer available and start tx recovery.
+            //   The original commit message might arrive later than the recovery one,
+            //   hence a 'commit over rollback' case.
+            // The possible states that a 'commit' is allowed to see:
             // - null (if it's the first change state attempt)
             // - committed (if it was already updated in the previous attempt)
             // - aborted (if it was aborted by the initiate recovery logic,
             //   though this is a very unlikely case because initiate recovery will only roll back the tx if coordinator is dead).
             //
             // Within 'roll back' it's allowed to see:
-            // - null
-            // - aborted
-            // Other combinations of states are not possible.
+            // - null (if it's the first change state attempt)
+            // - aborted  (if it was already updated in the previous attempt or the result of a concurrent recovery)
+            // - commit (if initiate recovery has started, but a delayed message from the coordinator finally arrived and executed earlier).
 
-            // First, throw an exception if we are trying to abort an already committed tx.
-            assert !(txMeta.txState() == COMMITTED && !commit) : "Not allowed to abort an already committed transaction.";
+            // Let the client know a transaction has finished with a different outcome.
+            if (commit != (txMeta.txState() == COMMITTED)) {
+                LOG.error("Failed to finish a transaction that is already finished [txId={}, expectedState={}, actualState={}].",
+                        txId,
+                        commit ? COMMITTED : ABORTED,
+                        txMeta.txState()
+                );
 
-            // If a 'commit' sees a tx in the ABORTED state (valid as per the explanation above), let the client know with an exception.
-            if (commit && txMeta.txState() == ABORTED) {
-                LOG.error("Failed to commit a transaction that is already aborted [txId={}].", txId);
-
-                throw new TransactionException(TX_WAS_ABORTED_ERR,
-                        "Failed to change the outcome of a finished transaction"
-                                + " [txId=" + txId + ", txState=" + txMeta.txState() + "].");
+                throw new TransactionAlreadyFinishedException(
+                        "Failed to change the outcome of a finished transaction [txId=" + txId + ", txState=" + txMeta.txState() + "].",
+                        new TransactionResult(txMeta.txState(), txMeta.commitTimestamp())
+                );
             }
         }
 
@@ -1639,10 +1681,27 @@ public class PartitionReplicaListener implements ReplicaListener {
                                         .collect(toList())
                         )
                 )
-                .whenComplete((o, throwable) -> {
-                    TxState txState = commit ? COMMITTED : ABORTED;
+                .handle((txOutcome, ex) -> {
+                    if (ex != null) {
+                        // RAFT 'finish' command failed because the state has already been written by someone else.
+                        // In that case we throw a corresponding exception.
+                        if (ex instanceof UnexpectedTransactionStateException) {
+                            UnexpectedTransactionStateException utse = (UnexpectedTransactionStateException) ex;
+                            TransactionResult result = utse.transactionResult();
 
-                    markFinished(txId, txState, commitTimestamp);
+                            markFinished(txId, result.transactionState(), result.commitTimestamp());
+
+                            throw new TransactionAlreadyFinishedException(utse.getMessage(), utse.transactionResult());
+                        }
+                        // Otherwise we convert from the internal exception to the client one.
+                        throw new TransactionException(commit ? TX_COMMIT_ERR : TX_ROLLBACK_ERR, ex);
+                    }
+
+                    TransactionResult result = (TransactionResult) txOutcome;
+
+                    markFinished(txId, result.transactionState(), result.commitTimestamp());
+
+                    return null;
                 });
     }
 
@@ -1673,7 +1732,6 @@ public class PartitionReplicaListener implements ReplicaListener {
             return resultFuture;
         }
     }
-
 
     /**
      * Processes transaction cleanup request:
@@ -1782,7 +1840,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 .thenApply(res -> null);
     }
 
-    private String getTxCoordinatorId(UUID txId) {
+    private @Nullable String getTxCoordinatorId(UUID txId) {
         TxStateMeta meta = txManager.stateMeta(txId);
 
         assert meta != null : "Trying to cleanup a transaction that was not enlisted, txId=" + txId;
@@ -1810,7 +1868,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     }
 
     private void releaseTxLocks(UUID txId) {
-        lockManager.locks(txId).forEachRemaining(lockManager::release);
+        lockManager.releaseAll(txId);
     }
 
     /**
@@ -2090,10 +2148,10 @@ public class PartitionReplicaListener implements ReplicaListener {
      */
     private CompletableFuture<ReplicaResult> processMultiEntryAction(ReadWriteMultiRowReplicaRequest request, String txCoordinatorId) {
         UUID txId = request.transactionId();
-        TablePartitionId committedPartitionId = request.commitPartitionId().asTablePartitionId();
+        TablePartitionId commitPartitionId = request.commitPartitionId().asTablePartitionId();
         List<BinaryRow> searchRows = request.binaryRows();
 
-        assert committedPartitionId != null : "Commit partition is null [type=" + request.requestType() + ']';
+        assert commitPartitionId != null : "Commit partition is null [type=" + request.requestType() + ']';
 
         switch (request.requestType()) {
             case RW_DELETE_EXACT_ALL: {
@@ -2452,11 +2510,11 @@ public class PartitionReplicaListener implements ReplicaListener {
         });
     }
 
-    private void applyCmdWithRetryOnSafeTimeReorderException(Command cmd, CompletableFuture<Object> resultFuture) {
+    private <T> void applyCmdWithRetryOnSafeTimeReorderException(Command cmd, CompletableFuture<T> resultFuture) {
         applyCmdWithRetryOnSafeTimeReorderException(cmd, resultFuture, 0);
     }
 
-    private void applyCmdWithRetryOnSafeTimeReorderException(Command cmd, CompletableFuture<Object> resultFuture, int attemptsCounter) {
+    private <T> void applyCmdWithRetryOnSafeTimeReorderException(Command cmd, CompletableFuture<T> resultFuture, int attemptsCounter) {
         attemptsCounter++;
         if (attemptsCounter >= MAX_RETIES_ON_SAFE_TIME_REORDERING) {
             resultFuture.completeExceptionally(
@@ -2488,14 +2546,16 @@ public class PartitionReplicaListener implements ReplicaListener {
                         }
                     }
 
-                    safeTimePropagatingCommand.safeTimeLong(safeTimeForRetry.longValue());
+                    SafeTimePropagatingCommand clonedSafeTimePropagatingCommand =
+                            (SafeTimePropagatingCommand) safeTimePropagatingCommand.clone();
+                    clonedSafeTimePropagatingCommand.safeTimeLong(safeTimeForRetry.longValue());
 
-                    applyCmdWithRetryOnSafeTimeReorderException(safeTimePropagatingCommand, resultFuture);
+                    applyCmdWithRetryOnSafeTimeReorderException(clonedSafeTimePropagatingCommand, resultFuture);
                 } else {
                     resultFuture.completeExceptionally(ex);
                 }
             } else {
-                resultFuture.complete(res);
+                resultFuture.complete((T) res);
             }
         });
     }

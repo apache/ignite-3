@@ -55,9 +55,11 @@ public abstract class AbstractMessagingService implements MessagingService {
     /** {@inheritDoc} */
     @Override
     public void addMessageHandler(Class<?> messageGroup, NetworkMessageHandler handler) {
+        NetworkMessageHandler trackableHandler = new TrackableNetworkMessageHandler(handler);
+
         handlersByGroupType.getAndUpdate(getMessageGroupType(messageGroup), oldHandler -> {
             if (oldHandler == null) {
-                return new Handler(messageGroup, List.of(handler));
+                return new Handler(messageGroup, List.of(trackableHandler));
             }
 
             if (oldHandler.messageGroup != messageGroup) {
@@ -71,7 +73,7 @@ public abstract class AbstractMessagingService implements MessagingService {
             var handlers = new ArrayList<NetworkMessageHandler>(oldHandler.handlers.size() + 1);
 
             handlers.addAll(oldHandler.handlers);
-            handlers.add(handler);
+            handlers.add(trackableHandler);
 
             return new Handler(messageGroup, handlers);
         });

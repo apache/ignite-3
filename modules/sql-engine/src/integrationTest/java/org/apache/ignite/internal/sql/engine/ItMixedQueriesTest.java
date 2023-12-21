@@ -26,9 +26,12 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.Arrays;
 import java.util.List;
+import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Group of tests that still has not been sorted out. It’s better to avoid extending this class with new tests.
@@ -207,32 +210,35 @@ public class ItMixedQueriesTest extends BaseSqlIntegrationTest {
     /**
      * Verifies that table modification events are passed to a calcite schema modification listener.
      */
-    @Test
-    public void testIgniteSchemaAwaresAlterTableCommand() {
+    @ParameterizedTest
+    @ValueSource(ints = {0, 1})
+    public void testIgniteSchemaAwaresAlterTableCommand(int nodeToExecuteSelectsIndex) {
+        IgniteImpl nodeToExecuteSelects = CLUSTER.node(nodeToExecuteSelectsIndex);
+
         String selectAllQry = "select * from test_tbl";
 
-        sql("drop table if exists test_tbl");
-        sql("create table test_tbl(id int primary key, val varchar)");
+        sql(0, "drop table if exists test_tbl");
+        sql(0, "create table test_tbl(id int primary key, val varchar)");
 
-        assertQuery(selectAllQry).columnNames("ID", "VAL").check();
+        assertQuery(nodeToExecuteSelects, selectAllQry).columnNames("ID", "VAL").check();
 
-        sql("alter table test_tbl add column new_col int");
+        sql(0, "alter table test_tbl add column new_col int");
 
-        assertQuery(selectAllQry).columnNames("ID", "VAL", "NEW_COL").check();
+        assertQuery(nodeToExecuteSelects, selectAllQry).columnNames("ID", "VAL", "NEW_COL").check();
 
         // column with such name already exists
-        assertThrows(Exception.class, () -> sql("alter table test_tbl add column new_col int"));
+        assertThrows(Exception.class, () -> sql(0, "alter table test_tbl add column new_col int"));
 
-        assertQuery(selectAllQry).columnNames("ID", "VAL", "NEW_COL").check();
+        assertQuery(nodeToExecuteSelects, selectAllQry).columnNames("ID", "VAL", "NEW_COL").check();
 
-        sql("alter table test_tbl drop column new_col");
+        sql(0, "alter table test_tbl drop column new_col");
 
-        assertQuery(selectAllQry).columnNames("ID", "VAL").check();
+        assertQuery(nodeToExecuteSelects, selectAllQry).columnNames("ID", "VAL").check();
 
         // column with such name is not exists
-        assertThrows(Exception.class, () -> sql("alter table test_tbl drop column new_col"));
+        assertThrows(Exception.class, () -> sql(0, "alter table test_tbl drop column new_col"));
 
-        assertQuery(selectAllQry).columnNames("ID", "VAL").check();
+        assertQuery(nodeToExecuteSelects, selectAllQry).columnNames("ID", "VAL").check();
     }
 
     /** Quantified predicates test. */

@@ -121,6 +121,11 @@ public class InMemoryComputeStateMachine implements ComputeStateMachine {
     }
 
     @Override
+    public void queueJob(UUID jobId) {
+        changeJobState(jobId, QUEUED);
+    }
+
+    @Override
     public void completeJob(UUID jobId) {
         changeJobState(jobId, COMPLETED);
         waitToRemove.add(jobId);
@@ -199,7 +204,7 @@ public class InMemoryComputeStateMachine implements ComputeStateMachine {
             case QUEUED:
                 return toState == EXECUTING || toState == CANCELING || toState == CANCELED;
             case EXECUTING:
-                return toState == FAILED || toState == COMPLETED || toState == CANCELING || toState == CANCELED;
+                return toState == FAILED || toState == COMPLETED || toState == CANCELING || toState == CANCELED || toState == QUEUED;
             case CANCELING:
                 return toState == CANCELED || toState == FAILED || toState == COMPLETED;
             case FAILED:

@@ -143,6 +143,7 @@ public class CatalogToSchemaDescriptorConverterTest extends AbstractSchemaConver
                 ),
                 List.of("K1", "K2"),
                 List.of("K2"),
+                INITIAL_CAUSALITY_TOKEN,
                 INITIAL_CAUSALITY_TOKEN
         );
 

@@ -23,9 +23,17 @@ import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.Iterator;
 import java.util.Random;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.client.IgniteClient;
+import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
+import org.apache.ignite.internal.sql.engine.InternalSqlRow;
+import org.apache.ignite.internal.sql.engine.QueryProcessor;
+import org.apache.ignite.internal.sql.engine.property.SqlProperties;
+import org.apache.ignite.internal.sql.engine.property.SqlPropertiesHelper;
+import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.Session;
@@ -45,6 +53,7 @@ import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.TearDown;
 import org.openjdk.jmh.annotations.Threads;
 import org.openjdk.jmh.annotations.Warmup;
+import org.openjdk.jmh.infra.Blackhole;
 import org.openjdk.jmh.runner.Runner;
 import org.openjdk.jmh.runner.RunnerException;
 import org.openjdk.jmh.runner.options.Options;
@@ -95,19 +104,39 @@ public class SelectBenchmark extends AbstractMultiNodeBenchmark {
      * Benchmark for SQL select via embedded client.
      */
     @Benchmark
-    public void sqlGet(SqlState sqlState) {
+    public void sqlGet(SqlState sqlState, Blackhole bh) {
         try (var rs = sqlState.sql(SELECT_ALL_FROM_USERTABLE, random.nextInt(TABLE_SIZE))) {
-            rs.next();
+            bh.consume(rs.next());
         }
+    }
+
+    /**
+     * Benchmark for SQL select via embedded client using internal API.
+     */
+    @Benchmark
+    public void sqlGetInternal(SqlInternalApiState sqlInternalApiState, Blackhole bh) {
+        Iterator<InternalSqlRow> res = sqlInternalApiState.query(SELECT_ALL_FROM_USERTABLE, random.nextInt(TABLE_SIZE));
+
+        bh.consume(res.next());
+    }
+
+    /**
+     * Benchmark for SQL script select via embedded client using internal API.
+     */
+    @Benchmark
+    public void sqlGetInternalScript(SqlInternalApiState sqlInternalApiState, Blackhole bh) {
+        Iterator<InternalSqlRow> res = sqlInternalApiState.script(SELECT_ALL_FROM_USERTABLE, random.nextInt(TABLE_SIZE));
+
+        bh.consume(res.next());
     }
 
     /**
      * Benchmark for SQL select via thin client.
      */
     @Benchmark
-    public void sqlThinGet(SqlThinState sqlState) {
+    public void sqlThinGet(SqlThinState sqlState, Blackhole bh) {
         try (var rs = sqlState.sql(SELECT_ALL_FROM_USERTABLE, random.nextInt(TABLE_SIZE))) {
-            rs.next();
+            bh.consume(rs.next());
         }
     }
 
@@ -115,10 +144,23 @@ public class SelectBenchmark extends AbstractMultiNodeBenchmark {
      * Benchmark for JDBC get.
      */
     @Benchmark
-    public void jdbcGet(JdbcState state) throws SQLException {
+    public void jdbcGet(JdbcState state, Blackhole bh) throws SQLException {
         state.stmt.setInt(1, random.nextInt(TABLE_SIZE));
         try (ResultSet r = state.stmt.executeQuery()) {
-            r.next();
+            bh.consume(r.next());
+        }
+    }
+
+    /**
+     * Benchmark for JDBC script get.
+     */
+    @Benchmark
+    public void jdbcGetScript(JdbcState state, Blackhole bh) throws SQLException {
+        state.stmt.setInt(1, random.nextInt(TABLE_SIZE));
+        state.stmt.execute();
+
+        try (ResultSet r = state.stmt.getResultSet()) {
+            bh.consume(r.next());
         }
     }
 
@@ -126,16 +168,18 @@ public class SelectBenchmark extends AbstractMultiNodeBenchmark {
      * Benchmark for KV get via embedded client.
      */
     @Benchmark
-    public void kvGet() {
-        keyValueView.get(null, Tuple.create().set("ycsb_key", random.nextInt(TABLE_SIZE)));
+    public void kvGet(Blackhole bh) {
+        Tuple val = keyValueView.get(null, Tuple.create().set("ycsb_key", random.nextInt(TABLE_SIZE)));
+        bh.consume(val);
     }
 
     /**
      * Benchmark for KV get via thin client.
      */
     @Benchmark
-    public void kvThinGet(KvThinState kvState) {
-        kvState.kvView().get(null, Tuple.create().set("ycsb_key", random.nextInt(TABLE_SIZE)));
+    public void kvThinGet(KvThinState kvState, Blackhole bh) {
+        Tuple val = kvState.kvView().get(null, Tuple.create().set("ycsb_key", random.nextInt(TABLE_SIZE)));
+        bh.consume(val);
     }
 
     /**
@@ -150,7 +194,7 @@ public class SelectBenchmark extends AbstractMultiNodeBenchmark {
     }
 
     /**
-     * Benchmark state for {@link #sqlGet(SqlState)}.
+     * Benchmark state for {@link #sqlGet(SqlState, Blackhole)}.
      *
      * <p>Holds {@link Session}.
      */
@@ -172,7 +216,45 @@ public class SelectBenchmark extends AbstractMultiNodeBenchmark {
     }
 
     /**
-     * Benchmark state for {@link #sqlThinGet(SqlThinState)}.
+     * Benchmark state for {@link #sqlGetInternalScript(SqlInternalApiState, Blackhole)} and
+     * {@link #sqlGetInternal(SqlInternalApiState, Blackhole)}.
+     */
+    @State(Scope.Benchmark)
+    public static class SqlInternalApiState {
+        private final SqlProperties properties = SqlPropertiesHelper.emptyProperties();
+        private final QueryProcessor queryProc = clusterNode.queryEngine();
+        private int pageSize;
+
+        /** Initializes session. */
+        @Setup
+        public void setUp() throws Exception {
+            Session session = clusterNode.sql().createSession();
+
+            pageSize = session.defaultPageSize();
+
+            IgniteUtils.closeAll(session);
+        }
+
+        private Iterator<InternalSqlRow> query(String sql, Object... args) {
+            return handleFirstBatch(queryProc.querySingleAsync(properties, clusterNode.transactions(), null, sql, args));
+        }
+
+        private Iterator<InternalSqlRow> script(String sql, Object... args) {
+            return handleFirstBatch(queryProc.queryScriptAsync(properties, clusterNode.transactions(), null, sql, args));
+        }
+
+        private Iterator<InternalSqlRow> handleFirstBatch(CompletableFuture<AsyncSqlCursor<InternalSqlRow>> cursorFut) {
+            AsyncSqlCursor<InternalSqlRow> cursor = cursorFut.join();
+            BatchedResult<InternalSqlRow> res = cursor.requestNextAsync(pageSize).join();
+
+            cursor.closeAsync();
+
+            return res.items().iterator();
+        }
+    }
+
+    /**
+     * Benchmark state for {@link #sqlThinGet(SqlThinState, Blackhole)}.
      *
      * <p>Holds {@link IgniteClient} and {@link Session}.
      */
@@ -207,7 +289,7 @@ public class SelectBenchmark extends AbstractMultiNodeBenchmark {
     }
 
     /**
-     * Benchmark state for {@link #jdbcGet(JdbcState)}.
+     * Benchmark state for {@link #jdbcGet(JdbcState, Blackhole)}.
      *
      * <p>Holds {@link Connection} and {@link PreparedStatement}.
      */
@@ -239,7 +321,7 @@ public class SelectBenchmark extends AbstractMultiNodeBenchmark {
     }
 
     /**
-     * Benchmark state for {@link #kvThinGet(KvThinState)}.
+     * Benchmark state for {@link #kvThinGet(KvThinState, Blackhole)}.
      *
      * <p>Holds {@link IgniteClient} and {@link KeyValueView} for the table.
      */
