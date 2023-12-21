@@ -57,23 +57,46 @@ public class KeyValueViewPrimitiveTests : IgniteTestsBase
         await Client.Sql.ExecuteAsync(null, "CREATE TABLE IF NOT EXISTS TestPutGetNullable (ID BIGINT PRIMARY KEY, VAL BIGINT)");
 
         var table = await Client.Tables.GetTableAsync("TestPutGetNullable");
-
         var recView = table!.RecordBinaryView;
+        var view = table.GetKeyValueView<long, long?>();
+
         await recView.UpsertAsync(null, new IgniteTuple { ["ID"] = 1L, ["VAL"] = 1L });
         await recView.UpsertAsync(null, new IgniteTuple { ["ID"] = 2L, ["VAL"] = null });
 
-        var view = table.GetKeyValueView<long, long?>();
+        // Row present, value present.
         var res1 = await view.GetAsync(null, 1);
-        var res2 = await view.GetAsync(null, 2);
-        var res3 = await view.GetAsync(null, 3);
-
         Assert.IsTrue(res1.HasValue);
         Assert.AreEqual(1, res1.Value);
 
+        // Row present, column value is null.
+        var res2 = await view.GetAsync(null, 2);
         Assert.IsTrue(res2.HasValue);
         Assert.AreEqual(null, res2.Value);
 
+        // Row is not present.
+        var res3 = await view.GetAsync(null, 3);
         Assert.IsFalse(res3.HasValue);
+    }
+
+    [Test]
+    public async Task TestPutGetNullableTypeMismatch()
+    {
+        // TODO: Refactor this test somehow.
+        await Client.Sql.ExecuteAsync(null, "CREATE TABLE IF NOT EXISTS TestPutGetNullable (ID BIGINT PRIMARY KEY, VAL BIGINT)");
+
+        var table = await Client.Tables.GetTableAsync("TestPutGetNullable");
+        var recView = table!.RecordBinaryView;
+        var view = table.GetKeyValueView<long, long>();
+
+        await recView.UpsertAsync(null, new IgniteTuple { ["ID"] = 1L, ["VAL"] = 1L });
+        await recView.UpsertAsync(null, new IgniteTuple { ["ID"] = 2L, ["VAL"] = null });
+
+        var res1 = await view.GetAsync(null, 1);
+        Assert.IsTrue(res1.HasValue);
+        Assert.AreEqual(1, res1.Value);
+
+        var ex = Assert.ThrowsAsync<InvalidOperationException>(async () => await view.GetAsync(null, 2));
+        Assert.AreEqual("TODO: Proper error message explaining the problem", ex!.Message);
     }
 
     [Test]
