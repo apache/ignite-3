@@ -34,8 +34,8 @@ import org.apache.ignite.internal.client.proto.TuplePart;
 import org.apache.ignite.internal.client.sql.ClientSessionBuilder;
 import org.apache.ignite.internal.client.sql.ClientStatementBuilder;
 import org.apache.ignite.internal.streamer.StreamerBatchSender;
+import org.apache.ignite.internal.table.criteria.CursorAdapter;
 import org.apache.ignite.internal.table.criteria.QueryCriteriaAsyncCursor;
-import org.apache.ignite.internal.table.criteria.SyncCursorAdapter;
 import org.apache.ignite.lang.AsyncCursor;
 import org.apache.ignite.lang.Cursor;
 import org.apache.ignite.sql.Session;
@@ -390,7 +390,7 @@ public class ClientRecordView<R> implements RecordView<R> {
     /** {@inheritDoc} */
     @Override
     public Cursor<R> queryCriteria(@Nullable Transaction tx, @Nullable Criteria criteria, CriteriaQueryOptions opts) {
-        return new SyncCursorAdapter<>(sync(queryCriteriaAsync(tx, criteria, opts)));
+        return new CursorAdapter<>(sync(queryCriteriaAsync(tx, criteria, opts)));
     }
 
     /** {@inheritDoc} */

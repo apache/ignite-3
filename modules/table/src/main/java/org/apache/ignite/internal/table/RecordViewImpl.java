@@ -33,8 +33,8 @@ import org.apache.ignite.internal.schema.marshaller.RecordMarshaller;
 import org.apache.ignite.internal.schema.marshaller.reflection.RecordMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.streamer.StreamerBatchSender;
+import org.apache.ignite.internal.table.criteria.CursorAdapter;
 import org.apache.ignite.internal.table.criteria.QueryCriteriaAsyncCursor;
-import org.apache.ignite.internal.table.criteria.SyncCursorAdapter;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.lang.AsyncCursor;
@@ -541,7 +541,7 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
     /** {@inheritDoc} */
     @Override
     public Cursor<R> queryCriteria(@Nullable Transaction tx, @Nullable Criteria criteria, CriteriaQueryOptions opts) {
-        return new SyncCursorAdapter<>(sync(queryCriteriaAsync(tx, criteria, opts)));
+        return new CursorAdapter<>(sync(queryCriteriaAsync(tx, criteria, opts)));
     }
 
     /** {@inheritDoc} */
