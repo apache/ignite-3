@@ -19,10 +19,14 @@ package org.apache.ignite.internal.sql.engine;
 
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.RUNTIME_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_FAILED_READ_WRITE_OPERATION_ERR;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
@@ -30,6 +34,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.NoSuchElementException;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
 import org.apache.ignite.tx.Transaction;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -199,5 +204,38 @@ public class ItSqlMultiStatementTest extends BaseSqlMultiStatementTest {
                     .returns(2)
                     .check();
         }
+    }
+
+    @Test
+    void concurrentExecutionDoesntAffectSelectWithImplicitTx() {
+        long tableSize = 1_000;
+
+        @SuppressWarnings("ConcatenationWithEmptyString")
+        String script = ""
+                + "CREATE TABLE integers (i INT PRIMARY KEY);"
+                + "INSERT INTO integers SELECT * FROM TABLE(system_range(1, " + tableSize + "));"
+                + "SELECT count(*) FROM integers;"
+                + "DELETE FROM integers;"
+                + "DROP TABLE integers;";
+
+        AsyncSqlCursor<InternalSqlRow> cursor = runScript(script); // CREATE TABLE...
+        cursor.closeAsync();
+
+        cursor = await(cursor.nextResult()); // INSERT...
+
+        assertThat(cursor, notNullValue());
+        cursor.closeAsync();
+
+        cursor = await(cursor.nextResult()); // SELECT...
+
+        assertThat(cursor, notNullValue());
+
+        BatchedResult<InternalSqlRow> batch = await(cursor.requestNextAsync(1));
+
+        assertThat(batch, notNullValue());
+
+        assertThat(batch.items().get(0).get(0), is(tableSize));
+
+        iterateThroughResultsAndCloseThem(cursor);
     }
 }

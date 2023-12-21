@@ -45,6 +45,7 @@ import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ConcurrentMap;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -621,10 +622,8 @@ public class SqlQueryProcessor implements QueryProcessor {
                             .parameters(params)
                             .build();
 
-                    CompletableFuture<AsyncSqlCursor<InternalSqlRow>> fut = prepareSvc.prepareAsync(parsedResult, ctx)
+                    return prepareSvc.prepareAsync(parsedResult, ctx)
                             .thenCompose(plan -> executePlan(txWrapper, ctx, callback, plan, nextStatement));
-
-                    return fut;
                 })
                 .whenComplete((res, ex) -> {
                     if (ex != null) {
@@ -760,6 +759,17 @@ public class SqlQueryProcessor implements QueryProcessor {
         private final Queue<ScriptStatement> statements;
         private final ScriptTransactionContext txCtx;
 
+        /**
+         * Collection is used to track SELECT statements to postpone following DML operation.
+         *
+         * <p>We have no isolation within the same transaction. This implies, that any changes to the data
+         * will be seen during next read. Considering lazy execution of read operations, DML started after
+         * SELECT operation may, in fact, outrun actual read. To address this problem, let's collect all
+         * SELECT cursor in this collection and postpone following DML until at least first page is ready
+         * for every collected so far cursor.
+         */
+        private final Queue<CompletableFuture<Void>> inFlightSelects = new ConcurrentLinkedQueue<>();
+
         MultiStatementHandler(
                 String schemaName,
                 QueryTransactionContext txCtx,
@@ -821,6 +831,15 @@ public class SqlQueryProcessor implements QueryProcessor {
 
                 QueryTransactionWrapper txWrapper;
                 if (parsedResult.queryType() == SqlQueryType.TX_CONTROL) {
+                    // start of a new transaction is possible only while there is no
+                    // other explicit transaction; commit of a transaction will wait
+                    // for related cursor to be closed. In other words, we have no
+                    // interest in in-flight selects anymore, so lets just clean this
+                    // collection
+                    if (!inFlightSelects.isEmpty()) {
+                        inFlightSelects.clear();
+                    }
+
                     // Return an empty cursor.
                     fut = txCtx.handleControlStatement(parsedResult.parsedTree())
                             .thenApply(ignored -> new AsyncSqlCursorImpl<>(parsedResult.queryType(),
@@ -859,25 +878,55 @@ public class SqlQueryProcessor implements QueryProcessor {
                             triggerFuture = nullCompletedFuture();
                         } else if (txWrapper.implicit()) {
                             if (cursor.queryType() != SqlQueryType.QUERY) {
+                                CompletableFuture<Void> prefetchFuture = cursor.onFirstPageReady();
+
+                                // for non query statements cursor should not be resolved until the very first page is ready.
+                                // if prefetch was completed exceptionally, then cursor future is expected to be completed
+                                // exceptionally as well, resulting in the early return in the very beginning of the `whenComplete`
+                                assert prefetchFuture.isDone() && !prefetchFuture.isCompletedExceptionally()
+                                        : "prefetch future is expected to be completed successfully, but was "
+                                        + (prefetchFuture.isDone() ? "completed exceptionally" : "not completed");
+
                                 // any query apart from type of QUERY returns at most a single row, so
                                 // it should be safe to commit transaction prematurely after receiving
                                 // `firstPageReady` signal, since all sources have been processed
-                                triggerFuture = cursor.onFirstPageReady().thenCompose(none -> txWrapper.commitImplicit());
-                            } else if (nextStatement != null
-                                    && readOnlyQuery(nextStatement.parsedResult.queryType())) {
-                                // if next statement only reads data, no need to wait
-                                triggerFuture = nullCompletedFuture();
+                                triggerFuture = txWrapper.commitImplicit();
                             } else {
-                                triggerFuture = cursor.onFirstPageReady();
+                                // for statements type of QUERY, an implicit transaction is expected to be RO,
+                                // and this optimization is possible only with RO transactions, since essentially
+                                // it's just a timestamp which is used to get consistent snapshot of data. No
+                                // concurrent modifications will affect this snapshot, thus no need to wait for
+                                // the first page
+                                assert txWrapper.unwrap().isReadOnly() : "expected RO transaction";
+
+                                triggerFuture = nullCompletedFuture();
                             }
                         } else {
-                            if (readOnlyQuery(cursor.queryType())
-                                    && nextStatement != null
-                                    && readOnlyQuery(nextStatement.parsedResult.queryType())) {
-                                // both current and next statements read data only, so no need to wait
-                                triggerFuture = nullCompletedFuture();
+                            if (cursor.queryType() == SqlQueryType.QUERY) {
+                                inFlightSelects.add(CompletableFuture.anyOf(
+                                        cursor.onClose(), cursor.onFirstPageReady()
+                                ).handle((r, e) -> null));
+
+                                if (nextStatement != null && nextStatement.parsedResult.queryType() == SqlQueryType.DML) {
+                                    // we need to postpone DML until first page will be ready for every SELECT operation
+                                    // prior to that DML
+                                    triggerFuture = CompletableFuture.allOf(inFlightSelects.toArray(CompletableFuture[]::new));
+
+                                    inFlightSelects.clear();
+                                } else {
+                                    triggerFuture = nullCompletedFuture();
+                                }
                             } else {
-                                triggerFuture = cursor.onFirstPageReady();
+                                CompletableFuture<Void> prefetchFuture = cursor.onFirstPageReady();
+
+                                // for non query statements cursor should not be resolved until the very first page is ready.
+                                // if prefetch was completed exceptionally, then cursor future is expected to be completed
+                                // exceptionally as well, resulting in the early return in the very beginning of the `whenComplete`
+                                assert prefetchFuture.isDone() && !prefetchFuture.isCompletedExceptionally()
+                                        : "prefetch future is expected to be completed successfully, but was "
+                                        + (prefetchFuture.isDone() ? "completed exceptionally" : "not completed");
+
+                                triggerFuture = nullCompletedFuture();
                             }
                         }
 
@@ -920,10 +969,6 @@ public class SqlQueryProcessor implements QueryProcessor {
                         cause
                 ));
             }
-        }
-
-        private boolean readOnlyQuery(SqlQueryType type) {
-            return type == SqlQueryType.QUERY || type == SqlQueryType.EXPLAIN;
         }
 
         private class ScriptStatement {
