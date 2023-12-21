@@ -29,7 +29,7 @@ import org.apache.ignite.lang.AsyncCursor;
 import org.apache.ignite.lang.Cursor;
 
 /**
- * Synchronous wrapper over {@link Cursor}.
+ * Synchronous wrapper over {@link AsyncCursor}.
  */
 public class SyncCursorAdapter<T> implements Cursor<T> {
     /** Wrapped asynchronous cursor. */
