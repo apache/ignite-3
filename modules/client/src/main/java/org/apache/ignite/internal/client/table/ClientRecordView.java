@@ -27,7 +27,6 @@ import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
-import java.util.function.Function;
 import org.apache.ignite.client.RetryLimitPolicy;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
@@ -412,12 +411,11 @@ public class ClientRecordView<R> implements RecordView<R> {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<AsyncClosableCursor<R>> queryCriteriaAsync(
+    public CompletableFuture<? extends AsyncClosableCursor<R>> queryCriteriaAsync(
             @Nullable Transaction tx,
             @Nullable Criteria criteria,
             CriteriaQueryOptions opts
     ) {
-        return executeAsync(tx, criteria, opts)
-                .thenApply(Function.identity());
+        return executeAsync(tx, criteria, opts);
     }
 }

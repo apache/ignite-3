@@ -39,6 +39,7 @@ import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.sql.ClosableCursor;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
@@ -117,12 +118,13 @@ public class ItCriteriaQueryTest extends BaseIgniteAbstractTest {
     public void testBasicQueryCriteriaRecordBinaryView() {
         RecordView<Tuple> view = node.tables().table(TABLE_NAME).recordView();
 
-        List<Tuple> res = Lists.newArrayList(view.queryCriteria(null, null));
-        assertThat(res, containsInAnyOrder(
-                tupleValue(COLUMN_KEY, is(0)),
-                tupleValue(COLUMN_KEY, is(1)),
-                tupleValue(COLUMN_KEY, is(2))
-        ));
+        try (ClosableCursor<Tuple> cur = view.queryCriteria(null, null)) {
+            assertThat(Lists.newArrayList(cur), containsInAnyOrder(
+                    tupleValue(COLUMN_KEY, is(0)),
+                    tupleValue(COLUMN_KEY, is(1)),
+                    tupleValue(COLUMN_KEY, is(2))
+            ));
+        }
     }
 
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-20977")
@@ -130,12 +132,13 @@ public class ItCriteriaQueryTest extends BaseIgniteAbstractTest {
     public void testBasicQueryCriteriaRecordPojoView() {
         RecordView<TestPojo> view = node.tables().table(TABLE_NAME).recordView(TestPojo.class);
 
-        List<TestPojo> res = Lists.newArrayList(view.queryCriteria(null, null));
-        assertThat(res, containsInAnyOrder(
-                hasProperty(COLUMN_KEY, is(0)),
-                hasProperty(COLUMN_KEY, is(1)),
-                hasProperty(COLUMN_KEY, is(2))
-        ));
+        try (ClosableCursor<TestPojo> cur = view.queryCriteria(null, null)) {
+            assertThat(Lists.newArrayList(cur), containsInAnyOrder(
+                    hasProperty(COLUMN_KEY, is(0)),
+                    hasProperty(COLUMN_KEY, is(1)),
+                    hasProperty(COLUMN_KEY, is(2))
+            ));
+        }
     }
 
     private static void startTable(Ignite node, String tableName) {

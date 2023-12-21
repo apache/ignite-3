@@ -554,12 +554,11 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<AsyncClosableCursor<R>> queryCriteriaAsync(
+    public CompletableFuture<? extends AsyncClosableCursor<R>> queryCriteriaAsync(
             @Nullable Transaction tx,
             @Nullable Criteria criteria,
             CriteriaQueryOptions opts
     ) {
-        return executeAsync(tx, criteria, opts)
-                .thenApply(Function.identity());
+        return executeAsync(tx, criteria, opts);
     }
 }

@@ -468,12 +468,11 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<AsyncClosableCursor<Tuple>> queryCriteriaAsync(
+    public CompletableFuture<? extends AsyncClosableCursor<Tuple>> queryCriteriaAsync(
             @Nullable Transaction tx,
             @Nullable Criteria criteria,
             CriteriaQueryOptions opts
     ) {
-        return executeAsync(tx, criteria, opts)
-                .thenApply(Function.identity());
+        return executeAsync(tx, criteria, opts);
     }
 }

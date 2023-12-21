@@ -17,19 +17,21 @@
 
 package org.apache.ignite.internal.runner.app.client;
 
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.table.criteria.CriteriaQueryOptions.builder;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.hasProperty;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import com.google.common.collect.Lists;
 import java.nio.file.Path;
-import java.util.List;
 import java.util.Map;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.testframework.WorkDirectory;
+import org.apache.ignite.sql.ClosableCursor;
 import org.apache.ignite.sql.async.AsyncClosableCursor;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
@@ -58,30 +60,38 @@ public class ItThinClientCriteriaQueryTest extends ItAbstractThinClientTest {
     public void testBasicQueryCriteriaRecordBinaryView() {
         RecordView<Tuple> view = client().tables().table(TABLE_NAME).recordView();
 
-        List<Tuple> res = Lists.newArrayList(view.queryCriteria(null, null));
-        assertThat(res, containsInAnyOrder(
-                tupleValue(COLUMN_KEY, is(0)),
-                tupleValue(COLUMN_KEY, is(1)),
-                tupleValue(COLUMN_KEY, is(2))
-        ));
+        try (ClosableCursor<Tuple> cur = view.queryCriteria(null, null)) {
+            assertThat(Lists.newArrayList(cur), containsInAnyOrder(
+                    tupleValue(COLUMN_KEY, is(0)),
+                    tupleValue(COLUMN_KEY, is(1)),
+                    tupleValue(COLUMN_KEY, is(2))
+            ));
+        }
 
-        AsyncClosableCursor<Tuple> ars = view.queryCriteriaAsync(null, null, builder().pageSize(2).build()).join();
+        AsyncClosableCursor<Tuple> ars = await(view.queryCriteriaAsync(null, null, builder().pageSize(2).build()));
+
+        assertNotNull(ars);
         assertEquals(2, ars.currentPageSize());
+        await(ars.closeAsync());
     }
 
     @Test
     public void testBasicQueryCriteriaRecordPojoView() {
         RecordView<TestPojo> view = client().tables().table(TABLE_NAME).recordView(TestPojo.class);
 
-        List<TestPojo> res = Lists.newArrayList(view.queryCriteria(null, null));
-        assertThat(res, containsInAnyOrder(
-                hasProperty(COLUMN_KEY, is(0)),
-                hasProperty(COLUMN_KEY, is(1)),
-                hasProperty(COLUMN_KEY, is(2))
-        ));
+        try (ClosableCursor<TestPojo> cur = view.queryCriteria(null, null)) {
+            assertThat(Lists.newArrayList(cur), containsInAnyOrder(
+                    hasProperty(COLUMN_KEY, is(0)),
+                    hasProperty(COLUMN_KEY, is(1)),
+                    hasProperty(COLUMN_KEY, is(2))
+            ));
+        }
 
-        AsyncClosableCursor<TestPojo> ars = view.queryCriteriaAsync(null, null, builder().pageSize(2).build()).join();
+        AsyncClosableCursor<TestPojo> ars = await(view.queryCriteriaAsync(null, null, builder().pageSize(2).build()));
+
+        assertNotNull(ars);
         assertEquals(2, ars.currentPageSize());
+        await(ars.closeAsync());
     }
 
     private static void populateData(Ignite ignite, String tableName) {
