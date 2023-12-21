@@ -15,35 +15,29 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.sql.async;
+package org.apache.ignite.lang;
 
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.sql.CursorClosedException;
-import org.apache.ignite.sql.NoRowSetExpectedException;
-import org.apache.ignite.sql.SqlException;
-import org.apache.ignite.table.criteria.CriteriaQuerySource;
 
 /**
- * Provides methods for iterate over query results in an asynchronous way.
+ * Provides methods for iterate over operation results and release underlying resources in an asynchronous way.
  *
  * @param <T> The type of elements returned by this iterator.
- *
- * @see CriteriaQuerySource
  */
-public interface AsyncClosableCursor<T> {
+public interface AsyncCursor<T> {
     /**
-     * Returns the current page content if the query returns rows.
+     * Returns the current page content if the operation returns results.
      *
-     * @return Iterable set of rows.
-     * @throws NoRowSetExpectedException If no row set is returned.
+     * @return Iterable set of elements.
+     * @throws IgniteException If no results is returned.
      */
     Iterable<T> currentPage();
 
     /**
-     * Returns the current page size if the query return rows.
+     * Returns the current page size if the operation return results.
      *
      * @return The size of {@link #currentPage()}.
-     * @throws NoRowSetExpectedException If no row set is returned.
+     * @throws IgniteException If no results is returned.
      */
     int currentPageSize();
 
@@ -55,11 +49,9 @@ public interface AsyncClosableCursor<T> {
      *
      * @return A future which will be completed when next page will be fetched and set as the current page.
      *     The future will return {@code this} for chaining.
-     * @throws NoRowSetExpectedException If no row set is expected as a query result.
-     * @throws CursorClosedException If cursor is closed.
-     * @throws SqlException If there are no more pages.
+     * @throws IgniteException If resource is closed or if there are no more results.
      */
-    CompletableFuture<? extends AsyncClosableCursor<T>> fetchNextPage();
+    CompletableFuture<? extends AsyncCursor<T>> fetchNextPage();
 
     /**
      * Indicates whether there are more pages of results.
@@ -69,7 +61,7 @@ public interface AsyncClosableCursor<T> {
     boolean hasMorePages();
 
     /**
-     * Invalidates a query result, stops the query, and cleans up query resources.
+     * Closes this resource and releasing any underlying resources.
      *
      * @return A future which will be completed when the resources will be actually released.
      */

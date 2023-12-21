@@ -32,17 +32,17 @@ import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.marshaller.RecordMarshaller;
 import org.apache.ignite.internal.schema.marshaller.reflection.RecordMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
-import org.apache.ignite.internal.sql.SyncClosableCursorAdapter;
 import org.apache.ignite.internal.streamer.StreamerBatchSender;
 import org.apache.ignite.internal.table.criteria.QueryCriteriaAsyncCursor;
+import org.apache.ignite.internal.table.criteria.SyncCursorAdapter;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.lang.AsyncCursor;
+import org.apache.ignite.lang.Cursor;
 import org.apache.ignite.lang.MarshallerException;
-import org.apache.ignite.sql.ClosableCursor;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.Statement;
-import org.apache.ignite.sql.async.AsyncClosableCursor;
 import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.criteria.Criteria;
@@ -540,13 +540,13 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
 
     /** {@inheritDoc} */
     @Override
-    public ClosableCursor<R> queryCriteria(@Nullable Transaction tx, @Nullable Criteria criteria, CriteriaQueryOptions opts) {
-        return new SyncClosableCursorAdapter<>(sync(queryCriteriaAsync(tx, criteria, opts)));
+    public Cursor<R> queryCriteria(@Nullable Transaction tx, @Nullable Criteria criteria, CriteriaQueryOptions opts) {
+        return new SyncCursorAdapter<>(sync(queryCriteriaAsync(tx, criteria, opts)));
     }
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<AsyncClosableCursor<R>> queryCriteriaAsync(
+    public CompletableFuture<AsyncCursor<R>> queryCriteriaAsync(
             @Nullable Transaction tx,
             @Nullable Criteria criteria,
             CriteriaQueryOptions opts

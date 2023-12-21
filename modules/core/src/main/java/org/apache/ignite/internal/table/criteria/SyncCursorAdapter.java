@@ -15,29 +15,27 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql;
+package org.apache.ignite.internal.table.criteria;
+
+import static org.apache.ignite.internal.lang.IgniteExceptionMapperUtil.convertToPublicFuture;
+import static org.apache.ignite.internal.lang.IgniteExceptionMapperUtil.mapToPublicException;
+import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
+import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 
 import java.util.Iterator;
-import java.util.NoSuchElementException;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
-import org.apache.ignite.internal.util.ExceptionUtils;
-import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.sql.ClosableCursor;
-import org.apache.ignite.sql.NoRowSetExpectedException;
-import org.apache.ignite.sql.async.AsyncClosableCursor;
-import org.apache.ignite.sql.async.AsyncResultSet;
-import org.jetbrains.annotations.Nullable;
+import org.apache.ignite.lang.AsyncCursor;
+import org.apache.ignite.lang.Cursor;
 
 /**
- * Synchronous wrapper over {@link ClosableCursor}.
+ * Synchronous wrapper over {@link Cursor}.
  */
-public class SyncClosableCursorAdapter<T> implements ClosableCursor<T> {
+public class SyncCursorAdapter<T> implements Cursor<T> {
     /** Wrapped asynchronous cursor. */
-    private final AsyncClosableCursor<T> ac;
+    private final AsyncCursor<T> ac;
 
     /** Iterator. */
-    @Nullable
     private final Iterator<T> it;
 
     /**
@@ -45,63 +43,43 @@ public class SyncClosableCursorAdapter<T> implements ClosableCursor<T> {
      *
      * @param ac Asynchronous cursor.
      */
-    public SyncClosableCursorAdapter(AsyncClosableCursor<T> ac) {
+    public SyncCursorAdapter(AsyncCursor<T> ac) {
         assert ac != null;
 
         this.ac = ac;
         this.it = new IteratorImpl<>(ac);
     }
 
-    /**
-     * Constructor.
-     *
-     * @param ars Asynchronous result set.
-     */
-    SyncClosableCursorAdapter(AsyncResultSet<T> ars) {
-        assert ars != null;
-
-        this.ac = ars;
-        this.it = ars.hasRowSet() ? new IteratorImpl<>(ars) : null;
-    }
-
     /** {@inheritDoc} */
     @Override
     public void close() {
         try {
-            ac.closeAsync().toCompletableFuture().join();
-        } catch (CompletionException e) {
-            throw ExceptionUtils.wrap(e);
+            convertToPublicFuture(ac.closeAsync().toCompletableFuture()).join();
+        } catch (Throwable e) {
+            throw sneakyThrow(mapToPublicException(unwrapCause(e)));
         }
     }
 
     /** {@inheritDoc} */
     @Override
     public boolean hasNext() {
-        if (it == null) {
-            return false;
-        }
-
         return it.hasNext();
     }
 
     /** {@inheritDoc} */
     @Override
     public T next() {
-        if (it == null) {
-            throw new NoRowSetExpectedException();
-        }
-
         return it.next();
     }
 
     private static class IteratorImpl<T> implements Iterator<T> {
-        private AsyncClosableCursor<T> curRes;
+        private AsyncCursor<T> curRes;
 
-        private CompletionStage<? extends AsyncClosableCursor<T>> nextPageStage;
+        private CompletionStage<? extends AsyncCursor<T>> nextPageStage;
 
         private Iterator<T> curPage;
 
-        IteratorImpl(AsyncClosableCursor<T> ars) {
+        IteratorImpl(AsyncCursor<T> ars) {
             curRes = ars;
 
             advance();
@@ -115,7 +93,7 @@ public class SyncClosableCursorAdapter<T> implements ClosableCursor<T> {
                 try {
                     curRes = nextPageStage.toCompletableFuture().join();
                 } catch (CompletionException ex) {
-                    throw (IgniteException) ExceptionUtils.unwrapCause(ex);
+                    throw sneakyThrow(unwrapCause(ex));
                 }
 
                 advance();
@@ -138,10 +116,6 @@ public class SyncClosableCursorAdapter<T> implements ClosableCursor<T> {
 
         @Override
         public T next() {
-            if (!hasNext()) {
-                throw new NoSuchElementException();
-            }
-
             return curPage.next();
         }
     }

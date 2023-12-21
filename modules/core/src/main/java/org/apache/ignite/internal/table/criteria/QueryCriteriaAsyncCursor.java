@@ -18,13 +18,13 @@
 package org.apache.ignite.internal.table.criteria;
 
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.sql.async.AsyncClosableCursor;
+import org.apache.ignite.lang.AsyncCursor;
 import org.apache.ignite.sql.async.AsyncResultSet;
 
 /**
  * Wrapper over {@link AsyncResultSet} for criteria queries.
  */
-public class QueryCriteriaAsyncCursor<T> implements AsyncClosableCursor<T> {
+public class QueryCriteriaAsyncCursor<T> implements AsyncCursor<T> {
     private final AsyncResultSet<T> ars;
 
     private final Runnable closeRun;
@@ -56,11 +56,11 @@ public class QueryCriteriaAsyncCursor<T> implements AsyncClosableCursor<T> {
     @Override
     public CompletableFuture<? extends AsyncResultSet<T>> fetchNextPage() {
         return ars.fetchNextPage()
-            .whenComplete((v, t) -> {
-                if (t == null && !hasMorePages()) {
-                    closeRun.run();
-                }
-            });
+                .whenComplete((v, t) -> {
+                    if (t == null && !hasMorePages()) {
+                        closeRun.run();
+                    }
+                });
     }
 
     /** {@inheritDoc} */

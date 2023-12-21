@@ -32,13 +32,13 @@ import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.sql.ClientSessionBuilder;
 import org.apache.ignite.internal.client.sql.ClientStatementBuilder;
-import org.apache.ignite.internal.sql.SyncClosableCursorAdapter;
 import org.apache.ignite.internal.streamer.StreamerBatchSender;
 import org.apache.ignite.internal.table.criteria.QueryCriteriaAsyncCursor;
-import org.apache.ignite.sql.ClosableCursor;
+import org.apache.ignite.internal.table.criteria.SyncCursorAdapter;
+import org.apache.ignite.lang.AsyncCursor;
+import org.apache.ignite.lang.Cursor;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.Statement;
-import org.apache.ignite.sql.async.AsyncClosableCursor;
 import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
@@ -393,13 +393,13 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
 
     /** {@inheritDoc} */
     @Override
-    public ClosableCursor<Tuple> queryCriteria(@Nullable Transaction tx, @Nullable Criteria criteria, CriteriaQueryOptions opts) {
-        return new SyncClosableCursorAdapter<>(sync(queryCriteriaAsync(tx, criteria, opts)));
+    public Cursor<Tuple> queryCriteria(@Nullable Transaction tx, @Nullable Criteria criteria, CriteriaQueryOptions opts) {
+        return new SyncCursorAdapter<>(sync(queryCriteriaAsync(tx, criteria, opts)));
     }
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<AsyncClosableCursor<Tuple>> queryCriteriaAsync(
+    public CompletableFuture<AsyncCursor<Tuple>> queryCriteriaAsync(
             @Nullable Transaction tx,
             @Nullable Criteria criteria,
             CriteriaQueryOptions opts

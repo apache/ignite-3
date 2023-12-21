@@ -18,9 +18,9 @@
 package org.apache.ignite.table.criteria;
 
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.sql.ClosableCursor;
+import org.apache.ignite.lang.AsyncCursor;
+import org.apache.ignite.lang.Cursor;
 import org.apache.ignite.sql.SqlException;
-import org.apache.ignite.sql.async.AsyncClosableCursor;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 
@@ -38,7 +38,7 @@ public interface CriteriaQuerySource<T> {
      * @return Iterator with query results.
      * @throws SqlException If failed.
      */
-    default ClosableCursor<T> queryCriteria(@Nullable Transaction tx, @Nullable Criteria criteria) {
+    default Cursor<T> queryCriteria(@Nullable Transaction tx, @Nullable Criteria criteria) {
         return queryCriteria(tx, criteria, CriteriaQueryOptions.DEFAULT);
     }
 
@@ -51,7 +51,7 @@ public interface CriteriaQuerySource<T> {
      * @return Iterator with query results.
      * @throws SqlException If failed.
      */
-    ClosableCursor<T> queryCriteria(@Nullable Transaction tx, @Nullable Criteria criteria, CriteriaQueryOptions opts);
+    Cursor<T> queryCriteria(@Nullable Transaction tx, @Nullable Criteria criteria, CriteriaQueryOptions opts);
 
     /**
      * Executes a query to a view using a predicate in an asynchronous way.
@@ -61,7 +61,7 @@ public interface CriteriaQuerySource<T> {
      * @return Future that represents the pending completion of the operation.
      * @throws SqlException If failed.
      */
-    default CompletableFuture<AsyncClosableCursor<T>> queryCriteriaAsync(@Nullable Transaction tx, @Nullable Criteria criteria) {
+    default CompletableFuture<AsyncCursor<T>> queryCriteriaAsync(@Nullable Transaction tx, @Nullable Criteria criteria) {
         return queryCriteriaAsync(tx, criteria, CriteriaQueryOptions.DEFAULT);
     }
 
@@ -74,7 +74,7 @@ public interface CriteriaQuerySource<T> {
      * @return Future that represents the pending completion of the operation.
      * @throws SqlException If failed.
      */
-    CompletableFuture<AsyncClosableCursor<T>> queryCriteriaAsync(
+    CompletableFuture<AsyncCursor<T>> queryCriteriaAsync(
             @Nullable Transaction tx,
             @Nullable Criteria criteria,
             CriteriaQueryOptions opts

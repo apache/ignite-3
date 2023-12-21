@@ -31,8 +31,8 @@ import java.nio.file.Path;
 import java.util.Map;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.testframework.WorkDirectory;
-import org.apache.ignite.sql.ClosableCursor;
-import org.apache.ignite.sql.async.AsyncClosableCursor;
+import org.apache.ignite.lang.AsyncCursor;
+import org.apache.ignite.lang.Cursor;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
 import org.hamcrest.FeatureMatcher;
@@ -60,7 +60,7 @@ public class ItThinClientCriteriaQueryTest extends ItAbstractThinClientTest {
     public void testBasicQueryCriteriaRecordBinaryView() {
         RecordView<Tuple> view = client().tables().table(TABLE_NAME).recordView();
 
-        try (ClosableCursor<Tuple> cur = view.queryCriteria(null, null)) {
+        try (Cursor<Tuple> cur = view.queryCriteria(null, null)) {
             assertThat(Lists.newArrayList(cur), containsInAnyOrder(
                     tupleValue(COLUMN_KEY, is(0)),
                     tupleValue(COLUMN_KEY, is(1)),
@@ -68,7 +68,7 @@ public class ItThinClientCriteriaQueryTest extends ItAbstractThinClientTest {
             ));
         }
 
-        AsyncClosableCursor<Tuple> ars = await(view.queryCriteriaAsync(null, null, builder().pageSize(2).build()));
+        AsyncCursor<Tuple> ars = await(view.queryCriteriaAsync(null, null, builder().pageSize(2).build()));
 
         assertNotNull(ars);
         assertEquals(2, ars.currentPageSize());
@@ -79,7 +79,7 @@ public class ItThinClientCriteriaQueryTest extends ItAbstractThinClientTest {
     public void testBasicQueryCriteriaRecordPojoView() {
         RecordView<TestPojo> view = client().tables().table(TABLE_NAME).recordView(TestPojo.class);
 
-        try (ClosableCursor<TestPojo> cur = view.queryCriteria(null, null)) {
+        try (Cursor<TestPojo> cur = view.queryCriteria(null, null)) {
             assertThat(Lists.newArrayList(cur), containsInAnyOrder(
                     hasProperty(COLUMN_KEY, is(0)),
                     hasProperty(COLUMN_KEY, is(1)),
@@ -87,7 +87,7 @@ public class ItThinClientCriteriaQueryTest extends ItAbstractThinClientTest {
             ));
         }
 
-        AsyncClosableCursor<TestPojo> ars = await(view.queryCriteriaAsync(null, null, builder().pageSize(2).build()));
+        AsyncCursor<TestPojo> ars = await(view.queryCriteriaAsync(null, null, builder().pageSize(2).build()));
 
         assertNotNull(ars);
         assertEquals(2, ars.currentPageSize());

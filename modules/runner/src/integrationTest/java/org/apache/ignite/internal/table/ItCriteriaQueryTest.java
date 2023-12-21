@@ -39,7 +39,7 @@ import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.sql.ClosableCursor;
+import org.apache.ignite.lang.Cursor;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
@@ -118,7 +118,7 @@ public class ItCriteriaQueryTest extends BaseIgniteAbstractTest {
     public void testBasicQueryCriteriaRecordBinaryView() {
         RecordView<Tuple> view = node.tables().table(TABLE_NAME).recordView();
 
-        try (ClosableCursor<Tuple> cur = view.queryCriteria(null, null)) {
+        try (Cursor<Tuple> cur = view.queryCriteria(null, null)) {
             assertThat(Lists.newArrayList(cur), containsInAnyOrder(
                     tupleValue(COLUMN_KEY, is(0)),
                     tupleValue(COLUMN_KEY, is(1)),
@@ -132,7 +132,7 @@ public class ItCriteriaQueryTest extends BaseIgniteAbstractTest {
     public void testBasicQueryCriteriaRecordPojoView() {
         RecordView<TestPojo> view = node.tables().table(TABLE_NAME).recordView(TestPojo.class);
 
-        try (ClosableCursor<TestPojo> cur = view.queryCriteria(null, null)) {
+        try (Cursor<TestPojo> cur = view.queryCriteria(null, null)) {
             assertThat(Lists.newArrayList(cur), containsInAnyOrder(
                     hasProperty(COLUMN_KEY, is(0)),
                     hasProperty(COLUMN_KEY, is(1)),

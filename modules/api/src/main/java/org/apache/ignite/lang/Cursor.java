@@ -15,21 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.sql;
+package org.apache.ignite.lang;
 
 import java.util.Iterator;
-import org.apache.ignite.table.criteria.CriteriaQuerySource;
 
 /**
- * An iterator over a query results.
+ * Provides methods for iterate over operation results and release underlying resources.
  *
  * @param <T> The type of elements returned by this iterator.
- *
- * @see CriteriaQuerySource
  */
-public interface ClosableCursor<T> extends Iterator<T>, AutoCloseable {
+public interface Cursor<T> extends Iterator<T>, AutoCloseable {
     /**
-     * Invalidates a query result, stops the query, and cleans up query resources.
+     * Closes this resource and releasing any underlying resources.
      */
     @Override
     void close();
