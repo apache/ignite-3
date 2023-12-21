@@ -15,26 +15,30 @@
  * limitations under the License.
  */
 
-apply from: "$rootDir/buildscripts/java-core.gradle"
-apply from: "$rootDir/buildscripts/publishing.gradle"
-apply from: "$rootDir/buildscripts/java-junit5.gradle"
-apply from: "$rootDir/buildscripts/java-test-fixtures.gradle"
+package org.apache.ignite.internal.error.code.processor;
 
+import org.jetbrains.annotations.Nullable;
 
-dependencies {
-    annotationProcessor project(':ignite-error-code-annotation-processor')
+/**
+ * Exception that can be thrown from the @{@link ErrorCodeGroupProcessor}.
+ */
+public class ErrorCodeGroupProcessorException extends RuntimeException {
+    /**
+     * Constructor.
+     *
+     * @param message Error massage.
+     */
+    public ErrorCodeGroupProcessorException(String message) {
+        super(message);
+    }
 
-    implementation project(':ignite-error-code-annotation-processor')
-    implementation libs.fastutil.core
-    implementation libs.jetbrains.annotations
-
-    testImplementation libs.hamcrest.core
-    testImplementation libs.hamcrest.optional
-    testImplementation libs.archunit.core
-    testImplementation libs.archunit.junit5
-
-    testFixturesImplementation libs.hamcrest.core
-    testFixturesImplementation libs.jetbrains.annotations
+    /**
+     * Constructor.
+     *
+     * @param message Error message.
+     * @param cause Cause
+     */
+    public ErrorCodeGroupProcessorException(String message, @Nullable Throwable cause) {
+        super(message, cause);
+    }
 }
-
-description = 'ignite-api'

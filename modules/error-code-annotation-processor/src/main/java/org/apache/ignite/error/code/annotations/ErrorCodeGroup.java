@@ -15,26 +15,20 @@
  * limitations under the License.
  */
 
-apply from: "$rootDir/buildscripts/java-core.gradle"
-apply from: "$rootDir/buildscripts/publishing.gradle"
-apply from: "$rootDir/buildscripts/java-junit5.gradle"
-apply from: "$rootDir/buildscripts/java-test-fixtures.gradle"
+package org.apache.ignite.error.code.annotations;
 
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Target;
 
-dependencies {
-    annotationProcessor project(':ignite-error-code-annotation-processor')
-
-    implementation project(':ignite-error-code-annotation-processor')
-    implementation libs.fastutil.core
-    implementation libs.jetbrains.annotations
-
-    testImplementation libs.hamcrest.core
-    testImplementation libs.hamcrest.optional
-    testImplementation libs.archunit.core
-    testImplementation libs.archunit.junit5
-
-    testFixturesImplementation libs.hamcrest.core
-    testFixturesImplementation libs.jetbrains.annotations
+/**
+ * <p>
+ * Annotation that should be placed on the ErrorGroup in the java/org/apache/ignite/lang/ErrorGroups.java
+ * </p>
+ * <p>
+ *     Group will be processed by the @{@link org.apache.ignite.internal.error.code.processor.ErrorCodeGroupProcessor}
+ * and C++ and C# files with errors will be generated.
+ * </p>
+ */
+@Target(ElementType.TYPE)
+public @interface ErrorCodeGroup {
 }
-
-description = 'ignite-api'

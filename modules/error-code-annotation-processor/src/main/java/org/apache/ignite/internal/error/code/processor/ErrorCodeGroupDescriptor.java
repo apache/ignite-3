@@ -15,26 +15,33 @@
  * limitations under the License.
  */
 
-apply from: "$rootDir/buildscripts/java-core.gradle"
-apply from: "$rootDir/buildscripts/publishing.gradle"
-apply from: "$rootDir/buildscripts/java-junit5.gradle"
-apply from: "$rootDir/buildscripts/java-test-fixtures.gradle"
+package org.apache.ignite.internal.error.code.processor;
 
+import java.util.ArrayList;
+import java.util.List;
 
-dependencies {
-    annotationProcessor project(':ignite-error-code-annotation-processor')
+/**
+ * Class that holds info about one group of error codes.
+ */
+public class ErrorCodeGroupDescriptor {
+    public String className;
 
-    implementation project(':ignite-error-code-annotation-processor')
-    implementation libs.fastutil.core
-    implementation libs.jetbrains.annotations
+    public String groupName;
 
-    testImplementation libs.hamcrest.core
-    testImplementation libs.hamcrest.optional
-    testImplementation libs.archunit.core
-    testImplementation libs.archunit.junit5
+    public Integer groupCode;
 
-    testFixturesImplementation libs.hamcrest.core
-    testFixturesImplementation libs.jetbrains.annotations
+    /**
+     * Class that holds info about one error code.
+     */
+    public static class ErrorCode {
+        ErrorCode(int code, String name) {
+            this.code = code;
+            this.name = name;
+        }
+
+        public int code;
+        public String name;
+    }
+
+    public List<ErrorCode> errorCodes = new ArrayList<>();
 }
-
-description = 'ignite-api'

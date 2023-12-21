@@ -15,26 +15,14 @@
  * limitations under the License.
  */
 
-apply from: "$rootDir/buildscripts/java-core.gradle"
-apply from: "$rootDir/buildscripts/publishing.gradle"
-apply from: "$rootDir/buildscripts/java-junit5.gradle"
-apply from: "$rootDir/buildscripts/java-test-fixtures.gradle"
+package org.apache.ignite.internal.error.code.generators;
 
+import java.util.List;
+import org.apache.ignite.internal.error.code.processor.ErrorCodeGroupDescriptor;
 
-dependencies {
-    annotationProcessor project(':ignite-error-code-annotation-processor')
-
-    implementation project(':ignite-error-code-annotation-processor')
-    implementation libs.fastutil.core
-    implementation libs.jetbrains.annotations
-
-    testImplementation libs.hamcrest.core
-    testImplementation libs.hamcrest.optional
-    testImplementation libs.archunit.core
-    testImplementation libs.archunit.junit5
-
-    testFixturesImplementation libs.hamcrest.core
-    testFixturesImplementation libs.jetbrains.annotations
+/**
+ * Abstract error code generator.
+ */
+public interface AbstractCodeGenerator {
+    void generate(List<ErrorCodeGroupDescriptor> descriptors);
 }
-
-description = 'ignite-api'
