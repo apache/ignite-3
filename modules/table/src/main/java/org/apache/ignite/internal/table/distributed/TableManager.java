@@ -347,6 +347,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     /**
      * Creates a new table manager.
      *
+     * @param nodeName Node name.
      * @param registry Registry for versioned values.
      * @param gcConfig Garbage collector configuration.
      * @param raftMgr Raft manager.

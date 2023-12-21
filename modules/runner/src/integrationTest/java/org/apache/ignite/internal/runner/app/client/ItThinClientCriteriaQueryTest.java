@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.runner.app.client;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
+import static org.apache.ignite.internal.testframework.matchers.TupleMatcher.tupleValue;
 import static org.apache.ignite.table.criteria.CriteriaQueryOptions.builder;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -35,9 +36,6 @@ import org.apache.ignite.lang.AsyncCursor;
 import org.apache.ignite.lang.Cursor;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
-import org.hamcrest.FeatureMatcher;
-import org.hamcrest.Matcher;
-import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
@@ -100,20 +98,5 @@ public class ItThinClientCriteriaQueryTest extends ItAbstractThinClientTest {
         for (int val = 0; val < 3; val++) {
             table.insert(null, Tuple.create(Map.of(COLUMN_KEY, val % 100, "val", "some string row" + val)));
         }
-    }
-
-    /**
-     * Creates a matcher for matching tuple value.
-     *
-     * @param valueMatcher Matcher for matching tuple value.
-     * @return Matcher for matching tuple value.
-     */
-    private static <T> Matcher<Tuple> tupleValue(String columnName, Matcher<T> valueMatcher) {
-        return new FeatureMatcher<>(valueMatcher, "A tuple with value", "value") {
-            @Override
-            protected @Nullable T featureValueOf(Tuple actual) {
-                return actual.value(columnName);
-            }
-        };
     }
 }
