@@ -964,7 +964,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
      * @param nodes Nodes.
      * @return List of client addresses.
      */
-    public static List<String> getClientAddresses(List<Ignite> nodes) {
+    static List<String> getClientAddresses(List<Ignite> nodes) {
         return nodes.stream()
                 .map(ignite -> ((IgniteImpl) ignite).clientAddress().port())
                 .map(port -> "127.0.0.1" + ":" + port)

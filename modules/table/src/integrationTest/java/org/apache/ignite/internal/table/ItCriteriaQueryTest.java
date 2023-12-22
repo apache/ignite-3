@@ -15,12 +15,10 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.table;
+package org.apache.ignite.internal.table;
 
-import static org.apache.ignite.internal.sql.api.ItSqlApiBaseTest.getClientAddresses;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.matchers.TupleMatcher.tupleValue;
-import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.apache.ignite.table.criteria.CriteriaQueryOptions.builder;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -30,11 +28,11 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import com.google.common.collect.Lists;
-import java.util.List;
 import java.util.stream.Stream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.AsyncCursor;
 import org.apache.ignite.lang.Cursor;
 import org.apache.ignite.table.RecordView;
@@ -59,20 +57,19 @@ public class ItCriteriaQueryTest extends ClusterPerClassIntegrationTest {
 
     @BeforeAll
     protected void beforeAll() {
-        CLIENT = IgniteClient.builder().addresses(getClientAddresses(List.of(CLUSTER.aliveNode())).get(0)).build();
+        CLIENT = IgniteClient.builder()
+                .addresses("127.0.0.1:" + CLUSTER.aliveNode().clientAddress().port()).build();
 
         createTable(DEFAULT_TABLE_NAME, 1, 8);
 
         for (int i = 0; i < 3; i++) {
-            insertData(DEFAULT_TABLE_NAME, List.of("ID", "NAME", "SALARY"), new Object[][]{
-                    {i, "name" + i, 10.0d * i}
-            });
+            insertPeople(DEFAULT_TABLE_NAME, new Person(i, "name" + i, 10.0d * i));
         }
     }
 
     @AfterAll
     void stopClient() throws Exception {
-        closeAll(CLIENT);
+        IgniteUtils.closeAll(CLIENT);
     }
 
     private static Stream<Arguments> testRecordBinaryView() {
