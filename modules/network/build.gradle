@@ -68,7 +68,6 @@ dependencies {
     testFixturesImplementation project(':ignite-configuration')
     testFixturesImplementation(testFixtures(project(':ignite-core')))
     testFixturesImplementation(testFixtures(project(':ignite-configuration')))
-    testFixturesImplementation libs.classgraph
     testFixturesImplementation libs.fastutil.core
     testFixturesImplementation libs.scalecube.cluster
     testFixturesImplementation libs.jetbrains.annotations
@@ -83,5 +82,4 @@ dependencies {
     integrationTestImplementation libs.netty.handler
     integrationTestImplementation libs.scalecube.cluster
     integrationTestImplementation libs.javapoet
-    integrationTestImplementation libs.classgraph
 }
