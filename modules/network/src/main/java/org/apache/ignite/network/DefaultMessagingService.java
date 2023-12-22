@@ -86,7 +86,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
     private final ExecutorService outboundExecutor;
 
     /** Executors for inbound messages. */
-    private final LazyExecutorCollection inboundExecutors;
+    private final LazyStripedExecutor inboundExecutors;
 
     // TODO: IGNITE-18493 - remove/move this
     @Nullable
@@ -115,7 +115,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
         this.outboundExecutor = Executors.newSingleThreadExecutor(NamedThreadFactory.create(nodeName, "MessagingService-outbound-", LOG));
         // TODO asch the implementation of delayed acks relies on absence of reordering on subsequent messages delivery.
         // TODO asch This invariant should be preserved while working on IGNITE-20373
-        inboundExecutors = new LazyExecutorCollection(nodeName, "MessagingService-inbound-");
+        inboundExecutors = new LazyStripedExecutor(nodeName, "MessagingService-inbound-");
     }
 
     /**
@@ -328,7 +328,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
     private void onMessage(InNetworkObject obj) {
         assert isInNetworkThread();
 
-        inboundExecutorFor(obj).execute(() -> {
+        inboundExecutors.execute(obj.connectionIndex(), () -> {
             long startedNanos = System.nanoTime();
 
             try {
@@ -342,10 +342,6 @@ public class DefaultMessagingService extends AbstractMessagingService {
                 }
             }
         });
-    }
-
-    private ExecutorService inboundExecutorFor(InNetworkObject obj) {
-        return inboundExecutors.executor(obj.connectionIndex());
     }
 
     private void handleIncomingMessage(InNetworkObject obj) {
