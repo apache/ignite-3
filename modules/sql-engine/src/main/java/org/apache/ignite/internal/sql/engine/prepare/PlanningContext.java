@@ -49,7 +49,7 @@ public final class PlanningContext implements Context {
     /** Rules which should be excluded for planning. */
     private Function<RuleSet, RuleSet> rulesFilter;
 
-    private final IgnitePlanner planner;
+    private IgnitePlanner planner;
 
     /** Start planning timestamp in millis. */
     private final long startTs;
@@ -72,15 +72,9 @@ public final class PlanningContext implements Context {
         this.qry = qry;
         this.parentCtx = parentCtx;
 
+        startTs = FastTimestamps.coarseCurrentTimeMillis();
         this.plannerTimeout = plannerTimeout;
         this.parameters = parameters;
-
-        //noinspection ThisEscapedInObjectConstruction
-        this.planner = new IgnitePlanner(this);
-
-        // Must be set after creating the planner.
-        // Otherwise, the planning time will include the time required fot initial loading of classes.
-        startTs = FastTimestamps.coarseCurrentTimeMillis();
     }
 
     /** Get framework config. */
@@ -122,6 +116,10 @@ public final class PlanningContext implements Context {
 
     /** Get planner. */
     public IgnitePlanner planner() {
+        if (planner == null) {
+            planner = new IgnitePlanner(this);
+        }
+
         return planner;
     }
 

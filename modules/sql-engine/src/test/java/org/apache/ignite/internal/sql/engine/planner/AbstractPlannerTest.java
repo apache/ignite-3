@@ -124,6 +124,10 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
 
     private static final AtomicInteger NEXT_TABLE_ID = new AtomicInteger(2001);
 
+    static {
+        IgnitePlanner.warmup();
+    }
+
     /** Last error message. */
     String lastErrorMsg;
 
