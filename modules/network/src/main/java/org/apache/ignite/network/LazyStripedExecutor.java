@@ -39,6 +39,8 @@ class LazyStripedExecutor implements ManuallyCloseable {
      * @param index Index of the stripe.
      */
     public void execute(short index, Runnable command) {
+        assert index >= 0 : "Index is negative: " + index;
+
         if (!busyLock.enterBusy()) {
             return;
         }
