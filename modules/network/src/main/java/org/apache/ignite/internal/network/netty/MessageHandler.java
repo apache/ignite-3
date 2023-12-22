@@ -65,6 +65,8 @@ public class MessageHandler extends ChannelInboundHandlerAdapter {
             return;
         }
 
-        messageListener.accept(new InNetworkObject(message, consistentId, connectionIndex, serializationService.compositeDescriptorRegistry()));
+        messageListener.accept(
+                new InNetworkObject(message, consistentId, connectionIndex, serializationService.compositeDescriptorRegistry())
+        );
     }
 }

@@ -500,23 +500,15 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
 
     @SuppressWarnings("NonSerializableFieldInSerializableClass")
     private enum SendOperation {
-        WEAK_SEND((service, message, recipient) -> service.weakSend(recipient, message), ChannelType.DEFAULT),
-        SEND_DEFAULT_CHANNEL((service, message, recipient) -> service.send(recipient, message), ChannelType.DEFAULT),
-        SEND_SPECIFIC_CHANNEL((service, message, recipient) -> service.send(recipient, TEST_CHANNEL, message), TEST_CHANNEL),
-        SEND_CONSISTENT_ID_SPECIFIC_CHANNEL(
-                (service, message, recipient) -> service.send(recipient.name(), TEST_CHANNEL, message),
-                TEST_CHANNEL
-        ),
-        INVOKE_DEFAULT_CHANNEL((service, message, recipient) -> service.invoke(recipient, message, 10_000), ChannelType.DEFAULT),
-        INVOKE_CONSISTENT_ID_DEFAULT_CHANNEL(
-                (service, message, recipient) -> service.invoke(recipient.name(), message, 10_000),
-                ChannelType.DEFAULT
-        ),
-        INVOKE_SPECIFIC_CHANNEL((service, message, recipient) -> service.invoke(recipient, TEST_CHANNEL, message, 10_000), TEST_CHANNEL),
-        INVOKE_CONSISTENT_ID_SPECIFIC_CHANNEL(
-                (service, message, recipient) -> service.invoke(recipient.name(), TEST_CHANNEL, message, 10_000),
-                TEST_CHANNEL
-        );
+        WEAK_SEND((service, message, to) -> service.weakSend(to, message), ChannelType.DEFAULT),
+        SEND_DEFAULT_CHANNEL((service, message, to) -> service.send(to, message), ChannelType.DEFAULT),
+        SEND_SPECIFIC_CHANNEL((service, message, to) -> service.send(to, TEST_CHANNEL, message), TEST_CHANNEL),
+        SEND_CONSISTENT_ID_SPECIFIC_CHANNEL((service, message, to) -> service.send(to.name(), TEST_CHANNEL, message), TEST_CHANNEL),
+        INVOKE_DEFAULT_CHANNEL((service, message, to) -> service.invoke(to, message, 10_000), ChannelType.DEFAULT),
+        INVOKE_CONSISTENT_ID_DEFAULT_CHANNEL((service, message, to) -> service.invoke(to.name(), message, 10_000), ChannelType.DEFAULT),
+        INVOKE_SPECIFIC_CHANNEL((service, message, to) -> service.invoke(to, TEST_CHANNEL, message, 10_000), TEST_CHANNEL),
+        INVOKE_CONSISTENT_ID_SPECIFIC_CHANNEL((service, message, to) -> service.invoke(to.name(), TEST_CHANNEL, message, 10_000),
+                TEST_CHANNEL);
 
         private final SendAction sendAction;
         private final ChannelType expectedChannelType;
@@ -534,22 +526,12 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
 
     @SuppressWarnings("NonSerializableFieldInSerializableClass")
     private enum RespondOperation {
-        RESPOND_DEFAULT_CHANNEL(
-                (service, message, recipient, correlationId) -> service.respond(recipient, message, correlationId),
-                ChannelType.DEFAULT
-        ),
-        RESPOND_CONSISTENT_ID_DEFAULT_CHANNEL(
-                (service, message, recipient, correlationId) -> service.respond(recipient.name(), message, correlationId),
-                ChannelType.DEFAULT
-        ),
-        RESPOND_SPECIFIC_CHANNEL(
-                (service, message, recipient, correlationId) -> service.respond(recipient, TEST_CHANNEL, message, correlationId),
-                TEST_CHANNEL
-        ),
-        RESPOND_CONSISTENT_ID_SPECIFIC_CHANNEL(
-                (service, message, recipient, correlationId) -> service.respond(recipient.name(), TEST_CHANNEL, message, correlationId),
-                TEST_CHANNEL
-        );
+        RESPOND_DEFAULT_CHANNEL((service, message, to, corrId) -> service.respond(to, message, corrId), ChannelType.DEFAULT),
+        RESPOND_CONSISTENT_ID_DEFAULT_CHANNEL((service, message, to, corrId) -> service.respond(to.name(), message, corrId),
+                ChannelType.DEFAULT),
+        RESPOND_SPECIFIC_CHANNEL((service, message, to, corrId) -> service.respond(to, TEST_CHANNEL, message, corrId), TEST_CHANNEL),
+        RESPOND_CONSISTENT_ID_SPECIFIC_CHANNEL((service, message, to, corrId) -> service.respond(to.name(), TEST_CHANNEL, message, corrId),
+                TEST_CHANNEL);
 
         private final RespondAction respondAction;
         private final ChannelType expectedChannelType;
