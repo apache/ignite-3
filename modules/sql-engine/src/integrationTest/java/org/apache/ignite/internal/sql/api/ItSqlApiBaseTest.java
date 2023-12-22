@@ -873,7 +873,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
                             "CREATE TABLE test (id INT PRIMARY KEY, step INTEGER); "
                                     + "INSERT INTO test VALUES(1, 0); "
                                     + "UPDATE test SET step = 1; "
-                                    + "SELECT 1/0; "
+                                    + "UPDATE test SET step = 3 WHERE step > 1/0; "
                                     + "UPDATE test SET step = 2; "
                     )
             );

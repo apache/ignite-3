@@ -17,6 +17,7 @@
 
 package org.apache.ignite.client.handler.requests.jdbc;
 
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.mock;
 
@@ -73,8 +74,15 @@ public class JdbcQueryCursorSelfTest extends BaseIgniteAbstractTest {
 
     private List<Integer> fetchFullBatch(int maxRows, int fetchSize) {
         JdbcQueryCursor<Integer> cursor = new JdbcQueryCursor<>(maxRows,
-                new AsyncSqlCursorImpl<>(SqlQueryType.QUERY, null, txWrapper,
-                        new AsyncWrapper<>(CompletableFuture.completedFuture(ROWS.iterator()), Runnable::run), () -> {}));
+                new AsyncSqlCursorImpl<>(
+                        SqlQueryType.QUERY,
+                        null,
+                        txWrapper,
+                        new AsyncWrapper<>(CompletableFuture.completedFuture(ROWS.iterator()), Runnable::run),
+                        nullCompletedFuture(),
+                        null
+                )
+        );
 
         List<Integer> results = new ArrayList<>(maxRows);
         BatchedResult<Integer> requestResult;
