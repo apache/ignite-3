@@ -27,7 +27,6 @@ import it.unimi.dsi.fastutil.ints.IntSet;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -62,8 +61,6 @@ import org.jetbrains.annotations.TestOnly;
 public class DefaultMessagingService extends AbstractMessagingService {
     private static final IgniteLogger LOG = Loggers.forClass(DefaultMessagingService.class);
 
-    private final String nodeName;
-
     /** Network messages factory. */
     private final NetworkMessagesFactory factory;
 
@@ -88,8 +85,8 @@ public class DefaultMessagingService extends AbstractMessagingService {
     /** Executor for outbound messages. */
     private final ExecutorService outboundExecutor;
 
-    /** Executor for inbound messages. */
-    private final Map<Short, ExecutorService> inboundExecutors = new ConcurrentHashMap<>();
+    /** Executors for inbound messages. */
+    private final LazyExecutorCollection inboundExecutors;
 
     // TODO: IGNITE-18493 - remove/move this
     @Nullable
@@ -110,7 +107,6 @@ public class DefaultMessagingService extends AbstractMessagingService {
             ClassDescriptorRegistry classDescriptorRegistry,
             UserObjectMarshaller marshaller
     ) {
-        this.nodeName = nodeName;
         this.factory = factory;
         this.topologyService = topologyService;
         this.classDescriptorRegistry = classDescriptorRegistry;
@@ -119,6 +115,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
         this.outboundExecutor = Executors.newSingleThreadExecutor(NamedThreadFactory.create(nodeName, "MessagingService-outbound-", LOG));
         // TODO asch the implementation of delayed acks relies on absence of reordering on subsequent messages delivery.
         // TODO asch This invariant should be preserved while working on IGNITE-20373
+        inboundExecutors = new LazyExecutorCollection(nodeName, "MessagingService-inbound-");
     }
 
     /**
@@ -329,7 +326,9 @@ public class DefaultMessagingService extends AbstractMessagingService {
      * @param obj Incoming message wrapper.
      */
     private void onMessage(InNetworkObject obj) {
-        inboundExecutor(obj.connectionIndex()).execute(() -> {
+        assert isInNetworkThread();
+
+        inboundExecutorFor(obj).execute(() -> {
             long startedNanos = System.nanoTime();
 
             try {
@@ -345,13 +344,8 @@ public class DefaultMessagingService extends AbstractMessagingService {
         });
     }
 
-    private ExecutorService inboundExecutor(short connectionIndex) {
-        return inboundExecutors.computeIfAbsent(
-                connectionIndex,
-                key -> Executors.newSingleThreadExecutor(
-                        NamedThreadFactory.create(nodeName, "MessagingService-inbound-" + connectionIndex, LOG)
-                )
-        );
+    private ExecutorService inboundExecutorFor(InNetworkObject obj) {
+        return inboundExecutors.executor(obj.connectionIndex());
     }
 
     private void handleIncomingMessage(InNetworkObject obj) {
@@ -484,9 +478,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
 
         requestsMap.clear();
 
-        for (ExecutorService inboundExecutor : inboundExecutors.values()) {
-            IgniteUtils.shutdownAndAwaitTermination(inboundExecutor, 10, TimeUnit.SECONDS);
-        }
+        inboundExecutors.close();
         IgniteUtils.shutdownAndAwaitTermination(outboundExecutor, 10, TimeUnit.SECONDS);
     }
 
