@@ -17,29 +17,36 @@
 
 package org.apache.ignite.internal.client.table;
 
+import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.client.ClientUtils.sync;
 import static org.apache.ignite.internal.util.CompletableFutures.emptyListCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
 import org.apache.ignite.client.RetryLimitPolicy;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.sql.ClientSessionBuilder;
+import org.apache.ignite.internal.client.sql.ClientStatementBuilder;
 import org.apache.ignite.internal.streamer.StreamerBatchSender;
-import org.apache.ignite.internal.table.criteria.QueryCriteriaAsyncResultSet;
+import org.apache.ignite.internal.table.criteria.QueryCriteriaAsyncCursor;
 import org.apache.ignite.internal.table.criteria.SqlRowProjection;
+import org.apache.ignite.internal.table.criteria.SqlSerializer;
+import org.apache.ignite.lang.AsyncCursor;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.Statement;
-import org.apache.ignite.sql.async.AsyncResultSet;
 import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
+import org.apache.ignite.table.criteria.Criteria;
+import org.apache.ignite.table.criteria.CriteriaQueryOptions;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 
@@ -383,22 +390,34 @@ public class ClientRecordBinaryView extends AbstractClientView<Tuple>  implement
         return ClientDataStreamer.streamData(publisher, opts, batchSender, provider, tbl);
     }
 
-
     /** {@inheritDoc} */
     @Override
-    protected CompletableFuture<AsyncResultSet<Tuple>> executeQueryAsync(
-            ClientSchema schema,
+    public CompletableFuture<AsyncCursor<Tuple>> queryCriteriaAsync(
             @Nullable Transaction tx,
-            Statement statement,
-            @Nullable Object... arguments
+            @Nullable Criteria criteria,
+            CriteriaQueryOptions opts
     ) {
-        Session session = new ClientSessionBuilder(tbl.channel()).build();
+        return tbl.getLatestSchema()
+                .thenCompose((schema) -> {
+                    Set<String> columnNames = Arrays.stream(schema.columns())
+                            .map(ClientColumn::name)
+                            .collect(toSet());
 
-        return session.executeAsync(tx, statement, arguments)
-                .thenApply(resultSet -> {
-                    List<Integer> idxMapping = indexMapping(schema.columns(), 0, schema.columns().length, resultSet.metadata());
+                    SqlSerializer ser = new SqlSerializer.Builder()
+                            .tableName(tbl.name())
+                            .columns(columnNames)
+                            .where(criteria)
+                            .build();
 
-                    return new QueryCriteriaAsyncResultSet<>(resultSet, (row) -> new SqlRowProjection(row, idxMapping), session::close);
+                    Statement statement = new ClientStatementBuilder().query(ser.toString()).pageSize(opts.pageSize()).build();
+                    Session session = new ClientSessionBuilder(tbl.channel()).build();
+
+                    return session.executeAsync(tx, statement, ser.getArguments())
+                            .thenApply(resultSet -> {
+                                List<Integer> idxMapping = indexMapping(schema.columns(), 0, schema.columns().length, resultSet.metadata());
+
+                                return new QueryCriteriaAsyncCursor<>(resultSet, (row) -> new SqlRowProjection(row, idxMapping), session::close);
+                            });
                 });
     }
 }

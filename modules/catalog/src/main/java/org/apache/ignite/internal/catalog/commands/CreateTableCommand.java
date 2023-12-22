@@ -115,6 +115,7 @@ public class CreateTableCommand extends AbstractTableCommand {
                 columns.stream().map(CatalogUtils::fromParams).collect(toList()),
                 primaryKeyColumns,
                 colocationColumns,
+                INITIAL_CAUSALITY_TOKEN,
                 INITIAL_CAUSALITY_TOKEN
         );
 

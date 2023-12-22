@@ -15,22 +15,28 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.sql;
+package org.apache.ignite.internal.tx;
 
-import java.util.Iterator;
-import org.apache.ignite.table.criteria.CriteriaQuerySource;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_UNEXPECTED_STATE_ERR;
+
+import org.apache.ignite.tx.TransactionException;
 
 /**
- * An iterator over a query results.
- *
- * @param <T> The type of elements returned by this iterator.
- *
- * @see CriteriaQuerySource
+ * The exception is thrown when a transaction has already been finished.
  */
-public interface ClosableCursor<T> extends Iterator<T>, AutoCloseable {
-    /**
-     * Invalidates a query result, stops the query, and cleans up query resources.
-     */
-    @Override
-    void close();
+public class TransactionAlreadyFinishedException extends TransactionException {
+
+    private static final long serialVersionUID = -7953057695915339651L;
+
+    /** Stored transaction result. */
+    private final TransactionResult transactionResult;
+
+    public TransactionAlreadyFinishedException(String message, TransactionResult transactionResult) {
+        super(TX_UNEXPECTED_STATE_ERR, message);
+        this.transactionResult = transactionResult;
+    }
+
+    public TransactionResult transactionResult() {
+        return transactionResult;
+    }
 }

@@ -106,7 +106,6 @@ import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.SingleClusterNodeResolver;
 import org.apache.ignite.network.TopologyService;
-import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -242,8 +241,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 replicaSvc,
                 CLOCK,
                 tracker,
-                placementDriver,
-                mock(IgniteSql.class)
+                placementDriver
         );
         RaftGroupService svc = raftGroupServiceByPartitionId.get(PART_ID);
 

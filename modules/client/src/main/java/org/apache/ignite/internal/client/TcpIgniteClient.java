@@ -62,7 +62,7 @@ public class TcpIgniteClient implements IgniteClient {
     /** Compute. */
     private final ClientCompute compute;
 
-    /** SQL. */
+    /** Compute. */
     private final ClientSql sql;
 
     /** Metric manager. */

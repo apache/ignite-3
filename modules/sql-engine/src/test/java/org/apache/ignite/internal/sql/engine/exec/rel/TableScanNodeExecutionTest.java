@@ -76,7 +76,6 @@ import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.SingleClusterNodeResolver;
 import org.apache.ignite.network.TopologyService;
-import org.apache.ignite.sql.IgniteSql;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -216,8 +215,7 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
                     replicaSvc,
                     mock(HybridClock.class),
                     timestampTracker,
-                    mock(PlacementDriver.class),
-                    mock(IgniteSql.class)
+                    mock(PlacementDriver.class)
             );
             this.dataAmount = dataAmount;
 

@@ -26,8 +26,8 @@ import static org.apache.ignite.internal.tx.TxState.COMMITTED;
 import static org.apache.ignite.internal.tx.TxState.PENDING;
 import static org.apache.ignite.internal.tx.TxState.isFinalState;
 import static org.apache.ignite.internal.util.CollectionUtils.last;
-import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_UNEXPECTED_STATE_ERR;
 
+import java.io.Serializable;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -67,6 +67,7 @@ import org.apache.ignite.internal.table.distributed.command.TablePartitionIdMess
 import org.apache.ignite.internal.table.distributed.command.UpdateAllCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateCommand;
 import org.apache.ignite.internal.table.distributed.command.WriteIntentSwitchCommand;
+import org.apache.ignite.internal.tx.TransactionResult;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
@@ -194,13 +195,15 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
 
             storage.acquirePartitionSnapshotsReadLock();
 
+            Serializable result = null;
+
             try {
                 if (command instanceof UpdateCommand) {
                     handleUpdateCommand((UpdateCommand) command, commandIndex, commandTerm);
                 } else if (command instanceof UpdateAllCommand) {
                     handleUpdateAllCommand((UpdateAllCommand) command, commandIndex, commandTerm);
                 } else if (command instanceof FinishTxCommand) {
-                    handleFinishTxCommand((FinishTxCommand) command, commandIndex, commandTerm);
+                    result = handleFinishTxCommand((FinishTxCommand) command, commandIndex, commandTerm);
                 } else if (command instanceof WriteIntentSwitchCommand) {
                     handleWriteIntentSwitchCommand((WriteIntentSwitchCommand) command, commandIndex, commandTerm);
                 } else if (command instanceof SafeTimeSyncCommand) {
@@ -213,7 +216,7 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
                     assert false : "Command was not found [cmd=" + command + ']';
                 }
 
-                clo.result(null);
+                clo.result(result);
             } catch (IgniteInternalException e) {
                 clo.result(e);
             } catch (CompletionException e) {
@@ -316,12 +319,14 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
      * @param cmd Command.
      * @param commandIndex Index of the RAFT command.
      * @param commandTerm Term of the RAFT command.
+     * @return The actually stored transaction state {@link TransactionResult}.
      * @throws IgniteInternalException if an exception occurred during a transaction state change.
      */
-    private void handleFinishTxCommand(FinishTxCommand cmd, long commandIndex, long commandTerm) throws IgniteInternalException {
+    private TransactionResult handleFinishTxCommand(FinishTxCommand cmd, long commandIndex, long commandTerm)
+            throws IgniteInternalException {
         // Skips the write command because the storage has already executed it.
         if (commandIndex <= txStateStorage.lastAppliedIndex()) {
-            return;
+            return null;
         }
 
         UUID txId = cmd.txId();
@@ -354,6 +359,8 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
         if (!txStateChangeRes) {
             onTxStateStorageCasFail(txId, txMetaBeforeCas, txMetaToSet);
         }
+
+        return new TransactionResult(stateToSet, cmd.commitTimestamp());
     }
 
 
@@ -557,7 +564,7 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
 
         boolean txStateChangeRes = txStateStorage.compareAndSet(
                 txId,
-                null,
+                txMetaBeforeCas.txState(),
                 txMetaToSet,
                 commandIndex,
                 commandTerm
@@ -576,7 +583,11 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
                 txMetaToSet
         );
 
-        IgniteInternalException stateChangeException = new IgniteInternalException(TX_UNEXPECTED_STATE_ERR, errorMsg);
+        IgniteInternalException stateChangeException =
+                new UnexpectedTransactionStateException(
+                        errorMsg,
+                        new TransactionResult(txMetaBeforeCas.txState(), txMetaBeforeCas.commitTimestamp())
+                );
 
         // Exception is explicitly logged because otherwise it can be lost if it did not occur on the leader.
         LOG.error(errorMsg);

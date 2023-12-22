@@ -33,20 +33,27 @@ import org.apache.ignite.internal.schema.marshaller.TupleMarshaller;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.streamer.StreamerBatchSender;
-import org.apache.ignite.internal.table.criteria.QueryCriteriaAsyncResultSet;
+import org.apache.ignite.internal.table.criteria.CursorSyncAdapter;
+import org.apache.ignite.internal.table.criteria.QueryCriteriaAsyncCursor;
 import org.apache.ignite.internal.table.criteria.SqlRowProjection;
+import org.apache.ignite.internal.table.criteria.SqlSerializer;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.ArrayUtils;
+import org.apache.ignite.lang.AsyncCursor;
+import org.apache.ignite.lang.Cursor;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.MarshallerException;
 import org.apache.ignite.sql.ResultSetMetadata;
+import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.Statement;
 import org.apache.ignite.sql.async.AsyncResultSet;
 import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
+import org.apache.ignite.table.criteria.Criteria;
+import org.apache.ignite.table.criteria.CriteriaQueryOptions;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 
@@ -62,9 +69,10 @@ public class RecordBinaryViewImpl extends AbstractTableView<Tuple> implements Re
      * @param tbl The table.
      * @param schemaRegistry Table schema registry.
      * @param schemaVersions Schema versions access.
+     * @param sql Ignite SQL facade.
      */
-    public RecordBinaryViewImpl(InternalTable tbl, SchemaRegistry schemaRegistry, SchemaVersions schemaVersions) {
-        super(tbl, schemaVersions, schemaRegistry);
+    public RecordBinaryViewImpl(InternalTable tbl, SchemaRegistry schemaRegistry, SchemaVersions schemaVersions, IgniteSql sql) {
+        super(tbl, schemaVersions, schemaRegistry, sql);
 
         marshallerCache = new TupleMarshallerCache(schemaRegistry);
     }
@@ -446,22 +454,32 @@ public class RecordBinaryViewImpl extends AbstractTableView<Tuple> implements Re
 
     /** {@inheritDoc} */
     @Override
-    protected CompletableFuture<AsyncResultSet<Tuple>> executeQueryAsync(
-            SchemaDescriptor schema,
+    public CompletableFuture<AsyncCursor<Tuple>> queryCriteriaAsync(
             @Nullable Transaction tx,
-            Statement statement,
-            @Nullable Object... arguments
+            @Nullable Criteria criteria,
+            CriteriaQueryOptions opts
     ) {
-        Session session = tbl.sql().createSession();
+        return withSchemaSync(tx, (schemaVersion) -> {
+            SchemaDescriptor schema = rowConverter.registry().schema(schemaVersion);
 
-        return session.executeAsync(tx, statement, arguments)
-                .thenApply(resultSet -> {
-                    ResultSetMetadata metadata = resultSet.metadata();
+            SqlSerializer ser = new SqlSerializer.Builder()
+                    .tableName(tbl.name())
+                    .columns(schema.columnNames())
+                    .where(criteria)
+                    .build();
 
-                    Column[] cols = ArrayUtils.concat(schema.keyColumns().columns(), schema.valueColumns().columns());
-                    List<Integer> idxMapping = indexMapping(cols, metadata);
+            Statement statement = sql.statementBuilder().query(ser.toString()).pageSize(opts.pageSize()).build();
+            Session session = sql.createSession();
 
-                    return new QueryCriteriaAsyncResultSet<>(resultSet, (row) -> new SqlRowProjection(row, idxMapping), session::close);
-                });
+            return session.executeAsync(tx, statement, ser.getArguments())
+                    .thenApply(resultSet -> {
+                        ResultSetMetadata metadata = resultSet.metadata();
+
+                        Column[] cols = ArrayUtils.concat(schema.keyColumns().columns(), schema.valueColumns().columns());
+                        List<Integer> idxMapping = indexMapping(cols, metadata);
+
+                        return new QueryCriteriaAsyncCursor<>(resultSet, (row) -> new SqlRowProjection(row, idxMapping), session::close);
+                    });
+        });
     }
 }

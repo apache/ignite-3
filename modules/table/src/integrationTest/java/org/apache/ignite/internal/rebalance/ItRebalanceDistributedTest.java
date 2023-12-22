@@ -155,6 +155,7 @@ import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryDataStora
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineConfiguration;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryStorageEngineConfiguration;
 import org.apache.ignite.internal.table.InternalTable;
+import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.TableManager;
@@ -505,7 +506,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
     @Test
     @UseTestTxStateStorage
     @UseRocksMetaStorage
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20210")
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19170")
     void testDestroyPartitionStoragesOnRestartEvictedNode(TestInfo testInfo) throws Exception {
         Node node = getNode(0);
 
@@ -703,8 +704,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
     private void verifyThatRaftNodesAndReplicasWereStartedOnlyOnce() throws Exception {
         for (int i = 0; i < NODE_COUNT; i++) {
-            verify(getNode(i).raftManager, times(1))
-                    .startRaftGroupNode(any(), any(), any(), any(), any(RaftGroupOptions.class));
+            verify(getNode(i).raftManager, times(1)).startRaftGroupNode(any(), any(), any(), any(), any(RaftGroupOptions.class));
             verify(getNode(i).replicaManager, times(1)).startReplica(any(), any(), any(), any(), any());
         }
     }
@@ -714,6 +714,21 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                 () -> nodes.stream().allMatch(n -> getPartitionClusterNodes(n, partNum).size() == replicasNum),
                 (long) AWAIT_TIMEOUT_MILLIS * nodes.size()
         ));
+
+        if (replicasNum == nodes.size()) {
+            assertTrue(waitForCondition(
+                    () -> {
+                        try {
+                            return ((TableImpl) nodes.get(0).tableManager.table(TABLE_NAME))
+                                    .internalTable().partitionRaftGroupService(partNum) != null;
+                        } catch (IgniteInternalException e) {
+                            // Raft group service not found.
+                            return false;
+                        }
+                    },
+                    (long) AWAIT_TIMEOUT_MILLIS * nodes.size()
+            ));
+        }
     }
 
     private void waitPartitionPendingAssignmentsSyncedToExpected(int partNum, int replicasNum) throws Exception {

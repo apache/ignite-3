@@ -275,8 +275,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
                 replicaService,
                 new HybridClockImpl(),
                 observableTimestampTracker,
-                new TestPlacementDriver(clusterNode),
-                mock(IgniteSql.class)
+                new TestPlacementDriver(clusterNode)
         );
     }
 
@@ -435,7 +434,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
 
         schemaRegistry = new DummySchemaManagerImpl(schema);
 
-        tbl = new TableImpl(intTable, schemaRegistry, new HeapLockManager(), new ConstantSchemaVersions(1));
+        tbl = new TableImpl(intTable, schemaRegistry, new HeapLockManager(), new ConstantSchemaVersions(1), mock(IgniteSql.class));
 
         marshaller = new TupleMarshallerImpl(schema);
     }

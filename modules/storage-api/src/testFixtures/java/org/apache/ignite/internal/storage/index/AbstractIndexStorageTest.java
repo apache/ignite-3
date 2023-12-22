@@ -162,6 +162,7 @@ public abstract class AbstractIndexStorageTest<S extends IndexStorage, D extends
                 Stream.concat(Stream.of(pkColumn), ALL_TYPES_COLUMN_PARAMS.stream()).map(CatalogUtils::fromParams).collect(toList()),
                 List.of("pk"),
                 null,
+                INITIAL_CAUSALITY_TOKEN,
                 INITIAL_CAUSALITY_TOKEN
         );
 

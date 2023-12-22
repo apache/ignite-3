@@ -30,21 +30,17 @@ import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.lang.IgniteExceptionMapperUtil;
 import org.apache.ignite.internal.schema.Column;
-import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
-import org.apache.ignite.internal.sql.SyncResultSetAdapter;
-import org.apache.ignite.internal.table.criteria.SqlSerializer;
+import org.apache.ignite.internal.table.criteria.CursorSyncAdapter;
 import org.apache.ignite.internal.table.distributed.replicator.InternalSchemaVersionMismatchException;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.ExceptionUtils;
+import org.apache.ignite.lang.Cursor;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.sql.ClosableCursor;
+import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSetMetadata;
-import org.apache.ignite.sql.SqlException;
-import org.apache.ignite.sql.Statement;
-import org.apache.ignite.sql.async.AsyncResultSet;
 import org.apache.ignite.table.criteria.Criteria;
 import org.apache.ignite.table.criteria.CriteriaQueryOptions;
 import org.apache.ignite.table.criteria.CriteriaQuerySource;
@@ -63,16 +59,21 @@ abstract class AbstractTableView<R> implements CriteriaQuerySource<R> {
     /** Table row view converter. */
     protected final TableViewRowConverter rowConverter;
 
+    /** Ignite SQL facade. */
+    protected final IgniteSql sql;
+
     /**
      * Constructor.
      *
      * @param tbl Internal table.
      * @param schemaVersions Schema versions access.
      * @param schemaReg Schema registry.
+     * @param sql Ignite SQL facade.
      */
-    AbstractTableView(InternalTable tbl, SchemaVersions schemaVersions, SchemaRegistry schemaReg) {
+    AbstractTableView(InternalTable tbl, SchemaVersions schemaVersions, SchemaRegistry schemaReg, IgniteSql sql) {
         this.tbl = tbl;
         this.schemaVersions = schemaVersions;
+        this.sql = sql;
 
         this.rowConverter = new TableViewRowConverter(schemaReg);
     }
@@ -170,49 +171,10 @@ abstract class AbstractTableView<R> implements CriteriaQuerySource<R> {
                 .collect(Collectors.toList());
     }
 
-    /**
-     * Executes SQL statement and maps results.
-     *
-     * @param schema Schema.
-     * @param tx Transaction to execute the query within or {@code null} to run within implicit transaction.
-     * @param statement SQL statement to execute.
-     * @param arguments Arguments for the statement.
-     * @return Future that represents the pending completion of the operation.
-     * @throws SqlException If failed.
-     */
-    protected abstract CompletableFuture<AsyncResultSet<R>> executeQueryAsync(
-            SchemaDescriptor schema,
-            @Nullable Transaction tx,
-            Statement statement,
-            @Nullable Object... arguments
-    );
-
     /** {@inheritDoc} */
     @Override
-    public ClosableCursor<R> queryCriteria(@Nullable Transaction tx, @Nullable Criteria criteria, CriteriaQueryOptions opts) {
-        return new SyncResultSetAdapter<>(queryCriteriaAsync(tx, criteria, opts).join());
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public CompletableFuture<AsyncResultSet<R>> queryCriteriaAsync(
-            @Nullable Transaction tx,
-            @Nullable Criteria criteria,
-            CriteriaQueryOptions opts
-    ) {
-        return withSchemaSync(tx, (schemaVersion) -> {
-            SchemaDescriptor schema = rowConverter.registry().schema(schemaVersion);
-
-            SqlSerializer ser = new SqlSerializer.Builder()
-                    .tableName(tbl.name())
-                    .columns(schema.columnNames())
-                    .where(criteria)
-                    .build();
-
-            Statement statement = tbl.sql().statementBuilder().query(ser.toString()).pageSize(opts.pageSize()).build();
-
-            return executeQueryAsync(schema, tx, statement, ser.getArguments());
-        });
+    public Cursor<R> queryCriteria(@Nullable Transaction tx, @Nullable Criteria criteria, CriteriaQueryOptions opts) {
+        return new CursorSyncAdapter<>(sync(queryCriteriaAsync(tx, criteria, opts)));
     }
 
     private static boolean isOrCausedBy(Class<? extends Exception> exceptionClass, @Nullable Throwable ex) {

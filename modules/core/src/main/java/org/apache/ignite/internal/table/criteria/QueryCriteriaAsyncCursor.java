@@ -21,14 +21,14 @@ import static org.apache.ignite.internal.util.CollectionUtils.mapIterable;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
-import org.apache.ignite.sql.ResultSetMetadata;
+import org.apache.ignite.lang.AsyncCursor;
 import org.apache.ignite.sql.async.AsyncResultSet;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Wrapper over {@link AsyncResultSet} for criteria queries.
  */
-public class QueryCriteriaAsyncResultSet<T, R> implements AsyncResultSet<T> {
+public class QueryCriteriaAsyncCursor<T, R> implements AsyncCursor<T> {
     /** Wrapped async result set. */
     private final AsyncResultSet<R> ars;
 
@@ -44,7 +44,7 @@ public class QueryCriteriaAsyncResultSet<T, R> implements AsyncResultSet<T> {
      * @param mapper Mapper.
      * @param closeRun Callback to be invoked after result is closed.
      */
-    public QueryCriteriaAsyncResultSet(AsyncResultSet<R> ars, @Nullable Function<R, T> mapper, Runnable closeRun) {
+    public QueryCriteriaAsyncCursor(AsyncResultSet<R> ars, @Nullable Function<R, T> mapper, Runnable closeRun) {
         this.ars = ars;
         this.mapper = mapper;
         this.closeRun = closeRun;
@@ -64,15 +64,15 @@ public class QueryCriteriaAsyncResultSet<T, R> implements AsyncResultSet<T> {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<? extends AsyncResultSet<T>> fetchNextPage() {
+    public CompletableFuture<? extends AsyncCursor<T>> fetchNextPage() {
         return ars.fetchNextPage()
-            .thenApply((rs) -> {
-                if (!hasMorePages()) {
-                    closeRun.run();
-                }
+                .thenApply((rs) -> {
+                    if (!hasMorePages()) {
+                        closeRun.run();
+                    }
 
-                return new QueryCriteriaAsyncResultSet<>(rs, mapper, closeRun);
-            });
+                    return new QueryCriteriaAsyncCursor<>(rs, mapper, closeRun);
+                });
     }
 
     /** {@inheritDoc} */
@@ -85,29 +85,5 @@ public class QueryCriteriaAsyncResultSet<T, R> implements AsyncResultSet<T> {
     @Override
     public CompletableFuture<Void> closeAsync() {
         return ars.closeAsync().thenRun(closeRun);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public @Nullable ResultSetMetadata metadata() {
-        return ars.metadata();
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public boolean hasRowSet() {
-        return ars.hasRowSet();
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public long affectedRows() {
-        return ars.affectedRows();
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public boolean wasApplied() {
-        return ars.wasApplied();
     }
 }

@@ -17,14 +17,17 @@
 
 package org.apache.ignite.internal.client.table;
 
+import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.client.ClientUtils.sync;
 import static org.apache.ignite.internal.util.CompletableFutures.emptyListCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
 import org.apache.ignite.client.RetryLimitPolicy;
@@ -32,13 +35,17 @@ import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.proto.TuplePart;
 import org.apache.ignite.internal.client.sql.ClientSessionBuilder;
+import org.apache.ignite.internal.client.sql.ClientStatementBuilder;
 import org.apache.ignite.internal.streamer.StreamerBatchSender;
-import org.apache.ignite.internal.table.criteria.QueryCriteriaAsyncResultSet;
+import org.apache.ignite.internal.table.criteria.QueryCriteriaAsyncCursor;
+import org.apache.ignite.internal.table.criteria.SqlSerializer;
+import org.apache.ignite.lang.AsyncCursor;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.Statement;
-import org.apache.ignite.sql.async.AsyncResultSet;
 import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.RecordView;
+import org.apache.ignite.table.criteria.Criteria;
+import org.apache.ignite.table.criteria.CriteriaQueryOptions;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
@@ -382,15 +389,28 @@ public class ClientRecordView<R> extends AbstractClientView<R> implements Record
 
     /** {@inheritDoc} */
     @Override
-    protected CompletableFuture<AsyncResultSet<R>> executeQueryAsync(
-            ClientSchema schema,
+    public CompletableFuture<AsyncCursor<R>> queryCriteriaAsync(
             @Nullable Transaction tx,
-            Statement statement,
-            @Nullable Object... arguments
+            @Nullable Criteria criteria,
+            CriteriaQueryOptions opts
     ) {
-        Session session = new ClientSessionBuilder(tbl.channel()).build();
+        return tbl.getLatestSchema()
+                .thenCompose((schema) -> {
+                    Set<String> columnNames = Arrays.stream(schema.columns())
+                            .map(ClientColumn::name)
+                            .collect(toSet());
 
-        return session.executeAsync(tx, ser.mapper(), statement, arguments)
-                .thenApply(resultSet ->  new QueryCriteriaAsyncResultSet<>(resultSet, null, session::close));
+                    SqlSerializer ser = new SqlSerializer.Builder()
+                            .tableName(tbl.name())
+                            .columns(columnNames)
+                            .where(criteria)
+                            .build();
+
+                    Statement statement = new ClientStatementBuilder().query(ser.toString()).pageSize(opts.pageSize()).build();
+                    Session session = new ClientSessionBuilder(tbl.channel()).build();
+
+                    return session.executeAsync(tx, this.ser.mapper(), statement, ser.getArguments())
+                            .thenApply(resultSet -> new QueryCriteriaAsyncCursor<>(resultSet, null, session::close));
+                });
     }
 }
