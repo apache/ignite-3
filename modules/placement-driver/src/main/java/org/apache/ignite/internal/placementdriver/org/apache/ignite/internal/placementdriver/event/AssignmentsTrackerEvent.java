@@ -19,7 +19,9 @@ package org.apache.ignite.internal.placementdriver.org.apache.ignite.internal.pl
 
 import org.apache.ignite.internal.event.Event;
 
+/** Assignments tracker events. */
 public enum AssignmentsTrackerEvent implements Event {
 
+    /** This event is fired when assignments tracker detects assignments assignments change. */
     ASSIGNMENTS_CHANGED;
 }
