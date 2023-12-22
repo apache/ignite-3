@@ -28,6 +28,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.atomic.AtomicBoolean;
+import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
@@ -271,7 +272,12 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
                 .message(message)
                 .build();
 
-        sendHandshakeRejectedMessage(rejectionMessage, message);
+        ChannelFuture sendFuture = channel.writeAndFlush(new OutNetworkObject(rejectionMessage, emptyList(), false));
+
+        NettyUtils.toCompletableFuture(sendFuture).whenComplete((unused, ex) -> {
+            // Ignoring ex as it's more important to tell the client about the rejection reason.
+            localHandshakeCompleteFuture.completeExceptionally(new HandshakeException(message));
+        });
     }
 
     private void handleRefusalToEstablishConnectionDueToStopping(HandshakeStartMessage msg) {
@@ -282,7 +288,12 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
                 .message(message)
                 .build();
 
-        sendHandshakeRejectedMessage(rejectionMessage, message);
+        ChannelFuture sendFuture = channel.writeAndFlush(new OutNetworkObject(rejectionMessage, emptyList(), false));
+
+        NettyUtils.toCompletableFuture(sendFuture).whenComplete((unused, ex) -> {
+            // Ignoring ex as we already know that we are stopping, so let's communicate this.
+            localHandshakeCompleteFuture.completeExceptionally(new NodeStoppingException());
+        });
     }
 
     private void onHandshakeRejectedMessage(HandshakeRejectedMessage msg) {
@@ -332,20 +343,6 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
             // The safest thing is to just retry the whole handshake procedure.
             localHandshakeCompleteFuture.completeExceptionally(new ChannelAlreadyExistsException(remoteConsistentId));
         }
-    }
-
-    private void sendHandshakeRejectedMessage(HandshakeRejectedMessage rejectionMessage, String reason) {
-        ChannelFuture sendFuture = channel.writeAndFlush(new OutNetworkObject(rejectionMessage, emptyList(), false));
-
-        NettyUtils.toCompletableFuture(sendFuture).whenComplete((unused, throwable) -> {
-            if (throwable != null) {
-                localHandshakeCompleteFuture.completeExceptionally(
-                        new HandshakeException("Failed to send handshake rejected message: " + throwable.getMessage(), throwable)
-                );
-            } else {
-                localHandshakeCompleteFuture.completeExceptionally(new HandshakeException(reason));
-            }
-        });
     }
 
     /** {@inheritDoc} */

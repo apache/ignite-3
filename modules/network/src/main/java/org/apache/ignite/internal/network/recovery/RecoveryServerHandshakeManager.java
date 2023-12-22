@@ -28,6 +28,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.atomic.AtomicBoolean;
+import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
@@ -231,7 +232,12 @@ public class RecoveryServerHandshakeManager implements HandshakeManager {
                 .message(message)
                 .build();
 
-        sendHandshakeRejectedMessage(rejectionMessage, message);
+        ChannelFuture sendFuture = channel.writeAndFlush(new OutNetworkObject(rejectionMessage, emptyList(), false));
+
+        NettyUtils.toCompletableFuture(sendFuture).whenComplete((unused, throwable) -> {
+            // Ignoring ex as the most important thing here is to complete the future with the correct exception.
+            handshakeCompleteFuture.completeExceptionally(new HandshakeException(message));
+        });
     }
 
     private void handleRefusalToEstablishConnectionDueToStopping(HandshakeStartResponseMessage msg) {
@@ -242,7 +248,12 @@ public class RecoveryServerHandshakeManager implements HandshakeManager {
                 .message(message)
                 .build();
 
-        sendHandshakeRejectedMessage(rejectionMessage, message);
+        ChannelFuture sendFuture = channel.writeAndFlush(new OutNetworkObject(rejectionMessage, emptyList(), false));
+
+        NettyUtils.toCompletableFuture(sendFuture).whenComplete((unused, ex) -> {
+            // Ignoring ex as the most important thing here is to complete the future with the correct exception.
+            handshakeCompleteFuture.completeExceptionally(new NodeStoppingException());
+        });
     }
 
     private void tryAcquireDescriptorAndFinishHandshake() {
