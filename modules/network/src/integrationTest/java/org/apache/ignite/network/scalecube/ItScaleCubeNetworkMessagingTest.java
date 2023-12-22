@@ -242,7 +242,43 @@ class ItScaleCubeNetworkMessagingTest {
     }
 
     /**
-     * Tests that if the network component is stopped while waiting for a response to an "invoke" call, the corresponding future completes
+     * Tests that if the network component is stopped before trying to make an "invoke" call, the corresponding future completes
+     * exceptionally.
+     */
+    @Test
+    public void testInvokeAfterStop(TestInfo testInfo) throws InterruptedException {
+        testCluster = new Cluster(2, testInfo);
+        testCluster.startAwait();
+
+        ClusterService member0 = testCluster.members.get(0);
+        ClusterService member1 = testCluster.members.get(1);
+
+        member0.stop();
+
+        // perform two invokes to test that multiple requests can get cancelled
+        CompletableFuture<NetworkMessage> invoke0 = member0.messagingService().invoke(
+                member1.topologyService().localMember(),
+                messageFactory.testMessage().build(),
+                1000
+        );
+
+        CompletableFuture<NetworkMessage> invoke1 = member0.messagingService().invoke(
+                member1.topologyService().localMember(),
+                messageFactory.testMessage().build(),
+                1000
+        );
+
+        ExecutionException e = assertThrows(ExecutionException.class, () -> invoke0.get(1, TimeUnit.SECONDS));
+
+        assertThat(e.getCause(), instanceOf(NodeStoppingException.class));
+
+        e = assertThrows(ExecutionException.class, () -> invoke1.get(1, TimeUnit.SECONDS));
+
+        assertThat(e.getCause(), instanceOf(NodeStoppingException.class));
+    }
+
+    /**
+     * Tests that if the network component is stopped while making an "invoke" call, the corresponding future completes
      * exceptionally.
      */
     @Test
@@ -267,6 +303,53 @@ class ItScaleCubeNetworkMessagingTest {
                 messageFactory.testMessage().build(),
                 1000
         );
+
+        member0.stop();
+
+        ExecutionException e = assertThrows(ExecutionException.class, () -> invoke0.get(1, TimeUnit.SECONDS));
+
+        assertThat(e.getCause(), instanceOf(NodeStoppingException.class));
+
+        e = assertThrows(ExecutionException.class, () -> invoke1.get(1, TimeUnit.SECONDS));
+
+        assertThat(e.getCause(), instanceOf(NodeStoppingException.class));
+    }
+
+    /**
+     * Tests that if the network component is stopped while waiting for a response to an "invoke" call, the corresponding future completes
+     * exceptionally.
+     */
+    @Test
+    public void testStopDuringAwaitingForInvokeResponse(TestInfo testInfo) throws InterruptedException {
+        testCluster = new Cluster(2, testInfo);
+        testCluster.startAwait();
+
+        ClusterService member0 = testCluster.members.get(0);
+        ClusterService member1 = testCluster.members.get(1);
+
+        CountDownLatch receivedTestMessages = new CountDownLatch(2);
+
+        member1.messagingService().addMessageHandler(
+                TestMessageTypes.class,
+                (message, senderConsistentId, correlationId) -> receivedTestMessages.countDown()
+        );
+
+        // the registered message listener on the receiving side does not send responses, so all "invoke"s should timeout
+
+        // perform two invokes to test that multiple requests can get cancelled
+        CompletableFuture<NetworkMessage> invoke0 = member0.messagingService().invoke(
+                member1.topologyService().localMember(),
+                messageFactory.testMessage().build(),
+                1000
+        );
+
+        CompletableFuture<NetworkMessage> invoke1 = member0.messagingService().invoke(
+                member1.topologyService().localMember(),
+                messageFactory.testMessage().build(),
+                1000
+        );
+
+        assertTrue(receivedTestMessages.await(10, TimeUnit.SECONDS), "Did not receive invocations on the receiver in time");
 
         member0.stop();
 
