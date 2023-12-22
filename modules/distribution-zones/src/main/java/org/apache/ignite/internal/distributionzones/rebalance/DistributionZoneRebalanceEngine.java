@@ -75,7 +75,7 @@ public class DistributionZoneRebalanceEngine {
     /** Catalog service. */
     private final CatalogService catalogService;
 
-    private final CompletableFuture recoveryFuture = new CompletableFuture<>();
+    public static final CompletableFuture recoveryFuture = new CompletableFuture<>();
 
     /**
      * Constructor.
@@ -173,7 +173,7 @@ public class DistributionZoneRebalanceEngine {
         return new WatchListener() {
             @Override
             public CompletableFuture<Void> onUpdate(WatchEvent evt) {
-                return recoveryFuture.thenCompose((v) -> IgniteUtils.inBusyLockAsync(busyLock, () -> {
+                return IgniteUtils.inBusyLockAsync(busyLock, () -> {
                     Set<Node> dataNodes = parseDataNodes(evt.entryEvent().newEntry().value());
 
                     if (dataNodes == null) {
@@ -211,8 +211,7 @@ public class DistributionZoneRebalanceEngine {
                             filteredDataNodes,
                             tableDescriptors
                     );
-                })
-                );
+                });
             }
 
             @Override
