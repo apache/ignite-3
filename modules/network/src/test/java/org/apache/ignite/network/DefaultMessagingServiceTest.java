@@ -17,6 +17,7 @@
 
 package org.apache.ignite.network;
 
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.defaultSerializationRegistry;
 import static org.awaitility.Awaitility.await;
@@ -38,6 +39,9 @@ import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
@@ -69,6 +73,8 @@ import org.apache.ignite.network.serialization.MessageSerializer;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -108,6 +114,7 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
     @BeforeEach
     void setUp() {
         lenient().when(topologyService.getByConsistentId(eq(senderNode.name()))).thenReturn(senderNode);
+        lenient().when(topologyService.getByConsistentId(eq(receiverNode.name()))).thenReturn(receiverNode);
     }
 
     @Test
@@ -247,6 +254,42 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
                     "Did not see both messages delivered in time (probably, they ended up in the same inbound thread)"
             );
         }
+    }
+
+    @ParameterizedTest
+    @EnumSource(SendOperation.class)
+    void messageIsHandledInThreadCorrespondingToChannel(SendOperation operation) throws Exception {
+        try (
+                Services senderServices = createMessagingService(senderNode, senderNetworkConfig);
+                Services receiverServices = createMessagingService(receiverNode, receiverNetworkConfig)
+        ) {
+            AtomicInteger channelId = new AtomicInteger(Integer.MAX_VALUE);
+
+            receiverServices.messagingService.addMessageHandler(
+                    TestMessageTypes.class,
+                    (message, sender, correlationId) -> channelId.set(extractChannelIdFromThreadName(Thread.currentThread()))
+            );
+
+            operation.sendAction.send(senderServices.messagingService, TestMessageImpl.builder().build(), receiverNode);
+
+            assertTrue(
+                    waitForCondition(() -> channelId.get() != Integer.MAX_VALUE, TimeUnit.SECONDS.toMillis(10)),
+                    "Did not get any message in time"
+            );
+
+            assertThat(channelId.get(), is((int) operation.expectedChannelType.id()));
+        }
+    }
+
+    private static int extractChannelIdFromThreadName(Thread thread) {
+        Pattern pattern = Pattern.compile("^.+-(\\d+)-\\d+");
+
+        Matcher matcher = pattern.matcher(thread.getName());
+
+        boolean matches = matcher.matches();
+        assert matches : thread.getName() + " does not match the pattern";
+
+        return Integer.parseInt(matcher.group(1));
     }
 
     private static MessageSerializationRegistry mockSerializationRegistry(Serializer... serializers) {
@@ -396,6 +439,40 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
         @Override
         public void close() throws Exception {
             IgniteUtils.closeAll(connectionManager::stop, messagingService::stop);
+        }
+    }
+
+    @FunctionalInterface
+    private interface SendAction {
+        void send(MessagingService service, TestMessage message, ClusterNode recipient);
+    }
+
+    @SuppressWarnings("NonSerializableFieldInSerializableClass")
+    private enum SendOperation {
+        WEAK_SEND((service, message, recipient) -> service.weakSend(recipient, message), ChannelType.DEFAULT),
+        SEND_DEFAULT_CHANNEL((service, message, recipient) -> service.send(recipient, message), ChannelType.DEFAULT),
+        SEND_SPECIFIC_CHANNEL((service, message, recipient) -> service.send(recipient, TEST_CHANNEL, message), TEST_CHANNEL),
+        SEND_CONSISTENT_ID_SPECIFIC_CHANNEL(
+                (service, message, recipient) -> service.send(recipient.name(), TEST_CHANNEL, message),
+                TEST_CHANNEL
+        ),
+        INVOKE_DEFAULT_CHANNEL((service, message, recipient) -> service.invoke(recipient, message, 10_000), ChannelType.DEFAULT),
+        INVOKE_CONSISTENT_ID_DEFAULT_CHANNEL(
+                (service, message, recipient) -> service.invoke(recipient.name(), message, 10_000),
+                ChannelType.DEFAULT
+        ),
+        INVOKE_SPECIFIC_CHANNEL((service, message, recipient) -> service.invoke(recipient, TEST_CHANNEL, message, 10_000), TEST_CHANNEL),
+        INVOKE_CONSISTENT_ID_SPECIFIC_CHANNEL(
+                (service, message, recipient) -> service.invoke(recipient.name(), TEST_CHANNEL, message, 10_000),
+                TEST_CHANNEL
+        );
+
+        private final SendAction sendAction;
+        private final ChannelType expectedChannelType;
+
+        SendOperation(SendAction sendAction, ChannelType expectedChannelType) {
+            this.sendAction = sendAction;
+            this.expectedChannelType = expectedChannelType;
         }
     }
 }
