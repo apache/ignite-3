@@ -178,15 +178,15 @@ public class LeaseUpdater {
 
             updaterExecutor = Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory(nodeName + "-lease-updater", LOG));
 
-            updaterExecutor.scheduleAtFixedRate(updater, 0, UPDATE_LEASE_MS, TimeUnit.MILLISECONDS);
+            updaterExecutor.scheduleWithFixedDelay(updater, 0, UPDATE_LEASE_MS, TimeUnit.MILLISECONDS);
 
             // Listeners are just an optimisation in order to detect lease renewal triggers faster. If it'll be missed for some reason,
             // nothing will break, because common scheduler will catch up given triggers. This is also the reason
             // why instead of adding/removing listener on activation/deactivation every node ones activated will get the notification
             // and check whether it's active or not. Given approach is simpler and thus less error prone.
-            assignmentsTracker.listen(ASSIGNMENTS_CHANGED, ((parameters, exception) -> onRenewLeasesTrigger()));
-            topologyTracker.listen(TOPOLOGY_CHANGED, ((parameters, exception) -> onRenewLeasesTrigger()));
-            leaseNegotiator.listen(LEASE_ACCEPTED, ((parameters, exception) -> onRenewLeasesTrigger()));
+//            assignmentsTracker.listen(ASSIGNMENTS_CHANGED, ((parameters, exception) -> onRenewLeasesTrigger()));
+//            topologyTracker.listen(TOPOLOGY_CHANGED, ((parameters, exception) -> onRenewLeasesTrigger()));
+//            leaseNegotiator.listen(LEASE_ACCEPTED, ((parameters, exception) -> onRenewLeasesTrigger()));
 
         } finally {
             stateChangingLock.unblock();
