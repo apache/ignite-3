@@ -1006,13 +1006,13 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         expectedDataNodes.put(getZoneId(ZONE_NAME_2), Set.of(NODE_0.name(), NODE_1.name()));
         expectedDataNodes.put(getZoneId(ZONE_NAME_3), Set.of(NODE_0.name(), NODE_1.name()));
 
-        Map<Integer, Set<String>> expectedDataNodes1 = new HashMap<>(expectedDataNodes);
-        expectedDataNodes1.put(getZoneId(ZONE_NAME_4), Set.of(NODE_0.name(), NODE_1.name()));
+        Map<Integer, Set<String>> expectedDataNodesOnTopologyUpdateEvent = new HashMap<>(expectedDataNodes);
+        expectedDataNodesOnTopologyUpdateEvent.put(getZoneId(ZONE_NAME_4), Set.of(NODE_0.name(), NODE_1.name()));
 
-        Map<Integer, Set<String>> expectedDataNodes2 = new HashMap<>(expectedDataNodes);
-        expectedDataNodes2.put(getZoneId(ZONE_NAME_4), Set.of(NODE_0.name(), NODE_1.name(), NODE_2.name()));
+        Map<Integer, Set<String>> expectedDataNodesAfterTimersAreExpired = new HashMap<>(expectedDataNodes);
+        expectedDataNodesAfterTimersAreExpired.put(getZoneId(ZONE_NAME_4), Set.of(NODE_0.name(), NODE_1.name(), NODE_2.name()));
 
-        checkDataNodesRepeated(expectedDataNodes1, expectedDataNodes2, true);
+        checkDataNodesRepeated(expectedDataNodesOnTopologyUpdateEvent, expectedDataNodesAfterTimersAreExpired, true);
     }
 
     /**
@@ -1033,13 +1033,13 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         expectedDataNodes.put(getZoneId(ZONE_NAME_2), Set.of(NODE_0.name()));
         expectedDataNodes.put(getZoneId(ZONE_NAME_3), Set.of(NODE_0.name(), NODE_1.name()));
 
-        Map<Integer, Set<String>> expectedDataNodes1 = new HashMap<>(expectedDataNodes);
-        expectedDataNodes1.put(getZoneId(ZONE_NAME_4), Set.of(NODE_0.name(), NODE_1.name()));
+        Map<Integer, Set<String>> expectedDataNodesOnTopologyUpdateEvent = new HashMap<>(expectedDataNodes);
+        expectedDataNodesOnTopologyUpdateEvent.put(getZoneId(ZONE_NAME_4), Set.of(NODE_0.name(), NODE_1.name()));
 
-        Map<Integer, Set<String>> expectedDataNodes2 = new HashMap<>(expectedDataNodes);
-        expectedDataNodes2.put(getZoneId(ZONE_NAME_4), Set.of(NODE_0.name()));
+        Map<Integer, Set<String>> expectedDataNodesAfterTimersAreExpired = new HashMap<>(expectedDataNodes);
+        expectedDataNodesAfterTimersAreExpired.put(getZoneId(ZONE_NAME_4), Set.of(NODE_0.name()));
 
-        checkDataNodesRepeated(expectedDataNodes1, expectedDataNodes2, false);
+        checkDataNodesRepeated(expectedDataNodesOnTopologyUpdateEvent, expectedDataNodesAfterTimersAreExpired, false);
     }
 
     private void checkDataNodesRepeated(
