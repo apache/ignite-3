@@ -18,5 +18,6 @@
 package org.apache.ignite.internal.event;
 
 
+/** Void event parameters. */
 public class VoidEventParameters implements EventParameters{
 }

@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.metastorage.dsl.Conditions.value;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.noop;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.placementdriver.PlacementDriverManager.PLACEMENTDRIVER_LEASES_KEY;
+import static org.apache.ignite.internal.placementdriver.org.apache.ignite.internal.placementdriver.event.AssignmentsTrackerEvent.ASSIGNMENTS_CHANGED;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 
 import java.util.ArrayList;
@@ -55,7 +56,6 @@ import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessage
 import org.apache.ignite.internal.placementdriver.message.StopLeaseProlongationMessage;
 import org.apache.ignite.internal.placementdriver.negotiation.LeaseAgreement;
 import org.apache.ignite.internal.placementdriver.negotiation.LeaseNegotiator;
-import org.apache.ignite.internal.placementdriver.org.apache.ignite.internal.placementdriver.event.AssignmentsTrackerEvent;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -176,15 +176,21 @@ public class LeaseUpdater {
 
             updaterExecutor = Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory(nodeName + "-lease-updater", LOG));
 
-            // TODO: sanpwc proper start and stop.
             updaterExecutor.scheduleWithFixedDelay(updater, 0, UPDATE_LEASE_MS, TimeUnit.MILLISECONDS);
 
-            assignmentsTracker.listen(AssignmentsTrackerEvent.ASSIGNMENTS_CHANGED, ((parameters, exception) -> {
-                // Logic of adding and removing listeners seems more complicated and error prone in comparison to the one
-                // where every node processes the event but checks whether it is active internally. In any case it is an optimization that
-                // allows to detect new partition updates faster, if it'll be missed common scheduler will catch it up.
-                if (active()) {
-                    updaterExecutor.submit(updater);
+            // Listener is just an optimisation in order to detect assignments changes faster. If it'll be missed for some reason,
+            // nothing will break, because common scheduler will catch up assignments change processing. This is also the reason
+            // why instead of adding/removing listener on activation/deactivation every node ones activated will get the notification
+            // and check whether it's active or not. Given approach is simpler and thus less error prone.
+            assignmentsTracker.listen(ASSIGNMENTS_CHANGED, ((parameters, exception) -> {
+                stateChangingLock.enterBusy();
+
+                try {
+                    if (active()) {
+                        updaterExecutor.submit(updater);
+                    }
+                } finally {
+                    stateChangingLock.leaveBusy();
                 }
 
                 return falseCompletedFuture();
@@ -210,15 +216,11 @@ public class LeaseUpdater {
 
             leaseNegotiator = null;
 
-            // TODO: sanpwc write proper comment.
             // We do shutdownNow() right away without doing usual shutdown()+awaitTermination() because
             // this would make us wait till all the scheduled tasks get executed (which might take a lot
-            // of time). An alternative would be to track all ScheduledFutures (which are not same as the
-            // user-facing futures we return from the tracker), but we don't need them for anything else,
-            // so it's simpler to just use shutdownNow().
+            // of time).
             updaterExecutor.shutdownNow();
 
-            // TODO: sanpwc rename?
             this.updaterExecutor = null;
 
         } finally {
@@ -314,12 +316,6 @@ public class LeaseUpdater {
                 } finally {
                     stateChangingLock.leaveBusy();
                 }
-
-                try {
-                    Thread.sleep(UPDATE_LEASE_MS);
-                } catch (InterruptedException e) {
-                    LOG.warn("Lease updater is interrupted");
-                }
             }
         }
 
@@ -365,7 +361,6 @@ public class LeaseUpdater {
                 }
 
                 // Prolong existing leases.
-                // TODO: sanpwc check that expiration timestamp for prolong leases will be calculated correctly.
                 ClusterNode candidate = nextLeaseHolder(
                         entry.getValue(),
                         lease.isProlongable() ? lease.getLeaseholder() : null

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.placementdriver;
 
+import static org.apache.ignite.internal.placementdriver.org.apache.ignite.internal.placementdriver.event.AssignmentsTrackerEvent.ASSIGNMENTS_CHANGED;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.StringUtils.incrementLastChar;
 import static org.apache.ignite.internal.utils.RebalanceUtil.STABLE_ASSIGNMENTS_PREFIX;
@@ -175,7 +176,7 @@ public class AssignmentsTracker extends AbstractEventProducer<AssignmentsTracker
      */
     private void triggerToRenewLeases() {
         fireEvent(
-                AssignmentsTrackerEvent.ASSIGNMENTS_CHANGED,
+                ASSIGNMENTS_CHANGED,
                 new VoidEventParameters()
         );
     }
