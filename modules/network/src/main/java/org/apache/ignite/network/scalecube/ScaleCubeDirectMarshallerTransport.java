@@ -54,7 +54,7 @@ class ScaleCubeDirectMarshallerTransport implements Transport {
     /** Logger. */
     private static final IgniteLogger LOG = Loggers.forClass(Transport.class);
 
-    private static final ChannelType SCALECUBE_CHANNEL_TYPE = ChannelType.register((short) 3, "ScaleCube");
+    private static final ChannelType SCALECUBE_CHANNEL_TYPE = ChannelType.register((short) 1, "ScaleCube");
 
     /** Message subject. */
     private final DirectProcessor<Message> subject = DirectProcessor.create();
