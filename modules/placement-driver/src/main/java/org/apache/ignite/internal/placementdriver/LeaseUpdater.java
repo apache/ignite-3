@@ -24,6 +24,8 @@ import static org.apache.ignite.internal.metastorage.dsl.Operations.noop;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.placementdriver.PlacementDriverManager.PLACEMENTDRIVER_LEASES_KEY;
 import static org.apache.ignite.internal.placementdriver.org.apache.ignite.internal.placementdriver.event.AssignmentsTrackerEvent.ASSIGNMENTS_CHANGED;
+import static org.apache.ignite.internal.placementdriver.org.apache.ignite.internal.placementdriver.event.LeaseNegotiatorEvent.LEASE_ACCEPTED;
+import static org.apache.ignite.internal.placementdriver.org.apache.ignite.internal.placementdriver.event.TopologyTrackerEvent.TOPOLOGY_CHANGED;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 
 import java.util.ArrayList;
@@ -178,27 +180,31 @@ public class LeaseUpdater {
 
             updaterExecutor.scheduleWithFixedDelay(updater, 0, UPDATE_LEASE_MS, TimeUnit.MILLISECONDS);
 
-            // Listener is just an optimisation in order to detect assignments changes faster. If it'll be missed for some reason,
-            // nothing will break, because common scheduler will catch up assignments change processing. This is also the reason
+            // Listeners are just an optimisation in order to detect lease renewal triggers faster. If it'll be missed for some reason,
+            // nothing will break, because common scheduler will catch up given triggers. This is also the reason
             // why instead of adding/removing listener on activation/deactivation every node ones activated will get the notification
             // and check whether it's active or not. Given approach is simpler and thus less error prone.
-            assignmentsTracker.listen(ASSIGNMENTS_CHANGED, ((parameters, exception) -> {
-                stateChangingLock.enterBusy();
-
-                try {
-                    if (active()) {
-                        updaterExecutor.submit(updater);
-                    }
-                } finally {
-                    stateChangingLock.leaveBusy();
-                }
-
-                return falseCompletedFuture();
-            }));
+            assignmentsTracker.listen(ASSIGNMENTS_CHANGED, ((parameters, exception) -> onRenewLeasesTrigger()));
+            topologyTracker.listen(TOPOLOGY_CHANGED, ((parameters, exception) -> onRenewLeasesTrigger()));
+            leaseNegotiator.listen(LEASE_ACCEPTED, ((parameters, exception) -> onRenewLeasesTrigger()));
 
         } finally {
             stateChangingLock.unblock();
         }
+    }
+
+    private CompletableFuture<Boolean> onRenewLeasesTrigger() {
+        stateChangingLock.enterBusy();
+
+        try {
+            if (active()) {
+                updaterExecutor.submit(updater);
+            }
+        } finally {
+            stateChangingLock.leaveBusy();
+        }
+
+        return falseCompletedFuture();
     }
 
     /** Stops a dedicated thread to renew or assign leases. */
