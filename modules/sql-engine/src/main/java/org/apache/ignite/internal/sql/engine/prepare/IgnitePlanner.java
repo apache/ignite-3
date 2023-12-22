@@ -133,6 +133,9 @@ public class IgnitePlanner implements Planner, RelOptTable.ViewExpander {
 
     private RelOptCluster cluster;
 
+    /** Start planning timestamp in millis. */
+    private final long startTs;
+
     static {
         warmup();
     }
@@ -159,6 +162,7 @@ public class IgnitePlanner implements Planner, RelOptTable.ViewExpander {
         traitDefs = frameworkCfg.getTraitDefs();
 
         rexBuilder = IgniteRexBuilder.INSTANCE;
+        startTs = FastTimestamps.coarseCurrentTimeMillis();
     }
 
     /** {@inheritDoc} */
@@ -390,7 +394,7 @@ public class IgnitePlanner implements Planner, RelOptTable.ViewExpander {
 
     private RelOptPlanner planner() {
         if (planner == null) {
-            VolcanoPlannerExt planner = new VolcanoPlannerExt(frameworkCfg.getCostFactory(), ctx);
+            VolcanoPlannerExt planner = new VolcanoPlannerExt(frameworkCfg.getCostFactory(), ctx, startTs);
             planner.setExecutor(rexExecutor);
             this.planner = planner;
 
@@ -627,9 +631,13 @@ public class IgnitePlanner implements Planner, RelOptTable.ViewExpander {
     private static class VolcanoPlannerExt extends VolcanoPlanner {
         private static final IgniteLogger LOG = Loggers.forClass(IgnitePlanner.class);
 
-        protected VolcanoPlannerExt(RelOptCostFactory costFactory, Context externalCtx) {
+        private final long startTs;
+
+        protected VolcanoPlannerExt(RelOptCostFactory costFactory, Context externalCtx, long startTs) {
             super(costFactory, externalCtx);
             setTopDownOpt(true);
+
+            this.startTs = startTs;
         }
 
         /** {@inheritDoc} */
@@ -646,8 +654,6 @@ public class IgnitePlanner implements Planner, RelOptTable.ViewExpander {
             long timeout = ctx.plannerTimeout();
 
             if (timeout > 0) {
-                long startTs = ctx.startTs();
-
                 if (FastTimestamps.coarseCurrentTimeMillis() - startTs > timeout) {
                     LOG.debug("Planning of a query aborted due to planner timeout threshold is reached [timeout={}, query={}]",
                             timeout,
