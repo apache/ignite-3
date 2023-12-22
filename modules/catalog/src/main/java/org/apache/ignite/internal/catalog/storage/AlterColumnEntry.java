@@ -103,7 +103,9 @@ public class AlterColumnEntry implements UpdateEntry, Fireable {
                                                         .collect(toList()),
                                                 table.primaryKeyColumns(),
                                                 table.colocationColumns(),
-                                                causalityToken)
+                                                causalityToken,
+                                                table.creationToken()
+                                        )
                                 )
                                 .toArray(CatalogTableDescriptor[]::new),
                         schema.indexes(),

@@ -15,21 +15,28 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.client;
+package org.apache.ignite.internal.tx;
 
-import org.jetbrains.annotations.Nullable;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_UNEXPECTED_STATE_ERR;
+
+import org.apache.ignite.tx.TransactionException;
 
 /**
- * Client notification handler.
+ * The exception is thrown when a transaction has already been finished.
  */
-@FunctionalInterface
-public interface NotificationHandler {
-    /**
-     * Consumes the notification.
-     *
-     * @param input Input, or {@code null} when failed.
-     * @param err Error, or {@code null} when successful.
-     * @throws Exception on failure.
-     */
-    void consume(@Nullable PayloadInputChannel input, @Nullable Throwable err) throws Exception;
+public class TransactionAlreadyFinishedException extends TransactionException {
+
+    private static final long serialVersionUID = -7953057695915339651L;
+
+    /** Stored transaction result. */
+    private final TransactionResult transactionResult;
+
+    public TransactionAlreadyFinishedException(String message, TransactionResult transactionResult) {
+        super(TX_UNEXPECTED_STATE_ERR, message);
+        this.transactionResult = transactionResult;
+    }
+
+    public TransactionResult transactionResult() {
+        return transactionResult;
+    }
 }

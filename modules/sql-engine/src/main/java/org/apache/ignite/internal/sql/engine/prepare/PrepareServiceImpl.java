@@ -41,6 +41,7 @@ import org.apache.calcite.sql.SqlDdl;
 import org.apache.calcite.sql.SqlExplain;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlNodeList;
+import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.lang.SqlExceptionMapperUtil;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -130,7 +131,7 @@ public class PrepareServiceImpl implements PrepareService {
                 nodeName,
                 cacheSize,
                 cacheFactory,
-                new DdlSqlToCommandConverter(dataStorageFields, DataStorageManager::defaultDataStorage),
+                new DdlSqlToCommandConverter(dataStorageFields, () -> CatalogUtils.DEFAULT_STORAGE_ENGINE),
                 DEFAULT_PLANNER_TIMEOUT,
                 metricManager
         );
@@ -179,6 +180,8 @@ public class PrepareServiceImpl implements PrepareService {
         planningPool.allowCoreThreadTimeOut(true);
 
         metricManager.registerSource(sqlPlanCacheMetricSource);
+
+        IgnitePlanner.warmup();
     }
 
     /** {@inheritDoc} */

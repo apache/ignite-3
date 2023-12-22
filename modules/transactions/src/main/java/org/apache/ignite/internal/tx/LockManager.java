@@ -36,14 +36,15 @@ public interface LockManager extends EventProducer<LockEvent, LockEventParameter
      * @param lockMode Lock mode, for example shared, exclusive, intention-shared etc.
      * @return The future with gained lock that will be completed when a lock is successfully acquired.
      */
-    public CompletableFuture<Lock> acquire(UUID txId, LockKey lockKey, LockMode lockMode);
+    CompletableFuture<Lock> acquire(UUID txId, LockKey lockKey, LockMode lockMode);
 
     /**
      * Attempts to release the specified lock.
      *
      * @param lock Lock to release.
      */
-    public void release(Lock lock);
+    @TestOnly
+    void release(Lock lock);
 
     /**
      * Release a lock that is held on the specific mode on the specific key.
@@ -60,7 +61,15 @@ public interface LockManager extends EventProducer<LockEvent, LockEventParameter
      * @param txId Transaction Id.
      * @return An iterator over a collection of locks.
      */
-    public Iterator<Lock> locks(UUID txId);
+    @TestOnly
+    Iterator<Lock> locks(UUID txId);
+
+    /**
+     * Release all locks associated with a transaction.
+     *
+     * @param txId Tx id.
+     */
+    void releaseAll(UUID txId);
 
     /**
      * Returns a collection of transaction ids that is associated with the specified {@code key}.
@@ -69,7 +78,7 @@ public interface LockManager extends EventProducer<LockEvent, LockEventParameter
      * @return The waiters queue.
      */
     @TestOnly
-    public Collection<UUID> queue(LockKey key);
+    Collection<UUID> queue(LockKey key);
 
     /**
      * Returns a waiter associated with the specified {@code key}.
@@ -79,7 +88,7 @@ public interface LockManager extends EventProducer<LockEvent, LockEventParameter
      * @return The waiter.
      */
     @TestOnly
-    public Waiter waiter(LockKey key, UUID txId);
+    Waiter waiter(LockKey key, UUID txId);
 
     /**
      * Returns {@code true} if no locks have been held.
@@ -87,5 +96,5 @@ public interface LockManager extends EventProducer<LockEvent, LockEventParameter
      * @return {@code true} if no locks have been held.
      */
     @TestOnly
-    public boolean isEmpty();
+    boolean isEmpty();
 }

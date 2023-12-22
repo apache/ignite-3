@@ -31,7 +31,7 @@ import org.junit.jupiter.api.Test;
  * another transaction.
  */
 public class NoWaitDeadlockPreventionTest extends AbstractLockingTest {
-    private DeadlockPreventionPolicy deadlockPreventionPolicy() {
+    DeadlockPreventionPolicy deadlockPreventionPolicy() {
         return new DeadlockPreventionPolicy() {
             @Override
             public long waitTimeout() {

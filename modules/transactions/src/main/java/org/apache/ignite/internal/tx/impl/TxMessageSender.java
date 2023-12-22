@@ -105,7 +105,7 @@ public class TxMessageSender {
      */
     public CompletableFuture<NetworkMessage> cleanup(
             String primaryConsistentId,
-            Collection<ReplicationGroupId> replicationGroupIds,
+            @Nullable Collection<ReplicationGroupId> replicationGroupIds,
             UUID txId,
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp

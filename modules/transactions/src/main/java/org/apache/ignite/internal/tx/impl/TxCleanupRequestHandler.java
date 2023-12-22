@@ -138,7 +138,7 @@ public class TxCleanupRequestHandler {
     }
 
     private void releaseTxLocks(UUID txId) {
-        lockManager.locks(txId).forEachRemaining(lockManager::release);
+        lockManager.releaseAll(txId);
     }
 
     private NetworkMessage prepareResponse() {

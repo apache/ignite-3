@@ -33,6 +33,7 @@ import java.util.function.BiConsumer;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.internal.client.ClientUtils;
+import org.apache.ignite.internal.client.PayloadInputChannel;
 import org.apache.ignite.internal.client.PayloadOutputChannel;
 import org.apache.ignite.internal.client.ReliableChannel;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
@@ -218,8 +219,6 @@ public class ClientCompute implements IgniteCompute {
     }
 
     private <R> CompletableFuture<R> executeOnOneNode(ClusterNode node, List<DeploymentUnit> units, String jobClassName, Object[] args) {
-        CompletableFuture<R> notificationFut = new CompletableFuture<>();
-
         var reqFut = ch.serviceAsync(
                 ClientOp.COMPUTE_EXECUTE,
                 w -> {
@@ -231,19 +230,19 @@ public class ClientCompute implements IgniteCompute {
 
                     packJob(w.out(), units, jobClassName, args);
                 },
-                r -> null,
+                ch -> ch,
                 node.name(),
                 null,
-                (r, err) -> {
-                    if (err != null) {
-                        notificationFut.completeExceptionally(err);
-                    } else {
-                        assert r != null;
-                        notificationFut.complete((R) r.in().unpackObjectFromBinaryTuple());
+                true);
+
+        return reqFut
+                .thenCompose(PayloadInputChannel::notificationFuture)
+                .thenApply(r -> {
+                    // Notifications require explicit input close.
+                    try (r) {
+                        return (R) r.in().unpackObjectFromBinaryTuple();
                     }
                 });
-
-        return reqFut.thenCompose(v -> notificationFut);
     }
 
     private static ClusterNode randomNode(Set<ClusterNode> nodes) {
@@ -299,8 +298,6 @@ public class ClientCompute implements IgniteCompute {
             List<DeploymentUnit> units,
             String jobClassName,
             Object[] args) {
-        CompletableFuture<R> notificationFut = new CompletableFuture<>();
-
         var reqFut = t.doSchemaOutOpAsync(
                 ClientOp.COMPUTE_EXECUTE_COLOCATED,
                 (schema, outputChannel) -> {
@@ -313,18 +310,18 @@ public class ClientCompute implements IgniteCompute {
 
                     packJob(w, units, jobClassName, args);
                 },
-                r -> null,
+                ch -> ch,
                 partitionAwarenessProvider,
-                (r, err) -> {
-                    if (err != null) {
-                        notificationFut.completeExceptionally(err);
-                    } else {
-                        assert r != null;
-                        notificationFut.complete((R) r.in().unpackObjectFromBinaryTuple());
+                true);
+
+        return reqFut
+                .thenCompose(PayloadInputChannel::notificationFuture)
+                .thenApply(r -> {
+                    // Notifications require explicit input close.
+                    try (r) {
+                        return (R) r.in().unpackObjectFromBinaryTuple();
                     }
                 });
-
-        return reqFut.thenCompose(v -> notificationFut);
     }
 
     private CompletableFuture<ClientTable> getTable(String tableName) {
