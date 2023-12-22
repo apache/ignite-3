@@ -134,10 +134,7 @@ public class IgnitePlanner implements Planner, RelOptTable.ViewExpander {
     private RelOptCluster cluster;
 
     static {
-        // Preload some classes so that the time spent is not taken
-        // into account when measuring query planning timeout.
-        //noinspection ResultOfMethodCallIgnored
-        PlannerPhase.values();
+        warmup();
     }
 
     /**
@@ -232,6 +229,15 @@ public class IgnitePlanner implements Planner, RelOptTable.ViewExpander {
     @Override
     public RelNode convert(SqlNode sql) {
         throw new UnsupportedOperationException();
+    }
+
+    /**
+     * Preload some classes so that the time spent is not taken
+     * into account when measuring query planning timeout.
+     */
+    static void warmup() {
+        //noinspection ResultOfMethodCallIgnored
+        PlannerPhase.values();
     }
 
     /**
