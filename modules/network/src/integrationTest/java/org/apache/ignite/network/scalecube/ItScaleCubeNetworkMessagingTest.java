@@ -44,12 +44,14 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Predicate;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.network.NetworkMessageTypes;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
+import org.apache.ignite.internal.network.message.ScaleCubeMessage;
 import org.apache.ignite.internal.network.messages.TestMessage;
 import org.apache.ignite.internal.network.messages.TestMessageTypes;
 import org.apache.ignite.internal.network.messages.TestMessagesFactory;
@@ -63,6 +65,7 @@ import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.DefaultMessagingService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.network.NetworkMessageHandler;
 import org.apache.ignite.network.NodeFinder;
 import org.apache.ignite.network.StaticNodeFinder;
 import org.apache.ignite.network.TopologyEventHandler;
@@ -360,6 +363,58 @@ class ItScaleCubeNetworkMessagingTest {
         e = assertThrows(ExecutionException.class, () -> invoke1.get(1, TimeUnit.SECONDS));
 
         assertThat(e.getCause(), instanceOf(NodeStoppingException.class));
+    }
+
+    /**
+     * Tests that Scalecube messages are not blocked if some message handler blocks handling of 'normal' messages.
+     */
+    @Test
+    public void scalecubeMessagesAreSentSeparatelyFromOtherMessages(TestInfo testInfo) throws InterruptedException {
+        testCluster = new Cluster(2, testInfo);
+        testCluster.startAwait();
+
+        ClusterService member0 = testCluster.members.get(0);
+        ClusterService member1 = testCluster.members.get(1);
+
+        CountDownLatch startedBlocking = new CountDownLatch(1);
+        CountDownLatch blocking = new CountDownLatch(1);
+
+        member1.messagingService().addMessageHandler(
+                TestMessageTypes.class,
+                (message, senderConsistentId, correlationId) -> {
+                    startedBlocking.countDown();
+
+                    try {
+                        blocking.await(10, TimeUnit.SECONDS);
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        throw new RuntimeException(e);
+                    }
+                }
+        );
+
+        try {
+            // Send a message that will block the inbound thread for normal messages.
+            member0.messagingService().send(member1.topologyService().localMember(), messageFactory.testMessage().build());
+
+            assertTrue(startedBlocking.await(10, TimeUnit.SECONDS));
+
+            CountDownLatch receivedScalecubeMessage = new CountDownLatch(1);
+
+            member1.messagingService().addMessageHandler(
+                    NetworkMessageTypes.class,
+                    (message, senderConsistentId, correlationId) -> {
+                        receivedScalecubeMessage.countDown();
+                    }
+            );
+
+            assertTrue(
+                    receivedScalecubeMessage.await(10, TimeUnit.SECONDS),
+                    "Did not receive Scalecube messages, probably Scalecube inbound thread is blocked"
+            );
+        } finally {
+            blocking.countDown();
+        }
     }
 
     /**
