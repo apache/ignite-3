@@ -42,6 +42,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogStorageProfilesDesc
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
+import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.Nullable;
@@ -64,7 +65,7 @@ public class CatalogUtils {
 
     /** Default distribution zone storage engine. */
     // TODO: IGNITE-19719 Should be defined differently
-    public static final String DEFAULT_STORAGE_ENGINE = "aipersist";
+    public static final String DEFAULT_STORAGE_ENGINE = IgniteSystemProperties.getString("IGNITE_DEFAULT_STORAGE_ENGINE", "aipersist");
 
     /** Dummy storage profile. */
     // TODO: https://issues.apache.org/jira/browse/IGNITE-20990 Replace dummy with the real target storages.

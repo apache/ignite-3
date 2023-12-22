@@ -58,7 +58,7 @@ public class FakeCatalogService implements CatalogService {
     @Override
     public CatalogTableDescriptor table(int tableId, long timestamp) {
         return new CatalogTableDescriptor(
-                tableId, 0, 0, "table", 0, 0, List.of(mock(CatalogTableColumnDescriptor.class)), List.of(), null, 0);
+                tableId, 0, 0, "table", 0, 0, List.of(mock(CatalogTableColumnDescriptor.class)), List.of(), null, 0, 0);
     }
 
     @Override

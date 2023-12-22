@@ -56,7 +56,7 @@ public enum TxState {
     ABANDONED;
 
     private static final boolean[][] TRANSITION_MATRIX = {
-            { false, true,  false, true,  true,  true },
+            { false, true,  true, true,  true,  true },
             { false, true,  true,  true,  true,  true },
             { false, false, false, true,  true,  true },
             { false, false, false, true,  false, false },

@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.tx;
 
 import static org.apache.ignite.internal.tx.TxState.ABANDONED;
-import static org.apache.ignite.internal.tx.TxState.FINISHING;
 import static org.apache.ignite.internal.tx.TxState.checkTransitionCorrectness;
 
 import java.util.Objects;
@@ -52,7 +51,7 @@ public class TxStateMeta implements TransactionMeta {
      */
     public TxStateMeta(
             TxState txState,
-            String txCoordinatorId,
+            @Nullable String txCoordinatorId,
             @Nullable TablePartitionId commitPartitionId,
             @Nullable HybridTimestamp commitTimestamp
     ) {
@@ -70,9 +69,9 @@ public class TxStateMeta implements TransactionMeta {
      */
     private TxStateMeta(
             TxState txState,
-            String txCoordinatorId,
-            TablePartitionId commitPartitionId,
-            HybridTimestamp commitTimestamp,
+            @Nullable String txCoordinatorId,
+            @Nullable TablePartitionId commitPartitionId,
+            @Nullable HybridTimestamp commitTimestamp,
             long lastAbandonedMarkerTs
     ) {
         this.txState = txState;
@@ -98,8 +97,6 @@ public class TxStateMeta implements TransactionMeta {
      * @return Transaction state meta.
      */
     public TxStateMetaFinishing finishing() {
-        assert checkTransitionCorrectness(txState, FINISHING) : "Transaction state is incorrect [txState=" + txState + "].";
-
         return new TxStateMetaFinishing(txCoordinatorId, commitPartitionId);
     }
 
@@ -108,11 +105,11 @@ public class TxStateMeta implements TransactionMeta {
         return txState;
     }
 
-    public String txCoordinatorId() {
+    public @Nullable String txCoordinatorId() {
         return txCoordinatorId;
     }
 
-    public TablePartitionId commitPartitionId() {
+    public @Nullable TablePartitionId commitPartitionId() {
         return commitPartitionId;
     }
 
