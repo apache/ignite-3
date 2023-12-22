@@ -28,7 +28,6 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
 import org.apache.ignite.client.RetryLimitPolicy;
-import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.streamer.StreamerBatchSender;
 import org.apache.ignite.table.DataStreamerOptions;
@@ -73,7 +72,7 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET,
                 (s, w) -> ser.writeTuple(tx, keyRec, s, w, true),
-                (s, r) -> ClientTupleSerializer.readTuple(s, r, false),
+                (s, r) -> ClientTupleSerializer.readTuple(s, r.in(), false),
                 null,
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, keyRec));
     }
@@ -94,7 +93,7 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_ALL,
                 (s, w) -> ser.writeTuples(tx, keyRecs, s, w, true),
-                ClientTupleSerializer::readTuplesNullable,
+                (s, r) -> ClientTupleSerializer.readTuplesNullable(s, r.in()),
                 Collections.emptyList(),
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, keyRecs.iterator().next())
         );
@@ -154,7 +153,7 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_AND_UPSERT,
                 (s, w) -> ser.writeTuple(tx, rec, s, w, false),
-                (s, r) -> ClientTupleSerializer.readTuple(s, r, false),
+                (s, r) -> ClientTupleSerializer.readTuple(s, r.in(), false),
                 null,
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, rec));
     }
@@ -173,7 +172,7 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_INSERT,
                 (s, w) -> ser.writeTuple(tx, rec, s, w, false),
-                ClientMessageUnpacker::unpackBoolean,
+                r -> r.in().unpackBoolean(),
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, rec));
     }
 
@@ -195,7 +194,7 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_INSERT_ALL,
                 (s, w) -> ser.writeTuples(tx, recs, s, w, false),
-                ClientTupleSerializer::readTuples,
+                (s, r) -> ClientTupleSerializer.readTuples(s, r.in()),
                 Collections.emptyList(),
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, recs.iterator().next()));
     }
@@ -220,7 +219,7 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_REPLACE,
                 (s, w) -> ser.writeTuple(tx, rec, s, w, false),
-                ClientMessageUnpacker::unpackBoolean,
+                r -> r.in().unpackBoolean(),
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, rec));
     }
 
@@ -236,7 +235,7 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
                     ser.writeTuple(tx, oldRec, s, w, false, false);
                     ser.writeTuple(tx, newRec, s, w, false, true);
                 },
-                ClientMessageUnpacker::unpackBoolean,
+                r -> r.in().unpackBoolean(),
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, oldRec));
     }
 
@@ -254,7 +253,7 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_AND_REPLACE,
                 (s, w) -> ser.writeTuple(tx, rec, s, w, false),
-                (s, r) -> ClientTupleSerializer.readTuple(s, r, false),
+                (s, r) -> ClientTupleSerializer.readTuple(s, r.in(), false),
                 null,
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, rec));
     }
@@ -273,7 +272,7 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_DELETE,
                 (s, w) -> ser.writeTuple(tx, keyRec, s, w, true),
-                ClientMessageUnpacker::unpackBoolean,
+                r -> r.in().unpackBoolean(),
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, keyRec));
     }
 
@@ -291,7 +290,7 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_DELETE_EXACT,
                 (s, w) -> ser.writeTuple(tx, rec, s, w, false),
-                ClientMessageUnpacker::unpackBoolean,
+                r -> r.in().unpackBoolean(),
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, rec));
     }
 
@@ -309,7 +308,7 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_AND_DELETE,
                 (s, w) -> ser.writeTuple(tx, keyRec, s, w, true),
-                (s, r) -> ClientTupleSerializer.readTuple(s, r, false),
+                (s, r) -> ClientTupleSerializer.readTuple(s, r.in(), false),
                 null,
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, keyRec));
     }
@@ -332,7 +331,7 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_DELETE_ALL,
                 (s, w) -> ser.writeTuples(tx, keyRecs, s, w, true),
-                (s, r) -> ClientTupleSerializer.readTuples(s, r, true),
+                (s, r) -> ClientTupleSerializer.readTuples(s, r.in(), true),
                 Collections.emptyList(),
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, keyRecs.iterator().next()));
     }
@@ -355,7 +354,7 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_DELETE_ALL_EXACT,
                 (s, w) -> ser.writeTuples(tx, recs, s, w, false),
-                ClientTupleSerializer::readTuples,
+                (s, r) -> ClientTupleSerializer.readTuples(s, r.in()),
                 Collections.emptyList(),
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, recs.iterator().next()));
     }

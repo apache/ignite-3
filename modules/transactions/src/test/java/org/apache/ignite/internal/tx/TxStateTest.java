@@ -55,14 +55,12 @@ public class TxStateTest {
 
     @Test
     void testTransitionsFromNull() {
-        // Not allowed.
-        assertFalse(TxState.checkTransitionCorrectness(null, TxState.FINISHING));
-
         // Allowed.
         assertTrue(TxState.checkTransitionCorrectness(null, TxState.PENDING));
         assertTrue(TxState.checkTransitionCorrectness(null, TxState.ABORTED));
         assertTrue(TxState.checkTransitionCorrectness(null, TxState.COMMITTED));
         assertTrue(TxState.checkTransitionCorrectness(null, TxState.ABANDONED));
+        assertTrue(TxState.checkTransitionCorrectness(null, TxState.FINISHING));
     }
 
     @Test
