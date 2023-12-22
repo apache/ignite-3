@@ -20,6 +20,7 @@ package org.apache.ignite.distributed;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.distributed.ItTxDistributedTestSingleNode.startNode;
 import static org.apache.ignite.distributed.ItTxTestCluster.NODE_PORT_BASE;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
@@ -29,6 +30,7 @@ import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_TIMEOUT_ERR;
 import static org.apache.ignite.raft.jraft.test.TestUtils.getLocalAddress;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.instanceOf;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -78,7 +80,6 @@ import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.StaticNodeFinder;
-import org.hamcrest.Matchers;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -222,16 +223,24 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
                     try {
                         log.info("Replica msg " + message.getClass().getSimpleName());
 
+                        // If we 'stop' a replica before its future even appears, invocation will not get ReplicaStoppingException
+                        // as there was no sign of the replica yet.
+                        waitForCondition(() -> replicaManager.isReplicaStarted(tablePartitionId), TimeUnit.SECONDS.toMillis(10));
+
                         assertThat(replicaManager.stopReplica(tablePartitionId), willSucceedFast());
                     } catch (NodeStoppingException e) {
+                        throw new RuntimeException(e);
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+
                         throw new RuntimeException(e);
                     }
                 }
         );
 
-        CompletableFuture<ReplicaResponse> respFur = replicaService.invoke(clusterNode, request);
+        CompletableFuture<ReplicaResponse> respFut = replicaService.invoke(clusterNode, request);
 
-        assertThat(respFur, willThrow(Matchers.isA(ReplicaStoppingException.class)));
+        assertThat(respFut, willThrow(instanceOf(ReplicaStoppingException.class)));
     }
 
     @Test
