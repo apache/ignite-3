@@ -54,7 +54,7 @@ class ScaleCubeDirectMarshallerTransport implements Transport {
     /** Logger. */
     private static final IgniteLogger LOG = Loggers.forClass(Transport.class);
 
-    private static final ChannelType SYSTEM_CHANNEL_TYPE = ChannelType.register((short) 3, "System");
+    private static final ChannelType SCALECUBE_CHANNEL_TYPE = ChannelType.register((short) 3, "ScaleCube");
 
     /** Message subject. */
     private final DirectProcessor<Message> subject = DirectProcessor.create();
@@ -179,7 +179,7 @@ class ScaleCubeDirectMarshallerTransport implements Transport {
                 node = new ClusterNodeImpl(null, null, addr);
             }
 
-            return messagingService.send(node, SYSTEM_CHANNEL_TYPE, fromMessage(message));
+            return messagingService.send(node, SCALECUBE_CHANNEL_TYPE, fromMessage(message));
         });
     }
 
