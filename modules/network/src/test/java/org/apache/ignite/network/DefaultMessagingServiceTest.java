@@ -19,6 +19,7 @@ package org.apache.ignite.network;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.defaultSerializationRegistry;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -30,6 +31,7 @@ import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.BrokenBarrierException;
 import java.util.concurrent.CompletableFuture;
@@ -258,7 +260,7 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
 
     @ParameterizedTest
     @EnumSource(SendOperation.class)
-    void messageIsHandledInThreadCorrespondingToChannel(SendOperation operation) throws Exception {
+    void messageSendIsHandledInThreadCorrespondingToChannel(SendOperation operation) throws Exception {
         try (
                 Services senderServices = createMessagingService(senderNode, senderNetworkConfig);
                 Services receiverServices = createMessagingService(receiverNode, receiverNetworkConfig)
@@ -278,6 +280,55 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
             );
 
             assertThat(channelId.get(), is((int) operation.expectedChannelType.id()));
+        }
+    }
+
+    @ParameterizedTest
+    @EnumSource(RespondOperation.class)
+    void respondIsHandledInThreadCorrespondingToChannel(RespondOperation operation) throws Exception {
+        try (
+                Services senderServices = createMessagingService(senderNode, senderNetworkConfig);
+                Services receiverServices = createMessagingService(receiverNode, receiverNetworkConfig)
+        ) {
+            CountDownLatch invokeFuturePrepared = new CountDownLatch(1);
+
+            receiverServices.messagingService.addMessageHandler(
+                    TestMessageTypes.class,
+                    (message, sender, correlationId) -> {
+                        try {
+                            invokeFuturePrepared.await(10, TimeUnit.SECONDS);
+                        } catch (InterruptedException ignored) {
+                            // No-op.
+                        }
+
+                        operation.respondAction.respond(
+                                receiverServices.messagingService,
+                                message,
+                                Objects.requireNonNull(topologyService.getByConsistentId(sender)),
+                                Objects.requireNonNull(correlationId)
+                        );
+                    }
+            );
+
+            AtomicInteger responseChannelId = new AtomicInteger(Integer.MAX_VALUE);
+
+            CompletableFuture<NetworkMessage> invokeFuture = senderServices.messagingService.invoke(
+                    receiverNode,
+                    operation.expectedChannelType,
+                    TestMessageImpl.builder().build(),
+                    10_000
+            );
+            CompletableFuture<NetworkMessage> finalFuture = invokeFuture.whenComplete((res, ex) -> {
+                responseChannelId.set(extractChannelIdFromThreadName(Thread.currentThread()));
+            });
+
+            // Only now allow the invoke response to be sent to make sure that our completion stage executes in the channel's
+            // inbound thread.
+            invokeFuturePrepared.countDown();
+
+            assertThat(finalFuture, willCompleteSuccessfully());
+
+            assertThat(responseChannelId.get(), is((int) operation.expectedChannelType.id()));
         }
     }
 
@@ -472,6 +523,39 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
 
         SendOperation(SendAction sendAction, ChannelType expectedChannelType) {
             this.sendAction = sendAction;
+            this.expectedChannelType = expectedChannelType;
+        }
+    }
+
+    @FunctionalInterface
+    private interface RespondAction {
+        void respond(MessagingService service, NetworkMessage message, ClusterNode recipient, long correlationId);
+    }
+
+    @SuppressWarnings("NonSerializableFieldInSerializableClass")
+    private enum RespondOperation {
+        RESPOND_DEFAULT_CHANNEL(
+                (service, message, recipient, correlationId) -> service.respond(recipient, message, correlationId),
+                ChannelType.DEFAULT
+        ),
+        RESPOND_CONSISTENT_ID_DEFAULT_CHANNEL(
+                (service, message, recipient, correlationId) -> service.respond(recipient.name(), message, correlationId),
+                ChannelType.DEFAULT
+        ),
+        RESPOND_SPECIFIC_CHANNEL(
+                (service, message, recipient, correlationId) -> service.respond(recipient, TEST_CHANNEL, message, correlationId),
+                TEST_CHANNEL
+        ),
+        RESPOND_CONSISTENT_ID_SPECIFIC_CHANNEL(
+                (service, message, recipient, correlationId) -> service.respond(recipient.name(), TEST_CHANNEL, message, correlationId),
+                TEST_CHANNEL
+        );
+
+        private final RespondAction respondAction;
+        private final ChannelType expectedChannelType;
+
+        RespondOperation(RespondAction respondAction, ChannelType expectedChannelType) {
+            this.respondAction = respondAction;
             this.expectedChannelType = expectedChannelType;
         }
     }
