@@ -22,6 +22,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReferenceArray;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.close.ManuallyCloseable;
@@ -43,6 +44,7 @@ class LazyStripedExecutor implements ManuallyCloseable {
     private final String poolName;
 
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
+    private final AtomicBoolean closed = new AtomicBoolean();
     private final AtomicReferenceArray<ExecutorService> array = new AtomicReferenceArray<>(Short.MAX_VALUE + 1);
 
     LazyStripedExecutor(String nodeName, String poolName) {
@@ -80,6 +82,10 @@ class LazyStripedExecutor implements ManuallyCloseable {
 
     @Override
     public void close() {
+        if (!closed.compareAndSet(false, true)) {
+            return;
+        }
+
         busyLock.block();
 
         IntStream.range(0, array.length())
