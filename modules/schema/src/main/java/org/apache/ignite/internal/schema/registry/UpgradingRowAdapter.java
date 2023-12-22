@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.schema.registry;
 
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.isSupportedColumnTypeChange;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -149,9 +150,7 @@ public class UpgradingRowAdapter extends Row {
 
         Column column = mappedId < 0 ? mapper.mappedColumn(colIdx) : super.schema().column(mappedId);
 
-        if (!isSupportedColumnTypeChange(column.type().spec().asColumnType(), ColumnType.INT8)) {
-            throw new SchemaException("Type conversion is not supported yet.");
-        }
+        ensureTypeConversionAllowed(column.type().spec().asColumnType(), ColumnType.INT8);
 
         return mappedId < 0 ? (byte) column.defaultValue() : super.byteValue(mappedId);
     }
@@ -163,9 +162,7 @@ public class UpgradingRowAdapter extends Row {
 
         Column column = mappedId < 0 ? mapper.mappedColumn(colIdx) : super.schema().column(mappedId);
 
-        if (!isSupportedColumnTypeChange(column.type().spec().asColumnType(), ColumnType.INT8)) {
-            throw new SchemaException("Type conversion is not supported yet.");
-        }
+        ensureTypeConversionAllowed(column.type().spec().asColumnType(), ColumnType.INT8);
 
         return mappedId < 0 ? (Byte) column.defaultValue() : super.byteValueBoxed(mappedId);
     }
@@ -177,9 +174,7 @@ public class UpgradingRowAdapter extends Row {
 
         Column column = mappedId < 0 ? mapper.mappedColumn(colIdx) : super.schema().column(mappedId);
 
-        if (!isSupportedColumnTypeChange(column.type().spec().asColumnType(), ColumnType.INT16)) {
-            throw new SchemaException("Type conversion is not supported yet.");
-        }
+        ensureTypeConversionAllowed(column.type().spec().asColumnType(), ColumnType.INT16);
 
         return mappedId < 0 ? (short) column.defaultValue() : super.shortValue(mappedId);
     }
@@ -191,9 +186,7 @@ public class UpgradingRowAdapter extends Row {
 
         Column column = mappedId < 0 ? mapper.mappedColumn(colIdx) : super.schema().column(mappedId);
 
-        if (!isSupportedColumnTypeChange(column.type().spec().asColumnType(), ColumnType.INT16)) {
-            throw new SchemaException("Type conversion is not supported yet.");
-        }
+        ensureTypeConversionAllowed(column.type().spec().asColumnType(), ColumnType.INT16);
 
         return mappedId < 0 ? (Short) column.defaultValue() : super.shortValueBoxed(mappedId);
     }
@@ -205,9 +198,7 @@ public class UpgradingRowAdapter extends Row {
 
         Column column = mappedId < 0 ? mapper.mappedColumn(colIdx) : super.schema().column(mappedId);
 
-        if (!isSupportedColumnTypeChange(column.type().spec().asColumnType(), ColumnType.INT32)) {
-            throw new SchemaException("Type conversion is not supported yet.");
-        }
+        ensureTypeConversionAllowed(column.type().spec().asColumnType(), ColumnType.INT32);
 
         return mappedId < 0 ? (int) column.defaultValue() : super.intValue(mappedId);
     }
@@ -219,9 +210,7 @@ public class UpgradingRowAdapter extends Row {
 
         Column column = mappedId < 0 ? mapper.mappedColumn(colIdx) : super.schema().column(mappedId);
 
-        if (!isSupportedColumnTypeChange(column.type().spec().asColumnType(), ColumnType.INT32)) {
-            throw new SchemaException("Type conversion is not supported yet.");
-        }
+        ensureTypeConversionAllowed(column.type().spec().asColumnType(), ColumnType.INT32);
 
         return mappedId < 0 ? (Integer) column.defaultValue() : super.intValueBoxed(mappedId);
     }
@@ -233,9 +222,7 @@ public class UpgradingRowAdapter extends Row {
 
         Column column = mappedId < 0 ? mapper.mappedColumn(colIdx) : super.schema().column(mappedId);
 
-        if (!isSupportedColumnTypeChange(column.type().spec().asColumnType(), ColumnType.INT64)) {
-            throw new SchemaException("Type conversion is not supported yet.");
-        }
+        ensureTypeConversionAllowed(column.type().spec().asColumnType(), ColumnType.INT64);
 
         return mappedId < 0 ? (long) column.defaultValue() : super.longValue(mappedId);
     }
@@ -247,9 +234,7 @@ public class UpgradingRowAdapter extends Row {
 
         Column column = mappedId < 0 ? mapper.mappedColumn(colIdx) : super.schema().column(mappedId);
 
-        if (!isSupportedColumnTypeChange(column.type().spec().asColumnType(), ColumnType.INT64)) {
-            throw new SchemaException("Type conversion is not supported yet.");
-        }
+        ensureTypeConversionAllowed(column.type().spec().asColumnType(), ColumnType.INT64);
 
         return mappedId < 0 ? (Long) column.defaultValue() : super.longValueBoxed(mappedId);
     }
@@ -261,9 +246,7 @@ public class UpgradingRowAdapter extends Row {
 
         Column column = mappedId < 0 ? mapper.mappedColumn(colIdx) : super.schema().column(mappedId);
 
-        if (!isSupportedColumnTypeChange(column.type().spec().asColumnType(), ColumnType.FLOAT)) {
-            throw new SchemaException("Type conversion is not supported yet.");
-        }
+        ensureTypeConversionAllowed(column.type().spec().asColumnType(), ColumnType.FLOAT);
 
         return mappedId < 0 ? (float) column.defaultValue() : super.floatValue(mappedId);
     }
@@ -275,9 +258,7 @@ public class UpgradingRowAdapter extends Row {
 
         Column column = mappedId < 0 ? mapper.mappedColumn(colIdx) : super.schema().column(mappedId);
 
-        if (!isSupportedColumnTypeChange(column.type().spec().asColumnType(), ColumnType.FLOAT)) {
-            throw new SchemaException("Type conversion is not supported yet.");
-        }
+        ensureTypeConversionAllowed(column.type().spec().asColumnType(), ColumnType.FLOAT);
 
         return mappedId < 0 ? (Float) column.defaultValue() : super.floatValueBoxed(mappedId);
     }
@@ -289,9 +270,7 @@ public class UpgradingRowAdapter extends Row {
 
         Column column = mappedId < 0 ? mapper.mappedColumn(colIdx) : super.schema().column(mappedId);
 
-        if (!isSupportedColumnTypeChange(column.type().spec().asColumnType(), ColumnType.DOUBLE)) {
-            throw new SchemaException("Type conversion is not supported yet.");
-        }
+        ensureTypeConversionAllowed(column.type().spec().asColumnType(), ColumnType.DOUBLE);
 
         return mappedId < 0 ? (double) column.defaultValue() : super.doubleValue(mappedId);
     }
@@ -304,9 +283,7 @@ public class UpgradingRowAdapter extends Row {
 
         Column column = mappedId < 0 ? mapper.mappedColumn(colIdx) : super.schema().column(mappedId);
 
-        if (!isSupportedColumnTypeChange(column.type().spec().asColumnType(), ColumnType.DOUBLE)) {
-            throw new SchemaException("Type conversion is not supported yet.");
-        }
+        ensureTypeConversionAllowed(column.type().spec().asColumnType(), ColumnType.DOUBLE);
 
         return mappedId < 0 ? (Double) column.defaultValue() : super.doubleValueBoxed(mappedId);
     }
@@ -468,5 +445,11 @@ public class UpgradingRowAdapter extends Row {
     public BinaryTuple binaryTuple() {
         // Underlying binary tuple can not be used directly.
         return null;
+    }
+
+    private void ensureTypeConversionAllowed(ColumnType from, ColumnType to) throws InvalidTypeException {
+        if (!isSupportedColumnTypeChange(from, to)) {
+            throw new SchemaException(format("Type conversion is not allowed: {} -> {}", from, to));
+        }
     }
 }
