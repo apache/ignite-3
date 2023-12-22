@@ -310,18 +310,14 @@ public class LeaseUpdater {
     private class Updater implements Runnable {
         @Override
         public void run() {
-            while (active() && !Thread.interrupted()) {
-                if (!stateChangingLock.enterBusy()) {
-                    continue;
-                }
+            stateChangingLock.enterBusy();
 
-                try {
-                    if (active()) {
-                        updateLeaseBatchInternal();
-                    }
-                } finally {
-                    stateChangingLock.leaveBusy();
+            try {
+                if (active()) {
+                    updateLeaseBatchInternal();
                 }
+            } finally {
+                stateChangingLock.leaveBusy();
             }
         }
 
