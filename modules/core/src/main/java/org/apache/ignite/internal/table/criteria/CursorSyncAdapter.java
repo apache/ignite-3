@@ -31,7 +31,7 @@ import org.apache.ignite.lang.Cursor;
 /**
  * Synchronous wrapper over {@link AsyncCursor}.
  */
-public class CursorAdapter<T> implements Cursor<T> {
+public class CursorSyncAdapter<T> implements Cursor<T> {
     /** Wrapped asynchronous cursor. */
     private final AsyncCursor<T> ac;
 
@@ -43,7 +43,7 @@ public class CursorAdapter<T> implements Cursor<T> {
      *
      * @param ac Asynchronous cursor.
      */
-    public CursorAdapter(AsyncCursor<T> ac) {
+    public CursorSyncAdapter(AsyncCursor<T> ac) {
         assert ac != null;
 
         this.ac = ac;
