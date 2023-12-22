@@ -31,13 +31,16 @@ public class InNetworkObject {
     /** Sender's consistent id. */
     private final String consistentId;
 
+    private final short connectionIndex;
+
     /** DescriptorRegistry that will be used for the deserialization of the message's {@link Marshallable} fields. */
     private final DescriptorRegistry registry;
 
     /** Constructor. */
-    public InNetworkObject(NetworkMessage message, String consistentId, DescriptorRegistry registry) {
+    public InNetworkObject(NetworkMessage message, String consistentId, short connectionIndex, DescriptorRegistry registry) {
         this.message = message;
         this.consistentId = consistentId;
+        this.connectionIndex = connectionIndex;
         this.registry = registry;
     }
 
@@ -57,6 +60,13 @@ public class InNetworkObject {
      */
     public String consistentId() {
         return consistentId;
+    }
+
+    /**
+     * Returns connection index.
+     */
+    public short connectionIndex() {
+        return connectionIndex;
     }
 
     /**

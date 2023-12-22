@@ -30,10 +30,13 @@ import static org.mockito.Mockito.mock;
 
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.BrokenBarrierException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
@@ -113,7 +116,7 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
 
         try (
                 Services senderServices = createMessagingService(senderNode, senderNetworkConfig, () -> awaitQuietly(allowSendLatch));
-                Services receiverServices = createMessagingService(receiverNode, receiverNetworkConfig, () -> {})
+                Services receiverServices = createMessagingService(receiverNode, receiverNetworkConfig)
         ) {
             List<String> payloads = new CopyOnWriteArrayList<>();
             CountDownLatch messagesDeliveredLatch = new CountDownLatch(2);
@@ -139,7 +142,7 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
 
     @Test
     void respondingWhenSenderIsNotInTopologyResultsInFailingFuture() throws Exception {
-        try (Services services = createMessagingService(senderNode, senderNetworkConfig, () -> {})) {
+        try (Services services = createMessagingService(senderNode, senderNetworkConfig)) {
             CompletableFuture<Void> resultFuture = services.messagingService.respond("no-such-node", mock(NetworkMessage.class), 123);
 
             assertThat(resultFuture, willThrow(UnresolvableConsistentIdException.class));
@@ -154,12 +157,13 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
         Serializer longWaitSerializer = new Serializer(TestMessageImpl.GROUP_TYPE, TestMessageImpl.TYPE,
                 (message, writer) -> release.get()
                         && serializer.writeMessage((TestMessage) message, writer));
-        try (Services services = createMessagingService(
+
+        try (Services senderServices = createMessagingService(
                 senderNode,
                 senderNetworkConfig,
                 () -> {},
                 mockSerializationRegistry(longWaitSerializer));
-                Services receiverServices = createMessagingService(receiverNode, receiverNetworkConfig, () -> {})
+                Services receiverServices = createMessagingService(receiverNode, receiverNetworkConfig)
         ) {
             CountDownLatch latch = new CountDownLatch(2);
             receiverServices.messagingService.addMessageHandler(
@@ -167,8 +171,8 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
                     (message, sender, correlationId) -> latch.countDown()
             );
 
-            services.messagingService.send(receiverNode, TestMessageImpl.builder().build());
-            services.messagingService.send(receiverNode, AllTypesMessageImpl.builder().build());
+            senderServices.messagingService.send(receiverNode, TestMessageImpl.builder().build());
+            senderServices.messagingService.send(receiverNode, AllTypesMessageImpl.builder().build());
 
             assertThat(latch.getCount(), is(2L));
             release.set(true);
@@ -184,12 +188,13 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
         Serializer longWaitSerializer = new Serializer(TestMessageImpl.GROUP_TYPE, TestMessageImpl.TYPE,
                 (message, writer) -> release.get()
                         && serializer.writeMessage((TestMessage) message, writer));
-        try (Services services = createMessagingService(
+
+        try (Services senderServices = createMessagingService(
                 senderNode,
                 senderNetworkConfig,
                 () -> {},
                 mockSerializationRegistry(longWaitSerializer));
-                Services receiverServices = createMessagingService(receiverNode, receiverNetworkConfig, () -> {})
+                Services receiverServices = createMessagingService(receiverNode, receiverNetworkConfig)
         ) {
             CountDownLatch latch = new CountDownLatch(2);
             receiverServices.messagingService.addMessageHandler(
@@ -197,8 +202,8 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
                     (message, sender, correlationId) -> latch.countDown()
             );
 
-            services.messagingService.send(receiverNode, TestMessageImpl.builder().build());
-            services.messagingService.send(receiverNode, TEST_CHANNEL, AllTypesMessageImpl.builder().build());
+            senderServices.messagingService.send(receiverNode, TestMessageImpl.builder().build());
+            senderServices.messagingService.send(receiverNode, TEST_CHANNEL, AllTypesMessageImpl.builder().build());
 
             await().timeout(1, TimeUnit.SECONDS)
                     .until(() -> latch.getCount() == 1);
@@ -208,10 +213,46 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
         }
     }
 
+    @Test
+    public void differentChannelsAreHandledByDifferentInboundThreads() throws Exception {
+        try (
+                Services senderServices = createMessagingService(senderNode, senderNetworkConfig);
+                Services receiverServices = createMessagingService(receiverNode, receiverNetworkConfig)
+        ) {
+            CountDownLatch bothDelivered = new CountDownLatch(2);
+            CyclicBarrier barrier = new CyclicBarrier(2);
+
+            receiverServices.messagingService.addMessageHandler(
+                    TestMessageTypes.class,
+                    (message, sender, correlationId) -> {
+                        try {
+                            barrier.await(10, TimeUnit.SECONDS);
+                        } catch (InterruptedException e) {
+                            Thread.currentThread().interrupt();
+                            throw new RuntimeException(e);
+                        } catch (BrokenBarrierException | TimeoutException e) {
+                            throw new RuntimeException(e);
+                        }
+
+                        bothDelivered.countDown();
+                    }
+            );
+
+            senderServices.messagingService.send(receiverNode, TestMessageImpl.builder().build());
+
+            senderServices.messagingService.send(receiverNode, TEST_CHANNEL, TestMessageImpl.builder().build());
+
+            assertTrue(
+                    bothDelivered.await(1, TimeUnit.SECONDS),
+                    "Did not see both messages delivered in time (probably, they ended up in the same inbound thread)"
+            );
+        }
+    }
+
     private static MessageSerializationRegistry mockSerializationRegistry(Serializer... serializers) {
         MessageSerializationRegistry defaultRegistry = defaultSerializationRegistry();
 
-        MessageSerializationRegistry wrapper = new MessageSerializationRegistry() {
+        return new MessageSerializationRegistry() {
             @Override
             public MessageSerializationRegistry registerFactory(short groupType, short messageType,
                     MessageSerializationFactory<?> factory) {
@@ -233,8 +274,6 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
                 return defaultRegistry.createDeserializer(groupType, messageType);
             }
         };
-
-        return wrapper;
     }
 
     private static class Serializer {
@@ -259,6 +298,10 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
 
     private TestMessage testMessage(String message) {
         return testMessagesFactory.testMessage().msg(message).build();
+    }
+
+    private Services createMessagingService(ClusterNode node, NetworkConfiguration networkConfig) {
+        return createMessagingService(node, networkConfig, () -> {});
     }
 
     private Services createMessagingService(ClusterNode node, NetworkConfiguration networkConfig, Runnable beforeHandshake) {

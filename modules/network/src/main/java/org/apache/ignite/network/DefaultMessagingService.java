@@ -27,6 +27,7 @@ import it.unimi.dsi.fastutil.ints.IntSet;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -61,6 +62,8 @@ import org.jetbrains.annotations.TestOnly;
 public class DefaultMessagingService extends AbstractMessagingService {
     private static final IgniteLogger LOG = Loggers.forClass(DefaultMessagingService.class);
 
+    private final String nodeName;
+
     /** Network messages factory. */
     private final NetworkMessagesFactory factory;
 
@@ -86,7 +89,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
     private final ExecutorService outboundExecutor;
 
     /** Executor for inbound messages. */
-    private final ExecutorService inboundExecutor;
+    private final Map<Short, ExecutorService> inboundExecutors = new ConcurrentHashMap<>();
 
     // TODO: IGNITE-18493 - remove/move this
     @Nullable
@@ -107,6 +110,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
             ClassDescriptorRegistry classDescriptorRegistry,
             UserObjectMarshaller marshaller
     ) {
+        this.nodeName = nodeName;
         this.factory = factory;
         this.topologyService = topologyService;
         this.classDescriptorRegistry = classDescriptorRegistry;
@@ -115,7 +119,6 @@ public class DefaultMessagingService extends AbstractMessagingService {
         this.outboundExecutor = Executors.newSingleThreadExecutor(NamedThreadFactory.create(nodeName, "MessagingService-outbound-", LOG));
         // TODO asch the implementation of delayed acks relies on absence of reordering on subsequent messages delivery.
         // TODO asch This invariant should be preserved while working on IGNITE-20373
-        this.inboundExecutor = Executors.newSingleThreadExecutor(NamedThreadFactory.create(nodeName, "MessagingService-inbound-", LOG));
     }
 
     /**
@@ -326,18 +329,32 @@ public class DefaultMessagingService extends AbstractMessagingService {
      * @param obj Incoming message wrapper.
      */
     private void onMessage(InNetworkObject obj) {
-        if (isInNetworkThread()) {
-            inboundExecutor.execute(() -> {
-                try {
-                    onMessage(obj);
-                } catch (Throwable e) {
-                    logAndRethrowIfError(obj, e);
+        inboundExecutor(obj.connectionIndex()).execute(() -> {
+            long startedNanos = System.nanoTime();
+
+            try {
+                handleIncomingMessage(obj);
+            } catch (Throwable e) {
+                logAndRethrowIfError(obj, e);
+            } finally {
+                long tookMillis = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startedNanos);
+                if (tookMillis > 100) {
+                    LOG.warn("Processing of {} from {} took {} ms", obj.message(), obj.consistentId(), tookMillis);
                 }
-            });
+            }
+        });
+    }
 
-            return;
-        }
+    private ExecutorService inboundExecutor(short connectionIndex) {
+        return inboundExecutors.computeIfAbsent(
+                connectionIndex,
+                key -> Executors.newSingleThreadExecutor(
+                        NamedThreadFactory.create(nodeName, "MessagingService-inbound-" + connectionIndex, LOG)
+                )
+        );
+    }
 
+    private void handleIncomingMessage(InNetworkObject obj) {
         NetworkMessage msg = obj.message();
         DescriptorRegistry registry = obj.registry();
         try {
@@ -467,7 +484,9 @@ public class DefaultMessagingService extends AbstractMessagingService {
 
         requestsMap.clear();
 
-        IgniteUtils.shutdownAndAwaitTermination(inboundExecutor, 10, TimeUnit.SECONDS);
+        for (ExecutorService inboundExecutor : inboundExecutors.values()) {
+            IgniteUtils.shutdownAndAwaitTermination(inboundExecutor, 10, TimeUnit.SECONDS);
+        }
         IgniteUtils.shutdownAndAwaitTermination(outboundExecutor, 10, TimeUnit.SECONDS);
     }
 

@@ -116,7 +116,7 @@ public class HandshakeHandler extends ChannelInboundHandlerAdapter {
      * @param remoteConsistentId Remote node's consistent id.
      * @return Message handler.
      */
-    public MessageHandler createMessageHandler(String remoteConsistentId) {
-        return new MessageHandler(messageListener, remoteConsistentId, serializationService);
+    public MessageHandler createMessageHandler(String remoteConsistentId, short connectionIndex) {
+        return new MessageHandler(messageListener, remoteConsistentId, connectionIndex, serializationService);
     }
 }

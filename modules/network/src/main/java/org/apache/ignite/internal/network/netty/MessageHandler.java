@@ -37,6 +37,8 @@ public class MessageHandler extends ChannelInboundHandlerAdapter {
     /** Consistent id of the remote node. */
     private final String consistentId;
 
+    private final short connectionIndex;
+
     private final PerSessionSerializationService serializationService;
 
     /**
@@ -46,10 +48,11 @@ public class MessageHandler extends ChannelInboundHandlerAdapter {
      * @param consistentId Consistent id of the remote node.
      * @param serializationService Serialization service.
      */
-    public MessageHandler(Consumer<InNetworkObject> messageListener, String consistentId,
+    public MessageHandler(Consumer<InNetworkObject> messageListener, String consistentId, short connectionIndex,
             PerSessionSerializationService serializationService) {
         this.messageListener = messageListener;
         this.consistentId = consistentId;
+        this.connectionIndex = connectionIndex;
         this.serializationService = serializationService;
     }
 
@@ -62,6 +65,6 @@ public class MessageHandler extends ChannelInboundHandlerAdapter {
             return;
         }
 
-        messageListener.accept(new InNetworkObject(message, consistentId, serializationService.compositeDescriptorRegistry()));
+        messageListener.accept(new InNetworkObject(message, consistentId, connectionIndex, serializationService.compositeDescriptorRegistry()));
     }
 }
