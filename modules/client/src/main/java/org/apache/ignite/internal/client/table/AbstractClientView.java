@@ -18,11 +18,14 @@
 package org.apache.ignite.internal.client.table;
 
 import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.client.ClientUtils.sync;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
 import org.apache.ignite.internal.table.criteria.CursorSyncAdapter;
+import org.apache.ignite.internal.table.criteria.SqlSerializer;
 import org.apache.ignite.lang.Cursor;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.IgniteException;
@@ -52,7 +55,7 @@ abstract class AbstractClientView<R> implements CriteriaQuerySource<R> {
     }
 
     /**
-     * Get index mapping.
+     * Get mapping between for columns in query and record view.
      *
      * @param columns Columns to map.
      * @param metadata Metadata for query results.
@@ -82,6 +85,26 @@ abstract class AbstractClientView<R> implements CriteriaQuerySource<R> {
                     return rowIdx;
                 })
                 .collect(toList());
+    }
+
+    /**
+     * Construct SQL query and arguments for prepare statement and collect.
+     *
+     * @param tableName Table name.
+     * @param columns Table columns.
+     * @param criteria The predicate to filter entries or {@code null} to return all entries in record view.
+     * @return SQL query and it's arguments.
+     */
+    static SqlSerializer createSqlSerializer(String tableName, ClientColumn[] columns, @Nullable Criteria criteria) {
+        Set<String> columnNames = Arrays.stream(columns)
+                .map(ClientColumn::name)
+                .collect(toSet());
+
+        return new SqlSerializer.Builder()
+                .tableName(tableName)
+                .columns(columnNames)
+                .where(criteria)
+                .build();
     }
 
     /** {@inheritDoc} */

@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.client.table;
 
-import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.client.ClientUtils.sync;
 import static org.apache.ignite.internal.client.table.ClientTable.writeTx;
 import static org.apache.ignite.internal.util.CompletableFutures.emptyCollectionCompletedFuture;
@@ -25,7 +24,6 @@ import static org.apache.ignite.internal.util.CompletableFutures.emptyMapComplet
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
-import java.util.Arrays;
 import java.util.BitSet;
 import java.util.Collection;
 import java.util.Collections;
@@ -35,7 +33,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
 import java.util.function.Function;
@@ -567,16 +564,7 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
     ) {
         return tbl.getLatestSchema()
                 .thenCompose((schema) -> {
-                    Set<String> columnNames = Arrays.stream(schema.columns())
-                            .map(ClientColumn::name)
-                            .collect(toSet());
-
-                    SqlSerializer ser = new SqlSerializer.Builder()
-                            .tableName(tbl.name())
-                            .columns(columnNames)
-                            .where(criteria)
-                            .build();
-
+                    SqlSerializer ser = createSqlSerializer(tbl.name(), schema.columns(), criteria);
                     Session session = new ClientSessionBuilder(tbl.channel()).build();
 
                     return session.executeAsync(tx, ser.toString(), ser.getArguments())

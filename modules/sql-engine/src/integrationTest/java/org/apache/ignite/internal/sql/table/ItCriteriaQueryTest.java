@@ -239,6 +239,9 @@ public class ItCriteriaQueryTest extends ClusterPerClassIntegrationTest {
         return Lists.newArrayList(cursor).stream().collect(Collectors.toMap(Entry::getKey, Entry::getValue));
     }
 
+    /**
+     * Key class for reading from table.
+     */
     public static class PersonKey {
         int id;
 

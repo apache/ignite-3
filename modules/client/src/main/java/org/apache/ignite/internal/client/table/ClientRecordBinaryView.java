@@ -17,17 +17,14 @@
 
 package org.apache.ignite.internal.client.table;
 
-import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.client.ClientUtils.sync;
 import static org.apache.ignite.internal.util.CompletableFutures.emptyListCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
 import org.apache.ignite.client.RetryLimitPolicy;
@@ -399,15 +396,7 @@ public class ClientRecordBinaryView extends AbstractClientView<Tuple>  implement
     ) {
         return tbl.getLatestSchema()
                 .thenCompose((schema) -> {
-                    Set<String> columnNames = Arrays.stream(schema.columns())
-                            .map(ClientColumn::name)
-                            .collect(toSet());
-
-                    SqlSerializer ser = new SqlSerializer.Builder()
-                            .tableName(tbl.name())
-                            .columns(columnNames)
-                            .where(criteria)
-                            .build();
+                    SqlSerializer ser = createSqlSerializer(tbl.name(), schema.columns(), criteria);
 
                     Statement statement = new ClientStatementBuilder().query(ser.toString()).pageSize(opts.pageSize()).build();
                     Session session = new ClientSessionBuilder(tbl.channel()).build();
@@ -416,7 +405,8 @@ public class ClientRecordBinaryView extends AbstractClientView<Tuple>  implement
                             .thenApply(resultSet -> {
                                 List<Integer> idxMapping = indexMapping(schema.columns(), 0, schema.columns().length, resultSet.metadata());
 
-                                return new QueryCriteriaAsyncCursor<>(resultSet, (row) -> new SqlRowProjection(row, idxMapping), session::close);
+                                return new QueryCriteriaAsyncCursor<>(resultSet, (row) -> new SqlRowProjection(row, idxMapping),
+                                        session::close);
                             });
                 });
     }
