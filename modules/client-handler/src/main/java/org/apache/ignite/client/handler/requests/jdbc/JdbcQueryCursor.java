@@ -79,8 +79,14 @@ public class JdbcQueryCursor<T> implements AsyncSqlCursor<T> {
 
     /** {@inheritDoc} */
     @Override
-    public void onClose(Runnable callback) {
-        cur.onClose(callback);
+    public CompletableFuture<Void> onClose() {
+        return cur.onClose();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<Void> onFirstPageReady() {
+        return cur.onFirstPageReady();
     }
 
     /** {@inheritDoc} */

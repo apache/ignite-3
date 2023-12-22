@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.util;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.Matchers.containsString;
 
 import java.util.List;
@@ -295,7 +296,8 @@ public class QueryCheckerTest extends BaseIgniteAbstractTest {
                     plan.metadata(),
                     new QueryTransactionWrapperImpl(new NoOpTransaction("test"), false),
                     dataCursor,
-                    () -> {}
+                    nullCompletedFuture(),
+                    null
             );
 
             return CompletableFuture.completedFuture(sqlCursor);
