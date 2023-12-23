@@ -27,6 +27,7 @@ import org.apache.ignite.internal.configuration.testframework.ConfigurationExten
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.storage.AbstractMvPartitionStorageGcTest;
+import org.apache.ignite.internal.storage.configurations.StoragesConfiguration;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorageEngine;
@@ -51,13 +52,15 @@ class PersistentPageMemoryMvPartitionStorageGcTest extends AbstractMvPartitionSt
     void setUp(
             @WorkDirectory Path workDir,
             @InjectConfiguration("mock.checkpoint.checkpointDelayMillis = 0")
-            PersistentPageMemoryProfileStorageEngineConfiguration engineConfig
+            PersistentPageMemoryProfileStorageEngineConfiguration engineConfig,
+            @InjectConfiguration
+            StoragesConfiguration storagesConfiguration
     ) {
         var ioRegistry = new PageIoRegistry();
 
         ioRegistry.loadFromServiceLoader();
 
-        engine = new PersistentPageMemoryStorageEngine("test", engineConfig, ioRegistry, workDir, null);
+        engine = new PersistentPageMemoryStorageEngine("test", engineConfig, storagesConfiguration, ioRegistry, workDir, null);
 
         engine.start();
 

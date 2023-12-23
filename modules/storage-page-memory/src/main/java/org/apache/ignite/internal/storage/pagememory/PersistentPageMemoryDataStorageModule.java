@@ -30,8 +30,6 @@ import org.apache.ignite.internal.storage.configurations.StoragesConfiguration;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistPageMemoryStorageEngineExtensionConfiguration;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryProfileStorageEngineConfiguration;
-import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryProfileStorageEngineConfigurationSchema;
-import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineConfiguration;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -57,12 +55,15 @@ public class PersistentPageMemoryDataStorageModule implements DataStorageModule 
                 ((PersistPageMemoryStorageEngineExtensionConfiguration) configRegistry
                         .getConfiguration(StoragesConfiguration.KEY).engines()).aipersist();
 
+        StoragesConfiguration storagesConfig = configRegistry.getConfiguration(StoragesConfiguration.KEY);
+
         assert engineConfig != null;
 
         PageIoRegistry ioRegistry = new PageIoRegistry();
 
         ioRegistry.loadFromServiceLoader();
 
-        return new PersistentPageMemoryStorageEngine(igniteInstanceName, engineConfig, ioRegistry, storagePath, longJvmPauseDetector);
+        return new PersistentPageMemoryStorageEngine(igniteInstanceName, engineConfig, storagesConfig,
+                ioRegistry, storagePath, longJvmPauseDetector);
     }
 }

@@ -35,6 +35,7 @@ import org.apache.ignite.internal.configuration.testframework.InjectConfiguratio
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.storage.configurations.StoragesConfiguration;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorageEngine;
@@ -55,6 +56,9 @@ class PersistentPageMemoryMvPartitionStorageTest extends AbstractPageMemoryMvPar
     @InjectConfiguration("mock.checkpoint.checkpointDelayMillis = 0")
     private PersistentPageMemoryProfileStorageEngineConfiguration engineConfig;
 
+    @InjectConfiguration
+    private StoragesConfiguration storagesConfiguration;
+
     @WorkDirectory
     private Path workDir;
 
@@ -68,7 +72,7 @@ class PersistentPageMemoryMvPartitionStorageTest extends AbstractPageMemoryMvPar
 
         ioRegistry.loadFromServiceLoader();
 
-        engine = new PersistentPageMemoryStorageEngine("test", engineConfig, ioRegistry, workDir, null);
+        engine = new PersistentPageMemoryStorageEngine("test", engineConfig, storagesConfiguration, ioRegistry, workDir, null);
 
         engine.start();
 

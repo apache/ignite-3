@@ -46,6 +46,7 @@ import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryProfileStorageEngineConfiguration;
+import org.apache.ignite.lang.ErrorGroups.Storage;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -59,7 +60,7 @@ public class PersistentPageMemoryStorageEngine implements StorageEngine {
 
     private final PersistentPageMemoryProfileStorageEngineConfiguration engineConfig;
 
-    private final StoragesConfiguration storagesConfiguration = null;
+    private final StoragesConfiguration storagesConfiguration;
 
     private final PageIoRegistry ioRegistry;
 
@@ -91,12 +92,14 @@ public class PersistentPageMemoryStorageEngine implements StorageEngine {
     public PersistentPageMemoryStorageEngine(
             String igniteInstanceName,
             PersistentPageMemoryProfileStorageEngineConfiguration engineConfig,
+            StoragesConfiguration storagesConfiguration,
             PageIoRegistry ioRegistry,
             Path storagePath,
             @Nullable LongJvmPauseDetector longJvmPauseDetector
     ) {
         this.igniteInstanceName = igniteInstanceName;
         this.engineConfig = engineConfig;
+        this.storagesConfiguration = storagesConfiguration;
         this.ioRegistry = ioRegistry;
         this.storagePath = storagePath;
         this.longJvmPauseDetector = longJvmPauseDetector;
@@ -155,7 +158,7 @@ public class PersistentPageMemoryStorageEngine implements StorageEngine {
             throw new StorageException("Error starting checkpoint manager", e);
         }
 
-        addDataRegion(DEFAULT_DATA_REGION_NAME);
+//        addDataRegion(DEFAULT_DATA_REGION_NAME);
 
         // TODO: IGNITE-17066 Add handling deleting/updating data regions configuration
         storagesConfiguration.profiles().listenElements(new ConfigurationNamedListListener<StorageProfileView>() {

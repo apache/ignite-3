@@ -21,6 +21,7 @@ import java.nio.file.Path;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
+import org.apache.ignite.internal.storage.configurations.StoragesConfiguration;
 import org.apache.ignite.internal.storage.engine.AbstractStorageEngineTest;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorageEngine;
@@ -39,6 +40,9 @@ public class PersistentPageMemoryStorageEngineTest extends AbstractStorageEngine
     @InjectConfiguration("mock {checkpoint.checkpointDelayMillis = 0, defaultRegion.size = 1048576}")
     private PersistentPageMemoryProfileStorageEngineConfiguration engineConfiguration;
 
+    @InjectConfiguration
+    private StoragesConfiguration storagesConfiguration;
+
     @WorkDirectory
     private Path workDir;
 
@@ -51,6 +55,7 @@ public class PersistentPageMemoryStorageEngineTest extends AbstractStorageEngine
         return new PersistentPageMemoryStorageEngine(
                 "test",
                 engineConfiguration,
+                storagesConfiguration,
                 ioRegistry,
                 workDir,
                 null
