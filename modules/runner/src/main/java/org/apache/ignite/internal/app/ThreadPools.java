@@ -57,6 +57,9 @@ public class ThreadPools implements IgniteComponent {
         IgniteUtils.shutdownAndAwaitTermination(partitionOperationsExecutor, 10, TimeUnit.SECONDS);
     }
 
+    /**
+     * Returns the executor of partition operations.
+     */
     public StripedThreadPoolExecutor partitionOperationsExecutor() {
         return partitionOperationsExecutor;
     }
