@@ -38,7 +38,9 @@ import io.netty.channel.DefaultChannelProgressivePromise;
 import io.netty.util.concurrent.EventExecutor;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 import java.util.concurrent.atomic.AtomicBoolean;
+import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
 import org.apache.ignite.internal.network.handshake.HandshakeException;
 import org.apache.ignite.internal.network.netty.ChannelCreationListener;
@@ -88,6 +90,8 @@ class RecoveryServerHandshakeManagerTest extends BaseIgniteAbstractTest {
     private ArgumentCaptor<OutNetworkObject> sentMessageCaptor;
 
     private final RecoveryDescriptor recoveryDescriptor = new RecoveryDescriptor(100);
+
+    private final AtomicBoolean serverHandshakeManagerStopping = new AtomicBoolean(false);
 
     @BeforeEach
     void initMocks() {
@@ -150,7 +154,7 @@ class RecoveryServerHandshakeManagerTest extends BaseIgniteAbstractTest {
                 recoveryDescriptorProvider,
                 new AllIdsAreFresh(),
                 channelCreationListener,
-                new AtomicBoolean(false)
+                serverHandshakeManagerStopping
         );
 
         manager.onInit(context);
@@ -165,5 +169,19 @@ class RecoveryServerHandshakeManagerTest extends BaseIgniteAbstractTest {
                 .connectionId(CONNECTION_INDEX)
                 .receivedCount(0)
                 .build();
+    }
+
+    @Test
+    void gettingHandshakeStartResponseWhenStoppingCausesHandshakeToBeFinishedWithNodeStoppingException() {
+        RecoveryServerHandshakeManager manager = serverHandshakeManager(LOWER_ID);
+        serverHandshakeManagerStopping.set(true);
+
+        CompletableFuture<NettySender> localHandshakeFuture = manager.localHandshakeFuture();
+        CompletionStage<NettySender> finalHandshakeFuture = manager.finalHandshakeFuture();
+
+        manager.onMessage(handshakeStartResponseMessageFrom(HIGHER_ID));
+
+        assertWillThrowFast(localHandshakeFuture, NodeStoppingException.class);
+        assertWillThrowFast(finalHandshakeFuture.toCompletableFuture(), NodeStoppingException.class);
     }
 }
