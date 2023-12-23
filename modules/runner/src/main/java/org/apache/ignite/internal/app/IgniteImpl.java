@@ -213,6 +213,8 @@ public class IgniteImpl implements Ignite {
     /** Lifecycle manager. */
     private final LifecycleManager lifecycleManager;
 
+    private final ThreadPoolsManager threadPoolsManager;
+
     /** Vault manager. */
     private final VaultManager vaultMgr;
 
@@ -333,6 +335,8 @@ public class IgniteImpl implements Ignite {
         longJvmPauseDetector = new LongJvmPauseDetector(name);
 
         lifecycleManager = new LifecycleManager(name);
+
+        threadPoolsManager = new ThreadPoolsManager(name);
 
         vaultMgr = createVault(name, workDir);
 
@@ -500,6 +504,7 @@ public class IgniteImpl implements Ignite {
                 clock,
                 Set.of(TableMessageGroup.class, TxMessageGroup.class),
                 placementDriverMgr.placementDriver(),
+                threadPoolsManager.partitionOperationsExecutor(),
                 partitionIdleSafeTimePropagationPeriodMsSupplier
         );
 
@@ -594,6 +599,7 @@ public class IgniteImpl implements Ignite {
                 metaStorageMgr,
                 schemaManager,
                 volatileLogStorageFactoryCreator,
+                threadPoolsManager.partitionOperationsExecutor(),
                 clock,
                 outgoingSnapshotsManager,
                 topologyAwareRaftGroupServiceFactory,
@@ -787,6 +793,7 @@ public class IgniteImpl implements Ignite {
 
             // Start the components that are required to join the cluster.
             lifecycleManager.startComponents(
+                    threadPoolsManager,
                     clockWaiter,
                     nettyBootstrapFactory,
                     clusterSvc,
