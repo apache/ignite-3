@@ -130,6 +130,10 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     /** A hybrid logical clock. */
     private final HybridClock clock;
 
+    /**
+     * On this pool, a stripe is chosen using {@link ReplicationGroupStripes#stripeFor(ReplicationGroupId, StripedThreadPoolExecutor)}
+     * so that requests concerning the same {@link ReplicationGroupId} are executed on the same thread.
+     */
     private final StripedThreadPoolExecutor requestsExecutor;
 
     /** Scheduled executor for idle safe time sync. */
