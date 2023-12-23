@@ -793,6 +793,7 @@ public class IgniteImpl implements Ignite {
 
             // Start the components that are required to join the cluster.
             lifecycleManager.startComponents(
+                    threadPools,
                     clockWaiter,
                     nettyBootstrapFactory,
                     clusterSvc,
@@ -827,7 +828,6 @@ public class IgniteImpl implements Ignite {
                         // Start all other components after the join request has completed and the node has been validated.
                         try {
                             lifecycleManager.startComponents(
-                                    threadPools,
                                     catalogManager,
                                     clusterCfgMgr,
                                     placementDriverMgr,

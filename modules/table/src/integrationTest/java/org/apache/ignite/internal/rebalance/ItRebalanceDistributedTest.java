@@ -1106,6 +1106,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
          */
         void start() {
             List<IgniteComponent> firstComponents = List.of(
+                    threadPools,
                     vaultManager,
                     nodeCfgMgr,
                     clusterService,
@@ -1119,7 +1120,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
             deployWatchesFut = CompletableFuture.supplyAsync(() -> {
                 List<IgniteComponent> secondComponents = List.of(
-                        threadPools,
                         metaStorageManager,
                         clusterCfgMgr,
                         clockWaiter,
