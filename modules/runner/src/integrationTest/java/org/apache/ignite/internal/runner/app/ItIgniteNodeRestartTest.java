@@ -64,7 +64,7 @@ import org.apache.ignite.InitParameters;
 import org.apache.ignite.internal.BaseIgniteRestartTest;
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.app.IgniteImpl;
-import org.apache.ignite.internal.app.ThreadPools;
+import org.apache.ignite.internal.app.ThreadPoolsManager;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
 import org.apache.ignite.internal.catalog.ClockWaiter;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
@@ -337,7 +337,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 hybridClock
         );
 
-        var threadPools = new ThreadPools(name);
+        var threadPools = new ThreadPoolsManager(name);
 
         ReplicaManager replicaMgr = new ReplicaManager(
                 name,

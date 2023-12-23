@@ -29,15 +29,15 @@ import org.apache.ignite.internal.util.IgniteUtils;
 /**
  * Component that hosts thread pools which do not belong to a certain component and which are global to an Ignite instance.
  */
-public class ThreadPools implements IgniteComponent {
-    private static final IgniteLogger LOG = Loggers.forClass(ThreadPools.class);
+public class ThreadPoolsManager implements IgniteComponent {
+    private static final IgniteLogger LOG = Loggers.forClass(ThreadPoolsManager.class);
 
     private final StripedThreadPoolExecutor partitionOperationsExecutor;
 
     /**
      * Constructor.
      */
-    public ThreadPools(String nodeName) {
+    public ThreadPoolsManager(String nodeName) {
         partitionOperationsExecutor = new StripedThreadPoolExecutor(
                 Math.min(Runtime.getRuntime().availableProcessors() * 3, 25),
                 NamedThreadFactory.threadPrefix(nodeName, "partition-operations"),
