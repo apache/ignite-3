@@ -47,7 +47,8 @@ class VolatilePageMemoryGcUpdateHandlerTest extends AbstractGcUpdateHandlerTest 
     @BeforeEach
     void setUp(
             @InjectConfiguration VolatilePageMemoryProfileStorageEngineConfiguration engineConfig,
-            @InjectConfiguration StoragesConfiguration storagesConfig
+            @InjectConfiguration("mock.profiles.default = {engine = \"aimem\"}")
+            StoragesConfiguration storagesConfig
     ) {
         PageIoRegistry ioRegistry = new PageIoRegistry();
 
