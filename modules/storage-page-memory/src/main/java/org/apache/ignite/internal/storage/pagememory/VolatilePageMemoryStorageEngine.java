@@ -37,6 +37,7 @@ import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMe
 import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryDataRegionView;
 import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryProfileConfiguration;
 import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryProfileConfigurationSchema;
+import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryProfileView;
 import org.apache.ignite.internal.pagememory.evict.PageEvictionTracker;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.util.GradualTaskExecutor;
@@ -100,7 +101,13 @@ public class VolatilePageMemoryStorageEngine implements StorageEngine {
 
     @Override
     public void start() throws StorageException {
-        storagesConfiguration.profiles().listenElements(new ConfigurationNamedListListener<StorageProfileView>() {
+        storagesConfiguration.profiles().value().stream().forEach(p -> {
+            if (p instanceof VolatilePageMemoryProfileView) {
+                addDataRegion(p.name());
+            }
+        });
+
+        storagesConfiguration.profiles().listenElements(new ConfigurationNamedListListener<>() {
             @Override
             public CompletableFuture<?> onCreate(ConfigurationNotificationEvent<StorageProfileView> ctx) {
                 if (ctx.newValue() instanceof VolatilePageMemoryProfileConfiguration) {

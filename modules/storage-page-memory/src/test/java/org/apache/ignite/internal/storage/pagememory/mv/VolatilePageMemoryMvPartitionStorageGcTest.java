@@ -48,7 +48,8 @@ class VolatilePageMemoryMvPartitionStorageGcTest extends AbstractMvPartitionStor
     @BeforeEach
     void setUp(
             @InjectConfiguration VolatilePageMemoryProfileStorageEngineConfiguration engineConfig,
-            @InjectConfiguration StoragesConfiguration storagesConfiguration
+            @InjectConfiguration("mock.profiles.default = {engine = \"aimem\"}")
+            StoragesConfiguration storagesConfiguration
     ) {
         var ioRegistry = new PageIoRegistry();
 

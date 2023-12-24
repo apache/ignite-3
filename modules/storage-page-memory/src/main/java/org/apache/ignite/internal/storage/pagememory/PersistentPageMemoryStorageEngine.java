@@ -35,6 +35,8 @@ import org.apache.ignite.internal.fileio.RandomAccessFileIoFactory;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileConfiguration;
+import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileView;
+import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryProfileView;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMetaManager;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointManager;
@@ -159,6 +161,11 @@ public class PersistentPageMemoryStorageEngine implements StorageEngine {
         }
 
 //        addDataRegion(DEFAULT_DATA_REGION_NAME);
+        storagesConfiguration.profiles().value().stream().forEach(p -> {
+            if (p instanceof PersistentPageMemoryProfileView) {
+                addDataRegion(p.name());
+            }
+        });
 
         // TODO: IGNITE-17066 Add handling deleting/updating data regions configuration
         storagesConfiguration.profiles().listenElements(new ConfigurationNamedListListener<StorageProfileView>() {

@@ -47,7 +47,7 @@ class VolatilePageMemorySortedIndexStorageTest extends AbstractPageMemorySortedI
     void setUp(
             @InjectConfiguration
             VolatilePageMemoryProfileStorageEngineConfiguration engineConfig,
-            @InjectConfiguration
+            @InjectConfiguration("mock.profiles.default = {engine = \"aimem\"}")
             StoragesConfiguration storagesConfiguration
     ) {
         PageIoRegistry ioRegistry = new PageIoRegistry();

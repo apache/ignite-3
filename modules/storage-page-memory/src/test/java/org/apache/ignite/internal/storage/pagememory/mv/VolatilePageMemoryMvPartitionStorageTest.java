@@ -43,7 +43,7 @@ class VolatilePageMemoryMvPartitionStorageTest extends AbstractPageMemoryMvParti
     @InjectConfiguration
     private VolatilePageMemoryProfileStorageEngineConfiguration engineConfig;
 
-    @InjectConfiguration
+    @InjectConfiguration("mock.profiles.default = {engine = \"aimem\"}")
     private StoragesConfiguration storagesConfiguration;
 
     private VolatilePageMemoryStorageEngine engine;
