@@ -367,6 +367,11 @@ public class IgniteImpl implements Ignite {
                 modules.local().polymorphicSchemaExtensions()
         );
 
+        ConfigurationDynamicDefaultsPatcher localCfgDynamicDefaultsPatcher = new ConfigurationDynamicDefaultsPatcherImpl(
+                modules.distributed(),
+                localConfigurationGenerator
+        );
+
         LocalFileConfigurationStorage localFileConfigurationStorage = new LocalFileConfigurationStorage(
                 configPath,
                 localConfigurationGenerator

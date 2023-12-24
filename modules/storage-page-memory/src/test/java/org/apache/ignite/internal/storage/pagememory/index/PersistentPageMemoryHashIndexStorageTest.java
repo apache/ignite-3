@@ -50,7 +50,7 @@ class PersistentPageMemoryHashIndexStorageTest extends AbstractPageMemoryHashInd
             Path workDir,
             @InjectConfiguration
             PersistentPageMemoryProfileStorageEngineConfiguration engineConfig,
-            @InjectConfiguration
+            @InjectConfiguration("mock.profiles.default = {engine = \"aipersist\"}")
             StoragesConfiguration storagesConfiguration
     ) {
         PageIoRegistry ioRegistry = new PageIoRegistry();

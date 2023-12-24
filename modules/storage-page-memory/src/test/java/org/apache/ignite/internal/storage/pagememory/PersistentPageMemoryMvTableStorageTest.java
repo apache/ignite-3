@@ -53,7 +53,8 @@ public class PersistentPageMemoryMvTableStorageTest extends AbstractMvTableStora
     void setUp(
             @WorkDirectory Path workDir,
             @InjectConfiguration PersistentPageMemoryProfileStorageEngineConfiguration engineConfig,
-            @InjectConfiguration StoragesConfiguration storagesConfiguration
+            @InjectConfiguration("mock.profiles.default = {engine = \"aipersist\"}")
+            StoragesConfiguration storagesConfiguration
     ) {
         var ioRegistry = new PageIoRegistry();
 

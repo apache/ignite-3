@@ -40,7 +40,7 @@ public class PersistentPageMemoryStorageEngineTest extends AbstractStorageEngine
     @InjectConfiguration("mock {checkpoint.checkpointDelayMillis = 0, defaultRegion.size = 1048576}")
     private PersistentPageMemoryProfileStorageEngineConfiguration engineConfiguration;
 
-    @InjectConfiguration
+    @InjectConfiguration("mock.profiles.default = {engine = \"aipersist\"}")
     private StoragesConfiguration storagesConfiguration;
 
     @WorkDirectory
