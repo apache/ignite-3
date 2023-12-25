@@ -72,12 +72,25 @@ class LazyStripedExecutor implements ManuallyCloseable {
     }
 
     private Executor executorFor(short index) {
-        return array.updateAndGet(
-                index,
-                existing -> existing != null
-                        ? existing
-                        : Executors.newSingleThreadExecutor(NamedThreadFactory.create(nodeName, poolName + "-" + index, LOG))
-        );
+        ExecutorService existing = array.get(index);
+
+        if (existing != null) {
+            return existing;
+        }
+
+        synchronized (array) {
+            existing = array.get(index);
+            if (existing != null) {
+                return existing;
+            }
+
+            ExecutorService newExecutor = Executors.newSingleThreadExecutor(
+                    NamedThreadFactory.create(nodeName, poolName + "-" + index, LOG));
+
+            array.set(index, newExecutor);
+
+            return newExecutor;
+        }
     }
 
     @Override
