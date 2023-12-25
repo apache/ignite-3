@@ -15,28 +15,42 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.security.authentication;
+package org.apache.ignite.internal.security.authentication.event;
 
 /**
- * Represents the user details.
+ * User event parameters.
  */
-public class UserDetails {
-    public static final UserDetails UNKNOWN = new UserDetails("unknown", "unknown");
-
-    private final String username;
+public class UserEventParameters implements AuthenticationEventParameters {
+    private final AuthenticationEvent type;
 
     private final String providerName;
 
-    public UserDetails(String username, String providerName) {
-        this.username = username;
+    private final String userName;
+
+    private UserEventParameters(AuthenticationEvent type, String providerName, String userName) {
+        this.type = type;
         this.providerName = providerName;
+        this.userName = userName;
     }
 
-    public String username() {
-        return username;
+    @Override
+    public AuthenticationEvent type() {
+        return type;
     }
 
     public String providerName() {
         return providerName;
+    }
+
+    public String username() {
+        return userName;
+    }
+
+    public static UserEventParameters updated(String providerName, String name) {
+        return new UserEventParameters(AuthenticationEvent.USER_UPDATED, providerName, name);
+    }
+
+    public static UserEventParameters removed(String providerName, String name) {
+        return new UserEventParameters(AuthenticationEvent.USER_REMOVED, providerName, name);
     }
 }

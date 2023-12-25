@@ -15,14 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.security.authentication.event;
+package org.apache.ignite.internal.security.authentication.basic;
 
-/**
- * Authentication events listener.
- */
-public interface AuthenticationListener {
-    /**
-     * Handle authentication event.
-     */
-    void onEvent(AuthenticationEvent event);
+import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.lang.ErrorGroups.Authentication;
+
+/** Thrown when there are no basic provider defined in the authentication configuration. */
+public class BasicProviderNotFoundException extends IgniteInternalException {
+    public BasicProviderNotFoundException() {
+        super(Authentication.BASIC_PROVIDER_ERR, "Basic authentication provider is not found");
+    }
 }

@@ -294,14 +294,11 @@ public class ClientHandlerModule implements IgniteComponent {
 
                             ClientInboundMessageHandler messageHandler = createInboundMessageHandler(
                                     configuration, clusterId, connectionId);
-                            authenticationManager.listen(messageHandler);
 
                             ch.pipeline().addLast(
                                     new ClientMessageDecoder(),
                                     messageHandler
                             );
-
-                            ch.closeFuture().addListener(future -> authenticationManager.stopListen(messageHandler));
 
                             metrics.connectionsInitiatedIncrement();
                         } finally {

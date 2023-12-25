@@ -495,6 +495,9 @@ public class ErrorGroups {
 
         /** Authentication error caused by invalid credentials. */
         public static final int INVALID_CREDENTIALS_ERR = AUTHENTICATION_ERR_GROUP.registerErrorCode((short) 2);
+
+        /** Basic authentication provider is not found. */
+        public static final int BASIC_PROVIDER_ERR = AUTHENTICATION_ERR_GROUP.registerErrorCode((short) 3);
     }
 
     /**
