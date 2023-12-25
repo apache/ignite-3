@@ -28,11 +28,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ThreadLocalRandom;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.compute.JobExecution;
@@ -44,7 +40,6 @@ import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.lang.util.IgniteNameUtils;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.network.TopologyEventHandler;
 import org.apache.ignite.network.TopologyService;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
@@ -55,13 +50,13 @@ import org.apache.ignite.table.mapper.Mapper;
 public class IgniteComputeImpl implements IgniteCompute {
     private static final String DEFAULT_SCHEMA_NAME = "PUBLIC";
 
-    private final Map<ClusterNode, List<RemoteExecutionRequest>> runningJobs = new ConcurrentHashMap<>();
-
     private final TopologyService topologyService;
     private final IgniteTablesInternal tables;
     private final ComputeComponent computeComponent;
 
     private final ThreadLocalRandom random = ThreadLocalRandom.current();
+
+    private final NodeLeftEventsSource nodeLeftEventsSource;
 
     /**
      * Create new instance.
@@ -70,6 +65,7 @@ public class IgniteComputeImpl implements IgniteCompute {
         this.topologyService = topologyService;
         this.tables = tables;
         this.computeComponent = computeComponent;
+        this.nodeLeftEventsSource = new NodeLeftEventsSource(topologyService);
     }
 
     /** {@inheritDoc} */
@@ -84,33 +80,14 @@ public class IgniteComputeImpl implements IgniteCompute {
         }
 
         Set<ClusterNode> candidates = new HashSet<>(nodes);
-        ClusterNode candidate = randomNode(candidates);
-
-        candidates.remove(candidate);
-
-        RemoteExecutionRequest req = new RemoteExecutionRequest();
-        req.worker = candidate;
-        req.units = units;
-        req.jobClassName = jobClassName;
-        req.args = args;
-        req.failoverCandidates = candidates;
-
-        RemoteCompletableFutureWrapper<R> futureWrapper = new RemoteCompletableFutureWrapper<>(
-                executeOnOneNode(candidate, units, jobClassName, args));
-        req.future = futureWrapper;
-
-        runningJobs.put(candidate, List.of(req));
-
-
-        var handler = new NodeLeftTopologyEventHandler();
-        handler.runningJobs = runningJobs;
-        handler.parent = this;
-        topologyService.addEventHandler(handler);
+        ClusterNode targetNode = randomNode(candidates);
 
         return new JobExecutionWrapper<>(executeOnOneNode(candidate, units, jobClassName, args);
         return futureWrapper;
     }
+        candidates.remove(targetNode);
 
+        return executeOnOneNode(targetNode, candidates, units, jobClassName, args);
     private static class RemoteExecutionRequest<T> {
         ClusterNode worker;
         List<DeploymentUnit> units;
@@ -207,7 +184,9 @@ public class IgniteComputeImpl implements IgniteCompute {
     }
 
     private <R> JobExecution<R> executeOnOneNode(
+    private <R> CompletableFuture<R> executeOnOneNode(
             ClusterNode targetNode,
+            Set<ClusterNode> failoverCandidates,
             List<DeploymentUnit> units,
             String jobClassName,
             Object[] args
@@ -215,7 +194,11 @@ public class IgniteComputeImpl implements IgniteCompute {
         if (isLocal(targetNode)) {
             return computeComponent.executeLocally(units, jobClassName, args);
         } else {
-            return computeComponent.executeRemotely(targetNode, units, jobClassName, args);
+            return new ComputeJobFailover<R>(
+                    computeComponent, nodeLeftEventsSource,
+                    targetNode, failoverCandidates, units,
+                    jobClassName, args
+            ).failSafeExecuteOnOneNode();
         }
     }
 
@@ -239,7 +222,7 @@ public class IgniteComputeImpl implements IgniteCompute {
 
         return new JobExecutionFutureWrapper<>(requiredTable(tableName)
                 .thenApply(table -> leaderOfTablePartitionByTupleKey(table, key))
-                .thenApply(primaryNode -> executeOnOneNode(primaryNode, units, jobClassName, args)));
+                .thenApply(primaryNode -> executeOnOneNode(primaryNode, null, units, jobClassName, args)));
     }
 
     /** {@inheritDoc} */
@@ -260,7 +243,7 @@ public class IgniteComputeImpl implements IgniteCompute {
 
         return new JobExecutionFutureWrapper<>(requiredTable(tableName)
                 .thenApply(table -> leaderOfTablePartitionByMappedKey(table, key, keyMapper))
-                .thenApply(primaryNode -> executeOnOneNode(primaryNode, units, jobClassName, args)));
+                .thenApply(primaryNode -> executeOnOneNode(primaryNode, null, units, jobClassName, args)));
     }
 
     /** {@inheritDoc} */
@@ -340,5 +323,6 @@ public class IgniteComputeImpl implements IgniteCompute {
         return nodes.stream()
                 .collect(toUnmodifiableMap(identity(),
                         node -> new JobExecutionWrapper<>(executeOnOneNode(node, units, jobClassName, args))));
+                .collect(toUnmodifiableMap(node -> node, node -> executeOnOneNode(node, null, units, jobClassName, args)));
     }
 }
