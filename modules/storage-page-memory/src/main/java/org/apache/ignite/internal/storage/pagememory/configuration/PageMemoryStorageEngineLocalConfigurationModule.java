@@ -17,18 +17,29 @@
 
 package org.apache.ignite.internal.storage.pagememory.configuration;
 
+import static org.apache.ignite.internal.util.Constants.MiB;
+import static org.apache.ignite.internal.util.IgniteUtils.getTotalMemoryAvailable;
+
 import com.google.auto.service.AutoService;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.configuration.RootKey;
+import org.apache.ignite.configuration.SuperRootChange;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.validation.Validator;
+import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileChange;
+import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileConfigurationSchema;
+import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryProfileConfigurationSchema;
+import org.apache.ignite.internal.storage.configurations.StoragesConfiguration;
+import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistPageMemoryStorageEngineExtensionConfiguration;
+import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistPageMemoryStorageEngineExtensionConfigurationSchema;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryDataStorageConfigurationSchema;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineConfiguration;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryDataStorageConfigurationSchema;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryStorageEngineConfiguration;
+import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryStorageEngineExtensionConfigurationSchema;
 
 /**
  * {@link ConfigurationModule} for cluster-wide configuration provided by ignite-storage-page-memory.
@@ -51,13 +62,30 @@ public class PageMemoryStorageEngineLocalConfigurationModule implements Configur
     @Override
     public Collection<Class<?>> polymorphicSchemaExtensions() {
         return List.of(
+                VolatilePageMemoryProfileConfigurationSchema.class,
+                PersistentPageMemoryProfileConfigurationSchema.class,
                 VolatilePageMemoryDataStorageConfigurationSchema.class,
                 PersistentPageMemoryDataStorageConfigurationSchema.class);
+    }
+
+    @Override
+    public Collection<Class<?>> schemaExtensions() {
+        return List.of(
+                PersistPageMemoryStorageEngineExtensionConfigurationSchema.class,
+                VolatilePageMemoryStorageEngineExtensionConfigurationSchema.class);
     }
 
     /** {@inheritDoc} */
     @Override
     public Set<Validator<?, ?>> validators() {
         return Set.of(PageMemoryDataRegionValidatorImpl.INSTANCE);
+    }
+
+    @Override
+    public void patchConfigurationWithDynamicDefaults(SuperRootChange rootChange) {
+        rootChange.changeRoot(StoragesConfiguration.KEY).changeProfiles(ch -> ch.create("default", p -> {
+            p.convert(PersistentPageMemoryProfileChange.class).changeSize(
+                    Math.max(256 * MiB, (long) (0.2 * getTotalMemoryAvailable())));
+        }));
     }
 }

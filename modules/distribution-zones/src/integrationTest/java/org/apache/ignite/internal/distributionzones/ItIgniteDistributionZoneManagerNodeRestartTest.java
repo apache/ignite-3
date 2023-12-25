@@ -188,7 +188,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
         var nodeCfgMgr = new ConfigurationManager(
                 modules.local().rootKeys(),
-                new LocalFileConfigurationStorage(configFile, localConfigurationGenerator),
+                new LocalFileConfigurationStorage(configFile, localConfigurationGenerator, modules.local()),
                 localConfigurationGenerator,
                 ConfigurationValidatorImpl.withDefaultValidators(localConfigurationGenerator, modules.local().validators())
         );

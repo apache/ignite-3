@@ -49,7 +49,10 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import org.apache.ignite.configuration.ConfigurationDynamicDefaultsPatcher;
+import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
+import org.apache.ignite.internal.configuration.ConfigurationDynamicDefaultsPatcherImpl;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.NodeConfigCreateException;
 import org.apache.ignite.internal.configuration.NodeConfigParseException;
@@ -84,6 +87,8 @@ public class LocalFileConfigurationStorage implements ConfigurationStorage {
     /** Configuration tree generator. */
     private final ConfigurationTreeGenerator generator;
 
+    private final ConfigurationModule module;
+
     /** Configuration changes listener. */
     private final AtomicReference<ConfigurationStorageListener> lsnrRef = new AtomicReference<>();
 
@@ -104,12 +109,41 @@ public class LocalFileConfigurationStorage implements ConfigurationStorage {
      * @param configPath Path to node bootstrap configuration file.
      * @param generator Configuration tree generator.
      */
+    public LocalFileConfigurationStorage(Path configPath, ConfigurationTreeGenerator generator, ConfigurationModule module) {
+        this.configPath = configPath;
+        this.generator = generator;
+        this.tempConfigPath = configPath.resolveSibling(configPath.getFileName() + ".tmp");
+        this.module = module;
+
+        checkAndRestoreConfigFile();
+    }
+
+    /**
+     * Constructor.
+     *
+     * @param configPath
+     * @param generator
+     */
     public LocalFileConfigurationStorage(Path configPath, ConfigurationTreeGenerator generator) {
         this.configPath = configPath;
         this.generator = generator;
         this.tempConfigPath = configPath.resolveSibling(configPath.getFileName() + ".tmp");
+        this.module = null;
 
         checkAndRestoreConfigFile();
+    }
+
+    private String patch(String hocon, ConfigurationModule module) {
+        if (module == null) {
+            return hocon;
+        }
+
+        ConfigurationDynamicDefaultsPatcher localCfgDynamicDefaultsPatcher = new ConfigurationDynamicDefaultsPatcherImpl(
+                module,
+                generator
+        );
+
+        return localCfgDynamicDefaultsPatcher.patchWithDynamicDefaults(hocon);
     }
 
     @Override
@@ -139,9 +173,13 @@ public class LocalFileConfigurationStorage implements ConfigurationStorage {
         checkAndRestoreConfigFile();
 
         try {
-            return ConfigFactory.parseFile(configPath.toFile(), ConfigParseOptions.defaults().setAllowMissing(false));
+            var confString = Files.readString(configPath.toAbsolutePath());
+            patch(confString, module);
+            return ConfigFactory.parseString(patch(confString, module), ConfigParseOptions.defaults().setAllowMissing(false));
         } catch (ConfigException.Parse e) {
             throw new NodeConfigParseException("Failed to parse config content from file " + configPath, e);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
         }
     }
 

@@ -374,7 +374,8 @@ public class IgniteImpl implements Ignite {
 
         LocalFileConfigurationStorage localFileConfigurationStorage = new LocalFileConfigurationStorage(
                 configPath,
-                localConfigurationGenerator
+                localConfigurationGenerator,
+                modules.local()
         );
 
         ConfigurationValidator localConfigurationValidator =
