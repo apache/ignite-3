@@ -85,8 +85,8 @@ public class DefaultMessagingService extends AbstractMessagingService {
     /** Executor for outbound messages. */
     private final ExecutorService outboundExecutor;
 
-    /** Executor for inbound messages. */
-    private final ExecutorService inboundExecutor;
+    /** Executors for inbound messages. */
+    private final LazyStripedExecutor inboundExecutors;
 
     // TODO: IGNITE-18493 - remove/move this
     @Nullable
@@ -115,7 +115,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
         this.outboundExecutor = Executors.newSingleThreadExecutor(NamedThreadFactory.create(nodeName, "MessagingService-outbound-", LOG));
         // TODO asch the implementation of delayed acks relies on absence of reordering on subsequent messages delivery.
         // TODO asch This invariant should be preserved while working on IGNITE-20373
-        this.inboundExecutor = Executors.newSingleThreadExecutor(NamedThreadFactory.create(nodeName, "MessagingService-inbound-", LOG));
+        inboundExecutors = new LazyStripedExecutor(nodeName, "MessagingService-inbound-");
     }
 
     /**
@@ -166,7 +166,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
             );
         }
 
-        return respond(recipient, msg, correlationId);
+        return respond(recipient, type, msg, correlationId);
     }
 
     @Override
@@ -326,18 +326,25 @@ public class DefaultMessagingService extends AbstractMessagingService {
      * @param obj Incoming message wrapper.
      */
     private void onMessage(InNetworkObject obj) {
-        if (isInNetworkThread()) {
-            inboundExecutor.execute(() -> {
-                try {
-                    onMessage(obj);
-                } catch (Throwable e) {
-                    logAndRethrowIfError(obj, e);
+        assert isInNetworkThread();
+
+        inboundExecutors.execute(obj.connectionIndex(), () -> {
+            long startedNanos = System.nanoTime();
+
+            try {
+                handleIncomingMessage(obj);
+            } catch (Throwable e) {
+                logAndRethrowIfError(obj, e);
+            } finally {
+                long tookMillis = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startedNanos);
+                if (tookMillis > 100) {
+                    LOG.warn("Processing of {} from {} took {} ms", obj.message(), obj.consistentId(), tookMillis);
                 }
-            });
+            }
+        });
+    }
 
-            return;
-        }
-
+    private void handleIncomingMessage(InNetworkObject obj) {
         NetworkMessage msg = obj.message();
         DescriptorRegistry registry = obj.registry();
         try {
@@ -467,7 +474,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
 
         requestsMap.clear();
 
-        IgniteUtils.shutdownAndAwaitTermination(inboundExecutor, 10, TimeUnit.SECONDS);
+        inboundExecutors.close();
         IgniteUtils.shutdownAndAwaitTermination(outboundExecutor, 10, TimeUnit.SECONDS);
     }
 
