@@ -331,7 +331,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     /** Placement driver. */
     private final PlacementDriver placementDriver;
 
-    /** Ignite SQL facade. */
+    /** A supplier function that returns {@link IgniteSql}. */
     private final Supplier<IgniteSql> sql;
 
     private final SchemaVersions schemaVersions;
@@ -362,7 +362,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      * @param raftGroupServiceFactory Factory that is used for creation of raft group services for replication groups.
      * @param vaultManager Vault manager.
      * @param placementDriver Placement driver.
-     * @param sql Ignite SQL facade.
+     * @param sql A supplier function that returns {@link IgniteSql}.
      */
     public TableManager(
             String nodeName,
