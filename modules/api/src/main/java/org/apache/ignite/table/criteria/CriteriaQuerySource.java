@@ -38,8 +38,8 @@ public interface CriteriaQuerySource<T> {
      * @return Iterator with query results.
      * @throws SqlException If failed.
      */
-    default Cursor<T> queryCriteria(@Nullable Transaction tx, @Nullable Criteria criteria) {
-        return queryCriteria(tx, criteria, CriteriaQueryOptions.DEFAULT);
+    default Cursor<T> query(@Nullable Transaction tx, @Nullable Criteria criteria) {
+        return query(tx, criteria, CriteriaQueryOptions.DEFAULT);
     }
 
     /**
@@ -51,7 +51,7 @@ public interface CriteriaQuerySource<T> {
      * @return Iterator with query results.
      * @throws SqlException If failed.
      */
-    Cursor<T> queryCriteria(@Nullable Transaction tx, @Nullable Criteria criteria, CriteriaQueryOptions opts);
+    Cursor<T> query(@Nullable Transaction tx, @Nullable Criteria criteria, CriteriaQueryOptions opts);
 
     /**
      * Executes a query to a record view using a predicate in an asynchronous way.
@@ -61,8 +61,8 @@ public interface CriteriaQuerySource<T> {
      * @return Future that represents the pending completion of the operation.
      * @throws SqlException If failed.
      */
-    default CompletableFuture<AsyncCursor<T>> queryCriteriaAsync(@Nullable Transaction tx, @Nullable Criteria criteria) {
-        return queryCriteriaAsync(tx, criteria, CriteriaQueryOptions.DEFAULT);
+    default CompletableFuture<AsyncCursor<T>> queryAsync(@Nullable Transaction tx, @Nullable Criteria criteria) {
+        return queryAsync(tx, criteria, CriteriaQueryOptions.DEFAULT);
     }
 
     /**
@@ -74,7 +74,7 @@ public interface CriteriaQuerySource<T> {
      * @return Future that represents the pending completion of the operation.
      * @throws SqlException If failed.
      */
-    CompletableFuture<AsyncCursor<T>> queryCriteriaAsync(
+    CompletableFuture<AsyncCursor<T>> queryAsync(
             @Nullable Transaction tx,
             @Nullable Criteria criteria,
             CriteriaQueryOptions opts
