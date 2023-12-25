@@ -578,7 +578,7 @@ public class DistributionZonesUtil {
             return dataNodes.stream().map(Node::nodeName).collect(toSet());
         }
         return dataNodes.stream()
-                .filter(n -> filterNodeAttributes(nodesAttributes.get(n.nodeId()).nodeAttributes(), zoneDescriptor.filter()))
+                .filter(n -> filterNodeAttributes(nodesAttributes.get(n.nodeId()).userAttributes(), zoneDescriptor.filter()))
                 .filter(n -> filterStorageProfiles(nodesAttributes.get(n.nodeId()), zoneDescriptor.storageProfiles().profiles()))
                 .map(Node::nodeName)
                 .collect(toSet());

@@ -123,17 +123,23 @@ import org.junit.jupiter.params.provider.MethodSource;
 public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRestartTest {
     private static final LogicalNode A = new LogicalNode(
             new ClusterNodeImpl("1", "A", new NetworkAddress("localhost", 123)),
-            Map.of("region", "US", "storage", "SSD", "dataRegionSize", "10")
+            Map.of("region", "US", "storage", "SSD", "dataRegionSize", "10"),
+            Map.of(),
+            List.of("qwe")
     );
 
     private static final LogicalNode B = new LogicalNode(
             new ClusterNodeImpl("2", "B", new NetworkAddress("localhost", 123)),
-            Map.of("region", "EU", "storage", "HHD", "dataRegionSize", "30")
+            Map.of("region", "EU", "storage", "HHD", "dataRegionSize", "30"),
+            Map.of(),
+            List.of("asd")
     );
 
     private static final LogicalNode C = new LogicalNode(
             new ClusterNodeImpl("3", "C", new NetworkAddress("localhost", 123)),
-            Map.of("region", "CN", "storage", "SSD", "dataRegionSize", "20")
+            Map.of("region", "CN", "storage", "SSD", "dataRegionSize", "20"),
+            Map.of(),
+            List.of("zxc")
     );
 
     private static final String ZONE_NAME = "zone1";
@@ -326,7 +332,6 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         assertDataNodesFromManager(distributionZoneManager, metastore::appliedRevision, catalogManager::latestCatalogVersion, zoneId,
                 Set.of(A, B, C), TIMEOUT_MILLIS);
 
-        // TODO
         Map<String, NodeWithAttributes> nodeAttributesBeforeRestart = distributionZoneManager.nodesAttributes();
 
         node.stop();

@@ -31,7 +31,7 @@ public class NodeWithAttributes implements Serializable {
 
     private final Node node;
 
-    private final Map<String, String> nodeAttributes;
+    private final Map<String, String> userAttributes;
 
     private final List<String> storageProfiles;
 
@@ -40,10 +40,10 @@ public class NodeWithAttributes implements Serializable {
      *
      * @param nodeName Node name.
      * @param nodeId Node consistent identifier.
-     * @param nodeAttributes Key value map of node's attributes.
+     * @param userAttributes Key value map of user's node's attributes.
      */
-    public NodeWithAttributes(String nodeName, String nodeId, Map<String, String> nodeAttributes) {
-        this(nodeName, nodeId, nodeAttributes, List.of());
+    public NodeWithAttributes(String nodeName, String nodeId, Map<String, String> userAttributes) {
+        this(nodeName, nodeId, userAttributes, List.of());
     }
 
     /**
@@ -51,12 +51,12 @@ public class NodeWithAttributes implements Serializable {
      *
      * @param nodeName Node name.
      * @param nodeId Node consistent identifier.
-     * @param nodeAttributes Key value map of node's attributes.
+     * @param userAttributes Key value map of user's node's attributes.
      * @param storageProfiles List of supported storage profiles on the node.
      */
-    NodeWithAttributes(String nodeName, String nodeId, Map<String, String> nodeAttributes, List<String> storageProfiles) {
+    NodeWithAttributes(String nodeName, String nodeId, Map<String, String> userAttributes, List<String> storageProfiles) {
         this.node = new Node(nodeName, nodeId);
-        this.nodeAttributes = nodeAttributes == null ? Map.of() : nodeAttributes;
+        this.userAttributes = userAttributes == null ? Map.of() : userAttributes;
         this.storageProfiles = storageProfiles == null ? List.of() : storageProfiles;
     }
 
@@ -77,7 +77,9 @@ public class NodeWithAttributes implements Serializable {
 
         NodeWithAttributes that = (NodeWithAttributes) obj;
 
-        return node.equals(that.node);
+        return node.equals(that.node)
+                && this.userAttributes.equals(that.userAttributes)
+                && this.storageProfiles.equals(that.storageProfiles);
     }
 
     public String nodeName() {
@@ -92,8 +94,8 @@ public class NodeWithAttributes implements Serializable {
         return node;
     }
 
-    public Map<String, String> nodeAttributes() {
-        return nodeAttributes;
+    public Map<String, String> userAttributes() {
+        return userAttributes;
     }
 
     public List<String> storageProfiles() {
