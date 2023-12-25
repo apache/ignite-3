@@ -106,7 +106,9 @@ public class ErrorGroups {
      * @return Error Group.
      */
     public static ErrorGroup errorGroupByCode(int code) {
-        return registeredGroups.get(extractGroupCode(code));
+        ErrorGroup grp = registeredGroups.get(extractGroupCode(code));
+        assert grp != null : "group not found, code=" + code;
+        return grp;
     }
 
     /** Common error group. */

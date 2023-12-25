@@ -87,6 +87,8 @@ public class AsyncRootNode<InRowT, OutRowT> implements Downstream<InRowT>, Async
         buff.add(converter.apply(row));
 
         if (--waiting == 0) {
+            completePrefetchFuture(null);
+
             flush();
         }
     }
@@ -97,6 +99,8 @@ public class AsyncRootNode<InRowT, OutRowT> implements Downstream<InRowT>, Async
         assert waiting > 0 : waiting;
 
         waiting = -1;
+
+        completePrefetchFuture(null);
 
         flush();
     }
@@ -210,8 +214,6 @@ public class AsyncRootNode<InRowT, OutRowT> implements Downstream<InRowT>, Async
     }
 
     private void flush() throws Exception {
-        completePrefetchFuture(null);
-
         // flush may be triggered by prefetching, so let's do nothing in this case
         if (pendingRequests.isEmpty()) {
             return;

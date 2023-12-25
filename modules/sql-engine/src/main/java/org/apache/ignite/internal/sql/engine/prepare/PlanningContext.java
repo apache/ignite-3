@@ -33,7 +33,6 @@ import org.apache.calcite.tools.RuleSet;
 import org.apache.calcite.util.CancelFlag;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
-import org.apache.ignite.internal.util.FastTimestamps;
 
 /**
  * Planning context.
@@ -50,9 +49,6 @@ public final class PlanningContext implements Context {
     private Function<RuleSet, RuleSet> rulesFilter;
 
     private IgnitePlanner planner;
-
-    /** Start planning timestamp in millis. */
-    private final long startTs;
 
     /** The maximum possible planning time. If this time is exceeded, the planning will be cancelled. */
     private final long plannerTimeout;
@@ -72,7 +68,6 @@ public final class PlanningContext implements Context {
         this.qry = qry;
         this.parentCtx = parentCtx;
 
-        startTs = FastTimestamps.coarseCurrentTimeMillis();
         this.plannerTimeout = plannerTimeout;
         this.parameters = parameters;
     }
@@ -102,11 +97,6 @@ public final class PlanningContext implements Context {
     /** Get sql conformance. */
     public SqlConformance conformance() {
         return config().getParserConfig().conformance();
-    }
-
-    /** Get start planning timestamp in millis. */
-    public long startTs() {
-        return startTs;
     }
 
     /** Get planning timeout in millis. */
