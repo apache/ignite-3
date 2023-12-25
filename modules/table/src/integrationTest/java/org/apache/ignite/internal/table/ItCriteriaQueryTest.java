@@ -40,6 +40,7 @@ import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -50,13 +51,18 @@ import org.junit.jupiter.params.provider.MethodSource;
 public class ItCriteriaQueryTest extends ClusterPerClassIntegrationTest {
     private static IgniteClient CLIENT;
 
+    /** {@inheritDoc} */
     @Override
     protected int initialNodes() {
         return 1;
     }
 
+    /** {@inheritDoc} */
     @BeforeAll
-    protected void beforeAll() {
+    @Override
+    protected void beforeAll(TestInfo testInfo) {
+        super.beforeAll(testInfo);
+
         CLIENT = IgniteClient.builder()
                 .addresses("127.0.0.1:" + CLUSTER.aliveNode().clientAddress().port()).build();
 
