@@ -255,7 +255,7 @@ class ItScaleCubeNetworkMessagingTest {
 
         member0.stop();
 
-        // perform two invokes to test that multiple requests can get cancelled
+        // Perform two invokes to test that multiple requests can get cancelled.
         CompletableFuture<NetworkMessage> invoke0 = member0.messagingService().invoke(
                 member1.topologyService().localMember(),
                 messageFactory.testMessage().build(),
@@ -289,9 +289,9 @@ class ItScaleCubeNetworkMessagingTest {
         ClusterService member0 = testCluster.members.get(0);
         ClusterService member1 = testCluster.members.get(1);
 
-        // we don't register a message listener on the receiving side, so all "invoke"s should timeout
+        // We don't register a message listener on the receiving side, so all "invoke"s should timeout.
 
-        // perform two invokes to test that multiple requests can get cancelled
+        // Perform two invokes to test that multiple requests can get cancelled.
         CompletableFuture<NetworkMessage> invoke0 = member0.messagingService().invoke(
                 member1.topologyService().localMember(),
                 messageFactory.testMessage().build(),
@@ -334,9 +334,9 @@ class ItScaleCubeNetworkMessagingTest {
                 (message, senderConsistentId, correlationId) -> receivedTestMessages.countDown()
         );
 
-        // the registered message listener on the receiving side does not send responses, so all "invoke"s should timeout
+        // The registered message listener on the receiving side does not send responses, so all "invoke"s should timeout.
 
-        // perform two invokes to test that multiple requests can get cancelled
+        // Perform two invokes to test that multiple requests can get cancelled.
         CompletableFuture<NetworkMessage> invoke0 = member0.messagingService().invoke(
                 member1.topologyService().localMember(),
                 messageFactory.testMessage().build(),
@@ -431,7 +431,7 @@ class ItScaleCubeNetworkMessagingTest {
         var testMessageFuture2 = new CompletableFuture<NetworkMessage>();
         var networkMessageFuture = new CompletableFuture<NetworkMessage>();
 
-        // register multiple handlers for the same group
+        // Register multiple handlers for the same group.
         node1.messagingService().addMessageHandler(
                 TestMessageTypes.class,
                 (message, sender, correlationId) -> assertTrue(testMessageFuture1.complete(message))
@@ -442,7 +442,7 @@ class ItScaleCubeNetworkMessagingTest {
                 (message, sender, correlationId) -> assertTrue(testMessageFuture2.complete(message))
         );
 
-        // register a different handle for the second group
+        // Register a different handle for the second group.
         node1.messagingService().addMessageHandler(
                 NetworkMessageTypes.class,
                 (message, sender, correlationId) -> {
@@ -456,12 +456,12 @@ class ItScaleCubeNetworkMessagingTest {
 
         HandshakeFinishMessage networkMessage = new NetworkMessagesFactory().handshakeFinishMessage().build();
 
-        // test that a message gets delivered to both handlers
+        // Test that a message gets delivered to both handlers.
         node2.messagingService()
                 .send(node1.topologyService().localMember(), testMessage)
                 .get(1, TimeUnit.SECONDS);
 
-        // test that a message from the other group is only delivered to a single handler
+        // Test that a message from the other group is only delivered to a single handler.
         node2.messagingService()
                 .send(node1.topologyService().localMember(), networkMessage)
                 .get(1, TimeUnit.SECONDS);
