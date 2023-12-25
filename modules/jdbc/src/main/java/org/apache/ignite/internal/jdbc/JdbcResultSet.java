@@ -348,6 +348,10 @@ public class JdbcResultSet implements ResultSet {
         }
     }
 
+    boolean holdsResources() {
+        return holdsResource;
+    }
+
     /** {@inheritDoc} */
     @Override
     public boolean wasNull() throws SQLException {

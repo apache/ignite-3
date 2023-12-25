@@ -713,7 +713,7 @@ public class JdbcStatement implements Statement {
 
         if (resSets != null) {
             JdbcResultSet lastRs = resSets.get(resSets.size() - 1);
-            boolean allFetched = lastRs == null || lastRs.isClosed();
+            boolean allFetched = lastRs == null || (lastRs.isClosed() && !lastRs.holdsResources());
 
             if (allFetched) {
                 for (JdbcResultSet rs : resSets) {
