@@ -464,6 +464,20 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
             return CompletableFuture.failedFuture(new Exception("Test exception"));
         }).when(messagingService).invoke(any(ClusterNode.class), any(), anyLong());
 
+        doAnswer(invocation -> {
+            Object argument = invocation.getArgument(1);
+
+            if (argument instanceof TxStateCoordinatorRequest) {
+                TxStateCoordinatorRequest req = (TxStateCoordinatorRequest) argument;
+
+                var resp = new TxMessagesFactory().txStateResponse().txStateMeta(txManager.stateMeta(req.txId())).build();
+
+                return completedFuture(resp);
+            }
+
+            return CompletableFuture.failedFuture(new Exception("Test exception"));
+        }).when(messagingService).invoke(anyString(), any(), anyLong());
+
         ClusterNodeResolver clusterNodeResolver = new ClusterNodeResolver() {
             @Override
             public ClusterNode getById(String id) {
