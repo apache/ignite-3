@@ -228,7 +228,7 @@ public class JdbcResultSet implements ResultSet {
 
             close0(true);
 
-            if (!res.hasResult()) {
+            if (!res.resultAvailable()) {
                 if (res.status() == Response.STATUS_FAILED) {
                     throw IgniteQueryErrorCode.createJdbcSqlException(res.err(), res.status());
                 }

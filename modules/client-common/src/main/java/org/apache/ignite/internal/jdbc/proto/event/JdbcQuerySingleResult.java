@@ -52,13 +52,13 @@ public class JdbcQuerySingleResult extends Response {
     private int[] decimalScales;
 
     /** {@code true} if results are available, {@code false} otherwise. */
-    private boolean hasResult = true;
+    private boolean resultsAvailable;
 
     /**
      * Constructor.
      */
     public JdbcQuerySingleResult() {
-        hasResult = false;
+        resultsAvailable = false;
     }
 
     /**
@@ -70,7 +70,7 @@ public class JdbcQuerySingleResult extends Response {
     public JdbcQuerySingleResult(int status, String err) {
         super(status, err);
 
-        hasResult = false;
+        resultsAvailable = false;
     }
 
     /**
@@ -97,6 +97,7 @@ public class JdbcQuerySingleResult extends Response {
         this.isQuery = true;
 
         hasResults = true;
+        resultsAvailable = true;
 
         assert decimalScales != null;
     }
@@ -113,6 +114,7 @@ public class JdbcQuerySingleResult extends Response {
         this.cursorId = cursorId;
 
         hasResults = false;
+        resultsAvailable = true;
     }
 
     /**
@@ -169,9 +171,11 @@ public class JdbcQuerySingleResult extends Response {
         return isQuery;
     }
 
-    /** Results availability flag. */
-    public boolean hasResult() {
-        return hasResult;
+    /** Results availability flag.
+     * If no more results available, returns {@code false}
+     */
+    public boolean resultAvailable() {
+        return resultsAvailable;
     }
 
     /**
@@ -188,8 +192,8 @@ public class JdbcQuerySingleResult extends Response {
     public void writeBinary(ClientMessagePacker packer) {
         super.writeBinary(packer);
 
-        packer.packBoolean(hasResult);
-        if (hasResult) {
+        packer.packBoolean(resultsAvailable);
+        if (resultsAvailable) {
             packer.packLong(updateCnt);
 
             if (cursorId != null) {
@@ -224,8 +228,8 @@ public class JdbcQuerySingleResult extends Response {
     @Override
     public void readBinary(ClientMessageUnpacker unpacker) {
         super.readBinary(unpacker);
-        hasResult = unpacker.unpackBoolean();
-        if (hasResult) {
+        resultsAvailable = unpacker.unpackBoolean();
+        if (resultsAvailable) {
             updateCnt = unpacker.unpackLong();
 
             if (unpacker.tryUnpackNil()) {

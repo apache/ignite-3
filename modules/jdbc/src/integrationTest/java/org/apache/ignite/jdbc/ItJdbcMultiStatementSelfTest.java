@@ -84,6 +84,7 @@ public class ItJdbcMultiStatementSelfTest extends AbstractJdbcSelfTest {
         // pk violation exception
         // TODO: https://issues.apache.org/jira/browse/IGNITE-21133
         stmt.execute("START TRANSACTION; INSERT INTO TEST_TX VALUES (1, 1, '1'); COMMIT");
+        assertThrows(SQLException.class, () -> stmt.execute("SELECT COUNT(*) FROM TEST_TX"));
         stmt.execute("SELECT COUNT(*) FROM TEST_TX");
         try (ResultSet rs = stmt.getResultSet()) {
             assertTrue(rs.next());

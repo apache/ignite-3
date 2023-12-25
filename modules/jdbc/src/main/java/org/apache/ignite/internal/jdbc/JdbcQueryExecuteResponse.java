@@ -76,7 +76,7 @@ public class JdbcQueryExecuteResponse extends Response {
     }
 
     boolean hasResult() {
-        return result.hasResult();
+        return result.resultAvailable();
     }
 
     /**

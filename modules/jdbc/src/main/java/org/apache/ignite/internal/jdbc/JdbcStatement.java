@@ -156,7 +156,7 @@ public class JdbcStatement implements Statement {
 
         JdbcQuerySingleResult executeResult = res.result();
 
-        if (!executeResult.hasResult()) {
+        if (!executeResult.resultAvailable()) {
             throw IgniteQueryErrorCode.createJdbcSqlException(executeResult.err(), executeResult.status());
         }
 
@@ -713,7 +713,7 @@ public class JdbcStatement implements Statement {
 
         if (resSets != null) {
             JdbcResultSet lastRs = resSets.get(resSets.size() - 1);
-            boolean allFetched = lastRs == null;
+            boolean allFetched = lastRs == null || lastRs.isClosed();
 
             if (allFetched) {
                 for (JdbcResultSet rs : resSets) {
@@ -722,22 +722,10 @@ public class JdbcStatement implements Statement {
                     }
                 }
             } else {
-                try {
-                    last = lastRs.getNextResultSet();
-                } catch (SQLException ex) {
-                    // TODO: https://issues.apache.org/jira/browse/IGNITE-21133
-                    // implicitly silent close previous result set.
-                }
+                last = lastRs.getNextResultSet();
 
-                if (last != null) {
-                    while (last != null) {
-                        try {
-                            last = last.getNextResultSet();
-                        } catch (SQLException ex) {
-                            // TODO: https://issues.apache.org/jira/browse/IGNITE-21133
-                            // implicitly silent close previous result set.
-                        }
-                    }
+                while (last != null) {
+                    last = last.getNextResultSet();
                 }
             }
 
