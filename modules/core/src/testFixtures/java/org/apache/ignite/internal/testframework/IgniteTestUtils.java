@@ -22,6 +22,7 @@ import static java.nio.file.StandardOpenOption.CREATE;
 import static java.nio.file.StandardOpenOption.WRITE;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.fail;
 
 import java.io.IOException;
@@ -62,6 +63,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.ExceptionUtils;
+import org.apache.ignite.lang.IgniteException;
 import org.hamcrest.CustomMatcher;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Assertions;
@@ -268,18 +270,44 @@ public final class IgniteTestUtils {
      * @param errorMessageFragment Fragment of the error text in the expected exception, {@code null} if not to be checked.
      * @return Thrown throwable.
      */
-    public static Throwable assertThrows(
-            Class<? extends Throwable> cls,
+    public static <T extends Throwable> T assertThrows(
+            Class<T> cls,
             Executable run,
             @Nullable String errorMessageFragment
     ) {
-        Throwable throwable = Assertions.assertThrows(cls, run);
+        T throwable = Assertions.assertThrows(cls, run);
 
         if (errorMessageFragment != null) {
             assertThat(throwable.getMessage(), containsString(errorMessageFragment));
         }
 
         return throwable;
+    }
+
+    /**
+     * Checks whether runnable throws exception, which is itself of a specified class.
+     *
+     * @param cls Expected exception class.
+     * @param run Runnable to check.
+     * @param errorCode Error code to be registered.
+     * @param errorMessageFragment Fragment of the error text in the expected exception, {@code null} if not to be checked.
+     * @return Thrown throwable.
+     */
+    public static <T extends IgniteException> T assertThrows(
+            Class<T> cls,
+            Executable run,
+            int errorCode,
+            @Nullable String errorMessageFragment
+    ) {
+        T ie = Assertions.assertThrows(cls, run);
+
+        assertEquals(errorCode, ie.code(), "Error code doesn't match");
+
+        if (errorMessageFragment != null) {
+            assertThat(ie.getMessage(), containsString(errorMessageFragment));
+        }
+
+        return ie;
     }
 
     /**

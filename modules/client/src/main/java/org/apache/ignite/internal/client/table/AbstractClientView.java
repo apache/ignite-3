@@ -20,6 +20,7 @@ package org.apache.ignite.internal.client.table;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.client.ClientUtils.sync;
+import static org.apache.ignite.lang.ErrorGroups.Criteria.COLUMN_NOT_FOUND_ERR;
 
 import java.util.Arrays;
 import java.util.List;
@@ -27,10 +28,9 @@ import java.util.Set;
 import org.apache.ignite.internal.table.criteria.CursorSyncAdapter;
 import org.apache.ignite.internal.table.criteria.SqlSerializer;
 import org.apache.ignite.lang.Cursor;
-import org.apache.ignite.lang.ErrorGroups.Sql;
-import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.table.criteria.Criteria;
+import org.apache.ignite.table.criteria.CriteriaException;
 import org.apache.ignite.table.criteria.CriteriaQueryOptions;
 import org.apache.ignite.table.criteria.CriteriaQuerySource;
 import org.apache.ignite.tx.Transaction;
@@ -69,9 +69,7 @@ abstract class AbstractClientView<R> implements CriteriaQuerySource<R> {
             int endExclusive,
             @Nullable ResultSetMetadata metadata
     ) {
-        if (metadata == null) {
-            throw new IgniteException(Sql.RUNTIME_ERR, "Metadata can't be null.");
-        }
+        assert metadata != null : "Metadata can't be null when row set is present.";
 
         return Arrays.stream(columns, startInclusive, endExclusive)
                 .map(ClientColumn::name)
@@ -79,7 +77,7 @@ abstract class AbstractClientView<R> implements CriteriaQuerySource<R> {
                     var rowIdx = metadata.indexOf(columnName);
 
                     if (rowIdx == -1) {
-                        throw new IgniteException(Sql.RUNTIME_ERR, "Missing required column in query results: " + columnName);
+                        throw new CriteriaException(COLUMN_NOT_FOUND_ERR, "Missing required column in query results: " + columnName);
                     }
 
                     return rowIdx;

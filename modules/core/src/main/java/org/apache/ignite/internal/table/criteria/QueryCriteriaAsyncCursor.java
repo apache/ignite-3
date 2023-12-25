@@ -17,7 +17,9 @@
 
 package org.apache.ignite.internal.table.criteria;
 
+import static org.apache.ignite.internal.table.criteria.CriteriaExceptionMapperUtil.mapToPublicCriteriaException;
 import static org.apache.ignite.internal.util.CollectionUtils.mapIterable;
+import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
@@ -53,26 +55,34 @@ public class QueryCriteriaAsyncCursor<T, R> implements AsyncCursor<T> {
     /** {@inheritDoc} */
     @Override
     public Iterable<T> currentPage() {
-        return mapIterable(ars.currentPage(), mapper, null);
+        try {
+            return mapIterable(ars.currentPage(), mapper, null);
+        } catch (Throwable e) {
+            throw sneakyThrow(mapToPublicCriteriaException(e));
+        }
     }
 
     /** {@inheritDoc} */
     @Override
     public int currentPageSize() {
-        return ars.currentPageSize();
+        try {
+            return ars.currentPageSize();
+        } catch (Throwable e) {
+            throw sneakyThrow(mapToPublicCriteriaException(e));
+        }
     }
 
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<? extends AsyncCursor<T>> fetchNextPage() {
-        return ars.fetchNextPage()
+        return CriteriaExceptionMapperUtil.convertToPublicFuture(ars.fetchNextPage()
                 .thenApply((rs) -> {
                     if (!hasMorePages()) {
                         closeRun.run();
                     }
 
                     return new QueryCriteriaAsyncCursor<>(rs, mapper, closeRun);
-                });
+                }));
     }
 
     /** {@inheritDoc} */
@@ -84,6 +94,6 @@ public class QueryCriteriaAsyncCursor<T, R> implements AsyncCursor<T> {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> closeAsync() {
-        return ars.closeAsync().thenRun(closeRun);
+        return CriteriaExceptionMapperUtil.convertToPublicFuture(ars.closeAsync().thenRun(closeRun));
     }
 }

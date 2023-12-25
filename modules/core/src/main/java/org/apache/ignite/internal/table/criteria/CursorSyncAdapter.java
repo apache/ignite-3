@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.table.criteria;
 
 import static org.apache.ignite.internal.lang.IgniteExceptionMapperUtil.convertToPublicFuture;
-import static org.apache.ignite.internal.lang.IgniteExceptionMapperUtil.mapToPublicException;
 import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 
@@ -56,7 +55,7 @@ public class CursorSyncAdapter<T> implements Cursor<T> {
         try {
             convertToPublicFuture(ac.closeAsync().toCompletableFuture()).join();
         } catch (Throwable e) {
-            throw sneakyThrow(mapToPublicException(unwrapCause(e)));
+            throw sneakyThrow(unwrapCause(e));
         }
     }
 

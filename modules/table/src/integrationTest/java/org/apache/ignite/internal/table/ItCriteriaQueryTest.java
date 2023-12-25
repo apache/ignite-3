@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table;
 
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.matchers.TupleMatcher.tupleValue;
 import static org.apache.ignite.table.criteria.Criteria.columnValue;
@@ -44,9 +45,11 @@ import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.AsyncCursor;
 import org.apache.ignite.lang.Cursor;
+import org.apache.ignite.lang.ErrorGroups.Criteria;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
+import org.apache.ignite.table.criteria.CriteriaException;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -230,6 +233,36 @@ public class ItCriteriaQueryTest extends ClusterPerClassIntegrationTest {
         assertNotNull(ars);
         assertEquals(2, ars.currentPageSize());
         await(ars.closeAsync());
+    }
+
+    @Test
+    void testNoMorePages() {
+        RecordView<Person> view = CLIENT.tables().table(DEFAULT_TABLE_NAME).recordView(Person.class);
+
+        AsyncCursor<Person> ars = await(view.queryCriteriaAsync(null, null, builder().pageSize(3).build()));
+
+        assertNotNull(ars);
+        assertThrows(CriteriaException.class, () -> await(ars.fetchNextPage()), Criteria.CURSOR_NO_MORE_PAGES_ERR,
+                "There are no more pages");
+    }
+
+    @Test
+    void testFetchCursorIsClosed() {
+        RecordView<Person> view = CLIENT.tables().table(DEFAULT_TABLE_NAME).recordView(Person.class);
+
+        AsyncCursor<Person> ars = await(view.queryCriteriaAsync(null, null, builder().pageSize(2).build()));
+
+        assertNotNull(ars);
+        await(ars.closeAsync());
+        assertThrows(CriteriaException.class, () -> await(ars.fetchNextPage()), Criteria.CURSOR_CLOSED_ERR, "Cursor is closed");
+    }
+
+    @Test
+    void testInvalidColumnName() {
+        RecordView<Person> view = CLIENT.tables().table(DEFAULT_TABLE_NAME).recordView(Person.class);
+
+        assertThrows(IllegalArgumentException.class, () -> await(view.queryCriteriaAsync(null, columnValue("id1", equalTo(2)))),
+                "Unexpected column name: ID1");
     }
 
     private static <K, V> Map<K, V> toMap(Cursor<Entry<K, V>> cursor) {

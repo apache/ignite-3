@@ -20,7 +20,6 @@ package org.apache.ignite.table.criteria;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.lang.AsyncCursor;
 import org.apache.ignite.lang.Cursor;
-import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 
@@ -36,7 +35,8 @@ public interface CriteriaQuerySource<T> {
      * @param tx Transaction to execute the query within or {@code null} to run within implicit transaction.
      * @param criteria The predicate to filter entries or {@code null} to return all entries in record view.
      * @return Iterator with query results.
-     * @throws SqlException If failed.
+     * @throws CriteriaException If failed.
+     * @throws IllegalArgumentException If the names of the provided columns are incorrect.
      */
     default Cursor<T> queryCriteria(@Nullable Transaction tx, @Nullable Criteria criteria) {
         return queryCriteria(tx, criteria, CriteriaQueryOptions.DEFAULT);
@@ -49,7 +49,8 @@ public interface CriteriaQuerySource<T> {
      * @param criteria The predicate to filter entries or {@code null} to return all entries in record view.
      * @param opts Criteria query options.
      * @return Iterator with query results.
-     * @throws SqlException If failed.
+     * @throws CriteriaException If failed.
+     * @throws IllegalArgumentException If the names of the provided columns are incorrect.
      */
     Cursor<T> queryCriteria(@Nullable Transaction tx, @Nullable Criteria criteria, CriteriaQueryOptions opts);
 
@@ -59,7 +60,8 @@ public interface CriteriaQuerySource<T> {
      * @param tx Transaction to execute the query within or {@code null} to run within implicit transaction.
      * @param criteria The predicate to filter entries or {@code null} to return all entries in record view.
      * @return Future that represents the pending completion of the operation.
-     * @throws SqlException If failed.
+     * @throws CriteriaException If failed.
+     * @throws IllegalArgumentException If the names of the provided columns are incorrect.
      */
     default CompletableFuture<AsyncCursor<T>> queryCriteriaAsync(@Nullable Transaction tx, @Nullable Criteria criteria) {
         return queryCriteriaAsync(tx, criteria, CriteriaQueryOptions.DEFAULT);
@@ -72,7 +74,8 @@ public interface CriteriaQuerySource<T> {
      * @param criteria The predicate to filter entries or {@code null} to return all entries in record view.
      * @param opts Criteria query options.
      * @return Future that represents the pending completion of the operation.
-     * @throws SqlException If failed.
+     * @throws CriteriaException If failed.
+     * @throws IllegalArgumentException If the names of the provided columns are incorrect.
      */
     CompletableFuture<AsyncCursor<T>> queryCriteriaAsync(
             @Nullable Transaction tx,

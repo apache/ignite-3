@@ -21,6 +21,7 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.function.Function.identity;
 import static org.apache.ignite.internal.lang.IgniteExceptionMapperUtil.convertToPublicFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
+import static org.apache.ignite.lang.ErrorGroups.Criteria.COLUMN_NOT_FOUND_ERR;
 
 import java.util.Arrays;
 import java.util.List;
@@ -37,11 +38,10 @@ import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.Cursor;
-import org.apache.ignite.lang.ErrorGroups.Sql;
-import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.table.criteria.Criteria;
+import org.apache.ignite.table.criteria.CriteriaException;
 import org.apache.ignite.table.criteria.CriteriaQueryOptions;
 import org.apache.ignite.table.criteria.CriteriaQuerySource;
 import org.apache.ignite.tx.Transaction;
@@ -153,9 +153,7 @@ abstract class AbstractTableView<R> implements CriteriaQuerySource<R> {
      * @return Index mapping.
      */
     static List<Integer> indexMapping(Column[] columns, @Nullable ResultSetMetadata metadata) {
-        if (metadata == null) {
-            throw new IgniteException(Sql.RUNTIME_ERR, "Metadata can't be null.");
-        }
+        assert metadata != null : "Metadata can't be null when row set is present.";
 
         return Arrays.stream(columns)
                 .map(Column::name)
@@ -163,7 +161,7 @@ abstract class AbstractTableView<R> implements CriteriaQuerySource<R> {
                     var rowIdx = metadata.indexOf(columnName);
 
                     if (rowIdx == -1) {
-                        throw new IgniteException(Sql.RUNTIME_ERR, "Missing required column in query results: " + columnName);
+                        throw new CriteriaException(COLUMN_NOT_FOUND_ERR, "Missing required column in query results: " + columnName);
                     }
 
                     return rowIdx;

@@ -34,6 +34,7 @@ import org.apache.ignite.internal.client.proto.TuplePart;
 import org.apache.ignite.internal.client.sql.ClientSessionBuilder;
 import org.apache.ignite.internal.client.sql.ClientStatementBuilder;
 import org.apache.ignite.internal.streamer.StreamerBatchSender;
+import org.apache.ignite.internal.table.criteria.CriteriaExceptionMapperUtil;
 import org.apache.ignite.internal.table.criteria.QueryCriteriaAsyncCursor;
 import org.apache.ignite.internal.table.criteria.SqlSerializer;
 import org.apache.ignite.lang.AsyncCursor;
@@ -398,8 +399,9 @@ public class ClientRecordView<R> extends AbstractClientView<R> implements Record
                     Statement statement = new ClientStatementBuilder().query(ser.toString()).pageSize(opts.pageSize()).build();
                     Session session = new ClientSessionBuilder(tbl.channel()).build();
 
-                    return session.executeAsync(tx, this.ser.mapper(), statement, ser.getArguments())
-                            .thenApply(resultSet -> new QueryCriteriaAsyncCursor<>(resultSet, null, session::close));
+                    return CriteriaExceptionMapperUtil.convertToPublicFuture(
+                session.executeAsync(tx, this.ser.mapper(), statement, ser.getArguments())
+                            .thenApply(resultSet -> new QueryCriteriaAsyncCursor<>(resultSet, null, session::close)));
                 });
     }
 }

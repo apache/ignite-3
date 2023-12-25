@@ -33,6 +33,7 @@ import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.sql.ClientSessionBuilder;
 import org.apache.ignite.internal.client.sql.ClientStatementBuilder;
 import org.apache.ignite.internal.streamer.StreamerBatchSender;
+import org.apache.ignite.internal.table.criteria.CriteriaExceptionMapperUtil;
 import org.apache.ignite.internal.table.criteria.QueryCriteriaAsyncCursor;
 import org.apache.ignite.internal.table.criteria.SqlRowProjection;
 import org.apache.ignite.internal.table.criteria.SqlSerializer;
@@ -401,13 +402,15 @@ public class ClientRecordBinaryView extends AbstractClientView<Tuple>  implement
                     Statement statement = new ClientStatementBuilder().query(ser.toString()).pageSize(opts.pageSize()).build();
                     Session session = new ClientSessionBuilder(tbl.channel()).build();
 
-                    return session.executeAsync(tx, statement, ser.getArguments())
-                            .thenApply(resultSet -> {
-                                List<Integer> idxMapping = indexMapping(schema.columns(), 0, schema.columns().length, resultSet.metadata());
+                    return CriteriaExceptionMapperUtil.convertToPublicFuture(
+                            session.executeAsync(tx, statement, ser.getArguments())
+                                    .thenApply(resultSet -> {
+                                        List<Integer> idxMapping = indexMapping(schema.columns(), 0, schema.columns().length,
+                                                resultSet.metadata());
 
-                                return new QueryCriteriaAsyncCursor<>(resultSet, (row) -> new SqlRowProjection(row, idxMapping),
-                                        session::close);
-                            });
+                                        return new QueryCriteriaAsyncCursor<>(resultSet, (row) -> new SqlRowProjection(row, idxMapping),
+                                                session::close);
+                                    }));
                 });
     }
 }

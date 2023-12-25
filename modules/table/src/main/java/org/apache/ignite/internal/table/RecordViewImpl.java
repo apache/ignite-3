@@ -39,6 +39,7 @@ import org.apache.ignite.internal.schema.marshaller.RecordMarshaller;
 import org.apache.ignite.internal.schema.marshaller.reflection.RecordMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.streamer.StreamerBatchSender;
+import org.apache.ignite.internal.table.criteria.CriteriaExceptionMapperUtil;
 import org.apache.ignite.internal.table.criteria.QueryCriteriaAsyncCursor;
 import org.apache.ignite.internal.table.criteria.SqlRowProjection;
 import org.apache.ignite.internal.table.criteria.SqlSerializer;
@@ -567,25 +568,27 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
             Statement statement = sql.statementBuilder().query(ser.toString()).pageSize(opts.pageSize()).build();
             Session session = sql.createSession();
 
-            return session.executeAsync(tx, statement, ser.getArguments())
-                    .thenApply(resultSet -> {
-                        ResultSetMetadata metadata = resultSet.metadata();
+            return CriteriaExceptionMapperUtil.convertToPublicFuture(
+                    session.executeAsync(tx, statement, ser.getArguments())
+                            .thenApply(resultSet -> {
+                                ResultSetMetadata metadata = resultSet.metadata();
 
-                        Column[] valCols = ArrayUtils.concat(schema.keyColumns().columns(), schema.valueColumns().columns());
-                        List<Integer> valIdxMapping = indexMapping(valCols, metadata);
+                                Column[] valCols = ArrayUtils.concat(schema.keyColumns().columns(), schema.valueColumns().columns());
+                                List<Integer> valIdxMapping = indexMapping(valCols, metadata);
 
-                        Marshaller marsh = createMarshaller(toMarshallerColumns(valCols), mapper, false, true);
+                                Marshaller marsh = createMarshaller(toMarshallerColumns(valCols), mapper, false, true);
 
-                        Function<SqlRow, R> mapper = (row) -> {
-                            try {
-                                return (R) marsh.readObject(new TupleReader(new SqlRowProjection(row, valIdxMapping)), null);
-                            } catch (org.apache.ignite.internal.marshaller.MarshallerException e) {
-                                throw new IgniteException(Sql.RUNTIME_ERR, "Failed to map SQL result set: " + e.getMessage(), e);
-                            }
-                        };
+                                Function<SqlRow, R> mapper = (row) -> {
+                                    try {
+                                        return (R) marsh.readObject(new TupleReader(new SqlRowProjection(row, valIdxMapping)), null);
+                                    } catch (org.apache.ignite.internal.marshaller.MarshallerException e) {
+                                        throw new IgniteException(Sql.RUNTIME_ERR, "Failed to map SQL result set: " + e.getMessage(), e);
+                                    }
+                                };
 
-                        return new QueryCriteriaAsyncCursor<>(resultSet, mapper, session::close);
-                    });
+                                return new QueryCriteriaAsyncCursor<>(resultSet, mapper, session::close);
+                            })
+            );
         });
     }
 }

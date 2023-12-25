@@ -33,6 +33,7 @@ import org.apache.ignite.internal.schema.marshaller.TupleMarshaller;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.streamer.StreamerBatchSender;
+import org.apache.ignite.internal.table.criteria.CriteriaExceptionMapperUtil;
 import org.apache.ignite.internal.table.criteria.QueryCriteriaAsyncCursor;
 import org.apache.ignite.internal.table.criteria.SqlRowProjection;
 import org.apache.ignite.internal.table.criteria.SqlSerializer;
@@ -468,15 +469,18 @@ public class RecordBinaryViewImpl extends AbstractTableView<Tuple> implements Re
             Statement statement = sql.statementBuilder().query(ser.toString()).pageSize(opts.pageSize()).build();
             Session session = sql.createSession();
 
-            return session.executeAsync(tx, statement, ser.getArguments())
-                    .thenApply(resultSet -> {
-                        ResultSetMetadata metadata = resultSet.metadata();
+            return CriteriaExceptionMapperUtil.convertToPublicFuture(
+                    session.executeAsync(tx, statement, ser.getArguments())
+                            .thenApply(resultSet -> {
+                                ResultSetMetadata metadata = resultSet.metadata();
 
-                        Column[] cols = ArrayUtils.concat(schema.keyColumns().columns(), schema.valueColumns().columns());
-                        List<Integer> idxMapping = indexMapping(cols, metadata);
+                                Column[] cols = ArrayUtils.concat(schema.keyColumns().columns(), schema.valueColumns().columns());
+                                List<Integer> idxMapping = indexMapping(cols, metadata);
 
-                        return new QueryCriteriaAsyncCursor<>(resultSet, (row) -> new SqlRowProjection(row, idxMapping), session::close);
-                    });
+                                return new QueryCriteriaAsyncCursor<>(resultSet, (row) -> new SqlRowProjection(row, idxMapping),
+                                        session::close);
+                            })
+            );
         });
     }
 }
