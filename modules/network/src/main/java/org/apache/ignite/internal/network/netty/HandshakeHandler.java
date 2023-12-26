@@ -114,9 +114,10 @@ public class HandshakeHandler extends ChannelInboundHandlerAdapter {
      * Creates a {@link MessageHandler} for the current pipeline.
      *
      * @param remoteConsistentId Remote node's consistent id.
+     * @param connectionIndex Index of the connection (corresponds to the channel ID).
      * @return Message handler.
      */
-    public MessageHandler createMessageHandler(String remoteConsistentId) {
-        return new MessageHandler(messageListener, remoteConsistentId, serializationService);
+    public MessageHandler createMessageHandler(String remoteConsistentId, short connectionIndex) {
+        return new MessageHandler(messageListener, remoteConsistentId, connectionIndex, serializationService);
     }
 }

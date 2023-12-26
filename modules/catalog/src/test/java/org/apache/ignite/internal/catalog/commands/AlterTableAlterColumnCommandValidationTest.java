@@ -338,7 +338,7 @@ public class AlterTableAlterColumnCommandValidationTest extends AbstractCommandV
         assertThrowsWithCause(
                 () -> command.get(catalog),
                 CatalogValidationException.class,
-                format("Changing the precision for column of type '{}' is not allowed", type)
+                format("the precision for column of type '{}' is not allowed", type)
         );
     }
 
@@ -376,7 +376,7 @@ public class AlterTableAlterColumnCommandValidationTest extends AbstractCommandV
         assertThrowsWithCause(
                 () -> command.get(catalog),
                 CatalogValidationException.class,
-                "Decreasing the precision is not allowed"
+                "Changing the precision for column of type"
         );
     }
 
@@ -410,13 +410,13 @@ public class AlterTableAlterColumnCommandValidationTest extends AbstractCommandV
         assertThrowsWithCause(
                 () -> builder.scale(2).build().get(catalog),
                 CatalogValidationException.class,
-                "Changing the scale is not allowed"
+                "Changing the scale for column of type"
         );
 
         assertThrowsWithCause(
                 () -> builder.scale(10).build().get(catalog),
                 CatalogValidationException.class,
-                "Changing the scale is not allowed"
+                "Changing the scale for column of type"
         );
     }
 
@@ -490,7 +490,7 @@ public class AlterTableAlterColumnCommandValidationTest extends AbstractCommandV
         assertThrowsWithCause(
                 () -> command.get(catalog),
                 CatalogValidationException.class,
-                "Decreasing the length is not allowed"
+                "Changing the length for column of type"
         );
     }
 

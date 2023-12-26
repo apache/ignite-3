@@ -242,7 +242,43 @@ class ItScaleCubeNetworkMessagingTest {
     }
 
     /**
-     * Tests that if the network component is stopped while waiting for a response to an "invoke" call, the corresponding future completes
+     * Tests that if the network component is stopped before trying to make an "invoke" call, the corresponding future completes
+     * exceptionally.
+     */
+    @Test
+    public void testInvokeAfterStop(TestInfo testInfo) throws InterruptedException {
+        testCluster = new Cluster(2, testInfo);
+        testCluster.startAwait();
+
+        ClusterService member0 = testCluster.members.get(0);
+        ClusterService member1 = testCluster.members.get(1);
+
+        member0.stop();
+
+        // Perform two invokes to test that multiple requests can get cancelled.
+        CompletableFuture<NetworkMessage> invoke0 = member0.messagingService().invoke(
+                member1.topologyService().localMember(),
+                messageFactory.testMessage().build(),
+                1000
+        );
+
+        CompletableFuture<NetworkMessage> invoke1 = member0.messagingService().invoke(
+                member1.topologyService().localMember(),
+                messageFactory.testMessage().build(),
+                1000
+        );
+
+        ExecutionException e = assertThrows(ExecutionException.class, () -> invoke0.get(1, TimeUnit.SECONDS));
+
+        assertThat(e.getCause(), instanceOf(NodeStoppingException.class));
+
+        e = assertThrows(ExecutionException.class, () -> invoke1.get(1, TimeUnit.SECONDS));
+
+        assertThat(e.getCause(), instanceOf(NodeStoppingException.class));
+    }
+
+    /**
+     * Tests that if the network component is stopped while making an "invoke" call, the corresponding future completes
      * exceptionally.
      */
     @Test
@@ -253,9 +289,9 @@ class ItScaleCubeNetworkMessagingTest {
         ClusterService member0 = testCluster.members.get(0);
         ClusterService member1 = testCluster.members.get(1);
 
-        // we don't register a message listener on the receiving side, so all "invoke"s should timeout
+        // We don't register a message listener on the receiving side, so all "invoke"s should timeout.
 
-        // perform two invokes to test that multiple requests can get cancelled
+        // Perform two invokes to test that multiple requests can get cancelled.
         CompletableFuture<NetworkMessage> invoke0 = member0.messagingService().invoke(
                 member1.topologyService().localMember(),
                 messageFactory.testMessage().build(),
@@ -280,6 +316,105 @@ class ItScaleCubeNetworkMessagingTest {
     }
 
     /**
+     * Tests that if the network component is stopped while waiting for a response to an "invoke" call, the corresponding future completes
+     * exceptionally.
+     */
+    @Test
+    public void testStopDuringAwaitingForInvokeResponse(TestInfo testInfo) throws InterruptedException {
+        testCluster = new Cluster(2, testInfo);
+        testCluster.startAwait();
+
+        ClusterService member0 = testCluster.members.get(0);
+        ClusterService member1 = testCluster.members.get(1);
+
+        CountDownLatch receivedTestMessages = new CountDownLatch(2);
+
+        member1.messagingService().addMessageHandler(
+                TestMessageTypes.class,
+                (message, senderConsistentId, correlationId) -> receivedTestMessages.countDown()
+        );
+
+        // The registered message listener on the receiving side does not send responses, so all "invoke"s should timeout.
+
+        // Perform two invokes to test that multiple requests can get cancelled.
+        CompletableFuture<NetworkMessage> invoke0 = member0.messagingService().invoke(
+                member1.topologyService().localMember(),
+                messageFactory.testMessage().build(),
+                1000
+        );
+
+        CompletableFuture<NetworkMessage> invoke1 = member0.messagingService().invoke(
+                member1.topologyService().localMember(),
+                messageFactory.testMessage().build(),
+                1000
+        );
+
+        assertTrue(receivedTestMessages.await(10, TimeUnit.SECONDS), "Did not receive invocations on the receiver in time");
+
+        member0.stop();
+
+        ExecutionException e = assertThrows(ExecutionException.class, () -> invoke0.get(1, TimeUnit.SECONDS));
+
+        assertThat(e.getCause(), instanceOf(NodeStoppingException.class));
+
+        e = assertThrows(ExecutionException.class, () -> invoke1.get(1, TimeUnit.SECONDS));
+
+        assertThat(e.getCause(), instanceOf(NodeStoppingException.class));
+    }
+
+    /**
+     * Tests that Scalecube messages are not blocked if some message handler blocks handling of 'normal' messages.
+     */
+    @Test
+    public void scalecubeMessagesAreSentSeparatelyFromOtherMessages(TestInfo testInfo) throws InterruptedException {
+        testCluster = new Cluster(2, testInfo);
+        testCluster.startAwait();
+
+        ClusterService member0 = testCluster.members.get(0);
+        ClusterService member1 = testCluster.members.get(1);
+
+        CountDownLatch startedBlocking = new CountDownLatch(1);
+        CountDownLatch blocking = new CountDownLatch(1);
+
+        member1.messagingService().addMessageHandler(
+                TestMessageTypes.class,
+                (message, senderConsistentId, correlationId) -> {
+                    startedBlocking.countDown();
+
+                    try {
+                        blocking.await(10, TimeUnit.SECONDS);
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        throw new RuntimeException(e);
+                    }
+                }
+        );
+
+        try {
+            // Send a message that will block the inbound thread for normal messages.
+            member0.messagingService().send(member1.topologyService().localMember(), messageFactory.testMessage().build());
+
+            assertTrue(startedBlocking.await(10, TimeUnit.SECONDS));
+
+            CountDownLatch receivedScalecubeMessage = new CountDownLatch(1);
+
+            member1.messagingService().addMessageHandler(
+                    NetworkMessageTypes.class,
+                    (message, senderConsistentId, correlationId) -> {
+                        receivedScalecubeMessage.countDown();
+                    }
+            );
+
+            assertTrue(
+                    receivedScalecubeMessage.await(10, TimeUnit.SECONDS),
+                    "Did not receive Scalecube messages, probably Scalecube inbound thread is blocked"
+            );
+        } finally {
+            blocking.countDown();
+        }
+    }
+
+    /**
      * Tests that messages from different message groups can be delivered to different sets of handlers.
      *
      * @throws Exception in case of errors.
@@ -296,7 +431,7 @@ class ItScaleCubeNetworkMessagingTest {
         var testMessageFuture2 = new CompletableFuture<NetworkMessage>();
         var networkMessageFuture = new CompletableFuture<NetworkMessage>();
 
-        // register multiple handlers for the same group
+        // Register multiple handlers for the same group.
         node1.messagingService().addMessageHandler(
                 TestMessageTypes.class,
                 (message, sender, correlationId) -> assertTrue(testMessageFuture1.complete(message))
@@ -307,7 +442,7 @@ class ItScaleCubeNetworkMessagingTest {
                 (message, sender, correlationId) -> assertTrue(testMessageFuture2.complete(message))
         );
 
-        // register a different handle for the second group
+        // Register a different handle for the second group.
         node1.messagingService().addMessageHandler(
                 NetworkMessageTypes.class,
                 (message, sender, correlationId) -> {
@@ -321,12 +456,12 @@ class ItScaleCubeNetworkMessagingTest {
 
         HandshakeFinishMessage networkMessage = new NetworkMessagesFactory().handshakeFinishMessage().build();
 
-        // test that a message gets delivered to both handlers
+        // Test that a message gets delivered to both handlers.
         node2.messagingService()
                 .send(node1.topologyService().localMember(), testMessage)
                 .get(1, TimeUnit.SECONDS);
 
-        // test that a message from the other group is only delivered to a single handler
+        // Test that a message from the other group is only delivered to a single handler.
         node2.messagingService()
                 .send(node1.topologyService().localMember(), networkMessage)
                 .get(1, TimeUnit.SECONDS);

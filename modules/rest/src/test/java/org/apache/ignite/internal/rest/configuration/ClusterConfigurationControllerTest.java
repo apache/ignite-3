@@ -28,16 +28,23 @@ import jakarta.inject.Named;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.presentation.ConfigurationPresentation;
 import org.apache.ignite.internal.configuration.presentation.HoconPresentation;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.rest.RestManager;
 import org.apache.ignite.internal.rest.RestManagerFactory;
 import org.apache.ignite.internal.security.authentication.AuthenticationManager;
 import org.apache.ignite.internal.security.authentication.AuthenticationManagerImpl;
+import org.apache.ignite.internal.security.configuration.SecurityConfiguration;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Functional test for {@link ClusterConfigurationController}.
  */
 @MicronautTest
+@ExtendWith(ConfigurationExtension.class)
 class ClusterConfigurationControllerTest extends ConfigurationControllerBaseTest {
+    @InjectConfiguration
+    SecurityConfiguration securityConfiguration;
 
     @Inject
     @Client("/management/v1/configuration/cluster/")
@@ -68,6 +75,6 @@ class ClusterConfigurationControllerTest extends ConfigurationControllerBaseTest
     @Bean
     @Factory
     AuthenticationManager authenticationManager() {
-        return new AuthenticationManagerImpl();
+        return new AuthenticationManagerImpl(securityConfiguration);
     }
 }

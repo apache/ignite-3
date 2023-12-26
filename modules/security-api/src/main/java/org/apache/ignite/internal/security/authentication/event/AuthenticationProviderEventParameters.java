@@ -17,36 +17,36 @@
 
 package org.apache.ignite.internal.security.authentication.event;
 
-import static org.apache.ignite.internal.security.authentication.event.EventType.AUTHENTICATION_PROVIDER_REMOVED;
-import static org.apache.ignite.internal.security.authentication.event.EventType.AUTHENTICATION_PROVIDER_UPDATED;
+import static org.apache.ignite.internal.security.authentication.event.AuthenticationEvent.AUTHENTICATION_PROVIDER_REMOVED;
+import static org.apache.ignite.internal.security.authentication.event.AuthenticationEvent.AUTHENTICATION_PROVIDER_UPDATED;
 
 /**
  * Represents the authentication provider event.
  */
-public class AuthenticationProviderEvent implements AuthenticationEvent {
-    private final EventType type;
+public class AuthenticationProviderEventParameters implements AuthenticationEventParameters {
+    private final AuthenticationEvent type;
 
-    private final String name;
+    private final String providerName;
 
-    private AuthenticationProviderEvent(EventType type, String name) {
+    private AuthenticationProviderEventParameters(AuthenticationEvent type, String providerName) {
         this.type = type;
-        this.name = name;
+        this.providerName = providerName;
     }
 
-    public static AuthenticationProviderEvent updated(String name) {
-        return new AuthenticationProviderEvent(AUTHENTICATION_PROVIDER_UPDATED, name);
+    public static AuthenticationProviderEventParameters updated(String name) {
+        return new AuthenticationProviderEventParameters(AUTHENTICATION_PROVIDER_UPDATED, name);
     }
 
-    public static AuthenticationProviderEvent removed(String name) {
-        return new AuthenticationProviderEvent(AUTHENTICATION_PROVIDER_REMOVED, name);
+    public static AuthenticationProviderEventParameters removed(String name) {
+        return new AuthenticationProviderEventParameters(AUTHENTICATION_PROVIDER_REMOVED, name);
     }
 
     @Override
-    public EventType type() {
+    public AuthenticationEvent type() {
         return type;
     }
 
     public String name() {
-        return name;
+        return providerName;
     }
 }

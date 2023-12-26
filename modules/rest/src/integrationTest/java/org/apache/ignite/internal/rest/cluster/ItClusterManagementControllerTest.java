@@ -169,8 +169,6 @@ public class ItClusterManagementControllerTest extends RestTestBase {
     }
 
     private AuthenticationManagerImpl authenticationManager() {
-        AuthenticationManagerImpl manager = new AuthenticationManagerImpl();
-        securityConfiguration.listen(manager);
-        return manager;
+        return new AuthenticationManagerImpl(securityConfiguration);
     }
 }

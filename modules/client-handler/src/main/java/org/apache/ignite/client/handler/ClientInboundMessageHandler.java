@@ -17,6 +17,7 @@
 
 package org.apache.ignite.client.handler;
 
+import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Client.HANDSHAKE_HEADER_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Client.PROTOCOL_COMPATIBILITY_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Client.PROTOCOL_ERR;
@@ -31,9 +32,12 @@ import io.netty.handler.codec.DecoderException;
 import java.util.BitSet;
 import java.util.EnumMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Consumer;
 import javax.net.ssl.SSLException;
 import org.apache.ignite.client.handler.configuration.ClientConnectorView;
@@ -90,6 +94,7 @@ import org.apache.ignite.internal.client.proto.ErrorExtensions;
 import org.apache.ignite.internal.client.proto.HandshakeExtension;
 import org.apache.ignite.internal.client.proto.ProtocolVersion;
 import org.apache.ignite.internal.client.proto.ResponseFlags;
+import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.jdbc.proto.JdbcQueryCursorHandler;
@@ -105,8 +110,9 @@ import org.apache.ignite.internal.security.authentication.AuthenticationRequest;
 import org.apache.ignite.internal.security.authentication.UserDetails;
 import org.apache.ignite.internal.security.authentication.UsernamePasswordRequest;
 import org.apache.ignite.internal.security.authentication.event.AuthenticationEvent;
-import org.apache.ignite.internal.security.authentication.event.AuthenticationListener;
-import org.apache.ignite.internal.security.authentication.event.AuthenticationProviderEvent;
+import org.apache.ignite.internal.security.authentication.event.AuthenticationEventParameters;
+import org.apache.ignite.internal.security.authentication.event.AuthenticationProviderEventParameters;
+import org.apache.ignite.internal.security.authentication.event.UserEventParameters;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
@@ -127,7 +133,7 @@ import org.jetbrains.annotations.Nullable;
  * Handles messages from thin clients.
  */
 @SuppressWarnings({"rawtypes", "unchecked"})
-public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter implements AuthenticationListener {
+public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter implements EventListener<AuthenticationEventParameters> {
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(ClientInboundMessageHandler.class);
 
@@ -170,8 +176,11 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
     /** Context. */
     private ClientContext clientContext;
 
+    /** Read-write lock. Protects {@link #clientContext}. */
+    private final ReadWriteLock readWriteLock = new ReentrantReadWriteLock();
+
     /** Chanel handler context. */
-    private ChannelHandlerContext channelHandlerContext;
+    private volatile ChannelHandlerContext channelHandlerContext;
 
     /** Primary replicas update counter. */
     private final AtomicLong primaryReplicaMaxStartTime;
@@ -259,6 +268,20 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
     }
 
     @Override
+    public void handlerAdded(ChannelHandlerContext ctx) {
+        authenticationEventsToSubscribe().forEach(event -> {
+            authenticationManager.listen(event, this);
+        });
+    }
+
+    @Override
+    public void handlerRemoved(ChannelHandlerContext ctx) {
+        authenticationEventsToSubscribe().forEach(event -> {
+            authenticationManager.removeListener(event, this);
+        });
+    }
+
+    @Override
     public void channelRegistered(ChannelHandlerContext ctx) throws Exception {
         channelHandlerContext = ctx;
         super.channelRegistered(ctx);
@@ -315,10 +338,19 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
             var features = BitSet.valueOf(unpacker.readPayload(featuresLen));
 
             Map<HandshakeExtension, Object> extensions = extractExtensions(unpacker);
-            AuthenticationRequest<?, ?> authenticationRequest = createAuthenticationRequest(extensions);
-            UserDetails userDetails = authenticationManager.authenticate(authenticationRequest);
 
-            clientContext = new ClientContext(clientVer, clientCode, features, userDetails);
+            // It's necessary to perform authentication and update the client context while holding a write lock.
+            // This prevents a race condition where authentication succeeds but the context isn't updated in time.
+            // In such a scenario, we might receive an authentication event and attempt to close the connection,
+            // but fail because the context is still null.
+            readWriteLock.writeLock().lock();
+            try {
+                AuthenticationRequest<?, ?> authenticationRequest = createAuthenticationRequest(extensions);
+                UserDetails userDetails = authenticationManager.authenticate(authenticationRequest);
+                clientContext = new ClientContext(clientVer, clientCode, features, userDetails);
+            } finally {
+                readWriteLock.writeLock().unlock();
+            }
 
             if (LOG.isDebugEnabled()) {
                 LOG.debug("Handshake [connectionId=" + connectionId + ", remoteAddress=" + ctx.channel().remoteAddress() + "]: "
@@ -798,30 +830,6 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         return clock.now().longValue();
     }
 
-    @Override
-    public void onEvent(AuthenticationEvent event) {
-        switch (event.type()) {
-            case AUTHENTICATION_ENABLED:
-                closeConnection();
-                break;
-            case AUTHENTICATION_PROVIDER_REMOVED:
-            case AUTHENTICATION_PROVIDER_UPDATED:
-                AuthenticationProviderEvent providerEvent = (AuthenticationProviderEvent) event;
-                if (clientContext != null && clientContext.userDetails().providerName().equals(providerEvent.name())) {
-                    closeConnection();
-                }
-                break;
-            default:
-                break;
-        }
-    }
-
-    private void closeConnection() {
-        if (channelHandlerContext != null) {
-            channelHandlerContext.close();
-        }
-    }
-
     private void sendNotification(long requestId, @Nullable Consumer<ClientMessagePacker> writer, @Nullable Throwable err) {
         if (err != null) {
             writeError(requestId, -1, err, channelHandlerContext, true);
@@ -848,5 +856,61 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         // Notification can be sent before the response to the current request.
         // This is fine, because the client registers a listener before sending the request.
         return (writer, err) -> sendNotification(requestId, writer, err);
+    }
+
+    @Override
+    public CompletableFuture<Boolean> notify(AuthenticationEventParameters parameters, @Nullable Throwable exception) {
+        if (shouldCloseConnection(parameters)) {
+            LOG.warn("Closing connection due to authentication event [connectionId=" + connectionId + ", remoteAddress="
+                    + channelHandlerContext.channel().remoteAddress() + ", event=" + parameters.type() + ']');
+            closeConnection();
+        }
+        return falseCompletedFuture();
+    }
+
+    private boolean shouldCloseConnection(AuthenticationEventParameters parameters) {
+        switch (parameters.type()) {
+            case AUTHENTICATION_ENABLED:
+                return true;
+            case AUTHENTICATION_PROVIDER_REMOVED:
+            case AUTHENTICATION_PROVIDER_UPDATED:
+                return currentUserAffected((AuthenticationProviderEventParameters) parameters);
+            case USER_REMOVED:
+            case USER_UPDATED:
+                return currentUserAffected((UserEventParameters) parameters);
+            default:
+                return false;
+        }
+    }
+
+    private boolean currentUserAffected(AuthenticationProviderEventParameters parameters) {
+        readWriteLock.readLock().lock();
+        try {
+            return clientContext != null && clientContext.userDetails().providerName().equals(parameters.name());
+        } finally {
+            readWriteLock.readLock().unlock();
+        }
+    }
+
+    private boolean currentUserAffected(UserEventParameters parameters) {
+        return clientContext != null
+                && clientContext.userDetails().providerName().equals(parameters.providerName())
+                && clientContext.userDetails().username().equals(parameters.username());
+    }
+
+    private void closeConnection() {
+        if (channelHandlerContext != null) {
+            channelHandlerContext.close();
+        }
+    }
+
+    private static Set<AuthenticationEvent> authenticationEventsToSubscribe() {
+        return Set.of(
+                AuthenticationEvent.AUTHENTICATION_ENABLED,
+                AuthenticationEvent.AUTHENTICATION_PROVIDER_UPDATED,
+                AuthenticationEvent.AUTHENTICATION_PROVIDER_REMOVED,
+                AuthenticationEvent.USER_UPDATED,
+                AuthenticationEvent.USER_REMOVED
+        );
     }
 }
