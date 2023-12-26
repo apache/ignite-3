@@ -35,6 +35,7 @@ import java.util.function.Supplier;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
+import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
@@ -45,6 +46,7 @@ import org.apache.ignite.internal.rest.configuration.PresentationsFactory;
 import org.apache.ignite.internal.rest.configuration.RestConfiguration;
 import org.apache.ignite.internal.security.authentication.AuthenticationManager;
 import org.apache.ignite.internal.security.authentication.AuthenticationManagerImpl;
+import org.apache.ignite.internal.security.configuration.SecurityConfiguration;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -75,13 +77,15 @@ public class RestComponentTest extends BaseIgniteAbstractTest {
         );
         configurationManager.start();
 
-        RestConfiguration restConfiguration = configurationManager.configurationRegistry().getConfiguration(RestConfiguration.KEY);
+        ConfigurationRegistry configurationRegistry = configurationManager.configurationRegistry();
+        RestConfiguration restConfiguration = configurationRegistry.getConfiguration(RestConfiguration.KEY);
+        SecurityConfiguration securityConfiguration = configurationRegistry.getConfiguration(SecurityConfiguration.KEY);
 
         ClusterManagementGroupManager cmg = mock(ClusterManagementGroupManager.class);
 
         Mockito.when(cmg.clusterState()).then(invocation -> CompletableFuture.completedFuture(state));
 
-        AuthenticationManager authenticationManager = new AuthenticationManagerImpl();
+        AuthenticationManager authenticationManager = new AuthenticationManagerImpl(securityConfiguration);
         Supplier<RestFactory> authProviderFactory = () -> new AuthenticationProviderFactory(authenticationManager);
         Supplier<RestFactory> restPresentationFactory = () -> new PresentationsFactory(
                 configurationManager,
