@@ -38,9 +38,8 @@ import org.apache.calcite.plan.RelOptCluster;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
+import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.lang.IgniteInternalException;
-import org.apache.ignite.internal.placementdriver.PlacementDriver;
-import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.sql.engine.exec.mapping.FragmentsCache.CacheValue;
@@ -62,7 +61,7 @@ import org.jetbrains.annotations.Nullable;
  * <p>This particular implementation keeps track of changes in logical cluster topology.
  * Always uses latest topology snapshot to map query.
  */
-public class MappingServiceImpl implements MappingService, LogicalTopologyEventListener {
+public class MappingServiceImpl implements MappingService, LogicalTopologyEventListener, EventListener<PrimaryReplicaEventParameters> {
     private static final int MAPPING_ATTEMPTS = 3;
 
     private final LogicalTopologyHolder topologyHolder = new LogicalTopologyHolder();
@@ -90,35 +89,11 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
             int cacheSize,
             Executor taskExecutor
     ) {
-        this(localNodeName, targetProvider, cacheFactory, cacheSize, taskExecutor, null);
-    }
-
-    /**
-     * Constructor.
-     *
-     * @param localNodeName Name of the current Ignite node.
-     * @param targetProvider Execution target provider.
-     * @param cacheFactory A factory to create cache of fragments.
-     * @param cacheSize Size of the cache of query plans. Should be non negative.
-     * @param taskExecutor Mapper service task executor.
-     */
-    public MappingServiceImpl(
-            String localNodeName,
-            ExecutionTargetProvider targetProvider,
-            CacheFactory cacheFactory,
-            int cacheSize,
-            Executor taskExecutor,
-            PlacementDriver placementDriver
-    ) {
         this.localNodeName = localNodeName;
         this.targetProvider = targetProvider;
         this.templatesCache = cacheFactory.create(cacheSize);
         this.taskExecutor = taskExecutor;
-        this.fragmentsCache = new FragmentsCache(placementDriver != null ? cacheSize : 0);
-
-        if (placementDriver != null && cacheSize > 0) {
-            placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, topologyHolder::onPrimaryExpired);
-        }
+        this.fragmentsCache = new FragmentsCache(cacheSize);
     }
 
     @Override
@@ -128,6 +103,13 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
         }
 
         return initialTopologyFuture.thenComposeAsync(ignore -> map0(multiStepPlan), taskExecutor);
+    }
+
+    @Override
+    public CompletableFuture<Boolean> notify(PrimaryReplicaEventParameters parameters, @Nullable Throwable exception) {
+        fragmentsCache.invalidateById(((TablePartitionId) parameters.groupId()).tableId());
+
+        return CompletableFutures.falseCompletedFuture();
     }
 
     private CompletableFuture<List<MappedFragment>> map0(MultiStepPlan multiStepPlan) {
@@ -359,12 +341,6 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
             return topology.nodes().stream()
                     .map(LogicalNode::name)
                     .collect(Collectors.toUnmodifiableList());
-        }
-
-        private CompletableFuture<Boolean> onPrimaryExpired(PrimaryReplicaEventParameters parameters, @Nullable Throwable throwable) {
-            fragmentsCache.invalidateById(((TablePartitionId) parameters.groupId()).tableId());
-
-            return CompletableFutures.falseCompletedFuture();
         }
     }
 
