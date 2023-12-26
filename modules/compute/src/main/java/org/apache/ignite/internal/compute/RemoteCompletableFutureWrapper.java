@@ -30,7 +30,7 @@ class RemoteCompletableFutureWrapper<T> extends CompletableFuture<T> {
     }
 
     public void setFuture(CompletableFuture<T> fut) {
-        remoteCompletableFuture. = fut;
+        remoteCompletableFuture = fut;
     }
 
     @Override
