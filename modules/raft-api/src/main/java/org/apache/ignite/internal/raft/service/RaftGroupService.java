@@ -21,7 +21,6 @@ import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeoutException;
-import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
@@ -46,7 +45,7 @@ import org.jetbrains.annotations.Nullable;
  *
  * <p>All async operations provided by the service are not cancellable.
  */
-public interface RaftGroupService {
+public interface RaftGroupService extends RaftCommandRunner {
     /**
      * Returns group id.
      */
@@ -215,17 +214,6 @@ public interface RaftGroupService {
      * @return A future.
      */
     CompletableFuture<Void> transferLeadership(Peer newLeader);
-
-    /**
-     * Runs a command on a replication group leader.
-     *
-     * <p>Read commands always see up to date data.
-     *
-     * @param cmd The command.
-     * @param <R> Execution result type.
-     * @return A future with the execution result.
-     */
-    <R> CompletableFuture<R> run(Command cmd);
 
     /**
      * Shutdown and cleanup resources for this instance.

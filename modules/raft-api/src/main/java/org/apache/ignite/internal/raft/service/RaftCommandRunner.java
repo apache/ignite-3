@@ -15,29 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.tx;
+package org.apache.ignite.internal.raft.service;
 
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.internal.raft.Command;
 
 /**
- * Wrapper for the transaction that encapsulates the management of an implicit/script-driven transaction.
+ * Raft client that is only able to run commands on a Raft group. For a more potent interface, take a look at {@link RaftGroupService}.
+ *
+ * @see RaftGroupService
  */
-public interface QueryTransactionWrapper {
-    /** Unwraps transaction. */
-    InternalTransaction unwrap();
-
-    /** Commits an implicit transaction, if one has been started. */
-    CompletableFuture<Void> commitImplicit();
-
+public interface RaftCommandRunner {
     /**
-     * Returns {@code true} if this transaction was implicitly started by query engine to
-     * execute one particular statement, returns {@code false} otherwise.
+     * Runs a command on a replication group leader.
      *
-     * @return {@code true} if transaction was started implicitly by query engine.
+     * <p>Read commands always see up to date data.
+     *
+     * @param cmd The command.
+     * @param <R> Execution result type.
+     * @return A future with the execution result.
      */
-    boolean implicit();
-
-    /** Rolls back a transaction. */
-    CompletableFuture<Void> rollback(Throwable cause);
+    <R> CompletableFuture<R> run(Command cmd);
 }

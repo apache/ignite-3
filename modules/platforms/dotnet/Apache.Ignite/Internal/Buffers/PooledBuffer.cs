@@ -52,12 +52,19 @@ namespace Apache.Ignite.Internal.Buffers
         /// <param name="bytes">Bytes.</param>
         /// <param name="position">Data position within specified byte array.</param>
         /// <param name="length">Data length within specified byte array.</param>
-        public PooledBuffer(byte[] bytes, int position, int length)
+        /// <param name="metadata">Optional metadata.</param>
+        public PooledBuffer(byte[] bytes, int position, int length, object? metadata = null)
         {
             _bytes = bytes;
             _position = position;
             _length = length;
+            Metadata = metadata;
         }
+
+        /// <summary>
+        /// Gets the optional metadata.
+        /// </summary>
+        public object? Metadata { get; }
 
         /// <summary>
         /// Gets a <see cref="MsgPackReader"/> for this buffer.
@@ -85,6 +92,13 @@ namespace Apache.Ignite.Internal.Buffers
 
             return new(_bytes, _position + offset, _length - offset);
         }
+
+        /// <summary>
+        /// Gets a copy of the current buffer with the specified metadata.
+        /// </summary>
+        /// <param name="metadata">Metadata.</param>
+        /// <returns>Buffer.</returns>
+        public PooledBuffer WithMetadata(object? metadata) => new(_bytes, _position, _length, metadata);
 
         /// <summary>
         /// Releases the pooled buffer.
