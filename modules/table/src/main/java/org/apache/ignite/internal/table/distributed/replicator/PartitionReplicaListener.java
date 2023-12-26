@@ -1977,14 +1977,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             return failedFuture(new TransactionException(TX_FAILED_READ_WRITE_OPERATION_ERR, "Transaction is already finished."));
         }
 
-        CompletableFuture<T> fut;
-        try {
-            fut = op.get();
-        } catch (Throwable ex) {
-            cleanupReadyFut.completeExceptionally(ex);
-
-            throw ex;
-        }
+        CompletableFuture<T> fut = op.get();
 
         fut.whenComplete((v, th) -> {
             if (th != null) {

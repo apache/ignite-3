@@ -424,7 +424,11 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
                 LockMode mode = lockedMode(tmp);
 
                 if (mode != null && !mode.isCompatible(waiter.intendedLockMode())) {
-                    conflictFound(waiter.txId(), tmp.txId());
+                    if (conflictFound(waiter.txId(), tmp.txId())) {
+                        waiter.fail(lockException(waiter, tmp));
+
+                        return true;
+                    }
 
                     if (!deadlockPreventionPolicy.usePriority() && deadlockPreventionPolicy.waitTimeout() == 0) {
                         waiter.fail(lockException(waiter, tmp));
@@ -441,7 +445,11 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
                 LockMode mode = lockedMode(tmp);
 
                 if (mode != null && !mode.isCompatible(waiter.intendedLockMode())) {
-                    conflictFound(waiter.txId(), tmp.txId());
+                    if (conflictFound(waiter.txId(), tmp.txId())) {
+                        waiter.fail(lockException(waiter, tmp));
+
+                        return true;
+                    }
 
                     if (skipFail) {
                         return false;
@@ -668,8 +676,12 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
          * @param acquirerTx Transaction which tries to acquire the lock.
          * @param holderTx Transaction which holds the lock.
          */
-        private void conflictFound(UUID acquirerTx, UUID holderTx) {
-            fireEvent(LockEvent.LOCK_CONFLICT, new LockEventParameters(acquirerTx, holderTx));
+        private boolean conflictFound(UUID acquirerTx, UUID holderTx) {
+            CompletableFuture<Void> eventResult = fireEvent(LockEvent.LOCK_CONFLICT, new LockEventParameters(acquirerTx, holderTx));
+            // No async handling is expected.
+            assert eventResult.isDone();
+
+            return eventResult.isCompletedExceptionally();
         }
     }
 

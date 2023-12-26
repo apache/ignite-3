@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.tx.impl;
 
+import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.tx.TxState.ABANDONED;
 import static org.apache.ignite.internal.tx.TxState.isFinalState;
@@ -147,7 +148,7 @@ public class OrphanDetector {
     private CompletableFuture<Boolean> lockConflictListener(LockEventParameters params, Throwable e) {
         if (busyLock.enterBusy()) {
             try {
-                checkTxOrphanedInternal(params.lockHolderTx());
+                return checkTxOrphanedInternal(params.lockHolderTx());
             } finally {
                 busyLock.leaveBusy();
             }
@@ -162,12 +163,12 @@ public class OrphanDetector {
      * @param txId Transaction id that holds a lock.
      * @return Future to complete.
      */
-    private void checkTxOrphanedInternal(UUID txId) {
+    private CompletableFuture<Boolean> checkTxOrphanedInternal(UUID txId) {
         TxStateMeta txState = txLocalStateStorage.state(txId);
 
         // Transaction state for full transactions is not stored in the local map, so it can be null.
         if (txState == null || isFinalState(txState.txState()) || isTxCoordinatorAlive(txState)) {
-            return;
+            return falseCompletedFuture();
         }
 
         if (makeTxAbandoned(txId, txState)) {
@@ -181,7 +182,8 @@ public class OrphanDetector {
             sentTxRecoveryMessage(txState.commitPartitionId(), txId);
         }
 
-        throw new TransactionException(ACQUIRE_LOCK_ERR, "The lock is held by the abandoned transaction [abandonedTxId=" + txId + "].");
+        return failedFuture(
+                new TransactionException(ACQUIRE_LOCK_ERR, "The lock is held by the abandoned transaction [abandonedTxId=" + txId + "]."));
     }
 
     /**
