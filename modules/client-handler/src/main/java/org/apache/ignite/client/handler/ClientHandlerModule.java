@@ -300,6 +300,8 @@ public class ClientHandlerModule implements IgniteComponent {
                             ClientInboundMessageHandler messageHandler = createInboundMessageHandler(
                                     configuration, clusterId, connectionId);
 
+                            handler = messageHandler;
+
                             ch.pipeline().addLast(
                                     new ClientMessageDecoder(),
                                     messageHandler

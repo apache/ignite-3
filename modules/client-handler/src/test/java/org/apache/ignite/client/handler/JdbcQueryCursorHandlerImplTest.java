@@ -90,8 +90,13 @@ public class JdbcQueryCursorHandlerImplTest extends BaseIgniteAbstractTest {
                     }
 
                     @Override
-                    public void onClose(Runnable callback) {
-                        // No op.
+                    public CompletableFuture<Void> onClose() {
+                        return null;
+                    }
+
+                    @Override
+                    public CompletableFuture<Void> onFirstPageReady() {
+                        return null;
                     }
 
                     @Override
