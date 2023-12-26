@@ -75,7 +75,7 @@ class ItRaftStorageVolatilityTest extends ClusterPerTestIntegrationTest {
     }
 
     private void createInMemoryTable() {
-        executeSql("CREATE ZONE ZONE_" + TABLE_NAME + " ENGINE aimem WITH STORAGE_PROFILES = '" + DUMMY_STORAGE_PROFILE + "'");
+        executeSql("CREATE ZONE ZONE_" + TABLE_NAME + " ENGINE aimem WITH DATAREGION='default_aimem', STORAGE_PROFILES = '" + DUMMY_STORAGE_PROFILE + "'");
 
         executeSql("CREATE TABLE " + TABLE_NAME
                 + " (k int, v int, CONSTRAINT PK PRIMARY KEY (k)) WITH PRIMARY_ZONE='ZONE_"
@@ -242,7 +242,7 @@ class ItRaftStorageVolatilityTest extends ClusterPerTestIntegrationTest {
         cluster.doInSession(0, session -> {
             session.execute(
                     null,
-                    "create zone zone1 engine aimem with partitions=1, replicas=1, storage_profiles = '" + DUMMY_STORAGE_PROFILE + "'"
+                    "create zone zone1 engine aimem with partitions=1, replicas=1, dataregion='default_aimem', storage_profiles = '" + DUMMY_STORAGE_PROFILE + "'"
             );
             session.execute(null, "create table " + tableName + " (id int primary key, name varchar) with primary_zone='ZONE1'");
         });
