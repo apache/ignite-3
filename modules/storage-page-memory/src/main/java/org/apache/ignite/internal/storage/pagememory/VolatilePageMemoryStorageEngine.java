@@ -110,8 +110,8 @@ public class VolatilePageMemoryStorageEngine implements StorageEngine {
         storagesConfiguration.profiles().listenElements(new ConfigurationNamedListListener<>() {
             @Override
             public CompletableFuture<?> onCreate(ConfigurationNotificationEvent<StorageProfileView> ctx) {
-                if (ctx.newValue() instanceof VolatilePageMemoryProfileConfiguration) {
-                    addDataRegion(ctx.newName(VolatilePageMemoryProfileConfiguration.class));
+                if (ctx.newValue() instanceof VolatilePageMemoryProfileView) {
+                    addDataRegion(ctx.newName(VolatilePageMemoryProfileView.class));
                 }
 
                 return nullCompletedFuture();

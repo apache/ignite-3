@@ -21,6 +21,13 @@ import static org.apache.ignite.example.ExampleTestUtils.assertConsoleOutputCont
 
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.example.AbstractExamplesTest;
+import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileChange;
+import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileConfiguration;
+import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileConfigurationSchema;
+import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryProfileChange;
+import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryProfileConfiguration;
+import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryProfileConfigurationSchema;
+import org.apache.ignite.internal.storage.configurations.StoragesConfiguration;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorageEngine;
 import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryStorageEngine;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineConfiguration;
@@ -58,16 +65,22 @@ public class ItPageMemoryStorageExampleTest extends AbstractExamplesTest {
     }
 
     private void addVolatileDataRegionConfig(String name) throws Exception {
-        ignite.nodeConfiguration().getConfiguration(VolatilePageMemoryStorageEngineConfiguration.KEY)
-                .regions()
-                .change(regionsChange -> regionsChange.create(name, c -> {}))
+        ignite.nodeConfiguration().getConfiguration(StoragesConfiguration.KEY)
+                .profiles()
+                .change(regionsChange -> regionsChange.create(name, c -> {
+                    c.convert(VolatilePageMemoryProfileChange.class)
+                            .changeMaxSize(VolatilePageMemoryProfileConfigurationSchema.DFLT_DATA_REGION_MAX_SIZE);
+                }))
                 .get(1, TimeUnit.SECONDS);
     }
 
     private void addPersistentDataRegionConfig(String name) throws Exception {
-        ignite.nodeConfiguration().getConfiguration(PersistentPageMemoryStorageEngineConfiguration.KEY)
-                .regions()
-                .change(regionsChange -> regionsChange.create(name, c -> {}))
+        ignite.nodeConfiguration().getConfiguration(StoragesConfiguration.KEY)
+                .profiles()
+                .change(regionsChange -> regionsChange.create(name, c -> {
+                    c.convert(PersistentPageMemoryProfileChange.class)
+                            .changeSize(PersistentPageMemoryProfileConfigurationSchema.DFLT_DATA_REGION_SIZE);
+                }))
                 .get(1, TimeUnit.SECONDS);
     }
 }

@@ -171,8 +171,8 @@ public class PersistentPageMemoryStorageEngine implements StorageEngine {
         storagesConfiguration.profiles().listenElements(new ConfigurationNamedListListener<StorageProfileView>() {
             @Override
             public CompletableFuture<?> onCreate(ConfigurationNotificationEvent<StorageProfileView> ctx) {
-                if (ctx.newValue() instanceof PersistentPageMemoryProfileConfiguration) {
-                    addDataRegion(ctx.newName(PersistentPageMemoryProfileConfiguration.class));
+                if (ctx.newValue() instanceof PersistentPageMemoryProfileView) {
+                    addDataRegion(ctx.newName(PersistentPageMemoryProfileView.class));
                 }
 
                 return nullCompletedFuture();
