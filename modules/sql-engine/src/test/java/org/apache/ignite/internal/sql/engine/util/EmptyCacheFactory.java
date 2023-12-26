@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.util;
 
+import java.util.Collections;
+import java.util.Map;
 import java.util.function.Function;
 import org.apache.ignite.internal.sql.engine.util.cache.Cache;
 import org.apache.ignite.internal.sql.engine.util.cache.CacheFactory;
@@ -67,6 +69,11 @@ public class EmptyCacheFactory implements CacheFactory {
         @Override
         public void clear() {
             // NO-OP
+        }
+
+        @Override
+        public Map<K, V> asMap() {
+            return Collections.emptyMap();
         }
     }
 }

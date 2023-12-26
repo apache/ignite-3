@@ -61,7 +61,7 @@ import org.jetbrains.annotations.Nullable;
  * <p>This particular implementation keeps track of changes in logical cluster topology.
  * Always uses latest topology snapshot to map query.
  */
-public class MappingServiceImpl implements MappingService, LogicalTopologyEventListener, EventListener<PrimaryReplicaEventParameters> {
+public class MappingServiceImpl implements MappingService, LogicalTopologyEventListener {
     private static final int MAPPING_ATTEMPTS = 3;
 
     private final LogicalTopologyHolder topologyHolder = new LogicalTopologyHolder();
@@ -93,7 +93,7 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
         this.targetProvider = targetProvider;
         this.templatesCache = cacheFactory.create(cacheSize);
         this.taskExecutor = taskExecutor;
-        this.fragmentsCache = new FragmentsCache(cacheSize);
+        this.fragmentsCache = new FragmentsCache(cacheFactory, cacheSize);
     }
 
     @Override
@@ -105,8 +105,10 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
         return initialTopologyFuture.thenComposeAsync(ignore -> map0(multiStepPlan), taskExecutor);
     }
 
-    @Override
-    public CompletableFuture<Boolean> notify(PrimaryReplicaEventParameters parameters, @Nullable Throwable exception) {
+    public CompletableFuture<Boolean> onPrimaryReplicaExpired(PrimaryReplicaEventParameters parameters) {
+        assert parameters != null;
+        assert parameters.groupId() instanceof TablePartitionId;
+
         fragmentsCache.invalidateById(((TablePartitionId) parameters.groupId()).tableId());
 
         return CompletableFutures.falseCompletedFuture();

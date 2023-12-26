@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.exec.mapping;
 
-import com.github.benmanes.caffeine.cache.Cache;
-import com.github.benmanes.caffeine.cache.Caffeine;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -26,6 +24,8 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import org.apache.ignite.internal.sql.engine.prepare.PlanId;
+import org.apache.ignite.internal.sql.engine.util.cache.Cache;
+import org.apache.ignite.internal.sql.engine.util.cache.CacheFactory;
 
 /**
  * Cache for mapped fragments.
@@ -34,10 +34,8 @@ public class FragmentsCache {
     private final Cache<PlanId, CacheValue> cache;
 
     /** Constructs cache. */
-    public FragmentsCache(int size) {
-        cache = Caffeine.newBuilder()
-                .maximumSize(size)
-                .build();
+    public FragmentsCache(CacheFactory cacheFactory, int size) {
+        cache = cacheFactory.create(size);
     }
 
     /** Computes new value if the key is absent in the cache. */
@@ -55,12 +53,12 @@ public class FragmentsCache {
             }
         }
 
-        cache.invalidateAll(toInvalidate);
+        toInvalidate.forEach(cache.asMap().keySet()::remove);
     }
 
     /** Invalidates cache entries. */
     public void clear() {
-        cache.invalidateAll();
+        cache.clear();
     }
 
     static class CacheValue {

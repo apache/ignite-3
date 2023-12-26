@@ -591,7 +591,8 @@ public class TestBuilders {
                                 mappingService,
                                 new TestExecutableTableRegistry(nodeName2tableName2table.get(name), schemaManager),
                                 ddlHandler,
-                                systemViewManager
+                                systemViewManager,
+                                catalogManager
                         );
                     })
                     .collect(Collectors.toMap(TestNode::name, Function.identity()));

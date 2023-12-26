@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.util.cache;
 
+import java.util.Map;
 import java.util.function.Function;
 import org.jetbrains.annotations.Nullable;
 
@@ -60,4 +61,6 @@ public interface Cache<K, V> {
 
     /** Clears the given cache. That is, remove all keys and associated values. */
     void clear();
+
+    Map<K, V> asMap();
 }

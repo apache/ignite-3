@@ -28,7 +28,10 @@ import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import org.apache.calcite.tools.Frameworks;
+import org.apache.ignite.internal.catalog.CatalogManager;
+import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.QueryCancel;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
@@ -75,6 +78,7 @@ public class TestNode implements LifecycleAware {
     private final PrepareService prepareService;
     private final ExecutionService executionService;
     private final ParserService parserService;
+    private final CatalogService catalogService;
 
     private final List<LifecycleAware> services = new ArrayList<>();
 
@@ -94,12 +98,14 @@ public class TestNode implements LifecycleAware {
             MappingService mappingService,
             ExecutableTableRegistry tableRegistry,
             DdlCommandHandler ddlCommandHandler,
-            SystemViewManager systemViewManager
+            SystemViewManager systemViewManager,
+            CatalogService catalogService
     ) {
         this.nodeName = nodeName;
         this.parserService = parserService;
         this.prepareService = prepareService;
         this.schemaManager = schemaManager;
+        this.catalogService = catalogService;
 
         TopologyService topologyService = clusterService.topologyService();
         MessagingService messagingService = clusterService.messagingService();
@@ -223,6 +229,10 @@ public class TestNode implements LifecycleAware {
 
             await(cursor.requestNextAsync(1));
         }
+    }
+
+    public CatalogService catalogService() {
+        return catalogService;
     }
 
     private BaseQueryContext createContext() {

@@ -17,24 +17,38 @@
 
 package org.apache.ignite.internal.sql.engine.exec.mapping;
 
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeoutException;
+import java.util.function.Function;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.catalog.Catalog;
+import org.apache.ignite.internal.catalog.CatalogService;
+import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
+import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.framework.TestCluster;
 import org.apache.ignite.internal.sql.engine.prepare.MultiStepPlan;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSystemView;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.util.EmptyCacheFactory;
+import org.apache.ignite.internal.sql.engine.util.cache.CacheFactory;
+import org.apache.ignite.internal.sql.engine.util.cache.CaffeineCacheFactory;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.network.NetworkAddress;
@@ -47,13 +61,19 @@ import org.mockito.Mockito;
 @SuppressWarnings("ThrowFromFinallyBlock")
 public class MappingServiceImplTest extends BaseIgniteAbstractTest {
     private static final MultiStepPlan PLAN;
+    private static final TestCluster cluster;
 
     static {
         //@formatter:off
-        TestCluster cluster = TestBuilders.cluster()
+        cluster = TestBuilders.cluster()
                 .nodes("N1")
                 .addTable()
                         .name("T1")
+                        .addKeyColumn("ID", NativeTypes.INT32)
+                        .addColumn("VAL", NativeTypes.INT32)
+                        .end()
+                .addTable()
+                        .name("T2")
                         .addKeyColumn("ID", NativeTypes.INT32)
                         .addColumn("VAL", NativeTypes.INT32)
                         .end()
@@ -134,13 +154,85 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
         assertThat(mappingService.map(PLAN), willSucceedFast());
     }
 
+    @Test
+    public void testCacheInvalidationOnTopologyChange() {
+        String localNodeName = "NODE";
+        List<String> nodeNames = List.of(localNodeName, "NODE1");
+
+        // Initialize mapping service.
+        MappingServiceImpl mappingService = createMappingService(localNodeName, nodeNames, CaffeineCacheFactory.INSTANCE, 1024);
+        mappingService.onNodeJoined(Mockito.mock(LogicalNode.class),
+                new LogicalTopologySnapshot(1, logicalNodes(nodeNames.toArray(new String[0]))));
+
+        List<MappedFragment> mappedFragments = await(mappingService.map(PLAN));
+
+        assertSame(mappedFragments, await(mappingService.map(PLAN)));
+
+        mappingService.onNodeLeft(Mockito.mock(LogicalNode.class),
+                new LogicalTopologySnapshot(2, logicalNodes("NODE")));
+        assertNotSame(mappedFragments, await(mappingService.map(PLAN)));
+    }
+
+    @Test
+    public void testCacheInvalidationOnPrimaryExpiration() {
+        String localNodeName = "NODE";
+        List<String> nodeNames = List.of(localNodeName, "NODE1");
+
+        Function<String, PrimaryReplicaEventParameters> prepareEvtParams = (name) -> {
+            CatalogService catalogService = cluster.node("N1").catalogService();
+            Catalog catalog = catalogService.catalog(catalogService.latestCatalogVersion());
+
+            Optional<Integer> tblId = catalog.tables().stream()
+                    .filter(desc -> name.equals(desc.name()))
+                    .findFirst()
+                    .map(CatalogObjectDescriptor::id);
+
+            assertTrue(tblId.isPresent());
+
+            return new PrimaryReplicaEventParameters(
+                    0, new TablePartitionId(tblId.get(), 0), "test", HybridTimestamp.MIN_VALUE);
+        };
+
+        // Initialize mapping service.
+        MappingServiceImpl mappingService = createMappingService(localNodeName, nodeNames, CaffeineCacheFactory.INSTANCE, 1024);
+        mappingService.onNodeJoined(Mockito.mock(LogicalNode.class),
+                new LogicalTopologySnapshot(1, logicalNodes(nodeNames.toArray(new String[0]))));
+
+        List<MappedFragment> mappedFragments = await(mappingService.map(PLAN));
+
+        // Simulate expiration of the primary replica for non-mapped table - the cache entry should not be invalidated.
+        mappingService.onPrimaryReplicaExpired(prepareEvtParams.apply("T2"));
+        assertSame(mappedFragments, await(mappingService.map(PLAN)));
+
+        // Simulate expiration of the primary replica for mapped table - the cache entry should be invalidated.
+        mappingService.onPrimaryReplicaExpired(prepareEvtParams.apply("T1"));
+        assertNotSame(mappedFragments, await(mappingService.map(PLAN)));
+    }
+
     private static List<LogicalNode> logicalNodes(String... nodeNames) {
         return Arrays.stream(nodeNames)
                 .map(name -> new LogicalNode(name, name, NetworkAddress.from("127.0.0.1:10000")))
                 .collect(Collectors.toList());
     }
 
-    private static MappingServiceImpl createMappingService(String localNodeName, List<String> nodeNames) {
+    private static MappingServiceImpl createMappingService(
+            String localNodeName,
+            List<String> nodeNames
+    ) {
+        return createMappingService(
+                localNodeName,
+                nodeNames,
+                EmptyCacheFactory.INSTANCE,
+                0
+        );
+    }
+
+    private static MappingServiceImpl createMappingService(
+            String localNodeName,
+            List<String> nodeNames,
+            CacheFactory cacheFactory,
+            int cacheSize
+    ) {
         var targetProvider = new ExecutionTargetProvider() {
             @Override
             public CompletableFuture<ExecutionTarget> forTable(ExecutionTargetFactory factory, IgniteTable table) {
@@ -153,6 +245,6 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
             }
         };
 
-        return new MappingServiceImpl(localNodeName, targetProvider, EmptyCacheFactory.INSTANCE, 0, Runnable::run);
+        return new MappingServiceImpl(localNodeName, targetProvider, cacheFactory, cacheSize, Runnable::run);
     }
 }
