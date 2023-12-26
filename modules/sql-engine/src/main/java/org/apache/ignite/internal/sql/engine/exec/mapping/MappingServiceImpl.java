@@ -21,7 +21,6 @@ import static java.util.concurrent.CompletableFuture.allOf;
 import static org.apache.ignite.internal.util.CollectionUtils.first;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
-import com.github.benmanes.caffeine.cache.Caffeine;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.ints.IntObjectPair;
@@ -30,8 +29,8 @@ import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executor;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -40,14 +39,22 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.placementdriver.PlacementDriver;
+import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
+import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
+import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.sql.engine.exec.mapping.FragmentsCache.CacheValue;
 import org.apache.ignite.internal.sql.engine.prepare.Fragment;
 import org.apache.ignite.internal.sql.engine.prepare.MultiStepPlan;
 import org.apache.ignite.internal.sql.engine.prepare.PlanId;
 import org.apache.ignite.internal.sql.engine.rel.IgniteReceiver;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSender;
+import org.apache.ignite.internal.sql.engine.schema.IgniteDataSource;
 import org.apache.ignite.internal.sql.engine.util.cache.Cache;
 import org.apache.ignite.internal.sql.engine.util.cache.CacheFactory;
+import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.lang.ErrorGroups.Sql;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * An implementation of {@link MappingService}.
@@ -63,9 +70,9 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
 
     private final String localNodeName;
     private final ExecutionTargetProvider targetProvider;
-    private final Cache<PlanId, FragmentsTemplate> templatesCache;
     private final Executor taskExecutor;
-    private final ConcurrentMap<PlanId, CompletableFuture<List<MappedFragment>>> mappingCache;
+    private final Cache<PlanId, FragmentsTemplate> templatesCache;
+    private final FragmentsCache fragmentsCache;
 
     /**
      * Constructor.
@@ -83,14 +90,35 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
             int cacheSize,
             Executor taskExecutor
     ) {
+        this(localNodeName, targetProvider, cacheFactory, cacheSize, taskExecutor, null);
+    }
+
+    /**
+     * Constructor.
+     *
+     * @param localNodeName Name of the current Ignite node.
+     * @param targetProvider Execution target provider.
+     * @param cacheFactory A factory to create cache of fragments.
+     * @param cacheSize Size of the cache of query plans. Should be non negative.
+     * @param taskExecutor Mapper service task executor.
+     */
+    public MappingServiceImpl(
+            String localNodeName,
+            ExecutionTargetProvider targetProvider,
+            CacheFactory cacheFactory,
+            int cacheSize,
+            Executor taskExecutor,
+            PlacementDriver placementDriver
+    ) {
         this.localNodeName = localNodeName;
         this.targetProvider = targetProvider;
         this.templatesCache = cacheFactory.create(cacheSize);
         this.taskExecutor = taskExecutor;
-        this.mappingCache = Caffeine.newBuilder()
-                .maximumSize(cacheSize)
-                .<PlanId, CompletableFuture<List<MappedFragment>>>build()
-                .asMap();
+        this.fragmentsCache = new FragmentsCache(placementDriver != null ? cacheSize : 0);
+
+        if (placementDriver != null && cacheSize > 0) {
+            placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, topologyHolder::onPrimaryExpired);
+        }
     }
 
     @Override
@@ -103,15 +131,21 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
     }
 
     private CompletableFuture<List<MappedFragment>> map0(MultiStepPlan multiStepPlan) {
-        return mappingCache.computeIfAbsent(multiStepPlan.id(), planId -> mapPlan(multiStepPlan));
-    }
-
-    private CompletableFuture<List<MappedFragment>> mapPlan(MultiStepPlan multiStepPlan) {
         List<String> nodes = topologyHolder.nodes();
         MappingContext context = new MappingContext(localNodeName, nodes);
-
         FragmentsTemplate template = getOrCreateTemplate(multiStepPlan, context);
 
+        return fragmentsCache.computeIfAbsent(multiStepPlan.id(), planId -> {
+            // Catalog catalog = null;
+            // catalog.table(tab.id()).zoneId())
+            Set<Integer> ids = template.fragments.stream().flatMap(fragment -> fragment.tables().stream()
+                    .map(IgniteDataSource::id)).collect(Collectors.toSet());
+
+            return new CacheValue(ids, mapFragments(context, template));
+        }).mapping();
+    }
+
+    private CompletableFuture<List<MappedFragment>> mapFragments(MappingContext context, FragmentsTemplate template) {
         IdGenerator idGenerator = new IdGenerator(template.nextId);
         List<Fragment> fragments = new ArrayList<>(template.fragments);
 
@@ -179,6 +213,8 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
                             }
 
                             lastAttemptSucceed = true;
+
+                            break;
                         } catch (FragmentMappingException mappingException) {
                             if (ex == null) {
                                 ex = mappingException;
@@ -291,10 +327,6 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
         return newFragments;
     }
 
-    private void invalidateFragmentsCache() {
-        mappingCache.clear();
-    }
-
     /**
      * Holder for topology snapshots that guarantees monotonically increasing versions.
      */
@@ -303,10 +335,10 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
         private long ver = Long.MIN_VALUE;
 
         void update(LogicalTopologySnapshot topologySnapshot) {
-            invalidateFragmentsCache();
-
             synchronized (this) {
                 if (ver < topologySnapshot.version()) {
+                    fragmentsCache.clear();
+
                     nodes = deriveNodeNames(topologySnapshot);
                     ver = topologySnapshot.version();
                 }
@@ -327,6 +359,12 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
             return topology.nodes().stream()
                     .map(LogicalNode::name)
                     .collect(Collectors.toUnmodifiableList());
+        }
+
+        private CompletableFuture<Boolean> onPrimaryExpired(PrimaryReplicaEventParameters parameters, @Nullable Throwable throwable) {
+            fragmentsCache.invalidateById(((TablePartitionId) parameters.groupId()).tableId());
+
+            return CompletableFutures.falseCompletedFuture();
         }
     }
 
