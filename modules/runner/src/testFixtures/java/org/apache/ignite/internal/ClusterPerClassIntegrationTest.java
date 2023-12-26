@@ -277,6 +277,10 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
         return sql(null, sql, args);
     }
 
+    protected static List<List<Object>> sql(int nodeIndex, String sql, Object... args) {
+        return sql(nodeIndex, null, sql, args);
+    }
+
     /**
      * Run SQL on given Ignite instance with given transaction and parameters.
      *
@@ -296,7 +300,12 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
     }
 
     protected static List<List<Object>> sql(@Nullable Transaction tx, String sql, Object... args) {
-        IgniteImpl node = CLUSTER.node(0);
+        return sql(0, tx, sql, args);
+    }
+
+    protected static List<List<Object>> sql(int nodeIndex, @Nullable Transaction tx, String sql, Object[] args) {
+        IgniteImpl node = CLUSTER.node(nodeIndex);
+
         if (!AWAIT_INDEX_AVAILABILITY.get()) {
             return sql(node, tx, sql, args);
         } else {
@@ -344,16 +353,37 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
      * {@link #deletePeople(String, int...)} to remove people.
      */
     protected static class Person {
-        final int id;
+        int id;
 
-        final String name;
+        String name;
 
-        final double salary;
+        double salary;
+
+        public Person() {
+            //No-op.
+        }
 
         public Person(int id, String name, double salary) {
             this.id = id;
             this.name = name;
             this.salary = salary;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            Person person = (Person) o;
+            return id == person.id && Double.compare(salary, person.salary) == 0 && Objects.equals(name, person.name);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(id, name, salary);
         }
     }
 

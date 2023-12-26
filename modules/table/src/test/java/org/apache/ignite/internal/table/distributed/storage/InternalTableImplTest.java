@@ -49,7 +49,7 @@ import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.sql.IgniteSql;
+import org.apache.ignite.network.SingleClusterNodeResolver;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -63,15 +63,14 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
                 1,
                 Int2ObjectMaps.emptyMap(),
                 1,
-                s -> mock(ClusterNode.class),
+                new SingleClusterNodeResolver(mock(ClusterNode.class)),
                 mock(TxManager.class),
                 mock(MvTableStorage.class),
                 mock(TxStateTableStorage.class),
                 mock(ReplicaService.class),
                 mock(HybridClock.class),
                 new HybridTimestampTracker(),
-                mock(PlacementDriver.class),
-                mock(IgniteSql.class)
+                mock(PlacementDriver.class)
         );
 
         // Let's check the empty table.
@@ -110,15 +109,14 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
                 1,
                 Int2ObjectMaps.emptyMap(),
                 3,
-                s -> mock(ClusterNode.class),
+                new SingleClusterNodeResolver(mock(ClusterNode.class)),
                 mock(TxManager.class),
                 mock(MvTableStorage.class),
                 mock(TxStateTableStorage.class),
                 mock(ReplicaService.class),
                 mock(HybridClock.class),
                 new HybridTimestampTracker(),
-                mock(PlacementDriver.class),
-                mock(IgniteSql.class)
+                mock(PlacementDriver.class)
         );
 
         List<BinaryRowEx> originalRows = List.of(

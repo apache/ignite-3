@@ -18,61 +18,63 @@
 package org.apache.ignite.table.criteria;
 
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.sql.ClosableCursor;
+import org.apache.ignite.lang.AsyncCursor;
+import org.apache.ignite.lang.Cursor;
 import org.apache.ignite.sql.SqlException;
-import org.apache.ignite.sql.async.AsyncClosableCursor;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Represents an object which can be queried with criteria.
+ * Represents a criteria query facade that can be used to executes a query to a record view using a predicate.
  *
- * @param <T> Entry type.
+ * @param <T> The type of elements returned by iterator.
  */
 public interface CriteriaQuerySource<T> {
     /**
-     * Criteria query over cache entries.
+     * Executes a query to a record view using a predicate.
      *
-     * @param tx Transaction to execute the query within or {@code null}.
-     * @param criteria If {@code null} then all entries will be returned.
+     * @param tx Transaction to execute the query within or {@code null} to run within implicit transaction.
+     * @param criteria The predicate to filter entries or {@code null} to return all entries in record view.
+     * @return Iterator with query results.
      * @throws SqlException If failed.
      */
-    default ClosableCursor<T> queryCriteria(@Nullable Transaction tx, @Nullable Criteria criteria) {
-        return queryCriteria(tx, criteria, CriteriaQueryOptions.DEFAULT);
+    default Cursor<T> query(@Nullable Transaction tx, @Nullable Criteria criteria) {
+        return query(tx, criteria, CriteriaQueryOptions.DEFAULT);
     }
 
     /**
-     * Criteria query over cache entries.
+     * Executes a query to a record view using a predicate.
      *
-     * @param tx Transaction to execute the query within or {@code null}.
-     * @param criteria If {@code null} then all entries will be returned.
+     * @param tx Transaction to execute the query within or {@code null} to run within implicit transaction.
+     * @param criteria The predicate to filter entries or {@code null} to return all entries in record view.
      * @param opts Criteria query options.
+     * @return Iterator with query results.
      * @throws SqlException If failed.
      */
-    ClosableCursor<T> queryCriteria(@Nullable Transaction tx, @Nullable Criteria criteria, CriteriaQueryOptions opts);
+    Cursor<T> query(@Nullable Transaction tx, @Nullable Criteria criteria, CriteriaQueryOptions opts);
 
     /**
-     * Execute criteria query over cache entries in an asynchronous way.
+     * Executes a query to a record view using a predicate in an asynchronous way.
      *
-     * @param tx Transaction to execute the query within or {@code null}.
-     * @param criteria If {@code null} then all entries will be returned.
-     * @return Operation future.
+     * @param tx Transaction to execute the query within or {@code null} to run within implicit transaction.
+     * @param criteria The predicate to filter entries or {@code null} to return all entries in record view.
+     * @return Future that represents the pending completion of the operation.
      * @throws SqlException If failed.
      */
-    default CompletableFuture<? extends AsyncClosableCursor<T>> queryCriteriaAsync(@Nullable Transaction tx, @Nullable Criteria criteria) {
-        return queryCriteriaAsync(tx, criteria, CriteriaQueryOptions.DEFAULT);
+    default CompletableFuture<AsyncCursor<T>> queryAsync(@Nullable Transaction tx, @Nullable Criteria criteria) {
+        return queryAsync(tx, criteria, CriteriaQueryOptions.DEFAULT);
     }
 
     /**
-     * Execute criteria query over cache entries in an asynchronous way.
+     * Executes a query to a record view using a predicate in an asynchronous way.
      *
-     * @param tx Transaction to execute the query within or {@code null}.
-     * @param criteria If {@code null} then all entries will be returned.
+     * @param tx Transaction to execute the query within or {@code null} to run within implicit transaction.
+     * @param criteria The predicate to filter entries or {@code null} to return all entries in record view.
      * @param opts Criteria query options.
-     * @return Operation future.
+     * @return Future that represents the pending completion of the operation.
      * @throws SqlException If failed.
      */
-    CompletableFuture<? extends AsyncClosableCursor<T>> queryCriteriaAsync(
+    CompletableFuture<AsyncCursor<T>> queryAsync(
             @Nullable Transaction tx,
             @Nullable Criteria criteria,
             CriteriaQueryOptions opts

@@ -114,7 +114,7 @@ class CatalogValidationSchemasSourceTest extends BaseIgniteAbstractTest {
         );
 
         return new CatalogTableDescriptor(
-                tableId, -1, -1, "test", 0, tableVersion, columns, List.of("k1"), null, INITIAL_CAUSALITY_TOKEN
+                tableId, -1, -1, "test", 0, tableVersion, columns, List.of("k1"), null, INITIAL_CAUSALITY_TOKEN, INITIAL_CAUSALITY_TOKEN
         );
     }
 

@@ -17,9 +17,14 @@
 
 package org.apache.ignite.sql.async;
 
+import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.lang.AsyncCursor;
+import org.apache.ignite.sql.CursorClosedException;
+import org.apache.ignite.sql.NoRowSetExpectedException;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.Session;
+import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.tx.Transaction;
@@ -54,9 +59,9 @@ import org.jetbrains.annotations.Nullable;
  * @see Session#executeAsync(Transaction, String, Object...)
  * @see Session#executeAsync(Transaction, Mapper, String, Object...)
  */
-public interface AsyncResultSet<T> extends AsyncClosableCursor<T> {
+public interface AsyncResultSet<T> extends AsyncCursor<T> {
     /**
-     * Returns metadata for query results. If the result set contains rows ({@link #hasRowSet()}, returns {@code true}). 
+     * Returns metadata for query results. If the result set contains rows ({@link #hasRowSet()}, returns {@code true}).
      * If not applicable, returns {@code null}.
      *
      * @return ResultSet Metadata.
@@ -86,11 +91,11 @@ public interface AsyncResultSet<T> extends AsyncClosableCursor<T> {
     long affectedRows();
 
     /**
-     * Indicates whether the query that had produced the result was a conditional query. 
-     * E.g., for query "Create table if not exists", the method returns {@code true} if 
+     * Indicates whether the query that had produced the result was a conditional query.
+     * E.g., for query "Create table if not exists", the method returns {@code true} if
      * the operation was successful or {@code false} if the operation was ignored because the table already existed.
      *
-     * <p>Note: If the method returns {@code false}, then either {@link #affectedRows()} returns the number of 
+     * <p>Note: If the method returns {@code false}, then either {@link #affectedRows()} returns the number of
      * affected rows, or {@link #hasRowSet()} returns {@code true}, or the conditional DDL query is not applied.
      *
      * @return {@code True} if a conditional query is applied, {@code false} otherwise.
@@ -98,4 +103,44 @@ public interface AsyncResultSet<T> extends AsyncClosableCursor<T> {
      */
     boolean wasApplied();
 
+    /**
+     * Returns the current page content if the query returns rows.
+     *
+     * @return Iterable set of rows.
+     * @throws NoRowSetExpectedException if no row set is returned.
+     */
+    @Override
+    Iterable<T> currentPage();
+
+    /**
+     * Returns the current page size if the query return rows.
+     *
+     * @return The size of {@link #currentPage()}.
+     * @throws NoRowSetExpectedException if no row set is returned.
+     */
+    @Override
+    int currentPageSize();
+
+    /**
+     * Fetches the next page of results asynchronously.
+     * The current page is changed after the future completion.
+     * The methods {@link #currentPage()}, {@link #currentPageSize()}, {@link #hasMorePages()}
+     * use the current page and return consistent results between complete last page future and call {@code fetchNextPage}.
+     *
+     * @return A future which will be completed when next page will be fetched and set as the current page.
+     *     The future will return {@code this} for chaining.
+     * @throws NoRowSetExpectedException If no row set is expected as a query result.
+     * @throws CursorClosedException If cursor is closed.
+     * @throws SqlException If there are no more pages.
+     */
+    @Override
+    CompletableFuture<? extends AsyncResultSet<T>> fetchNextPage();
+
+    /**
+     * Invalidates a query result, stops the query, and cleans up query resources.
+     *
+     * @return Operation future.
+     */
+    @Override
+    CompletableFuture<Void> closeAsync();
 }

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine;
 
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
@@ -30,6 +31,8 @@ import java.util.concurrent.CompletionException;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.sql.api.ResultSetMetadataImpl;
 import org.apache.ignite.internal.sql.engine.framework.NoOpTransaction;
+import org.apache.ignite.internal.sql.engine.tx.QueryTransactionWrapper;
+import org.apache.ignite.internal.sql.engine.tx.QueryTransactionWrapperImpl;
 import org.apache.ignite.internal.util.AsyncCursor;
 import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
 import org.apache.ignite.internal.util.AsyncWrapper;
@@ -54,8 +57,14 @@ public class AsyncSqlCursorImplTest {
     public void testTriggerCommitAfterDataIsFullyRead(boolean implicit, QueryTransactionWrapper txWrapper) {
         List<Integer> list = List.of(1, 2, 3);
 
-        AsyncSqlCursorImpl<Integer> cursor = new AsyncSqlCursorImpl<>(SqlQueryType.QUERY, RESULT_SET_METADATA, txWrapper,
-                new AsyncWrapper<>(CompletableFuture.completedFuture(list.iterator()), Runnable::run), () -> {});
+        AsyncSqlCursorImpl<Integer> cursor = new AsyncSqlCursorImpl<>(
+                SqlQueryType.QUERY,
+                RESULT_SET_METADATA,
+                txWrapper,
+                new AsyncWrapper<>(CompletableFuture.completedFuture(list.iterator()), Runnable::run),
+                nullCompletedFuture(),
+                null
+        );
 
         int requestRows = 2;
         BatchedResult<Integer> in1 = cursor.requestNextAsync(requestRows).join();
@@ -77,8 +86,14 @@ public class AsyncSqlCursorImplTest {
     public void testExceptionRollbacksImplicitTx(boolean implicit, QueryTransactionWrapper txWrapper) {
         IgniteException err = new IgniteException(Common.INTERNAL_ERR);
 
-        AsyncSqlCursorImpl<Integer> cursor = new AsyncSqlCursorImpl<>(SqlQueryType.QUERY, RESULT_SET_METADATA, txWrapper,
-                new AsyncWrapper<>(CompletableFuture.failedFuture(err), Runnable::run), () -> {});
+        AsyncSqlCursorImpl<Integer> cursor = new AsyncSqlCursorImpl<>(
+                SqlQueryType.QUERY,
+                RESULT_SET_METADATA,
+                txWrapper,
+                new AsyncWrapper<>(CompletableFuture.failedFuture(err), Runnable::run),
+                nullCompletedFuture(),
+                null
+        );
 
         CompletionException t = assertThrows(CompletionException.class, () -> cursor.requestNextAsync(1).join());
 
@@ -94,7 +109,14 @@ public class AsyncSqlCursorImplTest {
     @MethodSource("transactions")
     public void testCloseCommitsImplicitTx(boolean implicit, QueryTransactionWrapper txWrapper) {
         AsyncCursor<Integer> data = new AsyncWrapper<>(List.of(1, 2, 3, 4).iterator());
-        AsyncSqlCursorImpl<Integer> cursor = new AsyncSqlCursorImpl<>(SqlQueryType.QUERY, RESULT_SET_METADATA, txWrapper, data, () -> {});
+        AsyncSqlCursorImpl<Integer> cursor = new AsyncSqlCursorImpl<>(
+                SqlQueryType.QUERY,
+                RESULT_SET_METADATA,
+                txWrapper,
+                data,
+                nullCompletedFuture(),
+                null
+        );
         cursor.closeAsync().join();
 
         CompletableFuture<Void> f = ((NoOpTransaction) txWrapper.unwrap()).commitFuture();
@@ -109,6 +131,6 @@ public class AsyncSqlCursorImplTest {
     }
 
     private static QueryTransactionWrapper newTxWrapper(boolean implicit) {
-        return new QueryTransactionWrapper(NoOpTransaction.readOnly("TX"), implicit);
+        return new QueryTransactionWrapperImpl(NoOpTransaction.readOnly("TX"), implicit);
     }
 }

@@ -63,6 +63,9 @@ namespace Apache.Ignite.Internal
         /** Current async operations, map from request id. */
         private readonly ConcurrentDictionary<long, TaskCompletionSource<PooledBuffer>> _requests = new();
 
+        /** Current notification handlers, map from request id. */
+        private readonly ConcurrentDictionary<long, NotificationHandler> _notificationHandlers = new();
+
         /** Requests can be sent by one thread at a time.  */
         [SuppressMessage(
             "Microsoft.Design",
@@ -257,8 +260,12 @@ namespace Apache.Ignite.Internal
         /// </summary>
         /// <param name="clientOp">Client op code.</param>
         /// <param name="request">Request data.</param>
+        /// <param name="expectNotifications">Whether to expect notifications as a result of the operation.</param>
         /// <returns>Response data.</returns>
-        public Task<PooledBuffer> DoOutInOpAsync(ClientOp clientOp, PooledArrayBuffer? request = null)
+        public async Task<PooledBuffer> DoOutInOpAsync(
+            ClientOp clientOp,
+            PooledArrayBuffer? request = null,
+            bool expectNotifications = false)
         {
             var ex = _exception;
 
@@ -282,38 +289,42 @@ namespace Apache.Ignite.Internal
             var taskCompletionSource = new TaskCompletionSource<PooledBuffer>();
             _requests[requestId] = taskCompletionSource;
 
+            NotificationHandler? notificationHandler = null;
+            if (expectNotifications)
+            {
+                notificationHandler = new NotificationHandler();
+                _notificationHandlers[requestId] = notificationHandler;
+            }
+
             Metrics.RequestsActiveIncrement();
 
-            SendRequestAsync(request, clientOp, requestId)
-                .AsTask()
-                .ContinueWith(
-                    (task, state) =>
-                    {
-                        var completionSource = (TaskCompletionSource<PooledBuffer>)state!;
+            try
+            {
+                await SendRequestAsync(request, clientOp, requestId).ConfigureAwait(false);
+                PooledBuffer resBuf = await taskCompletionSource.Task.ConfigureAwait(false);
 
-                        if (task.IsCanceled || task.Exception?.GetBaseException() is OperationCanceledException or ObjectDisposedException)
-                        {
-                            // Canceled task means Dispose was called.
-                            completionSource.TrySetException(
-                                new IgniteClientConnectionException(ErrorGroups.Client.Connection, "Connection closed."));
-                        }
-                        else if (task.Exception != null)
-                        {
-                            completionSource.TrySetException(task.Exception);
-                        }
+                return notificationHandler == null
+                    ? resBuf
+                    : resBuf.WithMetadata(notificationHandler);
+            }
+            catch (Exception e)
+            {
+                if (_requests.TryRemove(requestId, out _))
+                {
+                    Metrics.RequestsFailed.Add(1);
+                    Metrics.RequestsActiveDecrement();
+                }
 
-                        if (_requests.TryRemove(requestId, out _))
-                        {
-                            Metrics.RequestsFailed.Add(1);
-                            Metrics.RequestsActiveDecrement();
-                        }
-                    },
-                    taskCompletionSource,
-                    CancellationToken.None,
-                    TaskContinuationOptions.NotOnRanToCompletion,
-                    TaskScheduler.Default);
+                _notificationHandlers.TryRemove(requestId, out _);
 
-            return taskCompletionSource.Task;
+                if (e is OperationCanceledException or ObjectDisposedException)
+                {
+                    // Canceled task means Dispose was called.
+                    throw new IgniteClientConnectionException(ErrorGroups.Client.Connection, "Connection closed.", e);
+                }
+
+                throw;
+            }
         }
 
         /// <inheritdoc/>
@@ -379,11 +390,9 @@ namespace Apache.Ignite.Internal
                 throw new IgniteClientConnectionException(ErrorGroups.Client.Protocol, "Unexpected server version: " + serverVer);
             }
 
-            var exception = ReadError(ref reader);
-
-            if (exception != null)
+            if (!reader.TryReadNil())
             {
-                throw exception;
+                throw ReadError(ref reader);
             }
 
             var idleTimeoutMs = reader.ReadInt64();
@@ -402,13 +411,8 @@ namespace Apache.Ignite.Internal
                 sslInfo);
         }
 
-        private static IgniteException? ReadError(ref MsgPackReader reader)
+        private static IgniteException ReadError(ref MsgPackReader reader)
         {
-            if (reader.TryReadNil())
-            {
-                return null;
-            }
-
             Guid traceId = reader.TryReadNil() ? Guid.NewGuid() : reader.ReadGuid();
             int code = reader.TryReadNil() ? 65537 : reader.ReadInt32();
             string className = reader.ReadString();
@@ -694,15 +698,21 @@ namespace Apache.Ignite.Internal
         {
             var reader = response.GetReader();
 
-            var responseType = (ServerMessageType)reader.ReadInt32();
+            var requestId = reader.ReadInt64();
+            var flags = (ResponseFlags)reader.ReadInt32();
 
-            if (responseType != ServerMessageType.Response)
+            _logger.LogReceivedResponseTrace(requestId, flags, ConnectionContext.ClusterNode.Address);
+
+            HandlePartitionAssignmentChange(flags, ref reader);
+            HandleObservableTimestamp(ref reader);
+
+            var exception = flags.HasFlag(ResponseFlags.Error) ? ReadError(ref reader) : null;
+
+            if (flags.HasFlag(ResponseFlags.Notification))
             {
-                // Notifications are not used for now.
+                HandleNotification(requestId, exception, response, reader.Consumed);
                 return;
             }
-
-            var requestId = reader.ReadInt64();
 
             if (!_requests.TryRemove(requestId, out var taskCompletionSource))
             {
@@ -716,10 +726,33 @@ namespace Apache.Ignite.Internal
             }
 
             Metrics.RequestsActiveDecrement();
-            _logger.LogReceivedResponseTrace(requestId, ConnectionContext.ClusterNode.Address);
 
-            var flags = (ResponseFlags)reader.ReadInt32();
+            if (exception != null)
+            {
+                response.Dispose();
 
+                Metrics.RequestsFailed.Add(1);
+
+                taskCompletionSource.TrySetException(exception);
+            }
+            else
+            {
+                var resultBuffer = response.Slice(reader.Consumed);
+
+                Metrics.RequestsCompleted.Add(1);
+
+                taskCompletionSource.TrySetResult(resultBuffer);
+            }
+        }
+
+        private void HandleObservableTimestamp(ref MsgPackReader reader)
+        {
+            var observableTimestamp = reader.ReadInt64();
+            _listener.OnObservableTimestampChanged(observableTimestamp);
+        }
+
+        private void HandlePartitionAssignmentChange(ResponseFlags flags, ref MsgPackReader reader)
+        {
             if (flags.HasFlag(ResponseFlags.PartitionAssignmentChanged))
             {
                 long timestamp = reader.ReadInt64();
@@ -728,27 +761,28 @@ namespace Apache.Ignite.Internal
 
                 _listener.OnAssignmentChanged(timestamp);
             }
+        }
 
-            var observableTimestamp = reader.ReadInt64();
-            _listener.OnObservableTimestampChanged(observableTimestamp);
+        private void HandleNotification(long requestId, Exception? exception, PooledBuffer response, int consumed)
+        {
+            if (!_notificationHandlers.TryRemove(requestId, out var notificationHandler))
+            {
+                var message = $"Unexpected notification ID ({requestId}) received from the server " +
+                              $"[remoteAddress={ConnectionContext.ClusterNode.Address}], closing the socket.";
 
-            var exception = ReadError(ref reader);
+                _logger.LogUnexpectedResponseIdError(null, message);
+                Dispose(new IgniteClientConnectionException(ErrorGroups.Client.Protocol, message));
+
+                return;
+            }
 
             if (exception != null)
             {
-                response.Dispose();
-
-                Metrics.RequestsFailed.Add(1);
-
-                taskCompletionSource.SetException(exception);
+                notificationHandler.TrySetException(exception);
             }
             else
             {
-                var resultBuffer = response.Slice(reader.Consumed);
-
-                Metrics.RequestsCompleted.Add(1);
-
-                taskCompletionSource.SetResult(resultBuffer);
+                notificationHandler.TrySetResult(response.Slice(consumed));
             }
         }
 
@@ -821,6 +855,17 @@ namespace Apache.Ignite.Internal
                         {
                             req.TrySetException(ex);
                             Metrics.RequestsActiveDecrement();
+                        }
+                    }
+                }
+
+                while (!_notificationHandlers.IsEmpty)
+                {
+                    foreach (var reqId in _notificationHandlers.Keys.ToArray())
+                    {
+                        if (_notificationHandlers.TryRemove(reqId, out var notificationHandler))
+                        {
+                            notificationHandler.TrySetException(ex);
                         }
                     }
                 }

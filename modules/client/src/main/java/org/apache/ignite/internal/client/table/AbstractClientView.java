@@ -17,22 +17,19 @@
 
 package org.apache.ignite.internal.client.table;
 
-import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toSet;
+import static org.apache.ignite.internal.client.ClientUtils.sync;
 
 import java.util.Arrays;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.sql.SyncResultSetAdapter;
+import java.util.Set;
+import org.apache.ignite.internal.table.criteria.CursorAdapter;
 import org.apache.ignite.internal.table.criteria.SqlSerializer;
+import org.apache.ignite.lang.Cursor;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.sql.ClosableCursor;
 import org.apache.ignite.sql.ResultSetMetadata;
-import org.apache.ignite.sql.SqlException;
-import org.apache.ignite.sql.Statement;
-import org.apache.ignite.sql.async.AsyncClosableCursor;
-import org.apache.ignite.sql.async.AsyncResultSet;
 import org.apache.ignite.table.criteria.Criteria;
 import org.apache.ignite.table.criteria.CriteriaQueryOptions;
 import org.apache.ignite.table.criteria.CriteriaQuerySource;
@@ -58,7 +55,7 @@ abstract class AbstractClientView<R> implements CriteriaQuerySource<R> {
     }
 
     /**
-     * Get index mapping.
+     * Get mapping between for columns in query and record view.
      *
      * @param columns Columns to map.
      * @param metadata Metadata for query results.
@@ -91,51 +88,32 @@ abstract class AbstractClientView<R> implements CriteriaQuerySource<R> {
     }
 
     /**
-     * Criteria query over cache entries.
+     * Construct SQL query and arguments for prepare statement and collect.
      *
-     * @param tx Transaction to execute the query within or {@code null}.
-     * @param statement SQL statement to execute.
-     * @param arguments Arguments for the statement.
-     * @throws SqlException If failed.
+     * @param tableName Table name.
+     * @param columns Table columns.
+     * @param criteria The predicate to filter entries or {@code null} to return all entries in record view.
+     * @return SQL query and it's arguments.
      */
-    abstract CompletableFuture<AsyncResultSet<R>> executeQueryAsync(
-            @Nullable Transaction tx,
-            Statement statement,
-            @Nullable Object... arguments
-    );
+    static SqlSerializer createSqlSerializer(String tableName, ClientColumn[] columns, @Nullable Criteria criteria) {
+        Set<String> columnNames = Arrays.stream(columns)
+                .map(ClientColumn::name)
+                .collect(toSet());
 
-    /** {@inheritDoc} */
-    @Override
-    public ClosableCursor<R> queryCriteria(
-            @Nullable Transaction tx,
-            @Nullable Criteria criteria,
-            CriteriaQueryOptions opts
-    ) {
-        var ser = new SqlSerializer.Builder()
-                .tableName(tbl.name())
+        return new SqlSerializer.Builder()
+                .tableName(tableName)
+                .columns(columnNames)
                 .where(criteria)
                 .build();
-
-        var statement = tbl.sql().statementBuilder().query(ser.toString()).pageSize(opts.pageSize()).build();
-
-        return new SyncResultSetAdapter<>(executeQueryAsync(tx, statement, ser.getArguments()).join());
     }
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<AsyncClosableCursor<R>> queryCriteriaAsync(
+    public Cursor<R> query(
             @Nullable Transaction tx,
             @Nullable Criteria criteria,
             CriteriaQueryOptions opts
     ) {
-        var ser = new SqlSerializer.Builder()
-                .tableName(tbl.name())
-                .where(criteria)
-                .build();
-
-        var statement = tbl.sql().statementBuilder().query(ser.toString()).pageSize(opts.pageSize()).build();
-
-        return executeQueryAsync(tx, statement, ser.getArguments())
-                .thenApply(identity());
+        return new CursorAdapter<>(sync(queryAsync(tx, criteria, opts)));
     }
 }

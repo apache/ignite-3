@@ -71,6 +71,7 @@ import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.lang.MarshallerException;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.MessagingService;
+import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.mapper.Mapper;
 import org.junit.jupiter.api.BeforeEach;
@@ -721,6 +722,7 @@ public class KeyValueViewOperationsTest extends TableKvOperationsTestBase {
                 internalTable,
                 new DummySchemaManagerImpl(schema),
                 schemaVersions,
+                mock(IgniteSql.class),
                 keyMapper,
                 valMapper
         );

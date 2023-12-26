@@ -19,6 +19,7 @@ package org.apache.ignite.client;
 
 import static org.apache.ignite.client.AbstractClientTest.getClient;
 import static org.apache.ignite.client.AbstractClientTest.getClusterNodes;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.apache.ignite.lang.ErrorGroups.Table.TABLE_NOT_FOUND_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
@@ -28,6 +29,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.function.Function;
 import org.apache.ignite.client.fakes.FakeCompute;
@@ -38,6 +40,7 @@ import org.apache.ignite.compute.version.Version;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
@@ -47,6 +50,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Compute tests.
  */
+@SuppressWarnings("AssignmentToStaticFieldFromInstanceMethod")
 public class ClientComputeTest extends BaseIgniteAbstractTest {
     private static final String TABLE_NAME = "tbl1";
 
@@ -58,6 +62,7 @@ public class ClientComputeTest extends BaseIgniteAbstractTest {
     @AfterEach
     void tearDown() throws Exception {
         IgniteUtils.closeAll(server1, server2, server3);
+        FakeCompute.future = null;
     }
 
     @Test
@@ -197,6 +202,22 @@ public class ClientComputeTest extends BaseIgniteAbstractTest {
             assertEquals(
                     "u1:1.2.3,unit2:latest",
                     getUnits.apply(List.of(new DeploymentUnit("u1", "1.2.3"), new DeploymentUnit("unit2", Version.LATEST))));
+        }
+    }
+
+    @Test
+    void testExceptionInJob() throws Exception {
+        initServers(reqId -> false);
+
+        try (var client = getClient(server1)) {
+            FakeCompute.future = CompletableFuture.failedFuture(new RuntimeException("job failed"));
+
+            CompletableFuture<Object> fut = client.compute().executeAsync(getClusterNodes("s1"), List.of(), "job");
+
+            assertThat(
+                    fut,
+                    willThrowFast(IgniteException.class)
+            );
         }
     }
 

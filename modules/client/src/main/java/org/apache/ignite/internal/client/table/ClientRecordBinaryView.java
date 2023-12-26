@@ -27,17 +27,17 @@ import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
-import java.util.function.Function;
 import org.apache.ignite.client.RetryLimitPolicy;
-import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
-import org.apache.ignite.internal.sql.SyncResultSetAdapter;
+import org.apache.ignite.internal.client.sql.ClientSessionBuilder;
+import org.apache.ignite.internal.client.sql.ClientStatementBuilder;
 import org.apache.ignite.internal.streamer.StreamerBatchSender;
-import org.apache.ignite.internal.table.criteria.QueryCriteriaAsyncResultSet;
+import org.apache.ignite.internal.table.criteria.QueryCriteriaAsyncCursor;
+import org.apache.ignite.internal.table.criteria.SqlRowProjection;
 import org.apache.ignite.internal.table.criteria.SqlSerializer;
-import org.apache.ignite.sql.ClosableCursor;
-import org.apache.ignite.sql.async.AsyncClosableCursor;
-import org.apache.ignite.sql.async.AsyncResultSet;
+import org.apache.ignite.lang.AsyncCursor;
+import org.apache.ignite.sql.Session;
+import org.apache.ignite.sql.Statement;
 import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
@@ -49,10 +49,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Client record view implementation for binary user-object representation.
  */
-public class ClientRecordBinaryView implements RecordView<Tuple> {
-    /** Underlying table. */
-    private final ClientTable tbl;
-
+public class ClientRecordBinaryView extends AbstractClientView<Tuple>  implements RecordView<Tuple> {
     /** Tuple serializer. */
     private final ClientTupleSerializer ser;
 
@@ -62,9 +59,8 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
      * @param tbl Table.
      */
     public ClientRecordBinaryView(ClientTable tbl) {
-        assert tbl != null;
+        super(tbl);
 
-        this.tbl = tbl;
         ser = new ClientTupleSerializer(tbl.tableId());
     }
 
@@ -82,7 +78,7 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET,
                 (s, w) -> ser.writeTuple(tx, keyRec, s, w, true),
-                (s, r) -> ClientTupleSerializer.readTuple(s, r, false),
+                (s, r) -> ClientTupleSerializer.readTuple(s, r.in(), false),
                 null,
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, keyRec));
     }
@@ -103,7 +99,7 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_ALL,
                 (s, w) -> ser.writeTuples(tx, keyRecs, s, w, true),
-                ClientTupleSerializer::readTuplesNullable,
+                (s, r) -> ClientTupleSerializer.readTuplesNullable(s, r.in()),
                 Collections.emptyList(),
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, keyRecs.iterator().next())
         );
@@ -163,7 +159,7 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_AND_UPSERT,
                 (s, w) -> ser.writeTuple(tx, rec, s, w, false),
-                (s, r) -> ClientTupleSerializer.readTuple(s, r, false),
+                (s, r) -> ClientTupleSerializer.readTuple(s, r.in(), false),
                 null,
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, rec));
     }
@@ -182,7 +178,7 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_INSERT,
                 (s, w) -> ser.writeTuple(tx, rec, s, w, false),
-                ClientMessageUnpacker::unpackBoolean,
+                r -> r.in().unpackBoolean(),
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, rec));
     }
 
@@ -204,7 +200,7 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_INSERT_ALL,
                 (s, w) -> ser.writeTuples(tx, recs, s, w, false),
-                ClientTupleSerializer::readTuples,
+                (s, r) -> ClientTupleSerializer.readTuples(s, r.in()),
                 Collections.emptyList(),
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, recs.iterator().next()));
     }
@@ -229,7 +225,7 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_REPLACE,
                 (s, w) -> ser.writeTuple(tx, rec, s, w, false),
-                ClientMessageUnpacker::unpackBoolean,
+                r -> r.in().unpackBoolean(),
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, rec));
     }
 
@@ -245,7 +241,7 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
                     ser.writeTuple(tx, oldRec, s, w, false, false);
                     ser.writeTuple(tx, newRec, s, w, false, true);
                 },
-                ClientMessageUnpacker::unpackBoolean,
+                r -> r.in().unpackBoolean(),
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, oldRec));
     }
 
@@ -263,7 +259,7 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_AND_REPLACE,
                 (s, w) -> ser.writeTuple(tx, rec, s, w, false),
-                (s, r) -> ClientTupleSerializer.readTuple(s, r, false),
+                (s, r) -> ClientTupleSerializer.readTuple(s, r.in(), false),
                 null,
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, rec));
     }
@@ -282,7 +278,7 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_DELETE,
                 (s, w) -> ser.writeTuple(tx, keyRec, s, w, true),
-                ClientMessageUnpacker::unpackBoolean,
+                r -> r.in().unpackBoolean(),
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, keyRec));
     }
 
@@ -300,7 +296,7 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_DELETE_EXACT,
                 (s, w) -> ser.writeTuple(tx, rec, s, w, false),
-                ClientMessageUnpacker::unpackBoolean,
+                r -> r.in().unpackBoolean(),
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, rec));
     }
 
@@ -318,7 +314,7 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_AND_DELETE,
                 (s, w) -> ser.writeTuple(tx, keyRec, s, w, true),
-                (s, r) -> ClientTupleSerializer.readTuple(s, r, false),
+                (s, r) -> ClientTupleSerializer.readTuple(s, r.in(), false),
                 null,
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, keyRec));
     }
@@ -341,7 +337,7 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_DELETE_ALL,
                 (s, w) -> ser.writeTuples(tx, keyRecs, s, w, true),
-                (s, r) -> ClientTupleSerializer.readTuples(s, r, true),
+                (s, r) -> ClientTupleSerializer.readTuples(s, r.in(), true),
                 Collections.emptyList(),
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, keyRecs.iterator().next()));
     }
@@ -364,7 +360,7 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_DELETE_ALL_EXACT,
                 (s, w) -> ser.writeTuples(tx, recs, s, w, false),
-                ClientTupleSerializer::readTuples,
+                (s, r) -> ClientTupleSerializer.readTuples(s, r.in()),
                 Collections.emptyList(),
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, recs.iterator().next()));
     }
@@ -390,35 +386,27 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
         return ClientDataStreamer.streamData(publisher, opts, batchSender, provider, tbl);
     }
 
-    private CompletableFuture<AsyncResultSet<Tuple>> executeAsync(
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<AsyncCursor<Tuple>> queryAsync(
             @Nullable Transaction tx,
             @Nullable Criteria criteria,
             CriteriaQueryOptions opts
     ) {
-        var sqlSer = new SqlSerializer.Builder()
-                .tableName(tbl.name())
-                .where(criteria)
-                .build();
+        return tbl.getLatestSchema()
+                .thenCompose((schema) -> {
+                    SqlSerializer ser = createSqlSerializer(tbl.name(), schema.columns(), criteria);
 
-        var statement = tbl.sql().statementBuilder().query(sqlSer.toString()).pageSize(opts.pageSize()).build();
-        var session = tbl.sql().createSession();
+                    Statement statement = new ClientStatementBuilder().query(ser.toString()).pageSize(opts.pageSize()).build();
+                    Session session = new ClientSessionBuilder(tbl.channel()).build();
 
-        return session.executeAsync(tx, statement, sqlSer.getArguments())
-                .thenApply(resultSet -> new QueryCriteriaAsyncResultSet<>(session, null, resultSet));
-    }
+                    return session.executeAsync(tx, statement, ser.getArguments())
+                            .thenApply(resultSet -> {
+                                List<Integer> idxMapping = indexMapping(schema.columns(), 0, schema.columns().length, resultSet.metadata());
 
-    @Override
-    public ClosableCursor<Tuple> queryCriteria(@Nullable Transaction tx, @Nullable Criteria criteria, CriteriaQueryOptions opts) {
-        return new SyncResultSetAdapter<>(executeAsync(tx, criteria, opts).join());
-    }
-
-    @Override
-    public CompletableFuture<AsyncClosableCursor<Tuple>> queryCriteriaAsync(
-            @Nullable Transaction tx,
-            @Nullable Criteria criteria,
-            CriteriaQueryOptions opts
-    ) {
-        return executeAsync(tx, criteria, opts)
-                .thenApply(Function.identity());
+                                return new QueryCriteriaAsyncCursor<>(resultSet, (row) -> new SqlRowProjection(row, idxMapping),
+                                        session::close);
+                            });
+                });
     }
 }

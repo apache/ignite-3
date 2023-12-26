@@ -288,7 +288,7 @@ TEST_F(sql_test, sql_create_existing_table) {
             try {
                 m_client.get_sql().execute(nullptr, {"CREATE TABLE TEST(ID INT PRIMARY KEY, VAL VARCHAR)"}, {});
             } catch (const ignite_error &e) {
-                // TODO: IGNITE-20388 Fix it
+                // TODO: IGNITE-19944 Propagate SQL errors from engine to driver
                 EXPECT_THAT(e.what_str(), ::testing::HasSubstr("Table with name 'PUBLIC.TEST' already exists"));
                 throw;
             }
@@ -302,7 +302,7 @@ TEST_F(sql_test, sql_add_existing_column) {
             try {
                 m_client.get_sql().execute(nullptr, {"ALTER TABLE TEST ADD COLUMN ID INT"}, {});
             } catch (const ignite_error &e) {
-                // TODO: IGNITE-20388 Fix it
+                // TODO: IGNITE-19944 Propagate SQL errors from engine to driver
                 EXPECT_THAT(e.what_str(), ::testing::HasSubstr("Column with name 'ID' already exists"));
                 throw;
             }
@@ -316,7 +316,7 @@ TEST_F(sql_test, sql_alter_nonexisting_table) {
             try {
                 m_client.get_sql().execute(nullptr, {"ALTER TABLE UNKNOWN_TABLE ADD COLUMN ID INT"}, {});
             } catch (const ignite_error &e) {
-                // TODO: IGNITE-20388 Fix it
+                // TODO: IGNITE-19944 Propagate SQL errors from engine to driver
                 EXPECT_THAT(e.what_str(), ::testing::HasSubstr("Table with name 'PUBLIC.UNKNOWN_TABLE' not found"));
                 throw;
             }
@@ -406,4 +406,18 @@ TEST_F(sql_test, uuid_argument) {
 
     auto value = result_set.current_page().front().get(0).get<uuid>();
     EXPECT_EQ(req, value);
+}
+
+TEST_F(sql_test, null_column) {
+    auto result_set = m_client.get_sql().execute(nullptr, {"select NULL"}, {});
+
+    EXPECT_TRUE(result_set.has_rowset());
+
+    auto &columns = result_set.metadata().columns();
+    EXPECT_EQ(1, columns.size());
+    EXPECT_EQ(ignite_type::NIL, columns.at(0).type());
+
+    auto value = result_set.current_page().front().get(0);
+    EXPECT_EQ(ignite_type::NIL, value.get_type());
+    EXPECT_TRUE(value.is_null());
 }

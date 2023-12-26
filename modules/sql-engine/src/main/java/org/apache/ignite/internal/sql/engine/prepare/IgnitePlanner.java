@@ -18,10 +18,8 @@
 package org.apache.ignite.internal.sql.engine.prepare;
 
 import static java.util.Objects.requireNonNull;
-import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.Commons.shortRuleName;
 import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_PARSE_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 
 import java.io.PrintWriter;
 import java.io.Reader;
@@ -135,6 +133,13 @@ public class IgnitePlanner implements Planner, RelOptTable.ViewExpander {
 
     private RelOptCluster cluster;
 
+    /** Start planning timestamp in millis. */
+    private final long startTs;
+
+    static {
+        warmup();
+    }
+
     /**
      * Constructor.
      *
@@ -157,6 +162,7 @@ public class IgnitePlanner implements Planner, RelOptTable.ViewExpander {
         traitDefs = frameworkCfg.getTraitDefs();
 
         rexBuilder = IgniteRexBuilder.INSTANCE;
+        startTs = FastTimestamps.coarseCurrentTimeMillis();
     }
 
     /** {@inheritDoc} */
@@ -182,18 +188,8 @@ public class IgnitePlanner implements Planner, RelOptTable.ViewExpander {
     /** {@inheritDoc} */
     @Override
     public SqlNode parse(Reader reader) throws SqlParseException {
+        // This method is only used in tests.
         StatementParseResult parseResult = IgniteSqlParser.parse(reader, StatementParseResult.MODE);
-        Object[] parameters = ctx.parameters();
-
-        // Parse method is only used in tests.
-        if (parameters.length != parseResult.dynamicParamsCount()) {
-            String message = format(
-                    "Unexpected number of query parameters. Provided {} but there is only {} dynamic parameter(s).",
-                    parameters.length, parseResult.dynamicParamsCount()
-            );
-
-            throw new SqlException(STMT_VALIDATION_ERR, message);
-        }
 
         return parseResult.statement();
     }
@@ -210,9 +206,11 @@ public class IgnitePlanner implements Planner, RelOptTable.ViewExpander {
     public Pair<SqlNode, RelDataType> validateAndGetType(SqlNode sqlNode) {
         SqlNode validatedNode = validator().validate(sqlNode);
         RelDataType type = validator().getValidatedNodeType(validatedNode);
+        this.validatedSqlNode = validatedNode;
         return Pair.of(validatedNode, type);
     }
 
+    /** {@inheritDoc} */
     @Override
     public RelDataType getParameterRowType() {
         return requireNonNull(validator, "validator")
@@ -235,6 +233,15 @@ public class IgnitePlanner implements Planner, RelOptTable.ViewExpander {
     @Override
     public RelNode convert(SqlNode sql) {
         throw new UnsupportedOperationException();
+    }
+
+    /**
+     * Preload some classes so that the time spent is not taken
+     * into account when measuring query planning timeout.
+     */
+    static void warmup() {
+        //noinspection ResultOfMethodCallIgnored
+        PlannerPhase.values();
     }
 
     /**
@@ -316,6 +323,8 @@ public class IgnitePlanner implements Planner, RelOptTable.ViewExpander {
             }
         }
 
+        this.validatedSqlNode = validatedNode;
+
         return new ValidationResult(validatedNode, type, origins, derived == null ? List.of() : derived);
     }
 
@@ -385,7 +394,7 @@ public class IgnitePlanner implements Planner, RelOptTable.ViewExpander {
 
     private RelOptPlanner planner() {
         if (planner == null) {
-            VolcanoPlannerExt planner = new VolcanoPlannerExt(frameworkCfg.getCostFactory(), ctx);
+            VolcanoPlannerExt planner = new VolcanoPlannerExt(frameworkCfg.getCostFactory(), ctx, startTs);
             planner.setExecutor(rexExecutor);
             this.planner = planner;
 
@@ -622,9 +631,13 @@ public class IgnitePlanner implements Planner, RelOptTable.ViewExpander {
     private static class VolcanoPlannerExt extends VolcanoPlanner {
         private static final IgniteLogger LOG = Loggers.forClass(IgnitePlanner.class);
 
-        protected VolcanoPlannerExt(RelOptCostFactory costFactory, Context externalCtx) {
+        private final long startTs;
+
+        protected VolcanoPlannerExt(RelOptCostFactory costFactory, Context externalCtx, long startTs) {
             super(costFactory, externalCtx);
             setTopDownOpt(true);
+
+            this.startTs = startTs;
         }
 
         /** {@inheritDoc} */
@@ -641,8 +654,6 @@ public class IgnitePlanner implements Planner, RelOptTable.ViewExpander {
             long timeout = ctx.plannerTimeout();
 
             if (timeout > 0) {
-                long startTs = ctx.startTs();
-
                 if (FastTimestamps.coarseCurrentTimeMillis() - startTs > timeout) {
                     LOG.debug("Planning of a query aborted due to planner timeout threshold is reached [timeout={}, query={}]",
                             timeout,

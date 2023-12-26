@@ -54,7 +54,6 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.affinity.AffinityUtils;
@@ -116,7 +115,9 @@ import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.table.impl.DummyValidationSchemasSource;
+import org.apache.ignite.internal.thread.LogUncaughtExceptionHandler;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.StripedThreadPoolExecutor;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
@@ -132,6 +133,7 @@ import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.network.ClusterNodeResolver;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NodeFinder;
@@ -141,6 +143,7 @@ import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.tx.IgniteTransactions;
 import org.apache.ignite.utils.ClusterServiceTestUtils;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.TestInfo;
 
 /**
@@ -203,36 +206,43 @@ public class ItTxTestCluster {
 
     private ScheduledThreadPoolExecutor executor;
 
+    private StripedThreadPoolExecutor partitionOperationsExecutor;
+
     protected IgniteTransactions igniteTransactions;
 
     protected String localNodeName;
 
-    private final Function<String, ClusterNode> consistentIdToNode = consistentId -> {
-        for (ClusterService service : cluster) {
-            ClusterNode clusterNode = service.topologyService().localMember();
+    private final ClusterNodeResolver nodeResolver = new ClusterNodeResolver() {
 
-            if (clusterNode.name().equals(consistentId)) {
-                return clusterNode;
+        @Override
+        public @Nullable ClusterNode getById(String id) {
+            for (ClusterService service : cluster) {
+                ClusterNode clusterNode = service.topologyService().localMember();
+
+                if (clusterNode.id().equals(id)) {
+                    return clusterNode;
+                }
             }
-        }
 
-        return null;
-    };
-
-    private final Function<String, ClusterNode> idToNode = id -> {
-        for (ClusterService service : cluster) {
-            ClusterNode clusterNode = service.topologyService().localMember();
-
-            if (clusterNode.id().equals(id)) {
-                return clusterNode;
+            if (client != null && client.topologyService().localMember().id().equals(id)) {
+                return client.topologyService().localMember();
             }
+
+            return null;
         }
 
-        if (client != null && client.topologyService().localMember().id().equals(id)) {
-            return client.topologyService().localMember();
-        }
+        @Override
+        public @Nullable ClusterNode getByConsistentId(String consistentId) {
+            for (ClusterService service : cluster) {
+                ClusterNode clusterNode = service.topologyService().localMember();
 
-        return null;
+                if (clusterNode.name().equals(consistentId)) {
+                    return clusterNode;
+                }
+            }
+
+            return null;
+        }
     };
 
     private final TestInfo testInfo;
@@ -307,6 +317,14 @@ public class ItTxTestCluster {
         executor = new ScheduledThreadPoolExecutor(20,
                 new NamedThreadFactory(Loza.CLIENT_POOL_NAME, LOG));
 
+        partitionOperationsExecutor = new StripedThreadPoolExecutor(
+                20,
+                NamedThreadFactory.threadPrefix("test", "partition-operations"),
+                new LogUncaughtExceptionHandler(LOG),
+                false,
+                0
+        );
+
         for (int i = 0; i < nodes; i++) {
             ClusterNode node = cluster.get(i).topologyService().localMember();
 
@@ -336,7 +354,8 @@ public class ItTxTestCluster {
                     cmgManager,
                     clock,
                     Set.of(TableMessageGroup.class, TxMessageGroup.class),
-                    placementDriver
+                    placementDriver,
+                    partitionOperationsExecutor
             );
 
             replicaMgr.start();
@@ -463,15 +482,11 @@ public class ItTxTestCluster {
                         replicaServices.get(assignment),
                         txManagers.get(assignment),
                         clocks.get(assignment),
-                        consistentIdToNode,
-                        idToNode,
-                        clusterServices.get(assignment).messagingService()
+                        nodeResolver,
+                        clusterServices.get(assignment).messagingService(),
+                        placementDriver
                 );
                 transactionStateResolver.start();
-
-                for (int part = 0; part < assignments.size(); part++) {
-                    transactionStateResolver.updateAssignment(grpIds.get(part), assignments.get(part));
-                }
 
                 int indexId = globalIndexId++;
 
@@ -553,10 +568,11 @@ public class ItTxTestCluster {
                                         transactionStateResolver,
                                         storageUpdateHandler,
                                         new DummyValidationSchemasSource(schemaManager),
-                                        consistentIdToNode.apply(assignment),
+                                        nodeResolver.getByConsistentId(assignment),
                                         new AlwaysSyncedSchemaSyncService(),
                                         catalogService,
-                                        placementDriver
+                                        placementDriver,
+                                        nodeResolver
                                 );
 
                                 replicaManagers.get(assignment).startReplica(
@@ -618,19 +634,19 @@ public class ItTxTestCluster {
                         tableId,
                         clients,
                         1,
-                        consistentIdToNode,
+                        nodeResolver,
                         clientTxManager,
                         mock(MvTableStorage.class),
                         mock(TxStateTableStorage.class),
                         startClient ? clientReplicaSvc : replicaServices.get(localNodeName),
                         startClient ? clientClock : clocks.get(localNodeName),
                         timestampTracker,
-                        placementDriver,
-                        mock(IgniteSql.class)
+                        placementDriver
                 ),
                 new DummySchemaManagerImpl(schemaDescriptor),
                 clientTxManager.lockManager(),
-                new ConstantSchemaVersions(SCHEMA_VERSION)
+                new ConstantSchemaVersions(SCHEMA_VERSION),
+                mock(IgniteSql.class)
         );
     }
 
@@ -653,7 +669,8 @@ public class ItTxTestCluster {
             ClusterNode localNode,
             SchemaSyncService schemaSyncService,
             CatalogService catalogService,
-            PlacementDriver placementDriver
+            PlacementDriver placementDriver,
+            ClusterNodeResolver clusterNodeResolver
     ) {
         return new PartitionReplicaListener(
                 mvDataStorage,
@@ -675,7 +692,8 @@ public class ItTxTestCluster {
                 localNode,
                 schemaSyncService,
                 catalogService,
-                placementDriver
+                placementDriver,
+                clusterNodeResolver
         );
     }
 
@@ -741,6 +759,10 @@ public class ItTxTestCluster {
 
         if (executor != null) {
             IgniteUtils.shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS);
+        }
+
+        if (partitionOperationsExecutor != null) {
+            IgniteUtils.shutdownAndAwaitTermination(partitionOperationsExecutor, 10, TimeUnit.SECONDS);
         }
 
         if (raftServers != null) {
@@ -841,9 +863,9 @@ public class ItTxTestCluster {
                 clientReplicaSvc,
                 clientTxManager,
                 clientClock,
-                consistentIdToNode,
-                idToNode,
-                client.messagingService()
+                nodeResolver,
+                client.messagingService(),
+                placementDriver
         );
 
         clientTxStateResolver.start();

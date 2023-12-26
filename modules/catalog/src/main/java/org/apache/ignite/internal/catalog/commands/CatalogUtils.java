@@ -31,6 +31,7 @@ import java.util.Set;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
+import org.apache.ignite.internal.catalog.DistributionZoneNotFoundValidationException;
 import org.apache.ignite.internal.catalog.IndexNotFoundValidationException;
 import org.apache.ignite.internal.catalog.TableNotFoundValidationException;
 import org.apache.ignite.internal.catalog.descriptors.CatalogDataStorageDescriptor;
@@ -39,6 +40,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
+import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.Nullable;
@@ -57,11 +59,11 @@ public class CatalogUtils {
      * Default filter of distribution zone, which is a {@link com.jayway.jsonpath.JsonPath} expression for including all attributes of
      * nodes.
      */
-    public static final String DEFAULT_FILTER = "$..*";
+    public static final String DEFAULT_FILTER = "'$..*'";
 
     /** Default distribution zone storage engine. */
     // TODO: IGNITE-19719 Should be defined differently
-    public static final String DEFAULT_STORAGE_ENGINE = "aipersist";
+    public static final String DEFAULT_STORAGE_ENGINE = IgniteSystemProperties.getString("IGNITE_DEFAULT_STORAGE_ENGINE", "aipersist");
 
     /** Default distribution zone storage engine data region. */
     // TODO: IGNITE-19719 Must be storage engine specific
@@ -124,48 +126,38 @@ public class CatalogUtils {
     private static final Map<ColumnType, Set<ColumnType>> ALTER_COLUMN_TYPE_TRANSITIONS = new EnumMap<>(ColumnType.class);
 
     static {
-        ALTER_COLUMN_TYPE_TRANSITIONS.put(ColumnType.INT8, EnumSet.of(ColumnType.INT16, ColumnType.INT32, ColumnType.INT64));
-        ALTER_COLUMN_TYPE_TRANSITIONS.put(ColumnType.INT16, EnumSet.of(ColumnType.INT32, ColumnType.INT64));
-        ALTER_COLUMN_TYPE_TRANSITIONS.put(ColumnType.INT32, EnumSet.of(ColumnType.INT64));
-        ALTER_COLUMN_TYPE_TRANSITIONS.put(ColumnType.FLOAT, EnumSet.of(ColumnType.DOUBLE));
+        ALTER_COLUMN_TYPE_TRANSITIONS.put(ColumnType.INT8, EnumSet.of(ColumnType.INT8, ColumnType.INT16, ColumnType.INT32,
+                ColumnType.INT64));
+        ALTER_COLUMN_TYPE_TRANSITIONS.put(ColumnType.INT16, EnumSet.of(ColumnType.INT16, ColumnType.INT32, ColumnType.INT64));
+        ALTER_COLUMN_TYPE_TRANSITIONS.put(ColumnType.INT32, EnumSet.of(ColumnType.INT32, ColumnType.INT64));
+        ALTER_COLUMN_TYPE_TRANSITIONS.put(ColumnType.INT64, EnumSet.of(ColumnType.INT64));
+        ALTER_COLUMN_TYPE_TRANSITIONS.put(ColumnType.FLOAT, EnumSet.of(ColumnType.FLOAT, ColumnType.DOUBLE));
+        ALTER_COLUMN_TYPE_TRANSITIONS.put(ColumnType.DOUBLE, EnumSet.of(ColumnType.DOUBLE));
+        ALTER_COLUMN_TYPE_TRANSITIONS.put(ColumnType.STRING, EnumSet.of(ColumnType.STRING));
+        ALTER_COLUMN_TYPE_TRANSITIONS.put(ColumnType.BYTE_ARRAY, EnumSet.of(ColumnType.BYTE_ARRAY));
+        ALTER_COLUMN_TYPE_TRANSITIONS.put(ColumnType.DECIMAL, EnumSet.of(ColumnType.DECIMAL));
     }
 
     /**
-     * Converts CreateZone command params to descriptor.
-     *
-     * <p>If the following fields are not set, the default value is used for them:</p>
-     * <ul>
-     *     <li>{@link CreateZoneParams#partitions()} -> {@link #DEFAULT_PARTITION_COUNT};</li>
-     *     <li>{@link CreateZoneParams#replicas()} -> {@link #DEFAULT_REPLICA_COUNT};</li>
-     *     <li>{@link CreateZoneParams#dataNodesAutoAdjust()} -> {@link #INFINITE_TIMER_VALUE};</li>
-     *     <li>{@link CreateZoneParams#dataNodesAutoAdjustScaleUp()} -> {@link #IMMEDIATE_TIMER_VALUE} or {@link #INFINITE_TIMER_VALUE} if
-     *     {@link CreateZoneParams#dataNodesAutoAdjust()} not {@code null};</li>
-     *     <li>{@link CreateZoneParams#dataNodesAutoAdjustScaleDown()} -> {@link #INFINITE_TIMER_VALUE};</li>
-     *     <li>{@link CreateZoneParams#filter()} -> {@link #DEFAULT_FILTER};</li>
-     *     <li>{@link CreateZoneParams#dataStorage()} -> {@link #DEFAULT_STORAGE_ENGINE} with {@link #DEFAULT_DATA_REGION};</li>
-     * </ul>
+     * Returns zone descriptor with default parameters.
      *
      * @param id Distribution zone ID.
-     * @param params Parameters.
+     * @param zoneName Zone name.
      * @return Distribution zone descriptor.
      */
-    public static CatalogZoneDescriptor fromParams(int id, CreateZoneParams params) {
-        DataStorageParams dataStorageParams = params.dataStorage() != null
-                ? params.dataStorage()
-                : DataStorageParams.builder().engine(DEFAULT_STORAGE_ENGINE).dataRegion(DEFAULT_DATA_REGION).build();
+    public static CatalogZoneDescriptor fromParams(int id, String zoneName) {
+        DataStorageParams dataStorageParams =
+                DataStorageParams.builder().engine(DEFAULT_STORAGE_ENGINE).dataRegion(DEFAULT_DATA_REGION).build();
 
         return new CatalogZoneDescriptor(
                 id,
-                params.zoneName(),
-                Objects.requireNonNullElse(params.partitions(), DEFAULT_PARTITION_COUNT),
-                Objects.requireNonNullElse(params.replicas(), DEFAULT_REPLICA_COUNT),
-                Objects.requireNonNullElse(params.dataNodesAutoAdjust(), INFINITE_TIMER_VALUE),
-                Objects.requireNonNullElse(
-                        params.dataNodesAutoAdjustScaleUp(),
-                        params.dataNodesAutoAdjust() != null ? INFINITE_TIMER_VALUE : IMMEDIATE_TIMER_VALUE
-                ),
-                Objects.requireNonNullElse(params.dataNodesAutoAdjustScaleDown(), INFINITE_TIMER_VALUE),
-                Objects.requireNonNullElse(params.filter(), DEFAULT_FILTER),
+                zoneName,
+                DEFAULT_PARTITION_COUNT,
+                DEFAULT_REPLICA_COUNT,
+                INFINITE_TIMER_VALUE,
+                IMMEDIATE_TIMER_VALUE,
+                INFINITE_TIMER_VALUE,
+                DEFAULT_FILTER,
                 fromParams(dataStorageParams)
         );
     }
@@ -230,36 +222,44 @@ public class CatalogUtils {
             @Nullable Integer newLength,
             TypeChangeValidationListener listener
     ) {
-        if (newType != null && newType != origin.type()) {
-            if (!isSupportedColumnTypeChange(origin.type(), newType)) {
+        if (newType != null) {
+            if (isSupportedColumnTypeChange(origin.type(), newType)) {
+                if (origin.type().precisionAllowed() && newPrecision != null && newPrecision < origin.precision()) {
+                    listener.onFailure("Decreasing the precision for column of type '{}' is not allowed", origin.type(), newType);
+                    return false;
+                }
+
+                if (origin.type().scaleAllowed() && newScale != null && newScale != origin.scale()) {
+                    listener.onFailure("Changing the scale for column of type '{}' is not allowed", origin.type(), newType);
+                    return false;
+                }
+
+                if (origin.type().lengthAllowed() && newLength != null && newLength < origin.length()) {
+                    listener.onFailure("Decreasing the length for column of type '{}' is not allowed", origin.type(), newType);
+                    return false;
+                }
+
+                return true;
+            }
+
+            if (newType != origin.type()) {
                 listener.onFailure("Changing the type from {} to {} is not allowed", origin.type(), newType);
                 return false;
             }
         }
 
-        if (newPrecision != null && newPrecision != origin.precision() && origin.type() != ColumnType.DECIMAL) {
+        if (newPrecision != null && newPrecision != origin.precision()) {
             listener.onFailure("Changing the precision for column of type '{}' is not allowed", origin.type(), newType);
             return false;
         }
 
-        if (newPrecision != null && newPrecision < origin.precision()) {
-            listener.onFailure("Decreasing the precision is not allowed", origin.type(), newType);
-            return false;
-        }
-
         if (newScale != null && newScale != origin.scale()) {
-            listener.onFailure("Changing the scale is not allowed", origin.type(), newType);
+            listener.onFailure("Changing the scale for column of type '{}' is not allowed", origin.type(), newType);
             return false;
         }
 
-        if (newLength != null && newLength != origin.length()
-                && origin.type() != ColumnType.STRING && origin.type() != ColumnType.BYTE_ARRAY) {
+        if (newLength != null && newLength != origin.length()) {
             listener.onFailure("Changing the length for column of type '{}' is not allowed", origin.type(), newType);
-            return false;
-        }
-
-        if (newLength != null && newLength < origin.length()) {
-            listener.onFailure("Decreasing the length is not allowed", origin.type(), newType);
             return false;
         }
 
@@ -322,57 +322,6 @@ public class CatalogUtils {
     }
 
     /**
-     * Creates a new version of the distribution zone descriptor based on the AlterZone command params and the previous version. If a field
-     * is not set in the command params, then the value from the previous version is taken.
-     *
-     * <p>Features of working with auto adjust params:</p>
-     * <ul>
-     *     <li>If {@link AlterZoneParams#dataNodesAutoAdjust()} is <b>not</b> {@code null}, then
-     *     {@link CatalogZoneDescriptor#dataNodesAutoAdjustScaleUp()} and {@link CatalogZoneDescriptor#dataNodesAutoAdjustScaleDown()} will
-     *     be {@link #INFINITE_TIMER_VALUE} in the new version;</li>
-     *     <li>If {@link AlterZoneParams#dataNodesAutoAdjustScaleUp()} or {@link AlterZoneParams#dataNodesAutoAdjustScaleDown()} is
-     *     <b>not</b> {@code null}, then {@link CatalogZoneDescriptor#dataNodesAutoAdjust()} will be {@link #INFINITE_TIMER_VALUE} in the
-     *     new version.</li>
-     * </ul>
-     *
-     * @param params Parameters.
-     * @param previous Previous version of the distribution zone descriptor.
-     * @return Distribution zone descriptor.
-     */
-    public static CatalogZoneDescriptor fromParamsAndPreviousValue(AlterZoneParams params, CatalogZoneDescriptor previous) {
-        assert previous.name().equals(params.zoneName()) : "previousZoneName=" + previous.name() + ", paramsZoneName=" + params.zoneName();
-
-        @Nullable Integer autoAdjust = null;
-        @Nullable Integer scaleUp = null;
-        @Nullable Integer scaleDown = null;
-
-        if (params.dataNodesAutoAdjust() != null) {
-            autoAdjust = params.dataNodesAutoAdjust();
-            scaleUp = INFINITE_TIMER_VALUE;
-            scaleDown = INFINITE_TIMER_VALUE;
-        } else if (params.dataNodesAutoAdjustScaleUp() != null || params.dataNodesAutoAdjustScaleDown() != null) {
-            autoAdjust = INFINITE_TIMER_VALUE;
-            scaleUp = params.dataNodesAutoAdjustScaleUp();
-            scaleDown = params.dataNodesAutoAdjustScaleDown();
-        }
-
-        CatalogDataStorageDescriptor dataStorageDescriptor = params.dataStorage() != null
-                ? fromParams(params.dataStorage()) : previous.dataStorage();
-
-        return new CatalogZoneDescriptor(
-                previous.id(),
-                previous.name(),
-                Objects.requireNonNullElse(params.partitions(), previous.partitions()),
-                Objects.requireNonNullElse(params.replicas(), previous.replicas()),
-                Objects.requireNonNullElse(autoAdjust, previous.dataNodesAutoAdjust()),
-                Objects.requireNonNullElse(scaleUp, previous.dataNodesAutoAdjustScaleUp()),
-                Objects.requireNonNullElse(scaleDown, previous.dataNodesAutoAdjustScaleDown()),
-                Objects.requireNonNullElse(params.filter(), previous.filter()),
-                dataStorageDescriptor
-        );
-    }
-
-    /**
      * Returns schema with given name, or throws {@link CatalogValidationException} if schema with given name not exists.
      *
      * @param catalog Catalog to look up schema in.
@@ -426,7 +375,7 @@ public class CatalogUtils {
         CatalogZoneDescriptor zone = catalog.zone(name);
 
         if (zone == null) {
-            throw new CatalogValidationException(format("Distribution zone with name '{}' not found", name));
+            throw new DistributionZoneNotFoundValidationException(format("Distribution zone with name '{}' not found", name));
         }
 
         return zone;

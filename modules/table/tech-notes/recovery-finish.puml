@@ -1,0 +1,104 @@
+@startuml
+
+!pragma teoz true
+participant coordinator
+participant messaging
+participant commitPartitionPrimary
+participant tx2Coordinator
+participant RAFT
+participant commitPartitionPrimary2
+
+group Coordinator commits and dies. Recovery.
+coordinator -[#green]> messaging: COMMIT TX0
+note over coordinator: Coordinator dies
+note over messaging: commit message is delayed in messaging
+tx2Coordinator -[#red]> tx2Coordinator: Start TX0 recovery
+messaging -[#green]> commitPartitionPrimary: commit TX0
+tx2Coordinator -[#red]> commitPartitionPrimary: recover TX0
+commitPartitionPrimary -[#green]> RAFT : Finish Command with COMMIT
+RAFT -[#green]> RAFT : CAS tx state\nnull to COMMIT.
+RAFT --[#green]> commitPartitionPrimary
+commitPartitionPrimary -[#green]> commitPartitionPrimary: store COMMIT \nin a volatile map.\nCOMMIT Stored
+commitPartitionPrimary --[#green]> coordinator !! : No recipient
+commitPartitionPrimary -[#red]> RAFT : Finish Command with ABORT
+RAFT -[#red]> RAFT : FAILED CAS tx state\nCOMMIT to ABORT.
+RAFT --[#red]> commitPartitionPrimary
+commitPartitionPrimary -[#red]> commitPartitionPrimary: store ABORT \nin a volatile map.\nCOMMIT not changed
+commitPartitionPrimary --[#red]> tx2Coordinator
+end
+
+
+group Coordinator commits and dies. Recovery. Reorder
+coordinator -[#green]> messaging: COMMIT TX0
+note over coordinator: Coordinator dies
+note over messaging: commit message is delayed in messaging
+tx2Coordinator -[#red]> tx2Coordinator: Start TX0 recovery
+messaging -[#green]> commitPartitionPrimary: commit TX0
+tx2Coordinator -[#red]> commitPartitionPrimary: recover TX0
+commitPartitionPrimary -[#green]> RAFT : Finish Command with COMMIT
+commitPartitionPrimary -[#red]> RAFT : Finish Command with ABORT
+RAFT -[#green]> RAFT : CAS tx state\nnull to COMMIT.
+RAFT -[#red]> RAFT : FAILED CAS tx state\nCOMMIT to ABORT.
+RAFT --[#red]> commitPartitionPrimary
+commitPartitionPrimary -[#red]> commitPartitionPrimary: store COMMIT \nin a volatile map.\nCOMMIT stored
+commitPartitionPrimary --[#red]> tx2Coordinator
+RAFT --[#green]> commitPartitionPrimary
+commitPartitionPrimary -[#green]> commitPartitionPrimary: store COMMIT \nin a volatile map.\nCOMMIT is not changed
+
+commitPartitionPrimary --[#green]> coordinator !! : No recipient
+end
+
+group Coordinator sends commit and dies. Recovery wins.
+coordinator -[#green]> messaging: COMMIT TX0
+note over coordinator: Coordinator dies
+note over messaging: commit message is delayed in messaging
+tx2Coordinator -[#red]> tx2Coordinator: Start TX0 recovery
+tx2Coordinator -[#red]> commitPartitionPrimary: recover TX0
+messaging -[#green]> commitPartitionPrimary: commit TX0
+commitPartitionPrimary -[#red]> RAFT : Finish Command with ABORT
+RAFT -[#red]> RAFT : CAS tx state\nnull to ABORT.
+RAFT --[#red]> commitPartitionPrimary
+commitPartitionPrimary -[#red]> commitPartitionPrimary: store ABORT \nin a volatile map.\nABORT stored
+commitPartitionPrimary --[#red]> tx2Coordinator
+commitPartitionPrimary -[#green]> RAFT : Finish Command with COMMIT
+RAFT -[#green]> RAFT : FAILED CAS tx state\nABORT to COMMIT.
+RAFT --[#green]> commitPartitionPrimary
+commitPartitionPrimary -[#green]> commitPartitionPrimary: store COMMIT \nin a volatile map.\nABORT is not changed
+commitPartitionPrimary --[#green]> coordinator !! : No recipient
+end
+
+group Coordinator sends commit and dies. Recovery finishes before commit execution.
+coordinator -[#green]> messaging: COMMIT TX0
+note over coordinator: Coordinator dies
+note over messaging: commit message is delayed in messaging
+tx2Coordinator -[#red]> tx2Coordinator: Start TX0 recovery
+tx2Coordinator -[#red]> commitPartitionPrimary: recover TX0
+
+commitPartitionPrimary -[#red]> RAFT : Finish Command with ABORT
+RAFT -[#red]> RAFT : CAS tx state\nnull to ABORT.
+RAFT --[#red]> commitPartitionPrimary
+commitPartitionPrimary -[#red]> commitPartitionPrimary: store ABORT \nin a volatile map.\nABORT stored
+commitPartitionPrimary --[#red]> tx2Coordinator
+messaging -[#green]> commitPartitionPrimary: commit TX0
+commitPartitionPrimary -[#green]> commitPartitionPrimary : TX is already finished.\nCOMMIT over ABORT\nresutls in TX_WAS_ABORTED_ERR
+commitPartitionPrimary --[#green]> coordinator !! : No recipient
+end
+
+group Coordinator dead. Two recoveries.
+tx2Coordinator -[#red]> tx2Coordinator: Start TX0 recovery
+tx2Coordinator -[#red]> commitPartitionPrimary: recover TX0
+commitPartitionPrimary -[#red]> RAFT : Finish Command with ABORT
+note over commitPartitionPrimary: Lease expires
+tx2Coordinator -[#blue]> tx2Coordinator: Start TX0 recovery
+tx2Coordinator -[#blue]> commitPartitionPrimary2: recover TX0
+RAFT -[#red]> RAFT : CAS tx state\nnull to ABORT.
+RAFT --[#red]> commitPartitionPrimary
+commitPartitionPrimary -[#red]> commitPartitionPrimary: store ABORT \nin a volatile map.\nABORT stored
+commitPartitionPrimary2 -[#blue]> RAFT : Finish Command with ABORT
+RAFT -[#blue]> RAFT : FAILED CAS tx state\nABORT to ABORT.
+RAFT --[#blue]> commitPartitionPrimary2
+commitPartitionPrimary2 -[#blue]> commitPartitionPrimary2: store ABORT \nin a volatile map.\nABORT stored
+commitPartitionPrimary --[#red]> tx2Coordinator
+commitPartitionPrimary2 --[#blue]> tx2Coordinator
+end
+@enduml

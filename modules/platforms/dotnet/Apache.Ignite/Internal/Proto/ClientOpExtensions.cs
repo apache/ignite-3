@@ -55,6 +55,7 @@ namespace Apache.Ignite.Internal.Proto
                 ClientOp.ComputeExecute => ClientOperationType.ComputeExecute,
                 ClientOp.ComputeExecuteColocated => ClientOperationType.ComputeExecute,
                 ClientOp.SqlExec => ClientOperationType.SqlExecute,
+                ClientOp.SqlExecScript => ClientOperationType.SqlExecuteScript,
                 ClientOp.SqlCursorNextPage => null,
                 ClientOp.SqlCursorClose => null,
                 ClientOp.TxBegin => null,

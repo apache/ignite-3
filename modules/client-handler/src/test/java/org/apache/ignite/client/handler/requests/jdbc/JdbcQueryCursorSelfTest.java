@@ -17,6 +17,7 @@
 
 package org.apache.ignite.client.handler.requests.jdbc;
 
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.mock;
 
@@ -24,8 +25,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursorImpl;
-import org.apache.ignite.internal.sql.engine.QueryTransactionWrapper;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
+import org.apache.ignite.internal.sql.engine.tx.QueryTransactionWrapper;
+import org.apache.ignite.internal.sql.engine.tx.QueryTransactionWrapperImpl;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
@@ -48,7 +50,7 @@ public class JdbcQueryCursorSelfTest extends BaseIgniteAbstractTest {
 
     @BeforeEach
     void initTxMock() {
-        txWrapper = new QueryTransactionWrapper(mock(InternalTransaction.class), false);
+        txWrapper = new QueryTransactionWrapperImpl(mock(InternalTransaction.class), false);
     }
 
     /** Tests corner cases of setting the {@code maxRows} parameter. */
@@ -72,8 +74,15 @@ public class JdbcQueryCursorSelfTest extends BaseIgniteAbstractTest {
 
     private List<Integer> fetchFullBatch(int maxRows, int fetchSize) {
         JdbcQueryCursor<Integer> cursor = new JdbcQueryCursor<>(maxRows,
-                new AsyncSqlCursorImpl<>(SqlQueryType.QUERY, null, txWrapper,
-                        new AsyncWrapper<>(CompletableFuture.completedFuture(ROWS.iterator()), Runnable::run), () -> {}));
+                new AsyncSqlCursorImpl<>(
+                        SqlQueryType.QUERY,
+                        null,
+                        txWrapper,
+                        new AsyncWrapper<>(CompletableFuture.completedFuture(ROWS.iterator()), Runnable::run),
+                        nullCompletedFuture(),
+                        null
+                )
+        );
 
         List<Integer> results = new ArrayList<>(maxRows);
         BatchedResult<Integer> requestResult;

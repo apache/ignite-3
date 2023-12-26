@@ -251,7 +251,7 @@ public class ClientSqlTest extends AbstractClientTableTest {
 
         assertEquals(
                 "do bar baz, arguments: [arg1, null, 2, ], properties: [prop2=-5, prop1=val1, prop3=null, ], "
-                        + "defaultPageSize=null, defaultSchema=script-schema, defaultQueryTimeout=456, defaultSessionTimeout=789000",
+                        + "defaultPageSize=123, defaultSchema=script-schema, defaultQueryTimeout=456, defaultSessionTimeout=789000",
                 row.value(0));
     }
 }

@@ -17,9 +17,9 @@
 
 package org.apache.ignite.internal.sql.engine;
 
-import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.sql.engine.prepare.ParameterMetadata;
 import org.apache.ignite.internal.sql.engine.property.SqlProperties;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.lang.IgniteException;
@@ -30,6 +30,23 @@ import org.jetbrains.annotations.Nullable;
  * QueryProcessor interface.
  */
 public interface QueryProcessor extends IgniteComponent {
+
+    /**
+     * Returns parameter metadata for the given statement. This method uses optional array of parameters to assist with type inference.
+     *
+     * @param properties User query properties. See {@link QueryProperty} for available properties.
+     * @param transaction A transaction to use to resolve a schema.
+     * @param qry Single statement SQL query.
+     * @param params Query parameters.
+     * @return Parameter metadata.
+     *
+     * @throws IgniteException in case of an error.
+     * @see QueryProperty
+     */
+    CompletableFuture<ParameterMetadata> prepareSingleAsync(SqlProperties properties,
+            @Nullable InternalTransaction transaction,
+            String qry, Object... params);
+
     /**
      * Execute the single statement query with given schema name and parameters.
      *
@@ -46,7 +63,7 @@ public interface QueryProcessor extends IgniteComponent {
      * @throws IgniteException in case of an error.
      * @see QueryProperty
      */
-    CompletableFuture<AsyncSqlCursor<List<Object>>> querySingleAsync(
+    CompletableFuture<AsyncSqlCursor<InternalSqlRow>> querySingleAsync(
             SqlProperties properties,
             IgniteTransactions transactions,
             @Nullable InternalTransaction transaction,
@@ -68,7 +85,7 @@ public interface QueryProcessor extends IgniteComponent {
      * @throws IgniteException in case of an error.
      * @see QueryProperty
      */
-    CompletableFuture<AsyncSqlCursor<List<Object>>> queryScriptAsync(
+    CompletableFuture<AsyncSqlCursor<InternalSqlRow>> queryScriptAsync(
             SqlProperties properties,
             IgniteTransactions transactions,
             @Nullable InternalTransaction transaction,

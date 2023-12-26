@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.prepare;
 
+import java.util.Collections;
 import java.util.List;
 import org.apache.ignite.internal.sql.api.ColumnMetadataImpl;
 import org.apache.ignite.internal.sql.api.ResultSetMetadataImpl;
@@ -34,6 +35,9 @@ public class DdlPlan implements QueryPlan {
     /** DDL metadata holder. */
     private static final ResultSetMetadata DDL_METADATA = new ResultSetMetadataImpl(List.of(
             new ColumnMetadataImpl("APPLIED", ColumnType.BOOLEAN, 1, ColumnMetadata.UNDEFINED_SCALE, false, null)));
+
+    /** DDL has no parameters. */
+    private static final ParameterMetadata EMPTY_PARAMETERS = new ParameterMetadata(Collections.emptyList());
 
     private final PlanId id;
     private final DdlCommand cmd;
@@ -63,6 +67,12 @@ public class DdlPlan implements QueryPlan {
     @Override
     public ResultSetMetadata metadata() {
         return DDL_METADATA;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public ParameterMetadata parameterMetadata() {
+        return EMPTY_PARAMETERS;
     }
 
     /** {@inheritDoc} */

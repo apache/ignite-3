@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table;
 
+import static org.apache.ignite.internal.marshaller.Marshaller.createMarshaller;
 import static org.apache.ignite.internal.schema.marshaller.MarshallerUtil.toMarshallerColumns;
 
 import java.util.ArrayList;
@@ -31,25 +32,32 @@ import org.apache.ignite.internal.marshaller.Marshaller;
 import org.apache.ignite.internal.marshaller.TupleReader;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
+import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.marshaller.RecordMarshaller;
 import org.apache.ignite.internal.schema.marshaller.reflection.RecordMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.streamer.StreamerBatchSender;
-import org.apache.ignite.internal.table.criteria.QueryCriteriaAsyncResultSet;
+import org.apache.ignite.internal.table.criteria.QueryCriteriaAsyncCursor;
 import org.apache.ignite.internal.table.criteria.SqlRowProjection;
+import org.apache.ignite.internal.table.criteria.SqlSerializer;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.ArrayUtils;
+import org.apache.ignite.lang.AsyncCursor;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.MarshallerException;
+import org.apache.ignite.sql.IgniteSql;
+import org.apache.ignite.sql.ResultSetMetadata;
+import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.Statement;
-import org.apache.ignite.sql.async.AsyncResultSet;
 import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.RecordView;
+import org.apache.ignite.table.criteria.Criteria;
+import org.apache.ignite.table.criteria.CriteriaQueryOptions;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
@@ -73,9 +81,16 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
      * @param schemaRegistry Schema registry.
      * @param schemaVersions Schema versions access.
      * @param mapper Record class mapper.
+     * @param sql Ignite SQL facade.
      */
-    public RecordViewImpl(InternalTable tbl, SchemaRegistry schemaRegistry, SchemaVersions schemaVersions, Mapper<R> mapper) {
-        super(tbl, schemaVersions, schemaRegistry);
+    public RecordViewImpl(
+            InternalTable tbl,
+            SchemaRegistry schemaRegistry,
+            SchemaVersions schemaVersions,
+            Mapper<R> mapper,
+            IgniteSql sql
+    ) {
+        super(tbl, schemaVersions, schemaRegistry, sql);
 
         marshallerFactory = (schema) -> new RecordMarshallerImpl<>(schema, mapper);
         this.mapper = mapper;
@@ -535,23 +550,31 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
 
     /** {@inheritDoc} */
     @Override
-    protected CompletableFuture<AsyncResultSet<R>> executeQueryAsync(
+    public CompletableFuture<AsyncCursor<R>> queryAsync(
             @Nullable Transaction tx,
-            Statement statement,
-            @Nullable Object... arguments
+            @Nullable Criteria criteria,
+            CriteriaQueryOptions opts
     ) {
         return withSchemaSync(tx, (schemaVersion) -> {
-            var session = tbl.sql().createSession();
+            SchemaDescriptor schema = rowConverter.registry().schema(schemaVersion);
 
-            return session.executeAsync(tx, statement, arguments)
+            SqlSerializer ser = new SqlSerializer.Builder()
+                    .tableName(tbl.name())
+                    .columns(schema.columnNames())
+                    .where(criteria)
+                    .build();
+
+            Statement statement = sql.statementBuilder().query(ser.toString()).pageSize(opts.pageSize()).build();
+            Session session = sql.createSession();
+
+            return session.executeAsync(tx, statement, ser.getArguments())
                     .thenApply(resultSet -> {
-                        var metadata = resultSet.metadata();
+                        ResultSetMetadata metadata = resultSet.metadata();
 
-                        var schema = rowConverter.registry().schema(schemaVersion);
-                        var valCols = ArrayUtils.concat(schema.keyColumns().columns(), schema.valueColumns().columns());
-                        var valIdxMapping = indexMapping(valCols, metadata);
+                        Column[] valCols = ArrayUtils.concat(schema.keyColumns().columns(), schema.valueColumns().columns());
+                        List<Integer> valIdxMapping = indexMapping(valCols, metadata);
 
-                        var marsh = Marshaller.createMarshaller(toMarshallerColumns(valCols), mapper, false, true);
+                        Marshaller marsh = createMarshaller(toMarshallerColumns(valCols), mapper, false, true);
 
                         Function<SqlRow, R> mapper = (row) -> {
                             try {
@@ -561,7 +584,7 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
                             }
                         };
 
-                        return new QueryCriteriaAsyncResultSet<>(session, mapper, resultSet);
+                        return new QueryCriteriaAsyncCursor<>(resultSet, mapper, session::close);
                     });
         });
     }

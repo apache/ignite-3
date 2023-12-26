@@ -18,22 +18,25 @@
 package org.apache.ignite.internal.sql.engine.util;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.Matchers.containsString;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursorImpl;
+import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
-import org.apache.ignite.internal.sql.engine.QueryTransactionWrapper;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.framework.DataProvider;
 import org.apache.ignite.internal.sql.engine.framework.NoOpTransaction;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.framework.TestCluster;
 import org.apache.ignite.internal.sql.engine.framework.TestNode;
+import org.apache.ignite.internal.sql.engine.prepare.ParameterMetadata;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
 import org.apache.ignite.internal.sql.engine.property.SqlProperties;
+import org.apache.ignite.internal.sql.engine.tx.QueryTransactionWrapperImpl;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.type.NativeTypes;
@@ -266,7 +269,13 @@ public class QueryCheckerTest extends BaseIgniteAbstractTest {
         }
 
         @Override
-        public CompletableFuture<AsyncSqlCursor<List<Object>>> querySingleAsync(
+        public CompletableFuture<ParameterMetadata> prepareSingleAsync(SqlProperties properties,
+                @Nullable InternalTransaction transaction, String qry, Object... params) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public CompletableFuture<AsyncSqlCursor<InternalSqlRow>> querySingleAsync(
                 SqlProperties properties,
                 IgniteTransactions transactions,
                 @Nullable InternalTransaction transaction,
@@ -276,25 +285,26 @@ public class QueryCheckerTest extends BaseIgniteAbstractTest {
             assert params == null || params.length == 0 : "params are not supported";
 
             QueryPlan plan = node.prepare(qry);
-            AsyncCursor<List<Object>> dataCursor = node.executePlan(plan);
+            AsyncCursor<InternalSqlRow> dataCursor = node.executePlan(plan);
 
             SqlQueryType type = plan.type();
 
             assert type != null;
 
-            AsyncSqlCursor<List<Object>> sqlCursor = new AsyncSqlCursorImpl<>(
+            AsyncSqlCursor<InternalSqlRow> sqlCursor = new AsyncSqlCursorImpl<>(
                     type,
                     plan.metadata(),
-                    new QueryTransactionWrapper(new NoOpTransaction("test"), false),
+                    new QueryTransactionWrapperImpl(new NoOpTransaction("test"), false),
                     dataCursor,
-                    () -> {}
+                    nullCompletedFuture(),
+                    null
             );
 
             return CompletableFuture.completedFuture(sqlCursor);
         }
 
         @Override
-        public CompletableFuture<AsyncSqlCursor<List<Object>>> queryScriptAsync(
+        public CompletableFuture<AsyncSqlCursor<InternalSqlRow>> queryScriptAsync(
                 SqlProperties properties,
                 IgniteTransactions transactions,
                 @Nullable InternalTransaction transaction,

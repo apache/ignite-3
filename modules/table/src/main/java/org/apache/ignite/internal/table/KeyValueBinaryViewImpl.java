@@ -30,24 +30,31 @@ import java.util.function.Function;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
+import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.streamer.StreamerBatchSender;
-import org.apache.ignite.internal.table.criteria.QueryCriteriaAsyncResultSet;
+import org.apache.ignite.internal.table.criteria.QueryCriteriaAsyncCursor;
 import org.apache.ignite.internal.table.criteria.SqlRowProjection;
+import org.apache.ignite.internal.table.criteria.SqlSerializer;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.lang.AsyncCursor;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.MarshallerException;
 import org.apache.ignite.lang.NullableValue;
+import org.apache.ignite.sql.IgniteSql;
+import org.apache.ignite.sql.ResultSetMetadata;
+import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.Statement;
-import org.apache.ignite.sql.async.AsyncResultSet;
 import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Tuple;
+import org.apache.ignite.table.criteria.Criteria;
+import org.apache.ignite.table.criteria.CriteriaQueryOptions;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 
@@ -66,9 +73,10 @@ public class KeyValueBinaryViewImpl extends AbstractTableView<Entry<Tuple, Tuple
      * @param tbl Table storage.
      * @param schemaReg Schema registry.
      * @param schemaVersions Schema versions access.
+     * @param sql Ignite SQL facade.
      */
-    public KeyValueBinaryViewImpl(InternalTable tbl, SchemaRegistry schemaReg, SchemaVersions schemaVersions) {
-        super(tbl, schemaVersions, schemaReg);
+    public KeyValueBinaryViewImpl(InternalTable tbl, SchemaRegistry schemaReg, SchemaVersions schemaVersions, IgniteSql sql) {
+        super(tbl, schemaVersions, schemaReg, sql);
 
         marshallerCache = new TupleMarshallerCache(schemaReg);
     }
@@ -565,29 +573,36 @@ public class KeyValueBinaryViewImpl extends AbstractTableView<Entry<Tuple, Tuple
 
     /** {@inheritDoc} */
     @Override
-    protected CompletableFuture<AsyncResultSet<Entry<Tuple, Tuple>>> executeQueryAsync(
+    public CompletableFuture<AsyncCursor<Entry<Tuple, Tuple>>> queryAsync(
             @Nullable Transaction tx,
-            Statement statement,
-            @Nullable Object... arguments
+            @Nullable Criteria criteria,
+            CriteriaQueryOptions opts
     ) {
         return withSchemaSync(tx, (schemaVersion) -> {
-            var schema = rowConverter.registry().schema(schemaVersion);
-            var session = tbl.sql().createSession();
+            SchemaDescriptor schema = rowConverter.registry().schema(schemaVersion);
 
-            return session.executeAsync(tx, statement, arguments)
+            SqlSerializer ser = new SqlSerializer.Builder()
+                    .tableName(tbl.name())
+                    .columns(schema.columnNames())
+                    .where(criteria)
+                    .build();
+
+            Statement statement = sql.statementBuilder().query(ser.toString()).pageSize(opts.pageSize()).build();
+            Session session = sql.createSession();
+
+            return session.executeAsync(tx, statement, ser.getArguments())
                     .thenApply(resultSet -> {
-                        var metadata = resultSet.metadata();
+                        ResultSetMetadata metadata = resultSet.metadata();
 
-                        var keyIndexMapping = indexMapping(schema.keyColumns().columns(), metadata);
-                        var valIndexMapping = indexMapping(schema.valueColumns().columns(), metadata);
+                        List<Integer> keyIndexMapping = indexMapping(schema.keyColumns().columns(), metadata);
+                        List<Integer> valIndexMapping = indexMapping(schema.valueColumns().columns(), metadata);
 
-                        Function<SqlRow, Entry<Tuple, Tuple>> mapper = (row) ->
-                                new IgniteBiTuple<>(
-                                        new SqlRowProjection(row, keyIndexMapping),
-                                        new SqlRowProjection(row, valIndexMapping)
-                                );
+                        Function<SqlRow, Entry<Tuple, Tuple>> mapper = (row) -> new IgniteBiTuple<>(
+                                new SqlRowProjection(row, keyIndexMapping),
+                                new SqlRowProjection(row, valIndexMapping)
+                        );
 
-                        return new QueryCriteriaAsyncResultSet<>(session, mapper, resultSet);
+                        return new QueryCriteriaAsyncCursor<>(resultSet, mapper, session::close);
                     });
         });
     }

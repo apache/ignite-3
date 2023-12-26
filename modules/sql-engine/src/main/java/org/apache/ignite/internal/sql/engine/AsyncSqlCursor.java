@@ -45,6 +45,24 @@ public interface AsyncSqlCursor<T> extends AsyncCursor<T> {
     boolean hasNextResult();
 
     /**
+     * Returns {@link CompletableFuture} that will be completed when cursor is closed.
+     *
+     * <p>The future will be completed with {@link null} if cursor was completed successfully,
+     * or with an exception otherwise.
+     *
+     * @return A future representing result of operation.
+     */
+    CompletableFuture<Void> onClose();
+
+    /**
+     * Returns {@link CompletableFuture} that will be completed when first page is fetched and ready
+     * to be returned to user.
+     *
+     * @return A future representing result of operation.
+     */
+    CompletableFuture<Void> onFirstPageReady();
+
+    /**
      * Returns the future for the next statement of the query.
      *
      * @return Future that completes when the next statement completes.

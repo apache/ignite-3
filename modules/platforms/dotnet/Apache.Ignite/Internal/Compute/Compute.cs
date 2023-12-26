@@ -193,10 +193,13 @@ namespace Apache.Ignite.Internal.Compute
             using var writer = ProtoCommon.GetMessageWriter();
             Write();
 
-            using var res = await _socket.DoOutInOpAsync(ClientOp.ComputeExecute, writer, PreferredNode.FromName(node.Name))
+            using PooledBuffer res = await _socket.DoOutInOpAsync(
+                    ClientOp.ComputeExecute, writer, PreferredNode.FromName(node.Name), expectNotifications: true)
                 .ConfigureAwait(false);
 
-            return Read(res);
+            var notificationHandler = (NotificationHandler)res.Metadata!;
+            using var notificationRes = await notificationHandler.Task.ConfigureAwait(false);
+            return Read(notificationRes);
 
             void Write()
             {
@@ -264,10 +267,13 @@ namespace Apache.Ignite.Internal.Compute
                     var colocationHash = Write(bufferWriter, table, schema);
                     var preferredNode = await table.GetPreferredNode(colocationHash, null).ConfigureAwait(false);
 
-                    using var res = await _socket.DoOutInOpAsync(ClientOp.ComputeExecuteColocated, bufferWriter, preferredNode)
+                    using var res = await _socket.DoOutInOpAsync(
+                            ClientOp.ComputeExecuteColocated, bufferWriter, preferredNode, expectNotifications: true)
                         .ConfigureAwait(false);
 
-                    return Read(res);
+                    var notificationHandler = (NotificationHandler)res.Metadata!;
+                    using var notificationRes = await notificationHandler.Task.ConfigureAwait(false);
+                    return Read(notificationRes);
                 }
                 catch (IgniteException e) when (e.Code == ErrorGroups.Client.TableIdNotFound)
                 {
@@ -307,11 +313,7 @@ namespace Apache.Ignite.Internal.Compute
 
             static T Read(in PooledBuffer buf)
             {
-                var reader = buf.GetReader();
-
-                _ = reader.ReadInt32();
-
-                return (T)reader.ReadObjectFromBinaryTuple()!;
+                return (T)buf.GetReader().ReadObjectFromBinaryTuple()!;
             }
         }
     }

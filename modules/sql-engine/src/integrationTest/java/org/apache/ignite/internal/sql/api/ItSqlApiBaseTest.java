@@ -370,7 +370,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
 
         String queryRw = "UPDATE TEST SET VAL0=VAL0+1";
         if (explicit && readOnly) {
-            assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, "DML query cannot be started by using read only transactions.",
+            assertThrowsSqlException(Sql.RUNTIME_ERR, "DML query cannot be started by using read only transactions.",
                     () -> execute(outerTx, ses, queryRw));
         } else {
             checkDml(ROW_COUNT, outerTx, ses, queryRw);
@@ -519,8 +519,8 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
                 "CREATE TABLE TEST2 (VAL INT)");
 
         // Execute error.
-        checkSqlError(Sql.RUNTIME_ERR, "/ by zero", ses, "SELECT 1 / ?", 0);
-        checkSqlError(Sql.RUNTIME_ERR, "/ by zero", ses, "UPDATE TEST SET val0 = val0/(val0 - ?) + " + ROW_COUNT, 0);
+        checkSqlError(Sql.RUNTIME_ERR, "Division by zero", ses, "SELECT 1 / ?", 0);
+        checkSqlError(Sql.RUNTIME_ERR, "Division by zero", ses, "UPDATE TEST SET val0 = val0/(val0 - ?) + " + ROW_COUNT, 0);
         checkSqlError(Sql.RUNTIME_ERR, "negative substring length not allowed", ses, "SELECT SUBSTRING('foo', 1, -3)");
 
         // No result set error.
@@ -673,7 +673,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
 
             assertThrowsSqlException(
                     Sql.RUNTIME_ERR,
-                    "/ by zero",
+                    "Division by zero",
                     () -> execute(tx, ses, dmlQuery, 1).affectedRows());
 
             IgniteException err = assertThrows(IgniteException.class, () -> {
@@ -704,7 +704,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
 
             assertThrowsSqlException(
                     Sql.RUNTIME_ERR,
-                    "/ by zero",
+                    "Division by zero",
                     () -> execute(tx, ses, "SELECT val/? FROM tst WHERE id=?", 0, 1));
 
             IgniteException err = assertThrows(IgniteException.class, () -> {
@@ -778,7 +778,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
             Transaction tx = igniteTx().begin();
             try {
                 assertThrowsSqlException(
-                        Sql.STMT_VALIDATION_ERR,
+                        Sql.RUNTIME_ERR,
                         "DDL doesn't support transactions.",
                         () -> execute(tx, ses, "CREATE TABLE TEST2(ID INT PRIMARY KEY, VAL0 INT)")
                 );
@@ -792,7 +792,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
             assertEquals(1, result.affectedRows());
 
             assertThrowsSqlException(
-                    Sql.STMT_VALIDATION_ERR,
+                    Sql.RUNTIME_ERR,
                     "DDL doesn't support transactions.",
                     () -> ses.execute(tx, "CREATE TABLE TEST2(ID INT PRIMARY KEY, VAL0 INT)")
             );
@@ -821,7 +821,6 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
         assertEquals(0, txManager().pending(), "Expected no pending transactions");
     }
 
-
     @Test
     public void runScriptThatCompletesSuccessfully() {
         IgniteSql sql = igniteSql();
@@ -829,12 +828,32 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
         try (Session session = sql.createSession()) {
             executeScript(session,
                     "CREATE TABLE test (id INT PRIMARY KEY, step INTEGER); "
-                            + "START TRANSACTION; "
                             + "INSERT INTO test VALUES(1, 0); "
                             + "UPDATE test SET step = 1; "
                             + "SELECT * FROM test; "
+                            + "UPDATE test SET step = 2; ");
+
+            ResultProcessor result = execute(session, "SELECT step FROM test");
+            assertEquals(1, result.result().size());
+            assertEquals(2, result.result().get(0).intValue(0));
+        }
+    }
+
+    @Test
+    public void runScriptWithTransactionThatCompletesSuccessfully() {
+        IgniteSql sql = igniteSql();
+
+        try (Session session = sql.createSession()) {
+            executeScript(session,
+                    "CREATE TABLE test (id INT PRIMARY KEY, step INTEGER); "
+                            + "START TRANSACTION; "
+                            + "INSERT INTO test VALUES(1, 0); "
+                            + "INSERT INTO test VALUES(2, 0); "
+                            + "UPDATE test SET step = 1; "
+                            + "SELECT * FROM test; "
                             + "UPDATE test SET step = 2; "
-                            + "COMMIT; ");
+                            + "COMMIT; "
+                            + "DELETE FROM test WHERE id = 2");
 
             ResultProcessor result = execute(session, "SELECT step FROM test");
             assertEquals(1, result.result().size());
@@ -849,12 +868,12 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
         try (Session session = sql.createSession()) {
             assertThrowsSqlException(
                     Sql.RUNTIME_ERR,
-                    "/ by zero",
+                    "Division by zero",
                     () -> executeScript(session,
                             "CREATE TABLE test (id INT PRIMARY KEY, step INTEGER); "
                                     + "INSERT INTO test VALUES(1, 0); "
                                     + "UPDATE test SET step = 1; "
-                                    + "SELECT 1/0; "
+                                    + "UPDATE test SET step = 3 WHERE step > 1/0; "
                                     + "UPDATE test SET step = 2; "
                     )
             );

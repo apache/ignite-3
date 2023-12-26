@@ -59,6 +59,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.Phaser;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.function.LongFunction;
 import org.apache.ignite.internal.affinity.AffinityUtils;
@@ -106,6 +107,8 @@ import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.table.distributed.schema.AlwaysSyncedSchemaSyncService;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
+import org.apache.ignite.internal.thread.LogUncaughtExceptionHandler;
+import org.apache.ignite.internal.thread.StripedThreadPoolExecutor;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
@@ -229,6 +232,8 @@ public class TableManagerTest extends IgniteAbstractTest {
     /** Catalog manager. */
     private CatalogManager catalogManager;
 
+    private StripedThreadPoolExecutor partitionOperationsExecutor;
+
     @BeforeEach
     void before() throws NodeStoppingException {
         catalogVault = new VaultManager(new InMemoryVaultService());
@@ -259,6 +264,14 @@ public class TableManagerTest extends IgniteAbstractTest {
         tblManagerFut = new CompletableFuture<>();
 
         mockMetastore();
+
+        partitionOperationsExecutor = new StripedThreadPoolExecutor(
+                5,
+                "partition-operations",
+                new LogUncaughtExceptionHandler(log),
+                false,
+                0
+        );
     }
 
     @AfterEach
@@ -274,7 +287,9 @@ public class TableManagerTest extends IgniteAbstractTest {
                 sm == null ? null : sm::stop,
                 catalogManager == null ? null : catalogManager::stop,
                 catalogMetastore == null ? null : catalogMetastore::stop,
-                catalogVault == null ? null : catalogVault::stop
+                catalogVault == null ? null : catalogVault::stop,
+                partitionOperationsExecutor == null ? null
+                        : () -> IgniteUtils.shutdownAndAwaitTermination(partitionOperationsExecutor, 10, TimeUnit.SECONDS)
         );
     }
 
@@ -710,6 +725,7 @@ public class TableManagerTest extends IgniteAbstractTest {
                 msm,
                 sm = new SchemaManager(revisionUpdater, catalogManager, msm),
                 budgetView -> new LocalLogStorageFactory(),
+                partitionOperationsExecutor,
                 clock,
                 new OutgoingSnapshotsManager(clusterService.messagingService()),
                 mock(TopologyAwareRaftGroupServiceFactory.class),

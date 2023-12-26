@@ -84,6 +84,7 @@ import java.util.stream.IntStream;
 import org.apache.ignite.client.handler.configuration.ClientConnectorConfiguration;
 import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.affinity.Assignment;
+import org.apache.ignite.internal.app.ThreadPoolsManager;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
 import org.apache.ignite.internal.catalog.ClockWaiter;
@@ -155,6 +156,7 @@ import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryDataStora
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineConfiguration;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryStorageEngineConfiguration;
 import org.apache.ignite.internal.table.InternalTable;
+import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.TableManager;
@@ -505,7 +507,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
     @Test
     @UseTestTxStateStorage
     @UseRocksMetaStorage
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20210")
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19170")
     void testDestroyPartitionStoragesOnRestartEvictedNode(TestInfo testInfo) throws Exception {
         Node node = getNode(0);
 
@@ -703,8 +705,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
     private void verifyThatRaftNodesAndReplicasWereStartedOnlyOnce() throws Exception {
         for (int i = 0; i < NODE_COUNT; i++) {
-            verify(getNode(i).raftManager, times(1))
-                    .startRaftGroupNode(any(), any(), any(), any(), any(RaftGroupOptions.class));
+            verify(getNode(i).raftManager, times(1)).startRaftGroupNode(any(), any(), any(), any(), any(RaftGroupOptions.class));
             verify(getNode(i).replicaManager, times(1)).startReplica(any(), any(), any(), any(), any());
         }
     }
@@ -714,6 +715,21 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                 () -> nodes.stream().allMatch(n -> getPartitionClusterNodes(n, partNum).size() == replicasNum),
                 (long) AWAIT_TIMEOUT_MILLIS * nodes.size()
         ));
+
+        if (replicasNum == nodes.size()) {
+            assertTrue(waitForCondition(
+                    () -> {
+                        try {
+                            return ((TableImpl) nodes.get(0).tableManager.table(TABLE_NAME))
+                                    .internalTable().partitionRaftGroupService(partNum) != null;
+                        } catch (IgniteInternalException e) {
+                            // Raft group service not found.
+                            return false;
+                        }
+                    },
+                    (long) AWAIT_TIMEOUT_MILLIS * nodes.size()
+            ));
+        }
     }
 
     private void waitPartitionPendingAssignmentsSyncedToExpected(int partNum, int replicasNum) throws Exception {
@@ -780,6 +796,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         final String name;
 
         final Loza raftManager;
+
+        final ThreadPoolsManager threadPoolsManager;
 
         final ReplicaManager replicaManager;
 
@@ -929,6 +947,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
             var placementDriver = new TestPlacementDriver(() -> PRIMARY_FILTER.apply(clusterService.topologyService().allMembers()));
 
+            threadPoolsManager = new ThreadPoolsManager(name);
+
             LongSupplier partitionIdleSafeTimePropagationPeriodMsSupplier = () -> 10L;
 
             replicaManager = spy(new ReplicaManager(
@@ -938,6 +958,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     hybridClock,
                     Set.of(TableMessageGroup.class, TxMessageGroup.class),
                     placementDriver,
+                    threadPoolsManager.partitionOperationsExecutor(),
                     partitionIdleSafeTimePropagationPeriodMsSupplier
             ));
 
@@ -1033,6 +1054,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     metaStorageManager,
                     schemaManager,
                     view -> new LocalLogStorageFactory(),
+                    threadPoolsManager.partitionOperationsExecutor(),
                     new HybridClockImpl(),
                     new OutgoingSnapshotsManager(clusterService.messagingService()),
                     topologyAwareRaftGroupServiceFactory,
@@ -1087,6 +1109,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
          */
         void start() {
             List<IgniteComponent> firstComponents = List.of(
+                    threadPoolsManager,
                     vaultManager,
                     nodeCfgMgr,
                     clusterService,
@@ -1157,7 +1180,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     LOG.error("Unable to stop component [component={}]", e, component);
                 }
             });
-
 
             nodeCfgGenerator.close();
             clusterCfgGenerator.close();

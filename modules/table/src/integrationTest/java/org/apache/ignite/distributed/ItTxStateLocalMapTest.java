@@ -20,11 +20,12 @@ package org.apache.ignite.distributed;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
-import static org.apache.ignite.internal.tx.TxState.COMMITED;
+import static org.apache.ignite.internal.tx.TxState.COMMITTED;
 import static org.apache.ignite.internal.tx.TxState.PENDING;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
@@ -45,6 +46,7 @@ import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.TestInfo;
@@ -152,7 +154,7 @@ public class ItTxStateLocalMapTest extends IgniteAbstractTest {
         checkLocalTxStateOnNodes(
                 tx.id(),
                 new TxStateMeta(
-                        commit ? COMMITED : ABORTED,
+                        commit ? COMMITTED : ABORTED,
                         coordinatorId,
                         tx.commitPartition(),
                         commit ? testCluster.clocks.get(coord.name()).now() : null
@@ -181,7 +183,7 @@ public class ItTxStateLocalMapTest extends IgniteAbstractTest {
                     }
 
                     return (expected.txState() == meta.get().txState()
-                            && expected.txCoordinatorId().equals(meta.get().txCoordinatorId())
+                            && Objects.equals(expected.txCoordinatorId(), meta.get().txCoordinatorId())
                             && checkTimestamps(expected.commitTimestamp(), meta.get().commitTimestamp()));
                 }, 5_000));
             } catch (InterruptedException e) {
@@ -192,7 +194,7 @@ public class ItTxStateLocalMapTest extends IgniteAbstractTest {
         }
     }
 
-    private boolean checkTimestamps(HybridTimestamp expected, HybridTimestamp actual) {
+    private boolean checkTimestamps(@Nullable HybridTimestamp expected, @Nullable HybridTimestamp actual) {
         if (expected == null) {
             return actual == null;
         } else {

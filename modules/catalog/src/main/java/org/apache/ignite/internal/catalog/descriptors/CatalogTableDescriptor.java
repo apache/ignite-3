@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.catalog.descriptors;
 
+import static org.apache.ignite.internal.catalog.CatalogManagerImpl.INITIAL_CAUSALITY_TOKEN;
+
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.util.List;
@@ -52,6 +54,8 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor {
     @IgniteToStringExclude
     private transient Map<String, CatalogTableColumnDescriptor> columnsMap;
 
+    private long creationToken;
+
     /**
      * Constructor.
      *
@@ -62,7 +66,8 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor {
      * @param tableVersion Version of the table.
      * @param columns Table column descriptors.
      * @param pkCols Primary key column names.
-     * @param colocationCols Colocation column names.
+     * @param causalityToken Token of the update of the descriptor.
+     * @param creationToken Token of the creation of the table descriptor.
      */
     public CatalogTableDescriptor(
             int id,
@@ -74,7 +79,8 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor {
             List<CatalogTableColumnDescriptor> columns,
             List<String> pkCols,
             @Nullable List<String> colocationCols,
-            long causalityToken
+            long causalityToken,
+            long creationToken
     ) {
         super(id, Type.TABLE, name, causalityToken);
 
@@ -87,6 +93,8 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor {
         colocationColumns = colocationCols == null ? pkCols : colocationCols;
 
         this.columnsMap = columns.stream().collect(Collectors.toMap(CatalogTableColumnDescriptor::name, Function.identity()));
+
+        this.creationToken = creationToken;
 
         // TODO: IGNITE-19082 Throw proper exceptions.
         assert !columnsMap.isEmpty() : "No columns.";
@@ -150,5 +158,16 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor {
     @Override
     public String toString() {
         return S.toString(this);
+    }
+
+    public long creationToken() {
+        return creationToken;
+    }
+
+    @Override
+    public void updateToken(long updateToken) {
+        super.updateToken(updateToken);
+
+        this.creationToken = this.creationToken == INITIAL_CAUSALITY_TOKEN ? updateToken : this.creationToken;
     }
 }

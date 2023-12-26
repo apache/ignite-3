@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 
 import java.util.Collection;
 import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
@@ -31,21 +32,24 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
 import java.util.function.Function;
 import org.apache.ignite.client.RetryLimitPolicy;
-import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
+import org.apache.ignite.internal.client.sql.ClientSessionBuilder;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.streamer.StreamerBatchSender;
-import org.apache.ignite.internal.table.criteria.QueryCriteriaAsyncResultSet;
+import org.apache.ignite.internal.table.criteria.QueryCriteriaAsyncCursor;
 import org.apache.ignite.internal.table.criteria.SqlRowProjection;
+import org.apache.ignite.internal.table.criteria.SqlSerializer;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.lang.AsyncCursor;
 import org.apache.ignite.lang.NullableValue;
-import org.apache.ignite.sql.SqlException;
+import org.apache.ignite.sql.ResultSetMetadata;
+import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.SqlRow;
-import org.apache.ignite.sql.Statement;
-import org.apache.ignite.sql.async.AsyncResultSet;
 import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Tuple;
+import org.apache.ignite.table.criteria.Criteria;
+import org.apache.ignite.table.criteria.CriteriaQueryOptions;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 
@@ -84,7 +88,7 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET,
                 (s, w) -> ser.writeTuple(tx, key, s, w, true),
-                ClientTupleSerializer::readValueTuple,
+                (s, r) -> ClientTupleSerializer.readValueTuple(s, r.in()),
                 null,
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, key));
     }
@@ -107,7 +111,7 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_ALL,
                 (s, w) -> ser.writeTuples(tx, keys, s, w, true),
-                ClientTupleSerializer::readKvTuplesNullable,
+                (s, r) -> ClientTupleSerializer.readKvTuplesNullable(s, r.in()),
                 Collections.emptyMap(),
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, keys.iterator().next()));
     }
@@ -146,7 +150,7 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET,
                 (s, w) -> ser.writeTuple(tx, key, s, w, true),
-                (s, r) -> IgniteUtils.nonNullOrElse(ClientTupleSerializer.readValueTuple(s, r), defaultValue),
+                (s, r) -> IgniteUtils.nonNullOrElse(ClientTupleSerializer.readValueTuple(s, r.in()), defaultValue),
                 null,
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, key));
     }
@@ -165,7 +169,7 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_CONTAINS_KEY,
                 (s, w) -> ser.writeTuple(tx, key, s, w, true),
-                ClientMessageUnpacker::unpackBoolean,
+                r -> r.in().unpackBoolean(),
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, key));
     }
 
@@ -224,7 +228,7 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_AND_UPSERT,
                 (s, w) -> ser.writeKvTuple(tx, key, val, s, w, false),
-                ClientTupleSerializer::readValueTuple,
+                (s, r) -> ClientTupleSerializer.readValueTuple(s, r.in()),
                 null,
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, key));
     }
@@ -264,7 +268,7 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_INSERT,
                 (s, w) -> ser.writeKvTuple(tx, key, val, s, w, false),
-                ClientMessageUnpacker::unpackBoolean,
+                r -> r.in().unpackBoolean(),
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, key));
     }
 
@@ -288,7 +292,7 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_DELETE,
                 (s, w) -> ser.writeTuple(tx, key, s, w, true),
-                ClientMessageUnpacker::unpackBoolean,
+                r -> r.in().unpackBoolean(),
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, key));
     }
 
@@ -301,7 +305,7 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_DELETE_EXACT,
                 (s, w) -> ser.writeKvTuple(tx, key, val, s, w, false),
-                ClientMessageUnpacker::unpackBoolean,
+                r -> r.in().unpackBoolean(),
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, key));
     }
 
@@ -323,7 +327,7 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_DELETE_ALL,
                 (s, w) -> ser.writeTuples(tx, keys, s, w, true),
-                (s, r) -> ClientTupleSerializer.readTuples(s, r, true),
+                (s, r) -> ClientTupleSerializer.readTuples(s, r.in(), true),
                 Collections.emptyList(),
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, keys.iterator().next()));
     }
@@ -342,7 +346,7 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_AND_DELETE,
                 (s, w) -> ser.writeTuple(tx, key, s, w, true),
-                ClientTupleSerializer::readValueTuple,
+                (s, r) -> ClientTupleSerializer.readValueTuple(s, r.in()),
                 null,
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, key));
     }
@@ -387,7 +391,7 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_REPLACE,
                 (s, w) -> ser.writeKvTuple(tx, key, val, s, w, false),
-                ClientMessageUnpacker::unpackBoolean,
+                r -> r.in().unpackBoolean(),
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, key));
     }
 
@@ -402,7 +406,7 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
                     ser.writeKvTuple(tx, key, oldVal, s, w, false);
                     ser.writeKvTuple(tx, key, newVal, s, w, true);
                 },
-                ClientMessageUnpacker::unpackBoolean,
+                r -> r.in().unpackBoolean(),
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, key));
     }
 
@@ -421,7 +425,7 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_AND_REPLACE,
                 (s, w) -> ser.writeKvTuple(tx, key, val, s, w, false),
-                ClientTupleSerializer::readValueTuple,
+                (s, r) -> ClientTupleSerializer.readValueTuple(s, r.in()),
                 null,
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, key));
     }
@@ -464,42 +468,35 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
                 PartitionAwarenessProvider.of(nodeName),
                 new RetryLimitPolicy().retryLimit(opts.retryLimit()));
 
-        //noinspection resource
         return ClientDataStreamer.streamData(publisher, opts, batchSender, provider, tbl);
     }
 
-    /**
-     * Criteria query over cache entries.
-     *
-     * @param tx Transaction to execute the query within or {@code null}.
-     * @param statement SQL statement to execute.
-     * @param arguments Arguments for the statement.
-     * @throws SqlException If failed.
-     */
+    /** {@inheritDoc} */
     @Override
-    CompletableFuture<AsyncResultSet<Entry<Tuple, Tuple>>> executeQueryAsync(
+    public CompletableFuture<AsyncCursor<Entry<Tuple, Tuple>>> queryAsync(
             @Nullable Transaction tx,
-            Statement statement,
-            @Nullable Object... arguments
+            @Nullable Criteria criteria,
+            CriteriaQueryOptions opts
     ) {
         return tbl.getLatestSchema()
                 .thenCompose((schema) -> {
-                    var session = tbl.sql().createSession();
+                    SqlSerializer ser = createSqlSerializer(tbl.name(), schema.columns(), criteria);
+                    Session session = new ClientSessionBuilder(tbl.channel()).build();
 
-                    return session.executeAsync(tx, statement, arguments)
+                    return session.executeAsync(tx, ser.toString(), ser.getArguments())
                             .thenApply(resultSet -> {
-                                var metadata = resultSet.metadata();
+                                ResultSetMetadata metadata = resultSet.metadata();
 
-                                var keyMapping = indexMapping(schema.columns(), 0, schema.keyColumnCount(), metadata);
-                                var valMapping = indexMapping(schema.columns(), schema.keyColumnCount(), schema.columns().length, metadata);
+                                List<Integer> keyMapping = indexMapping(schema.columns(), 0, schema.keyColumnCount(), metadata);
+                                List<Integer> valMapping = indexMapping(schema.columns(), schema.keyColumnCount(), schema.columns().length,
+                                        metadata);
 
-                                Function<SqlRow, Entry<Tuple, Tuple>> mapper = (row) ->
-                                        new IgniteBiTuple<>(
-                                                new SqlRowProjection(row, keyMapping),
-                                                new SqlRowProjection(row, valMapping)
-                                        );
+                                Function<SqlRow, Entry<Tuple, Tuple>> mapper = (row) -> new IgniteBiTuple<>(
+                                        new SqlRowProjection(row, keyMapping),
+                                        new SqlRowProjection(row, valMapping)
+                                );
 
-                                return new QueryCriteriaAsyncResultSet<>(session, mapper, resultSet);
+                                return new QueryCriteriaAsyncCursor<>(resultSet, mapper, session::close);
                             });
                 });
     }

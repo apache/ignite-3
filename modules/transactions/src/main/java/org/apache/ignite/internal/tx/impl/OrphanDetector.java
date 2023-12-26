@@ -145,7 +145,7 @@ public class OrphanDetector {
 
     private CompletableFuture<Boolean> lockConflictListener(LockEventParameters params, Throwable e) {
         try {
-            handleLockHolder(params.lockHolderTx());
+            checkTxOrphaned(params.lockHolderTx());
         } catch (NodeStoppingException ex) {
             return failedFuture(ex);
         }
@@ -158,10 +158,10 @@ public class OrphanDetector {
      *
      * @param txId Transaction id that holds a lock.
      */
-    private Void handleLockHolder(UUID txId) throws NodeStoppingException {
+    private void checkTxOrphaned(UUID txId) throws NodeStoppingException {
         if (busyLock.enterBusy()) {
             try {
-                handleLockHolderInternal(txId);
+                checkTxOrphanedInternal(txId);
             } finally {
                 busyLock.leaveBusy();
             }
@@ -176,7 +176,7 @@ public class OrphanDetector {
      * @param txId Transaction id that holds a lock.
      * @return Future to complete.
      */
-    private void handleLockHolderInternal(UUID txId) {
+    private void checkTxOrphanedInternal(UUID txId) {
         TxStateMeta txState = txLocalStateStorage.state(txId);
 
         // Transaction state for full transactions is not stored in the local map, so it can be null.
@@ -238,13 +238,13 @@ public class OrphanDetector {
     }
 
     /**
-     * Does a life check for the transaction coordinator.
+     * Performs a life check for the transaction coordinator.
      *
      * @param txState Transaction state meta.
      * @return True when the transaction coordinator is alive, false otherwise.
      */
     private boolean isTxCoordinatorAlive(TxStateMeta txState) {
-        return topologyService.getById(txState.txCoordinatorId()) != null;
+        return txState.txCoordinatorId() != null && topologyService.getById(txState.txCoordinatorId()) != null;
     }
 
     /**
@@ -257,7 +257,7 @@ public class OrphanDetector {
     private boolean isRecoveryNeeded(UUID txId, TxStateMeta txState) {
         if (txState == null
                 || isFinalState(txState.txState())
-                || isTxAbandonedNotLong(txState)) {
+                || isTxAbandonedRecently(txState)) {
             return false;
         }
 
@@ -266,7 +266,7 @@ public class OrphanDetector {
         TxStateMeta updatedTxState = txLocalStateStorage.updateMeta(txId, txStateMeta -> {
             if (txStateMeta != null
                     && !isFinalState(txStateMeta.txState())
-                    && (txStateMeta.txState() != ABANDONED || isTxAbandonedNotLong(txStateMeta))) {
+                    && (txStateMeta.txState() != ABANDONED || isTxAbandonedRecently(txStateMeta))) {
                 return txAbandonedState;
             }
 
@@ -277,12 +277,12 @@ public class OrphanDetector {
     }
 
     /**
-     * Checks whether the transaction state is recently marked as abandoned or not.
+     * Checks whether the transaction state is marked as abandoned recently (less than {@link #checkTxStateInterval} millis ago).
      *
      * @param txState Transaction state metadata.
      * @return True if the state recently updated to {@link org.apache.ignite.internal.tx.TxState#ABANDONED}.
      */
-    private boolean isTxAbandonedNotLong(TxStateMeta txState) {
+    private boolean isTxAbandonedRecently(TxStateMeta txState) {
         if (txState.txState() != ABANDONED) {
             return false;
         }

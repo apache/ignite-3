@@ -17,16 +17,16 @@
 
 package org.apache.ignite.internal.benchmark;
 
-import static org.apache.ignite.internal.table.criteria.Criterias.columnValue;
 import static org.apache.ignite.internal.util.IgniteUtils.capacity;
+import static org.apache.ignite.table.criteria.Criteria.columnValue;
+import static org.apache.ignite.table.criteria.Criteria.equalTo;
 
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
-import org.apache.ignite.internal.table.criteria.CriteriaElement;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.sql.ClosableCursor;
+import org.apache.ignite.lang.Cursor;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.Session;
@@ -127,7 +127,7 @@ public class CriteriaSingleNodeBenchmark extends AbstractMultiNodeBenchmark {
      */
     @Benchmark
     public void criteriaGet(IgniteState state) {
-        try (var cur = state.queryCriteria(columnValue("ycsb_key", CriteriaElement.equalTo(random.nextInt(TABLE_SIZE))))) {
+        try (Cursor<Tuple> cur = state.query(columnValue("ycsb_key", equalTo(random.nextInt(TABLE_SIZE))))) {
             cur.next();
         }
     }
@@ -179,8 +179,8 @@ public class CriteriaSingleNodeBenchmark extends AbstractMultiNodeBenchmark {
             return session.execute(null, query, args);
         }
 
-        ClosableCursor<Tuple> queryCriteria(@Nullable Criteria criteria) {
-            return clusterNode.tables().table(TABLE_NAME).recordView().queryCriteria(null, criteria);
+        Cursor<Tuple> query(@Nullable Criteria criteria) {
+            return clusterNode.tables().table(TABLE_NAME).recordView().query(null, criteria);
         }
     }
 

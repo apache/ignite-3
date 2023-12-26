@@ -138,6 +138,11 @@ public class MessageSerializationRegistryImplTest extends BaseIgniteAbstractTest
         public short groupType() {
             return GROUP_TYPE;
         }
+
+        @Override
+        public Msg clone() {
+            throw new UnsupportedOperationException();
+        }
     }
 
     /**

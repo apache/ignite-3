@@ -22,11 +22,12 @@ import static java.util.function.Predicate.not;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
-import static org.apache.ignite.internal.tx.TxState.COMMITED;
+import static org.apache.ignite.internal.tx.TxState.COMMITTED;
 import static org.apache.ignite.internal.tx.TxState.PENDING;
+import static org.apache.ignite.internal.tx.TxState.isFinalState;
 import static org.apache.ignite.internal.util.CollectionUtils.last;
-import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_UNEXPECTED_STATE_ERR;
 
+import java.io.Serializable;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -61,10 +62,12 @@ import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 import org.apache.ignite.internal.table.distributed.command.BuildIndexCommand;
 import org.apache.ignite.internal.table.distributed.command.FinishTxCommand;
+import org.apache.ignite.internal.table.distributed.command.MarkLocksReleasedCommand;
 import org.apache.ignite.internal.table.distributed.command.TablePartitionIdMessage;
-import org.apache.ignite.internal.table.distributed.command.TxCleanupCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateAllCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateCommand;
+import org.apache.ignite.internal.table.distributed.command.WriteIntentSwitchCommand;
+import org.apache.ignite.internal.tx.TransactionResult;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
@@ -192,24 +195,28 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
 
             storage.acquirePartitionSnapshotsReadLock();
 
+            Serializable result = null;
+
             try {
                 if (command instanceof UpdateCommand) {
                     handleUpdateCommand((UpdateCommand) command, commandIndex, commandTerm);
                 } else if (command instanceof UpdateAllCommand) {
                     handleUpdateAllCommand((UpdateAllCommand) command, commandIndex, commandTerm);
                 } else if (command instanceof FinishTxCommand) {
-                    handleFinishTxCommand((FinishTxCommand) command, commandIndex, commandTerm);
-                } else if (command instanceof TxCleanupCommand) {
-                    handleTxCleanupCommand((TxCleanupCommand) command, commandIndex, commandTerm);
+                    result = handleFinishTxCommand((FinishTxCommand) command, commandIndex, commandTerm);
+                } else if (command instanceof WriteIntentSwitchCommand) {
+                    handleWriteIntentSwitchCommand((WriteIntentSwitchCommand) command, commandIndex, commandTerm);
                 } else if (command instanceof SafeTimeSyncCommand) {
                     handleSafeTimeSyncCommand((SafeTimeSyncCommand) command, commandIndex, commandTerm);
                 } else if (command instanceof BuildIndexCommand) {
                     handleBuildIndexCommand((BuildIndexCommand) command, commandIndex, commandTerm);
+                } else if (command instanceof MarkLocksReleasedCommand) {
+                    handleMarkLocksReleasedCommand((MarkLocksReleasedCommand) command, commandIndex, commandTerm);
                 } else {
                     assert false : "Command was not found [cmd=" + command + ']';
                 }
 
-                clo.result(null);
+                clo.result(result);
             } catch (IgniteInternalException e) {
                 clo.result(e);
             } catch (CompletionException e) {
@@ -312,17 +319,19 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
      * @param cmd Command.
      * @param commandIndex Index of the RAFT command.
      * @param commandTerm Term of the RAFT command.
+     * @return The actually stored transaction state {@link TransactionResult}.
      * @throws IgniteInternalException if an exception occurred during a transaction state change.
      */
-    private void handleFinishTxCommand(FinishTxCommand cmd, long commandIndex, long commandTerm) throws IgniteInternalException {
+    private TransactionResult handleFinishTxCommand(FinishTxCommand cmd, long commandIndex, long commandTerm)
+            throws IgniteInternalException {
         // Skips the write command because the storage has already executed it.
         if (commandIndex <= txStateStorage.lastAppliedIndex()) {
-            return;
+            return null;
         }
 
         UUID txId = cmd.txId();
 
-        TxState stateToSet = cmd.commit() ? COMMITED : ABORTED;
+        TxState stateToSet = cmd.commit() ? COMMITTED : ABORTED;
 
         TxMeta txMetaToSet = new TxMeta(
                 stateToSet,
@@ -348,33 +357,21 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
         LOG.debug("Finish the transaction txId = {}, state = {}, txStateChangeRes = {}", txId, txMetaToSet, txStateChangeRes);
 
         if (!txStateChangeRes) {
-            UUID traceId = UUID.randomUUID();
-
-            String errorMsg = format("Fail to finish the transaction txId = {} because of inconsistent state = {},"
-                            + " expected state = null, state to set = {}",
-                    txId,
-                    txMetaBeforeCas,
-                    txMetaToSet
-            );
-
-            IgniteInternalException stateChangeException = new IgniteInternalException(traceId, TX_UNEXPECTED_STATE_ERR, errorMsg);
-
-            // Exception is explicitly logged because otherwise it can be lost if it did not occur on the leader.
-            LOG.error(errorMsg);
-
-            throw stateChangeException;
+            onTxStateStorageCasFail(txId, txMetaBeforeCas, txMetaToSet);
         }
+
+        return new TransactionResult(stateToSet, cmd.commitTimestamp());
     }
 
 
     /**
-     * Handler for the {@link TxCleanupCommand}.
+     * Handler for the {@link WriteIntentSwitchCommand}.
      *
      * @param cmd Command.
      * @param commandIndex Index of the RAFT command.
      * @param commandTerm Term of the RAFT command.
      */
-    private void handleTxCleanupCommand(TxCleanupCommand cmd, long commandIndex, long commandTerm) {
+    private void handleWriteIntentSwitchCommand(WriteIntentSwitchCommand cmd, long commandIndex, long commandTerm) {
         // Skips the write command because the storage has already executed it.
         if (commandIndex <= storage.lastAppliedIndex()) {
             return;
@@ -384,7 +381,7 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
 
         markFinished(txId, cmd.commit(), cmd.commitTimestamp(), cmd.txCoordinatorId());
 
-        storageUpdateHandler.handleTransactionCleanup(txId, cmd.commit(), cmd.commitTimestamp(),
+        storageUpdateHandler.switchWriteIntents(txId, cmd.commit(), cmd.commitTimestamp(),
                 () -> storage.lastApplied(commandIndex, commandTerm));
     }
 
@@ -543,6 +540,61 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
         }
     }
 
+    /**
+     * Handles the {@link MarkLocksReleasedCommand}.
+     *
+     * @param cmd Command.
+     * @param commandIndex Command index.
+     * @param commandTerm Command term.
+     */
+    private void handleMarkLocksReleasedCommand(MarkLocksReleasedCommand cmd, long commandIndex, long commandTerm) {
+        UUID txId = cmd.txId();
+
+        TxMeta txMetaBeforeCas = txStateStorage.get(txId);
+
+        assert txMetaBeforeCas != null && isFinalState(txMetaBeforeCas.txState()) : "Unexpected tx state [txId=" + cmd.txId()
+                + ", state=" + txMetaBeforeCas + "].";
+
+        TxMeta txMetaToSet = new TxMeta(
+                txMetaBeforeCas.txState(),
+                txMetaBeforeCas.enlistedPartitions(),
+                txMetaBeforeCas.commitTimestamp(),
+                true
+        );
+
+        boolean txStateChangeRes = txStateStorage.compareAndSet(
+                txId,
+                txMetaBeforeCas.txState(),
+                txMetaToSet,
+                commandIndex,
+                commandTerm
+        );
+
+        if (!txStateChangeRes) {
+            onTxStateStorageCasFail(txId, txMetaBeforeCas, txMetaToSet);
+        }
+    }
+
+    private static void onTxStateStorageCasFail(UUID txId, TxMeta txMetaBeforeCas, TxMeta txMetaToSet) {
+        String errorMsg = format("Failed to update tx state in the storage, transaction txId = {} because of inconsistent state,"
+                        + " expected state = {}, state to set = {}",
+                txId,
+                txMetaBeforeCas,
+                txMetaToSet
+        );
+
+        IgniteInternalException stateChangeException =
+                new UnexpectedTransactionStateException(
+                        errorMsg,
+                        new TransactionResult(txMetaBeforeCas.txState(), txMetaBeforeCas.commitTimestamp())
+                );
+
+        // Exception is explicitly logged because otherwise it can be lost if it did not occur on the leader.
+        LOG.error(errorMsg);
+
+        throw stateChangeException;
+    }
+
     private static <T extends Comparable<T>> void updateTrackerIgnoringTrackerClosedException(
             PendingComparableValuesTracker<T, Void> tracker,
             T newValue
@@ -576,7 +628,7 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
 
     private void replicaTouch(UUID txId, String txCoordinatorId, HybridTimestamp commitTimestamp, boolean full) {
         txManager.updateTxMeta(txId, old -> new TxStateMeta(
-                full ? COMMITED : PENDING,
+                full ? COMMITTED : PENDING,
                 txCoordinatorId,
                 old == null ? null : old.commitPartitionId(),
                 full ? commitTimestamp : null
@@ -585,7 +637,7 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
 
     private void markFinished(UUID txId, boolean commit, @Nullable HybridTimestamp commitTimestamp, String txCoordinatorId) {
         txManager.updateTxMeta(txId, old -> new TxStateMeta(
-                commit ? COMMITED : ABORTED,
+                commit ? COMMITTED : ABORTED,
                 txCoordinatorId,
                 old == null ? null : old.commitPartitionId(),
                 commit ? commitTimestamp : null
