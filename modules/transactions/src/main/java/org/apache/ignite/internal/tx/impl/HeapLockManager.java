@@ -425,12 +425,10 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
 
                 if (mode != null && !mode.isCompatible(waiter.intendedLockMode())) {
                     if (conflictFound(waiter.txId(), tmp.txId())) {
-                        waiter.fail(lockException(waiter, tmp));
+                        waiter.fail(abandonedLockException(waiter, tmp));
 
                         return true;
-                    }
-
-                    if (!deadlockPreventionPolicy.usePriority() && deadlockPreventionPolicy.waitTimeout() == 0) {
+                    } else if (!deadlockPreventionPolicy.usePriority() && deadlockPreventionPolicy.waitTimeout() == 0) {
                         waiter.fail(lockException(waiter, tmp));
 
                         return true;
@@ -445,14 +443,12 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
                 LockMode mode = lockedMode(tmp);
 
                 if (mode != null && !mode.isCompatible(waiter.intendedLockMode())) {
-                    if (conflictFound(waiter.txId(), tmp.txId())) {
-                        waiter.fail(lockException(waiter, tmp));
-
-                        return true;
-                    }
-
                     if (skipFail) {
                         return false;
+                    } else if (conflictFound(waiter.txId(), tmp.txId())) {
+                        waiter.fail(abandonedLockException(waiter, tmp));
+
+                        return true;
                     } else if (deadlockPreventionPolicy.waitTimeout() == 0) {
                         waiter.fail(lockException(waiter, tmp));
 
@@ -478,6 +474,18 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
         private LockException lockException(WaiterImpl locker, WaiterImpl holder) {
             return new LockException(ACQUIRE_LOCK_ERR,
                     "Failed to acquire a lock due to a possible deadlock [locker=" + locker + ", holder=" + holder + ']');
+        }
+
+        /**
+         * Create lock exception when lock holder is believed to be missing.
+         *
+         * @param locker Locker.
+         * @param holder Lock holder.
+         * @return Lock exception.
+         */
+        private LockException abandonedLockException(WaiterImpl locker, WaiterImpl holder) {
+            return new LockException(ACQUIRE_LOCK_ERR,
+                    "Failed to acquire an abandoned lock due to a possible deadlock [locker=" + locker + ", holder=" + holder + ']');
         }
 
         /**
