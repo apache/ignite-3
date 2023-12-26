@@ -17,6 +17,7 @@
 
 package org.apache.ignite.client.handler;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.client.handler.JdbcQueryEventHandlerImpl.buildSingleRequest;
 import static org.apache.ignite.internal.jdbc.proto.IgniteQueryErrorCode.UNSUPPORTED_OPERATION;
 
@@ -26,6 +27,7 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.jdbc.JdbcConverterUtils;
 import org.apache.ignite.internal.jdbc.proto.JdbcQueryCursorHandler;
@@ -147,6 +149,8 @@ public class JdbcQueryCursorHandlerImpl implements JdbcQueryCursorHandler {
                     })
                 ).handle((res, t) -> {
                     if (t != null) {
+                        iterateThroughResultsAndCloseThem(asyncSqlCursor);
+
                         StringWriter sw = getWriterWithStackTrace(t);
 
                         return new JdbcQuerySingleResult(Response.STATUS_FAILED,
@@ -155,6 +159,24 @@ public class JdbcQueryCursorHandlerImpl implements JdbcQueryCursorHandler {
 
                     return res;
                 });
+    }
+
+    static void iterateThroughResultsAndCloseThem(AsyncSqlCursor<InternalSqlRow> cursor) {
+        Function<AsyncSqlCursor<InternalSqlRow>, CompletableFuture<AsyncSqlCursor<InternalSqlRow>>> traverser = new Function<>() {
+            @Override
+            public CompletableFuture<AsyncSqlCursor<InternalSqlRow>> apply(AsyncSqlCursor<InternalSqlRow> cur) {
+                return cur.closeAsync()
+                        .thenCompose(none -> {
+                            if (cur.hasNextResult()) {
+                                return cur.nextResult().thenCompose(this);
+                            } else {
+                                return completedFuture(cur);
+                            }
+                        });
+            }
+        };
+
+        completedFuture(cursor).thenCompose(traverser);
     }
 
     /** {@inheritDoc} */

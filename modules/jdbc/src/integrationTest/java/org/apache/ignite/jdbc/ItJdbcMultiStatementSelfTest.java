@@ -18,6 +18,7 @@
 package org.apache.ignite.jdbc;
 
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -70,7 +71,7 @@ public class ItJdbcMultiStatementSelfTest extends AbstractJdbcSelfTest {
         openCursorResources = openResources();
         // only connection context or 0 if already closed.
         assertTrue(openResources() <= 1, "Open cursors: " + openCursorResources);
-        assertEquals(0, openCursors());
+        assertTrue(waitForCondition(() -> openCursors() == 0, 5_000));
     }
 
     @Test
