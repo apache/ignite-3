@@ -17,7 +17,9 @@
 
 package org.apache.ignite.internal.client;
 
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Thin client payload input channel.
@@ -29,15 +31,20 @@ public class PayloadInputChannel implements AutoCloseable {
     /** Input stream. */
     private final ClientMessageUnpacker in;
 
+    /** Optional notification future. */
+    @Nullable
+    private final CompletableFuture<PayloadInputChannel> notificationFut;
+
     /**
      * Constructor.
      *
      * @param ch Channel.
      * @param in Unpacker.
      */
-    PayloadInputChannel(ClientChannel ch, ClientMessageUnpacker in) {
+    PayloadInputChannel(ClientChannel ch, ClientMessageUnpacker in, @Nullable CompletableFuture<PayloadInputChannel> notificationFut) {
         this.in = in;
         this.ch = ch;
+        this.notificationFut = notificationFut;
     }
 
     /**
@@ -56,6 +63,15 @@ public class PayloadInputChannel implements AutoCloseable {
      */
     public ClientMessageUnpacker in() {
         return in;
+    }
+
+    /**
+     * Gets the notification future.
+     *
+     * @return Notification future.
+     */
+    @Nullable public CompletableFuture<PayloadInputChannel> notificationFuture() {
+        return notificationFut;
     }
 
     /** {@inheritDoc} */

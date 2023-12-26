@@ -126,7 +126,7 @@ public class AsyncWrapper<T> implements AsyncCursor<T> {
                 if (!cancelled) {
                     requestChainTail.completeExceptionally(new CursorClosedException());
 
-                    cursorFut.thenAcceptAsync(cursor -> {
+                    cursorFut.whenCompleteAsync((cursor, executionError) -> {
                         if (cursor instanceof AutoCloseable) {
                             try {
                                 ((AutoCloseable) cursor).close();

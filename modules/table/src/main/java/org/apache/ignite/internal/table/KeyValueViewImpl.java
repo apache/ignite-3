@@ -708,7 +708,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<AsyncCursor<Entry<K, V>>> queryCriteriaAsync(
+    public CompletableFuture<AsyncCursor<Entry<K, V>>> queryAsync(
             @Nullable Transaction tx,
             @Nullable Criteria criteria,
             CriteriaQueryOptions opts

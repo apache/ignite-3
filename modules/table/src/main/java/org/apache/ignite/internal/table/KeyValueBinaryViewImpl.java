@@ -573,7 +573,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView<Entry<Tuple, Tuple
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<AsyncCursor<Entry<Tuple, Tuple>>> queryCriteriaAsync(
+    public CompletableFuture<AsyncCursor<Entry<Tuple, Tuple>>> queryAsync(
             @Nullable Transaction tx,
             @Nullable Criteria criteria,
             CriteriaQueryOptions opts

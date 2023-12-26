@@ -15,21 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.client;
+namespace Apache.Ignite.Internal;
 
-import org.jetbrains.annotations.Nullable;
+using System.Threading.Tasks;
+using Buffers;
 
-/**
- * Client notification handler.
- */
-@FunctionalInterface
-public interface NotificationHandler {
-    /**
-     * Consumes the notification.
-     *
-     * @param input Input, or {@code null} when failed.
-     * @param err Error, or {@code null} when successful.
-     * @throws Exception on failure.
-     */
-    void consume(@Nullable PayloadInputChannel input, @Nullable Throwable err) throws Exception;
+/// <summary>
+/// Server -> client notification handler.
+/// </summary>
+internal sealed class NotificationHandler : TaskCompletionSource<PooledBuffer>
+{
+    // No-op.
 }

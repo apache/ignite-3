@@ -105,6 +105,11 @@ class ScriptTransactionWrapperImpl implements QueryTransactionWrapper {
         return txFinishFuture;
     }
 
+    @Override
+    public boolean implicit() {
+        return false;
+    }
+
     /** Returns a future that completes after the script-driven transaction commits. */
     CompletableFuture<Void> commit() {
         changeState(State.COMMIT);
@@ -134,7 +139,7 @@ class ScriptTransactionWrapperImpl implements QueryTransactionWrapper {
 
         cursorFut.whenComplete((cur, ex) -> {
             if (cur != null) {
-                cur.onClose(() -> {
+                cur.onClose().whenComplete((none, ignored) -> {
                     synchronized (mux) {
                         if (openedCursors.remove(cursorId) == null
                                 || txState == null

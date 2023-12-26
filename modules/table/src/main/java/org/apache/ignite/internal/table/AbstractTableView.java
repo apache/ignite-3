@@ -31,7 +31,7 @@ import java.util.stream.Collectors;
 import org.apache.ignite.internal.lang.IgniteExceptionMapperUtil;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaRegistry;
-import org.apache.ignite.internal.table.criteria.CursorSyncAdapter;
+import org.apache.ignite.internal.table.criteria.CursorAdapter;
 import org.apache.ignite.internal.table.distributed.replicator.InternalSchemaVersionMismatchException;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
 import org.apache.ignite.internal.tx.InternalTransaction;
@@ -173,8 +173,8 @@ abstract class AbstractTableView<R> implements CriteriaQuerySource<R> {
 
     /** {@inheritDoc} */
     @Override
-    public Cursor<R> queryCriteria(@Nullable Transaction tx, @Nullable Criteria criteria, CriteriaQueryOptions opts) {
-        return new CursorSyncAdapter<>(sync(queryCriteriaAsync(tx, criteria, opts)));
+    public Cursor<R> query(@Nullable Transaction tx, @Nullable Criteria criteria, CriteriaQueryOptions opts) {
+        return new CursorAdapter<>(sync(queryAsync(tx, criteria, opts)));
     }
 
     private static boolean isOrCausedBy(Class<? extends Exception> exceptionClass, @Nullable Throwable ex) {

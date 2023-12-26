@@ -33,7 +33,7 @@ import java.util.function.Function;
 import org.apache.ignite.client.RetryPolicy;
 import org.apache.ignite.internal.client.ClientSchemaVersionMismatchException;
 import org.apache.ignite.internal.client.ClientUtils;
-import org.apache.ignite.internal.client.NotificationHandler;
+import org.apache.ignite.internal.client.PayloadInputChannel;
 import org.apache.ignite.internal.client.PayloadOutputChannel;
 import org.apache.ignite.internal.client.ReliableChannel;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
@@ -291,11 +291,10 @@ public class ClientTable implements Table {
      * @param <T> Result type.
      * @return Future representing pending completion of the operation.
      */
-    @SuppressWarnings("ClassEscapesDefinedScope")
     public <T> CompletableFuture<T> doSchemaOutOpAsync(
             int opCode,
             BiConsumer<ClientSchema, PayloadOutputChannel> writer,
-            Function<ClientMessageUnpacker, T> reader,
+            Function<PayloadInputChannel, T> reader,
             @Nullable PartitionAwarenessProvider provider) {
         return doSchemaOutInOpAsync(
                 opCode,
@@ -306,7 +305,7 @@ public class ClientTable implements Table {
                 provider,
                 null,
                 null,
-                null);
+                false);
     }
 
     /**
@@ -316,17 +315,16 @@ public class ClientTable implements Table {
      * @param writer Writer.
      * @param reader Reader.
      * @param provider Partition awareness provider.
-     * @param notificationHandler Notification handler.
+     * @param expectNotifications Whether to expect notifications as a result of the operation.
      * @param <T> Result type.
      * @return Future representing pending completion of the operation.
      */
-    @SuppressWarnings("ClassEscapesDefinedScope")
     public <T> CompletableFuture<T> doSchemaOutOpAsync(
             int opCode,
             BiConsumer<ClientSchema, PayloadOutputChannel> writer,
-            Function<ClientMessageUnpacker, T> reader,
+            Function<PayloadInputChannel, T> reader,
             @Nullable PartitionAwarenessProvider provider,
-            @Nullable NotificationHandler notificationHandler) {
+            boolean expectNotifications) {
         return doSchemaOutInOpAsync(
                 opCode,
                 writer,
@@ -336,7 +334,7 @@ public class ClientTable implements Table {
                 provider,
                 null,
                 null,
-                notificationHandler);
+                expectNotifications);
     }
 
     /**
@@ -352,7 +350,7 @@ public class ClientTable implements Table {
     <T> CompletableFuture<T> doSchemaOutOpAsync(
             int opCode,
             BiConsumer<ClientSchema, PayloadOutputChannel> writer,
-            Function<ClientMessageUnpacker, T> reader,
+            Function<PayloadInputChannel, T> reader,
             @Nullable PartitionAwarenessProvider provider,
             @Nullable RetryPolicy retryPolicyOverride) {
         return doSchemaOutInOpAsync(
@@ -364,7 +362,7 @@ public class ClientTable implements Table {
                 provider,
                 retryPolicyOverride,
                 null,
-                null);
+                false);
     }
 
     /**
@@ -381,11 +379,11 @@ public class ClientTable implements Table {
     <T> CompletableFuture<T> doSchemaOutInOpAsync(
             int opCode,
             BiConsumer<ClientSchema, PayloadOutputChannel> writer,
-            BiFunction<ClientSchema, ClientMessageUnpacker, T> reader,
+            BiFunction<ClientSchema, PayloadInputChannel, T> reader,
             @Nullable T defaultValue,
             @Nullable PartitionAwarenessProvider provider
     ) {
-        return doSchemaOutInOpAsync(opCode, writer, reader, defaultValue, true, provider, null, null, null);
+        return doSchemaOutInOpAsync(opCode, writer, reader, defaultValue, true, provider, null, null, false);
     }
 
     /**
@@ -405,13 +403,13 @@ public class ClientTable implements Table {
     private <T> CompletableFuture<T> doSchemaOutInOpAsync(
             int opCode,
             BiConsumer<ClientSchema, PayloadOutputChannel> writer,
-            BiFunction<ClientSchema, ClientMessageUnpacker, T> reader,
+            BiFunction<ClientSchema, PayloadInputChannel, T> reader,
             @Nullable T defaultValue,
             boolean responseSchemaRequired,
             @Nullable PartitionAwarenessProvider provider,
             @Nullable RetryPolicy retryPolicyOverride,
             @Nullable Integer schemaVersionOverride,
-            @Nullable NotificationHandler notificationHandler) {
+            boolean expectNotifications) {
         CompletableFuture<T> fut = new CompletableFuture<>();
 
         CompletableFuture<ClientSchema> schemaFut = getSchema(schemaVersionOverride == null ? latestSchemaVer : schemaVersionOverride);
@@ -428,10 +426,10 @@ public class ClientTable implements Table {
                     // Perform the operation.
                     return ch.serviceAsync(opCode,
                             w -> writer.accept(schema, w),
-                            r -> readSchemaAndReadData(schema, r.in(), reader, defaultValue, responseSchemaRequired),
+                            r -> readSchemaAndReadData(schema, r, reader, defaultValue, responseSchemaRequired),
                             preferredNodeName,
                             retryPolicyOverride,
-                            notificationHandler);
+                            expectNotifications);
                 })
 
                 // Read resulting schema and the rest of the response.
@@ -451,7 +449,7 @@ public class ClientTable implements Table {
                             int expectedVersion = ((ClientSchemaVersionMismatchException) cause).expectedVersion();
 
                             doSchemaOutInOpAsync(opCode, writer, reader, defaultValue, responseSchemaRequired, provider,
-                                    retryPolicyOverride, expectedVersion, notificationHandler)
+                                    retryPolicyOverride, expectedVersion, expectNotifications)
                                     .whenComplete((res0, err0) -> {
                                         if (err0 != null) {
                                             fut.completeExceptionally(err0);
@@ -467,7 +465,7 @@ public class ClientTable implements Table {
                             schemas.remove(UNKNOWN_SCHEMA_VERSION);
 
                             doSchemaOutInOpAsync(opCode, writer, reader, defaultValue, responseSchemaRequired, provider,
-                                    retryPolicyOverride, UNKNOWN_SCHEMA_VERSION, notificationHandler)
+                                    retryPolicyOverride, UNKNOWN_SCHEMA_VERSION, expectNotifications)
                                     .whenComplete((res0, err0) -> {
                                         if (err0 != null) {
                                             fut.completeExceptionally(err0);
@@ -490,12 +488,12 @@ public class ClientTable implements Table {
 
     private <T> @Nullable Object readSchemaAndReadData(
             ClientSchema knownSchema,
-            ClientMessageUnpacker in,
-            BiFunction<ClientSchema, ClientMessageUnpacker, T> fn,
+            PayloadInputChannel in,
+            BiFunction<ClientSchema, PayloadInputChannel, T> fn,
             @Nullable T defaultValue,
             boolean responseSchemaRequired
     ) {
-        int schemaVer = in.unpackInt();
+        int schemaVer = in.in().unpackInt();
 
         if (!responseSchemaRequired) {
             ensureSchemaLoadedAsync(schemaVer);
@@ -503,7 +501,7 @@ public class ClientTable implements Table {
             return fn.apply(null, in);
         }
 
-        if (in.tryUnpackNil()) {
+        if (in.in().tryUnpackNil()) {
             ensureSchemaLoadedAsync(schemaVer);
 
             return defaultValue;
@@ -517,18 +515,19 @@ public class ClientTable implements Table {
 
         // Schema is not yet known - request.
         // Retain unpacker - normally it is closed when this method exits.
-        return new IgniteBiTuple<>(in.retain(), schemaVer);
+        in.in().retain();
+        return new IgniteBiTuple<>(in, schemaVer);
     }
 
     private <T> CompletionStage<T> loadSchemaAndReadData(
             Object data,
-            BiFunction<ClientSchema, ClientMessageUnpacker, T> fn
+            BiFunction<ClientSchema, PayloadInputChannel, T> fn
     ) {
         if (!(data instanceof IgniteBiTuple)) {
             return CompletableFuture.completedFuture((T) data);
         }
 
-        var biTuple = (IgniteBiTuple<ClientMessageUnpacker, Integer>) data;
+        var biTuple = (IgniteBiTuple<PayloadInputChannel, Integer>) data;
 
         var in = biTuple.getKey();
         var schemaId = biTuple.getValue();

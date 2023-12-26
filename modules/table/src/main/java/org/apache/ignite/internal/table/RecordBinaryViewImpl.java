@@ -451,7 +451,7 @@ public class RecordBinaryViewImpl extends AbstractTableView<Tuple> implements Re
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<AsyncCursor<Tuple>> queryCriteriaAsync(
+    public CompletableFuture<AsyncCursor<Tuple>> queryAsync(
             @Nullable Transaction tx,
             @Nullable Criteria criteria,
             CriteriaQueryOptions opts

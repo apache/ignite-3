@@ -84,6 +84,7 @@ import java.util.stream.IntStream;
 import org.apache.ignite.client.handler.configuration.ClientConnectorConfiguration;
 import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.affinity.Assignment;
+import org.apache.ignite.internal.app.ThreadPoolsManager;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
 import org.apache.ignite.internal.catalog.ClockWaiter;
@@ -796,6 +797,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
         final Loza raftManager;
 
+        final ThreadPoolsManager threadPoolsManager;
+
         final ReplicaManager replicaManager;
 
         final MetaStorageManager metaStorageManager;
@@ -944,6 +947,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
             var placementDriver = new TestPlacementDriver(() -> PRIMARY_FILTER.apply(clusterService.topologyService().allMembers()));
 
+            threadPoolsManager = new ThreadPoolsManager(name);
+
             LongSupplier partitionIdleSafeTimePropagationPeriodMsSupplier = () -> 10L;
 
             replicaManager = spy(new ReplicaManager(
@@ -953,6 +958,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     hybridClock,
                     Set.of(TableMessageGroup.class, TxMessageGroup.class),
                     placementDriver,
+                    threadPoolsManager.partitionOperationsExecutor(),
                     partitionIdleSafeTimePropagationPeriodMsSupplier
             ));
 
@@ -1048,6 +1054,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     metaStorageManager,
                     schemaManager,
                     view -> new LocalLogStorageFactory(),
+                    threadPoolsManager.partitionOperationsExecutor(),
                     new HybridClockImpl(),
                     new OutgoingSnapshotsManager(clusterService.messagingService()),
                     topologyAwareRaftGroupServiceFactory,
@@ -1102,6 +1109,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
          */
         void start() {
             List<IgniteComponent> firstComponents = List.of(
+                    threadPoolsManager,
                     vaultManager,
                     nodeCfgMgr,
                     clusterService,
@@ -1172,7 +1180,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     LOG.error("Unable to stop component [component={}]", e, component);
                 }
             });
-
 
             nodeCfgGenerator.close();
             clusterCfgGenerator.close();

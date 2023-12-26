@@ -24,7 +24,7 @@ import static org.apache.ignite.internal.client.ClientUtils.sync;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
-import org.apache.ignite.internal.table.criteria.CursorSyncAdapter;
+import org.apache.ignite.internal.table.criteria.CursorAdapter;
 import org.apache.ignite.internal.table.criteria.SqlSerializer;
 import org.apache.ignite.lang.Cursor;
 import org.apache.ignite.lang.ErrorGroups.Sql;
@@ -109,11 +109,11 @@ abstract class AbstractClientView<R> implements CriteriaQuerySource<R> {
 
     /** {@inheritDoc} */
     @Override
-    public Cursor<R> queryCriteria(
+    public Cursor<R> query(
             @Nullable Transaction tx,
             @Nullable Criteria criteria,
             CriteriaQueryOptions opts
     ) {
-        return new CursorSyncAdapter<>(sync(queryCriteriaAsync(tx, criteria, opts)));
+        return new CursorAdapter<>(sync(queryAsync(tx, criteria, opts)));
     }
 }
