@@ -687,6 +687,7 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
         private boolean conflictFound(UUID acquirerTx, UUID holderTx) {
             CompletableFuture<Void> eventResult = fireEvent(LockEvent.LOCK_CONFLICT, new LockEventParameters(acquirerTx, holderTx));
             // No async handling is expected.
+            // TODO: https://issues.apache.org/jira/browse/IGNITE-21153
             assert eventResult.isDone();
 
             return eventResult.isCompletedExceptionally();

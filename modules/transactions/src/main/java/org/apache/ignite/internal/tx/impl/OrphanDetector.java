@@ -182,6 +182,7 @@ public class OrphanDetector {
             sentTxRecoveryMessage(txState.commitPartitionId(), txId);
         }
 
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-21153
         return failedFuture(
                 new TransactionException(ACQUIRE_LOCK_ERR, "The lock is held by the abandoned transaction [abandonedTxId=" + txId + "]."));
     }

@@ -119,11 +119,9 @@ public class ItTransactionConflictTest extends ClusterPerTestIntegrationTest {
 
                 recoveryTxMsgCaptureFut.complete(recoveryTxMsg.txId());
 
-                msgCount.incrementAndGet();
-
                 // Drop only the first recovery to emulate a lost message.
                 // Another one should be issued eventually.
-                return msgCount.get() == 1;
+                return msgCount.incrementAndGet() == 1;
             }
 
             return false;

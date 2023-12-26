@@ -531,27 +531,17 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
         return txMessageSender.finish(primaryConsistentId, commitPartition, replicationGroupIds, txId, term, commit, commitTimestamp)
                 .thenAccept(txResult -> {
-                    updateTxMeta(txId, old -> {
-                        if (isFinalState(old.txState())) {
-                            txFinishFuture.complete(old);
+                    TxStateMeta updatedMeta = updateTxMeta(txId, old ->
+                            new TxStateMeta(
+                                    txResult.transactionState(),
+                                    localNodeId,
+                                    old.commitPartitionId(),
+                                    txResult.commitTimestamp()
+                            ));
 
-                            return old;
-                        }
+                    assert isFinalState(updatedMeta.txState());
 
-                        assert old instanceof TxStateMetaFinishing;
-
-                        TxStateMeta finalTxStateMeta =
-                                new TxStateMeta(
-                                        txResult.transactionState(),
-                                        localNodeId,
-                                        old.commitPartitionId(),
-                                        txResult.commitTimestamp()
-                                );
-
-                        txFinishFuture.complete(finalTxStateMeta);
-
-                        return finalTxStateMeta;
-                    });
+                    txFinishFuture.complete(updatedMeta);
 
                     if (commit) {
                         observableTimestampTracker.update(commitTimestamp);
