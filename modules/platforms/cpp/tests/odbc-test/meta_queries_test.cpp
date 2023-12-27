@@ -432,7 +432,7 @@ TEST_F(meta_queries_test, col_attributes_column_scale) {
         FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
 }
 
-// TODO: IGNITE-19854 Implement metadata fetching for the non-executed query.
+// TODO: IGNITE-21158 Implement result set metadata fetching for the non-executed query.
 #ifdef MUTED
 TEST_F(meta_queries_test, col_attributes_column_length_prepare) {
     odbc_connect(get_basic_connection_string());
@@ -804,7 +804,7 @@ TEST_F(meta_queries_test, ddl_columns_meta_escaped) {
     ASSERT_EQ(ret, SQL_NO_DATA);
 }
 
-// TODO: IGNITE-19854 Implement metadata fetching for the non-executed query.
+// TODO: IGNITE-21158 Implement result set metadata fetching for the non-executed query.
 #ifdef MUTED
 TEST_F(meta_queries_test, sqlnum_result_cols_after_sqlprepare) {
     odbc_connect(get_basic_connection_string());
@@ -842,7 +842,7 @@ TEST_F(meta_queries_test, sqlnum_result_cols_after_sqlprepare) {
  * Check that SQLDescribeCol return valid scale and precision for columns of different type after Prepare.
  */
 TEST_F(meta_queries_test, sqldescribe_col_precision_and_scale_after_prepare) {
-    // TODO: IGNITE-19854 Implement metadata fetching for the non-executed query.
+    // TODO: IGNITE-21158 Implement result set metadata fetching for the non-executed query.
     //    check_col_precision_and_scale(&odbc_suite::prepare_query, &check_column_meta_with_sqldescribe_col);
 }
 
@@ -857,7 +857,7 @@ TEST_F(meta_queries_test, sqldescribe_col_precision_and_scale_after_exec) {
  * Check that SQLColAttribute return valid scale and precision for columns of different type after Prepare.
  */
 TEST_F(meta_queries_test, sqlcol_attribute_precision_and_scale_after_prepare) {
-    // TODO: IGNITE-19854 Implement metadata fetching for the non-executed query.
+    // TODO: IGNITE-21158 Implement result set metadata fetching for the non-executed query.
     //    check_col_precision_and_scale(&odbc_suite::prepare_query, &check_column_meta_with_sqlcol_attribute);
 }
 
