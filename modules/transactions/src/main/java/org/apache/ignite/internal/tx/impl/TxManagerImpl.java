@@ -531,6 +531,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
         return txMessageSender.finish(primaryConsistentId, commitPartition, replicationGroupIds, txId, term, commit, commitTimestamp)
                 .thenAccept(txResult -> {
+                    validateTxFinishedAsExpected(commit, txId, txResult);
+
                     TxStateMeta updatedMeta = updateTxMeta(txId, old ->
                             new TxStateMeta(
                                     txResult.transactionState(),
@@ -547,6 +549,22 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                         observableTimestampTracker.update(commitTimestamp);
                     }
                 });
+    }
+
+    private static void validateTxFinishedAsExpected(boolean commit, UUID txId, TransactionResult txResult) {
+        if (commit != (txResult.transactionState() == COMMITTED)) {
+            LOG.error("Failed to finish a transaction that is already finished [txId={}, expectedState={}, actualState={}].",
+                    txId,
+                    commit ? COMMITTED : ABORTED,
+                    txResult.transactionState()
+            );
+
+            throw new TransactionAlreadyFinishedException(
+                    "Failed to change the outcome of a finished transaction [txId=" + txId + ", txState=" + txResult.transactionState()
+                            + "].",
+                    txResult
+            );
+        }
     }
 
     @Override
