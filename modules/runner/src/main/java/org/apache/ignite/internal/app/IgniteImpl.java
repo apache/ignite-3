@@ -26,6 +26,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.ServiceLoader;
@@ -777,19 +778,23 @@ public class IgniteImpl implements Ignite {
         ExecutorService startupExecutor = Executors.newSingleThreadExecutor(NamedThreadFactory.create(name, "start", LOG));
 
         try {
+            List<CompletableFuture<Void>> startFutures = new ArrayList<>();
+
+            List<CompletableFuture<Void>> startFutures2 = new ArrayList<>();
+
             metricManager.registerSource(new JvmMetricSource());
 
-            lifecycleManager.startComponent(longJvmPauseDetector);
+            startFutures.add(lifecycleManager.startComponent(longJvmPauseDetector));
 
-            lifecycleManager.startComponent(vaultMgr);
+            startFutures.add(lifecycleManager.startComponent(vaultMgr));
 
             vaultMgr.putName(name).get();
 
             // Node configuration manager startup.
-            lifecycleManager.startComponent(nodeCfgMgr);
+            startFutures.add(lifecycleManager.startComponent(nodeCfgMgr));
 
             // Start the components that are required to join the cluster.
-            lifecycleManager.startComponents(
+            startFutures.add(lifecycleManager.startComponents(
                     threadPoolsManager,
                     clockWaiter,
                     nettyBootstrapFactory,
@@ -798,7 +803,7 @@ public class IgniteImpl implements Ignite {
                     raftMgr,
                     clusterStateStorage,
                     cmgMgr
-            );
+            ));
 
             clusterSvc.updateMetadata(new NodeMetadata(restComponent.hostName(), restComponent.httpPort(), restComponent.httpsPort()));
 
@@ -806,7 +811,7 @@ public class IgniteImpl implements Ignite {
 
             LOG.info("Components started, joining the cluster");
 
-            return cmgMgr.joinFuture()
+            CompletableFuture<Ignite> startFuture = cmgMgr.joinFuture()
                     .thenComposeAsync(unused -> {
                         LOG.info("Join complete, starting MetaStorage");
 
@@ -824,7 +829,8 @@ public class IgniteImpl implements Ignite {
 
                         // Start all other components after the join request has completed and the node has been validated.
                         try {
-                            lifecycleManager.startComponents(
+
+                            startFutures2.add(lifecycleManager.startComponents(
                                     catalogManager,
                                     clusterCfgMgr,
                                     authenticationManager,
@@ -845,11 +851,11 @@ public class IgniteImpl implements Ignite {
                                     clientHandlerModule,
                                     deploymentManager,
                                     sql
-                            );
+                            ));
 
                             // The system view manager comes last because other components
                             // must register system views before it starts.
-                            lifecycleManager.startComponent(systemViewManager);
+                            startFutures2.add(lifecycleManager.startComponent(systemViewManager));
                         } catch (NodeStoppingException e) {
                             throw new CompletionException(e);
                         }
@@ -857,7 +863,10 @@ public class IgniteImpl implements Ignite {
                     .thenComposeAsync(v -> {
                         LOG.info("Components started, performing recovery");
 
-                        return recoverComponentsStateOnStart(startupExecutor);
+                        return recoverComponentsStateOnStart(
+                                startupExecutor,
+                                CompletableFuture.allOf(startFutures2.toArray(CompletableFuture[]::new))
+                        );
                     }, startupExecutor)
                     .thenComposeAsync(v -> clusterCfgMgr.configurationRegistry().onDefaultsPersisted(), startupExecutor)
                     // Signal that local recovery is complete and the node is ready to join the cluster.
@@ -885,6 +894,7 @@ public class IgniteImpl implements Ignite {
                     .whenCompleteAsync((res, ex) -> {
                         startupExecutor.shutdownNow();
                     });
+            return CompletableFuture.allOf(startFutures.toArray(CompletableFuture[]::new)).thenCompose((ignored) -> startFuture);
         } catch (Throwable e) {
             startupExecutor.shutdownNow();
 
@@ -1086,11 +1096,11 @@ public class IgniteImpl implements Ignite {
      * Recovers components state on start by invoking configuration listeners ({@link #notifyConfigurationListeners()} and deploying watches
      * after that.
      */
-    private CompletableFuture<?> recoverComponentsStateOnStart(ExecutorService startupExecutor) {
+    private CompletableFuture<?> recoverComponentsStateOnStart(ExecutorService startupExecutor, CompletableFuture<Void> startFuture) {
         CompletableFuture<Void> startupConfigurationUpdate = notifyConfigurationListeners();
         CompletableFuture<Void> startupRevisionUpdate = metaStorageMgr.notifyRevisionUpdateListenerOnStart();
 
-        return CompletableFuture.allOf(startupConfigurationUpdate, startupRevisionUpdate)
+        return CompletableFuture.allOf(startupConfigurationUpdate, startupRevisionUpdate, startFuture)
                 .thenComposeAsync(t -> {
                     // Deploy all registered watches because all components are ready and have registered their listeners.
                     return metaStorageMgr.deployWatches();

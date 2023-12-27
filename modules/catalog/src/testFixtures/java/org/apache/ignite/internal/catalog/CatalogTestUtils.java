@@ -19,7 +19,9 @@ package org.apache.ignite.internal.catalog;
 
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.CompletableFutures.allOf;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
@@ -71,7 +73,7 @@ public class CatalogTestUtils {
 
         return new CatalogManagerImpl(new UpdateLogImpl(metastore), clockWaiter) {
             @Override
-            public void start() {
+            public CompletableFuture<Void> start() {
                 vault.start();
                 metastore.start();
                 clockWaiter.start();
@@ -79,6 +81,8 @@ public class CatalogTestUtils {
                 super.start();
 
                 assertThat(metastore.deployWatches(), willCompleteSuccessfully());
+
+                return nullCompletedFuture();
             }
 
             @Override
@@ -115,10 +119,12 @@ public class CatalogTestUtils {
 
         return new CatalogManagerImpl(new UpdateLogImpl(metastore), clockWaiter) {
             @Override
-            public void start() {
+            public CompletableFuture<Void> start() {
                 clockWaiter.start();
 
                 super.start();
+
+                return nullCompletedFuture();
             }
 
             @Override
@@ -155,10 +161,10 @@ public class CatalogTestUtils {
 
         return new CatalogManagerImpl(new TestUpdateLog(clock), clockWaiter) {
             @Override
-            public void start() {
-                clockWaiter.start();
+            public CompletableFuture<Void> start() {
+                CompletableFuture<Void> fut = clockWaiter.start();
 
-                super.start();
+                return allOf(new CompletableFuture[]{fut, super.start()});
             }
 
             @Override
@@ -299,13 +305,15 @@ public class CatalogTestUtils {
         }
 
         @Override
-        public void start() throws IgniteInternalException {
+        public CompletableFuture<Void> start() throws IgniteInternalException {
             if (onUpdateHandler == null) {
                 throw new IgniteInternalException(
                         Common.INTERNAL_ERR,
                         "Handler must be registered prior to component start"
                 );
             }
+
+            return nullCompletedFuture();
         }
 
         @Override

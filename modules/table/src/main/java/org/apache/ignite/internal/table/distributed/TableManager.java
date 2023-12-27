@@ -490,7 +490,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     }
 
     @Override
-    public void start() {
+    public CompletableFuture<Void> start() {
         inBusyLock(busyLock, () -> {
             mvGc.start();
 
@@ -526,6 +526,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
             partitionReplicatorNodeRecovery.start();
         });
+
+        return nullCompletedFuture();
     }
 
     private void processAssignmentsOnRecovery(long recoveryRevision) {

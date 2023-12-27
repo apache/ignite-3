@@ -95,11 +95,13 @@ public class SchemaManager implements IgniteComponent {
     }
 
     @Override
-    public void start() {
+    public CompletableFuture<Void> start() {
         catalogService.listen(CatalogEvent.TABLE_CREATE, this::onTableCreated);
         catalogService.listen(CatalogEvent.TABLE_ALTER, this::onTableAltered);
 
         registerExistingTables();
+
+        return nullCompletedFuture();
     }
 
     private void registerExistingTables() {

@@ -18,6 +18,7 @@
 package org.apache.ignite.network.scalecube;
 
 import static io.scalecube.cluster.membership.MembershipEvent.createAdded;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import io.scalecube.cluster.ClusterConfig;
 import io.scalecube.cluster.ClusterImpl;
@@ -107,7 +108,7 @@ public class ScaleCubeClusterServiceFactory {
 
             /** {@inheritDoc} */
             @Override
-            public void start() {
+            public CompletableFuture<Void> start() {
                 var serializationService = new SerializationService(serializationRegistry, userObjectSerialization);
 
                 UUID launchId = UUID.randomUUID();
@@ -167,6 +168,8 @@ public class ScaleCubeClusterServiceFactory {
                 // emit an artificial event as if the local member has joined the topology (ScaleCube doesn't do that)
                 var localMembershipEvent = createAdded(cluster.member(), null, System.currentTimeMillis());
                 topologyService.onMembershipEvent(localMembershipEvent);
+
+                return nullCompletedFuture();
             }
 
             /** {@inheritDoc} */

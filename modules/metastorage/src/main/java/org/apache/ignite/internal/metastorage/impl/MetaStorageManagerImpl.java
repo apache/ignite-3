@@ -355,12 +355,12 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
     }
 
     @Override
-    public void start() {
+    public CompletableFuture<Void> start() {
         storage.start();
 
         appliedRevision = readRevisionFromVault();
 
-        cmgMgr.metaStorageNodes()
+        return cmgMgr.metaStorageNodes()
                 .thenCompose(metaStorageNodes -> {
                     if (!busyLock.enterBusy()) {
                         return CompletableFuture.failedFuture(new NodeStoppingException());
@@ -382,7 +382,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
 
                         metaStorageSvcFut.complete(service);
                     }
-                });
+                }).thenApply(ignored -> null);
     }
 
     private long readRevisionFromVault() {

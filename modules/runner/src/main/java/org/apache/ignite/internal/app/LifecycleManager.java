@@ -17,8 +17,11 @@
 
 package org.apache.ignite.internal.app;
 
+import static java.util.concurrent.CompletableFuture.allOf;
+
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -63,7 +66,7 @@ class LifecycleManager implements StateProvider {
      * @param component Ignite component to start.
      * @throws NodeStoppingException If node stopping intention was detected.
      */
-    void startComponent(IgniteComponent component) throws NodeStoppingException {
+    CompletableFuture<Void> startComponent(IgniteComponent component) throws NodeStoppingException {
         if (status.get() == State.STOPPING) {
             throw new NodeStoppingException("Node=[" + nodeName + "] was stopped");
         }
@@ -71,7 +74,7 @@ class LifecycleManager implements StateProvider {
         synchronized (this) {
             startedComponents.add(component);
 
-            component.start();
+            return component.start();
         }
     }
 
@@ -81,10 +84,13 @@ class LifecycleManager implements StateProvider {
      * @param components Ignite components to start.
      * @throws NodeStoppingException If node stopping intention was detected.
      */
-    void startComponents(IgniteComponent... components) throws NodeStoppingException {
+    CompletableFuture<Void> startComponents(IgniteComponent... components) throws NodeStoppingException {
+        List<CompletableFuture<Void>> startFutures = new ArrayList<>();
         for (IgniteComponent component : components) {
-            startComponent(component);
+            startFutures.add(startComponent(component));
         }
+
+        return allOf(startFutures.toArray(CompletableFuture[]::new));
     }
 
     /**

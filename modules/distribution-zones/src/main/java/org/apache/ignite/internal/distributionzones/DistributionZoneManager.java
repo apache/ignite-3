@@ -21,7 +21,6 @@ import static java.util.Collections.emptySet;
 import static java.util.Collections.unmodifiableSet;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.failedFuture;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
@@ -65,6 +64,7 @@ import static org.apache.ignite.internal.util.ByteUtils.toBytes;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
+import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 
@@ -120,8 +120,6 @@ import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.thread.StripedScheduledThreadPoolExecutor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.vault.VaultManager;
-import org.apache.ignite.lang.ErrorGroups.Common;
-import org.apache.ignite.lang.IgniteException;
 import org.jetbrains.annotations.TestOnly;
 
 /**
@@ -130,12 +128,6 @@ import org.jetbrains.annotations.TestOnly;
 public class DistributionZoneManager implements IgniteComponent {
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(DistributionZoneManager.class);
-
-    /**
-     * Timeout for async operations to be performed in the manager start.
-     * TODO: temporary solution, must be removed in https://issues.apache.org/jira/browse/IGNITE-20477
-     */
-    private static final long START_TIMEOUT = 10_000L;
 
     /** Meta Storage manager. */
     private final MetaStorageManager metaStorageManager;
@@ -254,8 +246,8 @@ public class DistributionZoneManager implements IgniteComponent {
     }
 
     @Override
-    public void start() {
-        inBusyLock(busyLock, () -> {
+    public CompletableFuture<Void> start() {
+        return inBusyLockAsync(busyLock, () -> {
             registerCatalogEventListenersOnStartManagerBusy();
 
             logicalTopologyService.addEventListener(topologyEventListener);
@@ -277,14 +269,7 @@ public class DistributionZoneManager implements IgniteComponent {
 
             futures.add(restoreLogicalTopologyChangeEventAndStartTimers(recoveryRevision));
 
-            try {
-                // TODO: return this futures to start method https://issues.apache.org/jira/browse/IGNITE-20477
-                allOf(futures.toArray(CompletableFuture[]::new)).get(START_TIMEOUT, MILLISECONDS);
-            } catch (Exception e) {
-                throw new IgniteException(Common.COMPONENT_NOT_STARTED_ERR, e);
-            }
-
-            rebalanceEngine.start();
+            return allOf(futures.toArray(CompletableFuture[]::new)).thenRun(rebalanceEngine::start);
         });
     }
 

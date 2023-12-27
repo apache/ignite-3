@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.vault;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -47,8 +48,10 @@ public class VaultManager implements IgniteComponent {
 
     /** {@inheritDoc} */
     @Override
-    public void start() {
+    public CompletableFuture<Void> start() {
         vaultSvc.start();
+
+        return nullCompletedFuture();
     }
 
     /** {@inheritDoc} */
