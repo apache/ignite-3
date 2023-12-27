@@ -47,8 +47,6 @@ import org.apache.ignite.internal.sql.engine.prepare.MultiStepPlan;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSystemView;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.util.EmptyCacheFactory;
-import org.apache.ignite.internal.sql.engine.util.cache.CacheFactory;
-import org.apache.ignite.internal.sql.engine.util.cache.CaffeineCacheFactory;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.network.NetworkAddress;
@@ -160,7 +158,7 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
         List<String> nodeNames = List.of(localNodeName, "NODE1");
 
         // Initialize mapping service.
-        MappingServiceImpl mappingService = createMappingService(localNodeName, nodeNames, CaffeineCacheFactory.INSTANCE, 1024);
+        MappingServiceImpl mappingService = createMappingService(localNodeName, nodeNames);
         mappingService.onNodeJoined(Mockito.mock(LogicalNode.class),
                 new LogicalTopologySnapshot(1, logicalNodes(nodeNames.toArray(new String[0]))));
 
@@ -194,7 +192,7 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
         };
 
         // Initialize mapping service.
-        MappingServiceImpl mappingService = createMappingService(localNodeName, nodeNames, CaffeineCacheFactory.INSTANCE, 1024);
+        MappingServiceImpl mappingService = createMappingService(localNodeName, nodeNames);
         mappingService.onNodeJoined(Mockito.mock(LogicalNode.class),
                 new LogicalTopologySnapshot(1, logicalNodes(nodeNames.toArray(new String[0]))));
 
@@ -215,24 +213,7 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
                 .collect(Collectors.toList());
     }
 
-    private static MappingServiceImpl createMappingService(
-            String localNodeName,
-            List<String> nodeNames
-    ) {
-        return createMappingService(
-                localNodeName,
-                nodeNames,
-                EmptyCacheFactory.INSTANCE,
-                0
-        );
-    }
-
-    private static MappingServiceImpl createMappingService(
-            String localNodeName,
-            List<String> nodeNames,
-            CacheFactory cacheFactory,
-            int cacheSize
-    ) {
+    private static MappingServiceImpl createMappingService(String localNodeName, List<String> nodeNames) {
         var targetProvider = new ExecutionTargetProvider() {
             @Override
             public CompletableFuture<ExecutionTarget> forTable(ExecutionTargetFactory factory, IgniteTable table) {
@@ -245,6 +226,6 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
             }
         };
 
-        return new MappingServiceImpl(localNodeName, targetProvider, cacheFactory, cacheSize, Runnable::run);
+        return new MappingServiceImpl(localNodeName, targetProvider, EmptyCacheFactory.INSTANCE, 1024, Runnable::run);
     }
 }

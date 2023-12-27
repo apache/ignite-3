@@ -20,7 +20,6 @@ package org.apache.ignite.internal.sql.engine.util.cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.RemovalCause;
 import com.github.benmanes.caffeine.cache.stats.CacheStats;
-import java.util.Map;
 import java.util.function.Function;
 import org.checkerframework.checker.index.qual.NonNegative;
 import org.jetbrains.annotations.Nullable;
@@ -116,11 +115,6 @@ public class CaffeineCacheFactory implements CacheFactory {
         @Override
         public void clear() {
             cache.invalidateAll();
-        }
-
-        @Override
-        public Map<K, V> asMap() {
-            return cache.asMap();
         }
     }
 }

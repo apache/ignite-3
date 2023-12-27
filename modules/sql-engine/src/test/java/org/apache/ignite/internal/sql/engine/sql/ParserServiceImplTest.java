@@ -27,7 +27,6 @@ import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertSame;
 
 import java.util.List;
-import java.util.Map;
 import java.util.function.Function;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.ignite.internal.lang.IgniteStringBuilder;
@@ -224,11 +223,6 @@ public class ParserServiceImplTest {
                 @Override
                 public void clear() {
                     // NO-OP
-                }
-
-                @Override
-                public Map<K, V> asMap() {
-                    return (Map<K, V>) Map.of(object, object);
                 }
             };
         }

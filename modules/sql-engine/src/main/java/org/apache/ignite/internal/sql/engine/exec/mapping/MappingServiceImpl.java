@@ -93,7 +93,7 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
         this.targetProvider = targetProvider;
         this.templatesCache = cacheFactory.create(cacheSize);
         this.taskExecutor = taskExecutor;
-        this.fragmentsCache = new FragmentsCache(cacheFactory, cacheSize);
+        this.fragmentsCache = new FragmentsCache(cacheSize);
     }
 
     @Override
