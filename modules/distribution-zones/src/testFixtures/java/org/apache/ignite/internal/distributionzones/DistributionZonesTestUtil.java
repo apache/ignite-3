@@ -337,7 +337,9 @@ public class DistributionZonesTestUtil {
     ) throws InterruptedException {
         Set<NodeWithAttributes> nodes = clusterNodes == null
                 ? null
-                : clusterNodes.stream().map(n -> new NodeWithAttributes(n.name(), n.id(), n.userAttributes())).collect(toSet());
+                : clusterNodes.stream()
+                        .map(n -> new NodeWithAttributes(n.name(), n.id(), n.userAttributes(), n.storageProfiles()))
+                        .collect(toSet());
 
         assertValueInStorage(
                 metaStorageManager,

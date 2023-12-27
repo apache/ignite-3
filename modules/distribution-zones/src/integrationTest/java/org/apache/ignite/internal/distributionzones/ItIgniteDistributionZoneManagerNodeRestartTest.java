@@ -402,7 +402,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         node.logicalTopology().putNode(C);
 
         Set<NodeWithAttributes> logicalTopology = Stream.of(A, B, C)
-                .map(n -> new NodeWithAttributes(n.name(), n.id(), n.userAttributes()))
+                .map(n -> new NodeWithAttributes(n.name(), n.id(), n.userAttributes(), n.storageProfiles()))
                 .collect(toSet());
 
         DistributionZoneManager distributionZoneManager = getDistributionZoneManager(node);
@@ -429,7 +429,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         node.logicalTopology().putNode(B);
 
         Set<NodeWithAttributes> logicalTopology = Stream.of(A, B)
-                .map(n -> new NodeWithAttributes(n.name(), n.id(), n.userAttributes()))
+                .map(n -> new NodeWithAttributes(n.name(), n.id(), n.userAttributes(), n.storageProfiles()))
                 .collect(toSet());
 
         DistributionZoneManager distributionZoneManager = getDistributionZoneManager(node);
@@ -459,7 +459,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         node.logicalTopology().putNode(C);
 
         Set<NodeWithAttributes> newLogicalTopology = Stream.of(A, B, C)
-                .map(n -> new NodeWithAttributes(n.name(), n.id(), n.userAttributes()))
+                .map(n -> new NodeWithAttributes(n.name(), n.id(), n.userAttributes(), n.storageProfiles()))
                 .collect(toSet());
 
         assertTrue(waitForCondition(() -> newLogicalTopology.equals(finalDistributionZoneManager.logicalTopology()), TIMEOUT_MILLIS));
@@ -509,7 +509,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         node.logicalTopology().putNode(C);
 
         Set<NodeWithAttributes> newLogicalTopology = Stream.of(C)
-                .map(n -> new NodeWithAttributes(n.name(), n.id(), n.userAttributes()))
+                .map(n -> new NodeWithAttributes(n.name(), n.id(), n.userAttributes(), n.storageProfiles()))
                 .collect(toSet());
 
         assertTrue(waitForCondition(() -> newLogicalTopology.equals(finalDistributionZoneManager.logicalTopology()), TIMEOUT_MILLIS));
@@ -552,7 +552,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         node.logicalTopology().putNode(C);
 
         Set<NodeWithAttributes> logicalTopology = Stream.of(A, B, C)
-                .map(n -> new NodeWithAttributes(n.name(), n.id(), n.userAttributes()))
+                .map(n -> new NodeWithAttributes(n.name(), n.id(), n.userAttributes(), n.storageProfiles()))
                 .collect(toSet());
 
         DistributionZoneManager distributionZoneManager = getDistributionZoneManager(node);
