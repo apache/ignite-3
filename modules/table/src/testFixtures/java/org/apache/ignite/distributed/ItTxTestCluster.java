@@ -125,6 +125,7 @@ import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
+import org.apache.ignite.internal.tx.impl.TxMessageSender;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
@@ -477,13 +478,20 @@ public class ItTxTestCluster {
 
                 var mvPartStorage = new TestMvPartitionStorage(partId);
                 var txStateStorage = txStateStorages.get(assignment);
+                TxMessageSender txMessageSender =
+                        new TxMessageSender(
+                                clusterServices.get(assignment).messagingService(),
+                                replicaServices.get(assignment),
+                                clocks.get(assignment)
+                        );
+
                 var transactionStateResolver = new TransactionStateResolver(
-                        replicaServices.get(assignment),
                         txManagers.get(assignment),
                         clocks.get(assignment),
                         nodeResolver,
                         clusterServices.get(assignment).messagingService(),
-                        placementDriver
+                        placementDriver,
+                        txMessageSender
                 );
                 transactionStateResolver.start();
 
@@ -858,12 +866,12 @@ public class ItTxTestCluster {
         );
 
         clientTxStateResolver = new TransactionStateResolver(
-                clientReplicaSvc,
                 clientTxManager,
                 clientClock,
                 nodeResolver,
                 client.messagingService(),
-                placementDriver
+                placementDriver,
+                new TxMessageSender(client.messagingService(), clientReplicaSvc, clientClock)
         );
 
         clientTxStateResolver.start();
