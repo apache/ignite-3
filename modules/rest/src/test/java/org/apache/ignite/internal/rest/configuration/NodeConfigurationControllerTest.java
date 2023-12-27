@@ -30,6 +30,8 @@ import org.apache.ignite.internal.configuration.presentation.ConfigurationPresen
 import org.apache.ignite.internal.configuration.presentation.HoconPresentation;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.rest.RestManager;
+import org.apache.ignite.internal.rest.RestManagerFactory;
 import org.apache.ignite.internal.security.authentication.AuthenticationManager;
 import org.apache.ignite.internal.security.authentication.AuthenticationManagerImpl;
 import org.apache.ignite.internal.security.configuration.SecurityConfiguration;
@@ -61,6 +63,13 @@ class NodeConfigurationControllerTest extends ConfigurationControllerBaseTest {
     @Replaces(factory = PresentationsFactory.class)
     public ConfigurationPresentation<String> cfgPresentation(ConfigurationRegistry configurationRegistry) {
         return new HoconPresentation(configurationRegistry);
+    }
+
+    @Factory
+    @Bean
+    @Replaces(RestManagerFactory.class)
+    public RestManagerFactory restManagerProvider() {
+        return new RestManagerFactory(new RestManager());
     }
 
     @Bean
