@@ -15,37 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.network.message;
+package org.apache.ignite.internal.network.messages;
 
-import org.apache.ignite.internal.network.NetworkMessageTypes;
-import org.apache.ignite.internal.network.serialization.FieldDescriptor;
+import java.io.Serializable;
 import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.network.annotations.Marshallable;
 import org.apache.ignite.network.annotations.Transferable;
 
-/** Message for the {@link FieldDescriptor}. */
-@Transferable(NetworkMessageTypes.FIELD_DESCRIPTOR_MESSAGE)
-public interface FieldDescriptorMessage extends NetworkMessage {
-    int UNSHARED_MASK = 1;
-    int IS_PRIMITIVE = 1 << 1;
-    int IS_SERIALIZATION_TYPE_KNOWN_UPFRONT = 1 << 2;
-
+/**
+ * Message for testing a case when a message contains an object which in turn has a field of type {@link java.time.Instant}
+ * (and the Instant is not null).
+ */
+@Transferable(TestMessageTypes.MESSAGE_WITH_INSTANT)
+public interface MessageWithInstant extends NetworkMessage, Serializable {
     /**
-     * Name of the field.
+     * Returns instant container.
      */
-    String name();
-
-    /**
-     * Field type's descriptor id.
-     */
-    int typeDescriptorId();
-
-    /**
-     * Packed booleans flags.
-     */
-    byte flags();
-
-    /**
-     * Field's class name.
-     */
-    String className();
+    @Marshallable
+    InstantContainer instantContainer();
 }

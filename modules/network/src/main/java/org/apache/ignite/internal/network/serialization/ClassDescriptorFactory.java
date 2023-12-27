@@ -244,7 +244,7 @@ public class ClassDescriptorFactory {
     }
 
     private boolean hasWriteReplace(Class<? extends Serializable> clazz) {
-        return getWriteReplace(clazz) != null;
+        return Classes.hasWriteReplace(clazz);
     }
 
     private boolean hasReadObject(Class<? extends Serializable> clazz) {
@@ -354,22 +354,6 @@ public class ClassDescriptorFactory {
                 })
                 .map(field -> FieldDescriptor.local(field, registry.getId(field.getType())))
                 .collect(toList());
-    }
-
-    /**
-     * Gets a method with the signature
-     * {@code ANY-ACCESS-MODIFIER Object writeReplace() throws ObjectStreamException}.
-     *
-     * @param clazz Class.
-     * @return Method.
-     */
-    @Nullable
-    private static Method getWriteReplace(Class<? extends Serializable> clazz) {
-        try {
-            return clazz.getDeclaredMethod("writeReplace");
-        } catch (NoSuchMethodException e) {
-            return null;
-        }
     }
 
     /**

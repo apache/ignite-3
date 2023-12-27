@@ -19,6 +19,7 @@ package org.apache.ignite.network;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.defaultSerializationRegistry;
 import static org.awaitility.Awaitility.await;
@@ -30,6 +31,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
@@ -49,6 +51,8 @@ import org.apache.ignite.internal.configuration.testframework.InjectConfiguratio
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.network.messages.AllTypesMessageImpl;
+import org.apache.ignite.internal.network.messages.InstantContainer;
+import org.apache.ignite.internal.network.messages.MessageWithInstant;
 import org.apache.ignite.internal.network.messages.TestMessage;
 import org.apache.ignite.internal.network.messages.TestMessageImpl;
 import org.apache.ignite.internal.network.messages.TestMessageSerializationFactory;
@@ -74,6 +78,7 @@ import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.network.serialization.MessageSerializer;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
@@ -341,6 +346,31 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
         assert matches : thread.getName() + " does not match the pattern";
 
         return Integer.parseInt(matcher.group(1));
+    }
+
+    @Test
+    @Timeout(10)
+    void messageWithInstantInAnotherObjectSerializesAndDeserializesCorrectly() throws Exception {
+        try (
+                Services senderServices = createMessagingService(senderNode, senderNetworkConfig);
+                Services receiverServices = createMessagingService(receiverNode, receiverNetworkConfig)
+        ) {
+            Instant sentInstant = Instant.now();
+            CompletableFuture<Instant> receivedInstant = new CompletableFuture<>();
+
+            receiverServices.messagingService.addMessageHandler(TestMessageTypes.class, (message, senderConsistentId, correlationId) -> {
+                if (message instanceof MessageWithInstant) {
+                    receivedInstant.complete(((MessageWithInstant) message).instantContainer().instant());
+                }
+            });
+
+            senderServices.messagingService.send(
+                    receiverNode,
+                    testMessagesFactory.messageWithInstant().instantContainer(new InstantContainer(sentInstant)).build()
+            );
+
+            assertThat(receivedInstant, willBe(sentInstant));
+        }
     }
 
     private static MessageSerializationRegistry mockSerializationRegistry(Serializer... serializers) {

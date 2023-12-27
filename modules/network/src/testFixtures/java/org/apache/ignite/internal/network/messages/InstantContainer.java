@@ -17,29 +17,20 @@
 
 package org.apache.ignite.internal.network.messages;
 
-import org.apache.ignite.network.annotations.MessageGroup;
+import java.time.Instant;
 
 /**
- * Test message types.
+ * Container for an {@link Instant} (stored in a field).
  */
-@MessageGroup(groupName = "TestMessages", groupType = 2)
-public class TestMessageTypes {
-    /** Type of {@link SerializationOrderMessage}. */
-    public static final short SERIALIZATION_ORDER_MESSAGE = 1;
+public class InstantContainer {
+    private final Instant instant;
 
-    /** Type of {@link InheritedMessage}. */
-    public static final short INHERITED_MESSAGE = 2;
+    public InstantContainer(Instant instant) {
+        this.instant = instant;
+    }
 
-    /** Type of {@link EmptyMessage}. */
-    public static final short EMPTY_MESSAGE = 3;
-
-    public static final short ALL_TYPES = 4;
-
-    public static final short TEST = 5;
-
-    public static final short NESTED_MESSAGE = 6;
-
-    public static final short TEST_MESSAGE_WITH_MARSHALLABLE = 7;
-
-    public static final short MESSAGE_WITH_INSTANT = 8;
+    /** Returns the instant. */
+    public Instant instant() {
+        return instant;
+    }
 }
