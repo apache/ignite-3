@@ -19,12 +19,12 @@ package org.apache.ignite.jdbc;
 
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.jdbc.util.JdbcTestUtils.assertThrowsSqlException;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.sql.PreparedStatement;
@@ -85,7 +85,7 @@ public class ItJdbcMultiStatementSelfTest extends AbstractJdbcSelfTest {
         // pk violation exception
         // TODO: https://issues.apache.org/jira/browse/IGNITE-21133
         stmt.execute("START TRANSACTION; INSERT INTO TEST_TX VALUES (1, 1, '1'); COMMIT");
-        assertThrows(SQLException.class, () -> stmt.execute("SELECT COUNT(*) FROM TEST_TX"));
+        assertThrowsSqlException("Failed to fetch query results", () -> stmt.execute("SELECT COUNT(*) FROM TEST_TX"));
         stmt.execute("SELECT COUNT(*) FROM TEST_TX");
         try (ResultSet rs = stmt.getResultSet()) {
             assertTrue(rs.next());
@@ -119,10 +119,12 @@ public class ItJdbcMultiStatementSelfTest extends AbstractJdbcSelfTest {
         assertFalse(res);
         assertNull(stmt.getResultSet());
         assertFalse(stmt.getMoreResults());
-        assertEquals(-1, getResultSetSize());
+        assertNull(stmt.getResultSet());
+        assertEquals(-1, stmt.getUpdateCount());
 
         stmt.execute("INSERT INTO TEST_TX VALUES (6, 5, '5');");
-        assertEquals(-1, getResultSetSize());
+        assertEquals(1, stmt.getUpdateCount());
+        assertTrue(checkNoMoreResults());
 
         // empty result
         res = stmt.execute("SELECT ID FROM TEST_TX WHERE ID=1000;");
@@ -134,7 +136,7 @@ public class ItJdbcMultiStatementSelfTest extends AbstractJdbcSelfTest {
     public void testSimpleQueryError() throws Exception {
         boolean res = stmt.execute("SELECT 1; SELECT 1/0; SELECT 2");
         assertTrue(res);
-        assertThrows(SQLException.class, () -> stmt.getMoreResults());
+        assertThrowsSqlException("Failed to fetch query results", () -> stmt.getMoreResults());
         //next after exception
         assertFalse(stmt.getMoreResults());
     }
@@ -202,7 +204,7 @@ public class ItJdbcMultiStatementSelfTest extends AbstractJdbcSelfTest {
 
         // no more results, auto close statement
         assertFalse(stmt.getMoreResults());
-        assertThrows(SQLException.class, () -> stmt.getMoreResults(), "Statement is closed");
+        assertThrowsSqlException("Statement is closed", () -> stmt.getMoreResults());
         assertTrue(stmt.isClosed());
     }
 
@@ -217,7 +219,7 @@ public class ItJdbcMultiStatementSelfTest extends AbstractJdbcSelfTest {
         ResultSet rs = stmt.getResultSet();
         rs.close();
         stmt.getMoreResults();
-        getResultSetSize();
+        assertTrue(checkNoMoreResults());
     }
 
     @Test
@@ -251,19 +253,27 @@ public class ItJdbcMultiStatementSelfTest extends AbstractJdbcSelfTest {
     public void testMiscDmlExecute() throws Exception {
         boolean res = stmt.execute("DROP TABLE IF EXISTS TEST_TX; DROP TABLE IF EXISTS SOME_UNEXISTING_TBL;");
         assertFalse(res);
-        assertEquals(-1, getResultSetSize());
+        assertEquals(0, stmt.getUpdateCount());
+        assertFalse(stmt.getMoreResults());
+        assertEquals(0, stmt.getUpdateCount());
 
         res = stmt.execute("CREATE TABLE TEST_TX (ID INT PRIMARY KEY, AGE INT, NAME VARCHAR) ");
         assertFalse(res);
-        assertEquals(-1, getResultSetSize());
+        assertEquals(0, stmt.getUpdateCount());
+        assertFalse(stmt.getMoreResults());
+        assertNull(stmt.getResultSet());
 
         res = stmt.execute("INSERT INTO TEST_TX VALUES (1, 17, 'James'), (2, 43, 'Valery');");
         assertFalse(res);
-        assertEquals(-1, getResultSetSize());
+        assertEquals(2, stmt.getUpdateCount());
+        assertFalse(stmt.getMoreResults());
+        assertNull(stmt.getResultSet());
 
         res = stmt.execute("DROP TABLE IF EXISTS PUBLIC.TRANSACTIONS; INSERT INTO TEST_TX VALUES (3, 25, 'Michel');");
         assertFalse(res);
-        assertEquals(-1, getResultSetSize());
+        assertEquals(0, stmt.getUpdateCount());
+        assertFalse(stmt.getMoreResults());
+        assertEquals(1, stmt.getUpdateCount());
     }
 
     @Test
@@ -350,18 +360,34 @@ public class ItJdbcMultiStatementSelfTest extends AbstractJdbcSelfTest {
     @Test
     public void testDmlInsideTransaction() throws Exception {
         stmt.execute("START TRANSACTION; INSERT INTO TEST_TX VALUES (5, 19, 'Nick'); COMMIT");
-        assertEquals(-1, getResultSetSize());
+        assertEquals(0, stmt.getUpdateCount());
+        stmt.getMoreResults();
+        assertEquals(1, stmt.getUpdateCount());
+        stmt.getMoreResults();
+        assertEquals(0, stmt.getUpdateCount());
+        assertTrue(checkNoMoreResults());
     }
 
     @Test
     public void testAutoCommitFalse() throws Exception {
+        String txErrMsg = "Transaction control statement cannot be executed within an external transaction";
         conn.setAutoCommit(false);
-        assertThrows(SQLException.class, () -> stmt.execute("COMMIT"));
+        assertThrowsSqlException(txErrMsg, () -> stmt.execute("COMMIT"));
 
         boolean res = stmt.execute("SELECT 1;COMMIT");
         assertTrue(res);
         assertNotNull(stmt.getResultSet());
-        assertThrows(SQLException.class, () -> stmt.getMoreResults());
+        assertThrowsSqlException(txErrMsg, () -> stmt.getMoreResults());
+
+        assertThrowsSqlException(txErrMsg, () -> stmt.execute("START TRANSACTION; SELECT 1;"));
+    }
+
+    @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-21167")
+    public void testAutoCommitFalseWithEmptyTx() throws Exception {
+        String txErrMsg = "Transaction control statement cannot be executed within an external transaction";
+        conn.setAutoCommit(false);
+        assertThrowsSqlException(txErrMsg, () -> stmt.execute("START TRANSACTION; SELECT 1; COMMIT;"));
     }
 
     @Test
@@ -375,7 +401,8 @@ public class ItJdbcMultiStatementSelfTest extends AbstractJdbcSelfTest {
         assertEquals(true, res);
 
         assertTrue(rs.isClosed());
-        assertEquals(1, getResultSetSize());
+        assertNotNull(stmt.getResultSet());
+        assertTrue(checkNoMoreResults());
 
         stmt.execute("SELECT 1; SELECT 2; SELECT 3;");
         ResultSet rs1 = stmt.getResultSet();
@@ -564,10 +591,7 @@ public class ItJdbcMultiStatementSelfTest extends AbstractJdbcSelfTest {
     }
 
     /**
-     * Check statement return result sets and update counter. <br>
-     * Returns: <br>
-     *  -1 if all statement datasets are null, or <br>
-     *  &gt= 0 summary results count<br>
+     * Check summary results returned from statement.
      *
      * @throws SQLException If failed.
      */
@@ -597,5 +621,11 @@ public class ItJdbcMultiStatementSelfTest extends AbstractJdbcSelfTest {
             updCount = stmt.getUpdateCount();
         } while (more || updCount != -1);
         return size;
+    }
+
+    private boolean checkNoMoreResults() throws SQLException {
+        boolean more = stmt.getMoreResults();
+        int updCnt = stmt.getUpdateCount();
+        return !more && updCnt == -1;
     }
 }

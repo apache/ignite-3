@@ -79,7 +79,7 @@ public class JdbcStatement implements Statement {
     private int pageSize = DFLT_PAGE_SIZE;
 
     /** Result sets. */
-    private volatile @Nullable List<JdbcResultSet> resSets;
+    private volatile List<@Nullable JdbcResultSet> resSets;
 
     /** Batch. */
     private List<String> batch;
@@ -463,7 +463,7 @@ public class JdbcStatement implements Statement {
         try {
             // just a stub if exception is raised inside multiple statements.
             // all further execution is not processed.
-            nextResultSet = resSets.get(curRes).getNextResultSet();
+            nextResultSet = Objects.requireNonNull(resSets.get(curRes)).getNextResultSet();
         } catch (SQLException ex) {
             nextResultSet = null;
             exceptionally = ex;
@@ -654,7 +654,7 @@ public class JdbcStatement implements Statement {
 
         if (resSets != null) {
             for (JdbcResultSet rs : resSets) {
-                rs.closeStatement(true);
+                Objects.requireNonNull(rs).closeStatement(true);
             }
         }
     }
@@ -748,7 +748,7 @@ public class JdbcStatement implements Statement {
 
         if (resSets != null) {
             for (JdbcResultSet rs : resSets) {
-                if (!rs.isClosed()) {
+                if (!Objects.requireNonNull(rs).isClosed()) {
                     allRsClosed = false;
                     break;
                 }
