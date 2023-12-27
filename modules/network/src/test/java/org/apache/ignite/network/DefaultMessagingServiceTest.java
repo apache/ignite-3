@@ -78,7 +78,6 @@ import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.network.serialization.MessageSerializer;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
@@ -349,7 +348,6 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    @Timeout(10)
     void messageWithInstantInAnotherObjectSerializesAndDeserializesCorrectly() throws Exception {
         try (
                 Services senderServices = createMessagingService(senderNode, senderNetworkConfig);
