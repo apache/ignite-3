@@ -20,9 +20,7 @@ package org.apache.ignite.internal.cli.ssl;
 import static org.apache.ignite.internal.NodeConfig.restSslBootstrapConfig;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
-import jakarta.inject.Inject;
 import org.apache.ignite.internal.NodeConfig;
-import org.apache.ignite.internal.cli.call.connect.ConnectCall;
 import org.apache.ignite.internal.cli.commands.CliCommandTestNotInitializedIntegrationBase;
 import org.apache.ignite.internal.cli.config.CliConfigKeys;
 import org.junit.jupiter.api.Test;
