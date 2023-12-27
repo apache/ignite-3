@@ -15,30 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.compute;
+package org.apache.ignite.internal.compute.message;
 
-import java.util.List;
-import org.apache.ignite.compute.DeploymentUnit;
-import org.apache.ignite.compute.JobExecution;
+import org.apache.ignite.internal.compute.ComputeMessageTypes;
+import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.network.annotations.Marshallable;
+import org.apache.ignite.network.annotations.Transferable;
+import org.jetbrains.annotations.Nullable;
 
 /**
- * Compute job starter interface.
+ * Remote job cancel response.
  */
-public interface JobStarter {
+@Transferable(ComputeMessageTypes.JOB_CANCEL_RESPONSE)
+public interface JobCancelResponse extends NetworkMessage {
     /**
-     * Start compute job.
+     * Returns a {@link Throwable} that was thrown during job cancellation ({@code null} if the cancellation was successful).
      *
-     * @param options Compute job execution options.
-     * @param units Deployment units. Can be empty.
-     * @param jobClassName Name of the job class to execute.
-     * @param args Arguments of the job.
-     * @param <R> Job result type.
-     * @return CompletableFuture Job result.
+     * @return {@link Throwable} that was thrown during job cancellation ({@code null} if the cancellation was successful)
      */
-    <R> JobExecution<R> start(
-            ExecutionOptions options,
-            List<DeploymentUnit> units,
-            String jobClassName,
-            Object... args
-    );
+    @Nullable
+    @Marshallable
+    Throwable throwable();
 }

@@ -19,8 +19,13 @@ package org.apache.ignite.internal.compute;
 
 import static java.util.stream.Collectors.joining;
 import static org.apache.ignite.internal.compute.utils.ComputeTestUtils.assertPublicException;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.testframework.matchers.JobStatusMatcher.jobStatusWithState;
 import static org.apache.ignite.lang.ErrorGroups.Compute.CLASS_INITIALIZATION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Compute.COMPUTE_ERR_GROUP;
+import static org.awaitility.Awaitility.await;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.Arrays;
@@ -32,10 +37,13 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.compute.ComputeException;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.DeploymentUnit;
+import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobExecutionContext;
+import org.apache.ignite.compute.JobState;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.lang.ErrorGroup;
 import org.apache.ignite.lang.IgniteException;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -83,6 +91,7 @@ class ItComputeTestBaseEmbedded extends ItComputeBaseTest {
 
         ExecutionException ex = assertThrows(ExecutionException.class, () -> entryNode.compute()
                 .executeAsync(Set.of(entryNode.node()), units(), jobClassName)
+                .resultAsync()
                 .get(1, TimeUnit.SECONDS));
 
         assertPublicException(ex, ComputeException.class, errorGroup, errorCode, msg);
@@ -106,9 +115,36 @@ class ItComputeTestBaseEmbedded extends ItComputeBaseTest {
 
         ExecutionException ex = assertThrows(ExecutionException.class, () -> entryNode.compute()
                 .executeAsync(Set.of(node(1).node(), node(2).node()), units(), jobClassName)
+                .resultAsync()
                 .get(1, TimeUnit.SECONDS));
 
         assertPublicException(ex, ComputeException.class, errorGroup, errorCode, msg);
+    }
+
+    @Test
+    void cancelsJobLocally() {
+        IgniteImpl entryNode = node(0);
+
+        JobExecution<String> execution = entryNode.compute().executeAsync(Set.of(entryNode.node()), units(), LongJob.class.getName());
+
+        await().until(execution::status, willBe(jobStatusWithState(JobState.EXECUTING)));
+
+        assertThat(execution.cancel(), willCompleteSuccessfully());
+
+        await().until(execution::status, willBe(jobStatusWithState(JobState.CANCELED)));
+    }
+
+    @Test
+    void cancelsJobRemotely() {
+        IgniteImpl entryNode = node(0);
+
+        JobExecution<String> execution = entryNode.compute().executeAsync(Set.of(node(1).node()), units(), LongJob.class.getName());
+
+        await().until(execution::status, willBe(jobStatusWithState(JobState.EXECUTING)));
+
+        assertThat(execution.cancel(), willCompleteSuccessfully());
+
+        await().until(execution::status, willBe(jobStatusWithState(JobState.CANCELED)));
     }
 
     private static class ConcatJob implements ComputeJob<String> {
@@ -167,6 +203,20 @@ class ItComputeTestBaseEmbedded extends ItComputeBaseTest {
         @Override
         public String execute(JobExecutionContext context, Object... args) {
             return "";
+        }
+    }
+
+    private static class LongJob implements ComputeJob<String> {
+        /** {@inheritDoc} */
+        @Override
+        public String execute(JobExecutionContext context, Object... args) {
+            try {
+                Thread.sleep(1_000_000);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+
+            return null;
         }
     }
 }

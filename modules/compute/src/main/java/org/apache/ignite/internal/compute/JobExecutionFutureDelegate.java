@@ -15,50 +15,38 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.compute.executor;
+package org.apache.ignite.internal.compute;
+
+import static org.apache.ignite.internal.lang.IgniteExceptionMapperUtil.convertToPublicFuture;
 
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobStatus;
-import org.apache.ignite.internal.compute.queue.QueueExecution;
-import org.jetbrains.annotations.Nullable;
 
 /**
- * Job execution object implementation.
+ * Delegates {@link JobExecution} to the future of {@link JobExecution} wrapping exceptions to public.
  *
- * @param <R> Job result type.
+ * @param <R> Result type.
  */
-public class JobExecutionImpl<R> implements JobExecution<R> {
-    private final QueueExecution<R> execution;
+class JobExecutionFutureDelegate<R> implements JobExecution<R> {
+    private final CompletableFuture<JobExecution<R>> delegate;
 
-    private final AtomicBoolean isInterrupted;
-
-    /**
-     * Constructor.
-     *
-     * @param execution Internal execution state.
-     * @param isInterrupted Flag which is passed to the execution context so that the job can check if for cancellation request.
-     */
-    JobExecutionImpl(QueueExecution<R> execution, AtomicBoolean isInterrupted) {
-        this.execution = execution;
-        this.isInterrupted = isInterrupted;
+    JobExecutionFutureDelegate(CompletableFuture<JobExecution<R>> delegate) {
+        this.delegate = delegate;
     }
 
     @Override
     public CompletableFuture<R> resultAsync() {
-        return execution.resultAsync();
+        return convertToPublicFuture(delegate.thenCompose(JobExecution::resultAsync));
     }
 
     @Override
-    @Nullable
-    public JobStatus status() {
-        return execution.status();
+    public CompletableFuture<JobStatus> status() {
+        return convertToPublicFuture(delegate.thenCompose(JobExecution::status));
     }
 
     @Override
-    public void cancel() {
-        isInterrupted.set(true);
-        execution.cancel();
+    public CompletableFuture<Void> cancel() {
+        return convertToPublicFuture(delegate.thenCompose(JobExecution::cancel));
     }
 }

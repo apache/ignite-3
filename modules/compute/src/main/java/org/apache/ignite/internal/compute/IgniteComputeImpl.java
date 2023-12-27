@@ -30,7 +30,7 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.ThreadLocalRandom;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.IgniteCompute;
-import org.apache.ignite.internal.lang.IgniteExceptionMapperUtil;
+import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.TableViewInternal;
@@ -66,7 +66,7 @@ public class IgniteComputeImpl implements IgniteCompute {
 
     /** {@inheritDoc} */
     @Override
-    public <R> CompletableFuture<R> executeAsync(Set<ClusterNode> nodes, List<DeploymentUnit> units, String jobClassName, Object... args) {
+    public <R> JobExecution<R> executeAsync(Set<ClusterNode> nodes, List<DeploymentUnit> units, String jobClassName, Object... args) {
         Objects.requireNonNull(nodes);
         Objects.requireNonNull(units);
         Objects.requireNonNull(jobClassName);
@@ -75,7 +75,7 @@ public class IgniteComputeImpl implements IgniteCompute {
             throw new IllegalArgumentException("nodes must not be empty.");
         }
 
-        return IgniteExceptionMapperUtil.convertToPublicFuture(executeOnOneNode(randomNode(nodes), units, jobClassName, args));
+        return new JobExecutionDelegate<>(executeOnOneNode(randomNode(nodes), units, jobClassName, args));
     }
 
     /** {@inheritDoc} */
@@ -87,7 +87,7 @@ public class IgniteComputeImpl implements IgniteCompute {
             Object... args
     ) {
         try {
-            return this.<R>executeAsync(nodes, units, jobClassName, args).join();
+            return this.<R>executeAsync(nodes, units, jobClassName, args).resultAsync().join();
         } catch (CompletionException e) {
             throw ExceptionUtils.sneakyThrow(ExceptionUtils.copyExceptionWithCause(e));
         }
@@ -104,7 +104,7 @@ public class IgniteComputeImpl implements IgniteCompute {
         return iterator.next();
     }
 
-    private <R> CompletableFuture<R> executeOnOneNode(
+    private <R> JobExecution<R> executeOnOneNode(
             ClusterNode targetNode,
             List<DeploymentUnit> units,
             String jobClassName,
@@ -123,7 +123,7 @@ public class IgniteComputeImpl implements IgniteCompute {
 
     /** {@inheritDoc} */
     @Override
-    public <R> CompletableFuture<R> executeColocatedAsync(
+    public <R> JobExecution<R> executeColocatedAsync(
             String tableName,
             Tuple key,
             List<DeploymentUnit> units,
@@ -135,14 +135,14 @@ public class IgniteComputeImpl implements IgniteCompute {
         Objects.requireNonNull(units);
         Objects.requireNonNull(jobClassName);
 
-        return IgniteExceptionMapperUtil.convertToPublicFuture(requiredTable(tableName)
+        return new JobExecutionFutureDelegate<>(requiredTable(tableName)
                 .thenApply(table -> leaderOfTablePartitionByTupleKey(table, key))
-                .thenCompose(primaryNode -> executeOnOneNode(primaryNode, units, jobClassName, args)));
+                .thenApply(primaryNode -> executeOnOneNode(primaryNode, units, jobClassName, args)));
     }
 
     /** {@inheritDoc} */
     @Override
-    public <K, R> CompletableFuture<R> executeColocatedAsync(
+    public <K, R> JobExecution<R> executeColocatedAsync(
             String tableName,
             K key,
             Mapper<K> keyMapper,
@@ -156,9 +156,9 @@ public class IgniteComputeImpl implements IgniteCompute {
         Objects.requireNonNull(units);
         Objects.requireNonNull(jobClassName);
 
-        return IgniteExceptionMapperUtil.convertToPublicFuture(requiredTable(tableName)
+        return new JobExecutionFutureDelegate<>(requiredTable(tableName)
                 .thenApply(table -> leaderOfTablePartitionByMappedKey(table, key, keyMapper))
-                .thenCompose(primaryNode -> executeOnOneNode(primaryNode, units, jobClassName, args)));
+                .thenApply(primaryNode -> executeOnOneNode(primaryNode, units, jobClassName, args)));
     }
 
     /** {@inheritDoc} */
@@ -171,7 +171,7 @@ public class IgniteComputeImpl implements IgniteCompute {
             Object... args
     ) {
         try {
-            return this.<R>executeColocatedAsync(tableName, key, units, jobClassName, args).join();
+            return this.<R>executeColocatedAsync(tableName, key, units, jobClassName, args).resultAsync().join();
         } catch (CompletionException e) {
             throw ExceptionUtils.sneakyThrow(ExceptionUtils.copyExceptionWithCause(e));
         }
@@ -188,7 +188,7 @@ public class IgniteComputeImpl implements IgniteCompute {
             Object... args
     ) {
         try {
-            return this.<K, R>executeColocatedAsync(tableName, key, keyMapper, units, jobClassName, args).join();
+            return this.<K, R>executeColocatedAsync(tableName, key, keyMapper, units, jobClassName, args).resultAsync().join();
         } catch (CompletionException e) {
             throw ExceptionUtils.sneakyThrow(ExceptionUtils.copyExceptionWithCause(e));
         }
@@ -225,7 +225,7 @@ public class IgniteComputeImpl implements IgniteCompute {
 
     /** {@inheritDoc} */
     @Override
-    public <R> Map<ClusterNode, CompletableFuture<R>> broadcastAsync(
+    public <R> Map<ClusterNode, JobExecution<R>> broadcastAsync(
             Set<ClusterNode> nodes,
             List<DeploymentUnit> units,
             String jobClassName,
@@ -237,6 +237,6 @@ public class IgniteComputeImpl implements IgniteCompute {
 
         return nodes.stream()
                 .collect(toUnmodifiableMap(identity(),
-                        node -> IgniteExceptionMapperUtil.convertToPublicFuture(executeOnOneNode(node, units, jobClassName, args))));
+                        node -> new JobExecutionDelegate<>(executeOnOneNode(node, units, jobClassName, args))));
     }
 }

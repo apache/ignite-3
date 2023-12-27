@@ -15,30 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.compute;
+package org.apache.ignite.internal.compute.message;
 
-import java.util.List;
-import org.apache.ignite.compute.DeploymentUnit;
-import org.apache.ignite.compute.JobExecution;
+import java.util.UUID;
+import org.apache.ignite.internal.compute.ComputeMessageTypes;
+import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.network.annotations.Transferable;
 
 /**
- * Compute job starter interface.
+ * Remote job cancel request.
  */
-public interface JobStarter {
+@Transferable(ComputeMessageTypes.JOB_CANCEL_REQUEST)
+public interface JobCancelRequest extends NetworkMessage {
     /**
-     * Start compute job.
+     * Returns job id.
      *
-     * @param options Compute job execution options.
-     * @param units Deployment units. Can be empty.
-     * @param jobClassName Name of the job class to execute.
-     * @param args Arguments of the job.
-     * @param <R> Job result type.
-     * @return CompletableFuture Job result.
+     * @return Job id.
      */
-    <R> JobExecution<R> start(
-            ExecutionOptions options,
-            List<DeploymentUnit> units,
-            String jobClassName,
-            Object... args
-    );
+    UUID jobId();
 }

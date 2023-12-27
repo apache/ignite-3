@@ -17,28 +17,36 @@
 
 package org.apache.ignite.internal.compute;
 
-import java.util.List;
-import org.apache.ignite.compute.DeploymentUnit;
+import static org.apache.ignite.internal.lang.IgniteExceptionMapperUtil.convertToPublicFuture;
+
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.compute.JobExecution;
+import org.apache.ignite.compute.JobStatus;
 
 /**
- * Compute job starter interface.
+ * Delegates {@link JobExecution} to the {@link JobExecution} wrapping exceptions to public.
+ *
+ * @param <R> Result type.
  */
-public interface JobStarter {
-    /**
-     * Start compute job.
-     *
-     * @param options Compute job execution options.
-     * @param units Deployment units. Can be empty.
-     * @param jobClassName Name of the job class to execute.
-     * @param args Arguments of the job.
-     * @param <R> Job result type.
-     * @return CompletableFuture Job result.
-     */
-    <R> JobExecution<R> start(
-            ExecutionOptions options,
-            List<DeploymentUnit> units,
-            String jobClassName,
-            Object... args
-    );
+class JobExecutionDelegate<R> implements JobExecution<R> {
+    private final JobExecution<R> delegate;
+
+    JobExecutionDelegate(JobExecution<R> delegate) {
+        this.delegate = delegate;
+    }
+
+    @Override
+    public CompletableFuture<R> resultAsync() {
+        return convertToPublicFuture(delegate.resultAsync());
+    }
+
+    @Override
+    public CompletableFuture<JobStatus> status() {
+        return convertToPublicFuture(delegate.status());
+    }
+
+    @Override
+    public CompletableFuture<Void> cancel() {
+        return convertToPublicFuture(delegate.cancel());
+    }
 }
