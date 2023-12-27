@@ -96,6 +96,7 @@ import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
+import org.apache.ignite.internal.lang.IgniteExceptionMapperUtil;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -172,12 +173,14 @@ import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbTableSt
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.Cursor;
+import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.utils.RebalanceUtil;
 import org.apache.ignite.internal.vault.VaultManager;
+import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.util.IgniteNameUtils;
 import org.apache.ignite.network.ClusterNode;
@@ -185,6 +188,7 @@ import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.TopologyService;
 import org.apache.ignite.raft.jraft.storage.impl.VolatileRaftMetaStorage;
 import org.apache.ignite.table.Table;
+import org.apache.ignite.table.TableException;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -1329,12 +1333,16 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
     @Override
     public List<Table> tables() {
-        return join(tablesAsync());
+        try {
+            return tablesAsync().join();
+        } catch (CompletionException e) {
+            throw ExceptionUtils.sneakyThrow(ExceptionUtils.copyExceptionWithCause(e));
+        }
     }
 
     @Override
     public CompletableFuture<List<Table>> tablesAsync() {
-        return inBusyLockAsync(busyLock, this::tablesAsyncInternalBusy);
+        return IgniteExceptionMapperUtil.convertToPublicFuture(inBusyLockAsync(busyLock, this::tablesAsyncInternalBusy));
     }
 
     private CompletableFuture<List<Table>> tablesAsyncInternalBusy() {
@@ -1403,7 +1411,11 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
     @Override
     public Table table(String name) {
-        return join(tableAsync(name));
+        try {
+            return tableAsync(name).join();
+        } catch (CompletionException e) {
+            throw ExceptionUtils.sneakyThrow(ExceptionUtils.copyExceptionWithCause(e));
+        }
     }
 
     @Override
@@ -1413,8 +1425,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
     @Override
     public CompletableFuture<Table> tableAsync(String name) {
-        return tableAsyncInternal(IgniteNameUtils.parseSimpleName(name))
-                .thenApply(Function.identity());
+        return IgniteExceptionMapperUtil.convertToPublicFuture(tableAsyncInternal(IgniteNameUtils.parseSimpleName(name))
+                .thenApply(Function.identity()));
     }
 
     /**
@@ -1426,7 +1438,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      */
     public CompletableFuture<TableViewInternal> tableAsync(long causalityToken, int id) {
         if (!busyLock.enterBusy()) {
-            throw new IgniteException(new NodeStoppingException());
+            throw new TableException(Common.NODE_STOPPING_ERR, new NodeStoppingException());
         }
         try {
             return tablesById(causalityToken).thenApply(tablesById -> tablesById.get(id));
@@ -1462,7 +1474,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      */
     public CompletableFuture<PartitionSet> localPartitionSetAsync(long causalityToken, int tableId) {
         if (!busyLock.enterBusy()) {
-            throw new IgniteException(new NodeStoppingException());
+            throw new TableException(Common.NODE_STOPPING_ERR, new NodeStoppingException());
         }
 
         try {
@@ -1576,7 +1588,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             return (RuntimeException) th;
         }
 
-        return new IgniteException(th);
+        return new IgniteException(Common.INTERNAL_ERR, th);
     }
 
     /**
