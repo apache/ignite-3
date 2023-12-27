@@ -377,8 +377,8 @@ public class TableManagerTest extends IgniteAbstractTest {
         assertThat(tableManager.tablesAsync(), willThrow(IgniteException.class));
         assertThat(tableManager.tableAsync(DYNAMIC_TABLE_FOR_DROP_NAME), willThrow(IgniteException.class));
 
-        assertThat(tableManager.tablesAsync(), willThrowWithCauseOrSuppressed(IgniteException.class));
-        assertThat(tableManager.tableAsync(DYNAMIC_TABLE_FOR_DROP_NAME), willThrowWithCauseOrSuppressed(IgniteException.class));
+        assertThat(tableManager.tablesAsync(), willThrowWithCauseOrSuppressed(NodeStoppingException.class));
+        assertThat(tableManager.tableAsync(DYNAMIC_TABLE_FOR_DROP_NAME), willThrowWithCauseOrSuppressed(NodeStoppingException.class));
     }
 
     /**
