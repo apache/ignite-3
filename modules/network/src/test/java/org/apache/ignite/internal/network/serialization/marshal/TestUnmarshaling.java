@@ -26,9 +26,9 @@ import org.apache.ignite.internal.network.serialization.ClassDescriptorRegistry;
 import org.apache.ignite.internal.network.serialization.DescriptorRegistry;
 
 /**
- * Test utilities for unmarshalling.
+ * Unmarshalling we do it tests.
  */
-class TestUnmarshalUtils {
+class TestUnmarshaling {
     /**
      * Unmarshals using a fresh registry and only injecting the descriptors that were reported to be used when marshalling.
      *

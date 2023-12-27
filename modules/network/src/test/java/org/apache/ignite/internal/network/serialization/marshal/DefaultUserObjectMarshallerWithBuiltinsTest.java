@@ -81,7 +81,7 @@ class DefaultUserObjectMarshallerWithBuiltinsTest {
     }
 
     private <T> T unmarshalNonNull(MarshalledObject marshalled) throws UnmarshalException {
-        return TestUnmarshalUtils.unmarshalNonNull(marshalled, marshaller, descriptorRegistry);
+        return TestUnmarshaling.unmarshalNonNull(marshalled, marshaller, descriptorRegistry);
     }
 
     @Test
