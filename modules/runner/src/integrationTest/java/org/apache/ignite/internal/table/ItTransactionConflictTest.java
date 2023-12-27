@@ -163,7 +163,7 @@ public class ItTransactionConflictTest extends ClusterPerTestIntegrationTest {
     }
 
     @Test
-    public void testAbandonedTxIsReverted() throws Exception {
+    public void testAbandonedTxIsAborted() throws Exception {
         TableImpl tbl = (TableImpl) node(0).tables().table(TABLE_NAME);
 
         var tblReplicationGrp = new TablePartitionId(tbl.tableId(), 0);
@@ -264,6 +264,135 @@ public class ItTransactionConflictTest extends ClusterPerTestIntegrationTest {
         Transaction recoveryTxReadOnly = roCoordNode.transactions().begin(new TransactionOptions().readOnly(true));
 
         runReadOnlyTransaction(roCoordNode, recoveryTxReadOnly);
+
+        assertEquals(1, msgCount.get());
+
+        assertTrue(waitForCondition(() -> txStoredState(commitPartNode, orphanTxId) == TxState.ABORTED, 10_000));
+    }
+
+    /**
+     * Coordinator is alive, no recovery expeted.
+     */
+    @Test
+    public void testWriteIntentNoRecovery() throws Exception {
+        TableImpl tbl = (TableImpl) node(0).tables().table(TABLE_NAME);
+
+        var tblReplicationGrp = new TablePartitionId(tbl.tableId(), 0);
+
+        CompletableFuture<ReplicaMeta> primaryReplicaFut = node(0).placementDriver().awaitPrimaryReplica(
+                tblReplicationGrp,
+                node(0).clock().now(),
+                10,
+                SECONDS
+        );
+
+        assertThat(primaryReplicaFut, willCompleteSuccessfully());
+
+        String leaseholder = primaryReplicaFut.join().getLeaseholder();
+
+        IgniteImpl commitPartNode = IntStream.range(0, initialNodes()).mapToObj(this::node).filter(n -> leaseholder.equals(n.name()))
+                .findFirst().get();
+
+        log.info("Transaction commit partition is determined [node={}].", commitPartNode.name());
+
+        IgniteImpl txCrdNode = IntStream.range(1, initialNodes()).mapToObj(this::node).filter(n -> !leaseholder.equals(n.name()))
+                .findFirst().get();
+
+        log.info("Transaction coordinator is chosen [node={}].", txCrdNode.name());
+
+        Transaction rwTransaction = createRwTransaction(txCrdNode);
+
+        AtomicInteger msgCount = new AtomicInteger();
+
+        IgniteImpl roCoordNode = node(0);
+
+        log.info("RO Transaction coordinator is chosen [node={}].", roCoordNode.name());
+
+        commitPartNode.dropMessages((nodeName, msg) -> {
+            if (msg instanceof TxRecoveryMessage) {
+                msgCount.incrementAndGet();
+            }
+
+            return false;
+        });
+
+        Transaction recoveryTxReadOnly = roCoordNode.transactions().begin(new TransactionOptions().readOnly(true));
+
+        runReadOnlyTransaction(roCoordNode, recoveryTxReadOnly);
+
+        assertEquals(0, msgCount.get());
+
+        rwTransaction.commit();
+
+        UUID rwId = ((InternalTransaction) rwTransaction).id();
+
+        assertTrue(waitForCondition(() -> txStoredState(commitPartNode, rwId) == TxState.COMMITTED, 10_000));
+    }
+
+    @Test
+    public void testWriteIntentRecoveryAndLockConflict() throws Exception {
+        TableImpl tbl = (TableImpl) node(0).tables().table(TABLE_NAME);
+
+        var tblReplicationGrp = new TablePartitionId(tbl.tableId(), 0);
+
+        CompletableFuture<ReplicaMeta> primaryReplicaFut = node(0).placementDriver().awaitPrimaryReplica(
+                tblReplicationGrp,
+                node(0).clock().now(),
+                10,
+                SECONDS
+        );
+
+        assertThat(primaryReplicaFut, willCompleteSuccessfully());
+
+        String leaseholder = primaryReplicaFut.join().getLeaseholder();
+
+        IgniteImpl commitPartNode = IntStream.range(0, initialNodes()).mapToObj(this::node).filter(n -> leaseholder.equals(n.name()))
+                .findFirst().get();
+
+        log.info("Transaction commit partition is determined [node={}].", commitPartNode.name());
+
+        IgniteImpl txCrdNode = IntStream.range(1, initialNodes()).mapToObj(this::node).filter(n -> !leaseholder.equals(n.name()))
+                .findFirst().get();
+
+        log.info("Transaction coordinator is chosen [node={}].", txCrdNode.name());
+
+        UUID orphanTxId = startTransactionAndStopNode(txCrdNode);
+
+        AtomicInteger msgCount = new AtomicInteger();
+
+        IgniteImpl roCoordNode = node(0);
+
+        log.info("RO Transaction coordinator is chosen [node={}].", roCoordNode.name());
+
+        CompletableFuture<UUID> txMsgCaptureFut = new CompletableFuture<>();
+
+        commitPartNode.dropMessages((nodeName, msg) -> {
+            if (msg instanceof TxStateCommitPartitionRequest) {
+                msgCount.incrementAndGet();
+
+                assertEquals(TxState.ABANDONED, txVolatileState(commitPartNode, orphanTxId));
+
+                txMsgCaptureFut.complete(((TxStateCommitPartitionRequest) msg).txId());
+            }
+
+            return false;
+        });
+
+        Transaction recoveryTxReadOnly = roCoordNode.transactions().begin(new TransactionOptions().readOnly(true));
+
+        RecordView view = roCoordNode.tables().table(TABLE_NAME).recordView();
+
+        try {
+            view.getAsync(recoveryTxReadOnly, Tuple.create().set("key", 42));
+        } catch (Exception e) {
+            assertEquals(Transactions.ACQUIRE_LOCK_ERR, extractCodeFrom(e));
+
+            log.info("Expected lock conflict.", e);
+        }
+
+        assertThat(txMsgCaptureFut, willCompleteSuccessfully());
+
+        runConflictingTransaction(commitPartNode, commitPartNode.transactions().begin());
 
         assertEquals(1, msgCount.get());
 
