@@ -23,29 +23,14 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import jakarta.inject.Inject;
 import org.apache.ignite.internal.NodeConfig;
 import org.apache.ignite.internal.cli.call.connect.ConnectCall;
-import org.apache.ignite.internal.cli.call.connect.ConnectCallInput;
 import org.apache.ignite.internal.cli.commands.CliCommandTestNotInitializedIntegrationBase;
 import org.apache.ignite.internal.cli.config.CliConfigKeys;
-import org.apache.ignite.internal.cli.core.flow.builder.Flows;
 import org.junit.jupiter.api.Test;
 
 /** Tests for REST SSL. */
 public class ItSslCustomCipherTest extends CliCommandTestNotInitializedIntegrationBase {
     private static final String CIPHER1 = "TLS_AES_256_GCM_SHA384";
     private static final String CIPHER2 = "TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384";
-
-    @Inject
-    ConnectCall connectCall;
-
-    /** Mimics non-REPL "connect" command without starting REPL mode. Overriding getCommandClass and returning TopLevelCliReplCommand
-     * wouldn't help because it will start to ask questions.
-     */
-    private void connect(String url) {
-        Flows.from(ConnectCallInput.builder().url(url).build())
-                .then(Flows.fromCall(connectCall))
-                .print()
-                .start();
-    }
 
     @Override
     protected String nodeBootstrapConfigTemplate() {

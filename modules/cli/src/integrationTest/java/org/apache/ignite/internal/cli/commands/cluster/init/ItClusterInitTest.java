@@ -35,7 +35,7 @@ public class ItClusterInitTest extends CliCommandTestNotInitializedIntegrationBa
     void initClusterWithBasicAuthentication() {
 
         // when
-        execute("connect", "http://localhost:10301");
+        connect("http://localhost:10301");
 
         resetOutput();
 
