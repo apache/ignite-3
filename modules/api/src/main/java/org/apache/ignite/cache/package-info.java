@@ -15,25 +15,8 @@
  * limitations under the License.
  */
 
-apply from: "$rootDir/buildscripts/java-core.gradle"
-apply from: "$rootDir/buildscripts/publishing.gradle"
-apply from: "$rootDir/buildscripts/java-junit5.gradle"
-apply from: "$rootDir/buildscripts/java-test-fixtures.gradle"
+/**
+ * Cache access API.
+ */
 
-
-dependencies {
-    api libs.jcache
-
-    implementation libs.fastutil.core
-    implementation libs.jetbrains.annotations
-
-    testImplementation libs.hamcrest.core
-    testImplementation libs.hamcrest.optional
-    testImplementation libs.archunit.core
-    testImplementation libs.archunit.junit5
-
-    testFixturesImplementation libs.hamcrest.core
-    testFixturesImplementation libs.jetbrains.annotations
-}
-
-description = 'ignite-api'
+package org.apache.ignite.cache;

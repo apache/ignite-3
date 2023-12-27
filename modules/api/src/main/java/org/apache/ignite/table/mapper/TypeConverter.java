@@ -18,7 +18,7 @@
 package org.apache.ignite.table.mapper;
 
 /**
- * Type converter interface provides methods for additional data transformation of the field type to a type 
+ * Type converter interface provides methods for additional data transformation of the field type to a type
  * compatible with the column type, and vice versa.
  *
  * <p>The converter can be used to convert objects (or their fields) whose type is incompatible with the schema.
@@ -35,7 +35,7 @@ public interface TypeConverter<ObjectT, ColumnT> {
      * @return Object of column type.
      * @throws Exception If transformation failed.
      */
-    ColumnT toColumnType(ObjectT obj) throws Exception;
+    ColumnT toColumnType(ObjectT obj) throws Exception; // TODO specify excpection
 
     /**
      * Transforms to an object of the target type; called after the data is read from a column.

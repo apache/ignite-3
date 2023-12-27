@@ -86,6 +86,7 @@ import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.BinaryRowConverter;
+import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.ColumnsExtractor;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
@@ -127,6 +128,7 @@ import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.internal.tx.storage.state.test.TestTxStateStorage;
+import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
@@ -610,7 +612,7 @@ public class ItTxTestCluster {
             }
         }
 
-        CompletableFuture.allOf(partitionReadyFutures.toArray(new CompletableFuture[0])).join();
+        allOf(partitionReadyFutures.toArray(new CompletableFuture[0])).join();
 
         raftClients.computeIfAbsent(tableName, t -> new ArrayList<>()).addAll(clients.values());
 
@@ -618,6 +620,234 @@ public class ItTxTestCluster {
                 new InternalTableImpl(
                         tableName,
                         tableId,
+                        clients,
+                        1,
+                        nodeResolver,
+                        clientTxManager,
+                        mock(MvTableStorage.class),
+                        mock(TxStateTableStorage.class),
+                        startClient ? clientReplicaSvc : replicaServices.get(localNodeName),
+                        startClient ? clientClock : clocks.get(localNodeName),
+                        timestampTracker,
+                        placementDriver
+                ),
+                new DummySchemaManagerImpl(schemaDescriptor),
+                clientTxManager.lockManager(),
+                new ConstantSchemaVersions(SCHEMA_VERSION)
+        );
+    }
+
+    /**
+     * Starts a cache.
+     *
+     * @param cacheName Cache name.
+     * @param cacheId Cache id.
+     * @return Groups map.
+     */
+    public TableViewInternal startCache(String cacheName, int cacheId) throws Exception {
+        SchemaDescriptor schemaDescriptor = new SchemaDescriptor(
+                1,
+                new Column[]{new Column("key".toUpperCase(), NativeTypes.BYTES, false)},
+                new Column[]{
+                        new Column("ttl".toUpperCase(), NativeTypes.INT64, false),
+                        new Column("value".toUpperCase(), NativeTypes.BYTES, false)
+                }
+        );
+
+        CatalogService catalogService = mock(CatalogService.class);
+
+        CatalogTableDescriptor tableDescriptor = mock(CatalogTableDescriptor.class);
+        when(tableDescriptor.tableVersion()).thenReturn(SCHEMA_VERSION);
+
+        lenient().when(catalogService.table(anyInt(), anyLong())).thenReturn(tableDescriptor);
+
+        List<Set<Assignment>> calculatedAssignments = AffinityUtils.calculateAssignments(
+                cluster.stream().map(node -> node.topologyService().localMember().name()).collect(toList()),
+                1,
+                replicas
+        );
+
+        List<Set<String>> assignments = calculatedAssignments.stream()
+                .map(a -> a.stream().map(Assignment::consistentId).collect(toSet()))
+                .collect(toList());
+
+        List<TablePartitionId> grpIds = IntStream.range(0, assignments.size())
+                .mapToObj(i -> new TablePartitionId(cacheId, i))
+                .collect(toList());
+
+        Int2ObjectOpenHashMap<RaftGroupService> clients = new Int2ObjectOpenHashMap<>();
+
+        List<CompletableFuture<Void>> partitionReadyFutures = new ArrayList<>();
+
+        int globalIndexId = 1;
+
+        ThreadLocalPartitionCommandsMarshaller commandsMarshaller =
+                new ThreadLocalPartitionCommandsMarshaller(cluster.get(0).serializationRegistry());
+
+        for (int p = 0; p < assignments.size(); p++) {
+            Set<String> partAssignments = assignments.get(p);
+
+            TablePartitionId grpId = grpIds.get(p);
+
+            for (String assignment : partAssignments) {
+                int partId = p;
+
+                var mvPartStorage = new TestMvPartitionStorage(partId);
+                var txStateStorage = txStateStorages.get(assignment);
+                var transactionStateResolver = new TransactionStateResolver(
+                        replicaServices.get(assignment),
+                        txManagers.get(assignment),
+                        clocks.get(assignment),
+                        nodeResolver,
+                        clusterServices.get(assignment).messagingService(),
+                        placementDriver
+                );
+                transactionStateResolver.start();
+
+                int indexId = globalIndexId++;
+
+                ColumnsExtractor row2Tuple = BinaryRowConverter.keyExtractor(schemaDescriptor);
+
+                StorageHashIndexDescriptor pkIndexDescriptor = mock(StorageHashIndexDescriptor.class);
+
+                when(pkIndexDescriptor.columns()).then(invocation -> Collections.nCopies(
+                        schemaDescriptor.keyColumns().columns().length,
+                        mock(StorageHashIndexColumnDescriptor.class)
+                ));
+
+                Lazy<TableSchemaAwareIndexStorage> pkStorage = new Lazy<>(() -> new TableSchemaAwareIndexStorage(
+                        indexId,
+                        new TestHashIndexStorage(partId, pkIndexDescriptor),
+                        row2Tuple
+                ));
+
+                IndexLocker pkLocker = new HashIndexLocker(indexId, true, txManagers.get(assignment).lockManager(), row2Tuple);
+
+                PeersAndLearners configuration = PeersAndLearners.fromConsistentIds(partAssignments);
+
+                PendingComparableValuesTracker<HybridTimestamp, Void> safeTime =
+                        new PendingComparableValuesTracker<>(clocks.get(assignment).now());
+                PendingComparableValuesTracker<Long, Void> storageIndexTracker = new PendingComparableValuesTracker<>(0L);
+
+                PartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(cacheId, partId, mvPartStorage);
+
+                IndexUpdateHandler indexUpdateHandler = new IndexUpdateHandler(
+                        DummyInternalTableImpl.createTableIndexStoragesSupplier(Map.of(pkStorage.get().id(), pkStorage.get()))
+                );
+
+                StorageUpdateHandler storageUpdateHandler = new StorageUpdateHandler(
+                        partId,
+                        partitionDataStorage,
+                        indexUpdateHandler
+                );
+
+                TopologyAwareRaftGroupServiceFactory topologyAwareRaftGroupServiceFactory = new TopologyAwareRaftGroupServiceFactory(
+                        clusterServices.get(assignment),
+                        logicalTopologyService(clusterServices.get(assignment)),
+                        Loza.FACTORY,
+                        new RaftGroupEventsClientListener()
+                );
+
+                PartitionListener partitionListener = new PartitionListener(
+                        txManagers.get(assignment),
+                        partitionDataStorage,
+                        storageUpdateHandler,
+                        txStateStorage,
+                        safeTime,
+                        storageIndexTracker
+                );
+
+                CompletableFuture<Void> partitionReadyFuture = raftServers.get(assignment).startRaftGroupNode(
+                        new RaftNodeId(grpId, configuration.peer(assignment)),
+                        configuration,
+                        partitionListener,
+                        RaftGroupEventsListener.noopLsnr,
+                        topologyAwareRaftGroupServiceFactory
+                ).thenAccept(
+                        raftSvc -> {
+                            try {
+                                DummySchemaManagerImpl schemaManager = new DummySchemaManagerImpl(schemaDescriptor);
+
+                                PartitionReplicaListener listener = newReplicaListener(
+                                        mvPartStorage,
+                                        raftSvc,
+                                        txManagers.get(assignment),
+                                        Runnable::run,
+                                        partId,
+                                        cacheId,
+                                        () -> Map.of(pkLocker.id(), pkLocker),
+                                        pkStorage,
+                                        Map::of,
+                                        clocks.get(assignment),
+                                        safeTime,
+                                        txStateStorage,
+                                        transactionStateResolver,
+                                        storageUpdateHandler,
+                                        new DummyValidationSchemasSource(schemaManager),
+                                        nodeResolver.getByConsistentId(assignment),
+                                        new AlwaysSyncedSchemaSyncService(),
+                                        catalogService,
+                                        placementDriver,
+                                        clusterServices.get(assignment).topologyService()
+                                );
+
+                                replicaManagers.get(assignment).startReplica(
+                                        new TablePartitionId(cacheId, partId),
+                                        nullCompletedFuture(),
+                                        listener,
+                                        raftSvc,
+                                        storageIndexTracker
+                                );
+                            } catch (NodeStoppingException e) {
+                                fail("Unexpected node stopping", e);
+                            }
+                        }
+                );
+
+                partitionReadyFutures.add(partitionReadyFuture);
+            }
+
+            PeersAndLearners membersConf = PeersAndLearners.fromConsistentIds(partAssignments);
+
+            if (startClient) {
+                RaftGroupService service = RaftGroupServiceImpl
+                        .start(grpId, client, FACTORY, raftConfig, membersConf, true, executor, commandsMarshaller)
+                        .get(5, TimeUnit.SECONDS);
+
+                clients.put(p, service);
+            } else {
+                // Create temporary client to find a leader address.
+                ClusterService tmpSvc = cluster.get(0);
+
+                RaftGroupService service = RaftGroupServiceImpl
+                        .start(grpId, tmpSvc, FACTORY, raftConfig, membersConf, true, executor, commandsMarshaller)
+                        .get(5, TimeUnit.SECONDS);
+
+                Peer leader = service.leader();
+
+                service.shutdown();
+
+                ClusterService leaderSrv = cluster.stream()
+                        .filter(cluster -> cluster.topologyService().localMember().name().equals(leader.consistentId()))
+                        .findAny()
+                        .orElseThrow();
+
+                RaftGroupService leaderClusterSvc = RaftGroupServiceImpl
+                        .start(grpId, leaderSrv, FACTORY, raftConfig, membersConf, true, executor, commandsMarshaller)
+                        .get(5, TimeUnit.SECONDS);
+
+                clients.put(p, leaderClusterSvc);
+            }
+        }
+
+        allOf(partitionReadyFutures.toArray(new CompletableFuture[0])).join();
+
+        raftClients.computeIfAbsent(cacheName, t -> new ArrayList<>()).addAll(clients.values());
+
+        return new TableImpl(
+                new InternalTableImpl(
+                        cacheName,
+                        cacheId,
                         clients,
                         1,
                         nodeResolver,
@@ -682,7 +912,7 @@ public class ItTxTestCluster {
         );
     }
 
-    private LogicalTopologyService logicalTopologyService(ClusterService clusterService) {
+    private static LogicalTopologyService logicalTopologyService(ClusterService clusterService) {
         return new LogicalTopologyService() {
             @Override
             public void addEventListener(LogicalTopologyEventListener listener) {

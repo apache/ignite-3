@@ -79,6 +79,7 @@ awaitility = "4.2.0"
 progressBar = "0.9.4"
 guava = "31.1-jre"
 jna = "5.13.0"
+jcache = "1.1.1"
 
 #Tools
 pmdTool = "6.55.0"
@@ -255,3 +256,5 @@ awaitility = { module = "org.awaitility:awaitility", version.ref = "awaitility" 
 progressBar = { module = "me.tongfei:progressbar", version.ref = "progressBar" }
 
 jna = { module = "net.java.dev.jna:jna", version.ref = "jna"}
+
+jcache = { module = "javax.cache:cache-api", version.ref = "jcache"}

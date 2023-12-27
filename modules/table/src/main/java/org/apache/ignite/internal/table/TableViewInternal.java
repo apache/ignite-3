@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.table;
 
+import javax.cache.integration.CacheLoader;
+import javax.cache.integration.CacheWriter;
+import org.apache.ignite.cache.Cache;
 import org.apache.ignite.internal.schema.ColumnsExtractor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
@@ -26,6 +29,9 @@ import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
+import org.apache.ignite.table.mapper.TypeConverter;
+import org.apache.ignite.tx.IgniteTransactions;
+import org.jetbrains.annotations.Nullable;
 
 /** Internal table view interface. */
 public interface TableViewInternal extends Table {
@@ -129,4 +135,21 @@ public interface TableViewInternal extends Table {
      * @param indexId An index id to unregister.
      */
     void unregisterIndex(int indexId);
+
+    /**
+     * @param transactions Transactions facade.
+     * @param loader Cache loader.
+     * @param writer Cache writer.
+     * @param keyConverter Key converter.
+     * @param valueConverter Key converter.
+     * @param <K> Key type.
+     * @param <V> Value type.
+     * @return The instance.
+     */
+    <K, V> Cache<K, V> cacheView(
+            IgniteTransactions transactions,
+            @Nullable CacheLoader<K, V> loader,
+            @Nullable CacheWriter<K, V> writer,
+            @Nullable TypeConverter<K, byte[]> keyConverter,
+            @Nullable TypeConverter<V, byte[]> valueConverter);
 }

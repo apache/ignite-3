@@ -27,6 +27,9 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
+import javax.cache.integration.CacheLoader;
+import javax.cache.integration.CacheWriter;
+import org.apache.ignite.cache.Cache;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.marshaller.MarshallerException;
 import org.apache.ignite.internal.schema.BinaryRowEx;
@@ -52,6 +55,9 @@ import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
+import org.apache.ignite.table.mapper.TypeConverter;
+import org.apache.ignite.tx.IgniteTransactions;
+import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
 /**
@@ -122,7 +128,8 @@ public class TableImpl implements TableViewInternal {
         return tbl;
     }
 
-    @Override public String name() {
+    @Override
+    public String name() {
         return tbl.name();
     }
 
@@ -297,6 +304,17 @@ public class TableImpl implements TableViewInternal {
         completeWaitIndex(indexId);
 
         // TODO: IGNITE-19150 Also need to destroy the index storages
+    }
+
+    @Override
+    public <K, V> Cache<K, V> cacheView(
+            IgniteTransactions transactions,
+            @Nullable CacheLoader<K, V> loader,
+            @Nullable CacheWriter<K, V> writer,
+            @Nullable TypeConverter<K, byte[]> keyConverter,
+            @Nullable TypeConverter<V, byte[]> valueConverter
+    ) {
+        return new CacheImpl<>(tbl, schemaVersions, schemaReg, transactions, loader, writer, keyConverter, valueConverter);
     }
 
     private void awaitIndexes() {

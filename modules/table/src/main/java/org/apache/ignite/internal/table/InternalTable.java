@@ -86,6 +86,8 @@ public interface InternalTable extends ManuallyCloseable {
      */
     CompletableFuture<BinaryRow> get(BinaryRowEx keyRow, @Nullable InternalTransaction tx);
 
+    CompletableFuture<BinaryRow> getForCache(BinaryRowEx keyRow, @Nullable InternalTransaction tx);
+
     /**
      * Asynchronously gets a row with same key columns values as given one from the table on a specific node for the proposed readTimestamp.
      *
@@ -137,6 +139,8 @@ public interface InternalTable extends ManuallyCloseable {
      * @return Future representing pending completion of the operation.
      */
     CompletableFuture<Void> upsert(BinaryRowEx row, @Nullable InternalTransaction tx);
+
+    CompletableFuture<Void> putForCache(BinaryRowEx row, @Nullable InternalTransaction tx);
 
     /**
      * Asynchronously inserts records into a table, if they do not exist, or replaces the existing ones.
@@ -222,6 +226,8 @@ public interface InternalTable extends ManuallyCloseable {
      * @return Future representing pending completion of the operation.
      */
     CompletableFuture<Boolean> delete(BinaryRowEx keyRow, @Nullable InternalTransaction tx);
+
+    CompletableFuture<Boolean> removeForCache(BinaryRowEx keyRow, InternalTransaction tx);
 
     /**
      * Asynchronously deletes given row from the table.

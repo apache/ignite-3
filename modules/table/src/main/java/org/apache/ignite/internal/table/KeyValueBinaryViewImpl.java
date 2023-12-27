@@ -446,7 +446,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
      * @return Row.
      * @throws IgniteException If failed to marshal key and/or value.
      */
-    private Row marshal(Tuple key, @Nullable Tuple val, int schemaVersion) throws IgniteException {
+    protected Row marshal(Tuple key, @Nullable Tuple val, int schemaVersion) throws IgniteException {
         try {
             return marshallerCache.marshaller(schemaVersion).marshal(key, val);
         } catch (TupleMarshallerException ex) {
@@ -461,7 +461,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
      * @param schemaVersion The version to use when unmarshalling.
      * @return Value tuple.
      */
-    private @Nullable Tuple unmarshalValue(BinaryRow row, int schemaVersion) {
+    protected @Nullable Tuple unmarshalValue(BinaryRow row, int schemaVersion) {
         if (row == null) {
             return null;
         }
@@ -476,7 +476,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
      * @param schemaVersion The version to use when unmarshalling.
      * @return Key-value pairs of tuples.
      */
-    private Map<Tuple, Tuple> unmarshalValues(Collection<BinaryRow> rows, int schemaVersion) {
+    protected Map<Tuple, Tuple> unmarshalValues(Collection<BinaryRow> rows, int schemaVersion) {
         Map<Tuple, Tuple> pairs = IgniteUtils.newHashMap(rows.size());
 
         for (Row row : rowConverter.resolveRows(rows, schemaVersion)) {
@@ -495,7 +495,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
      * @param schemaVersion Schema version to use when marshalling.
      * @return Rows.
      */
-    private List<BinaryRowEx> marshalKeys(Collection<Tuple> keys, int schemaVersion) {
+    protected List<BinaryRowEx> marshalKeys(Collection<Tuple> keys, int schemaVersion) {
         if (keys.isEmpty()) {
             return Collections.emptyList();
         }
@@ -515,7 +515,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
      * @param schemaVersion Schema version to use when marshalling.
      * @return Keys.
      */
-    private Collection<Tuple> unmarshalKeys(Collection<BinaryRow> rows, int schemaVersion) {
+    protected Collection<Tuple> unmarshalKeys(Collection<BinaryRow> rows, int schemaVersion) {
         if (rows.isEmpty()) {
             return Collections.emptyList();
         }

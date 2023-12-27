@@ -101,4 +101,6 @@ public interface InternalTransaction extends Transaction {
     default CompletableFuture<Void> finish(boolean commit, HybridTimestamp executionTimestamp) {
         return commit ? commitAsync() : rollbackAsync();
     }
+
+    CompletableFuture<Void> safeCleanup(boolean commit);
 }

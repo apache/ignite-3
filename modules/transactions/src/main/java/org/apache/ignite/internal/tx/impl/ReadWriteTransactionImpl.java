@@ -132,6 +132,17 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
     /** {@inheritDoc} */
     @Override
     protected CompletableFuture<Void> finish(boolean commit) {
+        return finishInternal(commit, false);
+    }
+
+    /**
+     * Internal method for finishing this transaction.
+     *
+     * @param commit {@code true} to commit, false to rollback.
+     * @param skipCommitPartition {@code true} to skip commit partition step (a txn will be committed externally).
+     * @return The future of transaction completion.
+     */
+    private CompletableFuture<Void> finishInternal(boolean commit, boolean skipCommitPartition) {
         if (hasTxFinalizationBegun()) {
             assert finishFuture != null : "Transaction is in final state but there is no finish future [id="
                     + id() + ", state=" + state() + "].";
@@ -145,29 +156,21 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
             if (!hasTxFinalizationBegun()) {
                 assert finishFuture == null : "Transaction is already finished [id=" + id() + ", state=" + state() + "].";
 
-                finishFuture = finishInternal(commit);
+                Map<TablePartitionId, Long> enlistedGroups = enlisted.entrySet().stream()
+                        .collect(Collectors.toMap(
+                                Entry::getKey,
+                                entry -> entry.getValue().get2()
+                        ));
+
+                finishFuture = txManager.finish(observableTsTracker, skipCommitPartition ? null : commitPart, commit, enlistedGroups, id());
             }
 
             return finishFuture;
         } finally {
             enlistPartitionLock.writeLock().unlock();
         }
-    }
 
-    /**
-     * Internal method for finishing this transaction.
-     *
-     * @param commit {@code true} to commit, false to rollback.
-     * @return The future of transaction completion.
-     */
-    private CompletableFuture<Void> finishInternal(boolean commit) {
-        Map<TablePartitionId, Long> enlistedGroups = enlisted.entrySet().stream()
-                .collect(Collectors.toMap(
-                        Entry::getKey,
-                        entry -> entry.getValue().get2()
-                ));
 
-        return txManager.finish(observableTsTracker, commitPart, commit, enlistedGroups, id());
     }
 
     /** {@inheritDoc} */
@@ -185,5 +188,10 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
     @Override
     public HybridTimestamp startTimestamp() {
         return TransactionIds.beginTimestamp(id());
+    }
+
+    @Override
+    public CompletableFuture<Void> safeCleanup(boolean commit) {
+        return finishInternal(commit, true);
     }
 }
