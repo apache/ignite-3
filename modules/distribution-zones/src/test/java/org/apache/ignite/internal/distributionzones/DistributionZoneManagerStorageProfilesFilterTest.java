@@ -34,28 +34,28 @@ import org.junit.jupiter.api.Test;
 public class DistributionZoneManagerStorageProfilesFilterTest extends BaseDistributionZoneManagerTest {
     private static final LogicalNode A = new LogicalNode(
             new ClusterNodeImpl("1", "A", new NetworkAddress("localhost", 123)),
-            Map.of("region", "US", "storage", "SSD", "dataRegionSize", "10"),
+            Map.of(),
             Map.of(),
             List.of("clock_rocks", "segmented_aipersist")
     );
 
     private static final LogicalNode B = new LogicalNode(
             new ClusterNodeImpl("2", "B", new NetworkAddress("localhost", 123)),
-            Map.of("region", "EU", "storage", "HHD", "dataRegionSize", "30"),
+            Map.of(),
             Map.of(),
             List.of("lru_rocks", "clock_rocks", "segmented_aipersist")
     );
 
     private static final LogicalNode C = new LogicalNode(
             new ClusterNodeImpl("3", "C", new NetworkAddress("localhost", 123)),
-            Map.of("region", "CN", "storage", "SSD", "dataRegionSize", "20"),
+            Map.of(),
             Map.of(),
             List.of("lru_rocks")
     );
 
     private static final LogicalNode D = new LogicalNode(
             new ClusterNodeImpl("4", "D", new NetworkAddress("localhost", 123)),
-            Map.of("region", "CN", "storage", "SSD", "dataRegionSize", "20"),
+            Map.of(),
             Map.of(),
             List.of("clock_rocks", "segmented_aipersist")
     );
@@ -67,7 +67,7 @@ public class DistributionZoneManagerStorageProfilesFilterTest extends BaseDistri
         topology.putNode(D);
 
         assertDataNodesFromManager(distributionZoneManager, metaStorageManager::appliedRevision, catalogManager::latestCatalogVersion,
-                getZoneId(ZONE_NAME), Set.of(A, D), ZONE_MODIFICATION_AWAIT_TIMEOUT);
+                getZoneId(ZONE_NAME), Set.of(A, B, D), ZONE_MODIFICATION_AWAIT_TIMEOUT);
     }
 
     @Test
@@ -77,26 +77,26 @@ public class DistributionZoneManagerStorageProfilesFilterTest extends BaseDistri
         topology.removeNodes(Set.of(A));
 
         assertDataNodesFromManager(distributionZoneManager, metaStorageManager::appliedRevision, catalogManager::latestCatalogVersion,
-                getZoneId(ZONE_NAME), Set.of(), ZONE_MODIFICATION_AWAIT_TIMEOUT);
+                getZoneId(ZONE_NAME), Set.of(B), ZONE_MODIFICATION_AWAIT_TIMEOUT);
     }
 
     @Test
     void testFilterOnScaleUpWithNewAttributesAfterRestart() throws Exception {
         preparePrerequisites();
 
-        topology.removeNodes(Set.of(B));
+        topology.removeNodes(Set.of(C));
 
-        LogicalNode newB = new LogicalNode(
-                new ClusterNodeImpl("2", "newB", new NetworkAddress("localhost", 123)),
-                Map.of("region", "US", "storage", "HHD", "dataRegionSize", "30"),
+        LogicalNode newC = new LogicalNode(
+                new ClusterNodeImpl("3", "newC", new NetworkAddress("localhost", 123)),
+                Map.of(),
                 Map.of(),
                 List.of("clock_rocks", "segmented_aipersist")
         );
 
-        topology.putNode(newB);
+        topology.putNode(newC);
 
         assertDataNodesFromManager(distributionZoneManager, metaStorageManager::appliedRevision, catalogManager::latestCatalogVersion,
-                getZoneId(ZONE_NAME), Set.of(A, newB), ZONE_MODIFICATION_AWAIT_TIMEOUT);
+                getZoneId(ZONE_NAME), Set.of(A, B, newC), ZONE_MODIFICATION_AWAIT_TIMEOUT);
     }
 
     /**
@@ -106,17 +106,15 @@ public class DistributionZoneManagerStorageProfilesFilterTest extends BaseDistri
      * @throws Exception If failed
      */
     private void preparePrerequisites() throws Exception {
-        String filter = "$[?(@.storage == 'SSD' || @.region == 'US')]";
-
         startDistributionZoneManager();
 
         topology.putNode(A);
         topology.putNode(B);
         topology.putNode(C);
 
-        createZone(ZONE_NAME, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE, filter, "clock_rocks,segmented_aipersist");
+        createZone(ZONE_NAME, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE, null, "clock_rocks,segmented_aipersist");
 
         assertDataNodesFromManager(distributionZoneManager, metaStorageManager::appliedRevision, catalogManager::latestCatalogVersion,
-                getZoneId(ZONE_NAME), Set.of(A), ZONE_MODIFICATION_AWAIT_TIMEOUT);
+                getZoneId(ZONE_NAME), Set.of(A, B), ZONE_MODIFICATION_AWAIT_TIMEOUT);
     }
 }

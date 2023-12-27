@@ -1199,7 +1199,10 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
     public void testDropZone() {
         String zoneName = ZONE_NAME + 1;
 
-        CatalogCommand cmd = CreateZoneCommand.builder().zoneName(zoneName).build();
+        CatalogCommand cmd = CreateZoneCommand.builder()
+                .zoneName(zoneName)
+                .storageProfilesParams(List.of(StorageProfileParams.builder().storageProfile(DUMMY_STORAGE_PROFILE).build()))
+                .build();
 
         assertThat(manager.execute(cmd), willCompleteSuccessfully());
 
@@ -1237,6 +1240,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
                 .zoneName(zoneName)
                 .partitions(42)
                 .replicas(15)
+                .storageProfilesParams(List.of(StorageProfileParams.builder().storageProfile(DUMMY_STORAGE_PROFILE).build()))
                 .build();
 
         assertThat(manager.execute(cmd), willCompleteSuccessfully());
@@ -1281,6 +1285,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
                 .zoneName(DEFAULT_ZONE_NAME)
                 .partitions(42)
                 .replicas(15)
+                .storageProfilesParams(List.of(StorageProfileParams.builder().storageProfile(DUMMY_STORAGE_PROFILE).build()))
                 .build();
         assertThat(manager.execute(cmd), willThrow(IgniteInternalException.class));
 
@@ -1298,6 +1303,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
                 .replicas(15)
                 .dataNodesAutoAdjust(73)
                 .filter("expression")
+                .storageProfilesParams(List.of(StorageProfileParams.builder().storageProfile(DUMMY_STORAGE_PROFILE).build()))
                 .build();
 
         CatalogCommand alterCmd = AlterZoneCommand.builder()
@@ -1339,6 +1345,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
                 .zoneName(zoneName)
                 .partitions(42)
                 .replicas(15)
+                .storageProfilesParams(List.of(StorageProfileParams.builder().storageProfile(DUMMY_STORAGE_PROFILE).build()))
                 .build();
 
         assertThat(manager.execute(cmd), willCompleteSuccessfully());
@@ -1348,6 +1355,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
                 .zoneName(zoneName)
                 .partitions(8)
                 .replicas(1)
+                .storageProfilesParams(List.of(StorageProfileParams.builder().storageProfile(DUMMY_STORAGE_PROFILE).build()))
                 .build();
 
         assertThat(manager.execute(cmd), willThrowFast(DistributionZoneExistsValidationException.class));
@@ -1370,6 +1378,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
         CatalogCommand cmd = CreateZoneCommand.builder()
                 .zoneName(zoneName)
+                .storageProfilesParams(List.of(StorageProfileParams.builder().storageProfile(DUMMY_STORAGE_PROFILE).build()))
                 .build();
 
         EventListener<CatalogEventParameters> eventListener = mock(EventListener.class);
@@ -1674,7 +1683,16 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
     @Test
     void testCreateZoneWithDefaults() {
-        assertThat(manager.execute(CreateZoneCommand.builder().zoneName(ZONE_NAME + 1).build()), willBe(nullValue()));
+        assertThat(
+                manager.execute(
+                        CreateZoneCommand.builder()
+                                .zoneName(ZONE_NAME + 1)
+                                .storageProfilesParams(
+                                        List.of(StorageProfileParams.builder().storageProfile(DUMMY_STORAGE_PROFILE).build())
+                                ).build()
+                ),
+                willBe(nullValue())
+        );
 
         CatalogZoneDescriptor zone = manager.zone(ZONE_NAME, clock.nowLong());
 
