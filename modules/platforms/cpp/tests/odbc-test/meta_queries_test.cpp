@@ -275,6 +275,33 @@ public:
         if (!SQL_SUCCEEDED(ret))
             FAIL() << get_odbc_error_message(SQL_HANDLE_STMT, m_statement);
     }
+
+    void check_parameter(SQLUSMALLINT idx, SQLSMALLINT expDataType, SQLSMALLINT expNullability) {
+        SQLSMALLINT dataType{0};
+        SQLSMALLINT nullability{0};
+
+        SQLRETURN ret = SQLDescribeParam(m_statement, idx, &dataType, NULL, NULL, &nullability);
+        ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
+
+        ASSERT_EQ(expDataType, dataType);
+        ASSERT_EQ(expNullability, nullability);
+    }
+
+    void check_parameter(SQLUSMALLINT idx, SQLSMALLINT expDataType, SQLSMALLINT expNullability, SQLULEN expParamSize,
+        SQLSMALLINT expDecDigits) {
+        SQLSMALLINT dataType{0};
+        SQLULEN paramSize{0};
+        SQLSMALLINT decDigits{0};
+        SQLSMALLINT nullability{0};
+
+        SQLRETURN ret = SQLDescribeParam(m_statement, idx, &dataType, &paramSize, &decDigits, &nullability);
+        ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
+
+        ASSERT_EQ(expDataType, dataType);
+        ASSERT_EQ(expNullability, nullability);
+        ASSERT_EQ(expParamSize, paramSize);
+        ASSERT_EQ(expDecDigits, decDigits);
+    }
 };
 
 TEST_F(meta_queries_test, test_get_type_info_all_types) {
@@ -941,4 +968,32 @@ TEST_F(meta_queries_test, primary_keys_multiple_columns) {
     ret = SQLFetch(m_statement);
 
     ASSERT_EQ(ret, SQL_NO_DATA);
+}
+
+TEST_F(meta_queries_test, sql_describe_param) {
+    odbc_connect(get_basic_connection_string());
+
+    SQLCHAR request[] =
+        "INSERT INTO TBL_ALL_COLUMNS_SQL("
+        " key,str,int8,int16,int32,int64,\"FLOAT\",\"DOUBLE\",\"UUID\",\"DATE\",\"TIME\",\"DATETIME\",\"DECIMAL\""
+        ") VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+
+    SQLRETURN ret = SQLPrepare(m_statement, request, SQL_NTS);
+
+    if (!SQL_SUCCEEDED(ret))
+        FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
+
+    check_parameter(1, SQL_BIGINT, SQL_NULLABLE);
+    check_parameter(2, SQL_VARCHAR, SQL_NULLABLE);
+    check_parameter(3, SQL_TINYINT, SQL_NULLABLE);
+    check_parameter(4, SQL_SMALLINT, SQL_NULLABLE);
+    check_parameter(5, SQL_INTEGER, SQL_NULLABLE);
+    check_parameter(6, SQL_BIGINT, SQL_NULLABLE);
+    check_parameter(7, SQL_FLOAT, SQL_NULLABLE);
+    check_parameter(8, SQL_DOUBLE, SQL_NULLABLE);
+    check_parameter(9, SQL_GUID, SQL_NULLABLE);
+    check_parameter(10, SQL_TYPE_DATE, SQL_NULLABLE);
+    check_parameter(11, SQL_TYPE_TIME, SQL_NULLABLE);
+    check_parameter(12, SQL_TYPE_TIMESTAMP, SQL_NULLABLE);
+    check_parameter(13, SQL_DECIMAL, SQL_NULLABLE, 19, 3);
 }
