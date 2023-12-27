@@ -46,8 +46,7 @@ class CleanSlateUnmarshaller {
      * @return Unmarshalled value.
      * @throws UnmarshalException If something goes wrong.
      */
-    <T> T unmarshalNonNull(MarshalledObject marshalled)
-            throws UnmarshalException {
+    <T> T unmarshalNonNull(MarshalledObject marshalled) throws UnmarshalException {
         var unmarshallingRegistry = new ClassDescriptorRegistry();
 
         for (int usedDescriptorId : marshalled.usedDescriptorIds()) {
