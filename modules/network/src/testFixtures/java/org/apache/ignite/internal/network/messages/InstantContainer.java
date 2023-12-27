@@ -15,24 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.network.serialization;
+package org.apache.ignite.internal.network.messages;
+
+import java.time.Instant;
 
 /**
- * A representation of a declared type.
+ * Container for an {@link Instant} (stored in a field).
  */
-public interface DeclaredType {
-    /**
-     * Returns type descriptor id.
-     *
-     * @return type descriptor id.
-     */
-    int typeDescriptorId();
+public class InstantContainer {
+    private final Instant instant;
 
-    /**
-     * Returns {@code true} if the contents of the type slot can only have (at runtime) instances serialized as its declared type
-     * (and not subtypes or other types coming from write replacement),
-     * so the serialization type is known upfront. This is also true for enums, even though technically their values might
-     * have subtypes; but we serialize them using their names, so we still treat the type as known upfront.
-     */
-    boolean isSerializationTypeKnownUpfront();
+    public InstantContainer(Instant instant) {
+        this.instant = instant;
+    }
+
+    /** Returns the instant. */
+    public Instant instant() {
+        return instant;
+    }
 }

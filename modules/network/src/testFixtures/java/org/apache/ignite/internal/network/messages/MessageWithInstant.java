@@ -15,24 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.network.serialization;
+package org.apache.ignite.internal.network.messages;
+
+import java.io.Serializable;
+import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.network.annotations.Marshallable;
+import org.apache.ignite.network.annotations.Transferable;
 
 /**
- * A representation of a declared type.
+ * Message for testing a case when a message contains an object which in turn has a field of type {@link java.time.Instant}
+ * (and the Instant is not null).
  */
-public interface DeclaredType {
+@Transferable(TestMessageTypes.MESSAGE_WITH_INSTANT)
+public interface MessageWithInstant extends NetworkMessage, Serializable {
     /**
-     * Returns type descriptor id.
-     *
-     * @return type descriptor id.
+     * Returns instant container.
      */
-    int typeDescriptorId();
-
-    /**
-     * Returns {@code true} if the contents of the type slot can only have (at runtime) instances serialized as its declared type
-     * (and not subtypes or other types coming from write replacement),
-     * so the serialization type is known upfront. This is also true for enums, even though technically their values might
-     * have subtypes; but we serialize them using their names, so we still treat the type as known upfront.
-     */
-    boolean isSerializationTypeKnownUpfront();
+    @Marshallable
+    InstantContainer instantContainer();
 }
