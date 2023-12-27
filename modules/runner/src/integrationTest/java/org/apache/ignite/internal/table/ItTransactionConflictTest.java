@@ -40,6 +40,7 @@ import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.message.ErrorTimestampAwareReplicaResponse;
 import org.apache.ignite.internal.replicator.message.TimestampAwareReplicaResponse;
+import org.apache.ignite.internal.table.distributed.command.MarkLocksReleasedCommand;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TransactionAlreadyFinishedException;
@@ -548,6 +549,21 @@ public class ItTransactionConflictTest extends ClusterPerTestIntegrationTest {
         assertEquals(TxState.PENDING, txVolatileState(commitPartNode, orphanTx.id()));
 
         IgniteImpl newTxCoord = node(0);
+
+        commitPartNode.dropMessages((nodeName, msg) -> {
+            if (msg instanceof MarkLocksReleasedCommand) {
+
+                UUID txId = ((MarkLocksReleasedCommand) msg).txId();
+
+                if (orphanTx.equals(txId)) {
+                    log.info("Dropping MarkLocksReleasedCommand");
+
+                    return true;
+                }
+            }
+
+            return false;
+        });
 
         runRwTransactionNoError(newTxCoord, newTxCoord.transactions().begin());
 
