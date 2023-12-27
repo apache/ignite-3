@@ -17,12 +17,11 @@
 
 package org.apache.ignite.internal.security.authentication.event;
 
+import org.apache.ignite.internal.event.EventParameters;
+
 /**
- * Represents the authentication event type.
+ * Authentication event parameters.
  */
-public enum EventType {
-    AUTHENTICATION_ENABLED,
-    AUTHENTICATION_DISABLED,
-    AUTHENTICATION_PROVIDER_REMOVED,
-    AUTHENTICATION_PROVIDER_UPDATED
+public interface AuthenticationEventParameters extends EventParameters {
+    AuthenticationEvent type();
 }
