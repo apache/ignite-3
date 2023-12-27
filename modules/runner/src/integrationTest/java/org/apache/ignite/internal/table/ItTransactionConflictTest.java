@@ -261,9 +261,9 @@ public class ItTransactionConflictTest extends ClusterPerTestIntegrationTest {
             return false;
         });
 
-        Transaction recoveryTxRO = roCoordNode.transactions().begin(new TransactionOptions().readOnly(true));
+        Transaction recoveryTxReadOnly = roCoordNode.transactions().begin(new TransactionOptions().readOnly(true));
 
-        runReadOnlyTransaction(roCoordNode, recoveryTxRO);
+        runReadOnlyTransaction(roCoordNode, recoveryTxReadOnly);
 
         assertEquals(1, msgCount.get());
 
@@ -345,7 +345,7 @@ public class ItTransactionConflictTest extends ClusterPerTestIntegrationTest {
         assertThat(finishRequest, willCompleteSuccessfully());
 
         // The conflicting transaction should see an already committed TX.
-        runRWTransactionNoError(node(0), node(0).transactions().begin());
+        runRwTransactionNoError(node(0), node(0).transactions().begin());
 
         assertTrue(waitForCondition(() -> txStoredState(commitPartNode, orphanTx.id()) == TxState.COMMITTED, 10_000));
     }
@@ -420,7 +420,7 @@ public class ItTransactionConflictTest extends ClusterPerTestIntegrationTest {
 
         IgniteImpl newTxCoord = node(0);
 
-        runRWTransactionNoError(newTxCoord, newTxCoord.transactions().begin());
+        runRwTransactionNoError(newTxCoord, newTxCoord.transactions().begin());
 
         assertTrue(waitForCondition(() -> txStoredState(commitPartNode, orphanTx.id()) == TxState.ABORTED, 10_000));
 
@@ -511,7 +511,7 @@ public class ItTransactionConflictTest extends ClusterPerTestIntegrationTest {
 
         IgniteImpl newTxCoord = node(0);
 
-        runRWTransactionNoError(newTxCoord, newTxCoord.transactions().begin());
+        runRwTransactionNoError(newTxCoord, newTxCoord.transactions().begin());
 
         assertTrue(waitForCondition(() -> txStoredState(commitPartNode, orphanTx.id()) == TxState.ABORTED, 10_000));
 
@@ -594,7 +594,7 @@ public class ItTransactionConflictTest extends ClusterPerTestIntegrationTest {
 
         log.info("Second concurrent tx [id={}]", rwTx2Id);
 
-        runRWTransactionNoError(newCoordNode, rwTx2);
+        runRwTransactionNoError(newCoordNode, rwTx2);
 
         assertThat(recoveryTxMsgCaptureFut, willCompleteSuccessfully());
 
@@ -615,7 +615,7 @@ public class ItTransactionConflictTest extends ClusterPerTestIntegrationTest {
 
         log.info("Start RW tx {}", ((InternalTransaction) rwTx3).id());
 
-        runRWTransactionNoError(newCoordNode, rwTx3);
+        runRwTransactionNoError(newCoordNode, rwTx3);
 
         rwTx3.commit();
 
@@ -666,7 +666,7 @@ public class ItTransactionConflictTest extends ClusterPerTestIntegrationTest {
         }
     }
 
-    private void runRWTransactionNoError(IgniteImpl node, Transaction rwTx) {
+    private void runRwTransactionNoError(IgniteImpl node, Transaction rwTx) {
         RecordView view = node.tables().table(TABLE_NAME).recordView();
 
         try {
