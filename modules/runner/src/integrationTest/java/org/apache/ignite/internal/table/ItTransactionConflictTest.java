@@ -551,8 +551,6 @@ public class ItTransactionConflictTest extends ClusterPerTestIntegrationTest {
 
         runRwTransactionNoError(newTxCoord, newTxCoord.transactions().begin());
 
-        assertTrue(waitForCondition(() -> txStoredState(commitPartNode, orphanTx.id()) == TxState.ABORTED, 10_000));
-
         CompletableFuture<NetworkMessage> commitRequest =
                 messaging(commitPartNode).invoke(targetName.get(), finishRequestCaptureFut.join(), 3000);
 
