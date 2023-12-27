@@ -26,6 +26,7 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.MAX_PARTITION_COUNT;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 
+import java.util.List;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
@@ -226,6 +227,25 @@ public class CreateZoneCommandValidationTest extends AbstractCommandValidationTe
         // Let's check the success cases.
         createZoneBuilder(ZONE_NAME + 0).filter("['nodeAttributes'][?(@.['region'] == 'EU')]").build();
         createZoneBuilder(ZONE_NAME + 1).filter(DEFAULT_FILTER).build();
+    }
+
+    @Test
+    void zoneStorageProfiles() {
+        assertThrows(
+                CatalogValidationException.class,
+                () -> createZoneBuilder(ZONE_NAME).storageProfilesParams(List.of()).build(),
+                "Storage profile cannot be empty"
+        );
+
+        assertThrows(
+                CatalogValidationException.class,
+                () -> createZoneBuilder(ZONE_NAME).storageProfilesParams(null).build(),
+                "Storage profile cannot be null"
+        );
+
+        // Let's check the success case.
+        createZoneBuilder(ZONE_NAME + 0).storageProfilesParams(
+                List.of(StorageProfileParams.builder().storageProfile("lru_rocks").build())).build();
     }
 
     @Test

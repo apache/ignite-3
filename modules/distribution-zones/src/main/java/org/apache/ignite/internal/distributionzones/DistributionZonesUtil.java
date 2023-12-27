@@ -21,7 +21,6 @@ import static java.util.Collections.emptyMap;
 import static java.util.stream.Collectors.toMap;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_FILTER;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DUMMY_STORAGE_PROFILE;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.and;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.exists;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
@@ -552,9 +551,7 @@ public class DistributionZonesUtil {
                 .map(CatalogStorageProfileDescriptor::storageProfile)
                 .collect(Collectors.toList());
 
-        // TODO:
-        return zoneStorageProfilesNames.contains(DUMMY_STORAGE_PROFILE)
-                || new HashSet<>(node.storageProfiles()).containsAll(zoneStorageProfilesNames);
+        return new HashSet<>(node.storageProfiles()).containsAll(zoneStorageProfilesNames);
     }
 
     /**
@@ -577,6 +574,7 @@ public class DistributionZonesUtil {
         if (nodesAttributes.isEmpty()) {
             return dataNodes.stream().map(Node::nodeName).collect(toSet());
         }
+
         return dataNodes.stream()
                 .filter(n -> filterNodeAttributes(nodesAttributes.get(n.nodeId()).userAttributes(), zoneDescriptor.filter()))
                 .filter(n -> filterStorageProfiles(nodesAttributes.get(n.nodeId()), zoneDescriptor.storageProfiles().profiles()))

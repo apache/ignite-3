@@ -47,7 +47,12 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
     private static final List<String> NUMERIC_OPTIONS = Arrays.asList("PARTITIONS", "REPLICAS", "DATA_NODES_AUTO_ADJUST",
             "DATA_NODES_AUTO_ADJUST_SCALE_UP", "DATA_NODES_AUTO_ADJUST_SCALE_DOWN");
 
-    private static final List<String> STRING_OPTIONS = Arrays.asList("AFFINITY_FUNCTION", "DATA_NODES_FILTER", "DATA_STORAGE_ENGINE");
+    private static final List<String> STRING_OPTIONS = Arrays.asList(
+            "AFFINITY_FUNCTION",
+            "DATA_NODES_FILTER",
+            "DATA_STORAGE_ENGINE",
+            "STORAGE_PROFILES"
+    );
 
     @Test
     public void testCreateZone() throws SqlParseException {
@@ -73,7 +78,9 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
                 + "data_nodes_filter='\"attr1\" && \"attr2\"', "
                 + "data_nodes_auto_adjust_scale_up=100, "
                 + "data_nodes_auto_adjust_scale_down=200, "
-                + "data_nodes_auto_adjust=300");
+                + "data_nodes_auto_adjust=300, "
+                + "storage_profiles='lru_rocks, segmented_aipersist' "
+        );
 
         assertThat(node, instanceOf(SqlDdl.class));
 
@@ -88,6 +95,7 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
         assertThat(createZone.dataNodesAutoAdjustScaleUp(), equalTo(100));
         assertThat(createZone.dataNodesAutoAdjustScaleDown(), equalTo(200));
         assertThat(createZone.dataNodesAutoAdjust(), equalTo(300));
+        assertThat(createZone.storageProfiles(), equalTo("lru_rocks, segmented_aipersist"));
 
         // Check option validation.
         node = parse("CREATE ZONE test with partitions=-1");
@@ -95,6 +103,9 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
 
         node = parse("CREATE ZONE test with replicas=-1");
         expectOptionValidationError((SqlDdl) node, "REPLICAS");
+
+        node = parse("CREATE ZONE test with storage_profiles='' ");
+        expectOptionValidationError((SqlDdl) node, "STORAGE_PROFILES");
     }
 
     @Test

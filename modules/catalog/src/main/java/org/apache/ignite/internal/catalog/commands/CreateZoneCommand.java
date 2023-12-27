@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.catalog.commands;
 
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateField;
+import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateStorageProfiles;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateZoneDataNodesAutoAdjustParametersCompatibility;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateZoneFilter;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_DATA_REGION;
@@ -67,7 +68,7 @@ public class CreateZoneCommand extends AbstractZoneCommand {
 
     private final @Nullable DataStorageParams dataStorageParams;
 
-    private final @Nullable List<StorageProfileParams> storageProfileParams;
+    private final List<StorageProfileParams> storageProfileParams;
 
     /**
      * Constructor.
@@ -92,7 +93,7 @@ public class CreateZoneCommand extends AbstractZoneCommand {
             @Nullable Integer dataNodesAutoAdjustScaleDown,
             @Nullable String filter,
             @Nullable DataStorageParams dataStorageParams,
-            @Nullable List<StorageProfileParams> storageProfileParams
+            List<StorageProfileParams> storageProfileParams
     ) throws CatalogValidationException {
         super(zoneName);
 
@@ -164,6 +165,8 @@ public class CreateZoneCommand extends AbstractZoneCommand {
         );
 
         validateZoneFilter(filter);
+
+        validateStorageProfiles(storageProfileParams);
     }
 
     /**
@@ -186,7 +189,7 @@ public class CreateZoneCommand extends AbstractZoneCommand {
 
         private @Nullable DataStorageParams dataStorageParams;
 
-        private @Nullable List<StorageProfileParams> storageProfileParams;
+        private List<StorageProfileParams> storageProfileParams;
 
         @Override
         public CreateZoneCommandBuilder zoneName(String zoneName) {

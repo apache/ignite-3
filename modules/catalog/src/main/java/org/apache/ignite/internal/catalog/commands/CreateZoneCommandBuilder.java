@@ -90,5 +90,5 @@ public interface CreateZoneCommandBuilder extends AbstractZoneCommandBuilder<Cre
      * @param params Optional storage profile params.
      * @return This instance.
      */
-    CreateZoneCommandBuilder storageProfilesParams(@Nullable List<StorageProfileParams> params);
+    CreateZoneCommandBuilder storageProfilesParams(List<StorageProfileParams> params);
 }

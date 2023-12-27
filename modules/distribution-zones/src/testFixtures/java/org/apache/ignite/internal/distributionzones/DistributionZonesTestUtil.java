@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.distributionzones;
 
 import static java.util.stream.Collectors.toSet;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DUMMY_STORAGE_PROFILE;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.parseStorageProfiles;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleDownChangeTriggerKey;
@@ -78,24 +79,7 @@ public class DistributionZonesTestUtil {
             int replicas,
             @Nullable String dataStorage
     ) {
-        createZone(catalogManager, zoneName, partitions, replicas, null, null, null, dataStorage, null);
-    }
-
-    /**
-     * Creates distribution zone in the catalog.
-     *
-     * @param catalogManager Catalog manager.
-     * @param zoneName Zone name.
-     * @param filter Filter.
-     * @param storageProfiles Storage profiled, {@code null} if not set.
-     */
-    public static void createZoneWithStorageProfiles(
-            CatalogManager catalogManager,
-            String zoneName,
-            String filter,
-            @Nullable String storageProfiles
-    ) {
-        createZone(catalogManager, zoneName, null, null, null, null, filter, null, null);
+        createZone(catalogManager, zoneName, partitions, replicas, null, null, null, dataStorage, DUMMY_STORAGE_PROFILE);
     }
 
     /**
@@ -107,7 +91,7 @@ public class DistributionZonesTestUtil {
      * @param replicas Zone number of replicas.
      */
     public static void createZone(CatalogManager catalogManager, String zoneName, int partitions, int replicas) {
-        createZone(catalogManager, zoneName, partitions, replicas, null, null, null, null, null);
+        createZone(catalogManager, zoneName, partitions, replicas, null, null, null, null, DUMMY_STORAGE_PROFILE);
     }
 
     /**
@@ -128,7 +112,17 @@ public class DistributionZonesTestUtil {
             @Nullable Integer dataNodesAutoAdjustScaleDown,
             @Nullable String filter
     ) {
-        createZone(catalogManager, zoneName, null, null, dataNodesAutoAdjustScaleUp, dataNodesAutoAdjustScaleDown, filter, null, null);
+        createZone(
+                catalogManager,
+                zoneName,
+                null,
+                null,
+                dataNodesAutoAdjustScaleUp,
+                dataNodesAutoAdjustScaleDown,
+                filter,
+                null,
+                DUMMY_STORAGE_PROFILE
+        );
     }
 
     /**
@@ -141,7 +135,7 @@ public class DistributionZonesTestUtil {
      * @param dataNodesAutoAdjustScaleDown Timeout in seconds between node left topology event itself and data nodes switch,
      *         {@code null} if not set.
      * @param filter Nodes filter, {@code null} if not set.
-     * @param storageProfiles Storage profiles, {@code null} if not set.
+     * @param storageProfiles Storage profiles.
      */
     public static void createZone(
             CatalogManager catalogManager,
@@ -149,7 +143,7 @@ public class DistributionZonesTestUtil {
             @Nullable Integer dataNodesAutoAdjustScaleUp,
             @Nullable Integer dataNodesAutoAdjustScaleDown,
             @Nullable String filter,
-            @Nullable String storageProfiles
+            String storageProfiles
     ) {
         createZone(
                 catalogManager,
@@ -173,7 +167,7 @@ public class DistributionZonesTestUtil {
             @Nullable Integer dataNodesAutoAdjustScaleDown,
             @Nullable String filter,
             @Nullable String dataStorage,
-            @Nullable String storageProfiles
+            String storageProfiles
     ) {
         CreateZoneCommandBuilder builder = CreateZoneCommand.builder().zoneName(zoneName);
 
@@ -201,9 +195,9 @@ public class DistributionZonesTestUtil {
             builder.dataStorageParams(DataStorageParams.builder().engine(dataStorage).build());
         }
 
-        if (storageProfiles != null) {
-            builder.storageProfilesParams(parseStorageProfiles(storageProfiles));
-        }
+        assertNotNull(storageProfiles);
+
+        builder.storageProfilesParams(parseStorageProfiles(storageProfiles));
 
         assertThat(catalogManager.execute(builder.build()), willCompleteSuccessfully());
     }

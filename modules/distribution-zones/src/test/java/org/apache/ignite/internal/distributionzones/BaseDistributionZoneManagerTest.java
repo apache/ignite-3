@@ -164,7 +164,7 @@ public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstract
             @Nullable Integer dataNodesAutoAdjustScaleUp,
             @Nullable Integer dataNodesAutoAdjustScaleDown,
             @Nullable String filter,
-            @Nullable String storageProfiles
+            String storageProfiles
     ) {
         DistributionZonesTestUtil.createZone(
                 catalogManager,
