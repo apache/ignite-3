@@ -108,6 +108,8 @@ dependencies {
     testFixturesImplementation libs.mockito.junit
     testFixturesImplementation libs.hamcrest.core
 
+    integrationTestAnnotationProcessor libs.jmh.annotation.processor
+
     integrationTestImplementation project(':ignite-replicator')
     integrationTestImplementation project(':ignite-raft-api')
     integrationTestImplementation project(':ignite-affinity')
@@ -143,6 +145,7 @@ dependencies {
     integrationTestImplementation libs.fastutil.core
     integrationTestImplementation libs.jetbrains.annotations
     integrationTestImplementation libs.calcite.core
+    integrationTestImplementation libs.jmh.core
 }
 
 description = 'ignite-table'
