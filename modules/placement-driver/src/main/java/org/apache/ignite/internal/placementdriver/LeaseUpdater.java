@@ -68,10 +68,10 @@ public class LeaseUpdater {
     private static final IgniteLogger LOG = Loggers.forClass(LeaseUpdater.class);
 
     /** Update attempts interval in milliseconds. */
-    private static final long UPDATE_LEASE_MS = 500L;
+    private static final long UPDATE_LEASE_MS = 2500L;
 
     /** Lease holding interval. */
-    private static final long LEASE_INTERVAL = 10 * UPDATE_LEASE_MS;
+    private static final long LEASE_INTERVAL = 2 * UPDATE_LEASE_MS;
 
     /** The lock is available when the actor is changing state. */
     private final IgniteSpinBusyLock stateChangingLock = new IgniteSpinBusyLock();
@@ -302,8 +302,6 @@ public class LeaseUpdater {
         private void updateLeaseBatchInternal() {
             HybridTimestamp now = clock.now();
 
-            long outdatedLeaseThreshold = now.getPhysical() + LEASE_INTERVAL / 2;
-
             Leases leasesCurrent = leaseTracker.leasesCurrent();
             Map<ReplicationGroupId, Boolean> toBeNegotiated = new HashMap<>();
             Map<ReplicationGroupId, Lease> renewedLeases = new HashMap<>(leasesCurrent.leaseByGroupId());
@@ -342,26 +340,24 @@ public class LeaseUpdater {
                 }
 
                 // The lease is expired or close to this.
-                if (lease.getExpirationTime().getPhysical() < outdatedLeaseThreshold) {
-                    ClusterNode candidate = nextLeaseHolder(
-                            entry.getValue(),
-                            lease.isProlongable() ? lease.getLeaseholder() : null
-                    );
+                ClusterNode candidate = nextLeaseHolder(
+                        entry.getValue(),
+                        lease.isProlongable() ? lease.getLeaseholder() : null
+                );
 
-                    if (candidate == null) {
-                        continue;
-                    }
+                if (candidate == null) {
+                    continue;
+                }
 
-                    // We can't prolong the expired lease because we already have an interval of time when the lease was not active,
-                    // so we must start a negotiation round from the beginning; the same we do for the groups that don't have
-                    // leaseholders at all.
-                    if (isLeaseOutdated(lease)) {
-                        // New lease is granting.
-                        writeNewLease(grpId, lease, candidate, renewedLeases, toBeNegotiated);
-                    } else if (lease.isProlongable() && candidate.id().equals(lease.getLeaseholderId())) {
-                        // Old lease is renewing.
-                        prolongLease(grpId, lease, renewedLeases);
-                    }
+                // We can't prolong the expired lease because we already have an interval of time when the lease was not active,
+                // so we must start a negotiation round from the beginning; the same we do for the groups that don't have
+                // leaseholders at all.
+                if (isLeaseOutdated(lease)) {
+                    // New lease is granting.
+                    writeNewLease(grpId, lease, candidate, renewedLeases, toBeNegotiated);
+                } else if (lease.isProlongable() && candidate.id().equals(lease.getLeaseholderId())) {
+                    // Old lease is renewing.
+                    prolongLease(grpId, lease, renewedLeases);
                 }
             }
 
