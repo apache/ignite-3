@@ -541,7 +541,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                                     txResult.commitTimestamp()
                             ));
 
-                    assert isFinalState(updatedMeta.txState());
+                    assert isFinalState(updatedMeta.txState()) :
+                            "Unexpected transaction state [id=" + txId + ", state=" + updatedMeta.txState() + "].";
 
                     txFinishFuture.complete(updatedMeta);
 
