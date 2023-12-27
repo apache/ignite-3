@@ -396,7 +396,7 @@ sql_result data_query::make_request_fetch(std::unique_ptr<result_page> &page) {
 }
 
 sql_result data_query::make_request_resultset_meta() {
-    // TODO: IGNITE-19854 Implement metadata fetching for the non-executed query.
+    // TODO: IGNITE-21158 Implement result set metadata fetching for the non-executed query.
     m_diag.add_status_record(
         sql_state::SHYC00_OPTIONAL_FEATURE_NOT_IMPLEMENTED, "Metadata for non-executed queries is not supported");
 
