@@ -1015,7 +1015,6 @@ sql_result sql_statement::update_params_meta() {
     auto* qry = static_cast<data_query*>(qry0);
 
     auto &schema = m_connection.get_schema();
-    auto tx = m_connection.get_transaction_id();
     auto& sql = qry->get_query();
 
     auto success = catch_errors([&] {
