@@ -979,48 +979,87 @@ sql_result sql_statement::internal_describe_param(
         return sql_result::AI_ERROR;
     }
 
-    auto type = m_parameters.get_param_type(std::int16_t(param_num), ignite_type::UNDEFINED);
-
-    LOG_MSG("Type: " << type);
-
-    if (type == ignite_type::UNDEFINED) {
+    auto sql_param = m_parameters.get_sql_param(std::int16_t(param_num));
+    if (!sql_param) {
         sql_result res = update_params_meta();
 
         if (res != sql_result::AI_SUCCESS)
             return res;
 
-        type = m_parameters.get_param_type(std::int16_t(param_num), ignite_type::UNDEFINED);
+        sql_param = m_parameters.get_sql_param(std::int16_t(param_num));
     }
 
+    LOG_MSG("Type: " << (int)sql_param->data_type);
+
     if (data_type)
-        *data_type = ignite_type_to_sql_type(type);
+        *data_type = ignite_type_to_sql_type(sql_param->data_type);
 
-    // TODO: IGNITE-19854 Implement meta fetching for a parameter
     if (param_size)
-        *param_size = ignite_type_max_column_size(type);
+        *param_size = sql_param->precision;
 
-    // TODO: IGNITE-19854 Implement meta fetching for a parameter
     if (decimal_digits)
-        *decimal_digits = int16_t(ignite_type_decimal_digits(type, -1));
+        *decimal_digits = (std::int16_t)sql_param->scale;
 
-    // TODO: IGNITE-19854 Implement meta fetching for a parameter
     if (nullable)
-        *nullable = ignite_type_nullability(type);
+        *nullable = sql_param->nullable ? SQL_NULLABLE : SQL_NO_NULLS;
 
     return sql_result::AI_SUCCESS;
 }
 
 sql_result sql_statement::update_params_meta() {
     auto *qry0 = m_current_query.get();
-    UNUSED_VALUE qry0;
 
     assert(qry0);
     assert(qry0->get_type() == query_type::DATA);
 
-    // TODO: IGNITE-19854: Implement params metadata fetching
+    auto* qry = static_cast<data_query*>(qry0);
 
-    add_status_record(sql_state::SHYC00_OPTIONAL_FEATURE_NOT_IMPLEMENTED, "Parameters metadata is not supported");
-    return sql_result::AI_ERROR;
+    auto &schema = m_connection.get_schema();
+    auto tx = m_connection.get_transaction_id();
+    auto& sql = qry->get_query();
+
+    auto success = catch_errors([&] {
+        auto tx = m_connection.get_transaction_id();
+        auto response = m_connection.sync_request(
+            protocol::client_operation::SQL_PARAM_META, [&](protocol::writer &writer) {
+            if (tx)
+                writer.write(*tx);
+            else
+                writer.write_nil();
+
+            writer.write(schema);
+            writer.write(sql);
+        });
+
+        if (tx) {
+            m_connection.mark_transaction_non_empty();
+        }
+
+        auto reader = std::make_unique<protocol::reader>(response.get_bytes_view());
+        auto num = reader->read_int32();
+
+        if (num < 0) {
+            throw odbc_error(
+                sql_state::SHY000_GENERAL_ERROR, "Unexpected number of parameters: " + std::to_string(num));
+        }
+
+        std::vector<sql_parameter> params;
+        params.reserve(num);
+
+        for (std::int32_t i = 0; i < num; ++i) {
+            sql_parameter param{};
+            param.nullable = reader->read_bool();
+            param.data_type = ignite_type(reader->read_int32());
+            param.scale = reader->read_int32();
+            param.precision = reader->read_int32();
+
+            params.emplace_back(param);
+        }
+
+        m_parameters.update_sql_params(std::move(params));
+    });
+
+    return success ? sql_result::AI_SUCCESS : sql_result::AI_ERROR;
 }
 
 uint16_t sql_statement::sql_result_to_row_result(sql_result value) {

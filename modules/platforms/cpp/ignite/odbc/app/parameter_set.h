@@ -27,14 +27,24 @@
 namespace ignite {
 
 /**
+ * SQL parameter.
+ */
+struct sql_parameter {
+    bool nullable;
+    ignite_type data_type;
+    std::int32_t scale;
+    std::int32_t precision;
+};
+
+/**
  * Parameter set.
  */
 class parameter_set {
-    /** parameter binging map type alias. */
+    /** Parameter binging map type alias. */
     typedef std::map<std::uint16_t, parameter> parameter_binding_map;
 
-    /** parameter meta vector. */
-    typedef std::vector<ignite_type> parameter_type_vector;
+    /** SQL Parameter meta vector. */
+    typedef std::vector<sql_parameter> sql_parameter_vector;
 
 public:
     /**
@@ -113,16 +123,15 @@ public:
      *
      * @param meta Types metadata.
      */
-    void update_params_types(const parameter_type_vector &meta);
+    void update_sql_params(sql_parameter_vector &&meta);
 
     /**
-     * Get type id of the parameter.
+     * Get the parameter by index.
      *
-     * @param idx parameter index.
-     * @param dflt Default value to return if the type can not be found.
-     * @return Type ID of the parameter or dflt, if the type can not be returned.
+     * @param idx Parameter index.
+     * @return Parameter.
      */
-    ignite_type get_param_type(std::int16_t idx, ignite_type dflt);
+    const sql_parameter* get_sql_param(std::int16_t idx) const;
 
     /**
      * Get expected m_parameters number.
@@ -259,7 +268,7 @@ private:
     parameter_binding_map m_params{};
 
     /** parameter types. */
-    parameter_type_vector m_param_types{};
+    sql_parameter_vector m_sql_params{};
 
     /** Offset added to pointers to change binding of m_parameters. */
     int *m_param_bind_offset{nullptr};
