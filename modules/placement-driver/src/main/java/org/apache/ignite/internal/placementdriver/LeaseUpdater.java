@@ -184,9 +184,9 @@ public class LeaseUpdater {
             // nothing will break, because common scheduler will catch up given triggers. This is also the reason
             // why instead of adding/removing listener on activation/deactivation every node ones activated will get the notification
             // and check whether it's active or not. Given approach is simpler and thus less error prone.
-//            assignmentsTracker.listen(ASSIGNMENTS_CHANGED, ((parameters, exception) -> onRenewLeasesTrigger()));
-//            topologyTracker.listen(TOPOLOGY_CHANGED, ((parameters, exception) -> onRenewLeasesTrigger()));
-//            leaseNegotiator.listen(LEASE_ACCEPTED, ((parameters, exception) -> onRenewLeasesTrigger()));
+            assignmentsTracker.listen(ASSIGNMENTS_CHANGED, ((parameters, exception) -> onRenewLeasesTrigger()));
+            topologyTracker.listen(TOPOLOGY_CHANGED, ((parameters, exception) -> onRenewLeasesTrigger()));
+            leaseNegotiator.listen(LEASE_ACCEPTED, ((parameters, exception) -> onRenewLeasesTrigger()));
 
         } finally {
             stateChangingLock.unblock();
