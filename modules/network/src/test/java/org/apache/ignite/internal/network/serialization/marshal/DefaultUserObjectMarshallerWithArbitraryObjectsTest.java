@@ -65,6 +65,8 @@ class DefaultUserObjectMarshallerWithArbitraryObjectsTest {
 
     private final DefaultUserObjectMarshaller marshaller = new DefaultUserObjectMarshaller(descriptorRegistry, descriptorFactory);
 
+    private final CleanSlateUnmarshaller unmarshaller = new CleanSlateUnmarshaller(marshaller, descriptorRegistry);
+
     private static boolean constructorCalled;
     private static boolean proxyRunCalled;
 
@@ -79,11 +81,7 @@ class DefaultUserObjectMarshallerWithArbitraryObjectsTest {
 
     private <T> T marshalAndUnmarshalNonNull(Object object) throws MarshalException, UnmarshalException {
         MarshalledObject marshalled = marshaller.marshal(object);
-        return unmarshalNonNull(marshalled);
-    }
-
-    private <T> T unmarshalNonNull(MarshalledObject marshalled) throws UnmarshalException {
-        return TestUnmarshaling.unmarshalNonNull(marshalled, marshaller, descriptorRegistry);
+        return unmarshaller.unmarshalNonNull(marshalled);
     }
 
     @Test

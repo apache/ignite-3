@@ -66,6 +66,8 @@ class DefaultUserObjectMarshallerWithSerializableOverrideStreamsTest {
 
     private final DefaultUserObjectMarshaller marshaller = new DefaultUserObjectMarshaller(descriptorRegistry, descriptorFactory);
 
+    private final CleanSlateUnmarshaller unmarshaller = new CleanSlateUnmarshaller(marshaller, descriptorRegistry);
+
     /** Reader+writer is static so that writeObject()/readObject() can easily find it. */
     private static ReaderAndWriter<?> readerAndWriter;
 
@@ -87,13 +89,10 @@ class DefaultUserObjectMarshallerWithSerializableOverrideStreamsTest {
 
     private <T> T marshalAndUnmarshalNonNull(Object object) throws MarshalException, UnmarshalException {
         MarshalledObject marshalled = marshaller.marshal(object);
-        return unmarshalNonNull(marshalled);
+        return unmarshaller.unmarshalNonNull(marshalled);
     }
 
-    private <T> T unmarshalNonNull(MarshalledObject marshalled) throws UnmarshalException {
-        return TestUnmarshaling.unmarshalNonNull(marshalled, marshaller, descriptorRegistry);
-    }
-
+    @SuppressWarnings("AssignmentToStaticFieldFromInstanceMethod")
     @ParameterizedTest
     @MethodSource("readWriteSpecs")
     <T> void supportsReadsAndWritesInWriteObjectAndReadObject(ReadWriteSpec<T> spec) throws Exception {
@@ -642,7 +641,7 @@ class DefaultUserObjectMarshallerWithSerializableOverrideStreamsTest {
 
         MarshalledObject marshalled = marshaller.marshal(new WithCustomizableOverride<>());
 
-        assertThrows(UnmarshalException.class, () -> unmarshalNonNull(marshalled));
+        assertThrows(UnmarshalException.class, () -> unmarshaller.unmarshalNonNull(marshalled));
     }
 
     private interface ObjectWriter {

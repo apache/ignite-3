@@ -39,16 +39,20 @@ import java.util.Set;
 import org.apache.ignite.internal.network.serialization.ClassDescriptor;
 import org.apache.ignite.internal.network.serialization.ClassDescriptorFactory;
 import org.apache.ignite.internal.network.serialization.ClassDescriptorRegistry;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 
 /**
  * Tests for how {@link DefaultUserObjectMarshaller} handles {@link java.io.Serializable}s (but not {@link Externalizable}s).
  */
+@SuppressWarnings({"serial", "AssignmentToStaticFieldFromInstanceMethod", "ReadResolveAndWriteReplaceProtected"})
 class DefaultUserObjectMarshallerWithSerializableTest {
     private final ClassDescriptorRegistry descriptorRegistry = new ClassDescriptorRegistry();
     private final ClassDescriptorFactory descriptorFactory = new ClassDescriptorFactory(descriptorRegistry);
 
     private final DefaultUserObjectMarshaller marshaller = new DefaultUserObjectMarshaller(descriptorRegistry, descriptorFactory);
+
+    private final CleanSlateUnmarshaller unmarshaller = new CleanSlateUnmarshaller(marshaller, descriptorRegistry);
 
     private static final int WRITE_REPLACE_INCREMENT = 1_000_000;
     private static final int READ_RESOLVE_INCREMENT = 1_000;
@@ -71,11 +75,7 @@ class DefaultUserObjectMarshallerWithSerializableTest {
 
     private <T> T marshalAndUnmarshalNonNull(Object object) throws MarshalException, UnmarshalException {
         MarshalledObject marshalled = marshaller.marshal(object);
-        return unmarshalNonNull(marshalled);
-    }
-
-    private <T> T unmarshalNonNull(MarshalledObject marshalled) throws UnmarshalException {
-        return TestUnmarshaling.unmarshalNonNull(marshalled, marshaller, descriptorRegistry);
+        return unmarshaller.unmarshalNonNull(marshalled);
     }
 
     @Test
@@ -324,7 +324,7 @@ class DefaultUserObjectMarshallerWithSerializableTest {
             super(intValue);
         }
 
-        private Object writeReplace() {
+        private @Nullable Object writeReplace() {
             return null;
         }
     }
@@ -334,7 +334,7 @@ class DefaultUserObjectMarshallerWithSerializableTest {
             super(intValue);
         }
 
-        private Object readResolve() {
+        private @Nullable Object readResolve() {
             return null;
         }
     }

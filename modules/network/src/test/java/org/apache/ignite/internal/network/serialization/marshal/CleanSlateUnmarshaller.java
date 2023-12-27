@@ -26,20 +26,27 @@ import org.apache.ignite.internal.network.serialization.ClassDescriptorRegistry;
 import org.apache.ignite.internal.network.serialization.DescriptorRegistry;
 
 /**
- * Unmarshalling we do it tests.
+ * Unmarshaller that, during each unmarshalling, only uses built-in descriptors and the descriptors that were actually
+ * used when marshalling.
  */
-class TestUnmarshaling {
+class CleanSlateUnmarshaller {
+    private final UserObjectMarshaller marshaller;
+    private final DescriptorRegistry marshallingRegistry;
+
+    CleanSlateUnmarshaller(UserObjectMarshaller marshaller, DescriptorRegistry marshallingRegistry) {
+        this.marshaller = marshaller;
+        this.marshallingRegistry = marshallingRegistry;
+    }
+
     /**
      * Unmarshals using a fresh registry and only injecting the descriptors that were reported to be used when marshalling.
      *
      * @param marshalled Marshalling result.
-     * @param marshaller Marshaller to use.
-     * @param marshallingRegistry Registry that was used when marshalling.
      * @param <T> Expected type of the unmarshalled value.
      * @return Unmarshalled value.
      * @throws UnmarshalException If something goes wrong.
      */
-    static <T> T unmarshalNonNull(MarshalledObject marshalled, UserObjectMarshaller marshaller, DescriptorRegistry marshallingRegistry)
+    <T> T unmarshalNonNull(MarshalledObject marshalled)
             throws UnmarshalException {
         var unmarshallingRegistry = new ClassDescriptorRegistry();
 
