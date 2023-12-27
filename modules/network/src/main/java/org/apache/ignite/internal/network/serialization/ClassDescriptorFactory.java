@@ -20,6 +20,7 @@ package org.apache.ignite.internal.network.serialization;
 import static java.util.Comparator.comparing;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
+import static org.apache.ignite.internal.network.serialization.Classes.hasWriteReplace;
 
 import java.io.Externalizable;
 import java.io.ObjectInputStream;
@@ -241,10 +242,6 @@ public class ClassDescriptorFactory {
 
     private boolean hasReadResolve(Class<? extends Serializable> clazz) {
         return getReadResolve(clazz) != null;
-    }
-
-    private boolean hasWriteReplace(Class<? extends Serializable> clazz) {
-        return Classes.hasWriteReplace(clazz);
     }
 
     private boolean hasReadObject(Class<? extends Serializable> clazz) {
