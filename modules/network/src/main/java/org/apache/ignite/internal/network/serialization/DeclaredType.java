@@ -29,7 +29,7 @@ public interface DeclaredType {
     int typeDescriptorId();
 
     /**
-     * Returns {@code true} if the contents of the type slot can only hove (at runtime) instances serialized as its declared type
+     * Returns {@code true} if the contents of the type slot can only have (at runtime) instances serialized as its declared type
      * (and not subtypes or other types coming from write replacement),
      * so the serialization type is known upfront. This is also true for enums, even though technically their values might
      * have subtypes; but we serialize them using their names, so we still treat the type as known upfront.
