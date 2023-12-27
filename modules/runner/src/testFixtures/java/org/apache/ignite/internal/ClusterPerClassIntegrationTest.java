@@ -74,6 +74,9 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
             + "      netClusterNodes: [ {} ]\n"
             + "    }\n"
             + "  },\n"
+            + "  storages: {\n"
+            + "    profiles: {default_aimem: { engine: \"aimem\"}}\n"
+            + "  },\n"
             + "  clientConnector: { port:{} },\n"
             + "  rest.port: {}\n"
             + "}";

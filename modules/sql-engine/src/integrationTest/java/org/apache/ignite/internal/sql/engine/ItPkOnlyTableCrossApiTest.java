@@ -77,12 +77,22 @@ public class ItPkOnlyTableCrossApiTest extends BaseSqlIntegrationTest {
         for (String engine : ENGINES) {
             String testZoneName = ("test_zone_" + engine).toUpperCase();
 
-            sql(String.format(
-                    "create zone %s engine %s with partitions=1, replicas=3, storage_profiles = '%s';",
-                    testZoneName,
-                    engine,
-                    DUMMY_STORAGE_PROFILE
-            ));
+            // TODO: KKK fix this hack
+            if (engine.equals("aimem")) {
+                sql(String.format(
+                        "create zone %s engine %s with partitions=1, replicas=3, dataregion='default_aimem', storage_profiles = '%s';",
+                        testZoneName,
+                        engine,
+                        DUMMY_STORAGE_PROFILE
+                ));
+            } else {
+                sql(String.format(
+                        "create zone %s engine %s with partitions=1, replicas=3, storage_profiles = '%s';",
+                        testZoneName,
+                        engine,
+                        DUMMY_STORAGE_PROFILE
+                ));
+            }
             sql(String.format(
                     "create table %s (ID int, NAME varchar, primary key(ID, NAME)) with primary_zone='%s', storage_profile='%s'",
                     tableName(engine),
