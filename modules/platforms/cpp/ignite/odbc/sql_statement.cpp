@@ -23,8 +23,8 @@
 #include "ignite/odbc/query/data_query.h"
 #include "ignite/odbc/query/foreign_keys_query.h"
 #include "ignite/odbc/query/primary_keys_query.h"
-#include "ignite/odbc/query/table_metadata_query.h"
 #include "ignite/odbc/query/special_columns_query.h"
+#include "ignite/odbc/query/table_metadata_query.h"
 #include "ignite/odbc/query/type_info_query.h"
 #include "ignite/odbc/sql_statement.h"
 #include "ignite/odbc/system/odbc_constants.h"
@@ -989,7 +989,7 @@ sql_result sql_statement::internal_describe_param(
         sql_param = m_parameters.get_sql_param(std::int16_t(param_num));
     }
 
-    LOG_MSG("Type: " << (int)sql_param->data_type);
+    LOG_MSG("Type: " << (int) sql_param->data_type);
 
     if (data_type)
         *data_type = ignite_type_to_sql_type(sql_param->data_type);
@@ -998,7 +998,7 @@ sql_result sql_statement::internal_describe_param(
         *param_size = sql_param->precision;
 
     if (decimal_digits)
-        *decimal_digits = (std::int16_t)sql_param->scale;
+        *decimal_digits = (std::int16_t) sql_param->scale;
 
     if (nullable)
         *nullable = sql_param->nullable ? SQL_NULLABLE : SQL_NO_NULLS;
@@ -1012,23 +1012,23 @@ sql_result sql_statement::update_params_meta() {
     assert(qry0);
     assert(qry0->get_type() == query_type::DATA);
 
-    auto* qry = static_cast<data_query*>(qry0);
+    auto *qry = static_cast<data_query *>(qry0);
 
     auto &schema = m_connection.get_schema();
-    auto& sql = qry->get_query();
+    auto &sql = qry->get_query();
 
     auto success = catch_errors([&] {
         auto tx = m_connection.get_transaction_id();
-        auto response = m_connection.sync_request(
-            protocol::client_operation::SQL_PARAM_META, [&](protocol::writer &writer) {
-            if (tx)
-                writer.write(*tx);
-            else
-                writer.write_nil();
+        auto response =
+            m_connection.sync_request(protocol::client_operation::SQL_PARAM_META, [&](protocol::writer &writer) {
+                if (tx)
+                    writer.write(*tx);
+                else
+                    writer.write_nil();
 
-            writer.write(schema);
-            writer.write(sql);
-        });
+                writer.write(schema);
+                writer.write(sql);
+            });
 
         if (tx) {
             m_connection.mark_transaction_non_empty();

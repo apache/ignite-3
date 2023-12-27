@@ -20,8 +20,8 @@
 #include "ignite/client/detail/node_connection.h"
 #include "ignite/common/ignite_error.h"
 #include "ignite/common/ignite_result.h"
-#include "ignite/protocol/reader.h"
 #include "ignite/protocol/messages.h"
+#include "ignite/protocol/reader.h"
 
 #include <functional>
 #include <future>
@@ -62,9 +62,7 @@ public:
      *
      * @return @c true if the handling is complete and false otherwise.
      */
-    [[nodiscard]] bool is_handling_complete() const {
-        return m_handling_complete;
-    }
+    [[nodiscard]] bool is_handling_complete() const { return m_handling_complete; }
 
 protected:
     /** Handling completion flag. */
@@ -129,8 +127,8 @@ public:
      * @param channel Channel.
      * @param msg Message.
      */
-    [[nodiscard]] ignite_result<void> handle(std::shared_ptr<node_connection> channel, bytes_view msg,
-        std::int32_t) final {
+    [[nodiscard]] ignite_result<void> handle(
+        std::shared_ptr<node_connection> channel, bytes_view msg, std::int32_t) final {
         auto read_res = result_of_operation<T>([&]() { return m_read_func(std::move(channel), msg); });
         bool read_error = read_res.has_error();
 
@@ -217,7 +215,8 @@ public:
      * @param conn Connection.
      * @param msg Message.
      */
-    [[nodiscard]] ignite_result<void> handle(std::shared_ptr<node_connection> conn, bytes_view msg, std::int32_t) final {
+    [[nodiscard]] ignite_result<void> handle(
+        std::shared_ptr<node_connection> conn, bytes_view msg, std::int32_t) final {
         protocol::reader reader(msg);
         auto read_res = result_of_operation<T>([&]() { return m_read_func(reader, conn); });
         bool read_error = read_res.has_error();
@@ -263,7 +262,8 @@ public:
      * @param conn Connection.
      * @param msg Message.
      */
-    [[nodiscard]] ignite_result<void> handle(std::shared_ptr<node_connection>, bytes_view msg, std::int32_t flags) final {
+    [[nodiscard]] ignite_result<void> handle(
+        std::shared_ptr<node_connection>, bytes_view msg, std::int32_t flags) final {
         protocol::reader reader(msg);
 
         if (!test_flag(flags, protocol::response_flag::NOTIFICATION_FLAG)) {

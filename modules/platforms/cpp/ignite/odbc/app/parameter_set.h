@@ -131,7 +131,7 @@ public:
      * @param idx Parameter index.
      * @return Parameter.
      */
-    const sql_parameter* get_sql_param(std::int16_t idx) const;
+    const sql_parameter *get_sql_param(std::int16_t idx) const;
 
     /**
      * Get expected m_parameters number.

@@ -98,7 +98,7 @@ void parameter_set::update_sql_params(sql_parameter_vector &&meta) {
     m_types_set = true;
 }
 
-const sql_parameter* parameter_set::get_sql_param(std::int16_t idx) const {
+const sql_parameter *parameter_set::get_sql_param(std::int16_t idx) const {
     if (idx > 0 && static_cast<std::size_t>(idx) <= m_sql_params.size())
         return &m_sql_params.at(idx - 1);
 

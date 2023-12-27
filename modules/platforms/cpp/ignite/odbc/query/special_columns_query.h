@@ -19,14 +19,12 @@
 
 #include "ignite/odbc/query/query.h"
 
-namespace ignite
-{
+namespace ignite {
 
 /**
  * Special columns query.
  */
-class special_columns_query : public query
-{
+class special_columns_query : public query {
 public:
     /**
      * Constructor.
@@ -39,8 +37,8 @@ public:
      * @param scope Minimum required scope of the rowid.
      * @param nullable Determines whether to return special columns that can have a NULL value.
      */
-    special_columns_query(diagnosable_adapter& diag, std::int16_t type, std::string  catalog,
-        std::string  schema, std::string  table, std::int16_t scope, std::int16_t nullable);
+    special_columns_query(diagnosable_adapter &diag, std::int16_t type, std::string catalog, std::string schema,
+        std::string table, std::int16_t scope, std::int16_t nullable);
 
     /**
      * Destructor.
@@ -83,7 +81,7 @@ public:
      *
      * @return Column metadata.
      */
-    const column_meta_vector* get_meta() override { return &m_columns_meta; }
+    const column_meta_vector *get_meta() override { return &m_columns_meta; }
 
     /**
      * Check if data is available.
