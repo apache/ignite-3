@@ -22,6 +22,7 @@ import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
 import static org.apache.ignite.internal.tx.TxState.COMMITTED;
+import static org.apache.ignite.internal.tx.TxState.FINISHING;
 import static org.apache.ignite.internal.tx.TxState.PENDING;
 import static org.apache.ignite.internal.tx.TxState.checkTransitionCorrectness;
 import static org.apache.ignite.internal.tx.TxState.isFinalState;
@@ -30,7 +31,6 @@ import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_READ_ONLY_TOO_OLD_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_WAS_ABORTED_ERR;
 
 import java.io.IOException;
 import java.util.Collection;
@@ -73,7 +73,9 @@ import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.LockManager;
+import org.apache.ignite.internal.tx.TransactionAlreadyFinishedException;
 import org.apache.ignite.internal.tx.TransactionMeta;
+import org.apache.ignite.internal.tx.TransactionResult;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
@@ -85,7 +87,6 @@ import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.NetworkMessageHandler;
-import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -212,7 +213,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
         orphanDetector = new OrphanDetector(clusterService.topologyService(), replicaService, placementDriver, lockManager, clock);
 
-        txMessageSender = new TxMessageSender(clusterService, replicaService, clock);
+        txMessageSender = new TxMessageSender(clusterService.messagingService(), replicaService, clock);
 
         WriteIntentSwitchProcessor writeIntentSwitchProcessor =
                 new WriteIntentSwitchProcessor(placementDriverHelper, txMessageSender, clusterService);
@@ -338,7 +339,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
         if (enlistedGroups.isEmpty()) {
             // If there are no enlisted groups, just update local state - we already marked the tx as finished.
-            updateTxMeta(txId, old -> coordinatorFinalTxStateMeta(commit, commitPartition, commitTimestamp(commit)));
+            updateTxMeta(txId, old -> new TxStateMeta(commit ? COMMITTED : ABORTED, localNodeId, commitPartition, commitTimestamp(commit)));
 
             return nullCompletedFuture();
         }
@@ -349,7 +350,28 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         // than all the read timestamps processed before.
         // Every concurrent operation will now use a finish future from the finishing state meta and get only final transaction
         // state after the transaction is finished.
-        TxStateMetaFinishing finishingStateMeta = updateTxMeta(txId, TxStateMeta::finishing);
+
+        // First we check the current tx state to guarantee txFinish idempotence.
+        TxStateMeta txMeta = stateMeta(txId);
+
+        TxStateMetaFinishing finishingStateMeta =
+                txMeta == null
+                        ? new TxStateMetaFinishing(null, commitPartition)
+                        : txMeta.finishing();
+
+        TxStateMeta stateMeta = updateTxMeta(txId, oldMeta -> finishingStateMeta);
+
+        // Means we failed to CAS the state, someone else did it.
+        if (finishingStateMeta != stateMeta) {
+            // If the state is FINISHING then someone else hase in in the middle of finishing this tx.
+            if (stateMeta.txState() == FINISHING) {
+                return ((TxStateMetaFinishing) stateMeta).txFinishFuture()
+                        .thenCompose(meta -> checkTxOutcome(commit, txId, meta));
+            } else {
+                // The TX has already been finished. Check whether it finished with the same outcome.
+                return checkTxOutcome(commit, txId, stateMeta);
+            }
+        }
 
         TxContext tuple = txCtxMap.compute(txId, (uuid, tuple0) -> {
             if (tuple0 == null) {
@@ -373,6 +395,17 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                         txId,
                         finishingStateMeta.txFinishFuture()
                 ));
+    }
+
+    private static CompletableFuture<Void> checkTxOutcome(boolean commit, UUID txId, TransactionMeta stateMeta) {
+        if ((stateMeta.txState() == COMMITTED) == commit) {
+            return nullCompletedFuture();
+        }
+
+        return CompletableFuture.failedFuture(new TransactionAlreadyFinishedException(
+                "Failed to change the outcome of a finished transaction [txId=" + txId + ", txState=" + stateMeta.txState() + "].",
+                new TransactionResult(stateMeta.txState(), stateMeta.commitTimestamp()))
+        );
     }
 
     private CompletableFuture<Void> prepareFinish(
@@ -532,20 +565,23 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                     if (ex != null) {
                         Throwable cause = ExceptionUtils.unwrapCause(ex);
 
-                        if (cause instanceof TransactionException) {
-                            TransactionException transactionException = (TransactionException) cause;
+                        if (cause instanceof TransactionAlreadyFinishedException) {
+                            TransactionAlreadyFinishedException transactionException = (TransactionAlreadyFinishedException) cause;
 
-                            if (transactionException.code() == TX_WAS_ABORTED_ERR) {
-                                updateTxMeta(txId, old -> {
-                                    TxStateMeta txStateMeta = new TxStateMeta(ABORTED, old.txCoordinatorId(), commitPartition, null);
+                            TransactionResult result = transactionException.transactionResult();
 
-                                    txFinishFuture.complete(txStateMeta);
+                            TxStateMeta updatedMeta = updateTxMeta(txId, old ->
+                                    new TxStateMeta(
+                                            result.transactionState(),
+                                            old.txCoordinatorId(),
+                                            commitPartition,
+                                            result.commitTimestamp()
+                                    )
+                            );
 
-                                    return txStateMeta;
-                                });
+                            txFinishFuture.complete(updatedMeta);
 
-                                return CompletableFuture.<Void>failedFuture(cause);
-                            }
+                            return CompletableFuture.<Void>failedFuture(cause);
                         }
 
                         if (TransactionFailureHandler.isRecoverable(cause)) {
@@ -587,31 +623,42 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                 commitPartition, primaryConsistentId, term, commit, txId, replicationGroupIds);
 
         return txMessageSender.finish(primaryConsistentId, commitPartition, replicationGroupIds, txId, term, commit, commitTimestamp)
-                .thenRun(() -> {
-                    updateTxMeta(txId, old -> {
-                        if (isFinalState(old.txState())) {
-                            txFinishFuture.complete(old);
+                .thenAccept(txResult -> {
+                    validateTxFinishedAsExpected(commit, txId, txResult);
 
-                            return old;
-                        }
+                    TxStateMeta updatedMeta = updateTxMeta(txId, old ->
+                            new TxStateMeta(
+                                    txResult.transactionState(),
+                                    localNodeId,
+                                    old.commitPartitionId(),
+                                    txResult.commitTimestamp()
+                            ));
 
-                        assert old instanceof TxStateMetaFinishing;
+                    assert isFinalState(updatedMeta.txState()) :
+                            "Unexpected transaction state [id=" + txId + ", state=" + updatedMeta.txState() + "].";
 
-                        TxStateMeta finalTxStateMeta = coordinatorFinalTxStateMeta(
-                                commit,
-                                old.commitPartitionId(),
-                                commitTimestamp
-                        );
-
-                        txFinishFuture.complete(finalTxStateMeta);
-
-                        return finalTxStateMeta;
-                    });
+                    txFinishFuture.complete(updatedMeta);
 
                     if (commit) {
                         observableTimestampTracker.update(commitTimestamp);
                     }
                 });
+    }
+
+    private static void validateTxFinishedAsExpected(boolean commit, UUID txId, TransactionResult txResult) {
+        if (commit != (txResult.transactionState() == COMMITTED)) {
+            LOG.error("Failed to finish a transaction that is already finished [txId={}, expectedState={}, actualState={}].",
+                    txId,
+                    commit ? COMMITTED : ABORTED,
+                    txResult.transactionState()
+            );
+
+            throw new TransactionAlreadyFinishedException(
+                    "Failed to change the outcome of a finished transaction [txId=" + txId + ", txState=" + txResult.transactionState()
+                            + "].",
+                    txResult
+            );
+        }
     }
 
     @Override
@@ -672,6 +719,11 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             UUID txId
     ) {
         return txCleanupRequestSender.cleanup(partitions, commit, commitTimestamp, txId);
+    }
+
+    @Override
+    public CompletableFuture<Void> cleanup(String node, UUID txId) {
+        return txCleanupRequestSender.cleanup(node, txId);
     }
 
     @Override
@@ -771,22 +823,6 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         if (result instanceof UUID) {
             removeInflight((UUID) result);
         }
-    }
-
-    /**
-     * Creates final {@link TxStateMeta} for coordinator node.
-     *
-     * @param commit Commit flag.
-     * @param commitPartitionId Commit partition id.
-     * @param commitTimestamp Commit timestamp.
-     * @return Transaction meta.
-     */
-    private TxStateMeta coordinatorFinalTxStateMeta(
-            boolean commit,
-            @Nullable TablePartitionId commitPartitionId,
-            @Nullable HybridTimestamp commitTimestamp
-    ) {
-        return new TxStateMeta(commit ? COMMITTED : ABORTED, localNodeId, commitPartitionId, commitTimestamp);
     }
 
     /**

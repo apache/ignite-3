@@ -15,14 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.security.authentication.event;
+package org.apache.ignite.internal.network.messages;
+
+import java.time.Instant;
 
 /**
- * Represents the authentication event type.
+ * Container for an {@link Instant} (stored in a field).
  */
-public enum EventType {
-    AUTHENTICATION_ENABLED,
-    AUTHENTICATION_DISABLED,
-    AUTHENTICATION_PROVIDER_REMOVED,
-    AUTHENTICATION_PROVIDER_UPDATED
+public class InstantContainer {
+    private final Instant instant;
+
+    public InstantContainer(Instant instant) {
+        this.instant = instant;
+    }
+
+    /** Returns the instant. */
+    public Instant instant() {
+        return instant;
+    }
 }

@@ -53,4 +53,9 @@ public class QueryTransactionWrapperImpl implements QueryTransactionWrapper {
     public CompletableFuture<Void> rollback(Throwable cause) {
         return transaction.rollbackAsync();
     }
+
+    @Override
+    public boolean implicit() {
+        return implicit;
+    }
 }

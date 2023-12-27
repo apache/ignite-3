@@ -191,21 +191,21 @@ public class DefaultUserObjectMarshaller implements UserObjectMarshaller, Schema
     }
 
     private void writeReference(int objectId, @Nullable DeclaredType declaredClass, DataOutput output) throws IOException {
-        if (!runtimeTypeIsKnownUpfront(declaredClass)) {
+        if (!serializationTypeIsKnownUpfront(declaredClass)) {
             ProtocolMarshalling.writeDescriptorOrCommandId(BuiltInType.REFERENCE.descriptorId(), output);
         }
         ProtocolMarshalling.writeObjectId(objectId, output);
     }
 
     private void marshalIdentifiable(
-            Object object,
+            @Nullable Object object,
             ClassDescriptor descriptor,
             @Nullable DeclaredType declaredType,
             int objectId,
             IgniteDataOutput output,
             MarshallingContext context
     ) throws IOException, MarshalException {
-        if (!runtimeTypeIsKnownUpfront(declaredType)) {
+        if (!serializationTypeIsKnownUpfront(declaredType)) {
             writeDescriptorId(descriptor, output);
         }
         ProtocolMarshalling.writeObjectId(objectId, output);
@@ -213,8 +213,8 @@ public class DefaultUserObjectMarshaller implements UserObjectMarshaller, Schema
         writeObject(object, descriptor, output, context);
     }
 
-    private boolean runtimeTypeIsKnownUpfront(@Nullable DeclaredType declaredType) {
-        return declaredType != null && declaredType.isRuntimeTypeKnownUpfront();
+    private boolean serializationTypeIsKnownUpfront(@Nullable DeclaredType declaredType) {
+        return declaredType != null && declaredType.isSerializationTypeKnownUpfront();
     }
 
     private void writeDescriptorId(ClassDescriptor descriptor, DataOutput output) throws IOException {
@@ -222,13 +222,13 @@ public class DefaultUserObjectMarshaller implements UserObjectMarshaller, Schema
     }
 
     private void marshalValue(
-            Object object,
+            @Nullable Object object,
             ClassDescriptor descriptor,
-            DeclaredType declaredType,
+            @Nullable DeclaredType declaredType,
             IgniteDataOutput output,
             MarshallingContext context
     ) throws IOException, MarshalException {
-        if (!runtimeTypeIsKnownUpfront(declaredType)) {
+        if (!serializationTypeIsKnownUpfront(declaredType)) {
             writeDescriptorId(descriptor, output);
         }
 
@@ -323,7 +323,7 @@ public class DefaultUserObjectMarshaller implements UserObjectMarshaller, Schema
 
     private ClassDescriptor resolveDescriptor(IgniteDataInput input, @Nullable DeclaredType declaredType, UnmarshallingContext context)
             throws IOException {
-        if (runtimeTypeIsKnownUpfront(declaredType)) {
+        if (serializationTypeIsKnownUpfront(declaredType)) {
             return context.getRequiredDescriptor(declaredType.typeDescriptorId());
         } else {
             int commandOrDescriptorId = ProtocolMarshalling.readDescriptorOrCommandId(input);

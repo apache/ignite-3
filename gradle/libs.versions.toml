@@ -59,7 +59,6 @@ value = "2.8.8"
 janino = "3.1.9"
 avatica = "1.23.0"
 jsonpath = "2.4.0"
-classgraph = "4.8.110"
 javassist = "3.28.0-GA"
 rocksdb = "8.3.2"
 disruptor = "3.3.7"
@@ -200,8 +199,6 @@ archunit-junit5 = { module = "com.tngtech.archunit:archunit-junit5", version.ref
 
 jmh-core = { module = "org.openjdk.jmh:jmh-core", version.ref = "jmh" }
 jmh-annotation-processor = { module = "org.openjdk.jmh:jmh-generator-annprocess", version.ref = "jmh" }
-
-classgraph = { module = "io.github.classgraph:classgraph", version.ref = "classgraph" }
 
 javapoet = { module = "com.squareup:javapoet", version.ref = "javapoet" }
 

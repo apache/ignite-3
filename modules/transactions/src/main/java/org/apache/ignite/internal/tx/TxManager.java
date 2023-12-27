@@ -147,6 +147,15 @@ public interface TxManager extends IgniteComponent {
     );
 
     /**
+     * Sends cleanup request to the nodes than initiated recovery.
+     *
+     * @param node Target node.
+     * @param txId Transaction id.
+     * @return Completable future of Void.
+     */
+    CompletableFuture<Void> cleanup(String node, UUID txId);
+
+    /**
      * Returns a number of finished transactions.
      *
      * @return A number of finished transactions.

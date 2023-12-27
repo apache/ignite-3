@@ -36,6 +36,7 @@ import static org.mockito.Mockito.when;
 
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
@@ -44,6 +45,10 @@ import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.thread.LogUncaughtExceptionHandler;
+import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.StripedThreadPoolExecutor;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.network.ClusterNodeImpl;
 import org.apache.ignite.network.ClusterService;
@@ -63,6 +68,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
  */
 @ExtendWith(MockitoExtension.class)
 public class ReplicaManagerTest extends BaseIgniteAbstractTest {
+    private StripedThreadPoolExecutor requestsExecutor;
+
     private ReplicaManager replicaManager;
 
     @BeforeEach
@@ -85,7 +92,15 @@ public class ReplicaManagerTest extends BaseIgniteAbstractTest {
 
         var clock = new HybridClockImpl();
 
-        replicaManager = new ReplicaManager(nodeName, clusterService, cmgManager, clock, Set.of(), placementDriver);
+        requestsExecutor = new StripedThreadPoolExecutor(
+                5,
+                NamedThreadFactory.threadPrefix(nodeName, "partition-operations"),
+                new LogUncaughtExceptionHandler(log),
+                false,
+                0
+        );
+
+        replicaManager = new ReplicaManager(nodeName, clusterService, cmgManager, clock, Set.of(), placementDriver, requestsExecutor);
 
         replicaManager.start();
     }
@@ -105,6 +120,8 @@ public class ReplicaManagerTest extends BaseIgniteAbstractTest {
         assertThat(allOf(replicaStopFutures), willCompleteSuccessfully());
 
         replicaManager.stop();
+
+        IgniteUtils.shutdownAndAwaitTermination(requestsExecutor, 10, TimeUnit.SECONDS);
     }
 
     /**
