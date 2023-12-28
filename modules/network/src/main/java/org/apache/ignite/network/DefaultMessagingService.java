@@ -298,7 +298,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
         List<ClassDescriptorMessage> descriptors;
 
         try {
-            descriptors = beforeRead(message);
+            descriptors = prepareMarshal(message);
         } catch (Exception e) {
             return failedFuture(new IgniteException("Failed to marshal message: " + e.getMessage(), e));
         }
@@ -307,7 +307,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
                 .thenComposeToCompletable(sender -> sender.send(new OutNetworkObject(message, descriptors)));
     }
 
-    private List<ClassDescriptorMessage> beforeRead(NetworkMessage msg) throws Exception {
+    private List<ClassDescriptorMessage> prepareMarshal(NetworkMessage msg) throws Exception {
         IntSet ids = new IntOpenHashSet();
 
         msg.prepareMarshal(ids, marshaller);
