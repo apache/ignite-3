@@ -542,13 +542,21 @@ class ItScaleCubeNetworkMessagingTest {
         CompletableFuture<Void> sendFromOutcast = outcast.messagingService().send(notOutcastNode, messageFactory.testMessage().build());
         assertThat(sendFromOutcast, willThrow(HandshakeException.class));
 
-        CompletableFuture<?> invokeFromOutcast = outcast.messagingService().invoke(notOutcastNode, messageFactory.testMessage().build(), 10_000);
+        CompletableFuture<?> invokeFromOutcast = outcast.messagingService().invoke(
+                notOutcastNode,
+                messageFactory.testMessage().build(),
+                10_000
+        );
         assertThat(invokeFromOutcast, willThrow(HandshakeException.class));
 
         CompletableFuture<Void> sendToOutcast = notOutcast.messagingService().send(outcastNode, messageFactory.testMessage().build());
         assertThat(sendToOutcast, willThrow(HandshakeException.class));
 
-        CompletableFuture<?> invokeToOutcast = notOutcast.messagingService().invoke(outcastNode, messageFactory.testMessage().build(), 10_000);
+        CompletableFuture<?> invokeToOutcast = notOutcast.messagingService().invoke(
+                outcastNode,
+                messageFactory.testMessage().build(),
+                10_000
+        );
         assertThat(invokeToOutcast, willThrow(HandshakeException.class));
     }
 
@@ -605,9 +613,9 @@ class ItScaleCubeNetworkMessagingTest {
         CountDownLatch messagesSkipped = new CountDownLatch(2);
         logInspectors.add(
                 new LogInspector(
-                    DefaultMessagingService.class.getName(),
-                    event -> event.getMessage().getFormattedMessage().contains("is stale, so skipping message handling"),
-                    messagesSkipped::countDown
+                        DefaultMessagingService.class.getName(),
+                        event -> event.getMessage().getFormattedMessage().contains("is stale, so skipping message handling"),
+                        messagesSkipped::countDown
                 )
         );
         logInspectors.forEach(LogInspector::start);
