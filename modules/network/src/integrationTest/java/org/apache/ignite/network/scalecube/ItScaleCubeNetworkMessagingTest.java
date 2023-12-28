@@ -118,7 +118,7 @@ class ItScaleCubeNetworkMessagingTest {
      * @throws Exception in case of errors.
      */
     @Test
-    public void messageWasSentToAllMembersSuccessfully(TestInfo testInfo) throws Exception {
+    public void messageWasSentToAllMembersSuccessfully() throws Exception {
         Map<String, TestMessage> messageStorage = new ConcurrentHashMap<>();
 
         var messageReceivedLatch = new CountDownLatch(3);
@@ -160,8 +160,8 @@ class ItScaleCubeNetworkMessagingTest {
      * @throws Exception If failed.
      */
     @Test
-    public void testShutdown(TestInfo testInfo) throws Exception {
-        testShutdown0(testInfo, false);
+    public void testShutdown() throws Exception {
+        testShutdown0(false);
     }
 
     /**
@@ -170,8 +170,8 @@ class ItScaleCubeNetworkMessagingTest {
      * @throws Exception If failed.
      */
     @Test
-    public void testForcefulShutdown(TestInfo testInfo) throws Exception {
-        testShutdown0(testInfo, true);
+    public void testForcefulShutdown() throws Exception {
+        testShutdown0(true);
     }
 
     /**
@@ -180,7 +180,7 @@ class ItScaleCubeNetworkMessagingTest {
      * @throws Exception in case of errors.
      */
     @Test
-    public void testSendMessageToSelf(TestInfo testInfo) throws Exception {
+    public void testSendMessageToSelf() throws Exception {
         testCluster = new Cluster(1, testInfo);
         testCluster.startAwait();
 
@@ -227,7 +227,7 @@ class ItScaleCubeNetworkMessagingTest {
      * @throws Exception in case of errors.
      */
     @Test
-    public void testInvokeMessageToSelf(TestInfo testInfo) throws Exception {
+    public void testInvokeMessageToSelf() throws Exception {
         testCluster = new Cluster(1, testInfo);
         testCluster.startAwait();
 
@@ -260,7 +260,7 @@ class ItScaleCubeNetworkMessagingTest {
      * exceptionally.
      */
     @Test
-    public void testInvokeAfterStop(TestInfo testInfo) throws InterruptedException {
+    public void testInvokeAfterStop() throws InterruptedException {
         testCluster = new Cluster(2, testInfo);
         testCluster.startAwait();
 
@@ -296,7 +296,7 @@ class ItScaleCubeNetworkMessagingTest {
      * exceptionally.
      */
     @Test
-    public void testInvokeDuringStop(TestInfo testInfo) throws InterruptedException {
+    public void testInvokeDuringStop() throws InterruptedException {
         testCluster = new Cluster(2, testInfo);
         testCluster.startAwait();
 
@@ -334,7 +334,7 @@ class ItScaleCubeNetworkMessagingTest {
      * exceptionally.
      */
     @Test
-    public void testStopDuringAwaitingForInvokeResponse(TestInfo testInfo) throws InterruptedException {
+    public void testStopDuringAwaitingForInvokeResponse() throws InterruptedException {
         testCluster = new Cluster(2, testInfo);
         testCluster.startAwait();
 
@@ -380,7 +380,7 @@ class ItScaleCubeNetworkMessagingTest {
      * Tests that Scalecube messages are not blocked if some message handler blocks handling of 'normal' messages.
      */
     @Test
-    public void scalecubeMessagesAreSentSeparatelyFromOtherMessages(TestInfo testInfo) throws InterruptedException {
+    public void scalecubeMessagesAreSentSeparatelyFromOtherMessages() throws InterruptedException {
         testCluster = new Cluster(2, testInfo);
         testCluster.startAwait();
 
@@ -434,7 +434,7 @@ class ItScaleCubeNetworkMessagingTest {
      * @throws Exception in case of errors.
      */
     @Test
-    public void testMessageGroupsHandlers(TestInfo testInfo) throws Exception {
+    public void testMessageGroupsHandlers() throws Exception {
         testCluster = new Cluster(2, testInfo);
         testCluster.startAwait();
 
@@ -637,11 +637,10 @@ class ItScaleCubeNetworkMessagingTest {
     /**
      * Tests shutdown.
      *
-     * @param testInfo Test info.
      * @param forceful Whether shutdown should be forceful.
      * @throws Exception If failed.
      */
-    private void testShutdown0(TestInfo testInfo, boolean forceful) throws Exception {
+    private void testShutdown0(boolean forceful) throws Exception {
         testCluster = new Cluster(2, testInfo);
         testCluster.startAwait();
 
