@@ -20,6 +20,7 @@ package org.apache.ignite.internal.table;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.SessionUtils.executeUpdate;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.ExceptionUtils.extractCodeFrom;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -28,6 +29,7 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -42,6 +44,7 @@ import org.apache.ignite.internal.replicator.message.ErrorTimestampAwareReplicaR
 import org.apache.ignite.internal.replicator.message.TimestampAwareReplicaResponse;
 import org.apache.ignite.internal.table.distributed.command.MarkLocksReleasedCommand;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TransactionAlreadyFinishedException;
 import org.apache.ignite.internal.tx.TxMeta;
@@ -765,6 +768,55 @@ public class ItTransactionConflictTest extends ClusterPerTestIntegrationTest {
         assertTrue(waitForCondition(() -> txStoredState(commitPartNode, ((InternalTransaction) rwTx3).id()) == TxState.COMMITTED, 10_000));
     }
 
+    @Test
+    public void testFinishAlreadyFinishedTx() throws Exception {
+        TableImpl tbl = (TableImpl) node(0).tables().table(TABLE_NAME);
+
+        var tblReplicationGrp = new TablePartitionId(tbl.tableId(), 0);
+
+        CompletableFuture<ReplicaMeta> primaryReplicaFut = node(0).placementDriver().awaitPrimaryReplica(
+                tblReplicationGrp,
+                node(0).clock().now(),
+                10,
+                SECONDS
+        );
+
+        assertThat(primaryReplicaFut, willCompleteSuccessfully());
+
+        String leaseholder = primaryReplicaFut.join().getLeaseholder();
+
+        IgniteImpl commitPartNode = IntStream.range(0, initialNodes()).mapToObj(this::node).filter(n -> leaseholder.equals(n.name()))
+                .findFirst().get();
+
+        log.info("Transaction commit partition is determined [node={}].", commitPartNode.name());
+
+        IgniteImpl txCrdNode = IntStream.range(1, initialNodes()).mapToObj(this::node).filter(n -> !leaseholder.equals(n.name()))
+                .findFirst().get();
+
+        log.info("Transaction coordinator is chosen [node={}].", txCrdNode.name());
+
+        Transaction rwTx1 = createRwTransaction(txCrdNode);
+
+        rwTx1.commit();
+
+        UUID rwTx1Id = ((InternalTransaction) rwTx1).id();
+
+        assertTrue(waitForCondition(() -> txStoredState(commitPartNode, rwTx1Id) == TxState.COMMITTED, 10_000));
+        assertTrue(waitForCondition(() -> txStoredMeta(commitPartNode, rwTx1Id).locksReleased(), 10_000));
+
+        IgniteImpl txCrdNode2 = node(0);
+
+        CompletableFuture<Void> finish2 = txCrdNode2.txManager().finish(
+                new HybridTimestampTracker(),
+                ((InternalTransaction) rwTx1).commitPartition(),
+                false,
+                Map.of(((InternalTransaction) rwTx1).commitPartition(), 0L),
+                rwTx1Id
+        );
+
+        assertThat(finish2, willThrow(TransactionAlreadyFinishedException.class));
+    }
+
     private DefaultMessagingService messaging(IgniteImpl node) {
         ClusterService coordinatorService = IgniteTestUtils.getFieldValue(node, IgniteImpl.class, "clusterSvc");
 
@@ -848,11 +900,7 @@ public class ItTransactionConflictTest extends ClusterPerTestIntegrationTest {
      * @throws InterruptedException If interrupted.
      */
     private UUID startTransactionAndStopNode(IgniteImpl node) throws InterruptedException {
-        RecordView view = node.tables().table(TABLE_NAME).recordView();
-
-        Transaction rwTx1 = node.transactions().begin();
-
-        view.upsert(rwTx1, Tuple.create().set("key", 42).set("val", "val1"));
+        Transaction rwTx1 = createRwTransaction(node);
 
         String txCrdNodeId = node.id();
 
@@ -872,7 +920,7 @@ public class ItTransactionConflictTest extends ClusterPerTestIntegrationTest {
      * @return Transaction id.
      */
     private Transaction createRwTransaction(IgniteImpl node) {
-        RecordView view = node.tables().table(TABLE_NAME).recordView();
+        RecordView<Tuple> view = node.tables().table(TABLE_NAME).recordView();
 
         Transaction rwTx1 = node.transactions().begin();
 
