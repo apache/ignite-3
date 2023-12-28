@@ -41,8 +41,6 @@ import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.message.ErrorTimestampAwareReplicaResponse;
-import org.apache.ignite.internal.replicator.message.TimestampAwareReplicaResponse;
-import org.apache.ignite.internal.table.distributed.command.MarkLocksReleasedCommand;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
@@ -553,112 +551,6 @@ public class ItTransactionConflictTest extends ClusterPerTestIntegrationTest {
 
         IgniteImpl newTxCoord = node(0);
 
-        commitPartNode.dropMessages((nodeName, msg) -> {
-            if (msg instanceof MarkLocksReleasedCommand) {
-
-                UUID txId = ((MarkLocksReleasedCommand) msg).txId();
-
-                if (orphanTx.equals(txId)) {
-                    log.info("Dropping MarkLocksReleasedCommand");
-
-                    return true;
-                }
-            }
-
-            return false;
-        });
-
-        runRwTransactionNoError(newTxCoord, newTxCoord.transactions().begin());
-
-        assertTrue(waitForCondition(() -> txStoredState(commitPartNode, orphanTx.id()) == TxState.ABORTED, 10_000));
-
-        CompletableFuture<NetworkMessage> commitRequest =
-                messaging(commitPartNode).invoke(targetName.get(), finishRequestCaptureFut.join(), 3000);
-
-        assertThat(commitRequest, willCompleteSuccessfully());
-
-        NetworkMessage response = commitRequest.join();
-
-        assertInstanceOf(ErrorTimestampAwareReplicaResponse.class, response);
-
-        ErrorTimestampAwareReplicaResponse errorResponse = (ErrorTimestampAwareReplicaResponse) response;
-
-        assertInstanceOf(TransactionAlreadyFinishedException.class, ExceptionUtils.unwrapCause(errorResponse.throwable()));
-
-        assertTrue(waitForCondition(() -> txStoredState(commitPartNode, orphanTx.id()) == TxState.ABORTED, 10_000));
-    }
-
-    /**
-     * Coordinator sends a commit message and dies. Another tx initiates recovery and aborts this transaction.
-     * The commit message eventually reaches the commit partition and gets executed but the outcome is ABORTED.
-     * Here COMMIT is sent after the locks were released.
-     */
-    @Test
-    public void testCommitAndDieRecoveryFirstWaitLocksReleased() throws Exception {
-        TableImpl tbl = (TableImpl) node(0).tables().table(TABLE_NAME);
-
-        var tblReplicationGrp = new TablePartitionId(tbl.tableId(), 0);
-
-        CompletableFuture<ReplicaMeta> primaryReplicaFut = node(0).placementDriver().awaitPrimaryReplica(
-                tblReplicationGrp,
-                node(0).clock().now(),
-                10,
-                SECONDS
-        );
-
-        assertThat(primaryReplicaFut, willCompleteSuccessfully());
-
-        String leaseholder = primaryReplicaFut.join().getLeaseholder();
-
-        IgniteImpl commitPartNode = IntStream.range(0, initialNodes()).mapToObj(this::node).filter(n -> leaseholder.equals(n.name()))
-                .findFirst().get();
-
-        log.info("Transaction commit partition is determined [node={}].", commitPartNode.name());
-
-        IgniteImpl txCrdNode = IntStream.range(1, initialNodes()).mapToObj(this::node).filter(n -> !leaseholder.equals(n.name()))
-                .findFirst().get();
-
-        log.info("Transaction coordinator is chosen [node={}].", txCrdNode.name());
-
-        InternalTransaction orphanTx = (InternalTransaction) createRwTransaction(txCrdNode);
-
-        CompletableFuture<TxFinishReplicaRequest> finishRequestCaptureFut = new CompletableFuture<>();
-        AtomicReference<String> targetName = new AtomicReference<>();
-
-        // Intercept the commit message, prevent it form being sent. We will kill this node anyway.
-        txCrdNode.dropMessages((nodeName, msg) -> {
-            if (msg instanceof TxFinishReplicaRequest) {
-                var finishTxMsg = (TxFinishReplicaRequest) msg;
-
-                finishRequestCaptureFut.complete(finishTxMsg);
-                targetName.set(nodeName);
-
-                return true;
-            }
-
-            return false;
-        });
-
-        // Initiate commit.
-        orphanTx.commitAsync();
-
-        assertThat(finishRequestCaptureFut, willCompleteSuccessfully());
-
-        // Stop old coordinator.
-        String txCrdNodeId = txCrdNode.id();
-
-        txCrdNode.stop();
-
-        assertTrue(waitForCondition(
-                () -> node(0).clusterNodes().stream().filter(n -> txCrdNodeId.equals(n.id())).count() == 0,
-                10_000)
-        );
-
-        // The state on the commit partition is still PENDING.
-        assertEquals(TxState.PENDING, txVolatileState(commitPartNode, orphanTx.id()));
-
-        IgniteImpl newTxCoord = node(0);
-
         runRwTransactionNoError(newTxCoord, newTxCoord.transactions().begin());
 
         assertTrue(waitForCondition(() -> txStoredState(commitPartNode, orphanTx.id()) == TxState.ABORTED, 10_000));
@@ -672,7 +564,11 @@ public class ItTransactionConflictTest extends ClusterPerTestIntegrationTest {
 
         NetworkMessage response = commitRequest.join();
 
-        assertInstanceOf(TimestampAwareReplicaResponse.class, response);
+        assertInstanceOf(ErrorTimestampAwareReplicaResponse.class, response);
+
+        ErrorTimestampAwareReplicaResponse errorResponse = (ErrorTimestampAwareReplicaResponse) response;
+
+        assertInstanceOf(TransactionAlreadyFinishedException.class, ExceptionUtils.unwrapCause(errorResponse.throwable()));
 
         assertTrue(waitForCondition(() -> txStoredState(commitPartNode, orphanTx.id()) == TxState.ABORTED, 10_000));
     }

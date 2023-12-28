@@ -1600,16 +1600,6 @@ public class PartitionReplicaListener implements ReplicaListener {
         boolean transactionAlreadyFinished = txMeta != null && isFinalState(txMeta.txState());
 
         if (transactionAlreadyFinished) {
-            // Check locksReleased flag. If it is already set, do nothing and return a successful result.
-            // Even if the outcome is different (the transaction was aborted, but we want to commit it),
-            // we return 'success' to be in alignment with common transaction handling.
-            if (txMeta.locksReleased()) {
-                return completedFuture(new TransactionResult(txMeta.txState(), txMeta.commitTimestamp()));
-            }
-
-            // The transaction is finished, but the locks are not released.
-            // If we got here, it means we are retrying the finish request.
-            // Let's make sure the desired state is valid.
             // - The Coordinator calls use same tx state over retries, both abort and commit are possible.
             // - Server side recovery may only change tx state to aborted.
             // - The Coordinator itself should prevent user calls with different proposed state to the one,
@@ -1642,6 +1632,12 @@ public class PartitionReplicaListener implements ReplicaListener {
                         "Failed to change the outcome of a finished transaction [txId=" + txId + ", txState=" + txMeta.txState() + "].",
                         new TransactionResult(txMeta.txState(), txMeta.commitTimestamp())
                 );
+            }
+            // Check locksReleased flag. If it is already set, do nothing and return a successful result.
+            // Even if the outcome is different (the transaction was aborted, but we want to commit it),
+            // we return 'success' to be in alignment with common transaction handling.
+            if (txMeta.locksReleased()) {
+                return completedFuture(new TransactionResult(txMeta.txState(), txMeta.commitTimestamp()));
             }
         }
 
