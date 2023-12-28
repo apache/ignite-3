@@ -29,8 +29,10 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.storage.configurations.StoragesConfiguration;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
+import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbProfileStorageEngineConfiguration;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfiguration;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
@@ -48,7 +50,10 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @ExtendWith(ConfigurationExtension.class)
 public class RocksDbStorageEngineTest extends BaseIgniteAbstractTest {
     @InjectConfiguration
-    private RocksDbStorageEngineConfiguration engineConfig;
+    RocksDbProfileStorageEngineConfiguration engineConfig;
+
+    @InjectConfiguration("mock.profiles.default = {engine = \"rocksDb\"}")
+    StoragesConfiguration storagesConfiguration;
 
     private RocksDbStorageEngine engine;
 
@@ -56,7 +61,7 @@ public class RocksDbStorageEngineTest extends BaseIgniteAbstractTest {
 
     @BeforeEach
     void setUp(@WorkDirectory Path workDir) {
-        engine = new RocksDbStorageEngine("test", engineConfig, workDir);
+        engine = new RocksDbStorageEngine("test", engineConfig, storagesConfiguration, workDir);
 
         engine.start();
     }
@@ -85,7 +90,7 @@ public class RocksDbStorageEngineTest extends BaseIgniteAbstractTest {
     void testCreateTableWithDynamicCustomDataRegion() {
         String customRegionName = "foobar";
 
-        CompletableFuture<Void> engineConfigChangeFuture = engineConfig.regions()
+        CompletableFuture<Void> engineConfigChangeFuture = storagesConfiguration.profiles()
                 .change(c -> c.create(customRegionName, rocksDbDataRegionChange -> { /* No-op. */ }));
 
         assertThat(engineConfigChangeFuture, willCompleteSuccessfully());

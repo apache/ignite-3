@@ -77,6 +77,7 @@ public class ItPageMemoryStorageExampleTest extends AbstractExamplesTest {
     private void addPersistentDataRegionConfig(String name) throws Exception {
         ignite.nodeConfiguration().getConfiguration(StoragesConfiguration.KEY)
                 .profiles()
+                // TODO: KKK fix this hack with change
                 .change(regionsChange -> regionsChange.create(name, c -> {
                     c.convert(PersistentPageMemoryProfileChange.class)
                             .changeSize(PersistentPageMemoryProfileConfigurationSchema.DFLT_DATA_REGION_SIZE);

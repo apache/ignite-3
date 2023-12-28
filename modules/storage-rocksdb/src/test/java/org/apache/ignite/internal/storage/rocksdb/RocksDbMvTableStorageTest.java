@@ -34,9 +34,11 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.storage.AbstractMvTableStorageTest;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.storage.configurations.StoragesConfiguration;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
+import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbProfileStorageEngineConfiguration;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfiguration;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -57,10 +59,12 @@ public class RocksDbMvTableStorageTest extends AbstractMvTableStorageTest {
     @BeforeEach
     void setUp(
             @WorkDirectory Path workDir,
-            @InjectConfiguration("mock {flushDelayMillis = 0, defaultRegion {size = 16536, writeBufferSize = 16536}}")
-            RocksDbStorageEngineConfiguration rocksDbEngineConfig
+            @InjectConfiguration("mock {flushDelayMillis = 0}")
+            RocksDbProfileStorageEngineConfiguration engineConfig,
+            @InjectConfiguration("mock.profiles.default = {engine = \"rocksDb\", size = 16777216, writeBufferSize = 16777216}")
+            StoragesConfiguration storagesConfiguration
     ) {
-        engine = new RocksDbStorageEngine("test", rocksDbEngineConfig, workDir);
+        engine = new RocksDbStorageEngine("test", engineConfig, storagesConfiguration, workDir);
 
         engine.start();
 

@@ -17,27 +17,23 @@
 
 package org.apache.ignite.internal.storage.rocksdb.configuration.schema;
 
-import org.apache.ignite.configuration.annotation.Config;
-import org.apache.ignite.configuration.annotation.InjectedName;
+import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.validation.OneOf;
 import org.apache.ignite.configuration.validation.Range;
+import org.apache.ignite.internal.storage.configurations.StorageProfileConfigurationSchema;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine;
 
 /**
  * Data region configuration for {@link RocksDbStorageEngine}.
  */
-@Config
-public class RocksDbDataRegionConfigurationSchema {
+@PolymorphicConfigInstance("rocksDb")
+public class RocksDbProfileConfigurationSchema extends StorageProfileConfigurationSchema {
     /** Cache type for the RocksDB LRU cache. */
     public static final String ROCKSDB_LRU_CACHE = "lru";
 
     /** Cache type for the RocksDB LRU cache. */
     public static final String ROCKSDB_CLOCK_CACHE = "clock";
-
-    /** Name of the data region. */
-    @InjectedName
-    public String name;
 
     /** Size of the rocksdb offheap cache. */
     @Value(hasDefault = true)

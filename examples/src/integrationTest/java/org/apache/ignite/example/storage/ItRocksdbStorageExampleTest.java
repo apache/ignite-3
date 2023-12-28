@@ -21,6 +21,9 @@ import static org.apache.ignite.example.ExampleTestUtils.assertConsoleOutputCont
 
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.example.AbstractExamplesTest;
+import org.apache.ignite.internal.storage.configurations.StoragesConfiguration;
+import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbProfileChange;
+import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbProfileConfigurationSchema;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfiguration;
 import org.junit.jupiter.api.Test;
 
@@ -42,9 +45,13 @@ public class ItRocksdbStorageExampleTest extends AbstractExamplesTest {
     }
 
     private void addDataRegionConfig(String name) throws Exception {
-        ignite.nodeConfiguration().getConfiguration(RocksDbStorageEngineConfiguration.KEY)
-                .regions()
-                .change(regionsChange -> regionsChange.create(name, regionChange -> {}))
+        ignite.nodeConfiguration().getConfiguration(StoragesConfiguration.KEY)
+                .profiles()
+                // TODO: KKK fix this hack with change
+                .change(regionsChange -> regionsChange.create(name, regionChange -> {
+                    regionChange.convert(RocksDbProfileChange.class)
+                            .changeCache(RocksDbProfileConfigurationSchema.ROCKSDB_LRU_CACHE);
+                }))
                 .get(1, TimeUnit.SECONDS);
     }
 }
