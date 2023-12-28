@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine.exec.ddl;
 
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.Constants.DUMMY_STORAGE_PROFILE;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
@@ -57,6 +58,7 @@ public class DistributionZoneDdlCommandHandlerTest extends IgniteAbstractTest {
     public void testCreateZone() {
         CreateZoneCommand cmd = new CreateZoneCommand();
         cmd.zoneName(ZONE_NAME);
+        cmd.storageProfiles(DUMMY_STORAGE_PROFILE);
 
         invokeHandler(cmd);
 

@@ -19,6 +19,7 @@ package org.apache.ignite.internal.catalog.commands;
 
 import static org.apache.ignite.internal.catalog.CatalogManagerImpl.INITIAL_CAUSALITY_TOKEN;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.fromParams;
+import static org.apache.ignite.internal.util.Constants.DUMMY_STORAGE_PROFILE;
 import static org.apache.ignite.sql.ColumnType.INT32;
 
 import java.util.Collections;
@@ -124,6 +125,7 @@ abstract class AbstractCommandValidationTest extends BaseIgniteAbstractTest {
     private static CatalogCommand createZoneCommand(String zoneName) {
         return CreateZoneCommand.builder()
                 .zoneName(zoneName)
+                .storageProfilesParams(List.of(StorageProfileParams.builder().storageProfile(DUMMY_STORAGE_PROFILE).build()))
                 .build();
     }
 

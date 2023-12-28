@@ -30,6 +30,7 @@ import static org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollat
 import static org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation.DESC_NULLS_FIRST;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.Constants.DUMMY_STORAGE_PROFILE;
 import static org.apache.ignite.sql.ColumnType.INT32;
 import static org.apache.ignite.sql.ColumnType.STRING;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -47,6 +48,7 @@ import java.util.List;
 import org.apache.ignite.internal.catalog.commands.AlterZoneCommand;
 import org.apache.ignite.internal.catalog.commands.CreateZoneCommand;
 import org.apache.ignite.internal.catalog.commands.RenameZoneCommand;
+import org.apache.ignite.internal.catalog.commands.StorageProfileParams;
 import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSortedIndexDescriptor;
@@ -345,7 +347,10 @@ public class CatalogManagerDescriptorCausalityTokenTest extends BaseCatalogManag
     public void testCreateZone() {
         String zoneName = ZONE_NAME + 1;
 
-        CatalogCommand cmd = CreateZoneCommand.builder().zoneName(zoneName).build();
+        CatalogCommand cmd = CreateZoneCommand.builder()
+                .zoneName(zoneName)
+                .storageProfilesParams(List.of(StorageProfileParams.builder().storageProfile(DUMMY_STORAGE_PROFILE).build()))
+                .build();
 
         assertThat(manager.execute(cmd), willCompleteSuccessfully());
 
@@ -368,7 +373,10 @@ public class CatalogManagerDescriptorCausalityTokenTest extends BaseCatalogManag
     public void testRenameZone() {
         String zoneName = ZONE_NAME + 1;
 
-        CatalogCommand cmd = CreateZoneCommand.builder().zoneName(zoneName).build();
+        CatalogCommand cmd = CreateZoneCommand.builder()
+                .zoneName(zoneName)
+                .storageProfilesParams(List.of(StorageProfileParams.builder().storageProfile(DUMMY_STORAGE_PROFILE).build()))
+                .build();
 
         assertThat(manager.execute(cmd), willCompleteSuccessfully());
 
@@ -414,9 +422,14 @@ public class CatalogManagerDescriptorCausalityTokenTest extends BaseCatalogManag
                 .dataNodesAutoAdjustScaleUp(3)
                 .dataNodesAutoAdjustScaleDown(4)
                 .filter("newExpression")
+                .storageProfilesParams(List.of(StorageProfileParams.builder().storageProfile(DUMMY_STORAGE_PROFILE).build()))
                 .build();
 
-        CatalogCommand cmd = CreateZoneCommand.builder().zoneName(zoneName).filter("expression").build();
+        CatalogCommand cmd = CreateZoneCommand.builder()
+                .zoneName(zoneName)
+                .storageProfilesParams(List.of(StorageProfileParams.builder().storageProfile(DUMMY_STORAGE_PROFILE).build()))
+                .filter("expression")
+                .build();
 
         assertThat(manager.execute(cmd), willCompleteSuccessfully());
         CatalogZoneDescriptor zone = manager.zone(zoneName, clock.nowLong());
