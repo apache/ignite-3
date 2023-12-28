@@ -17,6 +17,7 @@
 
 package org.apache.ignite.network.scalecube;
 
+import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toUnmodifiableList;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
@@ -59,6 +60,7 @@ import org.apache.ignite.internal.network.messages.TestMessage;
 import org.apache.ignite.internal.network.messages.TestMessageTypes;
 import org.apache.ignite.internal.network.messages.TestMessagesFactory;
 import org.apache.ignite.internal.network.netty.ConnectionManager;
+import org.apache.ignite.internal.network.netty.NettySender;
 import org.apache.ignite.internal.network.recovery.RecoveryClientHandshakeManager;
 import org.apache.ignite.internal.network.recovery.RecoveryServerHandshakeManager;
 import org.apache.ignite.internal.network.recovery.message.HandshakeFinishMessage;
@@ -66,6 +68,7 @@ import org.apache.ignite.internal.testframework.log4j2.LogInspector;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.DefaultMessagingService;
+import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.NodeFinder;
@@ -548,6 +551,51 @@ class ItScaleCubeNetworkMessagingTest {
         assertThat(invokeToOutcast, willThrow(HandshakeException.class));
     }
 
+    @Test
+    public void reconnectsAfterConnectionDrop() throws Exception {
+        testCluster = new Cluster(2, testInfo);
+
+        testCluster.startAwait();
+
+        ClusterService clusterService0 = testCluster.members.get(0);
+        ClusterService clusterService1 = testCluster.members.get(1);
+
+        clusterService1.messagingService().addMessageHandler(
+                TestMessageTypes.class,
+                (message, senderConsistentId, correlationId) -> {
+                    clusterService1.messagingService().respond(
+                            clusterService1.topologyService().localMember(),
+                            message,
+                            requireNonNull(correlationId)
+                    );
+                }
+        );
+
+        // Make an invocation to establish a connection.
+        CompletableFuture<Void> firstInvoke = clusterService0.messagingService().send(
+                clusterService1.topologyService().localMember(),
+                messageFactory.testMessage().build()
+        );
+        assertThat(firstInvoke, willCompleteSuccessfully());
+
+        closeAllChannels(clusterService0.messagingService());
+
+        // Now try again.
+        CompletableFuture<Void> secondInvoke = clusterService0.messagingService().send(
+                clusterService1.topologyService().localMember(),
+                messageFactory.testMessage().build()
+        );
+        assertThat(secondInvoke, willCompleteSuccessfully());
+    }
+
+    private static void closeAllChannels(MessagingService messagingService) throws InterruptedException {
+        ConnectionManager connectionManager = ((DefaultMessagingService) messagingService).connectionManager();
+
+        for (NettySender sender : connectionManager.channels().values()) {
+            sender.close().await(10, TimeUnit.SECONDS);
+        }
+    }
+
     private void knockOutNode(String outcastName, boolean closeConnectionsForcibly) throws InterruptedException {
         CountDownLatch disappeared = new CountDownLatch(2);
 
@@ -576,18 +624,14 @@ class ItScaleCubeNetworkMessagingTest {
         // Wait until all nodes see disappearance of the outcast.
         assertTrue(disappeared.await(10, TimeUnit.SECONDS), "Node did not disappear in time");
 
-        DefaultMessagingService messagingService = (DefaultMessagingService) testCluster.members.stream()
-                .filter(service -> outcastName.equals(service.nodeName()))
-                .findFirst().orElseThrow()
-                .messagingService();
-
-        ConnectionManager cm = messagingService.connectionManager();
-
         if (closeConnectionsForcibly) {
+            MessagingService messagingService = testCluster.members.stream()
+                    .filter(service -> outcastName.equals(service.nodeName()))
+                    .findFirst().orElseThrow()
+                    .messagingService();
+
             // Forcefully close channels, so that nodes will create new channels on reanimation of the outcast.
-            cm.channels().forEach((stringConnectorKey, nettySender) -> {
-                nettySender.close().awaitUninterruptibly();
-            });
+            closeAllChannels(messagingService);
         }
     }
 
