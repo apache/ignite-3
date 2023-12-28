@@ -78,7 +78,7 @@ public class JdbcStatement implements Statement {
     /** Fetch size. */
     private int pageSize = DFLT_PAGE_SIZE;
 
-    /** Result sets. */
+    /** Result sets. {@code null} represents final result set (no more results are available). */
     private volatile List<@Nullable JdbcResultSet> resSets;
 
     /** Batch. */
@@ -451,6 +451,7 @@ public class JdbcStatement implements Statement {
             }
         }
 
+        // No more results are available if last result set is null
         if (resSets == null || curRes >= resSets.size() || resSets.get(curRes) == null) {
             return false;
         }
@@ -748,7 +749,7 @@ public class JdbcStatement implements Statement {
 
         if (resSets != null) {
             for (JdbcResultSet rs : resSets) {
-                if (rs != null && rs.isClosed()) {
+                if (rs != null && !rs.isClosed()) {
                     allRsClosed = false;
                     break;
                 }
