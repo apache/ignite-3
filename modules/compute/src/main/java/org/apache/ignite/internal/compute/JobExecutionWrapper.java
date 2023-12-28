@@ -28,10 +28,10 @@ import org.apache.ignite.compute.JobStatus;
  *
  * @param <R> Result type.
  */
-class JobExecutionDelegate<R> implements JobExecution<R> {
+class JobExecutionWrapper<R> implements JobExecution<R> {
     private final JobExecution<R> delegate;
 
-    JobExecutionDelegate(JobExecution<R> delegate) {
+    JobExecutionWrapper(JobExecution<R> delegate) {
         this.delegate = delegate;
     }
 

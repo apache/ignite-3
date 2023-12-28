@@ -75,7 +75,7 @@ public class IgniteComputeImpl implements IgniteCompute {
             throw new IllegalArgumentException("nodes must not be empty.");
         }
 
-        return new JobExecutionDelegate<>(executeOnOneNode(randomNode(nodes), units, jobClassName, args));
+        return new JobExecutionWrapper<>(executeOnOneNode(randomNode(nodes), units, jobClassName, args));
     }
 
     /** {@inheritDoc} */
@@ -237,6 +237,6 @@ public class IgniteComputeImpl implements IgniteCompute {
 
         return nodes.stream()
                 .collect(toUnmodifiableMap(identity(),
-                        node -> new JobExecutionDelegate<>(executeOnOneNode(node, units, jobClassName, args))));
+                        node -> new JobExecutionWrapper<>(executeOnOneNode(node, units, jobClassName, args))));
     }
 }
