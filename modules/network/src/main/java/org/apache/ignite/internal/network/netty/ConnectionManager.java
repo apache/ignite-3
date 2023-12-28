@@ -35,7 +35,6 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.future.OrderingFuture;
 import org.apache.ignite.internal.lang.IgniteInternalException;
@@ -330,6 +329,15 @@ public class ConnectionManager implements ChannelCreationListener {
         // Old channel can still be in the map, but it must be closed already by the tie breaker in the
         // handshake manager.
         assert oldChannel == null || !oldChannel.isOpen() : "Incorrect channel creation flow";
+
+        // Preventing a race between calling closeConnectionsWith() and putting a new channel that was just opened (with the node
+        // which is already stale). If it's stale, then the stale detector already knows it (and it knows it before
+        // closeConnectionsWith() gets called as it subscribes very first).
+        // This is the only place where a new sender might be added to the map.
+        if (staleIdDetector.isIdStale(channel.launchId())) {
+            channel.close();
+            channels.remove(key, channel);
+        }
     }
 
     /**

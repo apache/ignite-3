@@ -83,9 +83,18 @@ public class ScaleCubeClusterServiceFactory {
             MessageSerializationRegistry serializationRegistry,
             StaleIds staleIds
     ) {
-        var messageFactory = new NetworkMessagesFactory();
-
         var topologyService = new ScaleCubeTopologyService();
+
+        // Adding this handler as the first handler to make sure that StaleIds is at least up-to-date as any
+        // other component that watches topology events.
+        topologyService.addEventHandler(new TopologyEventHandler() {
+            @Override
+            public void onDisappeared(ClusterNode member) {
+                staleIds.markAsStale(member.id());
+            }
+        });
+
+        var messageFactory = new NetworkMessagesFactory();
 
         UserObjectSerializationContext userObjectSerialization = createUserObjectSerializationContext();
 
@@ -154,13 +163,6 @@ public class ScaleCubeClusterServiceFactory {
                 // resolve cyclic dependencies
                 topologyService.setCluster(cluster);
                 messagingService.setConnectionManager(connectionMgr);
-
-                topologyService.addEventHandler(new TopologyEventHandler() {
-                    @Override
-                    public void onDisappeared(ClusterNode member) {
-                        staleIds.markAsStale(member.id());
-                    }
-                });
 
                 cluster.startAwait();
 
