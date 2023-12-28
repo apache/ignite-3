@@ -139,6 +139,18 @@ public class ItJdbcMultiStatementSelfTest extends AbstractJdbcSelfTest {
         assertThrowsSqlException("Failed to fetch query results", () -> stmt.getMoreResults());
         //next after exception
         assertFalse(stmt.getMoreResults());
+
+        stmt.closeOnCompletion();
+    }
+
+    @Test
+    public void testSimpleQueryErrorCloseRs() throws Exception {
+        stmt.execute("SELECT 1; SELECT 1/0; SELECT 2");
+        ResultSet rs = stmt.getResultSet();
+        assertThrowsSqlException("Failed to fetch query results", () -> stmt.getMoreResults());
+        stmt.closeOnCompletion();
+
+        rs.close();
     }
 
     @ParameterizedTest(name = "closeOnCompletion = {0}")
@@ -369,7 +381,7 @@ public class ItJdbcMultiStatementSelfTest extends AbstractJdbcSelfTest {
     }
 
     @Test
-    public void testAutoCommitFalse() throws Exception {
+    public void testAutoCommitFalseNonCompleted() throws Exception {
         String txErrMsg = "Transaction control statement cannot be executed within an external transaction";
         conn.setAutoCommit(false);
         assertThrowsSqlException(txErrMsg, () -> stmt.execute("COMMIT"));
@@ -380,6 +392,33 @@ public class ItJdbcMultiStatementSelfTest extends AbstractJdbcSelfTest {
         assertThrowsSqlException(txErrMsg, () -> stmt.getMoreResults());
 
         assertThrowsSqlException(txErrMsg, () -> stmt.execute("START TRANSACTION; SELECT 1;"));
+    }
+
+    @Test
+    public void testAutoCommitFalse() throws Exception {
+        conn.setAutoCommit(false);
+
+        stmt.execute("SELECT 1;");
+        ResultSet rs = stmt.getResultSet();
+        assertTrue(rs.next());
+        assertEquals(1, rs.getInt(1));
+
+        stmt.execute("INSERT INTO TEST_TX VALUES (5, 19, 'Nick');");
+        conn.rollback();
+
+        stmt.execute("SELECT COUNT(ID) FROM TEST_TX WHERE ID=5;");
+        rs = stmt.getResultSet();
+        assertTrue(rs.next());
+        assertEquals(0, rs.getInt(1));
+
+
+        stmt.execute("INSERT INTO TEST_TX VALUES (5, 19, 'Nick');");
+        conn.commit();
+
+        stmt.execute("SELECT COUNT(ID) FROM TEST_TX WHERE ID=5;");
+        rs = stmt.getResultSet();
+        assertTrue(rs.next());
+        assertEquals(1, rs.getInt(1));
     }
 
     @Test

@@ -21,7 +21,6 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Catalog.VALIDATION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_PARSE_ERR;
-import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.lenient;
@@ -128,10 +127,6 @@ public class JdbcQueryCursorHandlerImplTest extends BaseIgniteAbstractTest {
             }
         });
 
-        try {
-            await(cursorHandler.getMoreResultsAsync(new JdbcFetchQueryResultsRequest(1, 100)), 5, TimeUnit.SECONDS);
-        } catch (Throwable e) {
-            fail("Unexpected exception is raised.");
-        }
+        await(cursorHandler.getMoreResultsAsync(new JdbcFetchQueryResultsRequest(1, 100)), 5, TimeUnit.SECONDS);
     }
 }

@@ -173,8 +173,6 @@ public class JdbcStatement implements Statement {
         resSets.add(new JdbcResultSet(handler, this, executeResult.cursorId(), pageSize,
                 executeResult.last(), executeResult.items(), executeResult.isQuery(), executeResult.updateCount(),
                 closeOnCompletion, columnTypes.size(), transformer));
-
-        assert !resSets.isEmpty() : "At least one results set is expected";
     }
 
     /** {@inheritDoc} */
@@ -463,7 +461,7 @@ public class JdbcStatement implements Statement {
         try {
             // just a stub if exception is raised inside multiple statements.
             // all further execution is not processed.
-            nextResultSet = Objects.requireNonNull(resSets.get(curRes)).getNextResultSet();
+            nextResultSet = resSets.get(curRes).getNextResultSet();
         } catch (SQLException ex) {
             nextResultSet = null;
             exceptionally = ex;
@@ -654,7 +652,9 @@ public class JdbcStatement implements Statement {
 
         if (resSets != null) {
             for (JdbcResultSet rs : resSets) {
-                Objects.requireNonNull(rs).closeStatement(true);
+                if (rs != null) {
+                    rs.closeStatement(true);
+                }
             }
         }
     }
@@ -748,7 +748,7 @@ public class JdbcStatement implements Statement {
 
         if (resSets != null) {
             for (JdbcResultSet rs : resSets) {
-                if (!Objects.requireNonNull(rs).isClosed()) {
+                if (rs != null && rs.isClosed()) {
                     allRsClosed = false;
                     break;
                 }
