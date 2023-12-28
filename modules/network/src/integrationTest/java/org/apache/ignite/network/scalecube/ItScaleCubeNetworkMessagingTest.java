@@ -50,6 +50,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Predicate;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.NodeStoppingException;
@@ -557,14 +558,14 @@ class ItScaleCubeNetworkMessagingTest {
 
         testCluster.startAwait();
 
-        ClusterService clusterService0 = testCluster.members.get(0);
-        ClusterService clusterService1 = testCluster.members.get(1);
+        ClusterService sender = testCluster.members.get(0);
+        ClusterService receiver = testCluster.members.get(1);
 
-        clusterService1.messagingService().addMessageHandler(
+        receiver.messagingService().addMessageHandler(
                 TestMessageTypes.class,
                 (message, senderConsistentId, correlationId) -> {
-                    clusterService1.messagingService().respond(
-                            clusterService1.topologyService().localMember(),
+                    receiver.messagingService().respond(
+                            sender.topologyService().localMember(),
                             message,
                             requireNonNull(correlationId)
                     );
@@ -572,20 +573,85 @@ class ItScaleCubeNetworkMessagingTest {
         );
 
         // Make an invocation to establish a connection.
-        CompletableFuture<Void> firstInvoke = clusterService0.messagingService().send(
-                clusterService1.topologyService().localMember(),
-                messageFactory.testMessage().build()
+        CompletableFuture<?> firstInvoke = sender.messagingService().invoke(
+                receiver.topologyService().localMember(),
+                messageFactory.testMessage().build(),
+                10_000
         );
         assertThat(firstInvoke, willCompleteSuccessfully());
 
-        closeAllChannels(clusterService0.messagingService());
+        closeAllChannels(sender.messagingService());
 
         // Now try again.
-        CompletableFuture<Void> secondInvoke = clusterService0.messagingService().send(
-                clusterService1.topologyService().localMember(),
-                messageFactory.testMessage().build()
+        CompletableFuture<?> secondInvoke = sender.messagingService().invoke(
+                receiver.topologyService().localMember(),
+                messageFactory.testMessage().build(),
+                10_000
         );
         assertThat(secondInvoke, willCompleteSuccessfully());
+    }
+
+    @Test
+    public void doesNotDeliverMessagesWhoseSenderLeftPhysicalTopology() throws Exception {
+        testCluster = new Cluster(2, testInfo);
+
+        testCluster.startAwait();
+
+        ClusterService sender = testCluster.members.get(0);
+        ClusterService receiver = testCluster.members.get(1);
+
+        // We are going to send 3 messages, of which 2 will arrive after the sender has been removed from the physical topology,
+        // so we expect 2 messages to be 'skipped' and not delivered on the receiver.
+        CountDownLatch messagesSkipped = new CountDownLatch(2);
+        logInspectors.add(
+                new LogInspector(
+                    DefaultMessagingService.class.getName(),
+                    event -> event.getMessage().getFormattedMessage().contains("is stale, so skipping message handling"),
+                    messagesSkipped::countDown
+                )
+        );
+        logInspectors.forEach(LogInspector::start);
+
+        AtomicBoolean first = new AtomicBoolean(true);
+        CountDownLatch canProceed = new CountDownLatch(1);
+        CountDownLatch blockingStarted = new CountDownLatch(1);
+        AtomicInteger messagesDelivered = new AtomicInteger();
+
+        receiver.messagingService().addMessageHandler(
+                TestMessageTypes.class,
+                (message, senderConsistentId, correlationId) -> {
+                    if (first.compareAndSet(true, false)) {
+                        blockingStarted.countDown();
+
+                        try {
+                            assertTrue(canProceed.await(10, TimeUnit.SECONDS));
+                        } catch (InterruptedException e) {
+                            Thread.currentThread().interrupt();
+                            throw new RuntimeException(e);
+                        }
+                    }
+
+                    messagesDelivered.incrementAndGet();
+                }
+        );
+
+        TestMessage message = messageFactory.testMessage().build();
+
+        // This message will get stuck.
+        sender.messagingService().send(receiver.topologyService().localMember(), message);
+
+        // These 2 will be handled after the sender has left the physical topology.
+        sender.messagingService().send(receiver.topologyService().localMember(), message);
+        sender.messagingService().invoke(receiver.topologyService().localMember(), message, 10_000);
+
+        assertTrue(blockingStarted.await(10, TimeUnit.SECONDS));
+
+        knockOutNode(sender.nodeName(), false);
+
+        canProceed.countDown();
+
+        assertTrue(messagesSkipped.await(10, TimeUnit.SECONDS), "Messages were not skipped");
+        assertThat(messagesDelivered.get(), is(1));
     }
 
     private static void closeAllChannels(MessagingService messagingService) throws InterruptedException {
@@ -597,7 +663,7 @@ class ItScaleCubeNetworkMessagingTest {
     }
 
     private void knockOutNode(String outcastName, boolean closeConnectionsForcibly) throws InterruptedException {
-        CountDownLatch disappeared = new CountDownLatch(2);
+        CountDownLatch disappeared = new CountDownLatch(testCluster.members.size() - 1);
 
         TopologyEventHandler disappearListener = new TopologyEventHandler() {
             @Override

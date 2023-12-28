@@ -102,6 +102,7 @@ public class ScaleCubeClusterServiceFactory {
                 consistentId,
                 messageFactory,
                 topologyService,
+                staleIds,
                 userObjectSerialization.descriptorRegistry(),
                 userObjectSerialization.marshaller()
         );

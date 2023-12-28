@@ -48,6 +48,7 @@ import org.apache.ignite.internal.network.message.ScaleCubeMessage;
 import org.apache.ignite.internal.network.netty.ConnectionManager;
 import org.apache.ignite.internal.network.netty.InNetworkObject;
 import org.apache.ignite.internal.network.netty.NettySender;
+import org.apache.ignite.internal.network.recovery.StaleIdDetector;
 import org.apache.ignite.internal.network.serialization.ClassDescriptorRegistry;
 import org.apache.ignite.internal.network.serialization.DescriptorRegistry;
 import org.apache.ignite.internal.network.serialization.marshal.UserObjectMarshaller;
@@ -66,6 +67,8 @@ public class DefaultMessagingService extends AbstractMessagingService {
 
     /** Topology service. */
     private final TopologyService topologyService;
+
+    private final StaleIdDetector staleIdDetector;
 
     /** User object marshaller. */
     private final UserObjectMarshaller marshaller;
@@ -97,6 +100,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
      *
      * @param factory Network messages factory.
      * @param topologyService Topology service.
+     * @param staleIdDetector Used to detect stale node IDs.
      * @param classDescriptorRegistry Descriptor registry.
      * @param marshaller Marshaller.
      */
@@ -104,11 +108,13 @@ public class DefaultMessagingService extends AbstractMessagingService {
             String nodeName,
             NetworkMessagesFactory factory,
             TopologyService topologyService,
+            StaleIdDetector staleIdDetector,
             ClassDescriptorRegistry classDescriptorRegistry,
             UserObjectMarshaller marshaller
     ) {
         this.factory = factory;
         this.topologyService = topologyService;
+        this.staleIdDetector = staleIdDetector;
         this.classDescriptorRegistry = classDescriptorRegistry;
         this.marshaller = marshaller;
 
@@ -352,6 +358,11 @@ public class DefaultMessagingService extends AbstractMessagingService {
     }
 
     private void handleIncomingMessage(InNetworkObject obj) {
+        if (senderIdIsStale(obj)) {
+            LOG.info("Sender ID {} ({}) is stale, so skipping message handling: {}", obj.launchId(), obj.consistentId(), obj.message());
+            return;
+        }
+
         NetworkMessage msg = obj.message();
         DescriptorRegistry registry = obj.registry();
         try {
@@ -385,6 +396,10 @@ public class DefaultMessagingService extends AbstractMessagingService {
         for (NetworkMessageHandler networkMessageHandler : getMessageHandlers(message.groupType())) {
             networkMessageHandler.onReceived(message, senderConsistentId, correlationId);
         }
+    }
+
+    private boolean senderIdIsStale(InNetworkObject obj) {
+        return staleIdDetector.isIdStale(obj.launchId());
     }
 
     private static void logAndRethrowIfError(InNetworkObject obj, Throwable e) {
