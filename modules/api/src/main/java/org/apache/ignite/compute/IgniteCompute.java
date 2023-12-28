@@ -58,7 +58,7 @@ public interface IgniteCompute {
      * @param args Arguments of the job.
      * @param <R> Job result type
      * @return Job result.
-     * @throws ComputeException if there is any problem executing the job.
+     * @throws ComputeException If there is any problem executing the job.
      */
     <R> R execute(
             Set<ClusterNode> nodes,
@@ -98,7 +98,7 @@ public interface IgniteCompute {
      * @param args Arguments of the job.
      * @param <R> Job result type.
      * @return CompletableFuture Job result.
-     * @throws ComputeException if there is any problem executing the job.
+     * @throws ComputeException If there is any problem executing the job.
      */
     <K, R> CompletableFuture<R> executeColocatedAsync(
             String tableName,
@@ -120,7 +120,7 @@ public interface IgniteCompute {
      * @param args Arguments of the job.
      * @param <R> Job result type.
      * @return Job result.
-     * @throws ComputeException if there is any problem executing the job.
+     * @throws ComputeException If there is any problem executing the job.
      */
     <R> R executeColocated(
             String tableName,
@@ -141,7 +141,7 @@ public interface IgniteCompute {
      * @param args Arguments of the job.
      * @param <R> Job result type.
      * @return Job result.
-     * @throws ComputeException if there is any problem executing the job.
+     * @throws ComputeException If there is any problem executing the job.
      */
     <K, R> R executeColocated(
             String tableName,
