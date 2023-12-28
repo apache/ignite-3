@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.compute;
 
+import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toUnmodifiableMap;
 
 import java.util.Iterator;
@@ -235,7 +236,7 @@ public class IgniteComputeImpl implements IgniteCompute {
         Objects.requireNonNull(jobClassName);
 
         return nodes.stream()
-                .collect(toUnmodifiableMap(node -> node,
+                .collect(toUnmodifiableMap(identity(),
                         node -> IgniteExceptionMapperUtil.convertToPublicFuture(executeOnOneNode(node, units, jobClassName, args))));
     }
 }
