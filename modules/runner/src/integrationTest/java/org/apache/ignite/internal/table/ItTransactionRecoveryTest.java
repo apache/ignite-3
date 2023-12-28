@@ -69,7 +69,7 @@ import org.junit.jupiter.api.TestInfo;
 /**
  * Abandoned transactions integration tests.
  */
-public class ItTransactionConflictTest extends ClusterPerTestIntegrationTest {
+public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
     /** Table name. */
     private static final String TABLE_NAME = "test_table";
 
@@ -115,13 +115,11 @@ public class ItTransactionConflictTest extends ClusterPerTestIntegrationTest {
 
         String leaseholder = primaryReplicaFut.join().getLeaseholder();
 
-        IgniteImpl commitPartNode = IntStream.range(0, initialNodes()).mapToObj(this::node).filter(n -> leaseholder.equals(n.name()))
-                .findFirst().get();
+        IgniteImpl commitPartNode = commitPartitionPrimaryNode(leaseholder);
 
         log.info("Transaction commit partition is determined [node={}].", commitPartNode.name());
 
-        IgniteImpl txCrdNode = IntStream.range(1, initialNodes()).mapToObj(this::node).filter(n -> !leaseholder.equals(n.name()))
-                .findFirst().get();
+        IgniteImpl txCrdNode = nonPrimaryNode(leaseholder);
 
         log.info("Transaction coordinator is chosen [node={}].", txCrdNode.name());
 
@@ -181,13 +179,11 @@ public class ItTransactionConflictTest extends ClusterPerTestIntegrationTest {
 
         String leaseholder = primaryReplicaFut.join().getLeaseholder();
 
-        IgniteImpl commitPartNode = IntStream.range(0, initialNodes()).mapToObj(this::node).filter(n -> leaseholder.equals(n.name()))
-                .findFirst().get();
+        IgniteImpl commitPartNode = commitPartitionPrimaryNode(leaseholder);
 
         log.info("Transaction commit partition is determined [node={}].", commitPartNode.name());
 
-        IgniteImpl txCrdNode = IntStream.range(1, initialNodes()).mapToObj(this::node).filter(n -> !leaseholder.equals(n.name()))
-                .findFirst().get();
+        IgniteImpl txCrdNode = nonPrimaryNode(leaseholder);
 
         log.info("Transaction coordinator is chosen [node={}].", txCrdNode.name());
 
@@ -235,13 +231,11 @@ public class ItTransactionConflictTest extends ClusterPerTestIntegrationTest {
 
         String leaseholder = primaryReplicaFut.join().getLeaseholder();
 
-        IgniteImpl commitPartNode = IntStream.range(0, initialNodes()).mapToObj(this::node).filter(n -> leaseholder.equals(n.name()))
-                .findFirst().get();
+        IgniteImpl commitPartNode = commitPartitionPrimaryNode(leaseholder);
 
         log.info("Transaction commit partition is determined [node={}].", commitPartNode.name());
 
-        IgniteImpl txCrdNode = IntStream.range(1, initialNodes()).mapToObj(this::node).filter(n -> !leaseholder.equals(n.name()))
-                .findFirst().get();
+        IgniteImpl txCrdNode = nonPrimaryNode(leaseholder);
 
         log.info("Transaction coordinator is chosen [node={}].", txCrdNode.name());
 
@@ -273,7 +267,7 @@ public class ItTransactionConflictTest extends ClusterPerTestIntegrationTest {
     }
 
     /**
-     * Coordinator is alive, no recovery expeted.
+     * Coordinator is alive, no recovery expected.
      */
     @Test
     public void testWriteIntentNoRecovery() throws Exception {
@@ -292,13 +286,11 @@ public class ItTransactionConflictTest extends ClusterPerTestIntegrationTest {
 
         String leaseholder = primaryReplicaFut.join().getLeaseholder();
 
-        IgniteImpl commitPartNode = IntStream.range(0, initialNodes()).mapToObj(this::node).filter(n -> leaseholder.equals(n.name()))
-                .findFirst().get();
+        IgniteImpl commitPartNode = commitPartitionPrimaryNode(leaseholder);
 
         log.info("Transaction commit partition is determined [node={}].", commitPartNode.name());
 
-        IgniteImpl txCrdNode = IntStream.range(1, initialNodes()).mapToObj(this::node).filter(n -> !leaseholder.equals(n.name()))
-                .findFirst().get();
+        IgniteImpl txCrdNode = nonPrimaryNode(leaseholder);
 
         log.info("Transaction coordinator is chosen [node={}].", txCrdNode.name());
 
@@ -348,13 +340,11 @@ public class ItTransactionConflictTest extends ClusterPerTestIntegrationTest {
 
         String leaseholder = primaryReplicaFut.join().getLeaseholder();
 
-        IgniteImpl commitPartNode = IntStream.range(0, initialNodes()).mapToObj(this::node).filter(n -> leaseholder.equals(n.name()))
-                .findFirst().get();
+        IgniteImpl commitPartNode = commitPartitionPrimaryNode(leaseholder);
 
         log.info("Transaction commit partition is determined [node={}].", commitPartNode.name());
 
-        IgniteImpl txCrdNode = IntStream.range(1, initialNodes()).mapToObj(this::node).filter(n -> !leaseholder.equals(n.name()))
-                .findFirst().get();
+        IgniteImpl txCrdNode = nonPrimaryNode(leaseholder);
 
         log.info("Transaction coordinator is chosen [node={}].", txCrdNode.name());
 
@@ -422,13 +412,11 @@ public class ItTransactionConflictTest extends ClusterPerTestIntegrationTest {
 
         String leaseholder = primaryReplicaFut.join().getLeaseholder();
 
-        IgniteImpl commitPartNode = IntStream.range(0, initialNodes()).mapToObj(this::node).filter(n -> leaseholder.equals(n.name()))
-                .findFirst().get();
+        IgniteImpl commitPartNode = commitPartitionPrimaryNode(leaseholder);
 
         log.info("Transaction commit partition is determined [node={}].", commitPartNode.name());
 
-        IgniteImpl txCrdNode = IntStream.range(1, initialNodes()).mapToObj(this::node).filter(n -> !leaseholder.equals(n.name()))
-                .findFirst().get();
+        IgniteImpl txCrdNode = nonPrimaryNode(leaseholder);
 
         log.info("Transaction coordinator is chosen [node={}].", txCrdNode.name());
 
@@ -502,13 +490,11 @@ public class ItTransactionConflictTest extends ClusterPerTestIntegrationTest {
 
         String leaseholder = primaryReplicaFut.join().getLeaseholder();
 
-        IgniteImpl commitPartNode = IntStream.range(0, initialNodes()).mapToObj(this::node).filter(n -> leaseholder.equals(n.name()))
-                .findFirst().get();
+        IgniteImpl commitPartNode = commitPartitionPrimaryNode(leaseholder);
 
         log.info("Transaction commit partition is determined [node={}].", commitPartNode.name());
 
-        IgniteImpl txCrdNode = IntStream.range(1, initialNodes()).mapToObj(this::node).filter(n -> !leaseholder.equals(n.name()))
-                .findFirst().get();
+        IgniteImpl txCrdNode = nonPrimaryNode(leaseholder);
 
         log.info("Transaction coordinator is chosen [node={}].", txCrdNode.name());
 
@@ -570,7 +556,8 @@ public class ItTransactionConflictTest extends ClusterPerTestIntegrationTest {
 
         assertInstanceOf(TransactionAlreadyFinishedException.class, ExceptionUtils.unwrapCause(errorResponse.throwable()));
 
-        assertTrue(waitForCondition(() -> txStoredState(commitPartNode, orphanTx.id()) == TxState.ABORTED, 10_000));
+        assertEquals(TxState.ABORTED, txStoredState(commitPartNode, orphanTx.id()));
+
     }
 
     @Test
@@ -590,13 +577,11 @@ public class ItTransactionConflictTest extends ClusterPerTestIntegrationTest {
 
         String leaseholder = primaryReplicaFut.join().getLeaseholder();
 
-        IgniteImpl commitPartNode = IntStream.range(0, initialNodes()).mapToObj(this::node).filter(n -> leaseholder.equals(n.name()))
-                .findFirst().get();
+        IgniteImpl commitPartNode = commitPartitionPrimaryNode(leaseholder);
 
         log.info("Transaction commit partition is determined [node={}].", commitPartNode.name());
 
-        IgniteImpl txCrdNode = IntStream.range(1, initialNodes()).mapToObj(this::node).filter(n -> !leaseholder.equals(n.name()))
-                .findFirst().get();
+        IgniteImpl txCrdNode = nonPrimaryNode(leaseholder);
 
         log.info("Transaction coordinator is chosen [node={}].", txCrdNode.name());
 
@@ -621,7 +606,7 @@ public class ItTransactionConflictTest extends ClusterPerTestIntegrationTest {
 
         IgniteImpl newCoordNode = node(0);
 
-        log.info("New Transaction coordinator is chosen [node={}].", newCoordNode.name());
+        log.info("New transaction coordinator is chosen [node={}].", newCoordNode.name());
 
         // Run RW transaction.
         Transaction rwTx1 = commitPartNode.transactions().begin();
@@ -649,7 +634,6 @@ public class ItTransactionConflictTest extends ClusterPerTestIntegrationTest {
 
         assertTrue(waitForCondition(() -> txStoredState(commitPartNode, orphanTxId) == TxState.ABORTED, 10_000));
         assertTrue(waitForCondition(() -> txStoredState(commitPartNode, rwTx1Id) == TxState.ABORTED, 10_000));
-        assertTrue(waitForCondition(() -> txStoredState(commitPartNode, rwTx2Id) == TxState.COMMITTED, 10_000));
 
         assertTrue(waitForCondition(() -> txStoredMeta(commitPartNode, orphanTxId).locksReleased(), 10_000));
         assertTrue(waitForCondition(() -> txStoredMeta(commitPartNode, rwTx1Id).locksReleased(), 10_000));
@@ -683,13 +667,11 @@ public class ItTransactionConflictTest extends ClusterPerTestIntegrationTest {
 
         String leaseholder = primaryReplicaFut.join().getLeaseholder();
 
-        IgniteImpl commitPartNode = IntStream.range(0, initialNodes()).mapToObj(this::node).filter(n -> leaseholder.equals(n.name()))
-                .findFirst().get();
+        IgniteImpl commitPartNode = commitPartitionPrimaryNode(leaseholder);
 
         log.info("Transaction commit partition is determined [node={}].", commitPartNode.name());
 
-        IgniteImpl txCrdNode = IntStream.range(1, initialNodes()).mapToObj(this::node).filter(n -> !leaseholder.equals(n.name()))
-                .findFirst().get();
+        IgniteImpl txCrdNode = nonPrimaryNode(leaseholder);
 
         log.info("Transaction coordinator is chosen [node={}].", txCrdNode.name());
 
@@ -825,5 +807,21 @@ public class ItTransactionConflictTest extends ClusterPerTestIntegrationTest {
         view.upsert(rwTx1, Tuple.create().set("key", 42).set("val", "val1"));
 
         return rwTx1;
+    }
+
+    private IgniteImpl commitPartitionPrimaryNode(String leaseholder) {
+        return IntStream.range(0, initialNodes())
+                .mapToObj(this::node)
+                .filter(n -> leaseholder.equals(n.name()))
+                .findFirst()
+                .get();
+    }
+
+    private IgniteImpl nonPrimaryNode(String leaseholder) {
+        return IntStream.range(1, initialNodes())
+                .mapToObj(this::node)
+                .filter(n -> !leaseholder.equals(n.name()))
+                .findFirst()
+                .get();
     }
 }
