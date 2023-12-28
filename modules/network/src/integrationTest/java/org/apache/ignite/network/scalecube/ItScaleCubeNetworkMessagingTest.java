@@ -19,13 +19,17 @@ package org.apache.ignite.network.scalecube;
 
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toUnmodifiableList;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.findLocalAddresses;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -50,6 +54,7 @@ import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.network.NetworkMessageTypes;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
+import org.apache.ignite.internal.network.handshake.HandshakeException;
 import org.apache.ignite.internal.network.messages.TestMessage;
 import org.apache.ignite.internal.network.messages.TestMessageTypes;
 import org.apache.ignite.internal.network.messages.TestMessagesFactory;
@@ -69,8 +74,11 @@ import org.apache.ignite.network.TopologyEventHandler;
 import org.apache.ignite.utils.ClusterServiceTestUtils;
 import org.apache.logging.log4j.core.LogEvent;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import reactor.core.publisher.Mono;
 
 /**
@@ -90,9 +98,15 @@ class ItScaleCubeNetworkMessagingTest {
     /** List of test log inspectors. */
     private final List<LogInspector> logInspectors = new ArrayList<>();
 
-    /** Tear down method. */
+    private TestInfo testInfo;
+
+    @BeforeEach
+    void saveTestInfo(TestInfo testInfo) {
+        this.testInfo = testInfo;
+    }
+
     @AfterEach
-    public void tearDown() {
+    void tearDown() {
         testCluster.shutdown();
         logInspectors.forEach(LogInspector::stop);
         logInspectors.clear();
@@ -477,26 +491,64 @@ class ItScaleCubeNetworkMessagingTest {
      * @throws Exception in case of errors.
      */
     @SuppressWarnings("ConstantConditions")
-    @Test
-    public void nodeCannotReuseOldId(TestInfo testInfo) throws Exception {
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    public void nodeCannotReuseOldId(boolean keepPreExistingConnections) throws Exception {
         testCluster = new Cluster(3, testInfo);
 
         testCluster.startAwait();
 
         String outcastName = testCluster.members.get(testCluster.members.size() - 1).nodeName();
 
-        knockOutNode(outcastName);
+        knockOutNode(outcastName, !keepPreExistingConnections);
 
         IgniteBiTuple<CountDownLatch, AtomicBoolean> pair = reanimateNode(outcastName);
         CountDownLatch ready = pair.get1();
         AtomicBoolean reappeared = pair.get2();
 
-        assertTrue(ready.await(10, TimeUnit.SECONDS), "Node neither reappeared, not was rejected");
+        assertTrue(ready.await(10, TimeUnit.SECONDS), "Node neither reappeared, nor was rejected");
 
         assertThat(reappeared.get(), is(false));
     }
 
-    private void knockOutNode(String outcastName) throws InterruptedException {
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    public void nodeCannotCommunicateAfterLeavingPhysicalTopology(boolean keepPreExistingConnections) throws Exception {
+        testCluster = new Cluster(3, testInfo);
+
+        testCluster.startAwait();
+
+        ClusterService notOutcast = testCluster.members.get(0);
+        ClusterService outcast = testCluster.members.get(testCluster.members.size() - 1);
+
+        ClusterNode outcastNode = notOutcast.topologyService().getByConsistentId(outcast.nodeName());
+        ClusterNode notOutcastNode = outcast.topologyService().getByConsistentId(notOutcast.nodeName());
+        assertNotNull(outcastNode);
+        assertNotNull(notOutcastNode);
+
+        if (keepPreExistingConnections) {
+            assertThat(notOutcast.messagingService().send(outcastNode, messageFactory.testMessage().build()), willCompleteSuccessfully());
+            assertThat(outcast.messagingService().send(notOutcastNode, messageFactory.testMessage().build()), willCompleteSuccessfully());
+        }
+
+        knockOutNode(outcast.nodeName(), !keepPreExistingConnections);
+
+        stopDroppingMessagesTo(outcast.nodeName());
+
+        CompletableFuture<Void> sendFromOutcast = outcast.messagingService().send(notOutcastNode, messageFactory.testMessage().build());
+        assertThat(sendFromOutcast, willThrow(HandshakeException.class));
+
+        CompletableFuture<?> invokeFromOutcast = outcast.messagingService().invoke(notOutcastNode, messageFactory.testMessage().build(), 10_000);
+        assertThat(invokeFromOutcast, willThrow(HandshakeException.class));
+
+        CompletableFuture<Void> sendToOutcast = notOutcast.messagingService().send(outcastNode, messageFactory.testMessage().build());
+        assertThat(sendToOutcast, willThrow(HandshakeException.class));
+
+        CompletableFuture<?> invokeToOutcast = notOutcast.messagingService().invoke(outcastNode, messageFactory.testMessage().build(), 10_000);
+        assertThat(invokeToOutcast, willThrow(HandshakeException.class));
+    }
+
+    private void knockOutNode(String outcastName, boolean closeConnectionsForcibly) throws InterruptedException {
         CountDownLatch disappeared = new CountDownLatch(2);
 
         TopologyEventHandler disappearListener = new TopologyEventHandler() {
@@ -526,15 +578,17 @@ class ItScaleCubeNetworkMessagingTest {
 
         DefaultMessagingService messagingService = (DefaultMessagingService) testCluster.members.stream()
                 .filter(service -> outcastName.equals(service.nodeName()))
-                .findFirst()
-                .get().messagingService();
+                .findFirst().orElseThrow()
+                .messagingService();
 
         ConnectionManager cm = messagingService.connectionManager();
 
-        // Forcefully close channels, so that nodes will create new channels on reanimation of the outcast.
-        cm.channels().forEach((stringConnectorKey, nettySender) -> {
-            nettySender.close().awaitUninterruptibly();
-        });
+        if (closeConnectionsForcibly) {
+            // Forcefully close channels, so that nodes will create new channels on reanimation of the outcast.
+            cm.channels().forEach((stringConnectorKey, nettySender) -> {
+                nettySender.close().awaitUninterruptibly();
+            });
+        }
     }
 
     private IgniteBiTuple<CountDownLatch, AtomicBoolean> reanimateNode(String outcastName) {
@@ -557,23 +611,27 @@ class ItScaleCubeNetworkMessagingTest {
         logInspectors.add(new LogInspector(
                 RecoveryClientHandshakeManager.class.getName(),
                 matcher,
-                ready::countDown));
+                () -> ready.countDown()));
 
         logInspectors.add(new LogInspector(
                 RecoveryServerHandshakeManager.class.getName(),
                 matcher,
-                ready::countDown));
+                () -> ready.countDown()));
 
         logInspectors.forEach(LogInspector::start);
 
+        stopDroppingMessagesTo(outcastName);
+
+        return new IgniteBiTuple<>(ready, reappeared);
+    }
+
+    private void stopDroppingMessagesTo(String outcastName) {
         testCluster.members.stream()
                 .filter(service -> !outcastName.equals(service.nodeName()))
                 .forEach(service -> {
                     DefaultMessagingService messagingService = (DefaultMessagingService) service.messagingService();
                     messagingService.stopDroppingMessages();
                 });
-
-        return new IgniteBiTuple<>(ready, reappeared);
     }
 
     /**
@@ -651,9 +709,6 @@ class ItScaleCubeNetworkMessagingTest {
         /** Members of the cluster. */
         final List<ClusterService> members;
 
-        /** Latch that is locked until all members are visible in the topology. */
-        private final CountDownLatch startupLatch;
-
         /** Node finder. */
         private final NodeFinder nodeFinder;
 
@@ -664,18 +719,14 @@ class ItScaleCubeNetworkMessagingTest {
          * @param testInfo   Test info.
          */
         Cluster(int numOfNodes, TestInfo testInfo) {
-            startupLatch = new CountDownLatch(numOfNodes - 1);
-
             int initialPort = 3344;
 
             List<NetworkAddress> addresses = findLocalAddresses(initialPort, initialPort + numOfNodes);
 
             this.nodeFinder = new StaticNodeFinder(addresses);
 
-            var isInitial = new AtomicBoolean(true);
-
             members = addresses.stream()
-                    .map(addr -> startNode(testInfo, addr, isInitial.getAndSet(false)))
+                    .map(addr -> startNode(testInfo, addr))
                     .collect(toUnmodifiableList());
         }
 
@@ -684,25 +735,10 @@ class ItScaleCubeNetworkMessagingTest {
          *
          * @param testInfo Test info.
          * @param addr     Node address.
-         * @param initial  Whether this node is the first one.
          * @return Started cluster node.
          */
-        private ClusterService startNode(
-                TestInfo testInfo, NetworkAddress addr, boolean initial
-        ) {
-            ClusterService clusterSvc = ClusterServiceTestUtils.clusterService(testInfo, addr.port(), nodeFinder);
-
-            if (initial) {
-                clusterSvc.topologyService().addEventHandler(new TopologyEventHandler() {
-                    /** {@inheritDoc} */
-                    @Override
-                    public void onAppeared(ClusterNode member) {
-                        startupLatch.countDown();
-                    }
-                });
-            }
-
-            return clusterSvc;
+        private ClusterService startNode(TestInfo testInfo, NetworkAddress addr) {
+            return ClusterServiceTestUtils.clusterService(testInfo, addr.port(), nodeFinder);
         }
 
         /**
@@ -714,9 +750,16 @@ class ItScaleCubeNetworkMessagingTest {
         void startAwait() throws InterruptedException {
             members.forEach(ClusterService::start);
 
-            if (!startupLatch.await(3, TimeUnit.SECONDS)) {
+            if (!waitForCondition(this::allMembersSeeEachOther, TimeUnit.SECONDS.toMillis(3))) {
                 throw new AssertionError();
             }
+        }
+
+        private boolean allMembersSeeEachOther() {
+            int totalMembersSeen = members.stream()
+                    .mapToInt(m -> m.topologyService().allMembers().size())
+                    .sum();
+            return totalMembersSeen == members.size() * members.size();
         }
 
         /**

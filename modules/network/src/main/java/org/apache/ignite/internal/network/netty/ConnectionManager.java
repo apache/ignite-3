@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.network.netty;
 
 import static java.util.function.Function.identity;
+import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.network.ChannelType.getChannel;
 
 import io.netty.bootstrap.Bootstrap;
@@ -26,6 +27,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -33,6 +35,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.future.OrderingFuture;
 import org.apache.ignite.internal.lang.IgniteInternalException;
@@ -485,5 +488,23 @@ public class ConnectionManager implements ChannelCreationListener {
      */
     public void initiateStopping() {
         stopping.set(true);
+    }
+
+    /**
+     * Closes physical connections with an Ignite node identified by the given ID (it's not consistentId,
+     * it's ID that gets regenerated at each node restart).
+     *
+     * @param id ID of the node.
+     */
+    public void closeConnectionsWith(String id) {
+        List<Entry<ConnectorKey<String>, NettySender>> entriesToRemove = channels.entrySet().stream()
+                .filter(entry -> entry.getValue().launchId().equals(id))
+                .collect(toList());
+
+        for (Entry<ConnectorKey<String>, NettySender> entry : entriesToRemove) {
+            entry.getValue().close();
+
+            channels.remove(entry.getKey());
+        }
     }
 }

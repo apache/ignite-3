@@ -116,6 +116,13 @@ public class DefaultMessagingService extends AbstractMessagingService {
         // TODO asch the implementation of delayed acks relies on absence of reordering on subsequent messages delivery.
         // TODO asch This invariant should be preserved while working on IGNITE-20373
         inboundExecutors = new LazyStripedExecutor(nodeName, "MessagingService-inbound-");
+
+        topologyService.addEventHandler(new TopologyEventHandler() {
+            @Override
+            public void onDisappeared(ClusterNode member) {
+                connectionManager.closeConnectionsWith(member.id());
+            }
+        });
     }
 
     /**
