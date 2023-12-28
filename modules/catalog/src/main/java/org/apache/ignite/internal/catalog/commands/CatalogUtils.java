@@ -44,6 +44,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.type.NativeTypes;
+import org.apache.ignite.internal.util.Constants;
 import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.Nullable;
 
@@ -66,10 +67,6 @@ public class CatalogUtils {
     /** Default distribution zone storage engine. */
     // TODO: IGNITE-19719 Should be defined differently
     public static final String DEFAULT_STORAGE_ENGINE = IgniteSystemProperties.getString("IGNITE_DEFAULT_STORAGE_ENGINE", "aipersist");
-
-    /** Dummy storage profile. */
-    // TODO: https://issues.apache.org/jira/browse/IGNITE-20990 Replace dummy with the real target storages.
-    public static final String DUMMY_STORAGE_PROFILE = "dummy";
 
     /** Default distribution zone storage engine data region. */
     // TODO: IGNITE-19719 Must be storage engine specific
@@ -149,7 +146,7 @@ public class CatalogUtils {
         DataStorageParams dataStorageParams =
                 DataStorageParams.builder().engine(DEFAULT_STORAGE_ENGINE).dataRegion(DEFAULT_DATA_REGION).build();
 
-        List<StorageProfileParams> storageProfiles = List.of(StorageProfileParams.builder().storageProfile(DUMMY_STORAGE_PROFILE).build());
+        List<StorageProfileParams> storageProfiles = List.of(StorageProfileParams.builder().storageProfile(Constants.DUMMY_STORAGE_PROFILE).build());
 
         return new CatalogZoneDescriptor(
                 id,

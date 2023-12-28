@@ -27,6 +27,7 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
+import static org.apache.ignite.internal.util.Constants.DUMMY_STORAGE_PROFILE;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.defaultSerializationRegistry;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -1350,8 +1351,16 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
      */
     private void createTableWithData(List<IgniteImpl> nodes, String name, int replicas, int partitions) {
         try (Session session = nodes.get(0).sql().createSession()) {
-            session.execute(null,
-                    String.format("CREATE ZONE IF NOT EXISTS ZONE_%s WITH REPLICAS=%d, PARTITIONS=%d", name, replicas, partitions));
+            session.execute(
+                    null,
+                    String.format(
+                            "CREATE ZONE IF NOT EXISTS ZONE_%s WITH REPLICAS=%d, PARTITIONS=%d, STORAGE_PROFILES='%s'",
+                            name,
+                            replicas,
+                            partitions,
+                            DUMMY_STORAGE_PROFILE
+                    )
+            );
             session.execute(null, "CREATE TABLE IF NOT EXISTS " + name
                     + "(id INT PRIMARY KEY, name VARCHAR) WITH PRIMARY_ZONE='ZONE_" + name.toUpperCase() + "';");
 
@@ -1399,8 +1408,16 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
      */
     private static Table createTableWithoutData(Ignite ignite, String name, int replicas, int partitions) {
         try (Session session = ignite.sql().createSession()) {
-            session.execute(null,
-                    String.format("CREATE ZONE IF NOT EXISTS ZONE_%s WITH REPLICAS=%d, PARTITIONS=%d", name, replicas, partitions));
+            session.execute(
+                    null,
+                    String.format(
+                            "CREATE ZONE IF NOT EXISTS ZONE_%s WITH REPLICAS=%d, PARTITIONS=%d, STORAGE_PROFILES='%s'",
+                            name,
+                            replicas,
+                            partitions,
+                            DUMMY_STORAGE_PROFILE
+                    )
+            );
             session.execute(null, "CREATE TABLE " + name
                     + "(id INT PRIMARY KEY, name VARCHAR) WITH PRIMARY_ZONE='ZONE_" + name.toUpperCase() + "';");
         }

@@ -20,6 +20,7 @@ package org.apache.ignite.internal.runner.app.client;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.Constants.DUMMY_STORAGE_PROFILE;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -116,7 +117,7 @@ public abstract class ItAbstractThinClientTest extends BaseIgniteAbstractTest {
         }
 
         try (Session session = startedNodes.get(0).sql().createSession()) {
-            session.execute(null, "CREATE ZONE TEST_ZONE WITH REPLICAS=1, PARTITIONS=10");
+            session.execute(null, "CREATE ZONE TEST_ZONE WITH REPLICAS=1, PARTITIONS=10, STORAGE_PROFILES='" + DUMMY_STORAGE_PROFILE + "'");
             session.execute(null, "CREATE TABLE " + TABLE_NAME + "("
                     + COLUMN_KEY + " INT PRIMARY KEY, " + COLUMN_VAL + " VARCHAR) WITH PRIMARY_ZONE='TEST_ZONE'");
         }

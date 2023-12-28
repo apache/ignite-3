@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.index;
 
 import static java.util.stream.Collectors.joining;
+import static org.apache.ignite.internal.util.Constants.DUMMY_STORAGE_PROFILE;
 import static org.apache.ignite.internal.raft.util.OptimizedMarshaller.NO_POOL;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsIndexScan;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
@@ -185,8 +186,8 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
     }
 
     private static void createAndPopulateTable(int replicas, int partitions) {
-        sql(IgniteStringFormatter.format("CREATE ZONE IF NOT EXISTS {} WITH REPLICAS={}, PARTITIONS={}",
-                ZONE_NAME, replicas, partitions
+        sql(IgniteStringFormatter.format("CREATE ZONE IF NOT EXISTS {} WITH REPLICAS={}, PARTITIONS={}, STORAGE_PROFILES='{}'",
+                ZONE_NAME, replicas, partitions, DUMMY_STORAGE_PROFILE
         ));
 
         sql(IgniteStringFormatter.format(

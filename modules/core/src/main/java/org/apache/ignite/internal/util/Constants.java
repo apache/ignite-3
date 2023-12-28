@@ -30,6 +30,10 @@ public final class Constants {
     /** Bytes in giga-byte (IEC 80000-13). */
     public static final int GiB = 1024 * MiB;
 
+    /** Dummy storage profile. */
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-20990 Replace dummy with the real target storages.
+    public static final String DUMMY_STORAGE_PROFILE = "dummy";
+
     /** Stub. */
     private Constants() {
         //Noop.
