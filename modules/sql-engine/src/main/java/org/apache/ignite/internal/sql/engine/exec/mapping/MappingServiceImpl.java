@@ -38,7 +38,6 @@ import org.apache.calcite.plan.RelOptCluster;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
-import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
 import org.apache.ignite.internal.replicator.TablePartitionId;
@@ -53,7 +52,6 @@ import org.apache.ignite.internal.sql.engine.util.cache.Cache;
 import org.apache.ignite.internal.sql.engine.util.cache.CacheFactory;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.lang.ErrorGroups.Sql;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * An implementation of {@link MappingService}.
@@ -71,7 +69,7 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
     private final ExecutionTargetProvider targetProvider;
     private final Executor taskExecutor;
     private final Cache<PlanId, FragmentsTemplate> templatesCache;
-    private final FragmentsCache fragmentsCache;
+    private final FragmentsCache<PlanId, CompletableFuture<List<MappedFragment>>> fragmentsCache;
 
     /**
      * Constructor.
@@ -93,7 +91,7 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
         this.targetProvider = targetProvider;
         this.templatesCache = cacheFactory.create(cacheSize);
         this.taskExecutor = taskExecutor;
-        this.fragmentsCache = new FragmentsCache(cacheSize);
+        this.fragmentsCache = new FragmentsCache<>(cacheSize);
     }
 
     @Override
@@ -105,6 +103,7 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
         return initialTopologyFuture.thenComposeAsync(ignore -> map0(multiStepPlan), taskExecutor);
     }
 
+    /** Called when the primary replica has expired. */
     public CompletableFuture<Boolean> onPrimaryReplicaExpired(PrimaryReplicaEventParameters parameters) {
         assert parameters != null;
         assert parameters.groupId() instanceof TablePartitionId;
@@ -125,7 +124,7 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
             Set<Integer> ids = template.fragments.stream().flatMap(fragment -> fragment.tables().stream()
                     .map(IgniteDataSource::id)).collect(Collectors.toSet());
 
-            return new CacheValue(ids, mapFragments(context, template));
+            return new CacheValue<>(ids, mapFragments(context, template));
         }).mapping();
     }
 
