@@ -227,7 +227,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
 
         NetworkMessage message = correlationId != null ? responseFromMessage(msg, correlationId) : msg;
 
-        return sendMessage0(recipient.name(), type, recipientAddress, message);
+        return sendViaNetwork(recipient.name(), type, recipientAddress, message);
     }
 
     private boolean shouldDropMessage(ClusterNode recipient, NetworkMessage msg) {
@@ -271,7 +271,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
 
         InvokeRequest message = requestFromMessage(msg, correlationId);
 
-        return sendMessage0(recipient.name(), type, recipientAddress, message).thenCompose(unused -> responseFuture);
+        return sendViaNetwork(recipient.name(), type, recipientAddress, message).thenCompose(unused -> responseFuture);
     }
 
     /**
@@ -284,14 +284,14 @@ public class DefaultMessagingService extends AbstractMessagingService {
      *
      * @return Future of the send operation.
      */
-    private CompletableFuture<Void> sendMessage0(
+    private CompletableFuture<Void> sendViaNetwork(
             @Nullable String consistentId,
             ChannelType type,
             InetSocketAddress addr,
             NetworkMessage message
     ) {
         if (isInNetworkThread()) {
-            return CompletableFuture.supplyAsync(() -> sendMessage0(consistentId, type, addr, message), outboundExecutor)
+            return CompletableFuture.supplyAsync(() -> sendViaNetwork(consistentId, type, addr, message), outboundExecutor)
                     .thenCompose(Function.identity());
         }
 
