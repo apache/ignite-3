@@ -18,139 +18,204 @@
 package org.apache.ignite.internal.sql.engine.exec.mapping;
 
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasSize;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertSame;
 
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
+import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadLocalRandom;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.internal.sql.engine.exec.mapping.FragmentsCache.CacheValue;
-import org.apache.ignite.internal.sql.engine.exec.mapping.FragmentsCache.RefValue;
+import org.apache.ignite.internal.sql.engine.exec.mapping.FragmentsCache.StateValue;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
-import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Test;
 
 /**
  * Test class to verify {@link FragmentsCache}.
  */
 public class FragmentsCacheTest {
+    private static final long EVICTION_TIMEOUT_MS = 5_000;
+
     @Test
-    public void testClear() {
-        FragmentsCache<Integer, String> cache = new FragmentsCache<>(3);
+    public void referencesRemovedOnCacheClear() throws InterruptedException {
+        TestCacheDecorator<Object> tester = new TestCacheDecorator<>(10);
 
-        cache.computeIfAbsent(1, ignore -> new CacheValue<>(Set.of(1, 2), "1"));
-        cache.computeIfAbsent(2, ignore -> new CacheValue<>(Set.of(2, 3), "2"));
-        cache.computeIfAbsent(3, ignore -> new CacheValue<>(Set.of(3, 2), "3"));
+        tester.put(1, new Object());
+        tester.put(2, List.of(2), new Object());
+        tester.put(3, List.of(3, 1), new Object());
+        tester.put(4, List.of(1, 3), new Object());
+        tester.put(5, List.of(1, 2, 3), new Object());
 
-        assertThat(cache.states().entrySet(), hasSize(3));
+        assertThat(tester.states().entrySet(), hasSize(3));
 
-        cache.clear();
+        tester.cache.clear();
 
-        assertThat(cache.states().entrySet(), Matchers.empty());
+        IgniteTestUtils.waitForCondition(() -> tester.states().isEmpty(), EVICTION_TIMEOUT_MS);
     }
 
     @Test
-    public void testStateChange() {
-        FragmentsCache<Integer, Object> cache = new FragmentsCache<>(1024);
+    public void entryMustBeRefreshedAfterInvalidationUsingForeignKey() {
+        TestCacheDecorator<Object> tester = new TestCacheDecorator<>(1024);
 
-        Object exp = new Object();
-        CacheValue<Object> v = new CacheValue<>(Set.of(1, 2), exp);
-        cache.computeIfAbsent(1, ignore -> v);
-        // TODO TBD
+        Object initialValue = new Object();
+        List<Integer> foreignKeys = List.of(12, -5, 6, 17);
+
+        tester.put(1, foreignKeys, initialValue);
+        tester.put(2, initialValue);
+
+        assertSame(initialValue, tester.put(1, new Object()));
+        assertSame(initialValue, tester.put(2, new Object()));
+
+        // invalid foreign key.
+        tester.cache.invalidate(1);
+
+        assertSame(initialValue, tester.put(1, new Object()));
+        assertSame(initialValue, tester.put(2, new Object()));
+
+        Object newValue = null;
+
+        for (int key : foreignKeys) {
+            tester.cache.invalidate(key);
+
+            newValue = new Object();
+
+            assertSame(newValue, tester.put(1, newValue));
+            assertSame(initialValue, tester.put(2, newValue));
+        }
+
+        assertSame(newValue, tester.put(1, newValue));
+        assertSame(initialValue, tester.put(2, newValue));
     }
 
     @Test
-    public void basicTimestampCacheRotation() throws InterruptedException {
-        FragmentsCache<Integer, String> cache = new FragmentsCache<>(5);
+    public void checkForeignKeysEntriesCleanupAfterEviction() throws InterruptedException {
+        int cacheSize = 10;
+        int valuesCount = 100;
+        int foreignKeysCount = 20;
+        int foreignKeysPerValue = 3;
 
-        cache.computeIfAbsent(1, ignore -> new CacheValue<>(Set.of(1, 2), "1"));
-        cache.computeIfAbsent(2, ignore -> new CacheValue<>(Set.of(2, 1), "2"));
+        TestCacheDecorator<Object> tester = new TestCacheDecorator<>(cacheSize);
 
-        assertThat(cache.states().entrySet(), hasSize(2));
-        assertThat(cache.values().entrySet(), hasSize(2));
+        for (int i = 0; i < valuesCount; i++) {
+            tester.put(i, randomSet(foreignKeysPerValue, foreignKeysCount), new Object());
+        }
 
-        List<Integer> keys = IntStream.range(3, 20).boxed().collect(Collectors.toList());
-        putRange(cache, 3, 17);
+        tester.verifyConsistency();
+    }
 
-        touch(cache, keys);
+    @Test
+    public void checkAllOperationsConsistencyMultiThreaded() throws Exception {
+        TestCacheDecorator<Object> tester = new TestCacheDecorator<>(100);
 
-        boolean success = IgniteTestUtils.waitForCondition(() -> {
-            try {
-                verifyConsistency(cache);
-                return true;
-            } catch (Throwable t) {
-                return false;
+        int totalRefs = 400;
+        int refsPerKey = 5;
+        int keysPerThread = 5_000;
+        int threadsCount = 8;
+
+        CyclicBarrier barrier = new CyclicBarrier(threadsCount);
+        AtomicInteger threadCounter = new AtomicInteger();
+
+        IgniteTestUtils.runMultiThreaded(() -> {
+            int idx = threadCounter.getAndIncrement();
+
+            List<Integer> keys = new ArrayList<>(keysPerThread);
+            List<Set<Integer>> sets = new ArrayList<>(keysPerThread);
+
+            int rangeStart = idx * keysPerThread;
+            int rangeEnd = rangeStart + keysPerThread;
+
+            for (int i = rangeStart; i < rangeEnd; i++) {
+                keys.add(i);
+                sets.add(randomSet(refsPerKey, totalRefs));
             }
-        }, 10_000);
 
-        assertTrue(success);
+            barrier.await();
+
+            for (int attempts = 0; attempts < 20; attempts++) {
+                for (int i = 0; i < ThreadLocalRandom.current().nextInt(10); i++) {
+                    tester.cache.invalidate(ThreadLocalRandom.current().nextInt(totalRefs));
+                }
+
+                for (int i = 0; i < keys.size(); i++) {
+                    tester.put(keys.get(i), sets.get(i), new Object());
+                }
+
+                if (idx % 2 != 0 && attempts < attempts / 2) {
+                    tester.cache.clear();
+                }
+            }
+
+            return null;
+        }, threadsCount, "worker");
+
+        tester.verifyConsistency();
     }
 
-    Set<Integer> putRange(FragmentsCache<Integer, String> cache, int off, int cnt) {
-        Set<Integer> res = new HashSet<>(cnt);
+    static class TestCacheDecorator<V> {
+        private final FragmentsCache<Integer, V> cache;
+        private final ThreadPoolExecutor pool =
+                new ThreadPoolExecutor(4, 4, 0L, TimeUnit.MILLISECONDS, new LinkedBlockingQueue<>());
 
-        for (int i = off; i < off + cnt; i++) {
-            String str = String.valueOf(i);
-            Set<Integer> set = randomSet(off, off + cnt, 3);
-            cache.computeIfAbsent(i, ignore -> new CacheValue<>(set, str));
+        TestCacheDecorator(int size) {
+            this.cache = new FragmentsCache<>(size, pool);
+        }
 
-            res.addAll(set);
+        V put(Integer key, V value) {
+            return put(key, Collections.emptyList(), value);
+        }
+
+        V put(Integer key, Collection<Integer> refs, V value) {
+            return cache.putIfAbsentUpdateIfNeeded(key, () -> refs, (k) -> value);
+        }
+
+        Map<Integer, StateValue> states() {
+            return cache.states();
+        }
+
+        void verifyConsistency() throws InterruptedException {
+            // Ensure that all cache background tasks completed.
+            IgniteTestUtils.waitForCondition(() -> pool.getQueue().isEmpty() && pool.getActiveCount() == 0, EVICTION_TIMEOUT_MS);
+
+            Map<Integer, Integer> expectedForeignKeys = new HashMap<>();
+
+            for (CacheValue<?> v : cache.values().values()) {
+                for (Integer id : v.refs()) {
+                    expectedForeignKeys.merge(id, 1, Integer::sum);
+                }
+            }
+
+            assertThat(cache.states().keySet(), equalTo(expectedForeignKeys.keySet()));
+
+            for (Entry<Integer, Integer> e : expectedForeignKeys.entrySet()) {
+                StateValue actual = cache.states().get(e.getKey());
+
+                assertNotNull(actual, "Foreign key is missing in states cache: " + e.getKey());
+                assertEquals(e.getValue(), actual.counter, "Invalid references count for key: " + e.getKey());
+            }
+        }
+    }
+
+    private static Set<Integer> randomSet(int size, int totalRefs) {
+        Set<Integer> res = new HashSet<>(size);
+
+        for (int i = 0; i < size; i++) {
+            res.add(ThreadLocalRandom.current().nextInt(totalRefs));
         }
 
         return res;
-    }
-
-    private Set<Integer> randomSet(int min, int max, int cnt) {
-        Set<Integer> res = new HashSet<>(cnt);
-
-        for (int i = 0; i < cnt; i++) {
-            res.add(min + ThreadLocalRandom.current().nextInt(max - min));
-        }
-
-        return res;
-    }
-
-    void verifyConsistency(FragmentsCache<Integer, String> cache) {
-        Map<Integer, Integer> expected = new HashMap<>();
-
-        System.out.println(">xxx> values ");
-        for (Entry<Integer, CacheValue<String>> e : cache.values().entrySet()) {
-            System.out.println(" " + e.getKey() + " " + e.getValue().ids());
-        }
-
-        System.out.println(">xxx> refs ");
-
-        for (Entry<Integer, FragmentsCache<Integer, String>.RefValue> e : cache.states().entrySet()) {
-            System.out.println(" " + e.getKey() + " " + e.getValue().counter);
-        }
-
-        for (CacheValue<String> v : cache.values().values()) {
-            for (Integer id : v.ids()) {
-                expected.merge(id, 1, Integer::sum);
-            }
-        }
-
-        assertThat(cache.states().entrySet(), hasSize(expected.size()));
-
-        for (Entry<Integer, Integer> e : expected.entrySet()) {
-            RefValue actual = cache.states().get(e.getKey());
-
-            assertNotNull(actual, "key=" + e.getKey());
-
-            assertEquals(e.getValue(), actual.counter, "key=" + e.getKey());
-        }
-    }
-
-    private <K> void touch(FragmentsCache<K, ?> cache, Collection<K> keys) {
-        keys.forEach(k -> cache.values().get(k));
     }
 }

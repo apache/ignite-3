@@ -29,9 +29,9 @@ import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ForkJoinPool;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.calcite.plan.RelOptCluster;
@@ -41,7 +41,6 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopolog
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
 import org.apache.ignite.internal.replicator.TablePartitionId;
-import org.apache.ignite.internal.sql.engine.exec.mapping.FragmentsCache.CacheValue;
 import org.apache.ignite.internal.sql.engine.prepare.Fragment;
 import org.apache.ignite.internal.sql.engine.prepare.MultiStepPlan;
 import org.apache.ignite.internal.sql.engine.prepare.PlanId;
@@ -91,7 +90,7 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
         this.targetProvider = targetProvider;
         this.templatesCache = cacheFactory.create(cacheSize);
         this.taskExecutor = taskExecutor;
-        this.fragmentsCache = new FragmentsCache<>(cacheSize);
+        this.fragmentsCache = new FragmentsCache<>(cacheSize, ForkJoinPool.commonPool());
     }
 
     @Override
@@ -108,7 +107,7 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
         assert parameters != null;
         assert parameters.groupId() instanceof TablePartitionId;
 
-        fragmentsCache.invalidateById(((TablePartitionId) parameters.groupId()).tableId());
+        fragmentsCache.invalidate(((TablePartitionId) parameters.groupId()).tableId());
 
         return CompletableFutures.falseCompletedFuture();
     }
@@ -118,14 +117,12 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
         MappingContext context = new MappingContext(localNodeName, nodes);
         FragmentsTemplate template = getOrCreateTemplate(multiStepPlan, context);
 
-        return fragmentsCache.computeIfAbsent(multiStepPlan.id(), planId -> {
-            // Catalog catalog = null;
-            // catalog.table(tab.id()).zoneId())
-            Set<Integer> ids = template.fragments.stream().flatMap(fragment -> fragment.tables().stream()
-                    .map(IgniteDataSource::id)).collect(Collectors.toSet());
-
-            return new CacheValue<>(ids, mapFragments(context, template));
-        }).mapping();
+        return fragmentsCache.putIfAbsentUpdateIfNeeded(
+                multiStepPlan.id(),
+                () -> template.fragments.stream().flatMap(fragment -> fragment.tables().stream()
+                        .map(IgniteDataSource::id)).collect(Collectors.toSet()),
+                planId -> mapFragments(context, template)
+        );
     }
 
     private CompletableFuture<List<MappedFragment>> mapFragments(MappingContext context, FragmentsTemplate template) {

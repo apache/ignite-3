@@ -17,107 +17,112 @@
 
 package org.apache.ignite.internal.sql.engine.exec.mapping;
 
-import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.RemovalCause;
-import java.util.Set;
+import java.util.Collection;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.Executor;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
 /**
- * Cache for mapped fragments.
+ * Represents bounded cache, with the ability to mark cache entries as outdated through external identifiers.
+ *
+ * <p>Each entry in this cache must have a primary key, but may also have one or more foreign keys.
+ * If at least one of the foreign keys has been invalidated after cache value calculated, then the next cache access will result in a
+ * recalculation of the cache value.
  */
 public class FragmentsCache<K, V> {
-    private static final HybridClockImpl clock = new HybridClockImpl();
-
-    private final Cache<K, CacheValue<V>> values;
-    private final ConcurrentMap<Integer, RefValue> states = new ConcurrentHashMap<>();
+    private final HybridClockImpl clock = new HybridClockImpl();
+    private final ConcurrentMap<K, CacheValue<V>> values;
+    private final ConcurrentMap<Integer, StateValue> states = new ConcurrentHashMap<>();
 
     /** Constructs cache. */
-    public FragmentsCache(int size) {
+    FragmentsCache(int size, Executor executor) {
         values = Caffeine.newBuilder()
+                .executor(executor)
                 .maximumSize(size)
                 .removalListener(this::onRemoval)
-                .build();
+                .build()
+                .asMap();
     }
 
     /** Computes new value if the key is absent in the cache. */
-    public CacheValue<V> computeIfAbsent(K planId, Function<K, CacheValue<V>> mappingFunction) {
-        return values.asMap().compute(planId, (k, v) -> {
-            if (v == null) {
-                CacheValue<V> newVal = mappingFunction.apply(k);
+    public V putIfAbsentUpdateIfNeeded(K key, Supplier<Collection<Integer>> refSupplier, Function<K, V> mappingFunction) {
+        return values.compute(key, (k, value) -> {
+            if (value == null) {
+                HybridTimestamp ts = clock.now();
+                Collection<Integer> refs = refSupplier.get();
 
-                increment(newVal.ids);
+                for (Integer id : refs) {
+                    incrementRefCounter(id);
+                }
 
-                return newVal;
+                V newVal = mappingFunction.apply(k);
+
+                return new CacheValue<>(ts, refs, newVal);
             }
 
-            if (isValidTs(v.ts, v.ids)) {
-                return v;
+            // Check that the value is still valid.
+            for (Integer id : value.refs) {
+                if (value.ts.compareTo(states.get(id).ts) < 0) {
+                    // The value may be outdated.
+                    return value.copy(mappingFunction.apply(key));
+                }
             }
 
-            return mappingFunction.apply(planId);
-        });
+            return value;
+        }).value;
     }
 
     /** Invalidates cache entry by cache value id. */
-    public void invalidateById(int id) {
-        states.computeIfPresent(id, (k, v) -> new RefValue(v.counter, clock.now()));
+    public void invalidate(int id) {
+        states.computeIfPresent(id, (k, v) -> new StateValue(v.counter, clock.now()));
     }
 
     /** Invalidates cache entries. */
     public void clear() {
-        values.invalidateAll();
+        values.clear();
     }
 
     @TestOnly
     ConcurrentMap<K, CacheValue<V>> values() {
-        return values.asMap();
+        return values;
     }
 
     @TestOnly
-    ConcurrentMap<Integer, RefValue> states() {
+    ConcurrentMap<Integer, StateValue> states() {
         return states;
     }
 
     private void onRemoval(@Nullable K planId, @Nullable CacheValue<V> value, RemovalCause cause) {
-        if (value != null) {
-            decrement(value.ids);
+        if (!cause.wasEvicted() && cause != RemovalCause.EXPLICIT) {
+            return;
+        }
+
+        assert value != null;
+
+        for (int id : value.refs) {
+            decrementRefCounter(id);
         }
     }
 
-    private boolean isValidTs(HybridTimestamp cachedTs, Set<Integer> ids) {
-        for (Integer id : ids) {
-            if (cachedTs.compareTo(states.get(id).ts) < 0) {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-    private void increment(Set<Integer> ids) {
-        for (Integer id : ids) {
-            increment(id);
-        }
-    }
-
-    private void increment(Integer id) {
-        RefValue initial = new RefValue(1, HybridTimestamp.MIN_VALUE);
+    private void incrementRefCounter(int id) {
+        StateValue initial = new StateValue(1, HybridTimestamp.MIN_VALUE);
 
         for (;;) {
-            RefValue prevVal = states.putIfAbsent(id, initial);
+            StateValue prevVal = states.putIfAbsent(id, initial);
 
             if (prevVal == null) {
                 return;
             }
 
-            RefValue newVal = new RefValue(prevVal.counter + 1, prevVal.ts);
+            StateValue newVal = new StateValue(prevVal.counter + 1, prevVal.ts);
 
             if (states.replace(id, prevVal, newVal)) {
                 return;
@@ -125,15 +130,9 @@ public class FragmentsCache<K, V> {
         }
     }
 
-    private void decrement(Set<Integer> ids) {
-        for (int id : ids) {
-            decrement(id);
-        }
-    }
-
-    private void decrement(int id) {
+    private void decrementRefCounter(int id) {
         for (;;) {
-            RefValue prevVal = states.get(id);
+            StateValue prevVal = states.get(id);
 
             if (prevVal.counter == 1) {
                 if (states.remove(id, prevVal)) {
@@ -143,38 +142,43 @@ public class FragmentsCache<K, V> {
                 continue;
             }
 
-            if (states.replace(id, prevVal, new RefValue(prevVal.counter - 1, prevVal.ts))) {
+            if (states.replace(id, prevVal, new StateValue(prevVal.counter - 1, prevVal.ts))) {
                 return;
             }
         }
     }
 
     static class CacheValue<V> {
-        private final Set<Integer> ids;
-        private final V mapping;
+        private final Collection<Integer> refs;
+        private final V value;
         private final HybridTimestamp ts;
 
-        CacheValue(Set<Integer> ids, V mapping) {
-            this.ids = ids;
-            this.mapping = mapping;
-            this.ts = clock.now();
+        CacheValue(HybridTimestamp ts, Collection<Integer> refs, V value) {
+            this.ts = ts;
+            this.refs = refs;
+            this.value = value;
         }
 
-        public V mapping() {
-            return mapping;
+        CacheValue<V> copy(V value) {
+            return new CacheValue<>(ts, refs, value);
         }
 
         @TestOnly
-        Set<Integer> ids() {
-            return ids;
+        Collection<Integer> refs() {
+            return refs;
+        }
+
+        @TestOnly
+        V value() {
+            return value;
         }
     }
 
-    class RefValue {
+    static class StateValue {
         final int counter;
         final HybridTimestamp ts;
 
-        RefValue(int counter, @Nullable HybridTimestamp ts) {
+        StateValue(int counter, @Nullable HybridTimestamp ts) {
             this.counter = counter;
             this.ts = ts;
         }
