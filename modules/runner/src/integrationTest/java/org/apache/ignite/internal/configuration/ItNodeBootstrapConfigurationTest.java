@@ -89,7 +89,7 @@ public class ItNodeBootstrapConfigurationTest {
                 + "      enabled: true,\n"
                 + "      clientAuth: none,\n"
                 + "      keyStore: {\n"
-                + "        path: bad_path\n"
+                + "        path: \"bad_path\"\n"
                 + "      }\n"
                 + "    }\n"
                 + "  }\n"

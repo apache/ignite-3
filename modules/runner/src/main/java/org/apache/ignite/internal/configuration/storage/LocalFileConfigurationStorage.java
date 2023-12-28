@@ -26,6 +26,7 @@ import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFu
 
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigException;
+import com.typesafe.config.ConfigException.Parse;
 import com.typesafe.config.ConfigFactory;
 import com.typesafe.config.ConfigObject;
 import com.typesafe.config.ConfigParseOptions;
@@ -52,6 +53,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.apache.ignite.configuration.ConfigurationDynamicDefaultsPatcher;
 import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
+import org.apache.ignite.configuration.validation.ConfigurationValidationException;
 import org.apache.ignite.internal.configuration.ConfigurationDynamicDefaultsPatcherImpl;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.NodeConfigCreateException;
@@ -174,12 +176,9 @@ public class LocalFileConfigurationStorage implements ConfigurationStorage {
 
         try {
             var confString = Files.readString(configPath.toAbsolutePath());
-            patch(confString, module);
             return ConfigFactory.parseString(patch(confString, module), ConfigParseOptions.defaults().setAllowMissing(false));
-        } catch (ConfigException.Parse e) {
+        } catch (Parse | ConfigurationValidationException | IOException e) {
             throw new NodeConfigParseException("Failed to parse config content from file " + configPath, e);
-        } catch (IOException e) {
-            throw new RuntimeException(e);
         }
     }
 

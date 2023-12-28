@@ -64,7 +64,7 @@ class ItLogicalTopologyTest extends ClusterPerTestIntegrationTest {
 
     private static final Map<String, String> NODE_ATTRIBUTES_MAP = Map.of("region", "US", "storage", "SSD");
 
-    private static final List<String> STORAGE_PROFILES_LIST = List.of("lru_rocks", "segmented_aipersist");
+    private static final List<String> STORAGE_PROFILES_LIST = List.of("default", "lru_rocks", "segmented_aipersist");
 
     @Language("JSON")
     private static final String NODE_BOOTSTRAP_CFG_TEMPLATE_WITH_NODE_ATTRIBUTES_AND_STORAGE_PROFILES = "{\n"
