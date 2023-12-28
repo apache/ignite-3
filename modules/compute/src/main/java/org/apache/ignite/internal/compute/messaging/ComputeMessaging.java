@@ -17,6 +17,10 @@
 
 package org.apache.ignite.internal.compute.messaging;
 
+import static org.apache.ignite.internal.compute.ComputeUtils.cancelFromJobCancelResponse;
+import static org.apache.ignite.internal.compute.ComputeUtils.jobIdFromExecuteResponse;
+import static org.apache.ignite.internal.compute.ComputeUtils.resultFromJobResultResponse;
+import static org.apache.ignite.internal.compute.ComputeUtils.statusFromJobStatusResponse;
 import static org.apache.ignite.internal.compute.ComputeUtils.toDeploymentUnit;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 
@@ -153,7 +157,7 @@ public class ComputeMessaging {
      * @param args Arguments of the job.
      * @return Job id future that will be completed when the job is submitted on the remote node.
      */
-    public CompletableFuture<UUID> remoteExecuteRequest(
+    public CompletableFuture<UUID> remoteExecuteRequestAsync(
             ExecutionOptions options,
             ClusterNode remoteNode,
             List<DeploymentUnit> units,
@@ -172,7 +176,7 @@ public class ComputeMessaging {
                 .build();
 
         return messagingService.invoke(remoteNode, executeRequest, NETWORK_TIMEOUT_MILLIS)
-                .thenCompose(ComputeUtils::jobIdFromExecuteResponse);
+                .thenCompose(networkMessage -> jobIdFromExecuteResponse((ExecuteResponse) networkMessage));
     }
 
     private void processExecuteRequest(JobStarter starter, ExecuteRequest request, String senderConsistentId, long correlationId) {
@@ -204,13 +208,13 @@ public class ComputeMessaging {
      * @param <R> Job result type
      * @return Job result.
      */
-    public <R> CompletableFuture<R> remoteJobResultRequest(ClusterNode remoteNode, UUID jobId) {
+    public <R> CompletableFuture<R> remoteJobResultRequestAsync(ClusterNode remoteNode, UUID jobId) {
         JobResultRequest jobResultRequest = messagesFactory.jobResultRequest()
                 .jobId(jobId)
                 .build();
 
         return messagingService.invoke(remoteNode, jobResultRequest, NETWORK_TIMEOUT_MILLIS)
-                .thenCompose(ComputeUtils::resultFromJobResultResponse);
+                .thenCompose(networkMessage -> resultFromJobResultResponse((JobResultResponse) networkMessage));
     }
 
     private void processJobResultRequest(JobResultRequest request, String senderConsistentId, long correlationId) {
@@ -247,13 +251,13 @@ public class ComputeMessaging {
      * @param jobId Compute job id.
      * @return Job status future.
      */
-    CompletableFuture<JobStatus> remoteStatus(ClusterNode remoteNode, UUID jobId) {
+    CompletableFuture<JobStatus> remoteStatusAsync(ClusterNode remoteNode, UUID jobId) {
         JobStatusRequest jobStatusRequest = messagesFactory.jobStatusRequest()
                 .jobId(jobId)
                 .build();
 
         return messagingService.invoke(remoteNode, jobStatusRequest, NETWORK_TIMEOUT_MILLIS)
-                .thenCompose(ComputeUtils::statusFromJobStatusResponse);
+                .thenCompose(networkMessage -> statusFromJobStatusResponse((JobStatusResponse) networkMessage));
     }
 
     private void processJobStatusRequest(
@@ -286,20 +290,20 @@ public class ComputeMessaging {
      * @param jobId Compute job id.
      * @return Job cancel future (will be completed when cancel request is processed).
      */
-    CompletableFuture<Void> remoteCancel(ClusterNode remoteNode, UUID jobId) {
+    CompletableFuture<Void> remoteCancelAsync(ClusterNode remoteNode, UUID jobId) {
         JobCancelRequest jobCancelRequest = messagesFactory.jobCancelRequest()
                 .jobId(jobId)
                 .build();
 
         return messagingService.invoke(remoteNode, jobCancelRequest, NETWORK_TIMEOUT_MILLIS)
-                .thenCompose(ComputeUtils::cancelFromJobCancelResponse);
+                .thenCompose(networkMessage -> cancelFromJobCancelResponse((JobCancelResponse) networkMessage));
     }
 
     private void processJobCancelRequest(JobCancelRequest request, String senderConsistentId, long correlationId) {
         UUID jobId = request.jobId();
         JobExecution<Object> execution = executions.get(jobId);
         if (execution != null) {
-            execution.cancel()
+            execution.cancelAsync()
                     .whenComplete((result, err) -> sendJobCancelResponse(err, senderConsistentId, correlationId));
         } else {
             sendJobCancelResponse(new CancellingException(jobId), senderConsistentId, correlationId);

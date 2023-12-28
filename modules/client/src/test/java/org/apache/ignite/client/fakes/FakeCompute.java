@@ -170,12 +170,12 @@ public class FakeCompute implements IgniteCompute {
             }
 
             @Override
-            public @Nullable CompletableFuture<JobStatus> status() {
+            public @Nullable CompletableFuture<JobStatus> statusAsync() {
                 return nullCompletedFuture();
             }
 
             @Override
-            public CompletableFuture<Void> cancel() {
+            public CompletableFuture<Void> cancelAsync() {
                 return nullCompletedFuture();
             }
         };

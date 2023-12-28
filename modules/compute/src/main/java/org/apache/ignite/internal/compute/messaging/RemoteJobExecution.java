@@ -29,7 +29,7 @@ import org.apache.ignite.network.ClusterNode;
  *
  * @param <R> Job result type.
  */
-public class JobExecutionRemote<R> implements JobExecution<R> {
+public class RemoteJobExecution<R> implements JobExecution<R> {
     private final ClusterNode remoteNode;
 
     private final CompletableFuture<UUID> jobIdFuture;
@@ -49,7 +49,7 @@ public class JobExecutionRemote<R> implements JobExecution<R> {
      * @param inFlightFutures In-flight futures collection.
      * @param messaging Compute messaging service.
      */
-    public JobExecutionRemote(
+    public RemoteJobExecution(
             ClusterNode remoteNode,
             CompletableFuture<UUID> jobIdFuture,
             CompletableFuture<R> resultFuture,
@@ -69,16 +69,16 @@ public class JobExecutionRemote<R> implements JobExecution<R> {
     }
 
     @Override
-    public CompletableFuture<JobStatus> status() {
+    public CompletableFuture<JobStatus> statusAsync() {
         return inFlightFutures.registerFuture(
-                jobIdFuture.thenCompose(jobId -> messaging.remoteStatus(remoteNode, jobId))
+                jobIdFuture.thenCompose(jobId -> messaging.remoteStatusAsync(remoteNode, jobId))
         );
     }
 
     @Override
-    public CompletableFuture<Void> cancel() {
+    public CompletableFuture<Void> cancelAsync() {
         return inFlightFutures.registerFuture(
-                jobIdFuture.thenCompose(jobId -> messaging.remoteCancel(remoteNode, jobId))
+                jobIdFuture.thenCompose(jobId -> messaging.remoteCancelAsync(remoteNode, jobId))
         );
     }
 }

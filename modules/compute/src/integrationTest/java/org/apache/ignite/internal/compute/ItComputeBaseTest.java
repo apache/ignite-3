@@ -86,8 +86,8 @@ public abstract class ItComputeBaseTest extends ClusterPerTestIntegrationTest {
                 .executeAsync(Set.of(entryNode.node()), units(), concatJobClassName(), "a", 42);
 
         assertThat(execution.resultAsync(), willBe("a42"));
-        assertThat(execution.status(), willBe(jobStatusWithState(COMPLETED)));
-        assertThat(execution.cancel(), willThrow(CancellingException.class));
+        assertThat(execution.statusAsync(), willBe(jobStatusWithState(COMPLETED)));
+        assertThat(execution.cancelAsync(), willThrow(CancellingException.class));
     }
 
     @Test
@@ -108,8 +108,8 @@ public abstract class ItComputeBaseTest extends ClusterPerTestIntegrationTest {
                 .executeAsync(Set.of(node(1).node(), node(2).node()), units(), concatJobClassName(), "a", 42);
 
         assertThat(execution.resultAsync(), willBe("a42"));
-        assertThat(execution.status(), willBe(jobStatusWithState(COMPLETED)));
-        assertThat(execution.cancel(), willThrow(CancellingException.class));
+        assertThat(execution.statusAsync(), willBe(jobStatusWithState(COMPLETED)));
+        assertThat(execution.cancelAsync(), willThrow(CancellingException.class));
     }
 
     @Test
@@ -156,8 +156,8 @@ public abstract class ItComputeBaseTest extends ClusterPerTestIntegrationTest {
 
         assertPublicException(ex, COMMON_ERR_GROUP, INTERNAL_ERR, "Oops");
 
-        assertThat(execution.status(), willBe(jobStatusWithState(FAILED)));
-        assertThat(execution.cancel(), willThrow(CancellingException.class));
+        assertThat(execution.statusAsync(), willBe(jobStatusWithState(FAILED)));
+        assertThat(execution.cancelAsync(), willThrow(CancellingException.class));
     }
 
     @Test
@@ -181,8 +181,8 @@ public abstract class ItComputeBaseTest extends ClusterPerTestIntegrationTest {
 
         assertPublicException(ex, COMMON_ERR_GROUP, INTERNAL_ERR, "Oops");
 
-        assertThat(execution.status(), willBe(jobStatusWithState(FAILED)));
-        assertThat(execution.cancel(), willThrow(CancellingException.class));
+        assertThat(execution.statusAsync(), willBe(jobStatusWithState(FAILED)));
+        assertThat(execution.cancelAsync(), willThrow(CancellingException.class));
     }
 
     @Test
@@ -197,8 +197,8 @@ public abstract class ItComputeBaseTest extends ClusterPerTestIntegrationTest {
             ClusterNode node = node(i).node();
             JobExecution<String> execution = results.get(node);
             assertThat(execution.resultAsync(), willBe("a42"));
-            assertThat(execution.status(), willBe(jobStatusWithState(COMPLETED)));
-            assertThat(execution.cancel(), willThrow(CancellingException.class));
+            assertThat(execution.statusAsync(), willBe(jobStatusWithState(COMPLETED)));
+            assertThat(execution.cancelAsync(), willThrow(CancellingException.class));
         }
     }
 
@@ -214,8 +214,8 @@ public abstract class ItComputeBaseTest extends ClusterPerTestIntegrationTest {
             ClusterNode node = node(i).node();
             JobExecution<String> execution = results.get(node);
             assertThat(execution.resultAsync(), willBe(node.name()));
-            assertThat(execution.status(), willBe(jobStatusWithState(COMPLETED)));
-            assertThat(execution.cancel(), willThrow(CancellingException.class));
+            assertThat(execution.statusAsync(), willBe(jobStatusWithState(COMPLETED)));
+            assertThat(execution.cancelAsync(), willThrow(CancellingException.class));
         }
     }
 
@@ -236,8 +236,8 @@ public abstract class ItComputeBaseTest extends ClusterPerTestIntegrationTest {
             assertThat(result, is(instanceOf(CompletionException.class)));
             assertPublicException(result, COMMON_ERR_GROUP, INTERNAL_ERR, "Oops");
 
-            assertThat(execution.status(), willBe(jobStatusWithState(FAILED)));
-            assertThat(execution.cancel(), willThrow(CancellingException.class));
+            assertThat(execution.statusAsync(), willBe(jobStatusWithState(FAILED)));
+            assertThat(execution.cancelAsync(), willThrow(CancellingException.class));
         }
     }
 
@@ -263,8 +263,8 @@ public abstract class ItComputeBaseTest extends ClusterPerTestIntegrationTest {
                 .<String>executeColocatedAsync("test", Tuple.create(Map.of("k", 1)), units(), getNodeNameJobClassName());
 
         assertThat(execution.resultAsync(), willBe(in(allNodeNames())));
-        assertThat(execution.status(), willBe(jobStatusWithState(COMPLETED)));
-        assertThat(execution.cancel(), willThrow(CancellingException.class));
+        assertThat(execution.statusAsync(), willBe(jobStatusWithState(COMPLETED)));
+        assertThat(execution.cancelAsync(), willThrow(CancellingException.class));
     }
 
     @Test
@@ -313,7 +313,7 @@ public abstract class ItComputeBaseTest extends ClusterPerTestIntegrationTest {
                 .<Integer, String>executeColocatedAsync("test", 1, Mapper.of(Integer.class), units(), getNodeNameJobClassName());
 
         assertThat(execution.resultAsync(), willBe(in(allNodeNames())));
-        assertThat(execution.status(), willBe(jobStatusWithState(COMPLETED)));
-        assertThat(execution.cancel(), willThrow(CancellingException.class));
+        assertThat(execution.statusAsync(), willBe(jobStatusWithState(COMPLETED)));
+        assertThat(execution.cancelAsync(), willThrow(CancellingException.class));
     }
 }

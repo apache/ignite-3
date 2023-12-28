@@ -24,14 +24,14 @@ import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobStatus;
 
 /**
- * Delegates {@link JobExecution} to the future of {@link JobExecution} wrapping exceptions to public.
+ * Wraps the future of {@link JobExecution} converting exceptions thrown by the delegate to public.
  *
  * @param <R> Result type.
  */
-class JobExecutionFutureDelegate<R> implements JobExecution<R> {
+class JobExecutionFutureWrapper<R> implements JobExecution<R> {
     private final CompletableFuture<JobExecution<R>> delegate;
 
-    JobExecutionFutureDelegate(CompletableFuture<JobExecution<R>> delegate) {
+    JobExecutionFutureWrapper(CompletableFuture<JobExecution<R>> delegate) {
         this.delegate = delegate;
     }
 
@@ -41,12 +41,12 @@ class JobExecutionFutureDelegate<R> implements JobExecution<R> {
     }
 
     @Override
-    public CompletableFuture<JobStatus> status() {
-        return convertToPublicFuture(delegate.thenCompose(JobExecution::status));
+    public CompletableFuture<JobStatus> statusAsync() {
+        return convertToPublicFuture(delegate.thenCompose(JobExecution::statusAsync));
     }
 
     @Override
-    public CompletableFuture<Void> cancel() {
-        return convertToPublicFuture(delegate.thenCompose(JobExecution::cancel));
+    public CompletableFuture<Void> cancelAsync() {
+        return convertToPublicFuture(delegate.thenCompose(JobExecution::cancelAsync));
     }
 }

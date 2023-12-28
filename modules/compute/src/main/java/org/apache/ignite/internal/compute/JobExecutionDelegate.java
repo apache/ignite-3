@@ -24,7 +24,7 @@ import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobStatus;
 
 /**
- * Delegates {@link JobExecution} to the {@link JobExecution} wrapping exceptions to public.
+ * Wraps the {@link JobExecution} converting exceptions thrown by the delegate to public.
  *
  * @param <R> Result type.
  */
@@ -41,12 +41,12 @@ class JobExecutionDelegate<R> implements JobExecution<R> {
     }
 
     @Override
-    public CompletableFuture<JobStatus> status() {
-        return convertToPublicFuture(delegate.status());
+    public CompletableFuture<JobStatus> statusAsync() {
+        return convertToPublicFuture(delegate.statusAsync());
     }
 
     @Override
-    public CompletableFuture<Void> cancel() {
-        return convertToPublicFuture(delegate.cancel());
+    public CompletableFuture<Void> cancelAsync() {
+        return convertToPublicFuture(delegate.cancelAsync());
     }
 }

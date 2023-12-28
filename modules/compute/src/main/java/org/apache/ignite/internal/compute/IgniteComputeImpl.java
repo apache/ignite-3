@@ -135,7 +135,7 @@ public class IgniteComputeImpl implements IgniteCompute {
         Objects.requireNonNull(units);
         Objects.requireNonNull(jobClassName);
 
-        return new JobExecutionFutureDelegate<>(requiredTable(tableName)
+        return new JobExecutionFutureWrapper<>(requiredTable(tableName)
                 .thenApply(table -> leaderOfTablePartitionByTupleKey(table, key))
                 .thenApply(primaryNode -> executeOnOneNode(primaryNode, units, jobClassName, args)));
     }
@@ -156,7 +156,7 @@ public class IgniteComputeImpl implements IgniteCompute {
         Objects.requireNonNull(units);
         Objects.requireNonNull(jobClassName);
 
-        return new JobExecutionFutureDelegate<>(requiredTable(tableName)
+        return new JobExecutionFutureWrapper<>(requiredTable(tableName)
                 .thenApply(table -> leaderOfTablePartitionByMappedKey(table, key, keyMapper))
                 .thenApply(primaryNode -> executeOnOneNode(primaryNode, units, jobClassName, args)));
     }

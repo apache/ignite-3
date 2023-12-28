@@ -163,12 +163,12 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
             }
 
             @Override
-            public CompletableFuture<JobStatus> status() {
+            public CompletableFuture<JobStatus> statusAsync() {
                 return nullCompletedFuture();
             }
 
             @Override
-            public CompletableFuture<Void> cancel() {
+            public CompletableFuture<Void> cancelAsync() {
                 return nullCompletedFuture();
             }
         };

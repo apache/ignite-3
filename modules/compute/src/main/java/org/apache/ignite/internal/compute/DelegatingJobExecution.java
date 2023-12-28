@@ -27,10 +27,10 @@ import org.apache.ignite.internal.compute.executor.JobExecutionInternal;
  *
  * @param <R> Result type.
  */
-class JobExecutionInternalDelegate<R> implements JobExecution<R> {
+class DelegatingJobExecution<R> implements JobExecution<R> {
     private final CompletableFuture<JobExecutionInternal<R>> delegate;
 
-    JobExecutionInternalDelegate(CompletableFuture<JobExecutionInternal<R>> delegate) {
+    DelegatingJobExecution(CompletableFuture<JobExecutionInternal<R>> delegate) {
         this.delegate = delegate;
     }
 
@@ -40,12 +40,12 @@ class JobExecutionInternalDelegate<R> implements JobExecution<R> {
     }
 
     @Override
-    public CompletableFuture<JobStatus> status() {
+    public CompletableFuture<JobStatus> statusAsync() {
         return delegate.thenApply(JobExecutionInternal::status);
     }
 
     @Override
-    public CompletableFuture<Void> cancel() {
+    public CompletableFuture<Void> cancelAsync() {
         return delegate.thenAccept(JobExecutionInternal::cancel);
     }
 }

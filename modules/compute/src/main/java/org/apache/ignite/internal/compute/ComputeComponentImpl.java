@@ -33,7 +33,7 @@ import org.apache.ignite.internal.compute.executor.JobExecutionInternal;
 import org.apache.ignite.internal.compute.loader.JobContext;
 import org.apache.ignite.internal.compute.loader.JobContextManager;
 import org.apache.ignite.internal.compute.messaging.ComputeMessaging;
-import org.apache.ignite.internal.compute.messaging.JobExecutionRemote;
+import org.apache.ignite.internal.compute.messaging.RemoteJobExecution;
 import org.apache.ignite.internal.future.InFlightFutures;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
@@ -94,19 +94,19 @@ public class ComputeComponentImpl implements ComputeComponent {
             Object... args
     ) {
         if (!busyLock.enterBusy()) {
-            return new JobExecutionInternalDelegate<>(
+            return new DelegatingJobExecution<>(
                     failedFuture(new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException()))
             );
         }
 
         try {
-            CompletableFuture<UUID> jobIdFuture = messaging.remoteExecuteRequest(options, remoteNode, units, jobClassName, args);
-            CompletableFuture<R> resultFuture = jobIdFuture.thenCompose(jobId -> messaging.remoteJobResultRequest(remoteNode, jobId));
+            CompletableFuture<UUID> jobIdFuture = messaging.remoteExecuteRequestAsync(options, remoteNode, units, jobClassName, args);
+            CompletableFuture<R> resultFuture = jobIdFuture.thenCompose(jobId -> messaging.remoteJobResultRequestAsync(remoteNode, jobId));
 
             inFlightFutures.registerFuture(jobIdFuture);
             inFlightFutures.registerFuture(resultFuture);
 
-            return new JobExecutionRemote<>(remoteNode, jobIdFuture, resultFuture, inFlightFutures, messaging);
+            return new RemoteJobExecution<>(remoteNode, jobIdFuture, resultFuture, inFlightFutures, messaging);
         } finally {
             busyLock.leaveBusy();
         }
@@ -124,7 +124,7 @@ public class ComputeComponentImpl implements ComputeComponent {
             Object... args
     ) {
         if (!busyLock.enterBusy()) {
-            return new JobExecutionInternalDelegate<>(
+            return new DelegatingJobExecution<>(
                     failedFuture(new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException()))
             );
         }
@@ -141,7 +141,7 @@ public class ComputeComponentImpl implements ComputeComponent {
 
             inFlightFutures.registerFuture(future);
 
-            return new JobExecutionInternalDelegate<>(future);
+            return new DelegatingJobExecution<>(future);
         } finally {
             busyLock.leaveBusy();
         }

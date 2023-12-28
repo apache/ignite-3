@@ -127,11 +127,11 @@ class ItComputeTestBaseEmbedded extends ItComputeBaseTest {
 
         JobExecution<String> execution = entryNode.compute().executeAsync(Set.of(entryNode.node()), units(), LongJob.class.getName());
 
-        await().until(execution::status, willBe(jobStatusWithState(JobState.EXECUTING)));
+        await().until(execution::statusAsync, willBe(jobStatusWithState(JobState.EXECUTING)));
 
-        assertThat(execution.cancel(), willCompleteSuccessfully());
+        assertThat(execution.cancelAsync(), willCompleteSuccessfully());
 
-        await().until(execution::status, willBe(jobStatusWithState(JobState.CANCELED)));
+        await().until(execution::statusAsync, willBe(jobStatusWithState(JobState.CANCELED)));
     }
 
     @Test
@@ -140,11 +140,11 @@ class ItComputeTestBaseEmbedded extends ItComputeBaseTest {
 
         JobExecution<String> execution = entryNode.compute().executeAsync(Set.of(node(1).node()), units(), LongJob.class.getName());
 
-        await().until(execution::status, willBe(jobStatusWithState(JobState.EXECUTING)));
+        await().until(execution::statusAsync, willBe(jobStatusWithState(JobState.EXECUTING)));
 
-        assertThat(execution.cancel(), willCompleteSuccessfully());
+        assertThat(execution.cancelAsync(), willCompleteSuccessfully());
 
-        await().until(execution::status, willBe(jobStatusWithState(JobState.CANCELED)));
+        await().until(execution::statusAsync, willBe(jobStatusWithState(JobState.CANCELED)));
     }
 
     private static class ConcatJob implements ComputeJob<String> {

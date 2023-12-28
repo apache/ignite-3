@@ -203,8 +203,8 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
         JobExecution<String> execution = computeComponent.executeLocally(List.of(), SimpleJob.class.getName(), "a", 42);
 
         assertThat(execution.resultAsync(), willBe("jobResponse"));
-        assertThat(execution.status(), willBe(jobStatusWithState(COMPLETED)));
-        assertThat(execution.cancel(), willThrow(CancellingException.class));
+        assertThat(execution.statusAsync(), willBe(jobStatusWithState(COMPLETED)));
+        assertThat(execution.cancelAsync(), willThrow(CancellingException.class));
 
         assertThatNoRequestsWereSent();
     }
@@ -213,11 +213,11 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
     void getsStatusAndCancelsLocally() {
         JobExecution<String> execution = computeComponent.executeLocally(List.of(), LongJob.class.getName());
 
-        await().until(execution::status, willBe(jobStatusWithState(EXECUTING)));
+        await().until(execution::statusAsync, willBe(jobStatusWithState(EXECUTING)));
 
-        assertThat(execution.cancel(), willCompleteSuccessfully());
+        assertThat(execution.cancelAsync(), willCompleteSuccessfully());
 
-        await().until(execution::status, willBe(jobStatusWithState(CANCELED)));
+        await().until(execution::statusAsync, willBe(jobStatusWithState(CANCELED)));
 
         assertThatNoRequestsWereSent();
     }
@@ -252,8 +252,8 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
         // Verify that second invocation of resultAsync will not result in the network communication (i.e. the result is cached locally)
         assertThat(execution.resultAsync(), willBe("remoteResponse"));
 
-        assertThat(execution.status(), willBe(jobStatusWithState(COMPLETED)));
-        assertThat(execution.cancel(), willThrow(CancellingException.class));
+        assertThat(execution.statusAsync(), willBe(jobStatusWithState(COMPLETED)));
+        assertThat(execution.cancelAsync(), willThrow(CancellingException.class));
 
         assertThatExecuteRequestWasSent(SimpleJob.class.getName(), "a", 42);
         assertThatJobResultRequestWasSent(jobId);
@@ -269,9 +269,9 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
 
         JobExecution<String> execution = computeComponent.executeRemotely(remoteNode, List.of(), LongJob.class.getName());
 
-        assertThat(execution.status(), willBe(jobStatusWithState(EXECUTING)));
+        assertThat(execution.statusAsync(), willBe(jobStatusWithState(EXECUTING)));
         assertThat(execution.resultAsync(), willBe("remoteResponse"));
-        assertThat(execution.cancel(), willCompleteSuccessfully());
+        assertThat(execution.cancelAsync(), willCompleteSuccessfully());
 
         assertThatExecuteRequestWasSent(LongJob.class.getName());
         assertThatJobResultRequestWasSent(jobId);
