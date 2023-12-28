@@ -30,7 +30,7 @@ import org.apache.ignite.internal.vault.VaultManager;
 /**
  * {@link StaleIds} implementating using Vault as a persistent storage.
  */
-public class VaultStateIds implements StaleIds {
+public class VaultStaleIds implements StaleIds {
     private static final ByteArray STALE_IDS_KEY = new ByteArray("network.staleIds");
 
     private static final int DEFAULT_MAX_IDS_TO_REMEMBER = 10_000;
@@ -41,11 +41,11 @@ public class VaultStateIds implements StaleIds {
 
     private Set<String> staleIds;
 
-    public VaultStateIds(VaultManager vaultManager) {
+    public VaultStaleIds(VaultManager vaultManager) {
         this(vaultManager, DEFAULT_MAX_IDS_TO_REMEMBER);
     }
 
-    public VaultStateIds(VaultManager vaultManager, int maxIdsToRemember) {
+    public VaultStaleIds(VaultManager vaultManager, int maxIdsToRemember) {
         this.vaultManager = vaultManager;
         this.maxIdsToRemember = maxIdsToRemember;
     }
