@@ -124,7 +124,7 @@ public class ScaleCubeClusterServiceFactory {
 
                 NetworkView configView = networkConfiguration.value();
 
-                connectionMgr = new ConnectionManager(
+                ConnectionManager connectionMgr = new ConnectionManager(
                         configView,
                         serializationService,
                         launchId,
@@ -136,11 +136,9 @@ public class ScaleCubeClusterServiceFactory {
                 connectionMgr.start();
 
                 topologyService.addEventHandler(new TopologyEventHandler() {
-                    private final ConnectionManager capturedConnectionManager = connectionMgr;
-
                     @Override
                     public void onDisappeared(ClusterNode member) {
-                        capturedConnectionManager.closeConnectionsWith(member.id());
+                        connectionMgr.closeConnectionsWith(member.id());
                     }
                 });
 
@@ -152,7 +150,7 @@ public class ScaleCubeClusterServiceFactory {
                 );
 
                 NodeFinder finder = NodeFinderFactory.createNodeFinder(configView.nodeFinder());
-                cluster = new ClusterImpl(clusterConfig(configView.membership()))
+                ClusterImpl cluster = new ClusterImpl(clusterConfig(configView.membership()))
                         .handler(cl -> new ClusterMessageHandler() {
                             /** {@inheritDoc} */
                             @Override
@@ -168,7 +166,7 @@ public class ScaleCubeClusterServiceFactory {
                         .transport(opts -> opts.transportFactory(transportConfig -> transport))
                         .membership(opts -> opts.seedMembers(parseAddresses(finder.findNodes())));
 
-                shutdownFuture = cluster.onShutdown().toFuture();
+                this.shutdownFuture = cluster.onShutdown().toFuture();
 
                 // resolve cyclic dependencies
                 topologyService.setCluster(cluster);
@@ -179,6 +177,9 @@ public class ScaleCubeClusterServiceFactory {
                 // emit an artificial event as if the local member has joined the topology (ScaleCube doesn't do that)
                 var localMembershipEvent = createAdded(cluster.member(), null, System.currentTimeMillis());
                 topologyService.onMembershipEvent(localMembershipEvent);
+
+                this.cluster = cluster;
+                this.connectionMgr = connectionMgr;
             }
 
             /** {@inheritDoc} */
