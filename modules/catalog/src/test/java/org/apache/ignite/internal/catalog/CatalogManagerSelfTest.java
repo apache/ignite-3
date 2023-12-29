@@ -578,14 +578,16 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertThat(
                 changeColumn(TABLE_NAME, col1.name(),
                         new TestColumnTypeParams(col1.type(), DFLT_TEST_PRECISION - 1, null, null), null, null),
-                willThrowFast(CatalogValidationException.class, "Decreasing the precision is not allowed")
+                willThrowFast(CatalogValidationException.class, "Decreasing the precision for column of type '"
+                        + col1.type() + "' is not allowed")
         );
         assertNull(manager.schema(schemaVer + 1));
 
         assertThat(
                 changeColumn(TABLE_NAME, col2.name(),
                         new TestColumnTypeParams(col2.type(), DFLT_TEST_PRECISION - 1, null, null), null, null),
-                willThrowFast(CatalogValidationException.class, "Decreasing the precision is not allowed")
+                willThrowFast(CatalogValidationException.class, "Decreasing the precision for column of type '"
+                        + col1.type() + "' is not allowed")
         );
         assertNull(manager.schema(schemaVer + 1));
     }
@@ -668,7 +670,8 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         // 11 -> 10 : Error.
         assertThat(
                 changeColumn(TABLE_NAME, col.name(), new TestColumnTypeParams(col.type(), null, 10, null), null, null),
-                willThrowFast(CatalogValidationException.class, "Decreasing the length is not allowed")
+                willThrowFast(CatalogValidationException.class, "Decreasing the length for column of type '"
+                        + col.type() + "' is not allowed")
         );
         assertNull(manager.schema(schemaVer + 1));
 
@@ -781,12 +784,12 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
         // 3 -> 4 : Error.
         assertThat(changeColumn(TABLE_NAME, col.name(), new TestColumnTypeParams(col.type(), null, null, 4), null, null),
-                willThrowFast(CatalogValidationException.class, "Changing the scale is not allowed"));
+                willThrowFast(CatalogValidationException.class, "Changing the scale for column of type"));
         assertNull(manager.schema(schemaVer + 1));
 
         // 3 -> 2 : Error.
         assertThat(changeColumn(TABLE_NAME, col.name(), new TestColumnTypeParams(col.type(), null, null, 2), null, null),
-                willThrowFast(CatalogValidationException.class, "Changing the scale is not allowed"));
+                willThrowFast(CatalogValidationException.class, "Changing the scale for column of type"));
         assertNull(manager.schema(schemaVer + 1));
     }
 

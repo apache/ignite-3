@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.hlc.HybridTimestamp.nullableHybridTimes
 
 import java.io.Serializable;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -47,5 +48,10 @@ public class TransactionResult implements Serializable {
 
     public @Nullable HybridTimestamp commitTimestamp() {
         return nullableHybridTimestamp(commitTimestamp);
+    }
+
+    @Override
+    public String toString() {
+        return S.toString(TransactionResult.class, this);
     }
 }

@@ -120,6 +120,8 @@ import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.rest.RestComponent;
 import org.apache.ignite.internal.rest.RestFactory;
+import org.apache.ignite.internal.rest.RestManager;
+import org.apache.ignite.internal.rest.RestManagerFactory;
 import org.apache.ignite.internal.rest.authentication.AuthenticationProviderFactory;
 import org.apache.ignite.internal.rest.cluster.ClusterManagementRestFactory;
 import org.apache.ignite.internal.rest.configuration.PresentationsFactory;
@@ -212,6 +214,8 @@ public class IgniteImpl implements Ignite {
 
     /** Lifecycle manager. */
     private final LifecycleManager lifecycleManager;
+
+    private final ThreadPoolsManager threadPoolsManager;
 
     /** Vault manager. */
     private final VaultManager vaultMgr;
@@ -333,6 +337,8 @@ public class IgniteImpl implements Ignite {
         longJvmPauseDetector = new LongJvmPauseDetector(name);
 
         lifecycleManager = new LifecycleManager(name);
+
+        threadPoolsManager = new ThreadPoolsManager(name);
 
         vaultMgr = createVault(name, workDir);
 
@@ -500,6 +506,7 @@ public class IgniteImpl implements Ignite {
                 clock,
                 Set.of(TableMessageGroup.class, TxMessageGroup.class),
                 placementDriverMgr.placementDriver(),
+                threadPoolsManager.partitionOperationsExecutor(),
                 partitionIdleSafeTimePropagationPeriodMsSupplier
         );
 
@@ -594,6 +601,7 @@ public class IgniteImpl implements Ignite {
                 metaStorageMgr,
                 schemaManager,
                 volatileLogStorageFactoryCreator,
+                threadPoolsManager.partitionOperationsExecutor(),
                 clock,
                 outgoingSnapshotsManager,
                 topologyAwareRaftGroupServiceFactory,
@@ -694,13 +702,11 @@ public class IgniteImpl implements Ignite {
     private AuthenticationManager createAuthenticationManager() {
         SecurityConfiguration securityConfiguration = clusterCfgMgr.configurationRegistry()
                 .getConfiguration(SecurityConfiguration.KEY);
-
-        AuthenticationManager manager = new AuthenticationManagerImpl();
-        securityConfiguration.listen(manager);
-        return manager;
+        return new AuthenticationManagerImpl(securityConfiguration);
     }
 
     private RestComponent createRestComponent(String name) {
+        RestManager restManager = new RestManager();
         Supplier<RestFactory> presentationsFactory = () -> new PresentationsFactory(nodeCfgMgr, clusterCfgMgr);
         Supplier<RestFactory> clusterManagementRestFactory = () -> new ClusterManagementRestFactory(clusterSvc, clusterInitializer, cmgMgr);
         Supplier<RestFactory> nodeManagementRestFactory = () -> new NodeManagementRestFactory(lifecycleManager, () -> name,
@@ -708,14 +714,18 @@ public class IgniteImpl implements Ignite {
         Supplier<RestFactory> nodeMetricRestFactory = () -> new MetricRestFactory(metricManager);
         Supplier<RestFactory> authProviderFactory = () -> new AuthenticationProviderFactory(authenticationManager);
         Supplier<RestFactory> deploymentCodeRestFactory = () -> new CodeDeploymentRestFactory(deploymentManager);
+        Supplier<RestFactory> restManagerFactory = () -> new RestManagerFactory(restManager);
         RestConfiguration restConfiguration = nodeCfgMgr.configurationRegistry().getConfiguration(RestConfiguration.KEY);
+
         return new RestComponent(
                 List.of(presentationsFactory,
                         clusterManagementRestFactory,
                         nodeManagementRestFactory,
                         nodeMetricRestFactory,
                         deploymentCodeRestFactory,
-                        authProviderFactory),
+                        authProviderFactory,
+                        restManagerFactory),
+                restManager,
                 restConfiguration
         );
     }
@@ -787,6 +797,7 @@ public class IgniteImpl implements Ignite {
 
             // Start the components that are required to join the cluster.
             lifecycleManager.startComponents(
+                    threadPoolsManager,
                     clockWaiter,
                     nettyBootstrapFactory,
                     clusterSvc,
@@ -803,6 +814,8 @@ public class IgniteImpl implements Ignite {
             LOG.info("Components started, joining the cluster");
 
             return cmgMgr.joinFuture()
+                    //Disable REST component during initialization.
+                    .thenAcceptAsync(unused -> restComponent.disable())
                     .thenComposeAsync(unused -> {
                         LOG.info("Join complete, starting MetaStorage");
 
@@ -823,6 +836,7 @@ public class IgniteImpl implements Ignite {
                             lifecycleManager.startComponents(
                                     catalogManager,
                                     clusterCfgMgr,
+                                    authenticationManager,
                                     placementDriverMgr,
                                     metricManager,
                                     distributionZoneManager,
@@ -863,6 +877,8 @@ public class IgniteImpl implements Ignite {
                     }, startupExecutor)
                     .thenRunAsync(() -> {
                         try {
+                            //Enable REST component on start complete.
+                            restComponent.enable();
                             // Transfer the node to the STARTED state.
                             lifecycleManager.onStartComplete();
                         } catch (NodeStoppingException e) {
@@ -1201,5 +1217,11 @@ public class IgniteImpl implements Ignite {
     @TestOnly
     public CatalogManager catalogManager() {
         return catalogManager;
+    }
+
+    /** Returns the cluster's configuration manager. */
+    @TestOnly
+    public ConfigurationRegistry clusterConfigurationRegistry() {
+        return clusterCfgMgr.configurationRegistry();
     }
 }

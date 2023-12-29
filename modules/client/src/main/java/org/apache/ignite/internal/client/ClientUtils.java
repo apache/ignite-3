@@ -179,6 +179,9 @@ public class ClientUtils {
             case ClientOp.JDBC_NEXT:
                 return null;
 
+            case ClientOp.JDBC_MORE_RESULTS:
+                return null;
+
             case ClientOp.JDBC_EXEC_BATCH:
                 return null;
 
@@ -233,6 +236,8 @@ public class ClientUtils {
             case ClientOp.JDBC_TX_FINISH:
                 return null;
 
+            case ClientOp.SQL_PARAM_META:
+                return null;
 
             // Do not return null from default arm intentionally, so we don't forget to update this when new ClientOp values are added.
             default:

@@ -17,202 +17,284 @@
 
 package org.apache.ignite.internal.security.authentication;
 
-import static org.apache.ignite.internal.security.authentication.event.EventType.AUTHENTICATION_DISABLED;
-import static org.apache.ignite.internal.security.authentication.event.EventType.AUTHENTICATION_ENABLED;
-import static org.apache.ignite.internal.security.authentication.event.EventType.AUTHENTICATION_PROVIDER_REMOVED;
-import static org.apache.ignite.internal.security.authentication.event.EventType.AUTHENTICATION_PROVIDER_UPDATED;
+import static org.apache.ignite.internal.security.authentication.event.AuthenticationEvent.AUTHENTICATION_DISABLED;
+import static org.apache.ignite.internal.security.authentication.event.AuthenticationEvent.AUTHENTICATION_ENABLED;
+import static org.apache.ignite.internal.security.authentication.event.AuthenticationEvent.AUTHENTICATION_PROVIDER_REMOVED;
+import static org.apache.ignite.internal.security.authentication.event.AuthenticationEvent.AUTHENTICATION_PROVIDER_UPDATED;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
-import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.security.authentication.basic.BasicAuthenticationProviderChange;
 import org.apache.ignite.internal.security.authentication.event.AuthenticationEvent;
-import org.apache.ignite.internal.security.authentication.event.AuthenticationListener;
-import org.apache.ignite.internal.security.authentication.event.AuthenticationProviderEvent;
+import org.apache.ignite.internal.security.authentication.event.AuthenticationEventParameters;
+import org.apache.ignite.internal.security.authentication.event.AuthenticationProviderEventParameters;
+import org.apache.ignite.internal.security.authentication.event.UserEventParameters;
 import org.apache.ignite.internal.security.configuration.SecurityChange;
 import org.apache.ignite.internal.security.configuration.SecurityConfiguration;
-import org.apache.ignite.internal.security.configuration.SecurityView;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.security.exception.InvalidCredentialsException;
 import org.apache.ignite.security.exception.UnsupportedAuthenticationTypeException;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 @ExtendWith(ConfigurationExtension.class)
 class AuthenticationManagerImplTest extends BaseIgniteAbstractTest {
-    private static final String PROVIDER = "basic";
+    private static final String PROVIDER = SecurityConfigurationModule.DEFAULT_PROVIDER_NAME;
 
-    private static final String USERNAME = "admin";
+    private static final String USERNAME = SecurityConfigurationModule.DEFAULT_USERNAME;
 
-    private static final String PASSWORD = "password";
+    private static final String PASSWORD = SecurityConfigurationModule.DEFAULT_PASSWORD;
 
     private static final UsernamePasswordRequest USERNAME_PASSWORD_REQUEST = new UsernamePasswordRequest(USERNAME, PASSWORD);
 
-    private final AuthenticationManagerImpl manager = new AuthenticationManagerImpl();
-
-    private final List<AuthenticationEvent> events = new ArrayList<>();
-
-    private final AuthenticationListener listener = events::add;
-
-    @InjectConfiguration
+    @InjectConfiguration(polymorphicExtensions = CustomAuthenticationProviderConfigurationSchema.class, rootName = "security")
     private SecurityConfiguration securityConfiguration;
+
+    private AuthenticationManagerImpl manager;
+
+    private final List<AuthenticationEventParameters> events = new CopyOnWriteArrayList<>();
+
+    private final EventListener<AuthenticationEventParameters> listener = (parameters, exception) -> {
+        events.add(parameters);
+        return falseCompletedFuture();
+    };
 
     @BeforeEach
     void setUp() {
-        manager.listen(listener);
+        manager = new AuthenticationManagerImpl(securityConfiguration);
+
+        Arrays.stream(AuthenticationEvent.values()).forEach(event -> manager.listen(event, listener));
+
+        manager.start();
+    }
+
+    @AfterEach
+    void tearDown() throws Exception {
+        Arrays.stream(AuthenticationEvent.values()).forEach(event -> manager.removeListener(event, listener));
+
+        manager.stop();
     }
 
     @Test
-    public void enableAuth() {
-        // when
+    void shouldFireEventWhenAuthenticationIsEnabled() {
+        // When authentication is enabled.
         enableAuthentication();
 
-        // then
-        // successful authentication with valid credentials
-
-        assertEquals(USERNAME, manager.authenticate(USERNAME_PASSWORD_REQUEST).username());
-
-        // and failed authentication with invalid credentials
-        assertThrows(InvalidCredentialsException.class,
-                () -> manager.authenticate(new UsernamePasswordRequest(USERNAME, "invalid-password")));
-
+        // Then event is fired.
         assertEquals(1, events.size());
         assertEquals(AUTHENTICATION_ENABLED, events.get(0).type());
     }
 
     @Test
-    public void leaveOldSettingWhenInvalidConfiguration() {
-        // when
-        SecurityView oldValue = securityConfiguration.value();
+    void shouldFireEventsWhenAuthenticationIsEnabledAndThenDisabled() {
+        // When authentication is enabled.
+        enableAuthentication();
 
-        SecurityView invalidAuthView = mutateConfiguration(
-                securityConfiguration, change -> {
-                    change.changeEnabled(true);
-                })
-                .value();
-        manager.onUpdate(new StubSecurityViewEvent(oldValue, invalidAuthView)).join();
+        // And then disabled.
+        disableAuthentication();
 
-        // then
-        // authentication is still disabled
-        UsernamePasswordRequest emptyCredentials = new UsernamePasswordRequest("", "");
+        // Then event is fired.
+        assertEquals(2, events.size());
+        assertEquals(AUTHENTICATION_ENABLED, events.get(0).type());
+        assertEquals(AUTHENTICATION_DISABLED, events.get(1).type());
+    }
 
-        assertEquals("Unknown", manager.authenticate(emptyCredentials).username());
+    @Test
+    void shouldFireUserUpdatedEventWhenUserPasswordIsChanged() {
+        mutateConfiguration(securityConfiguration, change -> {
+            change.changeAuthentication()
+                    .changeProviders()
+                    .update(PROVIDER, provider -> {
+                        provider.convert(BasicAuthenticationProviderChange.class)
+                                .changeUsers(users ->
+                                        users.update(USERNAME, user -> user.changePassword("new-password"))
+                                );
+                    });
+        });
+
+        assertEquals(1, events.size());
+        UserEventParameters userEventParameters = (UserEventParameters) events.get(0);
+        assertEquals(AuthenticationEvent.USER_UPDATED, userEventParameters.type());
+        assertEquals(USERNAME, userEventParameters.username());
+        assertEquals(PROVIDER, userEventParameters.providerName());
+    }
+
+    @Test
+    void shouldFireUserRemovedEventWhenUserIsDeleted() {
+        mutateConfiguration(securityConfiguration, change -> {
+            change.changeAuthentication()
+                    .changeProviders()
+                    .update(PROVIDER, provider -> {
+                        provider.convert(BasicAuthenticationProviderChange.class)
+                                .changeUsers(users ->
+                                        users.delete(USERNAME)
+                                );
+                    });
+        });
+
+        assertEquals(1, events.size());
+        UserEventParameters userEventParameters = (UserEventParameters) events.get(0);
+        assertEquals(AuthenticationEvent.USER_REMOVED, userEventParameters.type());
+        assertEquals(USERNAME, userEventParameters.username());
+        assertEquals(PROVIDER, userEventParameters.providerName());
+    }
+
+    @Test
+    void shouldFireUserRemovedEventWhenUserIsRenamed() {
+        mutateConfiguration(securityConfiguration, change -> {
+            change.changeAuthentication()
+                    .changeProviders()
+                    .update(PROVIDER, provider -> {
+                        provider.convert(BasicAuthenticationProviderChange.class)
+                                .changeUsers(users ->
+                                        users.rename(USERNAME, USERNAME + "-renamed")
+                                );
+                    });
+        });
+
+        assertEquals(1, events.size());
+        UserEventParameters userEventParameters = (UserEventParameters) events.get(0);
+        assertEquals(AuthenticationEvent.USER_REMOVED, userEventParameters.type());
+        assertEquals(USERNAME, userEventParameters.username());
+        assertEquals(PROVIDER, userEventParameters.providerName());
+    }
+
+    @Test
+    void shouldFireEventsWhenProviderIsRenamedAndUserPasswordChanged() {
+        mutateConfiguration(securityConfiguration, change -> {
+            change.changeAuthentication()
+                    .changeProviders()
+                    .rename(PROVIDER, PROVIDER + "-renamed");
+        });
+
+        mutateConfiguration(securityConfiguration, change -> {
+            change.changeAuthentication()
+                    .changeProviders()
+                    .update(PROVIDER + "-renamed", provider -> {
+                        provider.convert(BasicAuthenticationProviderChange.class)
+                                .changeUsers(users ->
+                                        users.update(USERNAME, user -> user.changePassword("new-password"))
+                                );
+                    });
+        });
+
+        assertEquals(2, events.size());
+
+        AuthenticationProviderEventParameters providerEventParameters = (AuthenticationProviderEventParameters) events.get(0);
+        assertEquals(AUTHENTICATION_PROVIDER_REMOVED, providerEventParameters.type());
+        assertEquals(PROVIDER, providerEventParameters.name());
+
+        UserEventParameters userEventParameters = (UserEventParameters) events.get(1);
+        assertEquals(AuthenticationEvent.USER_UPDATED, userEventParameters.type());
+        assertEquals(USERNAME, userEventParameters.username());
+        assertEquals(PROVIDER + "-renamed", userEventParameters.providerName());
+    }
+
+    @Test
+    void shouldFireProviderUpdatedEventWhenCustomProviderPropertyIsChanged() {
+        mutateConfiguration(securityConfiguration, change -> {
+            change.changeAuthentication()
+                    .changeProviders()
+                    .create("custom", provider -> {
+                        provider.convert(CustomAuthenticationProviderChange.class)
+                                .changeCustomProperty("custom-property");
+                    });
+        });
+
+        mutateConfiguration(securityConfiguration, change -> {
+            change.changeAuthentication()
+                    .changeProviders()
+                    .update("custom", provider -> {
+                        provider.convert(CustomAuthenticationProviderChange.class)
+                                .changeCustomProperty("custom-property2");
+                    });
+        });
+
+        assertEquals(1, events.size());
+        AuthenticationProviderEventParameters authenticationProviderEventParameters = (AuthenticationProviderEventParameters) events.get(0);
+        assertEquals(AUTHENTICATION_PROVIDER_UPDATED, authenticationProviderEventParameters.type());
+        assertEquals("custom", authenticationProviderEventParameters.name());
+    }
+
+    @Test
+    void shouldFireProviderRemovedEventWhenProviderIsRenamed() {
+        mutateConfiguration(securityConfiguration, change -> {
+            change.changeAuthentication()
+                    .changeProviders()
+                    .rename(PROVIDER, PROVIDER + "-renamed");
+        });
+
+        assertEquals(1, events.size());
+        AuthenticationProviderEventParameters authenticationProviderEventParameters = (AuthenticationProviderEventParameters) events.get(0);
+        assertEquals(AUTHENTICATION_PROVIDER_REMOVED, authenticationProviderEventParameters.type());
+        assertEquals(PROVIDER, authenticationProviderEventParameters.name());
+    }
+
+    @Test
+    void shouldNotFireProviderUpdatedEventForChangesInBasicProviderUsers() {
+        mutateConfiguration(securityConfiguration, change -> {
+            change.changeAuthentication()
+                    .changeProviders()
+                    .update(PROVIDER, provider -> {
+                        provider.convert(BasicAuthenticationProviderChange.class)
+                                .changeUsers(users ->
+                                        users.create("new-user", user -> user.changePassword("new-password"))
+                                );
+                    });
+        });
 
         assertEquals(0, events.size());
     }
 
     @Test
-    public void disableAuthEmptyProviders() {
-        //when
-        enableAuthentication();
-
-        // then
-
-        // disable authentication
-        SecurityView currentView = securityConfiguration.value();
-
-        SecurityView disabledView = mutateConfiguration(
-                securityConfiguration, change -> {
-                    change.changeAuthentication().changeProviders(providers -> providers.delete(PROVIDER));
-                    change.changeEnabled(false);
-                })
-                .value();
-
-        manager.onUpdate(new StubSecurityViewEvent(currentView, disabledView)).join();
-
-        // then
-        // authentication is disabled
-        UsernamePasswordRequest emptyCredentials = new UsernamePasswordRequest("", "");
-
-        assertEquals("Unknown", manager.authenticate(emptyCredentials).username());
-
-        assertEquals(3, events.size());
-        assertEquals(AUTHENTICATION_ENABLED, events.get(0).type());
-        assertEquals(AUTHENTICATION_DISABLED, events.get(1).type());
-        AuthenticationProviderEvent removed = assertInstanceOf(AuthenticationProviderEvent.class, events.get(2));
-        assertEquals(AUTHENTICATION_PROVIDER_REMOVED, removed.type());
-        assertEquals(PROVIDER, removed.name());
-    }
-
-    @Test
-    public void disableAuthNotEmptyProviders() {
-        //when
-        enableAuthentication();
-
-        // disable authentication
-        SecurityView currentView = securityConfiguration.value();
-
-        SecurityView disabledView = mutateConfiguration(
-                securityConfiguration, change -> {
-                    change.changeEnabled(false);
-                })
-                .value();
-
-        manager.onUpdate(new StubSecurityViewEvent(currentView, disabledView)).join();
-
-        // then
-        // authentication is disabled
-        UsernamePasswordRequest emptyCredentials = new UsernamePasswordRequest("", "");
-
-        assertEquals("Unknown", manager.authenticate(emptyCredentials).username());
-
-        assertEquals(2, events.size());
-        assertEquals(AUTHENTICATION_ENABLED, events.get(0).type());
-        assertEquals(AUTHENTICATION_DISABLED, events.get(1).type());
-    }
-
-    @Test
-    public void changedCredentials() {
+    void shouldAuthenticateWithValidCredentials() {
         // when
         enableAuthentication();
 
         // then
-        // change authentication settings - change password
-        SecurityView currentView = securityConfiguration.value();
-
-        SecurityView adminNewPasswordView = mutateConfiguration(
-                securityConfiguration, change -> {
-                    change.changeAuthentication().changeProviders(providers -> providers.update(PROVIDER, provider -> {
-                        provider.convert(BasicAuthenticationProviderChange.class)
-                                .changeUsers(users ->
-                                        users.update(USERNAME, user -> user.changePassword("new-password"))
-                                );
-                    }));
-                })
-                .value();
-
-        manager.onUpdate(new StubSecurityViewEvent(currentView, adminNewPasswordView)).join();
-
-        assertThrows(InvalidCredentialsException.class, () -> manager.authenticate(USERNAME_PASSWORD_REQUEST));
-
-        // then
-        // successful authentication with the new password
-        UsernamePasswordRequest adminNewPasswordCredentials = new UsernamePasswordRequest(USERNAME, "new-password");
-
-        assertEquals(USERNAME, manager.authenticate(adminNewPasswordCredentials).username());
-
-        assertEquals(2, events.size());
-        assertEquals(AUTHENTICATION_ENABLED, events.get(0).type());
-        AuthenticationProviderEvent removed = assertInstanceOf(AuthenticationProviderEvent.class, events.get(1));
-        assertEquals(AUTHENTICATION_PROVIDER_UPDATED, removed.type());
-        assertEquals(PROVIDER, removed.name());
+        // successful authentication with valid credentials
+        assertEquals(USERNAME, manager.authenticate(USERNAME_PASSWORD_REQUEST).username());
     }
 
     @Test
-    public void exceptionsDuringAuthentication() {
+    void shouldThrowInvalidCredentialsExceptionForInvalidCredentials() {
+        // when
+        enableAuthentication();
+
+        // then
+        // failed authentication with invalid credentials
+        assertThrows(InvalidCredentialsException.class,
+                () -> manager.authenticate(new UsernamePasswordRequest(USERNAME, "invalid-password")));
+    }
+
+    @Test
+    void shouldReturnUnknownUserDetailsWhenAuthenticationIsDisabled() {
+        // when
+        disableAuthentication();
+
+        // then
+        assertEquals(UserDetails.UNKNOWN, manager.authenticate(USERNAME_PASSWORD_REQUEST));
+    }
+
+    @Test
+    public void shouldAuthenticateWithFallbackOnSequentialAuthenticatorExceptions() {
         UsernamePasswordRequest credentials = new UsernamePasswordRequest("admin", "password");
 
         Authenticator authenticator1 = mock(Authenticator.class);
@@ -239,28 +321,16 @@ class AuthenticationManagerImplTest extends BaseIgniteAbstractTest {
     }
 
     private void enableAuthentication() {
-        SecurityView oldValue = securityConfiguration.value();
-
-        SecurityView adminPasswordView = mutateConfiguration(
-                securityConfiguration, change -> {
-                    change.changeAuthentication().changeProviders(providers -> providers.create(PROVIDER, provider -> {
-                        provider.convert(BasicAuthenticationProviderChange.class)
-                                .changeUsers(users ->
-                                        users.create(USERNAME, user -> user.changePassword(PASSWORD))
-                                );
-                    }));
-                    change.changeEnabled(true);
-                })
-                .value();
-
-        manager.onUpdate(new StubSecurityViewEvent(oldValue, adminPasswordView)).join();
+        mutateConfiguration(securityConfiguration, change -> change.changeEnabled(true));
     }
 
-    private static SecurityConfiguration mutateConfiguration(SecurityConfiguration configuration,
-            Consumer<SecurityChange> consumer) {
+    private void disableAuthentication() {
+        mutateConfiguration(securityConfiguration, change -> change.changeEnabled(false));
+    }
+
+    private static void mutateConfiguration(SecurityConfiguration configuration, Consumer<SecurityChange> consumer) {
         CompletableFuture<SecurityConfiguration> future = configuration.change(consumer)
                 .thenApply(unused -> configuration);
         assertThat(future, willCompleteSuccessfully());
-        return future.join();
     }
 }

@@ -44,8 +44,8 @@ public class AsyncSqlCursorImpl<T> implements AsyncSqlCursor<T> {
     private final ResultSetMetadata meta;
     private final QueryTransactionWrapper txWrapper;
     private final AsyncCursor<T> dataCursor;
-    private final Runnable onClose;
-    private final CompletableFuture<AsyncSqlCursor<T>> nextStatement;
+    private final CompletableFuture<Void> firstPageReady;
+    private final @Nullable CompletableFuture<AsyncSqlCursor<T>> nextStatement;
 
     /**
      * Constructor.
@@ -54,42 +54,24 @@ public class AsyncSqlCursorImpl<T> implements AsyncSqlCursor<T> {
      * @param meta The meta of the result set.
      * @param txWrapper Transaction wrapper.
      * @param dataCursor The result set.
-     * @param onClose Callback to invoke when cursor is closed.
+     * @param firstPageReady The future that represents completion of a prefetch.
+     *      Should be completed by data cursor.
+     * @param nextStatement Next statement future, non-null in the case of a
+     *         multi-statement query and if current statement is not the last.
      */
     public AsyncSqlCursorImpl(
             SqlQueryType queryType,
             ResultSetMetadata meta,
             QueryTransactionWrapper txWrapper,
             AsyncCursor<T> dataCursor,
-            Runnable onClose
-    ) {
-        this(queryType, meta, txWrapper, dataCursor, onClose, null);
-    }
-
-    /**
-     * Constructor.
-     *
-     * @param queryType Type of the query.
-     * @param meta The meta of the result set.
-     * @param txWrapper Transaction wrapper.
-     * @param dataCursor The result set.
-     * @param onClose Callback to invoke when cursor is closed.
-     * @param nextStatement Next statement future, non-null in the case of a
-     *         multi-statement query and if current statement is not the last.
-     */
-    AsyncSqlCursorImpl(
-            SqlQueryType queryType,
-            ResultSetMetadata meta,
-            QueryTransactionWrapper txWrapper,
-            AsyncCursor<T> dataCursor,
-            Runnable onClose,
+            CompletableFuture<Void> firstPageReady,
             @Nullable CompletableFuture<AsyncSqlCursor<T>> nextStatement
     ) {
         this.queryType = queryType;
         this.meta = meta;
         this.txWrapper = txWrapper;
         this.dataCursor = dataCursor;
-        this.onClose = onClose;
+        this.firstPageReady = firstPageReady;
         this.nextStatement = nextStatement;
     }
 
@@ -109,25 +91,16 @@ public class AsyncSqlCursorImpl<T> implements AsyncSqlCursor<T> {
     @Override
     public CompletableFuture<BatchedResult<T>> requestNextAsync(int rows) {
         return dataCursor.requestNextAsync(rows)
-                .thenApply(batch -> {
+                .handle((batch, error) -> {
+                    if (error != null) {
+                        return handleError(error).thenApply(none -> batch);
+                    }
+
                     CompletableFuture<Void> fut = batch.hasMore()
                             ? nullCompletedFuture()
                             : closeAsync();
 
                     return fut.thenApply(none -> batch);
-                })
-                .exceptionally(rootEx -> {
-                    // Always rollback a transaction in case of an error.
-                    return txWrapper.rollback(rootEx)
-                            .handle((none, rollbackEx) -> {
-                                Throwable wrapped = wrapIfNecessary(rootEx);
-
-                                if (rollbackEx != null) {
-                                    wrapped.addSuppressed(rollbackEx);
-                                }
-
-                                throw new CompletionException(wrapped);
-                            });
                 })
                 .thenCompose(Function.identity());
     }
@@ -158,17 +131,6 @@ public class AsyncSqlCursorImpl<T> implements AsyncSqlCursor<T> {
         dataCursor.closeAsync()
                 .thenCompose(ignored -> txWrapper.commitImplicit())
                 .whenComplete((r, e) -> {
-                    // Anyway run close handler.
-                    try {
-                        onClose.run();
-                    } catch (RuntimeException ex) {
-                        if (e == null) {
-                            e = ex;
-                        } else {
-                            e.addSuppressed(ex);
-                        }
-                    }
-
                     if (e != null) {
                         closeResult.completeExceptionally(e);
                     } else {
@@ -181,8 +143,35 @@ public class AsyncSqlCursorImpl<T> implements AsyncSqlCursor<T> {
 
     /** {@inheritDoc} */
     @Override
-    public void onClose(Runnable callback) {
-        closeResult.whenComplete((r, e) -> callback.run());
+    public CompletableFuture<Void> onClose() {
+        return closeResult;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<Void> onFirstPageReady() {
+        return firstPageReady;
+    }
+
+    CompletableFuture<Void> handleError(Throwable throwable) {
+        Throwable wrapped = wrapIfNecessary(throwable);
+
+        return txWrapper.rollback(throwable)
+                .handle((none, rollbackError) -> {
+                    if (rollbackError != null) {
+                        wrapped.addSuppressed(rollbackError);
+                    }
+
+                    return closeAsync();
+                })
+                .thenCompose(Function.identity())
+                .handle((none, closeError) -> {
+                    if (closeError != null) {
+                        wrapped.addSuppressed(closeError);
+                    }
+
+                    throw new CompletionException(wrapped);
+                });
     }
 
     private static Throwable wrapIfNecessary(Throwable t) {

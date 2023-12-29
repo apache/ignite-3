@@ -51,10 +51,9 @@ int *parameter_set::get_param_bind_offset_ptr() {
 }
 
 void parameter_set::prepare() {
-    m_param_types.clear();
+    m_sql_params.clear();
 
     m_types_set = false;
-
     m_param_set_pos = 0;
 
     for (auto &param : m_params)
@@ -94,21 +93,20 @@ void parameter_set::set_params_processed(SQLULEN processed) const {
         *m_processed_param_rows = processed;
 }
 
-void parameter_set::update_params_types(const parameter_type_vector &meta) {
-    m_param_types = meta;
-
+void parameter_set::update_sql_params(sql_parameter_vector &&meta) {
+    m_sql_params = meta;
     m_types_set = true;
 }
 
-ignite_type parameter_set::get_param_type(std::int16_t idx, ignite_type dflt) {
-    if (idx > 0 && static_cast<size_t>(idx) <= m_param_types.size())
-        return m_param_types[idx - 1];
+const sql_parameter *parameter_set::get_sql_param(std::int16_t idx) const {
+    if (idx > 0 && static_cast<std::size_t>(idx) <= m_sql_params.size())
+        return &m_sql_params.at(idx - 1);
 
-    return dflt;
+    return nullptr;
 }
 
 std::uint16_t parameter_set::get_expected_param_num() {
-    return static_cast<std::uint16_t>(m_param_types.size());
+    return static_cast<std::uint16_t>(m_sql_params.size());
 }
 
 bool parameter_set::is_metadata_set() const {

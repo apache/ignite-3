@@ -71,21 +71,15 @@ class DefaultUserObjectMarshallerWithBuiltinsTest {
 
     private final DefaultUserObjectMarshaller marshaller = new DefaultUserObjectMarshaller(descriptorRegistry, descriptorFactory);
 
+    private final CleanSlateUnmarshaller unmarshaller = new CleanSlateUnmarshaller(marshaller, descriptorRegistry);
+
     @Test
     void marshalsAndUnmarshalsBareObject() throws Exception {
         MarshalledObject marshalled = marshaller.marshal(new Object());
 
-        Object unmarshalled = unmarshalNonNull(marshalled);
+        Object unmarshalled = unmarshaller.unmarshalNonNull(marshalled);
 
         assertThat(unmarshalled.getClass(), is(Object.class));
-    }
-
-    private <T> T unmarshalNonNull(MarshalledObject marshalled) throws UnmarshalException {
-        T unmarshalled = marshaller.unmarshal(marshalled.bytes(), descriptorRegistry);
-
-        assertThat(unmarshalled, is(notNullValue()));
-
-        return unmarshalled;
     }
 
     @Test
@@ -257,7 +251,7 @@ class DefaultUserObjectMarshallerWithBuiltinsTest {
     void marshalsAndUnmarshalsBuiltInCollectionTypes(BuiltInTypeValue typeValue) throws Exception {
         MarshalledObject marshalled = marshaller.marshal(typeValue.value);
 
-        Object unmarshalled = unmarshalNonNull(marshalled);
+        Object unmarshalled = unmarshaller.unmarshalNonNull(marshalled);
 
         assertThat(unmarshalled, is(equalTo(typeValue.value)));
     }
@@ -267,7 +261,7 @@ class DefaultUserObjectMarshallerWithBuiltinsTest {
     void marshalsAndUnmarshalsBuiltInCollectionTypesToCollectionsOfOriginalTypes(BuiltInTypeValue typeValue) throws Exception {
         MarshalledObject marshalled = marshaller.marshal(typeValue.value);
 
-        Object unmarshalled = unmarshalNonNull(marshalled);
+        Object unmarshalled = unmarshaller.unmarshalNonNull(marshalled);
 
         assertThat(unmarshalled.getClass(), is(equalTo(typeValue.value.getClass())));
     }
@@ -371,7 +365,7 @@ class DefaultUserObjectMarshallerWithBuiltinsTest {
 
     private <T> T marshalAndUnmarshal(T object) throws MarshalException, UnmarshalException {
         MarshalledObject marshalled = marshaller.marshal(object);
-        return unmarshalNonNull(marshalled);
+        return unmarshaller.unmarshalNonNull(marshalled);
     }
 
     @Test

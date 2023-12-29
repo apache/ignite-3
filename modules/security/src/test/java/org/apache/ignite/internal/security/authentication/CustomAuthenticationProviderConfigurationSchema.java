@@ -18,10 +18,14 @@
 package org.apache.ignite.internal.security.authentication;
 
 import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
+import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.internal.security.authentication.configuration.AuthenticationProviderConfigurationSchema;
 
 /** Custom authentication configuration. */
 @PolymorphicConfigInstance(CustomAuthenticationProviderConfigurationSchema.TYPE)
 public class CustomAuthenticationProviderConfigurationSchema extends AuthenticationProviderConfigurationSchema {
     static final String TYPE = "custom";
+
+    @Value(hasDefault = true)
+    public String customProperty = "customValue";
 }
