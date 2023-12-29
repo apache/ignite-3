@@ -135,6 +135,13 @@ public class ScaleCubeClusterServiceFactory {
 
                 connectionMgr.start();
 
+                topologyService.addEventHandler(new TopologyEventHandler() {
+                    @Override
+                    public void onDisappeared(ClusterNode member) {
+                        connectionMgr.closeConnectionsWith(member.id());
+                    }
+                });
+
                 var transport = new ScaleCubeDirectMarshallerTransport(
                         connectionMgr.localAddress(),
                         messagingService,
