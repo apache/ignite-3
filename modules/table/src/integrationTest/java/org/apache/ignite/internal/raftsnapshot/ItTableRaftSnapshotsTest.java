@@ -228,7 +228,7 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
             String storageEngine,
             Consumer<Cluster> doOnClusterAfterInit
     ) throws InterruptedException {
-        cluster.startAndInit(3);
+        startAndInitCluster();
 
         doOnClusterAfterInit.accept(cluster);
 
@@ -244,6 +244,10 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
 
         // Make sure AppendEntries from leader to follower is impossible, making the leader to use InstallSnapshot.
         causeLogTruncationOnSolePartitionLeader(0);
+    }
+
+    private void startAndInitCluster() {
+        cluster.startAndInit(3, IntStream.range(0, 3).toArray());
     }
 
     private void putToNode(int nodeIndex, int key, String value) {
@@ -377,7 +381,7 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
      * partition state arrives in a RAFT snapshot, then the transaction is seen as committed (i.e. its effects are seen).
      */
     private void txSemanticsIsMaintainedAfterInstallingSnapshot() throws Exception {
-        cluster.startAndInit(3);
+        startAndInitCluster();
 
         createTestTableWith3Replicas(DEFAULT_STORAGE_ENGINE);
 
@@ -458,8 +462,7 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
      * (and can install a RAFT snapshot on the ex-leader).
      */
     @Test
-    // TODO: IGNITE-18423 - enable when ReplicationTimeoutException is fixed
-    @Disabled("IGNITE-18423")
+    @Disabled("IGNITE-21181")
     void nodeCanInstallSnapshotsAfterSnapshotInstalledToIt() throws Exception {
         feedNode2WithSnapshotOfOneRow();
 
@@ -696,7 +699,7 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
      */
     @Test
     void laggingSchemasOnFollowerPreventSnapshotInstallation() throws Exception {
-        cluster.startAndInit(3);
+        startAndInitCluster();
 
         createTestTableWith3Replicas(DEFAULT_STORAGE_ENGINE);
 
