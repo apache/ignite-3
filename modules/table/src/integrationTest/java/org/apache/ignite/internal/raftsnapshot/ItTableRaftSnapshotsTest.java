@@ -422,8 +422,6 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
      * reach the follower and get applied after the snapshot is installed.
      */
     @Test
-    // TODO: IGNITE-18423 - enable when ReplicationTimeoutException is fixed
-    @Disabled("IGNITE-18423")
     void entriesKeepAppendedDuringSnapshotInstallation() throws Exception {
         prepareClusterForInstallingSnapshotToNode2();
 
