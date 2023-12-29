@@ -152,4 +152,7 @@ public class ClientOp {
 
     /** SQL parameter metadata. */
     public static final int SQL_PARAM_META = 57;
+
+    /** JDBC get more results command. */
+    public static final int JDBC_MORE_RESULTS = 58;
 }

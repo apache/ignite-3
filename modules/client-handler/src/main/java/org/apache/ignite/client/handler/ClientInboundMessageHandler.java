@@ -51,6 +51,7 @@ import org.apache.ignite.client.handler.requests.jdbc.ClientJdbcExecuteBatchRequ
 import org.apache.ignite.client.handler.requests.jdbc.ClientJdbcExecuteRequest;
 import org.apache.ignite.client.handler.requests.jdbc.ClientJdbcFetchRequest;
 import org.apache.ignite.client.handler.requests.jdbc.ClientJdbcFinishTxRequest;
+import org.apache.ignite.client.handler.requests.jdbc.ClientJdbcHasMoreRequest;
 import org.apache.ignite.client.handler.requests.jdbc.ClientJdbcPreparedStmntBatchRequest;
 import org.apache.ignite.client.handler.requests.jdbc.ClientJdbcPrimaryKeyMetadataRequest;
 import org.apache.ignite.client.handler.requests.jdbc.ClientJdbcQueryMetadataRequest;
@@ -680,6 +681,9 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
 
             case ClientOp.JDBC_NEXT:
                 return ClientJdbcFetchRequest.process(in, out, jdbcQueryCursorHandler);
+
+            case ClientOp.JDBC_MORE_RESULTS:
+                return ClientJdbcHasMoreRequest.process(in, out, jdbcQueryCursorHandler);
 
             case ClientOp.JDBC_CURSOR_CLOSE:
                 return ClientJdbcCloseRequest.process(in, out, jdbcQueryCursorHandler);

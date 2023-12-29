@@ -179,6 +179,9 @@ public class ClientUtils {
             case ClientOp.JDBC_NEXT:
                 return null;
 
+            case ClientOp.JDBC_MORE_RESULTS:
+                return null;
+
             case ClientOp.JDBC_EXEC_BATCH:
                 return null;
 

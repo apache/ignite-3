@@ -24,11 +24,11 @@ import org.apache.ignite.internal.jdbc.proto.JdbcQueryCursorHandler;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcFetchQueryResultsRequest;
 
 /**
- * Client jdbc request handler.
+ * Client jdbc more results request.
  */
-public class ClientJdbcFetchRequest {
+public class ClientJdbcHasMoreRequest {
     /**
-     * Processes remote {@code JdbcQueryFetchRequest}.
+     * Processes remote {@code JdbcGetMoreResultsRequest}.
      *
      * @param in      Client message unpacker.
      * @param out     Client message packer.
@@ -44,6 +44,6 @@ public class ClientJdbcFetchRequest {
 
         req.readBinary(in);
 
-        return handler.fetchAsync(req).thenAccept(res -> res.writeBinary(out));
+        return handler.getMoreResultsAsync(req).thenAccept(res -> res.writeBinary(out));
     }
 }
