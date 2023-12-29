@@ -332,7 +332,7 @@ public class ConnectionManager implements ChannelCreationListener {
 
         // Preventing a race between calling closeConnectionsWith() and putting a new channel that was just opened (with the node
         // which is already stale). If it's stale, then the stale detector already knows it (and it knows it before
-        // closeConnectionsWith() gets called as it subscribes very first).
+        // closeConnectionsWith() gets called as it subscribes first).
         // This is the only place where a new sender might be added to the map.
         if (staleIdDetector.isIdStale(channel.launchId())) {
             channel.close();
