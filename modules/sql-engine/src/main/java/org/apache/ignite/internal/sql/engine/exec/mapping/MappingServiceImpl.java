@@ -35,7 +35,6 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executor;
-import java.util.concurrent.ForkJoinPool;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.calcite.plan.RelOptCluster;
@@ -119,7 +118,7 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
             mappingsCache.values().removeIf(value -> value.tableIds.contains(tabId));
 
             return false;
-        }, ForkJoinPool.commonPool());
+        }, taskExecutor);
     }
 
     private CompletableFuture<List<MappedFragment>> map0(MultiStepPlan multiStepPlan) {
