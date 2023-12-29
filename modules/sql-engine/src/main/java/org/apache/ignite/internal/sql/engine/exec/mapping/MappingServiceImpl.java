@@ -188,9 +188,9 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
                     Long2ObjectMap<ColocationGroup> groupsBySourceId = new Long2ObjectOpenHashMap<>();
                     Long2ObjectMap<List<String>> allSourcesByExchangeId = new Long2ObjectOpenHashMap<>();
                     Exception ex = null;
-                    boolean lastAttemptSucceed = true;
+                    boolean lastAttemptSucceed = false;
                     List<Fragment> fragmentsToMap = fragments;
-                    for (int attempt = 0; attempt < MAPPING_ATTEMPTS; attempt++) {
+                    for (int attempt = 0; attempt < MAPPING_ATTEMPTS && !lastAttemptSucceed; attempt++) {
                         Fragment currentFragment = null;
                         try {
                             for (Fragment fragment : fragmentsToMap) {
@@ -222,8 +222,6 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
                             }
 
                             lastAttemptSucceed = true;
-
-                            break;
                         } catch (FragmentMappingException mappingException) {
                             if (ex == null) {
                                 ex = mappingException;
@@ -236,8 +234,6 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
                                     currentFragment,
                                     new FragmentSplitter(idGenerator, mappingException.node()).go(currentFragment)
                             );
-
-                            lastAttemptSucceed = false;
                         }
                     }
 
