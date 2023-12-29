@@ -32,7 +32,6 @@ import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executor;
@@ -384,18 +383,6 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
         });
     }
 
-    private static class MappingsCacheValue {
-        private final long topVer;
-        private final Set<Integer> tableIds;
-        private final CompletableFuture<List<MappedFragment>> mappedFragments;
-
-        MappingsCacheValue(long topVer, Set<Integer> tableIds, CompletableFuture<List<MappedFragment>> mappedFragments) {
-            this.topVer = topVer;
-            this.tableIds = tableIds;
-            this.mappedFragments = mappedFragments;
-        }
-    }
-
     private static class FragmentsTemplate {
         private final long nextId;
         private final RelOptCluster cluster;
@@ -406,10 +393,17 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
             this.cluster = cluster;
             this.fragments = fragments;
         }
+    }
 
-        private Set<Integer> tableIds() {
-            return fragments.stream().flatMap(fragment -> fragment.tables().stream()
-                    .map(IgniteDataSource::id)).collect(Collectors.toSet());
+    private static class MappingsCacheValue {
+        private final long topVer;
+        private final IntSet tableIds;
+        private final CompletableFuture<List<MappedFragment>> mappedFragments;
+
+        MappingsCacheValue(long topVer, IntSet tableIds, CompletableFuture<List<MappedFragment>> mappedFragments) {
+            this.topVer = topVer;
+            this.tableIds = tableIds;
+            this.mappedFragments = mappedFragments;
         }
     }
 }
