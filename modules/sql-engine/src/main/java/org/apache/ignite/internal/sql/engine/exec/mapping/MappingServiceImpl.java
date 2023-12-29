@@ -52,7 +52,6 @@ import org.apache.ignite.internal.sql.engine.prepare.PlanId;
 import org.apache.ignite.internal.sql.engine.rel.IgniteReceiver;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSender;
 import org.apache.ignite.internal.sql.engine.schema.IgniteDataSource;
-import org.apache.ignite.internal.sql.engine.util.ReferencesCache;
 import org.apache.ignite.internal.sql.engine.util.cache.Cache;
 import org.apache.ignite.internal.sql.engine.util.cache.CacheFactory;
 import org.apache.ignite.lang.ErrorGroups.Sql;
@@ -73,7 +72,6 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
     private final ExecutionTargetProvider targetProvider;
     private final Executor taskExecutor;
     private final Cache<PlanId, FragmentsTemplate> templatesCache;
-    private final ReferencesCache<PlanId, Integer, CompletableFuture<List<MappedFragment>>> mappingsCacheAdvanced;
     private final ConcurrentMap<PlanId, MappingsCacheValue> mappingsCache;
 
     /**
@@ -96,7 +94,6 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
         this.targetProvider = targetProvider;
         this.templatesCache = cacheFactory.create(cacheSize);
         this.taskExecutor = taskExecutor;
-        this.mappingsCacheAdvanced = new ReferencesCache<>(cacheSize, ForkJoinPool.commonPool());
         this.mappingsCache = Caffeine.newBuilder()
                 .maximumSize(cacheSize)
                 .<PlanId, MappingsCacheValue>build()
