@@ -146,7 +146,8 @@ public class CatalogUtils {
         DataStorageParams dataStorageParams =
                 DataStorageParams.builder().engine(DEFAULT_STORAGE_ENGINE).dataRegion(DEFAULT_DATA_REGION).build();
 
-        List<StorageProfileParams> storageProfiles = List.of(StorageProfileParams.builder().storageProfile(Constants.DUMMY_STORAGE_PROFILE).build());
+        List<StorageProfileParams> storageProfiles =
+                List.of(StorageProfileParams.builder().storageProfile(Constants.DUMMY_STORAGE_PROFILE).build());
 
         return new CatalogZoneDescriptor(
                 id,

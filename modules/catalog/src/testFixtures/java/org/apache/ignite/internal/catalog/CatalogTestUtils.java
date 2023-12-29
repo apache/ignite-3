@@ -265,6 +265,12 @@ public class CatalogTestUtils {
         return AlterTableAddColumnCommand.builder().schemaName(DEFAULT_SCHEMA_NAME).tableName(tableName).columns(List.of(columns)).build();
     }
 
+    /**
+     * Builder for {@link CreateZoneCommand}.
+     *
+     * @param zoneName Zone name.
+     * @return Builder for {@link CreateZoneCommand}.
+     */
     public static CreateZoneCommandBuilder createZoneBuilder(String zoneName) {
         return CreateZoneCommand.builder()
                 .zoneName(zoneName)
