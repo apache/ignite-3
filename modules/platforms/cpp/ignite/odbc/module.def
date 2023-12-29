@@ -12,6 +12,7 @@ EXPORTS
 	SQLCancel
 	SQLConnect
 	SQLDescribeCol
+	SQLDescribeParam
 	SQLDisconnect
 	SQLError
 	SQLExecDirect

@@ -17,12 +17,11 @@
 
 package org.apache.ignite.internal.security.authentication.event;
 
+import org.apache.ignite.internal.event.EventParameters;
+
 /**
- * Authentication events listener.
+ * Authentication event parameters.
  */
-public interface AuthenticationListener {
-    /**
-     * Handle authentication event.
-     */
-    void onEvent(AuthenticationEvent event);
+public interface AuthenticationEventParameters extends EventParameters {
+    AuthenticationEvent type();
 }

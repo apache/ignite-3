@@ -41,6 +41,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -68,6 +69,9 @@ import org.apache.ignite.internal.replicator.message.ReplicaMessageTestGroup;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.TestReplicaMessagesFactory;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
+import org.apache.ignite.internal.thread.LogUncaughtExceptionHandler;
+import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.StripedThreadPoolExecutor;
 import org.apache.ignite.internal.topology.LogicalTopologyServiceTestImpl;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
@@ -115,11 +119,21 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
     private final Map<String, Loza> raftManagers = new HashMap<>();
     private final Map<String, TopologyAwareRaftGroupServiceFactory> raftClientFactory = new HashMap<>();
 
+    private StripedThreadPoolExecutor partitionOperationsExecutor;
+
     /** List of services to have to close before the test will be completed. */
     private final List<Closeable> servicesToClose = new ArrayList<>();
 
     @BeforeEach
     public void beforeTest(TestInfo testInfo) {
+        partitionOperationsExecutor = new StripedThreadPoolExecutor(
+                20,
+                NamedThreadFactory.threadPrefix("test", "partition-operations"),
+                new LogUncaughtExceptionHandler(log),
+                false,
+                0
+        );
+
         placementDriverNodeNames = IntStream.range(BASE_PORT, BASE_PORT + 3).mapToObj(port -> testNodeName(testInfo, port))
                 .collect(toSet());
         nodeNames = IntStream.range(BASE_PORT, BASE_PORT + 5).mapToObj(port -> testNodeName(testInfo, port))
@@ -163,7 +177,8 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
                     cmgManager,
                     clock,
                     Set.of(ReplicaMessageTestGroup.class),
-                    new TestPlacementDriver(primaryReplicaSupplier)
+                    new TestPlacementDriver(primaryReplicaSupplier),
+                    partitionOperationsExecutor
             );
 
             replicaManagers.put(nodeName, replicaManager);
@@ -185,6 +200,8 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
                     log.info("Fail to stop services [node={}]", e, nodeName);
                 }
             });
+
+            servicesToClose.add(() -> IgniteUtils.shutdownAndAwaitTermination(partitionOperationsExecutor, 10, TimeUnit.SECONDS));
         }
     }
 

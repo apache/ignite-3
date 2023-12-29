@@ -280,9 +280,7 @@ public:
      *
      * @return Primitive type.
      */
-    [[nodiscard]] ignite_type get_type() const noexcept {
-        return static_cast<ignite_type>(m_value.index());
-    }
+    [[nodiscard]] ignite_type get_type() const noexcept { return static_cast<ignite_type>(m_value.index()); }
 
     /**
      * @brief Comparison operator.

@@ -44,7 +44,7 @@ public abstract class AbstractLockManagerEventsTest extends AbstractLockingTest 
     private boolean listenerAdded;
 
     @BeforeEach
-    private void reset() {
+    public void reset() {
         eventParamsRef.set(null);
 
         if (!listenerAdded) {

@@ -109,6 +109,7 @@ import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Conditions;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
+import org.apache.ignite.internal.raft.ExecutorInclinedRaftCommandRunner;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Marshaller;
 import org.apache.ignite.internal.raft.Peer;
@@ -124,6 +125,7 @@ import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.raft.storage.impl.LogStorageFactoryCreator;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
+import org.apache.ignite.internal.replicator.ReplicationGroupStripes;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
@@ -152,6 +154,7 @@ import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.Snaps
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
 import org.apache.ignite.internal.table.distributed.replicator.TransactionStateResolver;
 import org.apache.ignite.internal.table.distributed.schema.CatalogValidationSchemasSource;
+import org.apache.ignite.internal.table.distributed.schema.ExecutorInclinedSchemaSyncService;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersionsImpl;
@@ -159,9 +162,11 @@ import org.apache.ignite.internal.table.distributed.schema.ThreadLocalPartitionC
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.table.distributed.storage.PartitionStorages;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.StripedThreadPoolExecutor;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.impl.TxMessageSender;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbTableStorage;
@@ -288,6 +293,11 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      */
     private final ExecutorService ioExecutor;
 
+    /**
+     * Executor to execute partition operations (that might cause I/O and/or be blocked on locks).
+     */
+    private final StripedThreadPoolExecutor partitionOperationsExecutor;
+
     private final HybridClock clock;
 
     private final OutgoingSnapshotsManager outgoingSnapshotsManager;
@@ -373,6 +383,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             MetaStorageManager metaStorageMgr,
             SchemaManager schemaManager,
             LogStorageFactoryCreator volatileLogStorageFactoryCreator,
+            StripedThreadPoolExecutor partitionOperationsExecutor,
             HybridClock clock,
             OutgoingSnapshotsManager outgoingSnapshotsManager,
             TopologyAwareRaftGroupServiceFactory raftGroupServiceFactory,
@@ -394,6 +405,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         this.metaStorageMgr = metaStorageMgr;
         this.schemaManager = schemaManager;
         this.volatileLogStorageFactoryCreator = volatileLogStorageFactoryCreator;
+        this.partitionOperationsExecutor = partitionOperationsExecutor;
         this.clock = clock;
         this.outgoingSnapshotsManager = outgoingSnapshotsManager;
         this.raftGroupServiceFactory = raftGroupServiceFactory;
@@ -405,13 +417,15 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         TopologyService topologyService = clusterService.topologyService();
 
+        TxMessageSender txMessageSender = new TxMessageSender(clusterService.messagingService(), replicaSvc, clock);
+
         transactionStateResolver = new TransactionStateResolver(
-                replicaSvc,
                 txManager,
                 clock,
                 topologyService,
                 clusterService.messagingService(),
-                placementDriver
+                placementDriver,
+                txMessageSender
         );
 
         schemaVersions = new SchemaVersionsImpl(schemaSyncService, catalogService, clock);
@@ -846,9 +860,11 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         int tableId = tablePartitionId.tableId();
         int partId = tablePartitionId.partitionId();
 
+        ExecutorService partitionOperationsStripe = ReplicationGroupStripes.stripeFor(tablePartitionId, partitionOperationsExecutor);
+
         return new PartitionReplicaListener(
                 mvPartitionStorage,
-                raftClient,
+                new ExecutorInclinedRaftCommandRunner(raftClient, partitionOperationsStripe),
                 txManager,
                 lockMgr,
                 scanRequestExecutor,
@@ -864,7 +880,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 partitionUpdateHandlers.storageUpdateHandler,
                 new CatalogValidationSchemasSource(catalogService, schemaManager),
                 localNode(),
-                schemaSyncService,
+                new ExecutorInclinedSchemaSyncService(schemaSyncService, partitionOperationsStripe),
                 catalogService,
                 placementDriver,
                 clusterService.topologyService()
@@ -1489,7 +1505,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                         }
 
                         return tableAsyncInternalBusy(tableDescriptor.id());
-                    }));
+                    }), ioExecutor);
         });
     }
 

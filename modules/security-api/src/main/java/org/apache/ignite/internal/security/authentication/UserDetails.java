@@ -21,6 +21,8 @@ package org.apache.ignite.internal.security.authentication;
  * Represents the user details.
  */
 public class UserDetails {
+    public static final UserDetails UNKNOWN = new UserDetails("unknown", "unknown");
+
     private final String username;
 
     private final String providerName;

@@ -17,8 +17,9 @@
 
 package org.apache.ignite.internal.jdbc.proto.event;
 
+import static org.apache.ignite.internal.binarytuple.BinaryTupleParser.ORDER;
+
 import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -119,7 +120,7 @@ public class JdbcQueryFetchResult extends Response {
         rowTuples = new ArrayList<>(size);
 
         for (int i = 0; i < size; i++) {
-            rowTuples.add(ByteBuffer.wrap(unpacker.readBinary()).order(ByteOrder.LITTLE_ENDIAN));
+            rowTuples.add(ByteBuffer.wrap(unpacker.readBinary()).order(ORDER));
         }
     }
 

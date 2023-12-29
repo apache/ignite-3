@@ -149,4 +149,10 @@ public class ClientOp {
 
     /** Execute SQL script. */
     public static final int SQL_EXEC_SCRIPT = 56;
+
+    /** SQL parameter metadata. */
+    public static final int SQL_PARAM_META = 57;
+
+    /** JDBC get more results command. */
+    public static final int JDBC_MORE_RESULTS = 58;
 }
