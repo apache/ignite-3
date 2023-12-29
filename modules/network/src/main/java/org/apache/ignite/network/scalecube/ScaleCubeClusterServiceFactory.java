@@ -136,9 +136,11 @@ public class ScaleCubeClusterServiceFactory {
                 connectionMgr.start();
 
                 topologyService.addEventHandler(new TopologyEventHandler() {
+                    private final ConnectionManager capturedConnectionManager = connectionMgr;
+
                     @Override
                     public void onDisappeared(ClusterNode member) {
-                        connectionMgr.closeConnectionsWith(member.id());
+                        capturedConnectionManager.closeConnectionsWith(member.id());
                     }
                 });
 
