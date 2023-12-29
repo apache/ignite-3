@@ -28,6 +28,7 @@ import it.unimi.dsi.fastutil.longs.Long2LongOpenHashMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
@@ -47,6 +48,7 @@ import org.apache.ignite.internal.sql.engine.prepare.PlanId;
 import org.apache.ignite.internal.sql.engine.rel.IgniteReceiver;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSender;
 import org.apache.ignite.internal.sql.engine.schema.IgniteDataSource;
+import org.apache.ignite.internal.sql.engine.util.ReferencesCache;
 import org.apache.ignite.internal.sql.engine.util.cache.Cache;
 import org.apache.ignite.internal.sql.engine.util.cache.CacheFactory;
 import org.apache.ignite.internal.util.CompletableFutures;
@@ -68,7 +70,7 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
     private final ExecutionTargetProvider targetProvider;
     private final Executor taskExecutor;
     private final Cache<PlanId, FragmentsTemplate> templatesCache;
-    private final FragmentsCache<PlanId, CompletableFuture<List<MappedFragment>>> fragmentsCache;
+    private final ReferencesCache<PlanId, Integer, CompletableFuture<List<MappedFragment>>> mappingsCache;
 
     /**
      * Constructor.
@@ -90,7 +92,7 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
         this.targetProvider = targetProvider;
         this.templatesCache = cacheFactory.create(cacheSize);
         this.taskExecutor = taskExecutor;
-        this.fragmentsCache = new FragmentsCache<>(cacheSize, ForkJoinPool.commonPool());
+        this.mappingsCache = new ReferencesCache<>(cacheSize, ForkJoinPool.commonPool());
     }
 
     @Override
@@ -107,7 +109,7 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
         assert parameters != null;
         assert parameters.groupId() instanceof TablePartitionId;
 
-        fragmentsCache.invalidate(((TablePartitionId) parameters.groupId()).tableId());
+        mappingsCache.invalidate(((TablePartitionId) parameters.groupId()).tableId());
 
         return CompletableFutures.falseCompletedFuture();
     }
@@ -115,12 +117,12 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
     private CompletableFuture<List<MappedFragment>> map0(MultiStepPlan multiStepPlan) {
         List<String> nodes = topologyHolder.nodes();
         MappingContext context = new MappingContext(localNodeName, nodes);
+
         FragmentsTemplate template = getOrCreateTemplate(multiStepPlan, context);
 
-        return fragmentsCache.putIfAbsentUpdateIfNeeded(
+        return mappingsCache.putOrUpdate(
                 multiStepPlan.id(),
-                () -> template.fragments.stream().flatMap(fragment -> fragment.tables().stream()
-                        .map(IgniteDataSource::id)).collect(Collectors.toSet()),
+                template::tableIds,
                 planId -> mapFragments(context, template)
         );
     }
@@ -317,7 +319,8 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
         void update(LogicalTopologySnapshot topologySnapshot) {
             synchronized (this) {
                 if (ver < topologySnapshot.version()) {
-                    fragmentsCache.clear();
+                    // Cached system view mappings must be invalidated when the topology changes.
+                    mappingsCache.clear();
 
                     nodes = deriveNodeNames(topologySnapshot);
                     ver = topologySnapshot.version();
@@ -364,6 +367,11 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
             this.nextId = nextId;
             this.cluster = cluster;
             this.fragments = fragments;
+        }
+
+        private Collection<Integer> tableIds() {
+            return fragments.stream().flatMap(fragment -> fragment.tables().stream()
+                    .map(IgniteDataSource::id)).collect(Collectors.toSet());
         }
     }
 }

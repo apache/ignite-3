@@ -15,9 +15,10 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.exec.mapping;
+package org.apache.ignite.internal.sql.engine.util;
 
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasSize;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -39,66 +40,66 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
-import org.apache.ignite.internal.sql.engine.exec.mapping.FragmentsCache.CacheValue;
-import org.apache.ignite.internal.sql.engine.exec.mapping.FragmentsCache.StateValue;
+import org.apache.ignite.internal.sql.engine.util.ReferencesCache.CacheValue;
+import org.apache.ignite.internal.sql.engine.util.ReferencesCache.ForeignKeyState;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.junit.jupiter.api.Test;
 
 /**
- * Test class to verify {@link FragmentsCache}.
+ * Test class to verify {@link ReferencesCache}.
  */
-public class FragmentsCacheTest {
-    private static final long EVICTION_TIMEOUT_MS = 5_000;
-
+public class ReferencesCacheTest {
     @Test
-    public void referencesRemovedOnCacheClear() throws InterruptedException {
-        TestCacheDecorator<Object> tester = new TestCacheDecorator<>(10);
+    public void foreignKeysRemovedOnCacheClear() throws InterruptedException {
+        CacheAccessHelper cache = new CacheAccessHelper(10);
 
-        tester.put(1, new Object());
-        tester.put(2, List.of(2), new Object());
-        tester.put(3, List.of(3, 1), new Object());
-        tester.put(4, List.of(1, 3), new Object());
-        tester.put(5, List.of(1, 2, 3), new Object());
+        cache.put(1, new Object());
+        cache.put(2, List.of(2), new Object());
+        cache.put(3, List.of(3, 1), new Object());
+        cache.put(4, List.of(1, 3), new Object());
+        cache.put(5, List.of(1, 2, 3), new Object());
 
-        assertThat(tester.states().entrySet(), hasSize(3));
+        assertThat(cache.foreignKeys().entrySet(), hasSize(3));
 
-        tester.cache.clear();
+        cache.clearAll();
 
-        IgniteTestUtils.waitForCondition(() -> tester.states().isEmpty(), EVICTION_TIMEOUT_MS);
+        cache.awaitEviction();
+
+        assertThat(cache.foreignKeys().entrySet(), empty());
     }
 
     @Test
     public void entryMustBeRefreshedAfterInvalidationUsingForeignKey() {
-        TestCacheDecorator<Object> tester = new TestCacheDecorator<>(1024);
+        CacheAccessHelper cache = new CacheAccessHelper(1024);
 
         Object initialValue = new Object();
         List<Integer> foreignKeys = List.of(12, -5, 6, 17);
 
-        tester.put(1, foreignKeys, initialValue);
-        tester.put(2, initialValue);
+        cache.put(1, foreignKeys, initialValue);
+        cache.put(2, initialValue);
 
-        assertSame(initialValue, tester.put(1, new Object()));
-        assertSame(initialValue, tester.put(2, new Object()));
+        assertSame(initialValue, cache.put(1, new Object()));
+        assertSame(initialValue, cache.put(2, new Object()));
 
         // invalid foreign key.
-        tester.cache.invalidate(1);
+        cache.invalidate(1);
 
-        assertSame(initialValue, tester.put(1, new Object()));
-        assertSame(initialValue, tester.put(2, new Object()));
+        assertSame(initialValue, cache.put(1, new Object()));
+        assertSame(initialValue, cache.put(2, new Object()));
 
         Object newValue = null;
 
         for (int key : foreignKeys) {
-            tester.cache.invalidate(key);
+            cache.invalidate(key);
 
             newValue = new Object();
 
-            assertSame(newValue, tester.put(1, newValue));
-            assertSame(initialValue, tester.put(2, newValue));
+            assertSame(newValue, cache.put(1, newValue));
+            assertSame(initialValue, cache.put(2, newValue));
         }
 
-        assertSame(newValue, tester.put(1, newValue));
-        assertSame(initialValue, tester.put(2, newValue));
+        assertSame(newValue, cache.put(1, newValue));
+        assertSame(initialValue, cache.put(2, newValue));
     }
 
     @Test
@@ -108,18 +109,18 @@ public class FragmentsCacheTest {
         int foreignKeysCount = 20;
         int foreignKeysPerValue = 3;
 
-        TestCacheDecorator<Object> tester = new TestCacheDecorator<>(cacheSize);
+        CacheAccessHelper cache = new CacheAccessHelper(cacheSize);
 
         for (int i = 0; i < valuesCount; i++) {
-            tester.put(i, randomSet(foreignKeysPerValue, foreignKeysCount), new Object());
+            cache.put(i, randomSet(foreignKeysPerValue, foreignKeysCount), new Object());
         }
 
-        tester.verifyConsistency();
+        cache.verifyConsistency();
     }
 
     @Test
     public void checkAllOperationsConsistencyMultiThreaded() throws Exception {
-        TestCacheDecorator<Object> tester = new TestCacheDecorator<>(100);
+        CacheAccessHelper cache = new CacheAccessHelper(100);
 
         int totalRefs = 400;
         int refsPerKey = 5;
@@ -147,65 +148,77 @@ public class FragmentsCacheTest {
 
             for (int attempts = 0; attempts < 20; attempts++) {
                 for (int i = 0; i < ThreadLocalRandom.current().nextInt(10); i++) {
-                    tester.cache.invalidate(ThreadLocalRandom.current().nextInt(totalRefs));
+                    cache.invalidate(ThreadLocalRandom.current().nextInt(totalRefs));
                 }
 
                 for (int i = 0; i < keys.size(); i++) {
-                    tester.put(keys.get(i), sets.get(i), new Object());
+                    cache.put(keys.get(i), sets.get(i), new Object());
                 }
 
                 if (idx % 2 != 0 && attempts < attempts / 2) {
-                    tester.cache.clear();
+                    cache.clearAll();
                 }
             }
 
             return null;
         }, threadsCount, "worker");
 
-        tester.verifyConsistency();
+        cache.verifyConsistency();
     }
 
-    static class TestCacheDecorator<V> {
-        private final FragmentsCache<Integer, V> cache;
+    static class CacheAccessHelper {
+        private final ReferencesCache<Integer, Integer, Object> cache;
         private final ThreadPoolExecutor pool =
                 new ThreadPoolExecutor(4, 4, 0L, TimeUnit.MILLISECONDS, new LinkedBlockingQueue<>());
 
-        TestCacheDecorator(int size) {
-            this.cache = new FragmentsCache<>(size, pool);
+        CacheAccessHelper(int size) {
+            this.cache = new ReferencesCache<>(size, pool);
         }
 
-        V put(Integer key, V value) {
+        Object put(Integer key, Object value) {
             return put(key, Collections.emptyList(), value);
         }
 
-        V put(Integer key, Collection<Integer> refs, V value) {
-            return cache.putIfAbsentUpdateIfNeeded(key, () -> refs, (k) -> value);
+        Object put(Integer key, Collection<Integer> foreignKeys, Object value) {
+            return cache.putOrUpdate(key, () -> foreignKeys, (k) -> value);
         }
 
-        Map<Integer, StateValue> states() {
-            return cache.states();
+        void invalidate(Integer fkey) {
+            cache.invalidate(fkey);
+        }
+
+        Map<Integer, ForeignKeyState> foreignKeys() {
+            return cache.foreignKeys();
+        }
+
+        void clearAll() {
+            cache.clear();
         }
 
         void verifyConsistency() throws InterruptedException {
-            // Ensure that all cache background tasks completed.
-            IgniteTestUtils.waitForCondition(() -> pool.getQueue().isEmpty() && pool.getActiveCount() == 0, EVICTION_TIMEOUT_MS);
+            awaitEviction();
 
             Map<Integer, Integer> expectedForeignKeys = new HashMap<>();
 
-            for (CacheValue<?> v : cache.values().values()) {
-                for (Integer id : v.refs()) {
+            for (CacheValue<Integer, ?> v : cache.data().values()) {
+                for (Integer id : v.foreignKeys()) {
                     expectedForeignKeys.merge(id, 1, Integer::sum);
                 }
             }
 
-            assertThat(cache.states().keySet(), equalTo(expectedForeignKeys.keySet()));
+            assertThat(cache.foreignKeys().keySet(), equalTo(expectedForeignKeys.keySet()));
 
             for (Entry<Integer, Integer> e : expectedForeignKeys.entrySet()) {
-                StateValue actual = cache.states().get(e.getKey());
+                ForeignKeyState actual = cache.foreignKeys().get(e.getKey());
 
                 assertNotNull(actual, "Foreign key is missing in states cache: " + e.getKey());
                 assertEquals(e.getValue(), actual.counter, "Invalid references count for key: " + e.getKey());
             }
+        }
+
+        /** Ensures that all cache background tasks completed. */
+        void awaitEviction() throws InterruptedException {
+            IgniteTestUtils.waitForCondition(() -> pool.getQueue().isEmpty() && pool.getActiveCount() == 0, 5_000);
         }
     }
 

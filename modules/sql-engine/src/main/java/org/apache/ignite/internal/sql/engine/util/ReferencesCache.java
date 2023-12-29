@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.exec.mapping;
+package org.apache.ignite.internal.sql.engine.util;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.RemovalCause;
@@ -31,20 +31,24 @@ import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
 /**
- * Represents bounded cache, with the ability to mark cache entries as outdated through external identifiers.
+ * Represents bounded cache, with the ability to mark cache entries as outdated through external identifiers (foreign keys).
  *
  * <p>Each entry in this cache must have a primary key, but may also have one or more foreign keys.
  * If at least one of the foreign keys has been invalidated after cache value calculated, then the next cache access will result in a
  * recalculation of the cache value.
+ *
+ * @param <K1> Key type.
+ * @param <K2> Foreign key type.
+ * @param <V> Value type.
  */
-public class FragmentsCache<K, V> {
+public class ReferencesCache<K1, K2, V> {
     private final HybridClockImpl clock = new HybridClockImpl();
-    private final ConcurrentMap<K, CacheValue<V>> values;
-    private final ConcurrentMap<Integer, StateValue> states = new ConcurrentHashMap<>();
+    private final ConcurrentMap<K1, CacheValue<K2, V>> data;
+    private final ConcurrentMap<K2, ForeignKeyState> foreignKeys = new ConcurrentHashMap<>();
 
     /** Constructs cache. */
-    FragmentsCache(int size, Executor executor) {
-        values = Caffeine.newBuilder()
+    public ReferencesCache(int size, Executor executor) {
+        data = Caffeine.newBuilder()
                 .executor(executor)
                 .maximumSize(size)
                 .removalListener(this::onRemoval)
@@ -53,13 +57,17 @@ public class FragmentsCache<K, V> {
     }
 
     /** Computes new value if the key is absent in the cache. */
-    public V putIfAbsentUpdateIfNeeded(K key, Supplier<Collection<Integer>> refSupplier, Function<K, V> mappingFunction) {
-        return values.compute(key, (k, value) -> {
+    public V putOrUpdate(
+            K1 key,
+            Supplier<Collection<K2>> foreignKeys,
+            Function<K1, V> mappingFunction
+    ) {
+        CacheValue<K2, V> cacheValue = data.compute(key, (k, value) -> {
             if (value == null) {
                 HybridTimestamp ts = clock.now();
-                Collection<Integer> refs = refSupplier.get();
+                Collection<K2> refs = foreignKeys.get();
 
-                for (Integer id : refs) {
+                for (K2 id : refs) {
                     incrementRefCounter(id);
                 }
 
@@ -69,116 +77,113 @@ public class FragmentsCache<K, V> {
             }
 
             // Check that the value is still valid.
-            for (Integer id : value.refs) {
-                if (value.ts.compareTo(states.get(id).ts) < 0) {
+            for (K2 id : value.foreignKeys) {
+                if (value.ts.compareTo(this.foreignKeys.get(id).ts) < 0) {
                     // The value may be outdated.
                     return value.copy(mappingFunction.apply(key));
                 }
             }
 
             return value;
-        }).value;
+        });
+
+        return cacheValue.value;
     }
 
     /** Invalidates cache entry by cache value id. */
-    public void invalidate(int id) {
-        states.computeIfPresent(id, (k, v) -> new StateValue(v.counter, clock.now()));
+    public void invalidate(K2 id) {
+        foreignKeys.computeIfPresent(id, (k, v) -> new ForeignKeyState(v.counter, clock.now()));
     }
 
     /** Invalidates cache entries. */
     public void clear() {
-        values.clear();
+        data.clear();
     }
 
     @TestOnly
-    ConcurrentMap<K, CacheValue<V>> values() {
-        return values;
+    ConcurrentMap<K1, CacheValue<K2, V>> data() {
+        return data;
     }
 
     @TestOnly
-    ConcurrentMap<Integer, StateValue> states() {
-        return states;
+    ConcurrentMap<K2, ForeignKeyState> foreignKeys() {
+        return foreignKeys;
     }
 
-    private void onRemoval(@Nullable K planId, @Nullable CacheValue<V> value, RemovalCause cause) {
+    private void onRemoval(@Nullable K1 planId, @Nullable CacheValue<K2, V> value, RemovalCause cause) {
         if (!cause.wasEvicted() && cause != RemovalCause.EXPLICIT) {
             return;
         }
 
         assert value != null;
 
-        for (int id : value.refs) {
+        for (K2 id : value.foreignKeys) {
             decrementRefCounter(id);
         }
     }
 
-    private void incrementRefCounter(int id) {
-        StateValue initial = new StateValue(1, HybridTimestamp.MIN_VALUE);
+    private void incrementRefCounter(K2 id) {
+        ForeignKeyState initial = new ForeignKeyState(1, HybridTimestamp.MIN_VALUE);
 
         for (;;) {
-            StateValue prevVal = states.putIfAbsent(id, initial);
+            ForeignKeyState prevVal = foreignKeys.putIfAbsent(id, initial);
 
             if (prevVal == null) {
                 return;
             }
 
-            StateValue newVal = new StateValue(prevVal.counter + 1, prevVal.ts);
+            ForeignKeyState newVal = new ForeignKeyState(prevVal.counter + 1, prevVal.ts);
 
-            if (states.replace(id, prevVal, newVal)) {
+            if (foreignKeys.replace(id, prevVal, newVal)) {
                 return;
             }
         }
     }
 
-    private void decrementRefCounter(int id) {
+    private void decrementRefCounter(K2 id) {
         for (;;) {
-            StateValue prevVal = states.get(id);
+            ForeignKeyState prevVal = foreignKeys.get(id);
 
             if (prevVal.counter == 1) {
-                if (states.remove(id, prevVal)) {
+                if (foreignKeys.remove(id, prevVal)) {
                     return;
                 }
 
                 continue;
             }
 
-            if (states.replace(id, prevVal, new StateValue(prevVal.counter - 1, prevVal.ts))) {
+            if (foreignKeys.replace(id, prevVal, new ForeignKeyState(prevVal.counter - 1, prevVal.ts))) {
                 return;
             }
         }
     }
 
-    static class CacheValue<V> {
-        private final Collection<Integer> refs;
-        private final V value;
+    static class CacheValue<K, V> {
+        private final Collection<K> foreignKeys;
         private final HybridTimestamp ts;
+        private final V value;
 
-        CacheValue(HybridTimestamp ts, Collection<Integer> refs, V value) {
+        CacheValue(HybridTimestamp ts, Collection<K> foreignKeys, V value) {
             this.ts = ts;
-            this.refs = refs;
+            this.foreignKeys = foreignKeys;
             this.value = value;
         }
 
-        CacheValue<V> copy(V value) {
-            return new CacheValue<>(ts, refs, value);
+        CacheValue<K, V> copy(V value) {
+            return new CacheValue<>(ts, foreignKeys, value);
         }
 
         @TestOnly
-        Collection<Integer> refs() {
-            return refs;
-        }
-
-        @TestOnly
-        V value() {
-            return value;
+        Collection<K> foreignKeys() {
+            return foreignKeys;
         }
     }
 
-    static class StateValue {
+    static class ForeignKeyState {
         final int counter;
         final HybridTimestamp ts;
 
-        StateValue(int counter, @Nullable HybridTimestamp ts) {
+        ForeignKeyState(int counter, @Nullable HybridTimestamp ts) {
             this.counter = counter;
             this.ts = ts;
         }
