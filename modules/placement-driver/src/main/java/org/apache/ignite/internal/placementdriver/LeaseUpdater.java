@@ -71,7 +71,7 @@ public class LeaseUpdater {
     private static final long UPDATE_LEASE_MS = 500L;
 
     /** Lease holding interval. */
-    private static final long LEASE_INTERVAL = 10 * UPDATE_LEASE_MS;
+    private static final long LEASE_INTERVAL = 30 * UPDATE_LEASE_MS;
 
     /** The lock is available when the actor is changing state. */
     private final IgniteSpinBusyLock stateChangingLock = new IgniteSpinBusyLock();
