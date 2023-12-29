@@ -27,6 +27,7 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
@@ -46,9 +47,12 @@ import org.apache.ignite.internal.sql.engine.framework.TestCluster;
 import org.apache.ignite.internal.sql.engine.prepare.MultiStepPlan;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSystemView;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
+import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.util.EmptyCacheFactory;
+import org.apache.ignite.internal.systemview.api.SystemViews;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.type.NativeTypes;
+import org.apache.ignite.internal.util.SubscriptionUtils;
 import org.apache.ignite.network.NetworkAddress;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -59,6 +63,7 @@ import org.mockito.Mockito;
 @SuppressWarnings("ThrowFromFinallyBlock")
 public class MappingServiceImplTest extends BaseIgniteAbstractTest {
     private static final MultiStepPlan PLAN;
+    private static final MultiStepPlan PLAN_WITH_SYSTEM_VIEW;
     private static final TestCluster cluster;
 
     static {
@@ -75,6 +80,12 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
                         .addKeyColumn("ID", NativeTypes.INT32)
                         .addColumn("VAL", NativeTypes.INT32)
                         .end()
+                .addSystemView(SystemViews.<Object[]>clusterViewBuilder()
+                        .name("TEST_VIEW")
+                        .addColumn("ID", NativeTypes.INT64, v -> v[0])
+                        .addColumn("WORD", NativeTypes.stringOf(64), v -> v[1])
+                        .dataProvider(SubscriptionUtils.fromIterable(Collections.singleton(new Object[]{42L, "blah"})))
+                        .build())
                 .build();
         //@formatter:on
 
@@ -82,6 +93,7 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
 
         try {
             PLAN = (MultiStepPlan) cluster.node("N1").prepare("SELECT * FROM t1");
+            PLAN_WITH_SYSTEM_VIEW = (MultiStepPlan) cluster.node("N1").prepare("SELECT * FROM system.test_view, t1");
         } finally {
             try {
                 cluster.stop();
@@ -162,13 +174,18 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
         mappingService.onNodeJoined(Mockito.mock(LogicalNode.class),
                 new LogicalTopologySnapshot(1, logicalNodes(nodeNames.toArray(new String[0]))));
 
-        List<MappedFragment> mappedFragments = await(mappingService.map(PLAN));
+        List<MappedFragment> tableOnlyMapping = await(mappingService.map(PLAN));
+        List<MappedFragment> sysViewMapping = await(mappingService.map(PLAN_WITH_SYSTEM_VIEW));
 
-        assertSame(mappedFragments, await(mappingService.map(PLAN)));
+        assertSame(tableOnlyMapping, await(mappingService.map(PLAN)));
+        assertSame(sysViewMapping, await(mappingService.map(PLAN_WITH_SYSTEM_VIEW)));
 
         mappingService.onNodeLeft(Mockito.mock(LogicalNode.class),
                 new LogicalTopologySnapshot(2, logicalNodes("NODE")));
-        assertNotSame(mappedFragments, await(mappingService.map(PLAN)));
+        // Plan with tables only must not be invalidated.
+        assertSame(tableOnlyMapping, await(mappingService.map(PLAN)));
+        // Plan with system views must be invalidated.
+        assertNotSame(sysViewMapping, await(mappingService.map(PLAN_WITH_SYSTEM_VIEW)));
     }
 
     @Test
@@ -196,15 +213,15 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
         mappingService.onNodeJoined(Mockito.mock(LogicalNode.class),
                 new LogicalTopologySnapshot(1, logicalNodes(nodeNames.toArray(new String[0]))));
 
-        List<MappedFragment> mappedFragments = await(mappingService.map(PLAN));
+        List<MappedFragment> mappedFragments = await(mappingService.map(PLAN_WITH_SYSTEM_VIEW));
 
         // Simulate expiration of the primary replica for non-mapped table - the cache entry should not be invalidated.
-        mappingService.onPrimaryReplicaExpired(prepareEvtParams.apply("T2"));
-        assertSame(mappedFragments, await(mappingService.map(PLAN)));
+        await(mappingService.onPrimaryReplicaExpired(prepareEvtParams.apply("T2")));
+        assertSame(mappedFragments, await(mappingService.map(PLAN_WITH_SYSTEM_VIEW)));
 
         // Simulate expiration of the primary replica for mapped table - the cache entry should be invalidated.
-        mappingService.onPrimaryReplicaExpired(prepareEvtParams.apply("T1"));
-        assertNotSame(mappedFragments, await(mappingService.map(PLAN)));
+        await(mappingService.onPrimaryReplicaExpired(prepareEvtParams.apply("T1")));
+        assertNotSame(mappedFragments, await(mappingService.map(PLAN_WITH_SYSTEM_VIEW)));
     }
 
     private static List<LogicalNode> logicalNodes(String... nodeNames) {
@@ -222,7 +239,9 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
 
             @Override
             public CompletableFuture<ExecutionTarget> forSystemView(ExecutionTargetFactory factory, IgniteSystemView view) {
-                return CompletableFuture.failedFuture(new AssertionError("Not supported"));
+                return CompletableFuture.completedFuture(view.distribution() == IgniteDistributions.single()
+                        ? factory.oneOf(nodeNames)
+                        : factory.allOf(nodeNames));
             }
         };
 
