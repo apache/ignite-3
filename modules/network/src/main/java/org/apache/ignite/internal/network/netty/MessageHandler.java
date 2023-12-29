@@ -47,7 +47,9 @@ public class MessageHandler extends ChannelInboundHandlerAdapter {
      * Constructor.
      *
      * @param messageListener Message listener.
+     * @param launchId Launch ID (this is the ID that does not survive a restart) of the remote node.
      * @param consistentId Consistent id of the remote node.
+     * @param connectionIndex Connection index (aka channel ID).
      * @param serializationService Serialization service.
      */
     public MessageHandler(
