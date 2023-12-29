@@ -117,7 +117,7 @@ public class HandshakeHandler extends ChannelInboundHandlerAdapter {
      * @param connectionIndex Index of the connection (corresponds to the channel ID).
      * @return Message handler.
      */
-    public MessageHandler createMessageHandler(String remoteConsistentId, short connectionIndex) {
-        return new MessageHandler(messageListener, remoteConsistentId, connectionIndex, serializationService);
+    public MessageHandler createMessageHandler(String remoteLaunchId, String remoteConsistentId, short connectionIndex) {
+        return new MessageHandler(messageListener, remoteLaunchId, remoteConsistentId, connectionIndex, serializationService);
     }
 }

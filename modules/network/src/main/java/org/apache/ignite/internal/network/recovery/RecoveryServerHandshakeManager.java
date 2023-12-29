@@ -389,7 +389,7 @@ public class RecoveryServerHandshakeManager implements HandshakeManager {
      * @return New message handler.
      */
     private MessageHandler createMessageHandler() {
-        return handler.createMessageHandler(remoteConsistentId, remoteChannelId);
+        return handler.createMessageHandler(remoteLaunchId.toString(), remoteConsistentId, remoteChannelId);
     }
 
     /** {@inheritDoc} */
