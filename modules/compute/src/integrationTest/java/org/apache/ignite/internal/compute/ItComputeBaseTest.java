@@ -18,7 +18,10 @@
 package org.apache.ignite.internal.compute;
 
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.compute.utils.ComputeTestUtils.assertPublicException;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
+import static org.apache.ignite.lang.ErrorGroups.Common.COMMON_ERR_GROUP;
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.aMapWithSize;
 import static org.hamcrest.Matchers.containsString;
@@ -26,7 +29,6 @@ import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.in;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
-import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -60,8 +62,6 @@ public abstract class ItComputeBaseTest extends ClusterPerTestIntegrationTest {
     protected abstract String getNodeNameJobClassName();
 
     protected abstract String failingJobClassName();
-
-    protected abstract String jobExceptionClassName();
 
     @Test
     void executesJobLocally() {
@@ -135,9 +135,7 @@ public abstract class ItComputeBaseTest extends ClusterPerTestIntegrationTest {
         IgniteException ex = assertThrows(IgniteException.class, () -> entryNode.compute()
                 .execute(Set.of(entryNode.node()), units(), failingJobClassName()));
 
-        assertThat(ex.getCause().getClass().getName(), is(jobExceptionClassName()));
-        assertThat(ex.getCause().getMessage(), is("Oops"));
-        assertThat(ex.getCause().getCause(), is(notNullValue()));
+        assertPublicException(ex, COMMON_ERR_GROUP, INTERNAL_ERR, "Oops");
     }
 
     @Test
@@ -148,9 +146,7 @@ public abstract class ItComputeBaseTest extends ClusterPerTestIntegrationTest {
                 .executeAsync(Set.of(entryNode.node()), units(), failingJobClassName())
                 .get(1, TimeUnit.SECONDS));
 
-        assertThat(ex.getCause().getClass().getName(), is(jobExceptionClassName()));
-        assertThat(ex.getCause().getMessage(), is("Oops"));
-        assertThat(ex.getCause().getCause(), is(notNullValue()));
+        assertPublicException(ex, COMMON_ERR_GROUP, INTERNAL_ERR, "Oops");
     }
 
     @Test
@@ -160,9 +156,7 @@ public abstract class ItComputeBaseTest extends ClusterPerTestIntegrationTest {
         IgniteException ex = assertThrows(IgniteException.class, () -> entryNode.compute()
                 .execute(Set.of(node(1).node(), node(2).node()), units(), failingJobClassName()));
 
-        assertThat(ex.getCause().getClass().getName(), is(jobExceptionClassName()));
-        assertThat(ex.getCause().getMessage(), is("Oops"));
-        assertThat(ex.getCause().getCause(), is(notNullValue()));
+        assertPublicException(ex, COMMON_ERR_GROUP, INTERNAL_ERR, "Oops");
     }
 
     @Test
@@ -173,9 +167,7 @@ public abstract class ItComputeBaseTest extends ClusterPerTestIntegrationTest {
                 .executeAsync(Set.of(node(1).node(), node(2).node()), units(), failingJobClassName())
                 .get(1, TimeUnit.SECONDS));
 
-        assertThat(ex.getCause().getClass().getName(), is(jobExceptionClassName()));
-        assertThat(ex.getCause().getMessage(), is("Oops"));
-        assertThat(ex.getCause().getCause(), is(notNullValue()));
+        assertPublicException(ex, COMMON_ERR_GROUP, INTERNAL_ERR, "Oops");
     }
 
     @Test
@@ -220,9 +212,7 @@ public abstract class ItComputeBaseTest extends ClusterPerTestIntegrationTest {
                     .get(1, TimeUnit.SECONDS);
 
             assertThat(result, is(instanceOf(CompletionException.class)));
-            assertThat(result.getCause().getClass().getName(), is(jobExceptionClassName()));
-            assertThat(result.getCause().getMessage(), is("Oops"));
-            assertThat(result.getCause(), is(notNullValue()));
+            assertPublicException(result, COMMON_ERR_GROUP, INTERNAL_ERR, "Oops");
         }
     }
 

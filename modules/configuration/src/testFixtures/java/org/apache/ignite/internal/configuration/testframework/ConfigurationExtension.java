@@ -35,7 +35,9 @@ import com.typesafe.config.ConfigObject;
 import java.lang.reflect.Field;
 import java.lang.reflect.Parameter;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.ServiceLoader;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -50,6 +52,7 @@ import org.apache.ignite.internal.configuration.DynamicConfiguration;
 import org.apache.ignite.internal.configuration.DynamicConfigurationChanger;
 import org.apache.ignite.internal.configuration.RootInnerNode;
 import org.apache.ignite.internal.configuration.SuperRoot;
+import org.apache.ignite.internal.configuration.SuperRootChangeImpl;
 import org.apache.ignite.internal.configuration.asm.ConfigurationAsmGenerator;
 import org.apache.ignite.internal.configuration.direct.KeyPathNode;
 import org.apache.ignite.internal.configuration.hocon.HoconConverter;
@@ -73,7 +76,6 @@ import org.junit.platform.commons.support.HierarchyTraversalMode;
  * JUnit extension to inject configuration instances into test classes.
  *
  * @see InjectConfiguration
- * @see InjectRevisionListenerHolder
  */
 public class ConfigurationExtension implements BeforeEachCallback, AfterEachCallback,
         BeforeAllCallback, AfterAllCallback, ParameterResolver {
@@ -92,6 +94,9 @@ public class ConfigurationExtension implements BeforeEachCallback, AfterEachCall
     /** All {@link PolymorphicConfigInstance} classes in classpath. */
     private static final List<Class<?>> POLYMORPHIC_EXTENSIONS;
 
+    /** Map from root key name to configuration modules. */
+    private static final Map<String, ConfigurationModule> ROOT_KEY_TO_MODULES = new HashMap<>();
+
     static {
         // Automatically find all @InternalConfiguration and @PolymorphicConfigInstance classes
         // to avoid configuring extensions manually in every test.
@@ -103,6 +108,10 @@ public class ConfigurationExtension implements BeforeEachCallback, AfterEachCall
         modules.forEach(configurationModule -> {
             extensions.addAll(configurationModule.schemaExtensions());
             polymorphicExtensions.addAll(configurationModule.polymorphicSchemaExtensions());
+
+            configurationModule.rootKeys().forEach(rootKey -> {
+                ROOT_KEY_TO_MODULES.put(rootKey.key(), configurationModule);
+            });
         });
 
         EXTENSIONS = List.copyOf(extensions);
@@ -234,7 +243,7 @@ public class ConfigurationExtension implements BeforeEachCallback, AfterEachCall
         // RootKey must be mocked, there's no way to instantiate it using a public constructor.
         RootKey rootKey = mock(RootKey.class, withSettings().lenient());
 
-        when(rootKey.key()).thenReturn("mock");
+        when(rootKey.key()).thenReturn(annotation.rootName().isBlank() ? "mock" : annotation.rootName());
         when(rootKey.type()).thenReturn(LOCAL);
         when(rootKey.schemaClass()).thenReturn(schemaClass);
         when(rootKey.internal()).thenReturn(false);
@@ -244,6 +253,10 @@ public class ConfigurationExtension implements BeforeEachCallback, AfterEachCall
         ConfigObject hoconCfg = ConfigFactory.parseString(annotation.value()).root();
 
         HoconConverter.hoconSource(hoconCfg).descend(superRoot);
+
+        if (!annotation.rootName().isBlank()) {
+            patchWithDynamicDefaults(annotation.rootName(), superRoot);
+        }
 
         ConfigurationUtil.addDefaults(superRoot);
 
@@ -331,5 +344,12 @@ public class ConfigurationExtension implements BeforeEachCallback, AfterEachCall
 
     private static boolean supportsAsConfigurationType(Class<?> type) {
         return type.getCanonicalName().endsWith("Configuration");
+    }
+
+    private static void patchWithDynamicDefaults(String rootName, SuperRoot superRoot) {
+        if (ROOT_KEY_TO_MODULES.containsKey(rootName)) {
+            SuperRootChangeImpl rootChange = new SuperRootChangeImpl(superRoot);
+            ROOT_KEY_TO_MODULES.get(rootName).patchConfigurationWithDynamicDefaults(rootChange);
+        }
     }
 }

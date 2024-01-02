@@ -26,7 +26,7 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * A component that writes nulls bitsets.
- * Only fields with non-primitive types known upfront {@link FieldDescriptor#isRuntimeTypeKnownUpfront()}
+ * Only fields with non-primitive types known upfront {@link FieldDescriptor#isSerializationTypeKnownUpfront()}
  * are considered (for other fields, we do not write any bits).
  */
 abstract class NullsBitsetWriter {

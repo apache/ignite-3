@@ -99,6 +99,10 @@ public class TestConfigManagerHelper {
         return copyResourceToTempFile(CLUSTER_URL_SSL);
     }
 
+    public static File readClusterConfigurationWithEnabledAuthFile() {
+        return copyResourceToTempFile(CLUSTER_CONFIGURATION_WITH_ENABLED_AUTH);
+    }
+
     public static String readClusterConfigurationWithEnabledAuth() {
         return readResourceToString(CLUSTER_CONFIGURATION_WITH_ENABLED_AUTH);
     }

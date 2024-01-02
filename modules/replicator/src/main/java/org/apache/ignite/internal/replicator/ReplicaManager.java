@@ -68,6 +68,7 @@ import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.replicator.message.ReplicaSafeTimeSyncRequest;
 import org.apache.ignite.internal.replicator.message.TimestampAware;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.StripedThreadPoolExecutor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.network.ChannelType;
@@ -129,6 +130,12 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     /** A hybrid logical clock. */
     private final HybridClock clock;
 
+    /**
+     * On this pool, a stripe is chosen using {@link ReplicationGroupStripes#stripeFor(ReplicationGroupId, StripedThreadPoolExecutor)}
+     * so that requests concerning the same {@link ReplicationGroupId} are executed on the same thread.
+     */
+    private final StripedThreadPoolExecutor requestsExecutor;
+
     /** Scheduled executor for idle safe time sync. */
     private final ScheduledExecutorService scheduledIdleSafeTimeSyncExecutor;
 
@@ -158,7 +165,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             ClusterManagementGroupManager cmgMgr,
             HybridClock clock,
             Set<Class<?>> messageGroupsToHandle,
-            PlacementDriver placementDriver
+            PlacementDriver placementDriver,
+            StripedThreadPoolExecutor requestsExecutor
     ) {
         this(
                 nodeName,
@@ -167,6 +175,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 clock,
                 messageGroupsToHandle,
                 placementDriver,
+                requestsExecutor,
                 () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS
         );
     }
@@ -180,6 +189,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * @param clock A hybrid logical clock.
      * @param messageGroupsToHandle Message handlers.
      * @param placementDriver A placement driver.
+     * @param requestsExecutor Executor that will be used to execute requests by replicas.
      * @param idleSafeTimePropagationPeriodMsSupplier Used to get idle safe time propagation period in ms.
      */
     public ReplicaManager(
@@ -189,6 +199,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             HybridClock clock,
             Set<Class<?>> messageGroupsToHandle,
             PlacementDriver placementDriver,
+            StripedThreadPoolExecutor requestsExecutor,
             LongSupplier idleSafeTimePropagationPeriodMsSupplier
     ) {
         this.clusterNetSvc = clusterNetSvc;
@@ -198,6 +209,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         this.handler = this::onReplicaMessageReceived;
         this.placementDriverMessageHandler = this::onPlacementDriverMessageReceived;
         this.placementDriver = placementDriver;
+        this.requestsExecutor = requestsExecutor;
         this.idleSafeTimePropagationPeriodMsSupplier = idleSafeTimePropagationPeriodMsSupplier;
 
         scheduledIdleSafeTimeSyncExecutor = Executors.newScheduledThreadPool(
@@ -226,6 +238,11 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
         ReplicaRequest request = (ReplicaRequest) message;
 
+        ExecutorService stripeExecutor = ReplicationGroupStripes.stripeFor(request.groupId(), requestsExecutor);
+        stripeExecutor.execute(() -> handleReplicaRequest(request, senderConsistentId, correlationId));
+    }
+
+    private void handleReplicaRequest(ReplicaRequest request, String senderConsistentId, @Nullable Long correlationId) {
         if (!busyLock.enterBusy()) {
             if (LOG.isInfoEnabled()) {
                 LOG.info("Failed to process replica request (the node is stopping) [request={}].", request);

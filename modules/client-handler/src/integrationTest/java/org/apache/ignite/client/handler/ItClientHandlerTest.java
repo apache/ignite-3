@@ -56,8 +56,7 @@ public class ItClientHandlerTest extends BaseIgniteAbstractTest {
 
     private int serverPort;
 
-    @SuppressWarnings("unused")
-    @InjectConfiguration
+    @InjectConfiguration(rootName = "security")
     private SecurityConfiguration securityConfiguration;
 
     @BeforeEach

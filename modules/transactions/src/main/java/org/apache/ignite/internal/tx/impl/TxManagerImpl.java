@@ -213,7 +213,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
         orphanDetector = new OrphanDetector(clusterService.topologyService(), replicaService, placementDriver, lockManager, clock);
 
-        txMessageSender = new TxMessageSender(clusterService, replicaService, clock);
+        txMessageSender = new TxMessageSender(clusterService.messagingService(), replicaService, clock);
 
         WriteIntentSwitchProcessor writeIntentSwitchProcessor =
                 new WriteIntentSwitchProcessor(placementDriverHelper, txMessageSender, clusterService);
@@ -339,7 +339,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
         if (enlistedGroups.isEmpty()) {
             // If there are no enlisted groups, just update local state - we already marked the tx as finished.
-            updateTxMeta(txId, old -> coordinatorFinalTxStateMeta(commit, commitPartition, commitTimestamp(commit)));
+            updateTxMeta(txId, old -> new TxStateMeta(commit ? COMMITTED : ABORTED, localNodeId, commitPartition, commitTimestamp(commit)));
 
             return nullCompletedFuture();
         }
@@ -530,31 +530,42 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                 commitPartition, primaryConsistentId, term, commit, txId, replicationGroupIds);
 
         return txMessageSender.finish(primaryConsistentId, commitPartition, replicationGroupIds, txId, term, commit, commitTimestamp)
-                .thenRun(() -> {
-                    updateTxMeta(txId, old -> {
-                        if (isFinalState(old.txState())) {
-                            txFinishFuture.complete(old);
+                .thenAccept(txResult -> {
+                    validateTxFinishedAsExpected(commit, txId, txResult);
 
-                            return old;
-                        }
+                    TxStateMeta updatedMeta = updateTxMeta(txId, old ->
+                            new TxStateMeta(
+                                    txResult.transactionState(),
+                                    localNodeId,
+                                    old.commitPartitionId(),
+                                    txResult.commitTimestamp()
+                            ));
 
-                        assert old instanceof TxStateMetaFinishing;
+                    assert isFinalState(updatedMeta.txState()) :
+                            "Unexpected transaction state [id=" + txId + ", state=" + updatedMeta.txState() + "].";
 
-                        TxStateMeta finalTxStateMeta = coordinatorFinalTxStateMeta(
-                                commit,
-                                old.commitPartitionId(),
-                                commitTimestamp
-                        );
-
-                        txFinishFuture.complete(finalTxStateMeta);
-
-                        return finalTxStateMeta;
-                    });
+                    txFinishFuture.complete(updatedMeta);
 
                     if (commit) {
                         observableTimestampTracker.update(commitTimestamp);
                     }
                 });
+    }
+
+    private static void validateTxFinishedAsExpected(boolean commit, UUID txId, TransactionResult txResult) {
+        if (commit != (txResult.transactionState() == COMMITTED)) {
+            LOG.error("Failed to finish a transaction that is already finished [txId={}, expectedState={}, actualState={}].",
+                    txId,
+                    commit ? COMMITTED : ABORTED,
+                    txResult.transactionState()
+            );
+
+            throw new TransactionAlreadyFinishedException(
+                    "Failed to change the outcome of a finished transaction [txId=" + txId + ", txState=" + txResult.transactionState()
+                            + "].",
+                    txResult
+            );
+        }
     }
 
     @Override
@@ -719,22 +730,6 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         if (result instanceof UUID) {
             removeInflight((UUID) result);
         }
-    }
-
-    /**
-     * Creates final {@link TxStateMeta} for coordinator node.
-     *
-     * @param commit Commit flag.
-     * @param commitPartitionId Commit partition id.
-     * @param commitTimestamp Commit timestamp.
-     * @return Transaction meta.
-     */
-    private TxStateMeta coordinatorFinalTxStateMeta(
-            boolean commit,
-            TablePartitionId commitPartitionId,
-            @Nullable HybridTimestamp commitTimestamp
-    ) {
-        return new TxStateMeta(commit ? COMMITTED : ABORTED, localNodeId, commitPartitionId, commitTimestamp);
     }
 
     /**

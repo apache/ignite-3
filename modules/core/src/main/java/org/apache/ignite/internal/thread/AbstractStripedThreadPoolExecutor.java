@@ -199,7 +199,7 @@ public abstract class AbstractStripedThreadPoolExecutor<E extends ExecutorServic
      * @param idx Index of executor.
      * @return Executor.
      */
-    E commandExecutor(int idx) {
+    public E commandExecutor(int idx) {
         return execs[threadId(idx)];
     }
 

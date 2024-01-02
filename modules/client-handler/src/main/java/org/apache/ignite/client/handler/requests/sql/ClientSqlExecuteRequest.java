@@ -177,7 +177,7 @@ public class ClientSqlExecuteRequest {
 
             out.packString(col.name());
             out.packBoolean(col.nullable());
-            out.packInt(col.type().ordinal());
+            out.packInt(col.type().id());
             out.packInt(col.scale());
             out.packInt(col.precision());
 
