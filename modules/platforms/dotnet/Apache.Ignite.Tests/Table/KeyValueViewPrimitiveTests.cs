@@ -325,20 +325,31 @@ public class KeyValueViewPrimitiveTests : IgniteTestsBase
     [Test]
     public async Task TestAllTypes()
     {
-        await TestKey((sbyte)1, TableInt8Name);
-        await TestKey((short)1, TableInt16Name);
-        await TestKey(1, TableInt32Name);
-        await TestKey(1L, TableInt64Name);
-        await TestKey(1.1f, TableFloatName);
-        await TestKey(1.1d, TableDoubleName);
-        await TestKey(1.234m, TableDecimalName);
-        await TestKey("foo", TableStringName);
-        await TestKey(new LocalDateTime(2022, 10, 13, 8, 4, 42), TableDateTimeName);
-        await TestKey(new LocalTime(3, 4, 5), TableTimeName);
-        await TestKey(Instant.FromUnixTimeMilliseconds(123456789101112), TableTimestampName);
-        await TestKey(new BigInteger(123456789101112), TableNumberName);
-        await TestKey(new byte[] { 1, 2, 3 }, TableBytesName);
-        await TestKey(new BitArray(new[] { byte.MaxValue }), TableBitmaskName);
+        await TestKey((sbyte)1, (sbyte?)1, TableInt8Name);
+        await TestKey((short)1, (short?)1, TableInt16Name);
+        await TestKey(1, (int?)1, TableInt32Name);
+        await TestKey(1L, (long?)1L, TableInt64Name);
+        await TestKey(1.1f, (float?)1.1f, TableFloatName);
+        await TestKey(1.1d, (double?)1.1d, TableDoubleName);
+        await TestKey(1.234m, (decimal?)1.234m, TableDecimalName);
+        await TestKey("foo", "foo", TableStringName);
+
+        var localDateTime = new LocalDateTime(2022, 10, 13, 8, 4, 42);
+        await TestKey(localDateTime, (LocalDateTime?)localDateTime, TableDateTimeName);
+
+        var localTime = new LocalTime(3, 4, 5);
+        await TestKey(localTime, (LocalTime?)localTime, TableTimeName);
+
+        var instant = Instant.FromUnixTimeMilliseconds(123456789101112);
+        await TestKey(instant, (Instant?)instant, TableTimestampName);
+
+        var bigInteger = new BigInteger(123456789101112);
+        await TestKey(bigInteger, (BigInteger?)bigInteger, TableNumberName);
+
+        await TestKey(new byte[] { 1, 2, 3 }, new byte[] { 1, 2, 3, 4 }, TableBytesName);
+
+        var bitArray = new BitArray(new[] { byte.MaxValue });
+        await TestKey(bitArray, bitArray, TableBitmaskName);
     }
 
     [Test]
@@ -347,29 +358,29 @@ public class KeyValueViewPrimitiveTests : IgniteTestsBase
         StringAssert.StartsWith("KeyValueView`2[Int64, String] { Table = Table { Name = TBL1, Id =", KvView.ToString());
     }
 
-    private static async Task TestKey<T>(T val, IKeyValueView<T, T> kvView)
-        where T : notnull
+    private static async Task TestKey<TK, TV>(TK key, TV val, IKeyValueView<TK, TV> kvView)
+        where TK : notnull
     {
         // Tests EmitKvWriter.
-        await kvView.PutAsync(null, val, val);
+        await kvView.PutAsync(null, key, val);
 
         // Tests EmitKvValuePartReader.
-        var (getRes, _) = await kvView.GetAsync(null, val);
+        var (getRes, _) = await kvView.GetAsync(null, key);
 
         // Tests EmitKvReader.
-        var getAllRes = await kvView.GetAllAsync(null, new[] { val });
+        var getAllRes = await kvView.GetAllAsync(null, new[] { key });
 
         Assert.AreEqual(val, getRes);
         Assert.AreEqual(val, getAllRes.Single().Value);
     }
 
-    private async Task TestKey<T>(T val, string tableName)
-        where T : notnull
+    private async Task TestKey<TK, TV>(TK key, TV val, string tableName)
+        where TK : notnull
     {
         var table = await Client.Tables.GetTableAsync(tableName);
 
         Assert.IsNotNull(table, tableName);
 
-        await TestKey(val, table!.GetKeyValueView<T, T>());
+        await TestKey(key, val, table!.GetKeyValueView<TK, TV>());
     }
 }
