@@ -426,6 +426,13 @@ namespace Apache.Ignite.Internal.Table.Serialization
         {
             var columnType = column.Type.ToClrType();
 
+            bool typeIsNullable = !type.IsValueType;
+            if (!typeIsNullable && Nullable.GetUnderlyingType(type) is {} nullableType)
+            {
+                typeIsNullable = true;
+                type = nullableType;
+            }
+
             if (type != columnType)
             {
                 var message = $"Can't map '{type}' to column '{column.Name}' of type '{columnType}' - types do not match.";
@@ -433,7 +440,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 throw new IgniteClientException(ErrorGroups.Client.Configuration, message);
             }
 
-            if (column.IsNullable && type.IsValueType && (!type.IsGenericType || type.GetGenericTypeDefinition() != typeof(Nullable<>)))
+            if (column.IsNullable && !typeIsNullable)
             {
                 var message = $"Can't map '{type}' to column '{column.Name}' - column is nullable, but field is not.";
 
