@@ -47,6 +47,7 @@ internal sealed class KeyValueView<TK, TV> : IKeyValueView<TK, TV>
     public KeyValueView(RecordView<KvPair<TK, TV>> recordView)
     {
         // TODO: Add a check for TV nullability? Which cases are we going to catch?
+        // Nullable primitives should be allowed, but not nullable user-defined types.
         _recordView = recordView;
     }
 
