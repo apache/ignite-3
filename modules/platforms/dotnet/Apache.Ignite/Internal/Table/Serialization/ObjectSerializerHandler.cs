@@ -422,6 +422,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
         {
             var columnType = column.Type.ToClrType();
 
+            // TODO: Validate nullability compatibility - see logic in ValidateSingleFieldMappingType.
             var fieldType = Nullable.GetUnderlyingType(fieldInfo.FieldType) ?? fieldInfo.FieldType;
             fieldType = fieldType.UnwrapEnum();
 

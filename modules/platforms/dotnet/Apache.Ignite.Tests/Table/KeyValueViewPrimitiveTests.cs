@@ -105,10 +105,7 @@ public class KeyValueViewPrimitiveTests : IgniteTestsBase
     [Test]
     public async Task TestPutGetNullableTypeMismatch()
     {
-        // TODO: Refactor this test somehow.
-        await Client.Sql.ExecuteAsync(null, "CREATE TABLE IF NOT EXISTS TestPutGetNullable (ID BIGINT PRIMARY KEY, VAL BIGINT)");
-
-        var table = await Client.Tables.GetTableAsync("TestPutGetNullable");
+        var table = await Client.Tables.GetTableAsync(TableInt64Name);
         var view = table!.GetKeyValueView<long, long>();
 
         var ex = Assert.ThrowsAsync<IgniteClientException>(async () => await view.GetAsync(null, 2));
