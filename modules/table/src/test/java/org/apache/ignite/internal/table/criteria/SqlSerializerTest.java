@@ -38,7 +38,7 @@ import org.junit.jupiter.api.Test;
 class SqlSerializerTest {
     @Test
     void testEquals() {
-        var ser = new SqlSerializer.Builder()
+        SqlSerializer ser = new SqlSerializer.Builder()
                 .tableName("test")
                 .columns(Set.of("A"))
                 .where(columnValue("a", equalTo("a")))
@@ -50,7 +50,7 @@ class SqlSerializerTest {
 
     @Test
     void testNonEquals() {
-        var ser = new SqlSerializer.Builder()
+        SqlSerializer ser = new SqlSerializer.Builder()
                 .tableName("test")
                 .columns(Set.of("A"))
                 .where(not(columnValue("a", equalTo("a"))))
@@ -62,7 +62,7 @@ class SqlSerializerTest {
 
     @Test
     void testIn() {
-        var ser = new SqlSerializer.Builder()
+        SqlSerializer ser = new SqlSerializer.Builder()
                 .tableName("test")
                 .columns(Set.of("A"))
                 .where(not(columnValue("a", in("a", "b", "c"))))
@@ -74,7 +74,7 @@ class SqlSerializerTest {
 
     @Test
     void testAnd() {
-        var ser = new SqlSerializer.Builder()
+        SqlSerializer ser = new SqlSerializer.Builder()
                 .tableName("test")
                 .columns(Set.of("A", "B"))
                 .where(and(columnValue("a", nullValue()), not(columnValue("b", in("a", "b", "c")))))
