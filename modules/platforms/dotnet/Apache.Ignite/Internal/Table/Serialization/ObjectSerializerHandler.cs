@@ -218,15 +218,26 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 else
                 {
                     ValidateFieldType(fieldInfo, col);
+
+                    var field = index < schema.KeyColumnCount ? keyField : valField;
+
+                    if (field != fieldInfo)
+                    {
+                        // POCO mapping: emit null check (nulls are allowed for single-column simple type mapping like KvPair<int, long?>).
+                        il.Emit(OpCodes.Ldarg_2); // record
+                        il.Emit(OpCodes.Ldfld, field);
+                        il.Emit(OpCodes.Ldstr, field == keyField ? "key" : "val");
+
+                        il.Emit(OpCodes.Call, IgniteArgumentCheck.NotNullMethod.MakeGenericMethod(field.FieldType));
+                    }
+
                     il.Emit(OpCodes.Ldarg_0); // writer
                     il.Emit(OpCodes.Ldarg_2); // record
 
-                    var field = index < schema.KeyColumnCount ? keyField : valField;
                     il.Emit(OpCodes.Ldfld, field);
 
                     if (field != fieldInfo)
                     {
-                        // TODO: Emit null check.
                         il.Emit(OpCodes.Ldfld, fieldInfo);
                     }
 
