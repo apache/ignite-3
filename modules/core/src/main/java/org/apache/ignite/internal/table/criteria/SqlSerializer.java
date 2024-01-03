@@ -23,6 +23,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -81,19 +82,19 @@ public class SqlSerializer implements CriteriaVisitor<Void> {
     /** {@inheritDoc} */
     @Override
     public <T> void visit(Expression expression, @Nullable Void context) {
-        var operator = expression.getOperator();
-        var elements = expression.getElements();
+        Operator operator = expression.getOperator();
+        Criteria[] elements = expression.getElements();
 
         String template;
 
         if (operator == Operator.AND || operator == Operator.OR) {
-            var delimiter = operator == Operator.AND ? ") AND (" : ") OR (";
+            String delimiter = operator == Operator.AND ? ") AND (" : ") OR (";
 
             template = IntStream.range(0, elements.length)
                     .mapToObj(i -> String.format("{%d}", i))
                     .collect(Collectors.joining(delimiter, "(", ")"));
         } else if (operator == Operator.IN || operator == Operator.NOT_IN) {
-            var prefix = operator == Operator.IN ? "{0} IN (" : "{0} NOT (";
+            String prefix = operator == Operator.IN ? "{0} IN (" : "{0} NOT (";
 
             template = IntStream.range(1, elements.length)
                     .mapToObj(i -> String.format("{%d}", i))
@@ -103,7 +104,7 @@ public class SqlSerializer implements CriteriaVisitor<Void> {
         }
 
         int end = 0;
-        var matcher = Pattern.compile("\\{(\\d+)\\}").matcher(template);
+        Matcher matcher = Pattern.compile("\\{(\\d+)\\}").matcher(template);
 
         while (matcher.find()) {
             if (matcher.start() > end) {
@@ -179,7 +180,7 @@ public class SqlSerializer implements CriteriaVisitor<Void> {
         /**
          * Set the given criteria.
          *
-         * @param where where condition.
+         * @param where The predicate to filter entries or {@code null} to return all entries in record view.
          */
         public SqlSerializer.Builder where(@Nullable Criteria where) {
             this.where = where;
@@ -197,7 +198,7 @@ public class SqlSerializer implements CriteriaVisitor<Void> {
                 throw new IllegalArgumentException("Table name can't be null or blank");
             }
 
-            var ser = new SqlSerializer()
+            SqlSerializer ser = new SqlSerializer()
                     .append("SELECT * ")
                     .append("FROM ").append(tableName);
 

@@ -35,9 +35,9 @@ public interface Criteria {
     /**
      * Accept the visitor with the given context.
      *
-     * @param <C> context type.
-     * @param v visitor.
-     * @param context context of visit.
+     * @param <C> Context type.
+     * @param v Visitor.
+     * @param context Context of visit.
      */
     <C> void accept(CriteriaVisitor<C> v, @Nullable C context);
 
@@ -54,7 +54,7 @@ public interface Criteria {
      * @return The created expression instance.
      */
     static Expression columnValue(String columnName, Condition condition) {
-        var oldElements = condition.getElements();
+        Criteria[] oldElements = condition.getElements();
         var newElements = new Criteria[oldElements.length + 1];
 
         newElements[0] = new Column(columnName);
