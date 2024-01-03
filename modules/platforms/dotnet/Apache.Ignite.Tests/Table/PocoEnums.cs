@@ -44,8 +44,6 @@ public static class PocoEnums
 
     public record PocoUnsignedByteEnum(long Key, UnsignedByteEnum Int8);
 
-    public record PocoUnsignedByteEnumNullable(long Key, UnsignedByteEnum? Int8);
-
     public enum IntEnum
     {
         Foo = 1,

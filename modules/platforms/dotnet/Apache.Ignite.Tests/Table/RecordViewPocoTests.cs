@@ -734,14 +734,14 @@ namespace Apache.Ignite.Tests.Table
         {
             var sql = "CREATE TABLE IF NOT EXISTS TestEnumColumns(" +
                       "KEY BIGINT NOT NULL PRIMARY KEY, " +
-                      "INT8 TINYINT NOT NULL, " +
-                      "INT16 SMALLINT NOT NULL, " +
-                      "INT32 INT NOT NULL, " +
-                      "INT64 BIGINT NOT NULL, " +
-                      "UINT8 TINYINT NOT NULL, " +
-                      "UINT16 SMALLINT NOT NULL, " +
-                      "UINT32 INT NOT NULL, " +
-                      "UINT64 BIGINT NOT NULL)";
+                      "INT8 TINYINT NOT NULL DEFAULT 0, " +
+                      "INT16 SMALLINT NOT NULL DEFAULT 0, " +
+                      "INT32 INT NOT NULL DEFAULT 0, " +
+                      "INT64 BIGINT NOT NULL DEFAULT 0, " +
+                      "UINT8 TINYINT NOT NULL DEFAULT 0, " +
+                      "UINT16 SMALLINT NOT NULL DEFAULT 0, " +
+                      "UINT32 INT NOT NULL DEFAULT 0, " +
+                      "UINT64 BIGINT NOT NULL DEFAULT 0)";
 
             await Client.Sql.ExecuteAsync(null, sql);
 
