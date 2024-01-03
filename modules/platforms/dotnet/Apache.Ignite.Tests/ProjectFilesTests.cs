@@ -121,17 +121,15 @@ namespace Apache.Ignite.Tests
 
         [SuppressMessage("Design", "CA1064:Exceptions should be public", Justification = "Tests.")]
         [SuppressMessage("Design", "CA1032:Implement standard exception constructors", Justification = "Tests.")]
-        private class TodoWithoutTicketException : AssertionException
+        private sealed class TodoWithoutTicketException : AssertionException
         {
-            private readonly string _stackTrace;
-
             public TodoWithoutTicketException(string message, string stackTrace)
                 : base(message)
             {
-                _stackTrace = stackTrace;
+                StackTrace = stackTrace;
             }
 
-            public override string? StackTrace => _stackTrace;
+            public override string StackTrace { get; }
         }
     }
 }
