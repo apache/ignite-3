@@ -732,7 +732,20 @@ namespace Apache.Ignite.Tests.Table
         [Test]
         public async Task TestEnumColumns()
         {
-            var table = await Client.Tables.GetTableAsync(TableAllColumnsSqlName);
+            var sql = "CREATE TABLE IF NOT EXISTS TestEnumColumns(" +
+                      "ID INT NOT NULL PRIMARY KEY, " +
+                      "INT8 TINYINT NOT NULL, " +
+                      "INT16 SMALLINT NOT NULL, " +
+                      "INT32 INT NOT NULL, " +
+                      "INT64 BIGINT NOT NULL, " +
+                      "UINT8 TINYINT NOT NULL, " +
+                      "UINT16 SMALLINT NOT NULL, " +
+                      "UINT32 INT NOT NULL, " +
+                      "UINT64 BIGINT NOT NULL)";
+
+            await Client.Sql.ExecuteAsync(null, sql);
+
+            var table = await Client.Tables.GetTableAsync(nameof(TestEnumColumns));
 
             // Normal values.
             await Test(new PocoEnums.PocoIntEnum(1, PocoEnums.IntEnum.Foo));
