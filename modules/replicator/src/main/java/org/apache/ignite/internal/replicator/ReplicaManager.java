@@ -21,6 +21,7 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.replicator.LocalReplicaEvent.AFTER_REPLICA_STARTED;
 import static org.apache.ignite.internal.replicator.LocalReplicaEvent.BEFORE_REPLICA_STOPPED;
+import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
@@ -744,6 +745,10 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     ) {
         CompletableFuture<Replica> replica = replicas.get(primaryReplicaEventParameters.groupId());
 
+        if (replica == null) {
+            return falseCompletedFuture();
+        }
+
         return replica.thenCompose(r -> r.replicaListener().onPrimaryElected(primaryReplicaEventParameters, throwable));
     }
 
@@ -757,6 +762,11 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             Throwable throwable
     ) {
         CompletableFuture<Replica> replica = replicas.get(primaryReplicaEventParameters.groupId());
+
+
+        if (replica == null) {
+            return falseCompletedFuture();
+        }
 
         return replica.thenCompose(r -> r.replicaListener().onPrimaryExpired(primaryReplicaEventParameters, throwable));
     }
