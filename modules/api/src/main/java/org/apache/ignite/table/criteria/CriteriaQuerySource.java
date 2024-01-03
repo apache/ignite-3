@@ -39,7 +39,7 @@ public interface CriteriaQuerySource<T> {
      * @throws IgniteException If failed.
      */
     default Cursor<T> query(@Nullable Transaction tx, @Nullable Criteria criteria) {
-        return query(tx, criteria, CriteriaQueryOptions.DEFAULT);
+        return query(tx, criteria, null);
     }
 
     /**
@@ -47,11 +47,11 @@ public interface CriteriaQuerySource<T> {
      *
      * @param tx Transaction to execute the query within or {@code null} to run within implicit transaction.
      * @param criteria The predicate to filter entries or {@code null} to return all entries in record view.
-     * @param opts Criteria query options.
+     * @param opts Criteria query options or {@code null} to use default.
      * @return Iterator with query results.
      * @throws IgniteException If failed.
      */
-    Cursor<T> query(@Nullable Transaction tx, @Nullable Criteria criteria, CriteriaQueryOptions opts);
+    Cursor<T> query(@Nullable Transaction tx, @Nullable Criteria criteria, @Nullable CriteriaQueryOptions opts);
 
     /**
      * Executes a query to a record view using a predicate in an asynchronous way.
@@ -62,7 +62,7 @@ public interface CriteriaQuerySource<T> {
      * @throws IgniteException If failed.
      */
     default CompletableFuture<AsyncCursor<T>> queryAsync(@Nullable Transaction tx, @Nullable Criteria criteria) {
-        return queryAsync(tx, criteria, CriteriaQueryOptions.DEFAULT);
+        return queryAsync(tx, criteria, null);
     }
 
     /**
@@ -70,13 +70,13 @@ public interface CriteriaQuerySource<T> {
      *
      * @param tx Transaction to execute the query within or {@code null} to run within implicit transaction.
      * @param criteria The predicate to filter entries or {@code null} to return all entries in record view.
-     * @param opts Criteria query options.
+     * @param opts Criteria query options or {@code null} to use default.
      * @return Future that represents the pending completion of the operation.
      * @throws IgniteException If failed.
      */
     CompletableFuture<AsyncCursor<T>> queryAsync(
             @Nullable Transaction tx,
             @Nullable Criteria criteria,
-            CriteriaQueryOptions opts
+            @Nullable CriteriaQueryOptions opts
     );
 }

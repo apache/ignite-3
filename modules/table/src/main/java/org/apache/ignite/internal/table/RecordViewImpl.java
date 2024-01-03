@@ -540,7 +540,7 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
 
     /** {@inheritDoc} */
     @Override
-    public Cursor<R> query(@Nullable Transaction tx, @Nullable Criteria criteria, CriteriaQueryOptions opts) {
+    public Cursor<R> query(@Nullable Transaction tx, @Nullable Criteria criteria, @Nullable CriteriaQueryOptions opts) {
         return new CursorAdapter<>(sync(queryAsync(tx, criteria, opts)));
     }
 
@@ -549,12 +549,13 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
     public CompletableFuture<AsyncCursor<R>> queryAsync(
             @Nullable Transaction tx,
             @Nullable Criteria criteria,
-            CriteriaQueryOptions opts
+            @Nullable CriteriaQueryOptions opts
     ) {
         //TODO: implement serialization of criteria to SQL https://issues.apache.org/jira/browse/IGNITE-20879
         var query = "SELECT * FROM " + tbl.name();
+        var opts0 = opts == null ? CriteriaQueryOptions.DEFAULT : opts;
 
-        Statement statement = sql.statementBuilder().query(query).pageSize(opts.pageSize()).build();
+        Statement statement = sql.statementBuilder().query(query).pageSize(opts0.pageSize()).build();
         Session session = sql.createSession();
 
         return session.executeAsync(tx, mapper, statement)
