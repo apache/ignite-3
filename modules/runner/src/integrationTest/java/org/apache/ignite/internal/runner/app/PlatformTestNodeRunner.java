@@ -106,6 +106,8 @@ public class PlatformTestNodeRunner {
 
     private static final String TABLE_NAME_ALL_COLUMNS_SQL = "TBL_ALL_COLUMNS_SQL"; // All column types supported by SQL.
 
+    private static final String TABLE_NAME_ALL_COLUMNS_NOT_NULL = "TBL_ALL_COLUMNS_NOT_NULL";
+
     private static final String ZONE_NAME = "zone1";
 
     /** Time to keep the node alive. */
@@ -324,6 +326,36 @@ public class PlatformTestNodeRunner {
                         ColumnParams.builder().name("BLOB").type(BYTE_ARRAY).length(1000).nullable(true).build(),
                         ColumnParams.builder().name("DECIMAL").type(DECIMAL).precision(19).scale(3).nullable(true).build(),
                         ColumnParams.builder().name("BOOLEAN").type(BOOLEAN).nullable(true).build()
+                ),
+                List.of(keyCol)
+        );
+
+        createTable(
+                ignite.catalogManager(),
+                DEFAULT_SCHEMA_NAME,
+                ZONE_NAME,
+                TABLE_NAME_ALL_COLUMNS_NOT_NULL,
+                List.of(
+                        ColumnParams.builder().name(keyCol).type(INT64).build(),
+                        ColumnParams.builder().name("STR").type(STRING).nullable(false).length(1000).build(),
+                        ColumnParams.builder().name("INT8").type(INT8).nullable(false).build(),
+                        ColumnParams.builder().name("INT16").type(INT16).nullable(false).build(),
+                        ColumnParams.builder().name("INT32").type(INT32).nullable(false).build(),
+                        ColumnParams.builder().name("INT64").type(INT64).nullable(false).build(),
+                        ColumnParams.builder().name("FLOAT").type(FLOAT).nullable(false).build(),
+                        ColumnParams.builder().name("DOUBLE").type(DOUBLE).nullable(false).build(),
+                        ColumnParams.builder().name("UUID").type(UUID).nullable(false).build(),
+                        ColumnParams.builder().name("DATE").type(DATE).nullable(false).build(),
+                        ColumnParams.builder().name("BITMASK").type(BITMASK).length(1000).nullable(false).build(),
+                        ColumnParams.builder().name("TIME").type(TIME).precision(maxTimePrecision).nullable(false).build(),
+                        ColumnParams.builder().name("TIME2").type(TIME).precision(2).nullable(false).build(),
+                        ColumnParams.builder().name("DATETIME").type(DATETIME).precision(maxTimePrecision).nullable(false).build(),
+                        ColumnParams.builder().name("DATETIME2").type(DATETIME).precision(3).nullable(false).build(),
+                        ColumnParams.builder().name("TIMESTAMP").type(TIMESTAMP).precision(maxTimePrecision).nullable(false).build(),
+                        ColumnParams.builder().name("TIMESTAMP2").type(TIMESTAMP).precision(4).nullable(false).build(),
+                        ColumnParams.builder().name("BLOB").type(BYTE_ARRAY).length(1000).nullable(false).build(),
+                        ColumnParams.builder().name("DECIMAL").type(DECIMAL).precision(19).scale(3).nullable(false).build(),
+                        ColumnParams.builder().name("BOOLEAN").type(BOOLEAN).nullable(false).build()
                 ),
                 List.of(keyCol)
         );
