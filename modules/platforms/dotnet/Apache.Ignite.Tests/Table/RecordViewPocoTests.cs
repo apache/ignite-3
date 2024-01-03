@@ -816,9 +816,13 @@ namespace Apache.Ignite.Tests.Table
         public async Task TestColumnNullabilityMismatchThrowsException()
         {
             var table = await Client.Tables.GetTableAsync(TableAllColumnsName);
-            var pocoView = table!.GetRecordView<UnsupportedByteType>();
+            var pocoView = table!.GetRecordView<NonNullableLongType>();
 
-            Assert.Fail("TODO" + pocoView);
+            var ex = Assert.ThrowsAsync<IgniteClientException>(async () => await pocoView.UpsertAsync(null, new NonNullableLongType(1, 1)));
+            Assert.AreEqual(
+                "Can't map field 'NonNullableLongType.<Int64>k__BackingField' of type 'System.Int64' " +
+                "to column 'INT64' - column is nullable, but field is not.",
+                ex!.Message);
         }
 
         [Test]
@@ -854,7 +858,9 @@ namespace Apache.Ignite.Tests.Table
             StringAssert.StartsWith("RecordView`1[Poco] { Table = Table { Name = TBL1, Id =", PocoView.ToString());
         }
 
-        // ReSharper disable once NotAccessedPositionalProperty.Local
+        // ReSharper disable NotAccessedPositionalProperty.Local
         private record UnsupportedByteType(byte Int8);
+
+        private record NonNullableLongType(long Key, long Int64);
     }
 }
