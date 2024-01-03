@@ -171,7 +171,7 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
                     byte[] leasesBytes = msEntry.value();
                     Map<ReplicationGroupId, Lease> leasesMap = new HashMap<>();
 
-                    LeaseBatch leaseBatch = LeaseBatch.fromBytes(ByteBuffer.wrap(leasesBytes).order(LITTLE_ENDIAN));
+                    LeaseBatch leaseBatch = LeaseBatch.fromMessage(marshaller.unmarshall(leasesBytes));
 
                     Map<ReplicationGroupId, Lease> previousLeasesMap = leases.leaseByGroupId();
 
