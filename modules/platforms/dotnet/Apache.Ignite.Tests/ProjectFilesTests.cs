@@ -100,7 +100,6 @@ namespace Apache.Ignite.Tests
 
                     if (line.Contains("TODO", StringComparison.Ordinal) && !line.Contains("IGNITE-", StringComparison.Ordinal))
                     {
-                        // StringAssert.Contains("IGNITE-", line, $"TODOs should be linked to tickets in {file}:line {lineNum}");
                         exceptions.Add(new TodoWithoutTicketException(
                             "TODO without ticket: " + line.Trim(),
                             $"at Apache.Ignite.Tests.ProjectFilesTests.TestTodosHaveTickets() in {file}:line {lineNum}"));
