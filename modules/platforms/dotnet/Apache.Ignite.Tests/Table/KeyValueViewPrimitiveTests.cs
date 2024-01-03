@@ -60,6 +60,7 @@ public class KeyValueViewPrimitiveTests : IgniteTestsBase
         // Put as tuple, read as primitive.
         await recView.UpsertAsync(null, new IgniteTuple { ["KEY"] = 1L, ["VAL"] = 1L });
         await recView.UpsertAsync(null, new IgniteTuple { ["KEY"] = 2L, ["VAL"] = null });
+        await recView.DeleteAsync(null, new IgniteTuple { ["KEY"] = 3L });
 
         // Row present, value present.
         var res1 = await view.GetAsync(null, 1);
@@ -86,6 +87,7 @@ public class KeyValueViewPrimitiveTests : IgniteTestsBase
         // Put as primitive, read as tuple.
         await view.PutAsync(null, 4L, 4L);
         await view.PutAsync(null, 5L, null);
+        await view.RemoveAsync(null, 6L);
 
         // Row present, value present.
         var res1 = await recView.GetAsync(null, new IgniteTuple { ["KEY"] = 4L });
