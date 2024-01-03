@@ -421,15 +421,29 @@ namespace Apache.Ignite.Internal.Table.Serialization
         private static void ValidateFieldType(FieldInfo fieldInfo, Column column)
         {
             var columnType = column.Type.ToClrType();
+            var type = fieldInfo.FieldType;
 
-            // TODO: Validate nullability compatibility - see logic in ValidateSingleFieldMappingType.
-            var fieldType = Nullable.GetUnderlyingType(fieldInfo.FieldType) ?? fieldInfo.FieldType;
-            fieldType = fieldType.UnwrapEnum();
+            bool typeIsNullable = !type.IsValueType;
+            if (!typeIsNullable && Nullable.GetUnderlyingType(type) is {} nullableType)
+            {
+                typeIsNullable = true;
+                type = nullableType;
+            }
 
-            if (fieldType != columnType)
+            type = type.UnwrapEnum();
+
+            if (type != columnType)
             {
                 var message = $"Can't map field '{fieldInfo.DeclaringType?.Name}.{fieldInfo.Name}' of type '{fieldInfo.FieldType}' " +
                               $"to column '{column.Name}' of type '{columnType}' - types do not match.";
+
+                throw new IgniteClientException(ErrorGroups.Client.Configuration, message);
+            }
+
+            if (column.IsNullable && !typeIsNullable)
+            {
+                var message = $"Can't map field '{fieldInfo.DeclaringType?.Name}.{fieldInfo.Name}' of type '{fieldInfo.FieldType}' " +
+                              $"to column '{column.Name}' - column is nullable, but field is not.";
 
                 throw new IgniteClientException(ErrorGroups.Client.Configuration, message);
             }
