@@ -260,17 +260,21 @@ public class KeyValueViewPrimitiveTests : IgniteTestsBase
     [Test]
     public async Task TestRemoveAllExact()
     {
-        // TODO: Test null values
         await KvView.PutAsync(null, 1, "1");
+        await KvView.PutAsync(null, 2, "1");
+        await KvView.PutAsync(null, 3, null!);
+        await KvView.PutAsync(null, 4, null!);
 
         IList<long> res1 = await KvView.RemoveAllAsync(
             null,
-            Enumerable.Range(-1, 8).Select(x => new KeyValuePair<long, string>(x, x.ToString())));
+            Enumerable.Range(-1, 8).Select(x => new KeyValuePair<long, string>(x, x == 3 ? null! : x.ToString())));
 
         bool res2 = await KvView.ContainsAsync(null, 1);
+        bool res3 = await KvView.ContainsAsync(null, 3);
 
-        Assert.AreEqual(new[] { -1, 0, 2, 3, 4, 5, 6 }, res1.OrderBy(x => x));
+        Assert.AreEqual(new[] { -1, 0, 2, 4, 5, 6 }, res1.OrderBy(x => x));
         Assert.IsFalse(res2);
+        Assert.IsFalse(res3);
     }
 
     [Test]
