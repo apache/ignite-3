@@ -51,17 +51,15 @@ public class KeyValueViewPrimitiveTests : IgniteTestsBase
     }
 
     [Test]
-    public async Task TestPutGetNullable()
+    public async Task TestGetNullableValueType()
     {
-        // TODO: Refactor this test somehow.
-        await Client.Sql.ExecuteAsync(null, "CREATE TABLE IF NOT EXISTS TestPutGetNullable (ID BIGINT PRIMARY KEY, VAL BIGINT)");
-
-        var table = await Client.Tables.GetTableAsync("TestPutGetNullable");
+        var table = await Client.Tables.GetTableAsync(TableInt64Name);
         var recView = table!.RecordBinaryView;
         var view = table.GetKeyValueView<long, long?>();
 
-        await recView.UpsertAsync(null, new IgniteTuple { ["ID"] = 1L, ["VAL"] = 1L });
-        await recView.UpsertAsync(null, new IgniteTuple { ["ID"] = 2L, ["VAL"] = null });
+        // Put as tuple, read as primitive.
+        await recView.UpsertAsync(null, new IgniteTuple { ["KEY"] = 1L, ["VAL"] = 1L });
+        await recView.UpsertAsync(null, new IgniteTuple { ["KEY"] = 2L, ["VAL"] = null });
 
         // Row present, value present.
         var res1 = await view.GetAsync(null, 1);
@@ -75,6 +73,32 @@ public class KeyValueViewPrimitiveTests : IgniteTestsBase
 
         // Row is not present.
         var res3 = await view.GetAsync(null, 3);
+        Assert.IsFalse(res3.HasValue);
+    }
+
+    [Test]
+    public async Task TestPutNullableValueType()
+    {
+        var table = await Client.Tables.GetTableAsync(TableInt64Name);
+        var recView = table!.RecordBinaryView;
+        var view = table.GetKeyValueView<long, long?>();
+
+        // Put as primitive, read as tuple.
+        await view.PutAsync(null, 3L, 3L);
+        await view.PutAsync(null, 4L, null);
+
+        // Row present, value present.
+        var res1 = await recView.GetAsync(null, new IgniteTuple { ["KEY"] = 3L });
+        Assert.IsTrue(res1.HasValue);
+        Assert.AreEqual(3L, res1.Value["VAL"]);
+
+        // Row present, column value is null.
+        var res2 = await recView.GetAsync(null, new IgniteTuple { ["KEY"] = 4L });
+        Assert.IsTrue(res2.HasValue);
+        Assert.AreEqual(null, res2.Value["VAL"]);
+
+        // Row is not present.
+        var res3 = await recView.GetAsync(null, new IgniteTuple { ["KEY"] = 5L });
         Assert.IsFalse(res3.HasValue);
     }
 
