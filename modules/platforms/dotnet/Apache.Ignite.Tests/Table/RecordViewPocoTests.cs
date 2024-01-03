@@ -733,7 +733,7 @@ namespace Apache.Ignite.Tests.Table
         public async Task TestEnumColumns()
         {
             var sql = "CREATE TABLE IF NOT EXISTS TestEnumColumns(" +
-                      "ID INT NOT NULL PRIMARY KEY, " +
+                      "KEY BIGINT NOT NULL PRIMARY KEY, " +
                       "INT8 TINYINT NOT NULL, " +
                       "INT16 SMALLINT NOT NULL, " +
                       "INT32 INT NOT NULL, " +
