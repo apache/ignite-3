@@ -141,10 +141,11 @@ public class KeyValueViewPrimitiveTests : IgniteTestsBase
     }
 
     [Test]
-    public void TestPutNullThrowsArgumentException()
+    public void TestPutNullKeyThrowsArgumentException()
     {
-        var valEx = Assert.ThrowsAsync<ArgumentNullException>(async () => await KvView.PutAsync(null, 1L, null!));
-        Assert.AreEqual("Value cannot be null. (Parameter 'val')", valEx!.Message);
+        var view = Table.GetKeyValueView<object, string>();
+        var keyEx = Assert.ThrowsAsync<ArgumentNullException>(async () => await view.PutAsync(null, null!, null!));
+        Assert.AreEqual("Value cannot be null. (Parameter 'key')", keyEx!.Message);
     }
 
     [Test]
