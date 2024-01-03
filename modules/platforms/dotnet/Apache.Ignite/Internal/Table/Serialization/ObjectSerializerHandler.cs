@@ -226,6 +226,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
 
                     if (field != fieldInfo)
                     {
+                        // TODO: Emit null check.
                         il.Emit(OpCodes.Ldfld, fieldInfo);
                     }
 
