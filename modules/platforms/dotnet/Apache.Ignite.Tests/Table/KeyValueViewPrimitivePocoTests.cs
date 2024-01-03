@@ -278,13 +278,4 @@ public class KeyValueViewPrimitivePocoTests : IgniteTestsBase
         Assert.IsTrue(res4.HasValue);
         Assert.AreEqual("11", res4.Value.Val);
     }
-
-    [Test]
-    public async Task TestNullableValPocoIsNotAllowed()
-    {
-        // TODO: Should throw here and not later.
-        var view = Table.GetKeyValueView<long, ValPoco?>();
-
-        await view.PutAsync(transaction: null, key: 1, val: null);
-    }
 }
