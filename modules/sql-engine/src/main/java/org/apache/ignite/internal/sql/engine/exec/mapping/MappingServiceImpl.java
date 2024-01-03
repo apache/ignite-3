@@ -114,11 +114,10 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
 
         int tabId = ((TablePartitionId) parameters.groupId()).tableId();
 
-        return CompletableFuture.supplyAsync(() -> {
-            mappingsCache.values().removeIf(value -> value.tableIds.contains(tabId));
-
-            return false;
-        }, taskExecutor);
+        return CompletableFuture.supplyAsync(
+                () -> mappingsCache.values().removeIf(value -> value.tableIds.contains(tabId)),
+                taskExecutor
+        );
     }
 
     private CompletableFuture<List<MappedFragment>> map0(MultiStepPlan multiStepPlan) {
