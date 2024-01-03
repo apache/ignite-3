@@ -21,7 +21,7 @@ namespace Apache.Ignite.Tests.Table
     {
         public int Id { get; set; }
 
-        public sbyte Prop1 { get; set; }
+        public sbyte? Prop1 { get; set; }
 
         public short Prop2 { get; set; }
 
