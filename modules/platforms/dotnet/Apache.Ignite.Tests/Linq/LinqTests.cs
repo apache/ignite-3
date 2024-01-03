@@ -557,7 +557,7 @@ public partial class LinqTests : IgniteTestsBase
     {
         var query = PocoDecimalView.AsQueryable()
             .OrderByDescending(x => x.Val)
-            .Select(x => new PocoDecimal(x.Val!.Value, x.Key));
+            .Select(x => new PocoDecimal(x.Key, x.Val));
 
         var res = query.ToList();
         Assert.AreEqual(9.0m, res[0].Val);
