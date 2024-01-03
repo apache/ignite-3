@@ -106,8 +106,10 @@ namespace Apache.Ignite.Tests
             PocoView = Table.GetRecordView<Poco>();
 
             var tableAllColumns = await Client.Tables.GetTableAsync(TableAllColumnsName);
-            PocoAllColumnsView = tableAllColumns!.GetRecordView<PocoAllColumns>();
-            PocoAllColumnsNullableView = tableAllColumns.GetRecordView<PocoAllColumnsNullable>();
+            PocoAllColumnsNullableView = tableAllColumns!.GetRecordView<PocoAllColumnsNullable>();
+
+            var tableAllColumnsNotNull = await Client.Tables.GetTableAsync(TableAllColumnsNotNullName);
+            PocoAllColumnsView = tableAllColumnsNotNull!.GetRecordView<PocoAllColumns>();
 
             var tableAllColumnsSql = await Client.Tables.GetTableAsync(TableAllColumnsSqlName);
             PocoAllColumnsSqlView = tableAllColumnsSql!.GetRecordView<PocoAllColumnsSql>();

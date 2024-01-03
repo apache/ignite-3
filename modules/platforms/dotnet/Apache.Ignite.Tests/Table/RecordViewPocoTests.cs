@@ -612,7 +612,6 @@ namespace Apache.Ignite.Tests.Table
         {
             var pocoView = PocoAllColumnsView;
 
-            var dt = LocalDateTime.FromDateTime(DateTime.UtcNow);
             var poco = new PocoAllColumns(
                 Key: 123,
                 Str: "str",
@@ -623,21 +622,12 @@ namespace Apache.Ignite.Tests.Table
                 Float: 32.32f,
                 Double: 64.64,
                 Uuid: Guid.NewGuid(),
-                Date: dt.Date,
-                BitMask: new BitArray(new byte[] { 1 }),
-                Time: dt.TimeOfDay,
-                DateTime: dt,
-                Timestamp: Instant.FromDateTimeUtc(DateTime.UtcNow),
-                Blob: new byte[] { 1, 2, 3 },
-                Decimal: 123.456m,
-                Boolean: true);
+                Decimal: 123.456m);
 
             await pocoView.UpsertAsync(null, poco);
 
             var res = (await pocoView.GetAsync(null, poco)).Value;
 
-            Assert.AreEqual(poco.Blob, res.Blob);
-            Assert.AreEqual(poco.Date, res.Date);
             Assert.AreEqual(poco.Decimal, res.Decimal);
             Assert.AreEqual(poco.Double, res.Double);
             Assert.AreEqual(poco.Float, res.Float);
@@ -647,11 +637,6 @@ namespace Apache.Ignite.Tests.Table
             Assert.AreEqual(poco.Int64, res.Int64);
             Assert.AreEqual(poco.Str, res.Str);
             Assert.AreEqual(poco.Uuid, res.Uuid);
-            Assert.AreEqual(poco.BitMask, res.BitMask);
-            Assert.AreEqual(poco.Timestamp, res.Timestamp);
-            Assert.AreEqual(poco.Time, res.Time);
-            Assert.AreEqual(poco.DateTime, res.DateTime);
-            Assert.AreEqual(poco.Boolean, res.Boolean);
         }
 
         [Test]

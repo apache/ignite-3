@@ -18,9 +18,7 @@
 namespace Apache.Ignite.Tests.Table
 {
     using System;
-    using System.Collections;
     using System.Diagnostics.CodeAnalysis;
-    using NodaTime;
 
     /// <summary>
     /// Test user object.
@@ -31,19 +29,12 @@ namespace Apache.Ignite.Tests.Table
     public record PocoAllColumns(
         long Key,
         string? Str,
-        sbyte? Int8,
-        short? Int16,
-        int? Int32,
-        long? Int64,
-        float? Float,
-        double? Double,
-        Guid? Uuid,
-        LocalDate? Date,
-        BitArray BitMask,
-        LocalTime? Time,
-        LocalDateTime? DateTime,
-        Instant? Timestamp,
-        byte[] Blob,
-        decimal? Decimal,
-        bool? Boolean);
+        sbyte Int8,
+        short Int16,
+        int Int32,
+        long Int64,
+        float Float,
+        double Double,
+        Guid Uuid,
+        decimal Decimal);
 }
