@@ -741,6 +741,12 @@ TEST_F(meta_queries_test, tables_meta) {
     if (!SQL_SUCCEEDED(ret))
         FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
 
+    check_meta<COLUMNS_NUM, ODBC_BUFFER_SIZE>(columns, columns_len, "TBL_ALL_COLUMNS_NOT_NULL");
+
+    ret = SQLFetch(m_statement);
+    if (!SQL_SUCCEEDED(ret))
+        FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
+
     check_meta<COLUMNS_NUM, ODBC_BUFFER_SIZE>(columns, columns_len, "TBL_ALL_COLUMNS_SQL");
 
     ret = SQLFetch(m_statement);
