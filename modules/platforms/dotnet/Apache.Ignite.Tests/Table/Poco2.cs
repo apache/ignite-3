@@ -23,22 +23,22 @@ namespace Apache.Ignite.Tests.Table
 
         public sbyte? Prop1 { get; set; }
 
-        public short Prop2 { get; set; }
+        public short? Prop2 { get; set; }
 
-        public int Prop3 { get; set; }
+        public int? Prop3 { get; set; }
 
-        public long Prop4 { get; set; }
+        public long? Prop4 { get; set; }
 
-        public float Prop5 { get; set; }
+        public float? Prop5 { get; set; }
 
-        public double Prop6 { get; set; }
+        public double? Prop6 { get; set; }
 
-        public long Prop7 { get; set; }
+        public long? Prop7 { get; set; }
 
         public string? Prop8 { get; set; }
 
-        public int Prop9 { get; set; }
+        public int? Prop9 { get; set; }
 
-        public int Prop10 { get; set; }
+        public int? Prop10 { get; set; }
     }
 }
