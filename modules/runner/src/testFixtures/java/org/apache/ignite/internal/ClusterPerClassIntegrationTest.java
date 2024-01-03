@@ -384,26 +384,37 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
         CatalogManager catalogManager = node.catalogManager();
 
         // Get existing indexes
-        Set<String> existing = catalogManager.indexes(catalogManager.latestCatalogVersion()).stream()
-                .map(CatalogObjectDescriptor::name)
+        Set<Integer> existing = catalogManager.indexes(catalogManager.latestCatalogVersion()).stream()
+                .map(CatalogObjectDescriptor::id)
                 .collect(Collectors.toSet());
 
         List<List<Object>> result = statement.apply(node);
 
         // Get indexes after a statement and compute the difference
-        String[] difference = catalogManager.indexes(catalogManager.latestCatalogVersion()).stream()
-                .map(CatalogObjectDescriptor::name)
-                .filter(name -> !existing.contains(name))
-                .toArray(String[]::new);
+        List<Integer> difference = catalogManager.indexes(catalogManager.latestCatalogVersion()).stream()
+                .map(CatalogObjectDescriptor::id)
+                .filter(id -> !existing.contains(id))
+                .collect(Collectors.toList());
 
-        if (difference.length == 0) {
+        if (difference.isEmpty()) {
             return result;
         }
 
         // If there are new indexes, wait for them to become available.
+        HybridClock clock = node.clock();
 
         try {
-            awaitIndexesBecomeAvailable(node, difference);
+            assertTrue(waitForCondition(
+                    () -> {
+                        long now = clock.nowLong();
+
+                        return difference.stream()
+                                .map(id -> catalogManager.index(id, now))
+                                .allMatch(indexDescriptor -> indexDescriptor != null && indexDescriptor.available());
+                    },
+                    10,
+                    30_000L
+            ));
 
             // We have no knowledge whether the next transaction is readonly or not,
             // so we have to assume that the next transaction is read only transaction.
@@ -440,7 +451,7 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
      * @param ignite Node.
      * @param indexNames Names of indexes that are of interest.
      */
-    protected static void awaitIndexesBecomeAvailable(IgniteImpl ignite, String... indexNames) throws InterruptedException {
+    protected static void awaitIndexesBecomeAvailable(IgniteImpl ignite, String... indexNames) throws Exception {
         assertTrue(waitForCondition(
                 () -> Arrays.stream(indexNames).allMatch(indexName -> isIndexAvailable(ignite, indexName)),
                 10,
