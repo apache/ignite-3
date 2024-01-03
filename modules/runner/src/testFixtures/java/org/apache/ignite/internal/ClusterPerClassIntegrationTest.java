@@ -371,10 +371,8 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
      */
     protected static void waitForReadTimestampThatObservesMostRecentCatalog()  {
         // See TxManagerImpl::currentReadTimestamp.
-        // We also wait for the delay duration, because a Catalog update's activation timestamp is set in the future for that amount.
-        long delay = HybridTimestamp.CLOCK_SKEW
-                + TestIgnitionManager.DEFAULT_PARTITION_IDLE_SYNC_TIME_INTERVAL_MS
-                + TestIgnitionManager.DEFAULT_DELAY_DURATION_MS;
+        long delay = HybridTimestamp.CLOCK_SKEW + TestIgnitionManager.DEFAULT_PARTITION_IDLE_SYNC_TIME_INTERVAL_MS;
+
         try {
             TimeUnit.MILLISECONDS.sleep(delay);
         } catch (InterruptedException e) {
@@ -386,38 +384,26 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
         CatalogManager catalogManager = node.catalogManager();
 
         // Get existing indexes
-        Set<Integer> existing = catalogManager.indexes(catalogManager.latestCatalogVersion())
-                .stream().map(CatalogObjectDescriptor::id)
+        Set<String> existing = catalogManager.indexes(catalogManager.latestCatalogVersion()).stream()
+                .map(CatalogObjectDescriptor::name)
                 .collect(Collectors.toSet());
 
         List<List<Object>> result = statement.apply(node);
 
         // Get indexes after a statement and compute the difference
-        Set<Integer> difference = catalogManager.indexes(catalogManager.latestCatalogVersion()).stream()
-                .map(CatalogObjectDescriptor::id)
-                .collect(Collectors.toSet());
+        String[] difference = catalogManager.indexes(catalogManager.latestCatalogVersion()).stream()
+                .map(CatalogObjectDescriptor::name)
+                .filter(name -> !existing.contains(name))
+                .toArray(String[]::new);
 
-        difference.removeAll(existing);
-
-        if (difference.isEmpty()) {
+        if (difference.length == 0) {
             return result;
         }
 
         // If there are new indexes, wait for them to become available.
 
         try {
-            assertTrue(waitForCondition(() -> {
-                int latestVersion = catalogManager.latestCatalogVersion();
-                int notAvailable = 0;
-
-                for (CatalogIndexDescriptor index : catalogManager.indexes(latestVersion)) {
-                    if (!index.available() && difference.contains(index.id())) {
-                        notAvailable++;
-                    }
-                }
-
-                return notAvailable == 0;
-            }, 10_000));
+            awaitIndexesBecomeAvailable(node, difference);
 
             // We have no knowledge whether the next transaction is readonly or not,
             // so we have to assume that the next transaction is read only transaction.
@@ -454,7 +440,7 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
      * @param ignite Node.
      * @param indexNames Names of indexes that are of interest.
      */
-    protected static void awaitIndexesBecomeAvailable(IgniteImpl ignite, String... indexNames) throws Exception {
+    protected static void awaitIndexesBecomeAvailable(IgniteImpl ignite, String... indexNames) throws InterruptedException {
         assertTrue(waitForCondition(
                 () -> Arrays.stream(indexNames).allMatch(indexName -> isIndexAvailable(ignite, indexName)),
                 10,
