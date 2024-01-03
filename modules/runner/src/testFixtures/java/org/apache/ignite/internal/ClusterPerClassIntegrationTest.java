@@ -406,14 +406,15 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
         try {
             assertTrue(waitForCondition(
                     () -> {
+                        // Using the timestamp instead of the latest Catalog version, because the index update is set in the future and
+                        // we must wait for the activation delay to pass.
                         long now = clock.nowLong();
 
                         return difference.stream()
                                 .map(id -> catalogManager.index(id, now))
                                 .allMatch(indexDescriptor -> indexDescriptor != null && indexDescriptor.available());
                     },
-                    10,
-                    30_000L
+                    10_000L
             ));
 
             // We have no knowledge whether the next transaction is readonly or not,
@@ -454,8 +455,7 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
     protected static void awaitIndexesBecomeAvailable(IgniteImpl ignite, String... indexNames) throws Exception {
         assertTrue(waitForCondition(
                 () -> Arrays.stream(indexNames).allMatch(indexName -> isIndexAvailable(ignite, indexName)),
-                10,
-                30_000L
+                10_000L
         ));
     }
 }
