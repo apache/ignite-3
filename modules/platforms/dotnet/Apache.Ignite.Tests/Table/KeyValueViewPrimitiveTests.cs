@@ -160,11 +160,10 @@ public class KeyValueViewPrimitiveTests : IgniteTestsBase
     [Test]
     public async Task TestPutAll()
     {
-        // TODO: Test null values
         await KvView.PutAllAsync(null, new Dictionary<long, string>());
         await KvView.PutAllAsync(
             null,
-            Enumerable.Range(-1, 7).Select(x => new KeyValuePair<long, string>(x, "v" + x)));
+            Enumerable.Range(-1, 7).Select(x => new KeyValuePair<long, string>(x, x == 3 ? null! : "v" + x)));
 
         IDictionary<long, string> res = await KvView.GetAllAsync(null, Enumerable.Range(-10, 20).Select(x => (long)x));
 
@@ -173,7 +172,15 @@ public class KeyValueViewPrimitiveTests : IgniteTestsBase
         for (int i = -1; i < 6; i++)
         {
             string val = res[i];
-            Assert.AreEqual("v" + i, val);
+
+            if (i == 3)
+            {
+                Assert.IsNull(val);
+            }
+            else
+            {
+                Assert.AreEqual("v" + i, val);
+            }
         }
     }
 
