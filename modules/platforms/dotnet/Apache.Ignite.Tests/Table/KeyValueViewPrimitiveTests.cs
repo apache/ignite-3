@@ -84,21 +84,21 @@ public class KeyValueViewPrimitiveTests : IgniteTestsBase
         var view = table.GetKeyValueView<long, long?>();
 
         // Put as primitive, read as tuple.
-        await view.PutAsync(null, 3L, 3L);
-        await view.PutAsync(null, 4L, null);
+        await view.PutAsync(null, 4L, 4L);
+        await view.PutAsync(null, 5L, null);
 
         // Row present, value present.
-        var res1 = await recView.GetAsync(null, new IgniteTuple { ["KEY"] = 3L });
+        var res1 = await recView.GetAsync(null, new IgniteTuple { ["KEY"] = 4L });
         Assert.IsTrue(res1.HasValue);
-        Assert.AreEqual(3L, res1.Value["VAL"]);
+        Assert.AreEqual(4L, res1.Value["VAL"]);
 
         // Row present, column value is null.
-        var res2 = await recView.GetAsync(null, new IgniteTuple { ["KEY"] = 4L });
+        var res2 = await recView.GetAsync(null, new IgniteTuple { ["KEY"] = 5L });
         Assert.IsTrue(res2.HasValue);
         Assert.AreEqual(null, res2.Value["VAL"]);
 
         // Row is not present.
-        var res3 = await recView.GetAsync(null, new IgniteTuple { ["KEY"] = 5L });
+        var res3 = await recView.GetAsync(null, new IgniteTuple { ["KEY"] = 6L });
         Assert.IsFalse(res3.HasValue);
     }
 
@@ -162,6 +162,7 @@ public class KeyValueViewPrimitiveTests : IgniteTestsBase
     [Test]
     public async Task TestPutAll()
     {
+        // TODO: Test null values
         await KvView.PutAllAsync(null, new Dictionary<long, string>());
         await KvView.PutAllAsync(
             null,
@@ -254,6 +255,7 @@ public class KeyValueViewPrimitiveTests : IgniteTestsBase
     [Test]
     public async Task TestRemoveAllExact()
     {
+        // TODO: Test null values
         await KvView.PutAsync(null, 1, "1");
 
         IList<long> res1 = await KvView.RemoveAllAsync(
