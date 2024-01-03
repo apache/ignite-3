@@ -732,6 +732,8 @@ namespace Apache.Ignite.Tests.Table
         [Test]
         public async Task TestEnumColumns()
         {
+            var table = await Client.Tables.GetTableAsync(TableAllColumnsSqlName);
+
             // Normal values.
             await Test(new PocoEnums.PocoIntEnum(1, PocoEnums.IntEnum.Foo));
             await Test(new PocoEnums.PocoByteEnum(1, PocoEnums.ByteEnum.Foo));
@@ -753,7 +755,41 @@ namespace Apache.Ignite.Tests.Table
             async Task Test<T>(T val)
                 where T : notnull
             {
-                var table = await Client.Tables.GetTableAsync(TableAllColumnsName);
+                var view = table!.GetRecordView<T>();
+
+                await view.UpsertAsync(null, val);
+
+                var res = await view.GetAsync(null, val);
+                Assert.AreEqual(val, res.Value);
+            }
+        }
+
+        [Test]
+        public async Task TestEnumColumnsNullable()
+        {
+            var table = await Client.Tables.GetTableAsync(TableAllColumnsName);
+
+            // Normal values.
+            await Test(new PocoEnums.PocoIntEnumNullable(1, PocoEnums.IntEnum.Foo));
+            await Test(new PocoEnums.PocoByteEnumNullable(1, PocoEnums.ByteEnum.Foo));
+            await Test(new PocoEnums.PocoShortEnumNullable(1, PocoEnums.ShortEnum.Foo));
+            await Test(new PocoEnums.PocoLongEnumNullable(1, PocoEnums.LongEnum.Foo));
+
+            // Values that are not represented in the enum (it is just a number underneath).
+            await Test(new PocoEnums.PocoIntEnumNullable(1, (PocoEnums.IntEnum)100));
+            await Test(new PocoEnums.PocoByteEnumNullable(1, (PocoEnums.ByteEnum)101));
+            await Test(new PocoEnums.PocoShortEnumNullable(1, (PocoEnums.ShortEnum)102));
+            await Test(new PocoEnums.PocoLongEnumNullable(1, (PocoEnums.LongEnum)103));
+
+            // Default values.
+            await Test(new PocoEnums.PocoIntEnumNullable(1, default));
+            await Test(new PocoEnums.PocoByteEnumNullable(1, default));
+            await Test(new PocoEnums.PocoShortEnumNullable(1, default));
+            await Test(new PocoEnums.PocoLongEnumNullable(1, default));
+
+            async Task Test<T>(T val)
+                where T : notnull
+            {
                 var view = table!.GetRecordView<T>();
 
                 await view.UpsertAsync(null, val);
