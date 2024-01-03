@@ -50,6 +50,8 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
+import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
+import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessageGroup;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessagesFactory;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverReplicaMessage;
@@ -215,6 +217,9 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 new LinkedBlockingQueue<>(),
                 NamedThreadFactory.create(nodeName, "replica", LOG)
         );
+
+        placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, this::onPrimaryReplicaElected);
+        placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, this::onPrimaryReplicaExpired);
     }
 
     private void onReplicaMessageReceived(NetworkMessage message, String senderConsistentId, @Nullable Long correlationId) {
@@ -725,6 +730,35 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                     .throwable(ex)
                     .build();
         }
+    }
+
+
+    /**
+     * Event handler for {@link PrimaryReplicaEvent#PRIMARY_REPLICA_ELECTED}. Propagates execution to the
+     *      {@link ReplicaListener#onPrimaryElected(PrimaryReplicaEventParameters, Throwable)} of the replica, that corresponds
+     *      to given {@link PrimaryReplicaEventParameters#groupId()}.
+     */
+    private CompletableFuture<Boolean> onPrimaryReplicaElected(
+            PrimaryReplicaEventParameters primaryReplicaEventParameters,
+            Throwable throwable
+    ) {
+        CompletableFuture<Replica> replica = replicas.get(primaryReplicaEventParameters.groupId());
+
+        return replica.thenCompose(r -> r.replicaListener().onPrimaryElected(primaryReplicaEventParameters, throwable));
+    }
+
+    /**
+     * Event handler for {@link PrimaryReplicaEvent#PRIMARY_REPLICA_EXPIRED}. Propagates execution to the
+     *      {@link ReplicaListener#onPrimaryExpired(PrimaryReplicaEventParameters, Throwable)} of the replica, that corresponds
+     *      to given {@link PrimaryReplicaEventParameters#groupId()}.
+     */
+    private CompletableFuture<Boolean> onPrimaryReplicaExpired(
+            PrimaryReplicaEventParameters primaryReplicaEventParameters,
+            Throwable throwable
+    ) {
+        CompletableFuture<Replica> replica = replicas.get(primaryReplicaEventParameters.groupId());
+
+        return replica.thenCompose(r -> r.replicaListener().onPrimaryExpired(primaryReplicaEventParameters, throwable));
     }
 
     /**
