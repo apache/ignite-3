@@ -777,6 +777,15 @@ namespace Apache.Ignite.Tests.Table
         }
 
         [Test]
+        public async Task TestColumnNullabilityMismatchThrowsException()
+        {
+            var table = await Client.Tables.GetTableAsync(TableAllColumnsName);
+            var pocoView = table!.GetRecordView<UnsupportedByteType>();
+
+            Assert.Fail("TODO" + pocoView);
+        }
+
+        [Test]
         public async Task TestUnsupportedEnumColumnTypeThrowsException()
         {
             var table = await Client.Tables.GetTableAsync(TableAllColumnsName);

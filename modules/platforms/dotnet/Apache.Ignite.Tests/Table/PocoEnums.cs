@@ -26,15 +26,15 @@ using System.Diagnostics.CodeAnalysis;
 [SuppressMessage("Design", "CA1028:Enum Storage should be Int32", Justification = "Tests.")]
 public static class PocoEnums
 {
-    public record PocoIntEnum(long Key, IntEnum Int32);
+    public record PocoIntEnum(long Key, IntEnum? Int32);
 
-    public record PocoShortEnum(long Key, ShortEnum Int16);
+    public record PocoShortEnum(long Key, ShortEnum? Int16);
 
-    public record PocoLongEnum(long Key, LongEnum Int64);
+    public record PocoLongEnum(long Key, LongEnum? Int64);
 
-    public record PocoByteEnum(long Key, ByteEnum Int8);
+    public record PocoByteEnum(long Key, ByteEnum? Int8);
 
-    public record PocoUnsignedByteEnum(long Key, UnsignedByteEnum Int8);
+    public record PocoUnsignedByteEnum(long Key, UnsignedByteEnum? Int8);
 
     public enum IntEnum
     {
