@@ -342,17 +342,17 @@ public class PlatformTestNodeRunner {
                         ColumnParams.builder().name("STR").type(STRING).nullable(false)
                                 .defaultValue(DefaultValue.constant("")).length(1000).build(),
                         ColumnParams.builder().name("INT8").type(INT8).nullable(false)
-                                .defaultValue(DefaultValue.constant((byte)0)).build(),
+                                .defaultValue(DefaultValue.constant((byte) 0)).build(),
                         ColumnParams.builder().name("INT16").type(INT16).nullable(false)
-                                .defaultValue(DefaultValue.constant((short)0)).build(),
+                                .defaultValue(DefaultValue.constant((short) 0)).build(),
                         ColumnParams.builder().name("INT32").type(INT32).nullable(false)
                                 .defaultValue(DefaultValue.constant(0)).build(),
                         ColumnParams.builder().name("INT64").type(INT64).nullable(false)
-                                .defaultValue(DefaultValue.constant((long)0)).build(),
+                                .defaultValue(DefaultValue.constant((long) 0)).build(),
                         ColumnParams.builder().name("FLOAT").type(FLOAT).nullable(false)
-                                .defaultValue(DefaultValue.constant((float)0)).build(),
+                                .defaultValue(DefaultValue.constant((float) 0)).build(),
                         ColumnParams.builder().name("DOUBLE").type(DOUBLE).nullable(false)
-                                .defaultValue(DefaultValue.constant((double)0)).build(),
+                                .defaultValue(DefaultValue.constant((double) 0)).build(),
                         ColumnParams.builder().name("UUID").type(UUID).nullable(false)
                                 .defaultValue(DefaultValue.constant(new java.util.UUID(0, 0))).build(),
                         ColumnParams.builder().name("DECIMAL").type(DECIMAL).precision(19).scale(3).nullable(false)
