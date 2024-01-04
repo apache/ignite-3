@@ -373,11 +373,11 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
         metaStorageManager.put(fromString(STABLE_ASSIGNMENTS_PREFIX + grpPart0), ByteUtils.toBytes(assignments));
 
         assertTrue(waitForCondition(() -> {
-            var fut = metaStorageManager.get(PLACEMENTDRIVER_LEASES_KEY);
+            CompletableFuture<ReplicaMeta> fut = placementDriverManager.placementDriver().getPrimaryReplica(grpPart0, lease1.getExpirationTime());
 
-            Lease lease = leaseFromBytes(fut.join().value(), grpPart0);
+            ReplicaMeta meta = fut.join();
 
-            return lease.getLeaseholder().equals(anotherNodeName);
+            return meta != null && meta.getLeaseholder().equals(anotherNodeName);
         }, 10_000));
 
         Lease lease2 = checkLeaseCreated(grpPart0, true);
@@ -394,11 +394,11 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
         anotherClusterService = startAnotherNode(anotherNodeName, PORT + 1);
 
         assertTrue(waitForCondition(() -> {
-            var fut = metaStorageManager.get(PLACEMENTDRIVER_LEASES_KEY);
+            CompletableFuture<ReplicaMeta> fut = placementDriverManager.placementDriver().getPrimaryReplica(grpPart0, lease2.getExpirationTime());
 
-            Lease lease = leaseFromBytes(fut.join().value(), grpPart0);
+            ReplicaMeta meta = fut.join();
 
-            return lease.getLeaseholderId().equals(anotherClusterService.topologyService().localMember().id());
+            return meta != null && meta.getLeaseholderId().equals(anotherClusterService.topologyService().localMember().id());
         }, 10_000));
 
         Lease lease3 = checkLeaseCreated(grpPart0, true);
