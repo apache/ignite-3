@@ -31,7 +31,7 @@ public interface ClassDescriptorMessage extends NetworkMessage {
     int IS_PRIMITIVE_MASK = 1;
     int IS_ARRAY_MASK = 1 << 1;
     int IS_RUNTIME_ENUM_MASK = 1 << 2;
-    int IS_RUNTIME_TYPE_KNOWN_UPFRONT_MASK = 1 << 3;
+    int IS_SERIALIZATION_TYPE_KNOWN_UPFRONT_MASK = 1 << 3;
 
     int HAS_WRITE_OBJECT_MASK = 1;
     int HAS_READ_OBJECT_MASK = 1 << 1;

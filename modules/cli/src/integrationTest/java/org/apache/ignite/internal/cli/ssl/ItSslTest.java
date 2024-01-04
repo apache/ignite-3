@@ -19,29 +19,13 @@ package org.apache.ignite.internal.cli.ssl;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 
-import jakarta.inject.Inject;
 import org.apache.ignite.internal.NodeConfig;
-import org.apache.ignite.internal.cli.call.connect.ConnectCall;
-import org.apache.ignite.internal.cli.call.connect.ConnectCallInput;
 import org.apache.ignite.internal.cli.config.CliConfigKeys;
-import org.apache.ignite.internal.cli.core.flow.builder.Flows;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /** Tests for SSL. */
 public class ItSslTest extends CliSslNotInitializedIntegrationTestBase {
-    @Inject
-    ConnectCall connectCall;
-
-    /** Mimics non-REPL "connect" command without starting REPL mode. Overriding getCommandClass and returning TopLevelCliReplCommand
-     * wouldn't help because it will start to ask questions.
-     */
-    private void connect(String url) {
-        Flows.from(ConnectCallInput.builder().url(url).build())
-                .then(Flows.fromCall(connectCall))
-                .print()
-                .start();
-    }
 
     @Test
     @DisplayName("Should get SSL error, when connect to secured node without SSL settings")

@@ -21,7 +21,7 @@ import java.util.Arrays;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Represents a predicate for filtering table entries.
+ * Represents a criteria query predicate.
  *
  * <pre><code>
  *      public ClosableCursor&lt;Product&gt; uncategorizedProducts() {

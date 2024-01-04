@@ -191,6 +191,11 @@ public class FakeTxManager implements TxManager {
     }
 
     @Override
+    public CompletableFuture<Void> cleanup(String node, UUID txId) {
+        return nullCompletedFuture();
+    }
+
+    @Override
     public int finished() {
         return 0;
     }

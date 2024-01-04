@@ -45,7 +45,6 @@ import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -100,7 +99,6 @@ public class ClientComputeTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-21034")
     public void testClientRetriesComputeJobOnPrimaryAndDefaultNodes() throws Exception {
         initServers(reqId -> reqId % 3 == 0);
 

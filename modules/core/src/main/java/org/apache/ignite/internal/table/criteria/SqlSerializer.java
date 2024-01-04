@@ -19,10 +19,10 @@ package org.apache.ignite.internal.table.criteria;
 
 import static org.apache.ignite.internal.util.StringUtils.nullOrBlank;
 
+import java.util.Collection;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -148,7 +148,7 @@ public class SqlSerializer implements CriteriaVisitor<Void> {
         private String tableName;
 
         @Nullable
-        private Set<String> columnNames;
+        private Collection<String> columnNames;
 
         @Nullable
         private Criteria where;
@@ -171,7 +171,7 @@ public class SqlSerializer implements CriteriaVisitor<Void> {
          * @param columnNames Acceptable columns names.
          * @return This builder instance.
          */
-        public SqlSerializer.Builder columns(Set<String> columnNames) {
+        public SqlSerializer.Builder columns(Collection<String> columnNames) {
             this.columnNames = columnNames;
 
             return this;
@@ -180,7 +180,7 @@ public class SqlSerializer implements CriteriaVisitor<Void> {
         /**
          * Set the given criteria.
          *
-         * @param where The predicate to filter entries or {@code null} to return all entries in record view.
+         * @param where The predicate to filter entries or {@code null} to return all entries from the underlying table.
          */
         public SqlSerializer.Builder where(@Nullable Criteria where) {
             this.where = where;

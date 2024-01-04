@@ -106,7 +106,9 @@ public class ErrorGroups {
      * @return Error Group.
      */
     public static ErrorGroup errorGroupByCode(int code) {
-        return registeredGroups.get(extractGroupCode(code));
+        ErrorGroup grp = registeredGroups.get(extractGroupCode(code));
+        assert grp != null : "group not found, code=" + code;
+        return grp;
     }
 
     /** Common error group. */
@@ -346,14 +348,8 @@ public class ErrorGroups {
         /** Failure due to an incompatible schema change. */
         public static final int TX_INCOMPATIBLE_SCHEMA_ERR = TX_ERR_GROUP.registerErrorCode((short) 12);
 
-        /** Failure due to an abandoned transaction. */
-        public static final int TX_ABANDONED_ERR = TX_ERR_GROUP.registerErrorCode((short) 13);
-
         /** Failure due to primary replica expiration. */
-        public static final int TX_PRIMARY_REPLICA_EXPIRED_ERR = TX_ERR_GROUP.registerErrorCode((short) 14);
-
-        /** Coordinator tries to commit a transaction that has already been aborted. */
-        public static final int TX_WAS_ABORTED_ERR = TX_ERR_GROUP.registerErrorCode((short) 15);
+        public static final int TX_PRIMARY_REPLICA_EXPIRED_ERR = TX_ERR_GROUP.registerErrorCode((short) 13);
     }
 
     /** Replicator error group. */
@@ -499,6 +495,9 @@ public class ErrorGroups {
 
         /** Authentication error caused by invalid credentials. */
         public static final int INVALID_CREDENTIALS_ERR = AUTHENTICATION_ERR_GROUP.registerErrorCode((short) 2);
+
+        /** Basic authentication provider is not found. */
+        public static final int BASIC_PROVIDER_ERR = AUTHENTICATION_ERR_GROUP.registerErrorCode((short) 3);
     }
 
     /**

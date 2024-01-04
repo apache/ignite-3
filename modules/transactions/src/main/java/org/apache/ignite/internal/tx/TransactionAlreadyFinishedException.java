@@ -15,14 +15,28 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.security.authentication.event;
+package org.apache.ignite.internal.tx;
+
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_UNEXPECTED_STATE_ERR;
+
+import org.apache.ignite.tx.TransactionException;
 
 /**
- * Authentication events listener.
+ * The exception is thrown when a transaction has already been finished.
  */
-public interface AuthenticationListener {
-    /**
-     * Handle authentication event.
-     */
-    void onEvent(AuthenticationEvent event);
+public class TransactionAlreadyFinishedException extends TransactionException {
+
+    private static final long serialVersionUID = -7953057695915339651L;
+
+    /** Stored transaction result. */
+    private final TransactionResult transactionResult;
+
+    public TransactionAlreadyFinishedException(String message, TransactionResult transactionResult) {
+        super(TX_UNEXPECTED_STATE_ERR, message);
+        this.transactionResult = transactionResult;
+    }
+
+    public TransactionResult transactionResult() {
+        return transactionResult;
+    }
 }

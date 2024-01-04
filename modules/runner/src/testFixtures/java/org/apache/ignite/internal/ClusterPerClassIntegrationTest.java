@@ -353,16 +353,37 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
      * {@link #deletePeople(String, int...)} to remove people.
      */
     protected static class Person {
-        final int id;
+        int id;
 
-        final String name;
+        String name;
 
-        final double salary;
+        double salary;
+
+        public Person() {
+            //No-op.
+        }
 
         public Person(int id, String name, double salary) {
             this.id = id;
             this.name = name;
             this.salary = salary;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            Person person = (Person) o;
+            return id == person.id && Double.compare(salary, person.salary) == 0 && Objects.equals(name, person.name);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(id, name, salary);
         }
     }
 
@@ -371,7 +392,10 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
      */
     protected static void waitForReadTimestampThatObservesMostRecentCatalog()  {
         // See TxManagerImpl::currentReadTimestamp.
-        long delay = HybridTimestamp.CLOCK_SKEW + TestIgnitionManager.DEFAULT_PARTITION_IDLE_SYNC_TIME_INTERVAL_MS;
+        // We also wait for the delay duration, because a Catalog update's activation timestamp is set in the future for that amount.
+        long delay = HybridTimestamp.CLOCK_SKEW
+                + TestIgnitionManager.DEFAULT_PARTITION_IDLE_SYNC_TIME_INTERVAL_MS
+                + TestIgnitionManager.DEFAULT_DELAY_DURATION_MS;
         try {
             TimeUnit.MILLISECONDS.sleep(delay);
         } catch (InterruptedException e) {

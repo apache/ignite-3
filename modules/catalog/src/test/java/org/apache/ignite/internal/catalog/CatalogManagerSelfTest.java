@@ -576,14 +576,16 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertThat(
                 changeColumn(TABLE_NAME, col1.name(),
                         new TestColumnTypeParams(col1.type(), DFLT_TEST_PRECISION - 1, null, null), null, null),
-                willThrowFast(CatalogValidationException.class, "Decreasing the precision is not allowed")
+                willThrowFast(CatalogValidationException.class, "Decreasing the precision for column of type '"
+                        + col1.type() + "' is not allowed")
         );
         assertNull(manager.schema(schemaVer + 1));
 
         assertThat(
                 changeColumn(TABLE_NAME, col2.name(),
                         new TestColumnTypeParams(col2.type(), DFLT_TEST_PRECISION - 1, null, null), null, null),
-                willThrowFast(CatalogValidationException.class, "Decreasing the precision is not allowed")
+                willThrowFast(CatalogValidationException.class, "Decreasing the precision for column of type '"
+                        + col1.type() + "' is not allowed")
         );
         assertNull(manager.schema(schemaVer + 1));
     }
@@ -666,7 +668,8 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         // 11 -> 10 : Error.
         assertThat(
                 changeColumn(TABLE_NAME, col.name(), new TestColumnTypeParams(col.type(), null, 10, null), null, null),
-                willThrowFast(CatalogValidationException.class, "Decreasing the length is not allowed")
+                willThrowFast(CatalogValidationException.class, "Decreasing the length for column of type '"
+                        + col.type() + "' is not allowed")
         );
         assertNull(manager.schema(schemaVer + 1));
 
@@ -779,12 +782,12 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
         // 3 -> 4 : Error.
         assertThat(changeColumn(TABLE_NAME, col.name(), new TestColumnTypeParams(col.type(), null, null, 4), null, null),
-                willThrowFast(CatalogValidationException.class, "Changing the scale is not allowed"));
+                willThrowFast(CatalogValidationException.class, "Changing the scale for column of type"));
         assertNull(manager.schema(schemaVer + 1));
 
         // 3 -> 2 : Error.
         assertThat(changeColumn(TABLE_NAME, col.name(), new TestColumnTypeParams(col.type(), null, null, 2), null, null),
-                willThrowFast(CatalogValidationException.class, "Changing the scale is not allowed"));
+                willThrowFast(CatalogValidationException.class, "Changing the scale for column of type"));
         assertNull(manager.schema(schemaVer + 1));
     }
 
@@ -1444,6 +1447,39 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         }
     }
 
+    // TODO: remove after IGNITE-20378 is implemented.
+    @Test
+    public void userFutureCompletesAfterClusterWideActivationWithAdditionalIdleSafeTimePeriodHappens() throws Exception {
+        long delayDuration = TimeUnit.DAYS.toMillis(365);
+        long partitionIdleSafeTimePropagationPeriod = TimeUnit.DAYS.toDays(365);
+
+        HybridTimestamp startTs = clock.now();
+
+        CatalogManagerImpl manager = new CatalogManagerImpl(updateLog, clockWaiter, delayDuration, partitionIdleSafeTimePropagationPeriod);
+
+        manager.start();
+
+        try {
+            CompletableFuture<Void> createTableFuture = manager.execute(simpleTable(TABLE_NAME));
+
+            assertFalse(createTableFuture.isDone());
+
+            ArgumentCaptor<HybridTimestamp> tsCaptor = ArgumentCaptor.forClass(HybridTimestamp.class);
+
+            verify(clockWaiter, timeout(10_000)).waitFor(tsCaptor.capture());
+            HybridTimestamp userWaitTs = tsCaptor.getValue();
+            assertThat(
+                    userWaitTs.getPhysical() - startTs.getPhysical(),
+                    greaterThanOrEqualTo(
+                            delayDuration + HybridTimestamp.maxClockSkew()
+                                    + partitionIdleSafeTimePropagationPeriod + HybridTimestamp.maxClockSkew()
+                    )
+            );
+        } finally {
+            manager.stop();
+        }
+    }
+
     @Test
     void testGetCatalogEntityInCatalogEvent() {
         CompletableFuture<Void> result = new CompletableFuture<>();
@@ -1600,6 +1636,37 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         CatalogTableDescriptor table = manager.table(TABLE_NAME, Long.MAX_VALUE);
 
         assertThat(table.tableVersion(), is(2));
+    }
+
+    @Test
+    public void testTableCreationToken() {
+        createSomeTable(TABLE_NAME);
+
+        CatalogTableDescriptor table = manager.table(TABLE_NAME, Long.MAX_VALUE);
+
+        long expectedCreationToken = table.updateToken();
+
+        assertEquals(expectedCreationToken, table.creationToken());
+
+        CompletableFuture<Void> future = manager.execute(
+                AlterTableAlterColumnCommand.builder()
+                        .schemaName(SCHEMA_NAME)
+                        .tableName(TABLE_NAME)
+                        .columnName("val1")
+                        .type(INT64)
+                        .build()
+        );
+        assertThat(future, willCompleteSuccessfully());
+
+        table = manager.table(TABLE_NAME, Long.MAX_VALUE);
+
+        assertThat(table.tableVersion(), is(2));
+
+        assertEquals(expectedCreationToken, table.creationToken());
+
+        table = manager.table(tableId(TABLE_NAME), 1);
+
+        assertEquals(expectedCreationToken, table.creationToken());
     }
 
     @Test

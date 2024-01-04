@@ -67,7 +67,7 @@ public abstract class ItAbstractThinClientTest extends BaseIgniteAbstractTest {
     private IgniteClient client;
 
     /**
-     * Before each.
+     * Before all.
      */
     @BeforeAll
     void beforeAll(TestInfo testInfo, @WorkDirectory Path workDir) throws InterruptedException {
@@ -199,5 +199,13 @@ public abstract class ItAbstractThinClientTest extends BaseIgniteAbstractTest {
         public int key;
 
         public String val;
+
+        public int getKey() {
+            return key;
+        }
+
+        public String getVal() {
+            return val;
+        }
     }
 }

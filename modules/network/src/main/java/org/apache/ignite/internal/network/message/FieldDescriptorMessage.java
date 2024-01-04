@@ -27,7 +27,7 @@ import org.apache.ignite.network.annotations.Transferable;
 public interface FieldDescriptorMessage extends NetworkMessage {
     int UNSHARED_MASK = 1;
     int IS_PRIMITIVE = 1 << 1;
-    int IS_RUNTIME_TYPE_KNOWN_UPFRONT = 1 << 2;
+    int IS_SERIALIZATION_TYPE_KNOWN_UPFRONT = 1 << 2;
 
     /**
      * Name of the field.

@@ -36,7 +36,6 @@ using Serialization;
 /// <typeparam name="TV">Value type.</typeparam>
 internal sealed class KeyValueView<TK, TV> : IKeyValueView<TK, TV>
     where TK : notnull
-    where TV : notnull
 {
     /** Record view. */
     private readonly RecordView<KvPair<TK, TV>> _recordView;
@@ -173,7 +172,6 @@ internal sealed class KeyValueView<TK, TV> : IKeyValueView<TK, TV>
     private static KvPair<TK, TV> ToKv(KeyValuePair<TK, TV> x)
     {
         IgniteArgumentCheck.NotNull(x.Key);
-        IgniteArgumentCheck.NotNull(x.Value);
 
         return new(x.Key, x.Value);
     }
@@ -188,7 +186,6 @@ internal sealed class KeyValueView<TK, TV> : IKeyValueView<TK, TV>
     private static KvPair<TK, TV> ToKv(TK key, TV val)
     {
         IgniteArgumentCheck.NotNull(key);
-        IgniteArgumentCheck.NotNull(val);
 
         return new(key, val);
     }

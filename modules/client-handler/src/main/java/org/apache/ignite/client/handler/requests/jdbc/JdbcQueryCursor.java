@@ -56,6 +56,9 @@ public class JdbcQueryCursor<T> implements AsyncSqlCursor<T> {
     @Override
     public CompletableFuture<BatchedResult<T>> requestNextAsync(int rows) {
         long fetched0 = fetched.addAndGet(rows);
+
+        assert cur != null : "non initialized cursor";
+
         return cur.requestNextAsync(rows).thenApply(batch -> {
             if (maxRows == 0 || fetched0 < maxRows) {
                 return batch;
@@ -79,8 +82,14 @@ public class JdbcQueryCursor<T> implements AsyncSqlCursor<T> {
 
     /** {@inheritDoc} */
     @Override
-    public void onClose(Runnable callback) {
-        cur.onClose(callback);
+    public CompletableFuture<Void> onClose() {
+        return cur.onClose();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<Void> onFirstPageReady() {
+        return cur.onFirstPageReady();
     }
 
     /** {@inheritDoc} */
@@ -98,8 +107,7 @@ public class JdbcQueryCursor<T> implements AsyncSqlCursor<T> {
     /** {@inheritDoc} */
     @Override
     public boolean hasNextResult() {
-        // TODO https://issues.apache.org/jira/browse/IGNITE-20661
-        return false;
+        return cur.hasNextResult();
     }
 
     /** {@inheritDoc} */
@@ -109,7 +117,6 @@ public class JdbcQueryCursor<T> implements AsyncSqlCursor<T> {
             throw new NoSuchElementException("Query has no more results");
         }
 
-        // TODO https://issues.apache.org/jira/browse/IGNITE-20661
-        return null;
+        return cur.nextResult();
     }
 }

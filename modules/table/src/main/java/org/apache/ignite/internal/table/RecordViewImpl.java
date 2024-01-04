@@ -33,11 +33,21 @@ import org.apache.ignite.internal.schema.marshaller.RecordMarshaller;
 import org.apache.ignite.internal.schema.marshaller.reflection.RecordMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.streamer.StreamerBatchSender;
+import org.apache.ignite.internal.table.criteria.CursorAdapter;
+import org.apache.ignite.internal.table.criteria.QueryCriteriaAsyncCursor;
+import org.apache.ignite.internal.table.criteria.SqlSerializer;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.lang.AsyncCursor;
+import org.apache.ignite.lang.Cursor;
 import org.apache.ignite.lang.MarshallerException;
+import org.apache.ignite.sql.IgniteSql;
+import org.apache.ignite.sql.Session;
+import org.apache.ignite.sql.Statement;
 import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.RecordView;
+import org.apache.ignite.table.criteria.Criteria;
+import org.apache.ignite.table.criteria.CriteriaQueryOptions;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
@@ -46,6 +56,9 @@ import org.jetbrains.annotations.Nullable;
  * Record view implementation.
  */
 public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R> {
+    /** Record class mapper. */
+    private final Mapper<R> mapper;
+
     /** Marshaller factory. */
     private final Function<SchemaDescriptor, RecordMarshaller<R>> marshallerFactory;
 
@@ -59,10 +72,18 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
      * @param schemaRegistry Schema registry.
      * @param schemaVersions Schema versions access.
      * @param mapper Record class mapper.
+     * @param sql Ignite SQL facade.
      */
-    public RecordViewImpl(InternalTable tbl, SchemaRegistry schemaRegistry, SchemaVersions schemaVersions, Mapper<R> mapper) {
-        super(tbl, schemaVersions, schemaRegistry);
+    public RecordViewImpl(
+            InternalTable tbl,
+            SchemaRegistry schemaRegistry,
+            SchemaVersions schemaVersions,
+            Mapper<R> mapper,
+            IgniteSql sql
+    ) {
+        super(tbl, schemaVersions, schemaRegistry, sql);
 
+        this.mapper = mapper;
         marshallerFactory = (schema) -> new RecordMarshallerImpl<>(schema, mapper);
     }
 
@@ -516,5 +537,32 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
         };
 
         return DataStreamer.streamData(publisher, options, batchSender, partitioner);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Cursor<R> query(@Nullable Transaction tx, @Nullable Criteria criteria, @Nullable CriteriaQueryOptions opts) {
+        return new CursorAdapter<>(sync(queryAsync(tx, criteria, opts)));
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<AsyncCursor<R>> queryAsync(
+            @Nullable Transaction tx,
+            @Nullable Criteria criteria,
+            @Nullable CriteriaQueryOptions opts
+    ) {
+        var opts0 = opts == null ? CriteriaQueryOptions.DEFAULT : opts;
+
+        return withSchemaSync(tx, (schemaVersion) -> {
+            SchemaDescriptor schema = rowConverter.registry().schema(schemaVersion);
+            SqlSerializer ser = createSqlSerializer(tbl.name(), schema.columnNames(), criteria);
+
+            Statement statement = sql.statementBuilder().query(ser.toString()).pageSize(opts0.pageSize()).build();
+            Session session = sql.createSession();
+
+            return session.executeAsync(tx, mapper, statement, ser.getArguments())
+                    .thenApply(resultSet -> new QueryCriteriaAsyncCursor<>(resultSet, session::close));
+        });
     }
 }

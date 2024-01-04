@@ -20,6 +20,7 @@ namespace Apache.Ignite.Internal.Common
 {
     using System;
     using System.Diagnostics.CodeAnalysis;
+    using System.Reflection;
     using System.Runtime.CompilerServices;
     using JetBrains.Annotations;
 
@@ -28,6 +29,11 @@ namespace Apache.Ignite.Internal.Common
     /// </summary>
     internal static class IgniteArgumentCheck
     {
+        /// <summary>
+        /// Gets the <see cref="NotNull{T}"/> method info.
+        /// </summary>
+        internal static MethodInfo NotNullMethod { get; } = typeof(IgniteArgumentCheck).GetMethod(nameof(NotNull))!;
+
         /// <summary>
         /// Throws an ArgumentNullException if specified arg is null.
         /// <para />

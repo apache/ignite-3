@@ -27,8 +27,11 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.tx.TransactionMeta;
+import org.apache.ignite.internal.tx.TransactionResult;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
-import org.apache.ignite.network.ClusterService;
+import org.apache.ignite.internal.tx.message.TxStateResponse;
+import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.network.NetworkMessage;
 import org.jetbrains.annotations.Nullable;
 
@@ -42,8 +45,8 @@ public class TxMessageSender {
     /** Tx messages factory. */
     private static final TxMessagesFactory FACTORY = new TxMessagesFactory();
 
-    /** Cluster service. */
-    private final ClusterService clusterService;
+    /** Messaging service. */
+    private final MessagingService messagingService;
 
     /** Replica service. */
     private final ReplicaService replicaService;
@@ -54,12 +57,12 @@ public class TxMessageSender {
     /**
      * Constructor.
      *
-     * @param clusterService Cluster service.
+     * @param messagingService Messaging service.
      * @param replicaService Replica service.
      * @param clock A hybrid logical clock.
      */
-    public TxMessageSender(ClusterService clusterService, ReplicaService replicaService, HybridClock clock) {
-        this.clusterService = clusterService;
+    public TxMessageSender(MessagingService messagingService, ReplicaService replicaService, HybridClock clock) {
+        this.messagingService = messagingService;
         this.replicaService = replicaService;
         this.clock = clock;
     }
@@ -101,16 +104,16 @@ public class TxMessageSender {
      * @param txId Transaction id.
      * @param commit {@code True} if a commit requested.
      * @param commitTimestamp Commit timestamp ({@code null} if it's an abort).
-     * @return Completable future of Void.
+     * @return Completable future of {@link NetworkMessage}.
      */
     public CompletableFuture<NetworkMessage> cleanup(
             String primaryConsistentId,
-            Collection<ReplicationGroupId> replicationGroupIds,
+            @Nullable Collection<ReplicationGroupId> replicationGroupIds,
             UUID txId,
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp
     ) {
-        return clusterService.messagingService().invoke(
+        return messagingService.invoke(
                 primaryConsistentId,
                 FACTORY.txCleanupMessage()
                         .txId(txId)
@@ -132,9 +135,9 @@ public class TxMessageSender {
      * @param term Raft term.
      * @param commit {@code true} if a commit requested.
      * @param commitTimestamp Commit timestamp ({@code null} if it's an abort).
-     * @return Completable future of Void.
+     * @return Completable future of {@link TransactionResult}.
      */
-    public CompletableFuture<Void> finish(
+    public CompletableFuture<TransactionResult> finish(
             String primaryConsistentId,
             TablePartitionId commitPartition,
             Collection<ReplicationGroupId> replicationGroupIds,
@@ -154,5 +157,56 @@ public class TxMessageSender {
                         .commitTimestampLong(hybridTimestampToLong(commitTimestamp))
                         .enlistmentConsistencyToken(term)
                         .build());
+    }
+
+    /**
+     * Send TxStateCommitPartitionRequest.
+     *
+     * @param primaryConsistentId Node id to send the request to.
+     * @param txId Transaction id.
+     * @param commitGrpId Partition to store a transaction state.
+     * @param term Raft term.
+     * @return Completable future of {@link TransactionMeta}.
+     */
+    public CompletableFuture<TransactionMeta> resolveTxStateFromCommitPartition(
+            String primaryConsistentId,
+            UUID txId,
+            TablePartitionId commitGrpId,
+            Long term
+    ) {
+        return replicaService.invoke(
+                primaryConsistentId,
+                FACTORY.txStateCommitPartitionRequest()
+                        .groupId(commitGrpId)
+                        .txId(txId)
+                        .enlistmentConsistencyToken(term)
+                        .build());
+    }
+
+    /**
+     * Send TxStateCoordinatorRequest.
+     *
+     * @param primaryConsistentId Node id to send the request to.
+     * @param txId Transaction id.
+     * @param timestamp Timestamp to pass to target node.
+     * @return Completable future of {@link TxStateResponse}.
+     */
+    public CompletableFuture<TxStateResponse> resolveTxStateFromCoordinator(
+            String primaryConsistentId,
+            UUID txId,
+            HybridTimestamp timestamp
+    ) {
+        return messagingService.invoke(
+                        primaryConsistentId,
+                        FACTORY.txStateCoordinatorRequest()
+                                .readTimestampLong(timestamp.longValue())
+                                .txId(txId)
+                                .build(),
+                        RPC_TIMEOUT)
+                .thenApply(resp -> {
+                    assert resp instanceof TxStateResponse : "Unsupported response type [type=" + resp.getClass().getSimpleName() + ']';
+
+                    return (TxStateResponse) resp;
+                });
     }
 }

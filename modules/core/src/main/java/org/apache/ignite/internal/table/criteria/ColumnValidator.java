@@ -19,7 +19,7 @@ package org.apache.ignite.internal.table.criteria;
 
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
-import java.util.Set;
+import java.util.Collection;
 import org.apache.ignite.table.criteria.Column;
 import org.apache.ignite.table.criteria.Criteria;
 import org.apache.ignite.table.criteria.CriteriaVisitor;
@@ -30,18 +30,18 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Column validator.
  */
-class ColumnValidator implements CriteriaVisitor<Set<String>> {
+class ColumnValidator implements CriteriaVisitor<Collection<String>> {
     static final ColumnValidator INSTANCE = new ColumnValidator();
 
     /** {@inheritDoc} */
     @Override
-    public <T> void visit(Parameter<T> argument, @Nullable Set<String> context) {
+    public <T> void visit(Parameter<T> argument, @Nullable Collection<String> context) {
         // No-op.
     }
 
     /** {@inheritDoc} */
     @Override
-    public <T> void visit(Column column, @Nullable Set<String> context) {
+    public <T> void visit(Column column, @Nullable Collection<String> context) {
         String colName = column.getName();
 
         if (!nullOrEmpty(context) && !context.contains(colName)) {
@@ -51,14 +51,14 @@ class ColumnValidator implements CriteriaVisitor<Set<String>> {
 
     /** {@inheritDoc} */
     @Override
-    public <T> void visit(Expression expression, @Nullable Set<String> context) {
+    public <T> void visit(Expression expression, @Nullable Collection<String> context) {
         for (Criteria element : expression.getElements()) {
             element.accept(this, context);
         }
     }
 
     @Override
-    public <T> void visit(Criteria criteria, @Nullable Set<String> context) {
+    public <T> void visit(Criteria criteria, @Nullable Collection<String> context) {
         criteria.accept(this, context);
     }
 }
