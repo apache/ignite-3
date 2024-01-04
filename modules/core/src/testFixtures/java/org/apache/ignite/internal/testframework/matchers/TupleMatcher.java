@@ -25,7 +25,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Matchers for {@link Tuple}.
  */
-public class TupleMatcher {
+public final class TupleMatcher {
     private TupleMatcher() {
     }
 
