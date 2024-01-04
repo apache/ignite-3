@@ -18,7 +18,7 @@
 package org.apache.ignite.table.criteria;
 
 /**
- * Represents a predicate for performing criteria queries.
+ * Represents a criteria query predicate.
  */
 public interface Criteria {
     // No-op.
