@@ -30,6 +30,7 @@ import static org.apache.ignite.internal.testframework.matchers.JobStatusMatcher
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
@@ -272,7 +273,8 @@ public class PriorityQueueExecutorTest extends BaseIgniteAbstractTest {
 
         await().until(execution::status, jobStatusWithState(COMPLETED));
 
-        execution.cancel();
+        assertThrows(CancellingException.class, execution::cancel);
+
         assertThat(execution.status().state(), is(COMPLETED));
     }
 

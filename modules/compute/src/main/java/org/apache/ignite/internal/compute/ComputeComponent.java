@@ -19,8 +19,8 @@ package org.apache.ignite.internal.compute;
 
 import java.util.List;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.compute.DeploymentUnit;
+import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobStatus;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.network.ClusterNode;
@@ -40,7 +40,7 @@ public interface ComputeComponent extends IgniteComponent {
      * @param <R> Job result type.
      * @return Future execution result.
      */
-    <R> CompletableFuture<R> executeLocally(
+    <R> JobExecution<R> executeLocally(
             ExecutionOptions options,
             List<DeploymentUnit> units,
             String jobClassName,
@@ -56,7 +56,7 @@ public interface ComputeComponent extends IgniteComponent {
      * @param <R> Job result type.
      * @return Future execution result.
      */
-    default <R> CompletableFuture<R> executeLocally(
+    default <R> JobExecution<R> executeLocally(
             List<DeploymentUnit> units,
             String jobClassName,
             Object... args
@@ -75,7 +75,7 @@ public interface ComputeComponent extends IgniteComponent {
      * @param <R> Job result type.
      * @return Future execution result.
      */
-    <R> CompletableFuture<R> executeRemotely(
+    <R> JobExecution<R> executeRemotely(
             ExecutionOptions options,
             ClusterNode remoteNode,
             List<DeploymentUnit> units,
@@ -93,7 +93,7 @@ public interface ComputeComponent extends IgniteComponent {
      * @param <R> Job result type.
      * @return Future execution result.
      */
-    default <R> CompletableFuture<R> executeRemotely(
+    default <R> JobExecution<R> executeRemotely(
             ClusterNode remoteNode,
             List<DeploymentUnit> units,
             String jobClassName,
