@@ -608,17 +608,6 @@ void AlterZoneOption(List<SqlNode> list) :
   }
 }
 
-SqlLiteral ParseDecimalLiteral():
-{
-    final BigDecimal value;
-}
-{
-  <DECIMAL> <QUOTED_STRING> {
-    value = IgniteSqlParserUtil.parseDecimal(token.image, getPos());
-    return IgniteSqlDecimalLiteral.create(value, getPos());
-  }
-}
-
 /**
 * Parse datetime types: date, time, timestamp.
 *

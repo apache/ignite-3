@@ -304,7 +304,7 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
         sql("CREATE TABLE tbl(id int PRIMARY KEY, val DECIMAL(32, 5))");
 
         assertQuery("SELECT DECIMAL '-123.0'").returns(new BigDecimal(("-123.0"))).check();
-        assertQuery("SELECT DECIMAL '10'").returns(new BigDecimal(("10"))).check();
+        assertQuery("SELECT DECIMAL '10'").returns(new Integer(("10"))).check();
         assertQuery("SELECT DECIMAL '10.000'").returns(new BigDecimal(("10.000"))).check();
 
         assertQuery("SELECT DECIMAL '10.000' + DECIMAL '0.1'").returns(new BigDecimal(("10.100"))).check();
