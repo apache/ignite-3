@@ -47,6 +47,7 @@ import org.apache.ignite.internal.network.handshake.ChannelAlreadyExistsExceptio
 import org.apache.ignite.internal.network.handshake.HandshakeManager;
 import org.apache.ignite.internal.network.recovery.RecoveryClientHandshakeManager;
 import org.apache.ignite.internal.network.recovery.RecoveryClientHandshakeManagerFactory;
+import org.apache.ignite.internal.network.recovery.RecoveryDescriptor;
 import org.apache.ignite.internal.network.recovery.RecoveryDescriptorProvider;
 import org.apache.ignite.internal.network.recovery.RecoveryServerHandshakeManager;
 import org.apache.ignite.internal.network.recovery.StaleIdDetector;
@@ -335,7 +336,8 @@ public class ConnectionManager implements ChannelCreationListener {
         // closeConnectionsWith() gets called as it subscribes first).
         // This is the only place where a new sender might be added to the map.
         if (staleIdDetector.isIdStale(channel.launchId())) {
-            channel.close();
+            closeSenderAndRecoveryDescriptor(channel);
+
             channels.remove(key, channel);
         }
     }
@@ -502,17 +504,46 @@ public class ConnectionManager implements ChannelCreationListener {
      * Closes physical connections with an Ignite node identified by the given ID (it's not consistentId,
      * it's ID that gets regenerated at each node restart).
      *
-     * @param id ID of the node.
+     * @param id ID of the node (it must have already left the topology).
      */
     public void closeConnectionsWith(String id) {
+        // We rely on the fact that the node with the given ID has already left from the physical topology.
+        assert staleIdDetector.isIdStale(id) : id + " is not stale yet";
+
+        closeChannelsAndDescriptorsWith(id);
+
+        // Also closing descriptors (as some of them might not have an operating channel attached, but they
+        // still might have unacknowledged messages/futures).
+        closeRecoveryDescriptorsWith(id);
+    }
+
+    private void closeChannelsAndDescriptorsWith(String id) {
         List<Entry<ConnectorKey<String>, NettySender>> entriesToRemove = channels.entrySet().stream()
                 .filter(entry -> entry.getValue().launchId().equals(id))
                 .collect(toList());
 
         for (Entry<ConnectorKey<String>, NettySender> entry : entriesToRemove) {
-            entry.getValue().close();
+            closeSenderAndRecoveryDescriptor(entry.getValue());
 
             channels.remove(entry.getKey());
+        }
+    }
+
+    private void closeSenderAndRecoveryDescriptor(NettySender sender) {
+        sender.closeAsync().whenComplete((res, ex) -> {
+            RecoveryDescriptor recoveryDescriptor = descriptorProvider.getRecoveryDescriptor(
+                    sender.consistentId(),
+                    UUID.fromString(sender.launchId()),
+                    sender.channelId()
+            );
+
+            sender.executeInEventLoop(recoveryDescriptor::close);
+        });
+    }
+
+    private void closeRecoveryDescriptorsWith(String id) {
+        for (RecoveryDescriptor descriptor : descriptorProvider.getRecoveryDescriptorsByLaunchId(UUID.fromString(id))) {
+            descriptor.closeInEventLoopOfLastOwner();
         }
     }
 }

@@ -19,15 +19,19 @@ package org.apache.ignite.internal.network.recovery;
 
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandlerContext;
+import io.netty.channel.EventLoop;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.network.netty.NettySender;
 import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.network.OutNetworkObject;
+import org.apache.ignite.network.RecipientLeftException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -48,6 +52,13 @@ public class RecoveryDescriptor {
 
     /** Some context around current owner channel of this descriptor. */
     private final AtomicReference<DescriptorAcquiry> channelHolder = new AtomicReference<>();
+
+    /** Event loop of the channel that was (or still is) the most recent owner of this descriptor. */
+    private final AtomicReference<EventLoop> lastEventLoop = new AtomicReference<>();
+
+    private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
+
+    private final AtomicBoolean closeGuard = new AtomicBoolean();
 
     /**
      * Constructor.
@@ -109,14 +120,25 @@ public class RecoveryDescriptor {
     }
 
     /**
-     * Adds a sent message.
+     * Tries to add a sent message to the unacknowledged queue.
      *
      * @param msg Message.
+     * @return {@code true} if the message was added, {@code false} if the descriptor is already closed.
      */
-    public void add(OutNetworkObject msg) {
-        msg.shouldBeSavedForRecovery(false);
-        sentCount++;
-        unacknowledgedMessages.add(msg);
+    public boolean add(OutNetworkObject msg) {
+        if (!busyLock.enterBusy()) {
+            return false;
+        }
+
+        try {
+            msg.shouldBeSavedForRecovery(false);
+            sentCount++;
+            unacknowledgedMessages.add(msg);
+
+            return true;
+        } finally {
+            busyLock.leaveBusy();
+        }
     }
 
     /**
@@ -164,7 +186,13 @@ public class RecoveryDescriptor {
      * @param handshakeCompleteFuture Future that gets completed when the corresponding handshake completes.
      */
     public boolean acquire(ChannelHandlerContext ctx, CompletableFuture<NettySender> handshakeCompleteFuture) {
-        return channelHolder.compareAndSet(null, new DescriptorAcquiry(ctx.channel(), handshakeCompleteFuture));
+        boolean acquired = channelHolder.compareAndSet(null, new DescriptorAcquiry(ctx.channel(), handshakeCompleteFuture));
+
+        if (acquired) {
+            lastEventLoop.set(ctx.channel().eventLoop());
+        }
+
+        return acquired;
     }
 
     /**
@@ -186,5 +214,39 @@ public class RecoveryDescriptor {
         }
 
         return acquiry.channel().toString();
+    }
+
+    /**
+     * Makes this recovery descriptor closed for the purposes of sending messages. After it is closed, no calls
+     * to {@link #add(OutNetworkObject)} will have any effect, they will return {@code false}.
+     */
+    public void close() {
+        if (!closeGuard.compareAndSet(false, true)) {
+            return;
+        }
+
+        busyLock.block();
+
+        RecipientLeftException ex = new RecipientLeftException();
+        for (OutNetworkObject unackedMessageObj : unacknowledgedMessages) {
+            unackedMessageObj.failAcknowledgement(ex);
+        }
+
+        unacknowledgedMessages.clear();
+    }
+
+    /**
+     * Closes this descriptor in the event loop of the last channel that owned (or still owns) it.
+     */
+    public void closeInEventLoopOfLastOwner() {
+        EventLoop eventLoop = lastEventLoop.get();
+
+        if (eventLoop != null) {
+            if (eventLoop.inEventLoop()) {
+                close();
+            } else {
+                eventLoop.execute(this::close);
+            }
+        }
     }
 }

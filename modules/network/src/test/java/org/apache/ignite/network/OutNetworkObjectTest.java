@@ -18,6 +18,7 @@
 package org.apache.ignite.network;
 
 import static java.util.Collections.emptyList;
+import static org.apache.ignite.internal.testframework.asserts.CompletableFutureAssert.assertWillThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureCompletedMatcher.completedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
@@ -40,5 +41,15 @@ class OutNetworkObjectTest extends BaseIgniteAbstractTest {
         outObject.acknowledge();
 
         assertThat(outObject.acknowledgedFuture(), is(completedFuture()));
+    }
+
+    @Test
+    void failsAcknowledgementFuture() {
+        Exception ex = new Exception();
+
+        outObject.failAcknowledgement(ex);
+
+        Exception resultEx = assertWillThrowFast(outObject.acknowledgedFuture(), Exception.class);
+        assertThat(resultEx, is(ex));
     }
 }

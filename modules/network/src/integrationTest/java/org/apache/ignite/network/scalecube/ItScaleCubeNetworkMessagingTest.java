@@ -55,6 +55,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Predicate;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.NodeStoppingException;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.NetworkMessageTypes;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
 import org.apache.ignite.internal.network.handshake.HandshakeException;
@@ -76,6 +78,7 @@ import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.NodeFinder;
+import org.apache.ignite.network.RecipientLeftException;
 import org.apache.ignite.network.StaticNodeFinder;
 import org.apache.ignite.network.TopologyEventHandler;
 import org.apache.ignite.utils.ClusterServiceTestUtils;
@@ -93,6 +96,8 @@ import reactor.core.publisher.Mono;
  * Integration tests for messaging based on ScaleCube.
  */
 class ItScaleCubeNetworkMessagingTest {
+    private static final IgniteLogger LOG = Loggers.forClass(ItScaleCubeNetworkMessagingTest.class);
+
     /**
      * Test cluster.
      *
@@ -665,11 +670,11 @@ class ItScaleCubeNetworkMessagingTest {
         assertThat(messagesDelivered.get(), is(1));
     }
 
-    private static void closeAllChannels(MessagingService messagingService) throws InterruptedException {
+    private static void closeAllChannels(MessagingService messagingService) {
         ConnectionManager connectionManager = ((DefaultMessagingService) messagingService).connectionManager();
 
         for (NettySender sender : connectionManager.channels().values()) {
-            sender.close().await(10, TimeUnit.SECONDS);
+            assertThat(sender.closeAsync(), willCompleteSuccessfully());
         }
     }
 
@@ -694,7 +699,7 @@ class ItScaleCubeNetworkMessagingTest {
 
         // Open a channel to allow a silencer to be installed on it.
         openDefaultChannelBetween(sender, receiver);
-        OutgoingAcknowledgementSilencer ackSilencer = installAckSilencer(receiver);
+        OutgoingAcknowledgementSilencer ackSilencer = dropAcksFrom(receiver);
 
         CompletableFuture<Void> sendFuture = operation.send(
                 sender.messagingService(),
@@ -720,12 +725,14 @@ class ItScaleCubeNetworkMessagingTest {
         return sender.messagingService().send(receiver.topologyService().localMember(), messageFactory.testMessage().build());
     }
 
-    private static OutgoingAcknowledgementSilencer installAckSilencer(ClusterService clusterService) {
+    private static OutgoingAcknowledgementSilencer dropAcksFrom(ClusterService clusterService) {
         OutgoingAcknowledgementSilencer ackSilencer = new OutgoingAcknowledgementSilencer();
 
         DefaultMessagingService messagingService = (DefaultMessagingService) clusterService.messagingService();
 
         for (NettySender sender : messagingService.connectionManager().channels().values()) {
+            LOG.info("Installing a silencer on {}/{}/{}", sender.consistentId(), sender.launchId(), sender.channelId());
+
             sender.channel().pipeline().addAfter(OutboundEncoder.NAME, OutgoingAcknowledgementSilencer.NAME, ackSilencer);
         }
 
@@ -734,6 +741,31 @@ class ItScaleCubeNetworkMessagingTest {
 
     private void provokeAckFor(ClusterService sideToGetAck, ClusterService sideToSendAck) {
         sendMessage(sideToGetAck, sideToSendAck);
+    }
+
+    @ParameterizedTest
+    @EnumSource(SendOperation.class)
+    public void sendFutureFailsWhenReceiverLeavesPhysicalTopology(SendOperation operation) throws Exception {
+        testCluster = new Cluster(2, testInfo);
+
+        testCluster.startAwait();
+
+        ClusterService notOutcast = testCluster.members.get(0);
+        ClusterService outcast = testCluster.members.get(testCluster.members.size() - 1);
+
+        ClusterNode outcastNode = notOutcast.topologyService().getByConsistentId(outcast.nodeName());
+        ClusterNode notOutcastNode = outcast.topologyService().getByConsistentId(notOutcast.nodeName());
+        assertNotNull(outcastNode);
+        assertNotNull(notOutcastNode);
+
+        openDefaultChannelBetween(notOutcast, outcast);
+        dropAcksFrom(outcast);
+
+        CompletableFuture<Void> sendFuture = notOutcast.messagingService().send(outcastNode, messageFactory.testMessage().build());
+
+        knockOutNode(outcast.nodeName(), false);
+
+        assertThat(sendFuture, willThrow(RecipientLeftException.class));
     }
 
     private void knockOutNode(String outcastName, boolean closeConnectionsForcibly) throws InterruptedException {

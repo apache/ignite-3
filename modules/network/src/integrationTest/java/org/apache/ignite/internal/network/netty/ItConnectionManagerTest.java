@@ -392,7 +392,7 @@ public class ItConnectionManagerTest extends BaseIgniteAbstractTest {
         ) {
             NettySender sender = manager1.openChannelTo(manager2).toCompletableFuture().get(10, TimeUnit.SECONDS);
 
-            OutgoingAcknowledgementSilencer ackSilencer = installAckSilencer(manager2);
+            OutgoingAcknowledgementSilencer ackSilencer = dropAcksFrom(manager2);
 
             CompletableFuture<Void> sendFuture = sender.send(new OutNetworkObject(emptyTestMessage, emptyList(), true));
             assertThat(sendFuture, willTimeoutIn(100, TimeUnit.MILLISECONDS));
@@ -413,7 +413,7 @@ public class ItConnectionManagerTest extends BaseIgniteAbstractTest {
         ) {
             NettySender sender = manager1.openChannelTo(manager2).toCompletableFuture().get(10, TimeUnit.SECONDS);
 
-            OutgoingAcknowledgementSilencer ackSilencer = installAckSilencer(manager2);
+            OutgoingAcknowledgementSilencer ackSilencer = dropAcksFrom(manager2);
 
             List<Integer> ordinals = new CopyOnWriteArrayList<>();
 
@@ -439,7 +439,7 @@ public class ItConnectionManagerTest extends BaseIgniteAbstractTest {
         ) {
             NettySender sender = manager1.openChannelTo(manager2).toCompletableFuture().get(10, TimeUnit.SECONDS);
 
-            installAckSilencer(manager2);
+            dropAcksFrom(manager2);
 
             HandshakeFinishMessage messageNotNeedingAck = new NetworkMessagesFactory().handshakeFinishMessage().build();
             CompletableFuture<Void> sendFuture = sender.send(new OutNetworkObject(messageNotNeedingAck, emptyList(), true));
@@ -447,7 +447,7 @@ public class ItConnectionManagerTest extends BaseIgniteAbstractTest {
         }
     }
 
-    private static OutgoingAcknowledgementSilencer installAckSilencer(ConnectionManagerWrapper connectionManagerWrapper) {
+    private static OutgoingAcknowledgementSilencer dropAcksFrom(ConnectionManagerWrapper connectionManagerWrapper) {
         OutgoingAcknowledgementSilencer ackSilencer = new OutgoingAcknowledgementSilencer();
 
         for (NettySender sender : connectionManagerWrapper.channels().values()) {

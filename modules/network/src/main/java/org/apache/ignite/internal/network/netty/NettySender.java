@@ -20,7 +20,6 @@ package org.apache.ignite.internal.network.netty;
 import static org.apache.ignite.internal.network.netty.NettyUtils.toCompletableFuture;
 
 import io.netty.channel.Channel;
-import io.netty.channel.ChannelFuture;
 import io.netty.handler.stream.ChunkedInput;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.network.direct.DirectMessageWriter;
@@ -101,15 +100,6 @@ public class NettySender {
     }
 
     /**
-     * Closes channel and returns the {@link Channel#closeFuture()}.
-     *
-     * @return {@link Channel#closeFuture()} of the {@link #channel}.
-     */
-    public ChannelFuture close() {
-        return this.channel.close();
-    }
-
-    /**
      * Closes channel asynchronously.
      *
      * @return Future of the close operation.
@@ -125,6 +115,19 @@ public class NettySender {
      */
     public boolean isOpen() {
         return this.channel.isOpen();
+    }
+
+    /**
+     * Executes the given task in the event loop corresponding to the channel.
+     *
+     * @param task Task to execute.
+     */
+    void executeInEventLoop(Runnable task) {
+        if (channel.eventLoop().inEventLoop()) {
+            task.run();
+        } else {
+            channel.eventLoop().execute(task);
+        }
     }
 
     /**

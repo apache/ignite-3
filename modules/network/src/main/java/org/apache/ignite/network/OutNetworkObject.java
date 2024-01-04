@@ -86,4 +86,8 @@ public class OutNetworkObject {
     public void acknowledge() {
         acknowledgedFuture.complete(null);
     }
+
+    public void failAcknowledgement(Throwable ex) {
+        acknowledgedFuture.completeExceptionally(ex);
+    }
 }

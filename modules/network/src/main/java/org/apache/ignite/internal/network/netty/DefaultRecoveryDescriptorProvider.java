@@ -17,7 +17,11 @@
 
 package org.apache.ignite.internal.network.netty;
 
+import static java.util.stream.Collectors.toList;
+
+import java.util.Collection;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import org.apache.ignite.internal.network.recovery.RecoveryDescriptor;
@@ -34,12 +38,19 @@ public class DefaultRecoveryDescriptorProvider implements RecoveryDescriptorProv
     /** Recovery descriptors. */
     private final Map<ChannelKey, RecoveryDescriptor> recoveryDescriptors = new ConcurrentHashMap<>();
 
-    /** {@inheritDoc} */
     @Override
     public RecoveryDescriptor getRecoveryDescriptor(String consistentId, UUID launchId, short connectionIndex) {
         var key = new ChannelKey(consistentId, launchId, connectionIndex);
 
         return recoveryDescriptors.computeIfAbsent(key, channelKey -> new RecoveryDescriptor(DEFAULT_QUEUE_LIMIT));
+    }
+
+    @Override
+    public Collection<RecoveryDescriptor> getRecoveryDescriptorsByLaunchId(UUID launchId) {
+        return recoveryDescriptors.entrySet().stream()
+                .filter(entry -> entry.getKey().launchId.equals(launchId))
+                .map(Entry::getValue)
+                .collect(toList());
     }
 
     /** Channel key. */
