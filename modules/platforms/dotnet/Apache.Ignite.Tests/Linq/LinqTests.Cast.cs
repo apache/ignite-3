@@ -32,11 +32,11 @@ public partial class LinqTests
         var query = PocoIntView.AsQueryable()
             .Select(x => new
             {
-                Byte = (sbyte)(x.Val / 10),
-                Short = (short)x.Val,
-                Long = (long)x.Val,
-                Float = (float)x.Val / 1000,
-                Double = (double)x.Val / 2000,
+                Byte = (sbyte?)(x.Val / 10),
+                Short = (short?)x.Val,
+                Long = (long?)x.Val,
+                Float = (float?)x.Val / 1000,
+                Double = (double?)x.Val / 2000,
             })
             .OrderByDescending(x => x.Long);
 
