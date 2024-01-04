@@ -44,6 +44,7 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopolog
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.sql.engine.exec.mapping.MappingServiceImpl.LogicalTopologyHolder.TopSnapshot;
 import org.apache.ignite.internal.sql.engine.prepare.Fragment;
 import org.apache.ignite.internal.sql.engine.prepare.MultiStepPlan;
 import org.apache.ignite.internal.sql.engine.prepare.PlanId;
@@ -122,8 +123,8 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
     }
 
     private CompletableFuture<List<MappedFragment>> map0(MultiStepPlan multiStepPlan) {
-        List<String> nodes = topologyHolder.nodes();
-        MappingContext context = new MappingContext(localNodeName, nodes);
+        TopSnapshot topology = topologyHolder.topology();
+        MappingContext context = new MappingContext(localNodeName, topology.nodes());
 
         FragmentsTemplate template = getOrCreateTemplate(multiStepPlan, context);
 
@@ -139,15 +140,13 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
                     }
                 }
 
-                long topVer = topAware ? topologyHolder.version() : Long.MAX_VALUE;
+                long topVer = topAware ? topology.version() : Long.MAX_VALUE;
 
                 return new MappingsCacheValue(topVer, tableIds, mapFragments(context, template));
             }
 
-            long topVer = topologyHolder.version();
-
-            if (val.topVer < topVer) {
-                return new MappingsCacheValue(topVer, val.tableIds, mapFragments(context, template));
+            if (val.topVer < topology.version()) {
+                return new MappingsCacheValue(topology.version(), val.tableIds, mapFragments(context, template));
             }
 
             return val;
@@ -338,17 +337,15 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
      * Holder for topology snapshots that guarantees monotonically increasing versions.
      */
     class LogicalTopologyHolder {
-        private volatile List<String> nodes = List.of();
-        private volatile long ver = Long.MIN_VALUE;
+        private volatile TopSnapshot topology = new TopSnapshot(Long.MIN_VALUE, List.of());
 
         void update(LogicalTopologySnapshot topologySnapshot) {
             synchronized (this) {
-                if (ver < topologySnapshot.version()) {
-                    nodes = deriveNodeNames(topologySnapshot);
-                    ver = topologySnapshot.version();
+                if (topology.version() < topologySnapshot.version()) {
+                    topology = new TopSnapshot(topologySnapshot.version(), deriveNodeNames(topologySnapshot));
                 }
 
-                if (initialTopologyFuture.isDone() || !nodes.contains(localNodeName)) {
+                if (initialTopologyFuture.isDone() || !topology.nodes().contains(localNodeName)) {
                     return;
                 }
             }
@@ -356,18 +353,32 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
             initialTopologyFuture.complete(null);
         }
 
-        long version() {
-            return ver;
-        }
-
-        List<String> nodes() {
-            return nodes;
+        TopSnapshot topology() {
+            return topology;
         }
 
         private List<String> deriveNodeNames(LogicalTopologySnapshot topology) {
             return topology.nodes().stream()
                     .map(LogicalNode::name)
                     .collect(Collectors.toUnmodifiableList());
+        }
+
+        class TopSnapshot {
+            private final List<String> nodes;
+            private final long version;
+
+            TopSnapshot(long version, List<String> nodes) {
+                this.version = version;
+                this.nodes = nodes;
+            }
+
+            public List<String> nodes() {
+                return nodes;
+            }
+
+            public long version() {
+                return version;
+            }
         }
     }
 
