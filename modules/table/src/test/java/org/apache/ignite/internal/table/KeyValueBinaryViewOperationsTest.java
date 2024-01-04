@@ -29,6 +29,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -43,6 +44,7 @@ import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.table.distributed.replicator.InternalSchemaVersionMismatchException;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.type.NativeTypes;
+import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.Test;
@@ -450,7 +452,9 @@ public class KeyValueBinaryViewOperationsTest extends TableKvOperationsTestBase 
         SchemaDescriptor schema = schemaDescriptor();
         InternalTable internalTable = spy(createInternalTable(schema));
 
-        KeyValueView<Tuple, Tuple> view = new KeyValueBinaryViewImpl(internalTable, new DummySchemaManagerImpl(schema), schemaVersions);
+        KeyValueView<Tuple, Tuple> view = new KeyValueBinaryViewImpl(
+                internalTable, new DummySchemaManagerImpl(schema), schemaVersions, mock(IgniteSql.class)
+        );
 
         BinaryRow resultRow = new TupleMarshallerImpl(schema).marshal(Tuple.create().set("ID", 1L).set("VAL", 2L));
 

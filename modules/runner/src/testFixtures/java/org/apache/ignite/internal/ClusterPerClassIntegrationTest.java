@@ -353,16 +353,37 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
      * {@link #deletePeople(String, int...)} to remove people.
      */
     protected static class Person {
-        final int id;
+        int id;
 
-        final String name;
+        String name;
 
-        final double salary;
+        double salary;
+
+        public Person() {
+            //No-op.
+        }
 
         public Person(int id, String name, double salary) {
             this.id = id;
             this.name = name;
             this.salary = salary;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            Person person = (Person) o;
+            return id == person.id && Double.compare(salary, person.salary) == 0 && Objects.equals(name, person.name);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(id, name, salary);
         }
     }
 

@@ -141,6 +141,7 @@ import org.apache.ignite.network.NodeFinder;
 import org.apache.ignite.network.StaticNodeFinder;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
+import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.tx.IgniteTransactions;
 import org.apache.ignite.utils.ClusterServiceTestUtils;
 import org.jetbrains.annotations.Nullable;
@@ -631,7 +632,7 @@ public class ItTxTestCluster {
             }
         }
 
-        CompletableFuture.allOf(partitionReadyFutures.toArray(new CompletableFuture[0])).join();
+        allOf(partitionReadyFutures.toArray(new CompletableFuture[0])).join();
 
         raftClients.computeIfAbsent(tableName, t -> new ArrayList<>()).addAll(clients.values());
 
@@ -652,7 +653,8 @@ public class ItTxTestCluster {
                 ),
                 new DummySchemaManagerImpl(schemaDescriptor),
                 clientTxManager.lockManager(),
-                new ConstantSchemaVersions(SCHEMA_VERSION)
+                new ConstantSchemaVersions(SCHEMA_VERSION),
+                mock(IgniteSql.class)
         );
     }
 

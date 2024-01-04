@@ -218,10 +218,22 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 else
                 {
                     ValidateFieldType(fieldInfo, col);
+
+                    var field = index < schema.KeyColumnCount ? keyField : valField;
+
+                    if (field != fieldInfo)
+                    {
+                        // POCO mapping: emit null check (nulls are allowed for single-column simple type mapping like KvPair<int, long?>).
+                        il.Emit(OpCodes.Ldarg_2); // record
+                        il.Emit(OpCodes.Ldfld, field);
+                        il.Emit(OpCodes.Ldstr, field == keyField ? "key" : "val");
+
+                        il.Emit(OpCodes.Call, IgniteArgumentCheck.NotNullMethod.MakeGenericMethod(field.FieldType));
+                    }
+
                     il.Emit(OpCodes.Ldarg_0); // writer
                     il.Emit(OpCodes.Ldarg_2); // record
 
-                    var field = index < schema.KeyColumnCount ? keyField : valField;
                     il.Emit(OpCodes.Ldfld, field);
 
                     if (field != fieldInfo)
@@ -339,11 +351,13 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 {
                     fieldInfo = keyField;
                     local = kvLocal;
+                    ValidateSingleFieldMappingType(keyType, col);
                 }
                 else if (i == schema.KeyColumnCount && valMethod != null)
                 {
                     fieldInfo = valField;
                     local = kvLocal;
+                    ValidateSingleFieldMappingType(valType, col);
                 }
                 else
                 {
@@ -407,14 +421,29 @@ namespace Apache.Ignite.Internal.Table.Serialization
         private static void ValidateFieldType(FieldInfo fieldInfo, Column column)
         {
             var columnType = column.Type.ToClrType();
+            var type = fieldInfo.FieldType;
 
-            var fieldType = Nullable.GetUnderlyingType(fieldInfo.FieldType) ?? fieldInfo.FieldType;
-            fieldType = fieldType.UnwrapEnum();
+            bool typeIsNullable = !type.IsValueType;
+            if (!typeIsNullable && Nullable.GetUnderlyingType(type) is {} nullableType)
+            {
+                typeIsNullable = true;
+                type = nullableType;
+            }
 
-            if (fieldType != columnType)
+            type = type.UnwrapEnum();
+
+            if (type != columnType)
             {
                 var message = $"Can't map field '{fieldInfo.DeclaringType?.Name}.{fieldInfo.Name}' of type '{fieldInfo.FieldType}' " +
                               $"to column '{column.Name}' of type '{columnType}' - types do not match.";
+
+                throw new IgniteClientException(ErrorGroups.Client.Configuration, message);
+            }
+
+            if (column.IsNullable && !typeIsNullable)
+            {
+                var message = $"Can't map field '{fieldInfo.DeclaringType?.Name}.{fieldInfo.Name}' of type '{fieldInfo.FieldType}' " +
+                              $"to column '{column.Name}' - column is nullable, but field is not.";
 
                 throw new IgniteClientException(ErrorGroups.Client.Configuration, message);
             }
@@ -424,9 +453,23 @@ namespace Apache.Ignite.Internal.Table.Serialization
         {
             var columnType = column.Type.ToClrType();
 
+            bool typeIsNullable = !type.IsValueType;
+            if (!typeIsNullable && Nullable.GetUnderlyingType(type) is {} nullableType)
+            {
+                typeIsNullable = true;
+                type = nullableType;
+            }
+
             if (type != columnType)
             {
                 var message = $"Can't map '{type}' to column '{column.Name}' of type '{columnType}' - types do not match.";
+
+                throw new IgniteClientException(ErrorGroups.Client.Configuration, message);
+            }
+
+            if (column.IsNullable && !typeIsNullable)
+            {
+                var message = $"Can't map '{type}' to column '{column.Name}' - column is nullable, but field is not.";
 
                 throw new IgniteClientException(ErrorGroups.Client.Configuration, message);
             }

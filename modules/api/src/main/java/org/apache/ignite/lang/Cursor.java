@@ -15,30 +15,19 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Tests.Table
-{
-    public class Poco2
-    {
-        public int Id { get; set; }
+package org.apache.ignite.lang;
 
-        public sbyte? Prop1 { get; set; }
+import java.util.Iterator;
 
-        public short? Prop2 { get; set; }
-
-        public int? Prop3 { get; set; }
-
-        public long? Prop4 { get; set; }
-
-        public float? Prop5 { get; set; }
-
-        public double? Prop6 { get; set; }
-
-        public long? Prop7 { get; set; }
-
-        public string? Prop8 { get; set; }
-
-        public int? Prop9 { get; set; }
-
-        public int? Prop10 { get; set; }
-    }
+/**
+ * Provides methods to iterate over operation results and release underlying resources.
+ *
+ * @param <T> The type of elements returned by this iterator.
+ */
+public interface Cursor<T> extends Iterator<T>, AutoCloseable {
+    /**
+     * Closes this cursor and releases any underlying resources.
+     */
+    @Override
+    void close();
 }
