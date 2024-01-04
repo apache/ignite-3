@@ -77,4 +77,6 @@ public interface PlacementDriver extends EventProducer<PrimaryReplicaEvent, Prim
      * @return Future.
      */
     CompletableFuture<Void> previousPrimaryExpired(ReplicationGroupId grpId);
+
+    boolean primaryExpired(ReplicationGroupId grpId);
 }

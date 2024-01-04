@@ -88,6 +88,11 @@ public class TestPlacementDriver extends AbstractEventProducer<PrimaryReplicaEve
     }
 
     @Override
+    public boolean primaryExpired(ReplicationGroupId grpId) {
+        return false;
+    }
+
+    @Override
     public CompletableFuture<Void> fireEvent(PrimaryReplicaEvent event, PrimaryReplicaEventParameters parameters) {
         return super.fireEvent(event, parameters);
     }

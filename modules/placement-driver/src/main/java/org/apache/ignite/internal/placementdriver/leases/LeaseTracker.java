@@ -38,6 +38,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
@@ -91,6 +92,9 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
     /** Expiration future by replication group. */
     private final Map<ReplicationGroupId, CompletableFuture<Void>> expirationFutureByGroup = new ConcurrentHashMap<>();
 
+    /** Replication groups with expired primaries. */
+    private final Set<ReplicationGroupId> groupsWithoutPrimary = ConcurrentHashMap.newKeySet();
+
     /** Listener to update a leases cache. */
     private final UpdateListener updateListener = new UpdateListener();
 
@@ -133,6 +137,11 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
     @Override
     public CompletableFuture<Void> previousPrimaryExpired(ReplicationGroupId grpId) {
         return expirationFutureByGroup.getOrDefault(grpId, nullCompletedFuture());
+    }
+
+    @Override
+    public boolean primaryExpired(ReplicationGroupId grpId) {
+        return groupsWithoutPrimary.contains(grpId);
     }
 
     /**
@@ -326,6 +335,8 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
                         new PrimaryReplicaEventParameters(causalityToken, grpId, currentLease.getLeaseholder(), currentLease.getStartTime())
                 ));
 
+                groupsWithoutPrimary.add(grpId);
+
                 assert prev == null || prev.isDone() : "Previous lease expiration process has not completed yet [grpId=" + grpId + ']';
             }
         }
@@ -335,6 +346,8 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
         String leaseholder = lease.getLeaseholder();
 
         assert leaseholder != null : lease;
+
+        groupsWithoutPrimary.remove(lease.replicationGroupId());
 
         return fireEvent(
                 PRIMARY_REPLICA_ELECTED,

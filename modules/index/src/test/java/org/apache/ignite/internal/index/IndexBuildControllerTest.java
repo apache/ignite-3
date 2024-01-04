@@ -299,6 +299,11 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
             throw new UnsupportedOperationException();
         }
 
+        @Override
+        public boolean primaryExpired(ReplicationGroupId grpId) {
+            throw new UnsupportedOperationException();
+        }
+
         CompletableFuture<Void> setPrimaryReplicaMeta(
                 long causalityToken,
                 TablePartitionId replicaId,

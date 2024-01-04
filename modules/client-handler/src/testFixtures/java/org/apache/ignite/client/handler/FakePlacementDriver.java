@@ -98,6 +98,11 @@ public class FakePlacementDriver extends AbstractEventProducer<PrimaryReplicaEve
         return nullCompletedFuture();
     }
 
+    @Override
+    public boolean primaryExpired(ReplicationGroupId grpId) {
+        return false;
+    }
+
     private static ReplicaMeta getReplicaMeta(String leaseholder, long leaseStartTime) {
         //noinspection serial
         return new ReplicaMeta() {
