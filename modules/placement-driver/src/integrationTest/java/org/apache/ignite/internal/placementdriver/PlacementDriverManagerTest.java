@@ -373,7 +373,8 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
         metaStorageManager.put(fromString(STABLE_ASSIGNMENTS_PREFIX + grpPart0), ByteUtils.toBytes(assignments));
 
         assertTrue(waitForCondition(() -> {
-            CompletableFuture<ReplicaMeta> fut = placementDriverManager.placementDriver().getPrimaryReplica(grpPart0, lease1.getExpirationTime());
+            CompletableFuture<ReplicaMeta> fut = placementDriverManager.placementDriver()
+                    .getPrimaryReplica(grpPart0, lease1.getExpirationTime());
 
             ReplicaMeta meta = fut.join();
 
@@ -394,7 +395,8 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
         anotherClusterService = startAnotherNode(anotherNodeName, PORT + 1);
 
         assertTrue(waitForCondition(() -> {
-            CompletableFuture<ReplicaMeta> fut = placementDriverManager.placementDriver().getPrimaryReplica(grpPart0, lease2.getExpirationTime());
+            CompletableFuture<ReplicaMeta> fut = placementDriverManager.placementDriver()
+                    .getPrimaryReplica(grpPart0, lease2.getExpirationTime());
 
             ReplicaMeta meta = fut.join();
 
