@@ -392,7 +392,10 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
      */
     protected static void waitForReadTimestampThatObservesMostRecentCatalog()  {
         // See TxManagerImpl::currentReadTimestamp.
-        long delay = HybridTimestamp.CLOCK_SKEW + TestIgnitionManager.DEFAULT_PARTITION_IDLE_SYNC_TIME_INTERVAL_MS;
+        // We also wait for the delay duration, because a Catalog update's activation timestamp is set in the future for that amount.
+        long delay = HybridTimestamp.CLOCK_SKEW
+                + TestIgnitionManager.DEFAULT_PARTITION_IDLE_SYNC_TIME_INTERVAL_MS
+                + TestIgnitionManager.DEFAULT_DELAY_DURATION_MS;
         try {
             TimeUnit.MILLISECONDS.sleep(delay);
         } catch (InterruptedException e) {

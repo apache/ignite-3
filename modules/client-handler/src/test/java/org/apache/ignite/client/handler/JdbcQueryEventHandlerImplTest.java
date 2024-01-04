@@ -175,7 +175,7 @@ class JdbcQueryEventHandlerImplTest extends BaseIgniteAbstractTest {
         String schema = "schema";
         JdbcStatementType type = JdbcStatementType.SELECT_STATEMENT_TYPE;
 
-        await(eventHandler.queryAsync(connectionId, new JdbcQueryExecuteRequest(type, schema, 1024, 1, "SELECT 1", null, false)));
+        await(eventHandler.queryAsync(connectionId, new JdbcQueryExecuteRequest(type, schema, 1024, 1, "SELECT 1", null, false, false)));
         verify(igniteTransactions, times(1)).begin();
         await(eventHandler.batchAsync(connectionId, new JdbcBatchExecuteRequest("schema", List.of("UPDATE 1", "UPDATE 2"), false)));
         verify(igniteTransactions, times(1)).begin();
@@ -185,7 +185,7 @@ class JdbcQueryEventHandlerImplTest extends BaseIgniteAbstractTest {
 
         await(eventHandler.batchAsync(connectionId, new JdbcBatchExecuteRequest("schema", List.of("UPDATE 1", "UPDATE 2"), false)));
         verify(igniteTransactions, times(2)).begin();
-        await(eventHandler.queryAsync(connectionId, new JdbcQueryExecuteRequest(type, schema, 1024, 1, "SELECT 2", null, false)));
+        await(eventHandler.queryAsync(connectionId, new JdbcQueryExecuteRequest(type, schema, 1024, 1, "SELECT 2", null, false, false)));
         verify(igniteTransactions, times(2)).begin();
         await(eventHandler.batchAsync(connectionId, new JdbcBatchExecuteRequest("schema", List.of("UPDATE 3", "UPDATE 4"), false)));
         verify(igniteTransactions, times(2)).begin();

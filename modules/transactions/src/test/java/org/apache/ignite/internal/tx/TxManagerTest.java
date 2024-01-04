@@ -63,6 +63,7 @@ import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.PrimaryReplicaExpiredException;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
+import org.apache.ignite.internal.tx.message.TxFinishReplicaRequest;
 import org.apache.ignite.internal.tx.test.TestTransactionIds;
 import org.apache.ignite.lang.ErrorGroups.Transactions;
 import org.apache.ignite.network.ClusterNode;
@@ -359,6 +360,9 @@ public class TxManagerTest extends IgniteAbstractTest {
         when(placementDriver.awaitPrimaryReplica(any(), any(), anyLong(), any())).thenReturn(completedFuture(
                 new TestReplicaMetaImpl(LOCAL_NODE, hybridTimestamp(1), HybridTimestamp.MAX_VALUE)));
 
+        HybridTimestamp commitTimestamp = clock.now();
+        when(replicaService.invoke(anyString(), any(TxFinishReplicaRequest.class)))
+                .thenReturn(completedFuture(new TransactionResult(TxState.COMMITTED, commitTimestamp)));
         // Ensure that commit doesn't throw exceptions.
         InternalTransaction committedTransaction = prepareTransaction();
         committedTransaction.commit();
@@ -389,6 +393,8 @@ public class TxManagerTest extends IgniteAbstractTest {
                 new TestReplicaMetaImpl(LOCAL_NODE, hybridTimestamp(1), hybridTimestamp(10))));
         when(placementDriver.awaitPrimaryReplica(any(), any(), anyLong(), any())).thenReturn(completedFuture(
                 new TestReplicaMetaImpl(LOCAL_NODE, hybridTimestamp(1), hybridTimestamp(10))));
+        when(replicaService.invoke(anyString(), any(TxFinishReplicaRequest.class)))
+                .thenReturn(completedFuture(new TransactionResult(TxState.ABORTED, null)));
 
         InternalTransaction committedTransaction = prepareTransaction();
         Throwable throwable = assertThrowsWithCause(committedTransaction::commit, AssertionError.class);
@@ -429,6 +435,9 @@ public class TxManagerTest extends IgniteAbstractTest {
     }
 
     private void assertCommitThrowsTransactionExceptionWithPrimaryReplicaExpiredExceptionAsCause() {
+        when(replicaService.invoke(anyString(), any(TxFinishReplicaRequest.class)))
+                .thenReturn(completedFuture(new TransactionResult(TxState.ABORTED, null)));
+
         InternalTransaction committedTransaction = prepareTransaction();
         Throwable throwable = assertThrowsWithCause(committedTransaction::commit, PrimaryReplicaExpiredException.class);
 
@@ -441,6 +450,9 @@ public class TxManagerTest extends IgniteAbstractTest {
     }
 
     private void assertRollbackSucceeds() {
+        when(replicaService.invoke(anyString(), any(TxFinishReplicaRequest.class)))
+                .thenReturn(completedFuture(new TransactionResult(TxState.ABORTED, null)));
+
         InternalTransaction abortedTransaction = prepareTransaction();
         abortedTransaction.rollback();
         assertEquals(TxState.ABORTED, txManager.stateMeta(abortedTransaction.id()).txState());

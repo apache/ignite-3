@@ -27,11 +27,9 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.Supplier;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
-import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
 import org.apache.ignite.internal.tx.TransactionMeta;
@@ -39,12 +37,10 @@ import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.TxStateMetaFinishing;
 import org.apache.ignite.internal.tx.impl.PlacementDriverHelper;
+import org.apache.ignite.internal.tx.impl.TxMessageSender;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
-import org.apache.ignite.internal.tx.message.TxStateCommitPartitionRequest;
-import org.apache.ignite.internal.tx.message.TxStateCommitPartitionRequestBuilder;
 import org.apache.ignite.internal.tx.message.TxStateCoordinatorRequest;
-import org.apache.ignite.internal.tx.message.TxStateResponse;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterNodeResolver;
 import org.apache.ignite.network.MessagingService;
@@ -57,12 +53,6 @@ import org.jetbrains.annotations.Nullable;
 public class TransactionStateResolver {
     /** Tx messages factory. */
     private static final TxMessagesFactory FACTORY = new TxMessagesFactory();
-
-    /** Network timeout. */
-    private static final long RPC_TIMEOUT = 3000;
-
-    /** Replication service. */
-    private final ReplicaService replicaService;
 
     // TODO https://issues.apache.org/jira/browse/IGNITE-20408 after this ticket this resolver will be no longer needed, as
     // TODO we will store coordinator as ClusterNode in local tx state map.
@@ -80,9 +70,13 @@ public class TransactionStateResolver {
     private final MessagingService messagingService;
 
     /**
+     * Transaction message sender.
+     */
+    private final TxMessageSender txMessageSender;
+
+    /**
      * The constructor.
      *
-     * @param replicaService Replication service.
      * @param txManager Transaction manager.
      * @param clock Node clock.
      * @param clusterNodeResolver Cluster node resolver.
@@ -90,19 +84,19 @@ public class TransactionStateResolver {
      * @param placementDriver Placement driver.
      */
     public TransactionStateResolver(
-            ReplicaService replicaService,
             TxManager txManager,
             HybridClock clock,
             ClusterNodeResolver clusterNodeResolver,
             MessagingService messagingService,
-            PlacementDriver placementDriver
+            PlacementDriver placementDriver,
+            TxMessageSender txMessageSender
     ) {
-        this.replicaService = replicaService;
         this.txManager = txManager;
         this.clock = clock;
         this.clusterNodeResolver = clusterNodeResolver;
         this.messagingService = messagingService;
         this.placementDriverHelper = new PlacementDriverHelper(placementDriver, clock);
+        this.txMessageSender = txMessageSender;
     }
 
     /**
@@ -220,22 +214,14 @@ public class TransactionStateResolver {
 
             resolveTxStateFromCommitPartition(txId, commitGrpId, txMetaFuture);
         } else {
-            CompletableFuture<TransactionMeta> coordinatorTxMetaFuture = new CompletableFuture<>();
-
-            coordinatorTxMetaFuture.whenComplete((v, e) -> {
-                if (e == null) {
-                    txMetaFuture.complete(v);
-                } else {
-                    resolveTxStateFromCommitPartition(txId, commitGrpId, txMetaFuture);
-                }
-            });
-
-            TxStateCoordinatorRequest request = FACTORY.txStateCoordinatorRequest()
-                    .readTimestampLong(timestamp.longValue())
-                    .txId(txId)
-                    .build();
-
-            send(coordinatorTxMetaFuture, coordinator, request);
+            txMessageSender.resolveTxStateFromCoordinator(coordinator.name(), txId, timestamp)
+                    .whenComplete((response, e) -> {
+                        if (e == null) {
+                            txMetaFuture.complete(response.txStateMeta());
+                        } else {
+                            resolveTxStateFromCommitPartition(txId, commitGrpId, txMetaFuture);
+                        }
+                    });
         }
     }
 
@@ -244,13 +230,9 @@ public class TransactionStateResolver {
             TablePartitionId commitGrpId,
             CompletableFuture<TransactionMeta> txMetaFuture
     ) {
-        Supplier<TxStateCommitPartitionRequestBuilder> factory = () -> FACTORY.txStateCommitPartitionRequest()
-                .groupId(commitGrpId)
-                .txId(txId);
-
         updateLocalTxMapAfterDistributedStateResolved(txId, txMetaFuture);
 
-        sendAndRetry(txMetaFuture, commitGrpId, factory);
+        sendAndRetry(txMetaFuture, commitGrpId, txId);
     }
 
     /**
@@ -275,54 +257,30 @@ public class TransactionStateResolver {
      *
      * @param resFut Response future.
      * @param replicaGrp Replication group id.
-     * @param requestBuilderFactory Request builder factory.
+     * @param txId Transaction id.
      */
-    private void sendAndRetry(
-            CompletableFuture<TransactionMeta> resFut,
-            TablePartitionId replicaGrp,
-            Supplier<TxStateCommitPartitionRequestBuilder> requestBuilderFactory
-    ) {
+    private void sendAndRetry(CompletableFuture<TransactionMeta> resFut, TablePartitionId replicaGrp, UUID txId) {
         placementDriverHelper.awaitPrimaryReplicaWithExceptionHandling(replicaGrp)
-                .thenCompose(replicaMeta -> {
-                    ClusterNode nodeToSend = clusterNodeResolver.getByConsistentId(replicaMeta.getLeaseholder());
-
-                    TxStateCommitPartitionRequest request = requestBuilderFactory.get()
-                            .enlistmentConsistencyToken(replicaMeta.getStartTime().longValue())
-                            .build();
-
-                    return replicaService.invoke(nodeToSend, request);
-                })
-                .whenComplete((resp, e) -> {
+                .thenCompose(replicaMeta ->
+                        txMessageSender.resolveTxStateFromCommitPartition(
+                                replicaMeta.getLeaseholder(),
+                                txId,
+                                replicaGrp,
+                                replicaMeta.getStartTime().longValue()
+                        ))
+                .whenComplete((txMeta, e) -> {
                     if (e == null) {
-                        assert resp instanceof TransactionMeta : "Unsupported response type [type=" + resp.getClass().getSimpleName() + ']';
+                        assert txMeta != null : "Tx State response is null";
 
-                        TransactionMeta txMeta = (TransactionMeta) resp;
                         resFut.complete(txMeta);
                     } else {
                         if (e instanceof PrimaryReplicaMissException) {
-                            sendAndRetry(resFut, replicaGrp, requestBuilderFactory);
+                            sendAndRetry(resFut, replicaGrp, txId);
                         } else {
                             resFut.completeExceptionally(e);
                         }
                     }
                 });
-    }
-
-    /**
-     * Tries to send a request to the given node.
-     *
-     * @param resFut Response future.
-     * @param node Node to send to.
-     * @param request Request.
-     */
-    private void send(CompletableFuture<TransactionMeta> resFut, ClusterNode node, TxStateCoordinatorRequest request) {
-        messagingService.invoke(node, request, RPC_TIMEOUT).thenAccept(resp -> {
-            assert resp instanceof TxStateResponse : "Unsupported response type [type=" + resp.getClass().getSimpleName() + ']';
-
-            TxStateResponse response = (TxStateResponse) resp;
-
-            resFut.complete(response.txStateMeta());
-        });
     }
 
     /**

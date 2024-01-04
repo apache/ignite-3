@@ -17,13 +17,12 @@
 
 #include <utility>
 
-#include "ignite/odbc/type_traits.h"
 #include "ignite/odbc/query/special_columns_query.h"
+#include "ignite/odbc/type_traits.h"
 
-namespace ignite
-{
+namespace ignite {
 
-special_columns_query::special_columns_query(diagnosable_adapter& diag, std::int16_t type, std::string catalog,
+special_columns_query::special_columns_query(diagnosable_adapter &diag, std::int16_t type, std::string catalog,
     std::string schema, std::string table, std::int16_t scope, std::int16_t nullable)
     : query(diag, query_type::SPECIAL_COLUMNS)
     , m_type(type)
@@ -31,8 +30,7 @@ special_columns_query::special_columns_query(diagnosable_adapter& diag, std::int
     , m_schema(std::move(schema))
     , m_table(std::move(table))
     , m_scope(scope)
-    , m_nullable(nullable)
-{
+    , m_nullable(nullable) {
     m_columns_meta.reserve(8);
 
     const std::string sch;
@@ -48,17 +46,14 @@ special_columns_query::special_columns_query(diagnosable_adapter& diag, std::int
     m_columns_meta.emplace_back(sch, tbl, "PSEUDO_COLUMN", ignite_type::INT16);
 }
 
-sql_result special_columns_query::execute()
-{
+sql_result special_columns_query::execute() {
     m_executed = true;
 
     return sql_result::AI_SUCCESS;
 }
 
-sql_result special_columns_query::fetch_next_row(column_binding_map&)
-{
-    if (!m_executed)
-    {
+sql_result special_columns_query::fetch_next_row(column_binding_map &) {
+    if (!m_executed) {
         m_diag.add_status_record(sql_state::SHY010_SEQUENCE_ERROR, "Query was not executed.");
 
         return sql_result::AI_ERROR;
@@ -67,10 +62,8 @@ sql_result special_columns_query::fetch_next_row(column_binding_map&)
     return sql_result::AI_NO_DATA;
 }
 
-sql_result special_columns_query::get_column(uint16_t, application_data_buffer&)
-{
-    if (!m_executed)
-    {
+sql_result special_columns_query::get_column(uint16_t, application_data_buffer &) {
+    if (!m_executed) {
         m_diag.add_status_record(sql_state::SHY010_SEQUENCE_ERROR, "Query was not executed.");
 
         return sql_result::AI_ERROR;
@@ -79,13 +72,10 @@ sql_result special_columns_query::get_column(uint16_t, application_data_buffer&)
     return sql_result::AI_NO_DATA;
 }
 
-sql_result special_columns_query::close()
-{
+sql_result special_columns_query::close() {
     m_executed = false;
 
     return sql_result::AI_SUCCESS;
 }
 
 } // namespace ignite
-
-

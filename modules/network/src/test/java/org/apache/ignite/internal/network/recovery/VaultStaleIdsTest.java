@@ -42,17 +42,17 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
-class VaultStateIdsTest extends BaseIgniteAbstractTest {
+class VaultStaleIdsTest extends BaseIgniteAbstractTest {
     @Mock
     private VaultManager vaultManager;
 
     private final ByteArray staleIdsKey = new ByteArray("network.staleIds");
 
-    private VaultStateIds staleIds;
+    private VaultStaleIds staleIds;
 
     @BeforeEach
     void createObjectToTest() {
-        staleIds = new VaultStateIds(vaultManager);
+        staleIds = new VaultStaleIds(vaultManager);
     }
 
     @Test
@@ -92,7 +92,7 @@ class VaultStateIdsTest extends BaseIgniteAbstractTest {
 
     @Test
     void respectsMaxIdsLimit() {
-        staleIds = new VaultStateIds(vaultManager, 2);
+        staleIds = new VaultStaleIds(vaultManager, 2);
 
         doReturn(nullCompletedFuture()).when(vaultManager).get(staleIdsKey);
 

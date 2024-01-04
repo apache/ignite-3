@@ -167,6 +167,7 @@ import org.apache.ignite.internal.thread.StripedThreadPoolExecutor;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.impl.TxMessageSender;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbTableStorage;
@@ -424,13 +425,15 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         TopologyService topologyService = clusterService.topologyService();
 
+        TxMessageSender txMessageSender = new TxMessageSender(clusterService.messagingService(), replicaSvc, clock);
+
         transactionStateResolver = new TransactionStateResolver(
-                replicaSvc,
                 txManager,
                 clock,
                 topologyService,
                 clusterService.messagingService(),
-                placementDriver
+                placementDriver,
+                txMessageSender
         );
 
         schemaVersions = new SchemaVersionsImpl(schemaSyncService, catalogService, clock);
