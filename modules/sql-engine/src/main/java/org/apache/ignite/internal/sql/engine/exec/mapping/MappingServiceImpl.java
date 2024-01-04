@@ -115,6 +115,7 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
 
         int tabId = ((TablePartitionId) parameters.groupId()).tableId();
 
+        // TODO https://issues.apache.org/jira/browse/IGNITE-21201 Move complex computations to a different thread.
         mappingsCache.values().removeIf(value -> value.tableIds.contains(tabId));
 
         return CompletableFutures.falseCompletedFuture();
