@@ -20,7 +20,7 @@ package org.apache.ignite.lang;
 import java.util.concurrent.CompletableFuture;
 
 /**
- * Provides methods for iterate over operation results and release underlying resources in an asynchronous way.
+ * Provides methods to iterate over operation results and release underlying resources in an asynchronous way.
  *
  * @param <T> The type of elements returned by this iterator.
  */
@@ -61,7 +61,7 @@ public interface AsyncCursor<T> {
     boolean hasMorePages();
 
     /**
-     * Closes this resource and releasing any underlying resources.
+     * Closes this cursor and releases any underlying resources.
      *
      * @return A future which will be completed when the resources will be actually released.
      */
