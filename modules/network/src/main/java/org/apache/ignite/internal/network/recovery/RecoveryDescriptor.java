@@ -78,6 +78,8 @@ public class RecoveryDescriptor {
 
             assert req != null;
 
+            req.acknowledge();
+
             acknowledgedCount++;
         }
     }

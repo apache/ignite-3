@@ -17,11 +17,16 @@
 
 package org.apache.ignite.internal.network.netty;
 
+import static java.util.Collections.emptyList;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureCompletedMatcher.completedFuture;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willTimeoutIn;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.defaultSerializationRegistry;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.aMapWithSize;
+import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.isA;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -33,18 +38,21 @@ import static org.mockito.ArgumentMatchers.anyShort;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import io.netty.channel.ChannelHandlerContext;
+import io.netty.channel.ChannelOutboundHandlerAdapter;
+import io.netty.channel.ChannelPromise;
 import io.netty.handler.codec.DecoderException;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.channels.ClosedChannelException;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
@@ -56,6 +64,7 @@ import org.apache.ignite.internal.network.configuration.NetworkView;
 import org.apache.ignite.internal.network.messages.TestMessage;
 import org.apache.ignite.internal.network.messages.TestMessagesFactory;
 import org.apache.ignite.internal.network.recovery.AllIdsAreFresh;
+import org.apache.ignite.internal.network.recovery.message.AcknowledgementMessage;
 import org.apache.ignite.internal.network.serialization.SerializationService;
 import org.apache.ignite.internal.network.serialization.UserObjectSerializationContext;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
@@ -83,6 +92,8 @@ public class ItConnectionManagerTest extends BaseIgniteAbstractTest {
 
     /** Message factory. */
     private final TestMessagesFactory messageFactory = new TestMessagesFactory();
+
+    private final TestMessage emptyTestMessage = messageFactory.testMessage().build();
 
     /** Reusable network configuration object. */
     @InjectConfiguration
@@ -125,7 +136,7 @@ public class ItConnectionManagerTest extends BaseIgniteAbstractTest {
 
             TestMessage testMessage = messageFactory.testMessage().msg(msgText).build();
 
-            sender.send(new OutNetworkObject(testMessage, Collections.emptyList())).get(3, TimeUnit.SECONDS);
+            sender.send(new OutNetworkObject(testMessage, emptyList())).get(3, TimeUnit.SECONDS);
 
             NetworkMessage receivedMessage = fut.get(3, TimeUnit.SECONDS);
 
@@ -163,7 +174,7 @@ public class ItConnectionManagerTest extends BaseIgniteAbstractTest {
             // If the message is received, that means that the handshake was successfully performed.
             manager2.connectionManager.addListener((message) -> messageReceivedOn2.complete(null));
 
-            senderFrom1to2.send(new OutNetworkObject(testMessage, Collections.emptyList()));
+            senderFrom1to2.send(new OutNetworkObject(testMessage, emptyList()));
 
             messageReceivedOn2.get(3, TimeUnit.SECONDS);
 
@@ -175,7 +186,7 @@ public class ItConnectionManagerTest extends BaseIgniteAbstractTest {
 
             assertEquals(clientLocalAddress, clientRemoteAddress);
 
-            senderFrom2to1.send(new OutNetworkObject(testMessage, Collections.emptyList())).get(3, TimeUnit.SECONDS);
+            senderFrom2to1.send(new OutNetworkObject(testMessage, emptyList())).get(3, TimeUnit.SECONDS);
 
             NetworkMessage receivedMessage = fut.get(3, TimeUnit.SECONDS);
 
@@ -246,8 +257,8 @@ public class ItConnectionManagerTest extends BaseIgniteAbstractTest {
 
         assertThrows(ClosedChannelException.class, () -> {
             try {
-                finalSender.send(new OutNetworkObject(testMessage, Collections.emptyList())).get(3, TimeUnit.SECONDS);
-            } catch (Exception e) {
+                finalSender.send(new OutNetworkObject(testMessage, emptyList())).get(3, TimeUnit.SECONDS);
+            } catch (ExecutionException e) {
                 throw e.getCause();
             }
         });
@@ -260,7 +271,7 @@ public class ItConnectionManagerTest extends BaseIgniteAbstractTest {
 
         sender = manager1.openChannelTo(manager2).get(3, TimeUnit.SECONDS);
 
-        sender.send(new OutNetworkObject(testMessage, Collections.emptyList())).get(3, TimeUnit.SECONDS);
+        sender.send(new OutNetworkObject(testMessage, emptyList())).get(3, TimeUnit.SECONDS);
 
         NetworkMessage receivedMessage = fut.get(3, TimeUnit.SECONDS);
 
@@ -381,6 +392,69 @@ public class ItConnectionManagerTest extends BaseIgniteAbstractTest {
         return it.hasNext() && it.next().isOpen() && !it.hasNext();
     }
 
+    @Test
+    public void sendFutureCompletesWhenMessageGetsAcknowledged() throws Exception {
+        try (
+                ConnectionManagerWrapper manager1 = startManager(4000);
+                ConnectionManagerWrapper manager2 = startManager(4001)
+        ) {
+            NettySender sender = manager1.openChannelTo(manager2).toCompletableFuture().get(10, TimeUnit.SECONDS);
+
+            AcknowledgementSilencer ackSilencer = installAckSilencer(manager2);
+
+            CompletableFuture<Void> sendFuture = sender.send(new OutNetworkObject(emptyTestMessage, emptyList(), true));
+            assertThat(sendFuture, willTimeoutIn(100, TimeUnit.MILLISECONDS));
+
+            ackSilencer.stopSilencing();
+
+            provokeAckFor(sender);
+
+            assertThat(sendFuture, willCompleteSuccessfully());
+        }
+    }
+
+    @Test
+    public void sendFuturesCompleteInSendOrder() throws Exception {
+        try (
+                ConnectionManagerWrapper manager1 = startManager(4000);
+                ConnectionManagerWrapper manager2 = startManager(4001)
+        ) {
+            NettySender sender = manager1.openChannelTo(manager2).toCompletableFuture().get(10, TimeUnit.SECONDS);
+
+            AcknowledgementSilencer ackSilencer = installAckSilencer(manager2);
+
+            List<Integer> ordinals = new CopyOnWriteArrayList<>();
+
+            CompletableFuture<Void> future1 = sender.send(new OutNetworkObject(emptyTestMessage, emptyList(), true))
+                    .whenComplete((res, ex) -> ordinals.add(1));
+            CompletableFuture<Void> future2 = sender.send(new OutNetworkObject(emptyTestMessage, emptyList(), true))
+                    .whenComplete((res, ex) -> ordinals.add(2));
+
+            ackSilencer.stopSilencing();
+
+            provokeAckFor(sender);
+
+            assertThat(CompletableFuture.allOf(future1, future2), willCompleteSuccessfully());
+            assertThat(ordinals, contains(1, 2));
+        }
+    }
+
+    private static AcknowledgementSilencer installAckSilencer(ConnectionManagerWrapper connectionManagerWrapper) {
+        AcknowledgementSilencer ackSilencer = new AcknowledgementSilencer();
+
+        assertThat(connectionManagerWrapper.channels(), is(aMapWithSize(1)));
+
+        for (NettySender sender : connectionManagerWrapper.channels().values()) {
+            sender.channel().pipeline().addAfter(OutboundEncoder.NAME, AcknowledgementSilencer.NAME, ackSilencer);
+        }
+
+        return ackSilencer;
+    }
+
+    private void provokeAckFor(NettySender sender1) {
+        sender1.send(new OutNetworkObject(emptyTestMessage, emptyList(), true));
+    }
+
     /**
      * Creates a mock {@link MessageSerializationRegistry} that throws an exception when trying to get a serializer or a deserializer.
      */
@@ -471,6 +545,31 @@ public class ItConnectionManagerTest extends BaseIgniteAbstractTest {
 
         Map<ConnectorKey<String>, NettySender> channels() {
             return connectionManager.channels();
+        }
+    }
+
+    /**
+     * {@link io.netty.channel.ChannelOutboundHandler} that drops outgoing {@link AcknowledgementMessage}s.
+     */
+    private static class AcknowledgementSilencer extends ChannelOutboundHandlerAdapter {
+        private static final String NAME = "acknowledgement-silencer";
+
+        private volatile boolean silenceAcks = true;
+
+        void stopSilencing() {
+            silenceAcks = false;
+        }
+
+        @Override
+        public void write(ChannelHandlerContext ctx, Object msg, ChannelPromise promise) throws Exception {
+            OutNetworkObject out = (OutNetworkObject) msg;
+
+            if (silenceAcks && out.networkMessage() instanceof AcknowledgementMessage) {
+                promise.setSuccess();
+                return;
+            }
+
+            super.write(ctx, msg, promise);
         }
     }
 }

@@ -61,10 +61,11 @@ public class NettySender {
      * Sends the message.
      *
      * @param obj Network message wrapper.
-     * @return Future of the send operation.
+     * @return Future of the send operation (that gets completed when the message gets acknowledged by the receiver).
      */
     public CompletableFuture<Void> send(OutNetworkObject obj) {
-        return toCompletableFuture(channel.writeAndFlush(obj));
+        return toCompletableFuture(channel.writeAndFlush(obj))
+                .thenCompose(unused -> obj.acknowledgedFuture());
     }
 
     /**

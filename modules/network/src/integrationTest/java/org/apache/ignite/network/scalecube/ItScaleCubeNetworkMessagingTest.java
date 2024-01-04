@@ -454,13 +454,12 @@ class ItScaleCubeNetworkMessagingTest {
                 TestMessageTypes.class,
                 (message, sender, correlationId) -> assertTrue(testMessageFuture1.complete(message))
         );
-
         node1.messagingService().addMessageHandler(
                 TestMessageTypes.class,
                 (message, sender, correlationId) -> assertTrue(testMessageFuture2.complete(message))
         );
 
-        // Register a different handle for the second group.
+        // Register a different handler for the second group.
         node1.messagingService().addMessageHandler(
                 NetworkMessageTypes.class,
                 (message, sender, correlationId) -> {
