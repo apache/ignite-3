@@ -572,10 +572,11 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
                                 ResultSetMetadata metadata = resultSet.metadata();
 
                                 List<Integer> keyMapping = indexMapping(schema.columns(), 0, schema.keyColumnCount(), metadata);
-                                List<Integer> valMapping = indexMapping(schema.columns(), 0, schema.columns().length, metadata);
+                                List<Integer> valMapping = indexMapping(schema.columns(), schema.keyColumnCount(), schema.columns().length,
+                                        metadata);
 
                                 Marshaller keyMarsh = schema.getMarshaller(keySer.mapper(), TuplePart.KEY, true);
-                                Marshaller valMarsh = schema.getMarshaller(valSer.mapper(), TuplePart.KEY_AND_VAL, true);
+                                Marshaller valMarsh = schema.getMarshaller(valSer.mapper(), TuplePart.VAL, true);
 
                                 Function<SqlRow, Entry<K, V>> mapper = (row) -> {
                                     try {

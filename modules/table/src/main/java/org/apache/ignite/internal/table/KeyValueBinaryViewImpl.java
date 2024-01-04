@@ -578,16 +578,13 @@ public class KeyValueBinaryViewImpl extends AbstractTableView<Entry<Tuple, Tuple
             @Nullable Criteria criteria,
             CriteriaQueryOptions opts
     ) {
+        var opts0 = opts == null ? CriteriaQueryOptions.DEFAULT : opts;
+
         return withSchemaSync(tx, (schemaVersion) -> {
             SchemaDescriptor schema = rowConverter.registry().schema(schemaVersion);
+            SqlSerializer ser = createSqlSerializer(tbl.name(), schema.columnNames(), criteria);
 
-            SqlSerializer ser = new SqlSerializer.Builder()
-                    .tableName(tbl.name())
-                    .columns(schema.columnNames())
-                    .where(criteria)
-                    .build();
-
-            Statement statement = sql.statementBuilder().query(ser.toString()).pageSize(opts.pageSize()).build();
+            Statement statement = sql.statementBuilder().query(ser.toString()).pageSize(opts0.pageSize()).build();
             Session session = sql.createSession();
 
             return session.executeAsync(tx, statement, ser.getArguments())

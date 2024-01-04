@@ -388,13 +388,15 @@ public class ClientRecordView<R> extends AbstractClientView<R> implements Record
     public CompletableFuture<AsyncCursor<R>> queryAsync(
             @Nullable Transaction tx,
             @Nullable Criteria criteria,
-            CriteriaQueryOptions opts
+            @Nullable CriteriaQueryOptions opts
     ) {
+        var opts0 = opts == null ? CriteriaQueryOptions.DEFAULT : opts;
+
         return tbl.getLatestSchema()
                 .thenCompose((schema) -> {
                     SqlSerializer ser = createSqlSerializer(tbl.name(), schema.columns(), criteria);
 
-                    Statement statement = new ClientStatementBuilder().query(ser.toString()).pageSize(opts.pageSize()).build();
+                    Statement statement = new ClientStatementBuilder().query(ser.toString()).pageSize(opts0.pageSize()).build();
                     Session session = new ClientSessionBuilder(tbl.channel()).build();
 
                     return session.executeAsync(tx, this.ser.mapper(), statement, ser.getArguments())

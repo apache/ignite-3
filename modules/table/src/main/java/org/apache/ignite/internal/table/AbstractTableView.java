@@ -19,19 +19,21 @@ package org.apache.ignite.internal.table;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.function.Function.identity;
+import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.lang.IgniteExceptionMapperUtil.convertToPublicFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
 
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import java.util.stream.Collectors;
 import org.apache.ignite.internal.lang.IgniteExceptionMapperUtil;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.table.criteria.CursorAdapter;
+import org.apache.ignite.internal.table.criteria.SqlSerializer;
 import org.apache.ignite.internal.table.distributed.replicator.InternalSchemaVersionMismatchException;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
 import org.apache.ignite.internal.tx.InternalTransaction;
@@ -168,7 +170,7 @@ abstract class AbstractTableView<R> implements CriteriaQuerySource<R> {
 
                     return rowIdx;
                 })
-                .collect(Collectors.toList());
+                .collect(toList());
     }
 
     /** {@inheritDoc} */
@@ -179,6 +181,22 @@ abstract class AbstractTableView<R> implements CriteriaQuerySource<R> {
 
     private static boolean isOrCausedBy(Class<? extends Exception> exceptionClass, @Nullable Throwable ex) {
         return ex != null && (exceptionClass.isInstance(ex) || isOrCausedBy(exceptionClass, ex.getCause()));
+    }
+
+    /**
+     * Construct SQL query and arguments for prepare statement.
+     *
+     * @param tableName Table name.
+     * @param columnNames Column names.
+     * @param criteria The predicate to filter entries or {@code null} to return all entries from the underlying table.
+     * @return SQL query and it's arguments.
+     */
+    static SqlSerializer createSqlSerializer(String tableName, Collection<String> columnNames, @Nullable Criteria criteria) {
+        return new SqlSerializer.Builder()
+                .tableName(tableName)
+                .columns(columnNames)
+                .where(criteria)
+                .build();
     }
 
     /**

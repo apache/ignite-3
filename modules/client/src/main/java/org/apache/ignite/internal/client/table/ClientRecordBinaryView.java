@@ -49,7 +49,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Client record view implementation for binary user-object representation.
  */
-public class ClientRecordBinaryView extends AbstractClientView<Tuple>  implements RecordView<Tuple> {
+public class ClientRecordBinaryView extends AbstractClientView<Tuple> implements RecordView<Tuple> {
     /** Tuple serializer. */
     private final ClientTupleSerializer ser;
 
@@ -391,13 +391,15 @@ public class ClientRecordBinaryView extends AbstractClientView<Tuple>  implement
     public CompletableFuture<AsyncCursor<Tuple>> queryAsync(
             @Nullable Transaction tx,
             @Nullable Criteria criteria,
-            CriteriaQueryOptions opts
+            @Nullable CriteriaQueryOptions opts
     ) {
+        var opts0 = opts == null ? CriteriaQueryOptions.DEFAULT : opts;
+
         return tbl.getLatestSchema()
                 .thenCompose((schema) -> {
                     SqlSerializer ser = createSqlSerializer(tbl.name(), schema.columns(), criteria);
 
-                    Statement statement = new ClientStatementBuilder().query(ser.toString()).pageSize(opts.pageSize()).build();
+                    Statement statement = new ClientStatementBuilder().query(ser.toString()).pageSize(opts0.pageSize()).build();
                     Session session = new ClientSessionBuilder(tbl.channel()).build();
 
                     return session.executeAsync(tx, statement, ser.getArguments())

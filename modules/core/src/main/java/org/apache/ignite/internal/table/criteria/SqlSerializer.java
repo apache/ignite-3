@@ -180,7 +180,7 @@ public class SqlSerializer implements CriteriaVisitor<Void> {
         /**
          * Set the given criteria.
          *
-         * @param where The predicate to filter entries or {@code null} to return all entries in record view.
+         * @param where The predicate to filter entries or {@code null} to return all entries from the underlying table.
          */
         public SqlSerializer.Builder where(@Nullable Criteria where) {
             this.where = where;

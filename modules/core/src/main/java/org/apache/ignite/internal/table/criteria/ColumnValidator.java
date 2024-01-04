@@ -42,7 +42,7 @@ class ColumnValidator implements CriteriaVisitor<Collection<String>> {
     /** {@inheritDoc} */
     @Override
     public <T> void visit(Column column, @Nullable Collection<String> context) {
-        var colName = column.getName();
+        String colName = column.getName();
 
         if (!nullOrEmpty(context) && !context.contains(colName)) {
             throw new IllegalArgumentException("Unexpected column name: " + colName);
@@ -52,7 +52,7 @@ class ColumnValidator implements CriteriaVisitor<Collection<String>> {
     /** {@inheritDoc} */
     @Override
     public <T> void visit(Expression expression, @Nullable Collection<String> context) {
-        for (var element : expression.getElements()) {
+        for (Criteria element : expression.getElements()) {
             element.accept(this, context);
         }
     }

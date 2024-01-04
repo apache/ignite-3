@@ -159,15 +159,15 @@ public class ItCriteriaQueryTest extends ClusterPerClassIntegrationTest {
                     aMapWithSize(3),
                     hasEntry(
                             tupleValue("id", is(0)),
-                            allOf(tupleValue("id", is(0)), tupleValue("name", is("name0")), tupleValue("salary", is(0.0d)))
+                            allOf(tupleValue("name", is("name0")), tupleValue("salary", is(0.0d)))
                     ),
                     hasEntry(
                             tupleValue("id", is(1)),
-                            allOf(tupleValue("id", is(1)), tupleValue("name", is("name1")), tupleValue("salary", is(10.0d)))
+                            allOf(tupleValue("name", is("name1")), tupleValue("salary", is(10.0d)))
                     ),
                     hasEntry(
                             tupleValue("id", is(2)),
-                            allOf(tupleValue("id", is(2)), tupleValue("name", is("name2")), tupleValue("salary", is(20.0d)))
+                            allOf(tupleValue("name", is("name2")), tupleValue("salary", is(20.0d)))
                     )
             ));
         }
@@ -177,7 +177,7 @@ public class ItCriteriaQueryTest extends ClusterPerClassIntegrationTest {
                     aMapWithSize(1),
                     hasEntry(
                             tupleValue("id", is(2)),
-                            allOf(tupleValue("id", is(2)), tupleValue("name", is("name2")), tupleValue("salary", is(20.0d)))
+                            allOf(tupleValue("name", is("name2")), tupleValue("salary", is(20.0d)))
                     )
             ));
         }
@@ -187,11 +187,11 @@ public class ItCriteriaQueryTest extends ClusterPerClassIntegrationTest {
                     aMapWithSize(2),
                     hasEntry(
                             tupleValue("id", is(0)),
-                            allOf(tupleValue("id", is(0)), tupleValue("name", is("name0")), tupleValue("salary", is(0.0d)))
+                            allOf(tupleValue("name", is("name0")), tupleValue("salary", is(0.0d)))
                     ),
                     hasEntry(
                             tupleValue("id", is(1)),
-                            allOf(tupleValue("id", is(1)), tupleValue("name", is("name1")), tupleValue("salary", is(10.0d)))
+                            allOf(tupleValue("name", is("name1")), tupleValue("salary", is(10.0d)))
                     )
             ));
         }
@@ -206,15 +206,15 @@ public class ItCriteriaQueryTest extends ClusterPerClassIntegrationTest {
             assertThat(toMap(cur), allOf(
                     aMapWithSize(3),
                     hasEntry(new PersonKey(0), new Person(0, "name0", 0.0d)),
-                    hasEntry(new PersonKey(1), new Person(1, "name1", 10.0d)),
-                    hasEntry(new PersonKey(2), new Person(2, "name2", 20.0d))
+                    hasEntry(new PersonKey(1), new Person(0, "name1", 10.0d)),
+                    hasEntry(new PersonKey(2), new Person(0, "name2", 20.0d))
             ));
         }
 
         try (Cursor<Entry<PersonKey, Person>> cur = view.query(null, columnValue("id", equalTo(2)))) {
             assertThat(toMap(cur), allOf(
                     aMapWithSize(1),
-                    hasEntry(new PersonKey(2), new Person(2, "name2", 20.0d))
+                    hasEntry(new PersonKey(2), new Person(0, "name2", 20.0d))
             ));
         }
 
@@ -222,7 +222,7 @@ public class ItCriteriaQueryTest extends ClusterPerClassIntegrationTest {
             assertThat(toMap(cur), allOf(
                     aMapWithSize(2),
                     hasEntry(new PersonKey(0), new Person(0, "name0", 0.0d)),
-                    hasEntry(new PersonKey(1), new Person(1, "name1", 10.0d))
+                    hasEntry(new PersonKey(1), new Person(0, "name1", 10.0d))
             ));
         }
     }

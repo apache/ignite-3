@@ -75,8 +75,6 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
     /** Record marshaller. */
     private volatile @Nullable RecordMarshaller<R> marsh;
 
-    private final Mapper<R> mapper;
-
     /**
      * Constructor.
      *
@@ -556,18 +554,15 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
     public CompletableFuture<AsyncCursor<R>> queryAsync(
             @Nullable Transaction tx,
             @Nullable Criteria criteria,
-            CriteriaQueryOptions opts
+            @Nullable CriteriaQueryOptions opts
     ) {
+        var opts0 = opts == null ? CriteriaQueryOptions.DEFAULT : opts;
+
         return withSchemaSync(tx, (schemaVersion) -> {
             SchemaDescriptor schema = rowConverter.registry().schema(schemaVersion);
+            SqlSerializer ser = createSqlSerializer(tbl.name(), schema.columnNames(), criteria);
 
-            SqlSerializer ser = new SqlSerializer.Builder()
-                    .tableName(tbl.name())
-                    .columns(schema.columnNames())
-                    .where(criteria)
-                    .build();
-
-            Statement statement = sql.statementBuilder().query(ser.toString()).pageSize(opts.pageSize()).build();
+            Statement statement = sql.statementBuilder().query(ser.toString()).pageSize(opts0.pageSize()).build();
             Session session = sql.createSession();
 
             return session.executeAsync(tx, statement, ser.getArguments())

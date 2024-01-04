@@ -19,7 +19,6 @@ package org.apache.ignite.internal.table;
 
 import static org.apache.ignite.internal.marshaller.Marshaller.createMarshaller;
 import static org.apache.ignite.internal.schema.marshaller.MarshallerUtil.toMarshallerColumns;
-import static org.apache.ignite.internal.util.ArrayUtils.concat;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -713,16 +712,13 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
             @Nullable Criteria criteria,
             CriteriaQueryOptions opts
     ) {
+        var opts0 = opts == null ? CriteriaQueryOptions.DEFAULT : opts;
+
         return withSchemaSync(tx, (schemaVersion) -> {
             SchemaDescriptor schema = rowConverter.registry().schema(schemaVersion);
+            SqlSerializer ser = createSqlSerializer(tbl.name(), schema.columnNames(), criteria);
 
-            SqlSerializer ser = new SqlSerializer.Builder()
-                    .tableName(tbl.name())
-                    .columns(schema.columnNames())
-                    .where(criteria)
-                    .build();
-
-            Statement statement = sql.statementBuilder().query(ser.toString()).pageSize(opts.pageSize()).build();
+            Statement statement = sql.statementBuilder().query(ser.toString()).pageSize(opts0.pageSize()).build();
             Session session = sql.createSession();
 
             return session.executeAsync(tx, statement, ser.getArguments())
@@ -730,7 +726,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
                         ResultSetMetadata metadata = resultSet.metadata();
 
                         Column[] keyCols = schema.keyColumns().columns();
-                        Column[] valCols = concat(keyCols, schema.valueColumns().columns());
+                        Column[] valCols = schema.valueColumns().columns();
 
                         List<Integer> keyIndexMapping = indexMapping(keyCols, metadata);
                         List<Integer> valIndexMapping = indexMapping(valCols, metadata);
