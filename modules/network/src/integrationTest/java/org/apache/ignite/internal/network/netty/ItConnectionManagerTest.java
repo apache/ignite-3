@@ -59,12 +59,15 @@ import org.apache.ignite.internal.configuration.testframework.ConfigurationExten
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.future.OrderingFuture;
 import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.network.NetworkMessagesFactory;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.network.configuration.NetworkView;
 import org.apache.ignite.internal.network.messages.TestMessage;
 import org.apache.ignite.internal.network.messages.TestMessagesFactory;
 import org.apache.ignite.internal.network.recovery.AllIdsAreFresh;
 import org.apache.ignite.internal.network.recovery.message.AcknowledgementMessage;
+import org.apache.ignite.internal.network.recovery.message.HandshakeFinishMessage;
+import org.apache.ignite.internal.network.recovery.message.HandshakeFinishMessageImpl;
 import org.apache.ignite.internal.network.serialization.SerializationService;
 import org.apache.ignite.internal.network.serialization.UserObjectSerializationContext;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
@@ -393,7 +396,7 @@ public class ItConnectionManagerTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void sendFutureCompletesWhenMessageGetsAcknowledged() throws Exception {
+    public void sendFutureOfMessageNeedingAckCompletesWhenMessageGetsAcknowledged() throws Exception {
         try (
                 ConnectionManagerWrapper manager1 = startManager(4000);
                 ConnectionManagerWrapper manager2 = startManager(4001)
@@ -436,6 +439,22 @@ public class ItConnectionManagerTest extends BaseIgniteAbstractTest {
 
             assertThat(CompletableFuture.allOf(future1, future2), willCompleteSuccessfully());
             assertThat(ordinals, contains(1, 2));
+        }
+    }
+
+    @Test
+    public void sendFutureOfMessageNotNeedingAckCompletesWhenMessageGetsWritten() throws Exception {
+        try (
+                ConnectionManagerWrapper manager1 = startManager(4000);
+                ConnectionManagerWrapper manager2 = startManager(4001)
+        ) {
+            NettySender sender = manager1.openChannelTo(manager2).toCompletableFuture().get(10, TimeUnit.SECONDS);
+
+            installAckSilencer(manager2);
+
+            HandshakeFinishMessage messageNotNeedingAck = new NetworkMessagesFactory().handshakeFinishMessage().build();
+            CompletableFuture<Void> sendFuture = sender.send(new OutNetworkObject(messageNotNeedingAck, emptyList(), true));
+            assertThat(sendFuture, willCompleteSuccessfully());
         }
     }
 
