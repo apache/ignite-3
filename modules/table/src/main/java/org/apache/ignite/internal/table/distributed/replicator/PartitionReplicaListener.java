@@ -342,7 +342,11 @@ public class PartitionReplicaListener implements ReplicaListener {
 
     @Override
     public CompletableFuture<Boolean> onPrimaryElected(PrimaryReplicaEventParameters evt, @Nullable Throwable exception) {
-        assert replicationGroupId.equals(evt.groupId());
+        assert replicationGroupId.equals(evt.groupId()) : format(
+                "The replication group listener does not match the event [grp={}, eventGrp={}]",
+                replicationGroupId,
+                evt.groupId()
+        );
 
         if (!localNode.name().equals(evt.leaseholder())) {
             return falseCompletedFuture();
@@ -424,7 +428,11 @@ public class PartitionReplicaListener implements ReplicaListener {
 
     @Override
     public CompletableFuture<Boolean> onPrimaryExpired(PrimaryReplicaEventParameters evt, @Nullable Throwable exception) {
-        assert replicationGroupId.equals(evt.groupId());
+        assert replicationGroupId.equals(evt.groupId()) : format(
+                "The replication group listener does not match the event [grp={}, eventGrp={}]",
+                replicationGroupId,
+                evt.groupId()
+        );
 
         if (!localNode.name().equals(evt.leaseholder())) {
             return falseCompletedFuture();
