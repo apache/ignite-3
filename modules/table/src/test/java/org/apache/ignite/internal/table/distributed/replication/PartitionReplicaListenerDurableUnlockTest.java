@@ -195,7 +195,13 @@ public class PartitionReplicaListenerDurableUnlockTest extends IgniteAbstractTes
             return nullCompletedFuture();
         };
 
-        PrimaryReplicaEventParameters parameters = new PrimaryReplicaEventParameters(0, part0, LOCAL_NODE.id(), clock.now());
+        PrimaryReplicaEventParameters parameters = new PrimaryReplicaEventParameters(
+                0,
+                part0,
+                LOCAL_NODE.id(),
+                LOCAL_NODE.name(),
+                clock.now()
+        );
 
         assertThat(partitionReplicaListener.onPrimaryElected(parameters, null), willSucceedIn(1, SECONDS));
 
@@ -225,7 +231,13 @@ public class PartitionReplicaListenerDurableUnlockTest extends IgniteAbstractTes
             return nullCompletedFuture();
         };
 
-        PrimaryReplicaEventParameters parameters = new PrimaryReplicaEventParameters(0, part0, LOCAL_NODE.id(), clock.now());
+        PrimaryReplicaEventParameters parameters = new PrimaryReplicaEventParameters(
+                0,
+                part0,
+                LOCAL_NODE.id(),
+                LOCAL_NODE.name(),
+                clock.now()
+        );
 
         assertThat(partitionReplicaListener.onPrimaryElected(parameters, null), willSucceedIn(1, SECONDS));
 

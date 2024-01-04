@@ -224,8 +224,7 @@ public class TestClientHandlerModule implements IgniteComponent {
                                                 placementDriver,
                                                 catalogService,
                                                 clock,
-                                                new AlwaysSyncedSchemaSyncService(),
-                                                clusterService.topologyService()
+                                                new AlwaysSyncedSchemaSyncService()
                                         )
                                 )
                         );

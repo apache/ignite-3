@@ -73,7 +73,12 @@ public class FakePlacementDriver extends AbstractEventProducer<PrimaryReplicaEve
         TablePartitionId groupId = new TablePartitionId(tableId, partition);
 
         PrimaryReplicaEventParameters params = new PrimaryReplicaEventParameters(
-                0, groupId, replica, HybridTimestamp.hybridTimestamp(leaseStartTime));
+                0,
+                groupId,
+                replica,
+                replica,
+                HybridTimestamp.hybridTimestamp(leaseStartTime)
+        );
 
         fireEvent(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, params);
     }
