@@ -737,7 +737,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     /**
      * Event handler for {@link PrimaryReplicaEvent#PRIMARY_REPLICA_ELECTED}. Propagates execution to the
      *      {@link ReplicaListener#onPrimaryElected(PrimaryReplicaEventParameters, Throwable)} of the replica, that corresponds
-     *      to given {@link PrimaryReplicaEventParameters#groupId()}.
+     *      to a given {@link PrimaryReplicaEventParameters#groupId()}.
      */
     private CompletableFuture<Boolean> onPrimaryReplicaElected(
             PrimaryReplicaEventParameters primaryReplicaEventParameters,
@@ -749,13 +749,17 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             return falseCompletedFuture();
         }
 
-        return replica.thenCompose(r -> r.replicaListener().onPrimaryElected(primaryReplicaEventParameters, throwable));
+        if (replica.isDone() && !replica.isCompletedExceptionally()) {
+            return replica.join().replicaListener().onPrimaryElected(primaryReplicaEventParameters, throwable);
+        } else {
+            return replica.thenCompose(r -> r.replicaListener().onPrimaryElected(primaryReplicaEventParameters, throwable));
+        }
     }
 
     /**
      * Event handler for {@link PrimaryReplicaEvent#PRIMARY_REPLICA_EXPIRED}. Propagates execution to the
      *      {@link ReplicaListener#onPrimaryExpired(PrimaryReplicaEventParameters, Throwable)} of the replica, that corresponds
-     *      to given {@link PrimaryReplicaEventParameters#groupId()}.
+     *      to a given {@link PrimaryReplicaEventParameters#groupId()}.
      */
     private CompletableFuture<Boolean> onPrimaryReplicaExpired(
             PrimaryReplicaEventParameters primaryReplicaEventParameters,
@@ -763,12 +767,15 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     ) {
         CompletableFuture<Replica> replica = replicas.get(primaryReplicaEventParameters.groupId());
 
-
         if (replica == null) {
             return falseCompletedFuture();
         }
 
-        return replica.thenCompose(r -> r.replicaListener().onPrimaryExpired(primaryReplicaEventParameters, throwable));
+        if (replica.isDone() && !replica.isCompletedExceptionally()) {
+            return replica.join().replicaListener().onPrimaryExpired(primaryReplicaEventParameters, throwable);
+        } else {
+            return replica.thenCompose(r -> r.replicaListener().onPrimaryExpired(primaryReplicaEventParameters, throwable));
+        }
     }
 
     /**
