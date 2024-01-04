@@ -61,11 +61,14 @@ import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
+import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
+import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
 import org.apache.ignite.internal.replicator.exception.ReplicationTimeoutException;
+import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.replicator.message.ErrorReplicaResponse;
 import org.apache.ignite.internal.replicator.message.ReplicaMessageGroup;
 import org.apache.ignite.internal.replicator.message.ReplicaResponse;
@@ -221,6 +224,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         txCleanupRequestHandler = new TxCleanupRequestHandler(clusterService, lockManager, clock, writeIntentSwitchProcessor);
 
         txCleanupRequestSender = new TxCleanupRequestSender(txMessageSender, placementDriverHelper, writeIntentSwitchProcessor);
+
+        placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, this::onPrimaryReplicaExpired);
     }
 
     @Override
@@ -698,11 +703,32 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
     @Override
     public void removeInflight(UUID txId) {
-        TxContext tuple = txCtxMap.compute(txId, (uuid, ctx) -> {
-            assert ctx != null && ctx.inflights > 0 : ctx;
+        boolean[] wasRemoved = new boolean[1];
 
-            //noinspection NonAtomicOperationOnVolatileField
-            ctx.inflights--;
+        TxContext tuple = txCtxMap.compute(txId, (uuid, ctx) -> {
+            assert ctx != null : "Transaction context is missing [txId=" + txId + "].";
+
+            if (ctx.inflights > 0) {
+                //noinspection NonAtomicOperationOnVolatileField
+                ctx.inflights--;
+
+                wasRemoved[0] = true;
+            }
+
+            return ctx;
+        });
+
+        if (wasRemoved[0]) {
+            // Avoid completion under lock.
+            tuple.onRemovedInflights();
+        }
+    }
+
+    private void removeAllInflights(UUID txId) {
+        TxContext tuple = txCtxMap.compute(txId, (uuid, ctx) -> {
+            assert ctx != null : "Transaction context is missing [txId=" + txId + "].";
+
+            ctx.inflights = 0;
 
             return ctx;
         });
@@ -771,6 +797,25 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         }
 
         return allOf(verificationFutures);
+    }
+
+    /**
+     * Event handler for {@link PrimaryReplicaEvent#PRIMARY_REPLICA_EXPIRED}.
+     *
+     * @param primaryReplicaEventParameters Event parameters.
+     * @param throwable Throwable.
+     */
+    private CompletableFuture<Boolean> onPrimaryReplicaExpired(
+            PrimaryReplicaEventParameters primaryReplicaEventParameters,
+            Throwable throwable
+    ) {
+        Collection<UUID> txsWithPartitionEnlisted = null;
+
+        for (var txId : txsWithPartitionEnlisted) {
+            removeAllInflights(txId);
+        }
+
+        return nullCompletedFuture();
     }
 
     private static class TxContext {
