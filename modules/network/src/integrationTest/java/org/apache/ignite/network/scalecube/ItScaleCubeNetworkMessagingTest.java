@@ -22,6 +22,7 @@ import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toUnmodifiableList;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willTimeoutIn;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.findLocalAddresses;
@@ -62,6 +63,8 @@ import org.apache.ignite.internal.network.messages.TestMessageTypes;
 import org.apache.ignite.internal.network.messages.TestMessagesFactory;
 import org.apache.ignite.internal.network.netty.ConnectionManager;
 import org.apache.ignite.internal.network.netty.NettySender;
+import org.apache.ignite.internal.network.netty.OutboundEncoder;
+import org.apache.ignite.internal.network.netty.OutgoingAcknowledgementSilencer;
 import org.apache.ignite.internal.network.recovery.RecoveryClientHandshakeManager;
 import org.apache.ignite.internal.network.recovery.RecoveryServerHandshakeManager;
 import org.apache.ignite.internal.network.recovery.message.HandshakeFinishMessage;
@@ -82,6 +85,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import reactor.core.publisher.Mono;
 
@@ -669,6 +673,67 @@ class ItScaleCubeNetworkMessagingTest {
         }
     }
 
+    @ParameterizedTest
+    @EnumSource(SendOperation.class)
+    public void messageSendFuturesGetCompleteWhenAcknowledgementHappens(SendOperation operation) throws Exception {
+        testCluster = new Cluster(2, testInfo);
+
+        testCluster.startAwait();
+
+        ClusterService sender = testCluster.members.get(0);
+        ClusterService receiver = testCluster.members.get(1);
+
+        receiver.messagingService().addMessageHandler(
+                TestMessageTypes.class,
+                (message, senderConsistentId, correlationId) -> {
+                    receiver.messagingService().respond(senderConsistentId, message, correlationId);
+                }
+        );
+
+        // Open a channel to allow a silencer to be installed on it.
+        openDefaultChannelBetween(sender, receiver);
+        OutgoingAcknowledgementSilencer ackSilencer = installAckSilencer(receiver);
+
+        CompletableFuture<Void> sendFuture = operation.send(
+                sender.messagingService(),
+                messageFactory.testMessage().build(),
+                receiver.topologyService().localMember()
+        );
+        assertThat(sendFuture, willTimeoutIn(100, TimeUnit.MILLISECONDS));
+
+        ackSilencer.stopSilencing();
+
+        provokeAckFor(sender, receiver);
+
+        assertThat(sendFuture, willCompleteSuccessfully());
+    }
+
+    private void openDefaultChannelBetween(ClusterService sender, ClusterService receiver) {
+        CompletableFuture<Void> future = sendMessage(sender, receiver);
+
+        assertThat(future, willCompleteSuccessfully());
+    }
+
+    private CompletableFuture<Void> sendMessage(ClusterService sender, ClusterService receiver) {
+        return sender.messagingService().send(receiver.topologyService().localMember(), messageFactory.testMessage().build());
+    }
+
+    private static OutgoingAcknowledgementSilencer installAckSilencer(ClusterService clusterService) {
+        OutgoingAcknowledgementSilencer ackSilencer = new OutgoingAcknowledgementSilencer();
+
+        DefaultMessagingService messagingService = (DefaultMessagingService) clusterService.messagingService();
+
+        for (NettySender sender : messagingService.connectionManager().channels().values()) {
+            sender.channel().pipeline().addAfter(OutboundEncoder.NAME, OutgoingAcknowledgementSilencer.NAME, ackSilencer);
+        }
+
+        return ackSilencer;
+    }
+
+    private void provokeAckFor(ClusterService sideToGetAck, ClusterService sideToSendAck) {
+        sendMessage(sideToGetAck, sideToSendAck);
+    }
+
     private void knockOutNode(String outcastName, boolean closeConnectionsForcibly) throws InterruptedException {
         CountDownLatch disappeared = new CountDownLatch(testCluster.members.size() - 1);
 
@@ -884,5 +949,22 @@ class ItScaleCubeNetworkMessagingTest {
         void shutdown() {
             members.forEach(ClusterService::stop);
         }
+    }
+
+    private enum SendOperation {
+        SEND {
+            @Override
+            CompletableFuture<Void> send(MessagingService messagingService, NetworkMessage message, ClusterNode recipient) {
+                return messagingService.send(recipient, message);
+            }
+        },
+        INVOKE {
+            @Override
+            CompletableFuture<Void> send(MessagingService messagingService, NetworkMessage message, ClusterNode recipient) {
+                return messagingService.invoke(recipient, message, Long.MAX_VALUE).thenApply(unused -> null);
+            }
+        };
+
+        abstract CompletableFuture<Void> send(MessagingService messagingService, NetworkMessage message, ClusterNode recipient);
     }
 }

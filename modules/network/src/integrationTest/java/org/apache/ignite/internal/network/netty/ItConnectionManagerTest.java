@@ -25,7 +25,6 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.defaultSerializationRegistry;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.aMapWithSize;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.isA;
@@ -38,9 +37,6 @@ import static org.mockito.ArgumentMatchers.anyShort;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import io.netty.channel.ChannelHandlerContext;
-import io.netty.channel.ChannelOutboundHandlerAdapter;
-import io.netty.channel.ChannelPromise;
 import io.netty.handler.codec.DecoderException;
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -65,9 +61,7 @@ import org.apache.ignite.internal.network.configuration.NetworkView;
 import org.apache.ignite.internal.network.messages.TestMessage;
 import org.apache.ignite.internal.network.messages.TestMessagesFactory;
 import org.apache.ignite.internal.network.recovery.AllIdsAreFresh;
-import org.apache.ignite.internal.network.recovery.message.AcknowledgementMessage;
 import org.apache.ignite.internal.network.recovery.message.HandshakeFinishMessage;
-import org.apache.ignite.internal.network.recovery.message.HandshakeFinishMessageImpl;
 import org.apache.ignite.internal.network.serialization.SerializationService;
 import org.apache.ignite.internal.network.serialization.UserObjectSerializationContext;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
@@ -403,7 +397,7 @@ public class ItConnectionManagerTest extends BaseIgniteAbstractTest {
         ) {
             NettySender sender = manager1.openChannelTo(manager2).toCompletableFuture().get(10, TimeUnit.SECONDS);
 
-            AcknowledgementSilencer ackSilencer = installAckSilencer(manager2);
+            OutgoingAcknowledgementSilencer ackSilencer = installAckSilencer(manager2);
 
             CompletableFuture<Void> sendFuture = sender.send(new OutNetworkObject(emptyTestMessage, emptyList(), true));
             assertThat(sendFuture, willTimeoutIn(100, TimeUnit.MILLISECONDS));
@@ -424,7 +418,7 @@ public class ItConnectionManagerTest extends BaseIgniteAbstractTest {
         ) {
             NettySender sender = manager1.openChannelTo(manager2).toCompletableFuture().get(10, TimeUnit.SECONDS);
 
-            AcknowledgementSilencer ackSilencer = installAckSilencer(manager2);
+            OutgoingAcknowledgementSilencer ackSilencer = installAckSilencer(manager2);
 
             List<Integer> ordinals = new CopyOnWriteArrayList<>();
 
@@ -458,13 +452,11 @@ public class ItConnectionManagerTest extends BaseIgniteAbstractTest {
         }
     }
 
-    private static AcknowledgementSilencer installAckSilencer(ConnectionManagerWrapper connectionManagerWrapper) {
-        AcknowledgementSilencer ackSilencer = new AcknowledgementSilencer();
-
-        assertThat(connectionManagerWrapper.channels(), is(aMapWithSize(1)));
+    private static OutgoingAcknowledgementSilencer installAckSilencer(ConnectionManagerWrapper connectionManagerWrapper) {
+        OutgoingAcknowledgementSilencer ackSilencer = new OutgoingAcknowledgementSilencer();
 
         for (NettySender sender : connectionManagerWrapper.channels().values()) {
-            sender.channel().pipeline().addAfter(OutboundEncoder.NAME, AcknowledgementSilencer.NAME, ackSilencer);
+            sender.channel().pipeline().addAfter(OutboundEncoder.NAME, OutgoingAcknowledgementSilencer.NAME, ackSilencer);
         }
 
         return ackSilencer;
@@ -564,31 +556,6 @@ public class ItConnectionManagerTest extends BaseIgniteAbstractTest {
 
         Map<ConnectorKey<String>, NettySender> channels() {
             return connectionManager.channels();
-        }
-    }
-
-    /**
-     * {@link io.netty.channel.ChannelOutboundHandler} that drops outgoing {@link AcknowledgementMessage}s.
-     */
-    private static class AcknowledgementSilencer extends ChannelOutboundHandlerAdapter {
-        private static final String NAME = "acknowledgement-silencer";
-
-        private volatile boolean silenceAcks = true;
-
-        void stopSilencing() {
-            silenceAcks = false;
-        }
-
-        @Override
-        public void write(ChannelHandlerContext ctx, Object msg, ChannelPromise promise) throws Exception {
-            OutNetworkObject out = (OutNetworkObject) msg;
-
-            if (silenceAcks && out.networkMessage() instanceof AcknowledgementMessage) {
-                promise.setSuccess();
-                return;
-            }
-
-            super.write(ctx, msg, promise);
         }
     }
 }
