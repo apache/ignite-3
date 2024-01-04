@@ -97,4 +97,10 @@ void sql_impl::execute_async(transaction *tx, const sql_statement &statement, st
         protocol::client_operation::SQL_EXEC, tx0.get(), writer_func, std::move(reader_func), std::move(callback));
 }
 
+void sql_impl::execute_script_async(std::string &&query, std::vector<primitive> &&args,
+    ignite_callback<void> &&callback) {
+
+    throw ignite_error("Feature is not implemented");
+}
+
 } // namespace ignite::detail
