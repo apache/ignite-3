@@ -52,6 +52,7 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteSender;
 import org.apache.ignite.internal.sql.engine.schema.IgniteDataSource;
 import org.apache.ignite.internal.sql.engine.util.cache.Cache;
 import org.apache.ignite.internal.sql.engine.util.cache.CacheFactory;
+import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 
 /**
@@ -114,11 +115,9 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
 
         int tabId = ((TablePartitionId) parameters.groupId()).tableId();
 
-        return CompletableFuture.supplyAsync(() -> {
-            mappingsCache.values().removeIf(value -> value.tableIds.contains(tabId));
+        mappingsCache.values().removeIf(value -> value.tableIds.contains(tabId));
 
-            return false;
-        }, taskExecutor);
+        return CompletableFutures.falseCompletedFuture();
     }
 
     private CompletableFuture<List<MappedFragment>> map0(MultiStepPlan multiStepPlan) {
