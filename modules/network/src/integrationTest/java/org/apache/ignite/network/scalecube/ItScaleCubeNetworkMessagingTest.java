@@ -686,7 +686,9 @@ class ItScaleCubeNetworkMessagingTest {
         receiver.messagingService().addMessageHandler(
                 TestMessageTypes.class,
                 (message, senderConsistentId, correlationId) -> {
-                    receiver.messagingService().respond(senderConsistentId, message, correlationId);
+                    if (correlationId != null) {
+                        receiver.messagingService().respond(senderConsistentId, message, correlationId);
+                    }
                 }
         );
 
