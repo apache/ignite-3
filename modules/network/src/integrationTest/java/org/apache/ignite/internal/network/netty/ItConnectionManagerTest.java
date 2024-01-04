@@ -28,6 +28,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.isA;
+import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -157,37 +158,31 @@ public class ItConnectionManagerTest extends BaseIgniteAbstractTest {
 
         try (ConnectionManagerWrapper manager1 = startManager(port1);
                 ConnectionManagerWrapper manager2 = startManager(port2)) {
-            var fut = new CompletableFuture<NetworkMessage>();
-
-            manager1.connectionManager.addListener((obj) -> fut.complete(obj.message()));
+            var receivedAt1 = new CompletableFuture<NetworkMessage>();
+            manager1.connectionManager.addListener((obj) -> receivedAt1.complete(obj.message()));
 
             NettySender senderFrom1to2 = manager1.openChannelTo(manager2).get(3, TimeUnit.SECONDS);
+            assertThat(senderFrom1to2, is(notNullValue()));
 
             // Ensure a handshake has finished on both sides by sending a message.
-            // TODO: IGNITE-16947 When the recovery protocol is implemented replace this with simple
-            // CompletableFuture#get called on the send future.
-            var messageReceivedOn2 = new CompletableFuture<Void>();
-
-            // If the message is received, that means that the handshake was successfully performed.
-            manager2.connectionManager.addListener((message) -> messageReceivedOn2.complete(null));
-
-            senderFrom1to2.send(new OutNetworkObject(testMessage, emptyList()));
-
-            messageReceivedOn2.get(3, TimeUnit.SECONDS);
+            assertThat(senderFrom1to2.send(new OutNetworkObject(testMessage, emptyList())), willCompleteSuccessfully());
 
             NettySender senderFrom2to1 = manager2.openChannelTo(manager1).get(3, TimeUnit.SECONDS);
+            assertThat(senderFrom2to1, is(notNullValue()));
 
             InetSocketAddress clientLocalAddress = (InetSocketAddress) senderFrom1to2.channel().localAddress();
-
             InetSocketAddress clientRemoteAddress = (InetSocketAddress) senderFrom2to1.channel().remoteAddress();
 
             assertEquals(clientLocalAddress, clientRemoteAddress);
 
-            senderFrom2to1.send(new OutNetworkObject(testMessage, emptyList())).get(3, TimeUnit.SECONDS);
+            assertThat(
+                    senderFrom2to1.send(new OutNetworkObject(messageFactory.testMessage().msg("2->1").build(), emptyList())),
+                    willCompleteSuccessfully()
+            );
 
-            NetworkMessage receivedMessage = fut.get(3, TimeUnit.SECONDS);
+            NetworkMessage receivedMessage = receivedAt1.get(3, TimeUnit.SECONDS);
 
-            assertEquals(msgText, ((TestMessage) receivedMessage).msg());
+            assertThat(((TestMessage) receivedMessage).msg(), is("2->1"));
         }
     }
 
