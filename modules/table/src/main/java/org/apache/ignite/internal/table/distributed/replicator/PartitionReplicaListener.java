@@ -353,7 +353,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 evt.groupId()
         );
 
-        if (!localNode.name().equals(evt.leaseholder())) {
+        if (!localNode.id().equals(evt.leaseholderId())) {
             return falseCompletedFuture();
         }
 
@@ -439,7 +439,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 evt.groupId()
         );
 
-        if (!localNode.name().equals(evt.leaseholder())) {
+        if (!localNode.id().equals(evt.leaseholderId())) {
             return falseCompletedFuture();
         }
 

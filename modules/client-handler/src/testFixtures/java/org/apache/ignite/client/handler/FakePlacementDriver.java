@@ -108,7 +108,7 @@ public class FakePlacementDriver extends AbstractEventProducer<PrimaryReplicaEve
 
             @Override
             public String getLeaseholderId() {
-                return null;
+                return leaseholder;
             }
 
             @Override

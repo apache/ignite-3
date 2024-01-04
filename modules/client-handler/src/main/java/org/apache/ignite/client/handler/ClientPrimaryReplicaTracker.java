@@ -47,6 +47,7 @@ import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.lang.TableNotFoundException;
+import org.apache.ignite.network.TopologyService;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -86,6 +87,8 @@ public class ClientPrimaryReplicaTracker implements EventListener<EventParameter
 
     private final AtomicBoolean stopGuard = new AtomicBoolean();
 
+    private final TopologyService topologyService;
+
     /**
      * Constructor.
      *
@@ -93,16 +96,21 @@ public class ClientPrimaryReplicaTracker implements EventListener<EventParameter
      * @param catalogService Catalog.
      * @param clock Hybrid clock.
      * @param schemaSyncService Schema synchronization service.
+     * @param topologyService Topology service.
      */
     public ClientPrimaryReplicaTracker(
             PlacementDriver placementDriver,
             CatalogService catalogService,
             HybridClock clock,
-            SchemaSyncService schemaSyncService) {
+            SchemaSyncService schemaSyncService,
+            TopologyService topologyService
+
+    ) {
         this.placementDriver = placementDriver;
         this.catalogService = catalogService;
         this.clock = clock;
         this.schemaSyncService = schemaSyncService;
+        this.topologyService = topologyService;
     }
 
     /**
@@ -302,7 +310,11 @@ public class ClientPrimaryReplicaTracker implements EventListener<EventParameter
         }
 
         TablePartitionId tablePartitionId = (TablePartitionId) primaryReplicaEvent.groupId();
-        updatePrimaryReplica(tablePartitionId, primaryReplicaEvent.startTime(), primaryReplicaEvent.leaseholder());
+
+        // TODO: IGNITE-21202 Use the leaseholder ID for thin clients as well.
+        String leaseholderName = topologyService.getById(primaryReplicaEvent.leaseholderId()).name();
+
+        updatePrimaryReplica(tablePartitionId, primaryReplicaEvent.startTime(), leaseholderName);
 
         return falseCompletedFuture(); // false: don't remove listener.
     }

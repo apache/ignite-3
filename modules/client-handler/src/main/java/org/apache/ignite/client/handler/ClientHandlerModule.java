@@ -193,7 +193,13 @@ public class ClientHandlerModule implements IgniteComponent {
         this.clock = clock;
         this.schemaSyncService = schemaSyncService;
         this.catalogService = catalogService;
-        this.primaryReplicaTracker = new ClientPrimaryReplicaTracker(placementDriver, catalogService, clock, schemaSyncService);
+        this.primaryReplicaTracker = new ClientPrimaryReplicaTracker(
+                placementDriver,
+                catalogService,
+                clock,
+                schemaSyncService,
+                clusterService.topologyService()
+        );
     }
 
     /** {@inheritDoc} */

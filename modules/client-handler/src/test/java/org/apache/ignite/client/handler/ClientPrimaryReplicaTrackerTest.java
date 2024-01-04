@@ -20,6 +20,7 @@ package org.apache.ignite.client.handler;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -33,6 +34,9 @@ import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.schema.AlwaysSyncedSchemaSyncService;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.network.ClusterNodeImpl;
+import org.apache.ignite.network.NetworkAddress;
+import org.apache.ignite.network.TopologyService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -62,13 +66,22 @@ class ClientPrimaryReplicaTrackerTest extends BaseIgniteAbstractTest {
         IgniteTablesInternal tables = mock(IgniteTablesInternal.class);
         when(tables.tableAsync(TABLE_ID)).thenReturn(CompletableFuture.completedFuture(table));
 
+        TopologyService topologyService = mock(TopologyService.class);
+        when(topologyService.getById(any())).thenAnswer(invocation -> new ClusterNodeImpl(
+                invocation.getArgument(0),
+                invocation.getArgument(0),
+                NetworkAddress.from("127.0.0.1:10000")
+        ));
+
         currentTime.set(0);
 
         tracker = new ClientPrimaryReplicaTracker(
                 driver,
                 new FakeCatalogService(PARTITIONS),
                 new TestHybridClock(currentTime::get),
-                new AlwaysSyncedSchemaSyncService());
+                new AlwaysSyncedSchemaSyncService(),
+                topologyService
+        );
     }
 
     @Test
