@@ -139,12 +139,12 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
                     }
                 }
 
-                long topVer = topAware ? topologyHolder.ver : Long.MAX_VALUE;
+                long topVer = topAware ? topologyHolder.version() : Long.MAX_VALUE;
 
                 return new MappingsCacheValue(topVer, tableIds, mapFragments(context, template));
             }
 
-            long topVer = topologyHolder.ver;
+            long topVer = topologyHolder.version();
 
             if (val.topVer < topVer) {
                 return new MappingsCacheValue(topVer, val.tableIds, mapFragments(context, template));
@@ -354,6 +354,10 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
             }
 
             initialTopologyFuture.complete(null);
+        }
+
+        long version() {
+            return ver;
         }
 
         List<String> nodes() {
