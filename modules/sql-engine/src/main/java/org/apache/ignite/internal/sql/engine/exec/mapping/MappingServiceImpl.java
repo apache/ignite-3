@@ -144,8 +144,10 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
                 return new MappingsCacheValue(topVer, tableIds, mapFragments(context, template));
             }
 
-            if (val.topVer < topologyHolder.ver) {
-                return new MappingsCacheValue(topologyHolder.ver, val.tableIds, mapFragments(context, template));
+            long topVer = topologyHolder.ver;
+
+            if (val.topVer < topVer) {
+                return new MappingsCacheValue(topVer, val.tableIds, mapFragments(context, template));
             }
 
             return val;
@@ -337,7 +339,7 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
      */
     class LogicalTopologyHolder {
         private volatile List<String> nodes = List.of();
-        private long ver = Long.MIN_VALUE;
+        private volatile long ver = Long.MIN_VALUE;
 
         void update(LogicalTopologySnapshot topologySnapshot) {
             synchronized (this) {
