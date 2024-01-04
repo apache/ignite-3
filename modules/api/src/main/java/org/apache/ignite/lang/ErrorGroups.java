@@ -436,7 +436,7 @@ public class ErrorGroups {
         public static final int PORT_IN_USE_ERR = NETWORK_ERR_GROUP.registerErrorCode((short) 2);
 
         /** Recipient node has left the physical topology. */
-        public static final int RECIPIENT_LEFT_ERR = NETWORK_ERR_GROUP.registerErrorCode((short) 3);
+        public static final int RECIPIENT_LEFT_ERR = NETWORK_ERR_GROUP.registerErrorCode((short) 5);
     }
 
     /** Node configuration error group. */
