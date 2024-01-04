@@ -48,7 +48,6 @@ import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
-import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
@@ -198,7 +197,7 @@ public class PartitionReplicaListenerDurableUnlockTest extends IgniteAbstractTes
 
         PrimaryReplicaEventParameters parameters = new PrimaryReplicaEventParameters(0, part0, LOCAL_NODE.name(), clock.now());
 
-        assertThat(placementDriver.fireEvent(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, parameters), willSucceedIn(1, SECONDS));
+        assertThat(partitionReplicaListener.onPrimaryElected(parameters, null), willSucceedIn(1, SECONDS));
 
         for (IgniteBiTuple<UUID, TxMeta> tx : txStateStorage.scan()) {
             if (isFinalState(tx.getValue().txState())) {
@@ -228,7 +227,7 @@ public class PartitionReplicaListenerDurableUnlockTest extends IgniteAbstractTes
 
         PrimaryReplicaEventParameters parameters = new PrimaryReplicaEventParameters(0, part0, LOCAL_NODE.name(), clock.now());
 
-        assertThat(placementDriver.fireEvent(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, parameters), willSucceedIn(1, SECONDS));
+        assertThat(partitionReplicaListener.onPrimaryElected(parameters, null), willSucceedIn(1, SECONDS));
 
         assertTrue(txStateStorage.get(tx0).locksReleased());
 
