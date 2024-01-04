@@ -17,14 +17,16 @@
 
 package org.apache.ignite.internal.security.authentication.event;
 
+import org.apache.ignite.internal.event.Event;
+
 /**
- * Represents the authentication event.
+ * Represents the authentication event type.
  */
-public interface AuthenticationEvent {
-    /**
-     * Returns the event type.
-     *
-     * @return the event type.
-     */
-    EventType type();
+public enum AuthenticationEvent implements Event {
+    AUTHENTICATION_ENABLED,
+    AUTHENTICATION_DISABLED,
+    AUTHENTICATION_PROVIDER_REMOVED,
+    AUTHENTICATION_PROVIDER_UPDATED,
+    USER_UPDATED,
+    USER_REMOVED
 }

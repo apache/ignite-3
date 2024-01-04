@@ -115,6 +115,9 @@ enum class client_operation {
 
     /** Close cursor. */
     SQL_CURSOR_CLOSE = 52,
+
+    /** SQL parameter metadata. */
+    SQL_PARAM_META = 57,
 };
 
 } // namespace ignite::protocol

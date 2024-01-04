@@ -47,6 +47,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import io.netty.util.ResourceLeakDetector;
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
@@ -63,6 +64,7 @@ import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
+import org.apache.ignite.internal.catalog.commands.DefaultValue;
 import org.apache.ignite.internal.client.proto.ColumnTypeConverter;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -105,6 +107,8 @@ public class PlatformTestNodeRunner {
     private static final String TABLE_NAME_ALL_COLUMNS = "TBL_ALL_COLUMNS";
 
     private static final String TABLE_NAME_ALL_COLUMNS_SQL = "TBL_ALL_COLUMNS_SQL"; // All column types supported by SQL.
+
+    private static final String TABLE_NAME_ALL_COLUMNS_NOT_NULL = "TBL_ALL_COLUMNS_NOT_NULL";
 
     private static final String ZONE_NAME = "zone1";
 
@@ -324,6 +328,35 @@ public class PlatformTestNodeRunner {
                         ColumnParams.builder().name("BLOB").type(BYTE_ARRAY).length(1000).nullable(true).build(),
                         ColumnParams.builder().name("DECIMAL").type(DECIMAL).precision(19).scale(3).nullable(true).build(),
                         ColumnParams.builder().name("BOOLEAN").type(BOOLEAN).nullable(true).build()
+                ),
+                List.of(keyCol)
+        );
+
+        createTable(
+                ignite.catalogManager(),
+                DEFAULT_SCHEMA_NAME,
+                ZONE_NAME,
+                TABLE_NAME_ALL_COLUMNS_NOT_NULL,
+                List.of(
+                        ColumnParams.builder().name(keyCol).type(INT64).build(),
+                        ColumnParams.builder().name("STR").type(STRING).nullable(false)
+                                .defaultValue(DefaultValue.constant("")).length(1000).build(),
+                        ColumnParams.builder().name("INT8").type(INT8).nullable(false)
+                                .defaultValue(DefaultValue.constant((byte) 0)).build(),
+                        ColumnParams.builder().name("INT16").type(INT16).nullable(false)
+                                .defaultValue(DefaultValue.constant((short) 0)).build(),
+                        ColumnParams.builder().name("INT32").type(INT32).nullable(false)
+                                .defaultValue(DefaultValue.constant(0)).build(),
+                        ColumnParams.builder().name("INT64").type(INT64).nullable(false)
+                                .defaultValue(DefaultValue.constant((long) 0)).build(),
+                        ColumnParams.builder().name("FLOAT").type(FLOAT).nullable(false)
+                                .defaultValue(DefaultValue.constant((float) 0)).build(),
+                        ColumnParams.builder().name("DOUBLE").type(DOUBLE).nullable(false)
+                                .defaultValue(DefaultValue.constant((double) 0)).build(),
+                        ColumnParams.builder().name("UUID").type(UUID).nullable(false)
+                                .defaultValue(DefaultValue.constant(new java.util.UUID(0, 0))).build(),
+                        ColumnParams.builder().name("DECIMAL").type(DECIMAL).precision(19).scale(3).nullable(false)
+                                .defaultValue(DefaultValue.constant(BigDecimal.ZERO)).build()
                 ),
                 List.of(keyCol)
         );

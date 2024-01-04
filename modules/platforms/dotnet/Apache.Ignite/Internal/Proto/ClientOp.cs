@@ -116,6 +116,9 @@ namespace Apache.Ignite.Internal.Proto
         PartitionAssignmentGet = 53,
 
         /** Execute SQL script. */
-        SqlExecScript = 56
+        SqlExecScript = 56,
+
+        /** SQL parameter metadata. */
+        SqlParamMeta = 57
     }
 }

@@ -70,7 +70,7 @@ public interface ResultSet<T> extends Cursor<T> {
     long affectedRows();
 
     /**
-     * Indicated whether the query that had produced the result was a conditional query.
+     * Indicates whether the query that had produced the result was a conditional query.
      * E.g., for query "Create table if not exists", the method returns {@code true} if
      * the operation was successful, and {@code false} if the operation was ignored becasue
      * the table already existed.

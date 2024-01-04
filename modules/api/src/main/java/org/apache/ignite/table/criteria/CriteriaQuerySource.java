@@ -20,63 +20,63 @@ package org.apache.ignite.table.criteria;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.lang.AsyncCursor;
 import org.apache.ignite.lang.Cursor;
-import org.apache.ignite.sql.SqlException;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Represents a criteria query facade that can be used to executes a query to a record view using a predicate.
+ * Represents an entity that can be used to execute predicate-based criteria queries.
  *
  * @param <T> The type of elements returned by iterator.
  */
 public interface CriteriaQuerySource<T> {
     /**
-     * Executes a query to a record view using a predicate.
+     * Executes predicate-based criteria query.
      *
      * @param tx Transaction to execute the query within or {@code null} to run within implicit transaction.
-     * @param criteria The predicate to filter entries or {@code null} to return all entries in record view.
+     * @param criteria The predicate to filter entries or {@code null} to return all entries from the underlying table.
      * @return Iterator with query results.
-     * @throws SqlException If failed.
+     * @throws IgniteException If failed.
      */
     default Cursor<T> query(@Nullable Transaction tx, @Nullable Criteria criteria) {
-        return query(tx, criteria, CriteriaQueryOptions.DEFAULT);
+        return query(tx, criteria, null);
     }
 
     /**
-     * Executes a query to a record view using a predicate.
+     * Executes a predicate-based criteria query.
      *
      * @param tx Transaction to execute the query within or {@code null} to run within implicit transaction.
-     * @param criteria The predicate to filter entries or {@code null} to return all entries in record view.
-     * @param opts Criteria query options.
+     * @param criteria The predicate to filter entries or {@code null} to return all entries from the underlying table.
+     * @param opts Criteria query options or {@code null} to use default.
      * @return Iterator with query results.
-     * @throws SqlException If failed.
+     * @throws IgniteException If failed.
      */
-    Cursor<T> query(@Nullable Transaction tx, @Nullable Criteria criteria, CriteriaQueryOptions opts);
+    Cursor<T> query(@Nullable Transaction tx, @Nullable Criteria criteria, @Nullable CriteriaQueryOptions opts);
 
     /**
-     * Executes a query to a record view using a predicate in an asynchronous way.
+     * Executes a predicate-based criteria query in an asynchronous way.
      *
      * @param tx Transaction to execute the query within or {@code null} to run within implicit transaction.
-     * @param criteria The predicate to filter entries or {@code null} to return all entries in record view.
+     * @param criteria The predicate to filter entries or {@code null} to return all entries from the underlying table.
      * @return Future that represents the pending completion of the operation.
-     * @throws SqlException If failed.
+     * @throws IgniteException If failed.
      */
     default CompletableFuture<AsyncCursor<T>> queryAsync(@Nullable Transaction tx, @Nullable Criteria criteria) {
-        return queryAsync(tx, criteria, CriteriaQueryOptions.DEFAULT);
+        return queryAsync(tx, criteria, null);
     }
 
     /**
-     * Executes a query to a record view using a predicate in an asynchronous way.
+     * Executes a predicate-based criteria query in an asynchronous way.
      *
      * @param tx Transaction to execute the query within or {@code null} to run within implicit transaction.
-     * @param criteria The predicate to filter entries or {@code null} to return all entries in record view.
-     * @param opts Criteria query options.
+     * @param criteria The predicate to filter entries or {@code null} to return all entries from the underlying table.
+     * @param opts Criteria query options or {@code null} to use default.
      * @return Future that represents the pending completion of the operation.
-     * @throws SqlException If failed.
+     * @throws IgniteException If failed.
      */
     CompletableFuture<AsyncCursor<T>> queryAsync(
             @Nullable Transaction tx,
             @Nullable Criteria criteria,
-            CriteriaQueryOptions opts
+            @Nullable CriteriaQueryOptions opts
     );
 }

@@ -340,8 +340,7 @@ network::data_buffer_owning sql_connection::receive_message(std::int64_t id, std
         }
 
         auto flags = reader.read_int32();
-        if (test_flag(flags, protocol::response_flag::PARTITION_ASSIGNMENT_CHANGED))
-        {
+        if (test_flag(flags, protocol::response_flag::PARTITION_ASSIGNMENT_CHANGED)) {
             auto assignment_ts = reader.read_int64();
 
             UNUSED_VALUE assignment_ts;
@@ -350,8 +349,7 @@ network::data_buffer_owning sql_connection::receive_message(std::int64_t id, std
         auto observable_timestamp = reader.read_int64();
         on_observable_timestamp(observable_timestamp);
 
-        if (test_flag(flags, protocol::response_flag::ERROR_FLAG))
-        {
+        if (test_flag(flags, protocol::response_flag::ERROR_FLAG)) {
             auto err = protocol::read_error(reader);
             throw odbc_error(sql_state::SHY000_GENERAL_ERROR, err.what_str());
         }

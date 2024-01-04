@@ -267,7 +267,7 @@ public class DefaultUserObjectMarshallerWithSchemaChangeTest extends BaseIgniteA
                 remoteDescriptor.isPrimitive(),
                 remoteDescriptor.isArray(),
                 remoteDescriptor.isRuntimeEnum(),
-                remoteDescriptor.isRuntimeTypeKnownUpfront(),
+                remoteDescriptor.isSerializationTypeKnownUpfront(),
                 reconstructFields(remoteDescriptor.fields(), localDescriptor.localClass()),
                 remoteDescriptor.serialization(),
                 localDescriptor
@@ -299,7 +299,7 @@ public class DefaultUserObjectMarshallerWithSchemaChangeTest extends BaseIgniteA
                 remoteField.typeDescriptorId(),
                 remoteField.isUnshared(),
                 remoteField.isPrimitive(),
-                remoteField.isRuntimeTypeKnownUpfront(),
+                remoteField.isSerializationTypeKnownUpfront(),
                 localDeclaringClass
         );
     }
@@ -418,7 +418,7 @@ public class DefaultUserObjectMarshallerWithSchemaChangeTest extends BaseIgniteA
                 superDescriptor.isPrimitive(),
                 superDescriptor.isArray(),
                 superDescriptor.isRuntimeEnum(),
-                superDescriptor.isRuntimeTypeKnownUpfront(),
+                superDescriptor.isSerializationTypeKnownUpfront(),
                 superDescriptor.fields(),
                 superDescriptor.serialization()
         );

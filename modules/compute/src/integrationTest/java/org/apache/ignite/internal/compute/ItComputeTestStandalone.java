@@ -17,15 +17,18 @@
 
 package org.apache.ignite.internal.compute;
 
+import static org.apache.ignite.internal.compute.utils.ComputeTestUtils.assertPublicException;
 import static org.apache.ignite.internal.deployunit.DeploymentStatus.DEPLOYED;
 import static org.apache.ignite.internal.deployunit.DeploymentStatus.OBSOLETE;
 import static org.apache.ignite.internal.deployunit.InitialDeployMode.MAJORITY;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.lang.ErrorGroups.Common.COMMON_ERR_GROUP;
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.nullValue;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -33,6 +36,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.version.Version;
 import org.apache.ignite.internal.app.IgniteImpl;
@@ -75,11 +79,6 @@ class ItComputeTestStandalone extends ItComputeBaseTest {
         return "org.example.FailingJob";
     }
 
-    @Override
-    protected String jobExceptionClassName() {
-        return "org.example.JobException";
-    }
-
     @Test
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-19623")
     @Override
@@ -109,13 +108,10 @@ class ItComputeTestStandalone extends ItComputeBaseTest {
         CompletableFuture<String> result = entryNode.compute()
                 .executeAsync(Set.of(entryNode.node()), nonExistingUnits, concatJobClassName(), "a", 42);
 
-        assertThat(
-                result,
-                willThrow(
-                        ClassNotFoundException.class,
-                        "org.example.ConcatJob. Deployment unit non-existing:1.0.0 doesn't exist"
-                )
-        );
+        CompletionException ex0 = assertThrows(CompletionException.class, result::join);
+
+        assertPublicException(ex0, COMMON_ERR_GROUP, INTERNAL_ERR,
+                "org.example.ConcatJob. Deployment unit non-existing:1.0.0 doesn't exist");
     }
 
     @Test
@@ -169,11 +165,11 @@ class ItComputeTestStandalone extends ItComputeBaseTest {
 
         CompletableFuture<Void> failedJob = entryNode.compute().executeAsync(Set.of(entryNode.node()), units, "org.example.SleepJob", 2L);
 
-        assertThat(failedJob, willThrow(
-                ClassNotFoundException.class,
+        CompletionException ex0 = assertThrows(CompletionException.class, failedJob::join);
+        assertPublicException(ex0, COMMON_ERR_GROUP, INTERNAL_ERR,
                 "org.example.SleepJob. Deployment unit jobs:1.0.0 can't be used: "
-                        + "[clusterStatus = OBSOLETE, nodeStatus = OBSOLETE]")
-        );
+                + "[clusterStatus = OBSOLETE, nodeStatus = OBSOLETE]");
+
         assertThat(successJob, willCompleteSuccessfully());
     }
 

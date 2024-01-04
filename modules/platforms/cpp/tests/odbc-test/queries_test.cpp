@@ -755,18 +755,15 @@ TEST_F(queries_test, insert_delete_select) {
     EXPECT_EQ(records_num / 2, selected_records_num);
 }
 
-// TODO: IGNITE-19854: Implement params metadata fetching
-#ifdef MUTED
 TEST_F(queries_test, params_num) {
     odbc_connect(get_basic_connection_string());
 
     check_params_num("SELECT * FROM TBL_ALL_COLUMNS_SQL", 0);
     check_params_num("SELECT * FROM TBL_ALL_COLUMNS_SQL WHERE key=?", 1);
-    check_params_num("SELECT * FROM TBL_ALL_COLUMNS_SQL WHERE key=? AND _val=?", 2);
+    check_params_num("SELECT * FROM TBL_ALL_COLUMNS_SQL WHERE key=? AND str=?", 2);
     check_params_num("INSERT INTO TBL_ALL_COLUMNS_SQL(key, str) VALUES(1, 'some')", 0);
     check_params_num("INSERT INTO TBL_ALL_COLUMNS_SQL(key, str) VALUES(?, ?)", 2);
 }
-#endif // MUTED
 
 TEST_F(queries_test, execute_after_cursor_close) {
     odbc_connect(get_basic_connection_string());

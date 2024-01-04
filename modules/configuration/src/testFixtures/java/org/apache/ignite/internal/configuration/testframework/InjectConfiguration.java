@@ -21,6 +21,7 @@ import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
+import org.apache.ignite.configuration.SuperRootChange;
 import org.apache.ignite.configuration.annotation.ConfigurationExtension;
 import org.apache.ignite.configuration.annotation.PolymorphicConfig;
 import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
@@ -64,6 +65,13 @@ public @interface InjectConfiguration {
      * Name value to imitate named list elements. Default empty string value is treated like the absence of the name.
      */
     String name() default "";
+
+    /**
+     * Root name of the configuration. Default empty string value is treated like the absence of the root name. The root name is used to
+     * patch the configuration tree with dynamic configuration defaults
+     * {@link org.apache.ignite.configuration.ConfigurationModule#patchConfigurationWithDynamicDefaults(SuperRootChange)}
+     */
+    String rootName() default "";
 
     /**
      * Array of configuration schema extensions. Every class in the array must be annotated with {@link ConfigurationExtension} and extend

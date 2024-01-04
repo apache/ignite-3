@@ -94,7 +94,7 @@ void compute_impl::execute_on_one_node(cluster_node node, const std::vector<depl
         write_primitives_as_binary_tuple(writer, args);
     };
 
-    auto response_reader_func = [](protocol::reader&) { };
+    auto response_reader_func = [](protocol::reader &) {};
 
     auto notification_reader_func = [](protocol::reader &reader) -> std::optional<primitive> {
         if (reader.try_read_nil())
@@ -111,8 +111,7 @@ void compute_impl::execute_on_one_node(cluster_node node, const std::vector<depl
 void compute_impl::execute_colocated_async(const std::string &table_name, const ignite_tuple &key,
     const std::vector<deployment_unit> &units, const std::string &job, const std::vector<primitive> &args,
     ignite_callback<std::optional<primitive>> callback) {
-    auto on_table_get =
-        [table_name, key, units, job, args, conn = m_connection, callback](auto &&res) mutable {
+    auto on_table_get = [table_name, key, units, job, args, conn = m_connection, callback](auto &&res) mutable {
         if (res.has_error()) {
             callback({std::move(res.error())});
             return;
@@ -147,8 +146,8 @@ void compute_impl::execute_colocated_async(const std::string &table_name, const 
                 };
 
                 conn->perform_request_single_notification<std::optional<primitive>>(
-                    protocol::client_operation::COMPUTE_EXECUTE_COLOCATED, writer_func,
-                    std::move(response_reader_func), std::move(notification_reader_func), std::move(callback));
+                    protocol::client_operation::COMPUTE_EXECUTE_COLOCATED, writer_func, std::move(response_reader_func),
+                    std::move(notification_reader_func), std::move(callback));
             });
     };
 

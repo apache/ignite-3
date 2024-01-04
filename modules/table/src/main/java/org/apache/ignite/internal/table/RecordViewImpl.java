@@ -66,6 +66,9 @@ import org.jetbrains.annotations.Nullable;
  * Record view implementation.
  */
 public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordView<R> {
+    /** Record class mapper. */
+    private final Mapper<R> mapper;
+
     /** Marshaller factory. */
     private final Function<SchemaDescriptor, RecordMarshaller<R>> marshallerFactory;
 
@@ -92,8 +95,8 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
     ) {
         super(tbl, schemaVersions, schemaRegistry, sql);
 
-        marshallerFactory = (schema) -> new RecordMarshallerImpl<>(schema, mapper);
         this.mapper = mapper;
+        marshallerFactory = (schema) -> new RecordMarshallerImpl<>(schema, mapper);
     }
 
     /** {@inheritDoc} */

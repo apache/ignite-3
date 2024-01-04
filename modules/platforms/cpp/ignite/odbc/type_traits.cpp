@@ -564,7 +564,6 @@ std::int32_t sql_type_transfer_length(std::int16_t type) {
 }
 
 std::int32_t ignite_type_transfer_length(ignite_type typ) {
-    // TODO: IGNITE-19854 Remove once parameters meta fetching is implemented
     std::int16_t sql_type = ignite_type_to_sql_type(typ);
 
     return sql_type_transfer_length(sql_type);
@@ -590,7 +589,6 @@ std::int32_t sql_type_num_precision_radix(std::int16_t type) {
 }
 
 std::int32_t ignite_type_num_precision_radix(ignite_type typ) {
-    // TODO: IGNITE-19854 Remove once parameters meta fetching is implemented
     std::int16_t sql_type = ignite_type_to_sql_type(typ);
 
     return sql_type_num_precision_radix(sql_type);

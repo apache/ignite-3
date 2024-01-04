@@ -58,7 +58,6 @@ namespace Apache.Ignite.Table
         /// <typeparam name="TV">Value type.</typeparam>
         /// <returns>Key-value view.</returns>
         public IKeyValueView<TK, TV> GetKeyValueView<TK, TV>()
-            where TK : notnull
-            where TV : notnull;
+            where TK : notnull;
     }
 }
