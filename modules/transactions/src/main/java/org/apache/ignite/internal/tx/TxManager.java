@@ -185,9 +185,10 @@ public interface TxManager extends IgniteComponent {
      * Registers the infligh update for a transaction.
      *
      * @param txId The transaction id.
+     * @param groupId Partition group id.
      * @return {@code True} if the inflight was registered. The update must be failed on false.
      */
-    boolean addInflight(UUID txId);
+    boolean addInflight(UUID txId, TablePartitionId groupId);
 
     /**
      * Unregisters the inflight for a transaction.

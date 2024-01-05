@@ -211,7 +211,7 @@ public class FakeTxManager implements TxManager {
     }
 
     @Override
-    public boolean addInflight(UUID txId) {
+    public boolean addInflight(UUID txId, TablePartitionId groupId) {
         return false;
     }
 

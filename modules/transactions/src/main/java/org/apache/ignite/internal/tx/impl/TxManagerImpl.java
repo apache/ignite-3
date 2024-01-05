@@ -679,10 +679,18 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     }
 
     @Override
-    public boolean addInflight(UUID txId) {
+    public boolean addInflight(UUID txId, TablePartitionId groupId) {
         boolean[] res = {true};
 
+        if (placementDriver.primaryExpired(groupId)) {
+            throw new PrimaryReplicaMissException();
+        }
+
         txCtxMap.compute(txId, (uuid, tuple) -> {
+            if (placementDriver.primaryExpired(groupId)) {
+                throw new PrimaryReplicaMissException();
+            }
+
             if (tuple == null) {
                 tuple = new TxContext();
             }
