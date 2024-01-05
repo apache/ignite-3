@@ -27,7 +27,7 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
-import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.BooleanSupplier;
 import java.util.function.Function;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -72,7 +72,7 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
     /** Used to detect that a peer uses a stale ID. */
     private final StaleIdDetector staleIdDetector;
 
-    private final AtomicBoolean stopping;
+    private final BooleanSupplier stopping;
 
     /** Connection id. */
     private final short connectionId;
@@ -121,7 +121,7 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
             RecoveryDescriptorProvider recoveryDescriptorProvider,
             StaleIdDetector staleIdDetector,
             ChannelCreationListener channelCreationListener,
-            AtomicBoolean stopping
+            BooleanSupplier stopping
     ) {
         this.launchId = launchId;
         this.consistentId = consistentId;
@@ -214,21 +214,13 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
         ctx.fireChannelRead(message);
     }
 
-    private void onHandshakeStartMessage(HandshakeStartMessage message) {
-        if (staleIdDetector.isIdStale(message.launchId().toString())) {
-            handleStaleServerId(message);
-
+    private void onHandshakeStartMessage(HandshakeStartMessage handshakeStartMessage) {
+        if (possiblyRejectHandshakeStart(handshakeStartMessage)) {
             return;
         }
 
-        if (stopping.get()) {
-            handleRefusalToEstablishConnectionDueToStopping(message);
-
-            return;
-        }
-
-        this.remoteLaunchId = message.launchId();
-        this.remoteConsistentId = message.consistentId();
+        this.remoteLaunchId = handshakeStartMessage.launchId();
+        this.remoteConsistentId = handshakeStartMessage.consistentId();
 
         RecoveryDescriptor descriptor = recoveryDescriptorProvider.getRecoveryDescriptor(
                 remoteConsistentId,
@@ -255,9 +247,34 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
             return;
         }
 
+        // Now that we hold the descriptor, let's check again if the other side has left the topology or we are already stopping.
+        // This allows to avoid a race between MessagingService/ConnectionManager handling node leave/local node stop and
+        // a concurrent handshake. If one of these happened, we are releasing the descriptor to allow the common machinery
+        // to acquire it and clean it up.
+        if (possiblyRejectHandshakeStart(handshakeStartMessage)) {
+            descriptor.release(ctx);
+            return;
+        }
+
         this.recoveryDescriptor = descriptor;
 
         handshake(this.recoveryDescriptor);
+    }
+
+    private boolean possiblyRejectHandshakeStart(HandshakeStartMessage message) {
+        if (staleIdDetector.isIdStale(message.launchId().toString())) {
+            handleStaleServerId(message);
+
+            return true;
+        }
+
+        if (stopping.getAsBoolean()) {
+            handleRefusalToEstablishConnectionDueToStopping(message);
+
+            return true;
+        }
+
+        return false;
     }
 
     private void completeMasterFutureWithCompetitorHandshakeFuture(DescriptorAcquiry competitorAcquiry) {
@@ -295,7 +312,7 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
     }
 
     private void onHandshakeRejectedMessage(HandshakeRejectedMessage msg) {
-        boolean ignorable = stopping.get() || !msg.reason().critical();
+        boolean ignorable = stopping.getAsBoolean() || !msg.reason().critical();
 
         if (ignorable) {
             LOG.debug("Handshake rejected by server: {}", msg.message());

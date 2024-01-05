@@ -494,7 +494,7 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
                         recoveryDescriptorProvider,
                         staleIdDetector,
                         channel -> {},
-                        new AtomicBoolean(false)
+                        () -> false
                 ) {
                     @Override
                     protected void finishHandshake() {

@@ -424,7 +424,7 @@ public class ConnectionManager implements ChannelCreationListener {
                     descriptorProvider,
                     staleIdDetector,
                     this,
-                    stopping
+                    stopping::get
             );
         }
 
@@ -444,7 +444,7 @@ public class ConnectionManager implements ChannelCreationListener {
                 descriptorProvider,
                 staleIdDetector,
                 this,
-                stopping
+                stopping::get
         );
     }
 
