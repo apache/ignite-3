@@ -69,7 +69,7 @@ public abstract class AbstractTxStateStorageTest {
     protected abstract TxStateTableStorage createTableStorage();
 
     @BeforeEach
-    void beforeTest() {
+    protected void beforeTest() {
         tableStorage = createTableStorage();
 
         tableStorage.start();
@@ -355,7 +355,7 @@ public abstract class AbstractTxStateStorageTest {
     }
 
     @Test
-    public void testStartRebalanceForClosedOrDestroedPartition() {
+    public void testStartRebalanceForClosedOrDestroyedPartition() {
         TxStateStorage storage0 = tableStorage.getOrCreateTxStateStorage(0);
         TxStateStorage storage1 = tableStorage.getOrCreateTxStateStorage(1);
 
