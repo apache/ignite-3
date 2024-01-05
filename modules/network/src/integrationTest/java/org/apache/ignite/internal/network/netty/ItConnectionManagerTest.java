@@ -447,14 +447,9 @@ public class ItConnectionManagerTest extends BaseIgniteAbstractTest {
         }
     }
 
-    private static OutgoingAcknowledgementSilencer dropAcksFrom(ConnectionManagerWrapper connectionManagerWrapper) {
-        OutgoingAcknowledgementSilencer ackSilencer = new OutgoingAcknowledgementSilencer();
-
-        for (NettySender sender : connectionManagerWrapper.channels().values()) {
-            sender.channel().pipeline().addAfter(OutboundEncoder.NAME, OutgoingAcknowledgementSilencer.NAME, ackSilencer);
-        }
-
-        return ackSilencer;
+    private static OutgoingAcknowledgementSilencer dropAcksFrom(ConnectionManagerWrapper connectionManagerWrapper)
+            throws InterruptedException {
+        return OutgoingAcknowledgementSilencer.installOn(connectionManagerWrapper.channels().values());
     }
 
     private void provokeAckFor(NettySender sender1) {

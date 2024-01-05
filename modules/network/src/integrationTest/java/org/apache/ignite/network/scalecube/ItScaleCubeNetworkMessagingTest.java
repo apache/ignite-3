@@ -65,7 +65,6 @@ import org.apache.ignite.internal.network.messages.TestMessageTypes;
 import org.apache.ignite.internal.network.messages.TestMessagesFactory;
 import org.apache.ignite.internal.network.netty.ConnectionManager;
 import org.apache.ignite.internal.network.netty.NettySender;
-import org.apache.ignite.internal.network.netty.OutboundEncoder;
 import org.apache.ignite.internal.network.netty.OutgoingAcknowledgementSilencer;
 import org.apache.ignite.internal.network.recovery.RecoveryClientHandshakeManager;
 import org.apache.ignite.internal.network.recovery.RecoveryServerHandshakeManager;
@@ -725,18 +724,10 @@ class ItScaleCubeNetworkMessagingTest {
         return sender.messagingService().send(receiver.topologyService().localMember(), messageFactory.testMessage().build());
     }
 
-    private static OutgoingAcknowledgementSilencer dropAcksFrom(ClusterService clusterService) {
-        OutgoingAcknowledgementSilencer ackSilencer = new OutgoingAcknowledgementSilencer();
-
+    private static OutgoingAcknowledgementSilencer dropAcksFrom(ClusterService clusterService) throws InterruptedException {
         DefaultMessagingService messagingService = (DefaultMessagingService) clusterService.messagingService();
 
-        for (NettySender sender : messagingService.connectionManager().channels().values()) {
-            LOG.info("Installing a silencer on {}/{}/{}", sender.consistentId(), sender.launchId(), sender.channelId());
-
-            sender.channel().pipeline().addAfter(OutboundEncoder.NAME, OutgoingAcknowledgementSilencer.NAME, ackSilencer);
-        }
-
-        return ackSilencer;
+        return OutgoingAcknowledgementSilencer.installOn(messagingService.connectionManager().channels().values());
     }
 
     private void provokeAckFor(ClusterService sideToGetAck, ClusterService sideToSendAck) {

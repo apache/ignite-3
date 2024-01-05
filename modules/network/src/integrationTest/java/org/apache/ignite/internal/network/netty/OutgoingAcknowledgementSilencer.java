@@ -17,10 +17,15 @@
 
 package org.apache.ignite.internal.network.netty;
 
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+
 import io.netty.channel.ChannelHandler.Sharable;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelOutboundHandlerAdapter;
 import io.netty.channel.ChannelPromise;
+import java.util.Collection;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.internal.network.recovery.message.AcknowledgementMessage;
 import org.apache.ignite.network.OutNetworkObject;
 
@@ -30,15 +35,47 @@ import org.apache.ignite.network.OutNetworkObject;
 @Sharable
 public class OutgoingAcknowledgementSilencer extends ChannelOutboundHandlerAdapter {
     /** Name of this handler. */
-    public static final String NAME = "acknowledgement-silencer";
+    static final String NAME = "acknowledgement-silencer";
 
     private volatile boolean silenceAcks = true;
+
+    private final AtomicInteger addedCount = new AtomicInteger();
+
+    /**
+     * Install this silencer on the given channels; it will drop {@link AcknowledgementMessage}s sent by them.
+     *
+     * @param senders Senders to install on.
+     * @return The installed silencer.
+     * @throws InterruptedException If interrupted while waiting for the installation to be completed.
+     */
+    public static OutgoingAcknowledgementSilencer installOn(Collection<NettySender> senders)
+            throws InterruptedException {
+        OutgoingAcknowledgementSilencer ackSilencer = new OutgoingAcknowledgementSilencer();
+
+        for (NettySender sender : senders) {
+            sender.channel().pipeline().addAfter(OutboundEncoder.NAME, NAME, ackSilencer);
+        }
+
+        ackSilencer.waitForAddedTo(senders.size());
+
+        return ackSilencer;
+    }
 
     /**
      * Stops dropping outgoing {@link AcknowledgementMessage}s.
      */
     public void stopSilencing() {
         silenceAcks = false;
+    }
+
+    /**
+     * Waits for this silencer being added to the required number of pipelines.
+     *
+     * @param count Number of pipelines.
+     * @throws InterruptedException If interrupted while waiting.
+     */
+    private void waitForAddedTo(int count) throws InterruptedException {
+        waitForCondition(() -> addedCount.get() >= count, TimeUnit.SECONDS.toMillis(10));
     }
 
     @Override
@@ -51,5 +88,12 @@ public class OutgoingAcknowledgementSilencer extends ChannelOutboundHandlerAdapt
         }
 
         super.write(ctx, msg, promise);
+    }
+
+    @Override
+    public void handlerAdded(ChannelHandlerContext ctx) throws Exception {
+        super.handlerAdded(ctx);
+
+        addedCount.incrementAndGet();
     }
 }
