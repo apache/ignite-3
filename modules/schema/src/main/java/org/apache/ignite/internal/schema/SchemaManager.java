@@ -94,9 +94,8 @@ public class SchemaManager implements IgniteComponent {
         // exactly matching the tables).
 
         long causalityToken = metastorageMgr.appliedRevision();
-        int catalogVersion = catalogService.latestCatalogVersion();
 
-        for (int v = catalogService.latestCatalogVersion(), e = catalogService.earliestCatalogVersion(); v >= e; v--) {
+        for (int v = catalogService.latestCatalogVersion(); v >= catalogService.earliestCatalogVersion(); v--) {
             Collection<CatalogTableDescriptor> tables = catalogService.tables(v);
 
             registriesVv.update(causalityToken, (registries, throwable) -> {
@@ -124,10 +123,6 @@ public class SchemaManager implements IgniteComponent {
 
                 return completedFuture(registries);
             });
-        }
-
-        for (CatalogTableDescriptor tableDescriptor : catalogService.tables(catalogVersion)) {
-            onTableCreated(new CreateTableEventParameters(causalityToken, catalogVersion, tableDescriptor), null);
         }
 
         registriesVv.complete(causalityToken);

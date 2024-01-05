@@ -20,7 +20,6 @@ package org.apache.ignite.internal.catalog.descriptors;
 import java.io.Serializable;
 import java.util.Collections;
 import java.util.List;
-import java.util.function.ObjIntConsumer;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.jetbrains.annotations.Nullable;
 
@@ -64,6 +63,9 @@ public class CatalogTableSchemaVersions implements Serializable {
         this.versions = versions;
     }
 
+    /**
+     * Returns earliest known table version.
+     */
     public int earliestVersion() {
         return base;
     }
@@ -93,14 +95,5 @@ public class CatalogTableSchemaVersions implements Serializable {
         assert version == latestVersion() + 1;
 
         return new CatalogTableSchemaVersions(base, ArrayUtils.concat(versions, tableVersion));
-    }
-
-    /**
-     * Iterates through all available table versions.
-     */
-    public void forEach(ObjIntConsumer<TableVersion> callback) {
-        for (int i = 0; i < versions.length; i++) {
-            callback.accept(versions[i], base + i);
-        }
     }
 }

@@ -60,7 +60,7 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor {
     private long creationToken;
 
     /**
-     * Constructor.
+     * Constructor for new table.
      *
      * @param id Table id.
      * @param pkIndexId Primary key index id.
@@ -84,7 +84,7 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor {
     }
 
     /**
-     * Constructor.
+     * Internal constructor.
      *
      * @param id Table id.
      * @param pkIndexId Primary key index id.
@@ -134,7 +134,7 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor {
     }
 
     /**
-     * Creates new tale descriptor, using existing one as a template.
+     * Creates new table descriptor, using existing one as a template.
      */
     public CatalogTableDescriptor newDescriptor(
             String name,
