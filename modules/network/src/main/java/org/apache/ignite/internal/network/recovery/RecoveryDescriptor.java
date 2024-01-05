@@ -34,6 +34,25 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * Recovery protocol descriptor.
+ *
+ * <p>Main state the descriptor holds (unacked messages queue and counters) is not protected by synchronization primitives
+ * to make it fast to access it (which happens on each message send/receive). Here is how thread-safety of these
+ * accesses is maintained:
+ *
+ * <ol>
+ *     <li>Each descriptor belongs to at most one owner at a time (usually, owners are Channels, but the last
+ *     owner is ConnectionManager when it disposes a descriptor)</li>
+ *     <li>Owner starts 'owning' a descriptor by acquiring it (using {@link #acquire(ChannelHandlerContext, CompletableFuture)}
+ *     or {@link #block(Exception)}) and stops owning it by releasing it with {@link #release(ChannelHandlerContext)}</li>
+ *     <li>Only the owner can access non-volatile state of the descriptor, and only in the same thread in which it
+ *     acquired it and in which it will release it</li>
+ *     <li>Acquiry, accesses while owning and release happen in the same thread, so there is happens-before between them even without
+ *     synchronization</li>
+ *     <li>Release from a previous owner happens-before an acquiry by the next owner (because same {@link AtomicReference} is used
+ *     to implement acquire/release in an atomic way)</li>
+ *     <li>The last two items mean that all accesses to the non-synchronized state of a descriptor form a happens-before chain,
+ *     so all effects of the earlier writes are visible to the subsequent accesses</li>
+ * </ol>
  */
 public class RecoveryDescriptor {
     /** Unacknowledged messages. */
