@@ -547,6 +547,8 @@ public class ConnectionManager implements ChannelCreationListener {
         // We rely on the fact that the node with the given ID has already left the physical topology.
         assert staleIdDetector.isIdStale(id) : id + " is not stale yet";
 
+        // TODO: IGNITE-21207 - remove descriptors for good.
+
         connectionMaintenanceExecutor.submit(
                 () -> closeChannelsWith(id).whenCompleteAsync((res, ex) -> {
                     // Closing descriptors separately (as some of them might not have an operating channel attached, but they
