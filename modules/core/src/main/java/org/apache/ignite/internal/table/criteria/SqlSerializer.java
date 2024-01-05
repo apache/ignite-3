@@ -38,6 +38,8 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * Serializes {@link Criteria} into into SQL.
+ *
+ * <p>Note: Doesn't required any context to traverse an criteria tree, {@code null} can be used as initial context.
  */
 public class SqlSerializer implements CriteriaVisitor<Void> {
     private static final Map<Operator, String> ELEMENT_TEMPLATES = Map.of(

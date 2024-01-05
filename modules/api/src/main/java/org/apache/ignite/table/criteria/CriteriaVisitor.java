@@ -29,7 +29,7 @@ public interface CriteriaVisitor<C> {
      * Visit a {@link Parameter} instance with the given context.
      *
      * @param argument Parameter to visit
-     * @param context context of the visit or null, if not used
+     * @param context context of the visit or {@code null}, if not used
      */
     <T> void visit(Parameter<T> argument, @Nullable C context);
 
@@ -37,7 +37,7 @@ public interface CriteriaVisitor<C> {
      * Visit a {@link Column} instance with the given context.
      *
      * @param column Column to visit
-     * @param context context of the visit or null, if not used
+     * @param context context of the visit or {@code null}, if not used
      */
     <T> void visit(Column column, @Nullable C context);
 
@@ -45,7 +45,7 @@ public interface CriteriaVisitor<C> {
      * Visit a {@link Expression} instance with the given context.
      *
      * @param expression Expression to visit
-     * @param context context of the visit or null, if not used
+     * @param context context of the visit or {@code null}, if not used
      */
     <T> void visit(Expression expression, @Nullable C context);
 
@@ -53,7 +53,7 @@ public interface CriteriaVisitor<C> {
      * Visit a {@link Criteria} instance with the given context.
      *
      * @param criteria Criteria to visit
-     * @param context context of the visit or null, if not used
+     * @param context context of the visit or {@code null}, if not used
      */
     <T> void visit(Criteria criteria, @Nullable C context);
 }
