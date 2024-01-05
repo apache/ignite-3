@@ -167,7 +167,7 @@ public class RecoveryDescriptor {
     }
 
     /**
-     * Releases this descriptor.
+     * Releases this descriptor if it's acquired by the given channel, otherwise does nothing.
      *
      * @param ctx Channel handler context.
      */
@@ -179,9 +179,6 @@ public class RecoveryDescriptor {
 
             return acquiry;
         });
-
-        assert oldAcquiry != null && oldAcquiry.channel() == ctx.channel() : "Expected to see owning channel " + ctx.channel()
-                + ", but it was " + (oldAcquiry == null ? null : oldAcquiry.channel());
 
         if (oldAcquiry != null && oldAcquiry.channel() == ctx.channel()) {
             // We have successfully released the descriptor.
