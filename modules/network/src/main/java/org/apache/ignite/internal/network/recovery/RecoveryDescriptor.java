@@ -81,6 +81,8 @@ public class RecoveryDescriptor {
     /**
      * Acknowledges that sent messages were received by the remote node.
      *
+     * <p>Must only be called from the thread in which this descriptor was acquired last time.
+     *
      * @param messagesReceivedByRemote Number of all messages received by the remote node.
      */
     public void acknowledge(long messagesReceivedByRemote) {
@@ -98,6 +100,8 @@ public class RecoveryDescriptor {
     /**
      * Returns the number of the messages unacknowledged by the remote node.
      *
+     * <p>Must only be called from the thread in which this descriptor was acquired last time.
+     *
      * @return The number of the messages unacknowledged by the remote node.
      */
     public int unacknowledgedCount() {
@@ -113,6 +117,8 @@ public class RecoveryDescriptor {
     /**
      * Returns unacknowledged messages.
      *
+     * <p>Must only be called from the thread in which this descriptor was acquired last time.
+     *
      * @return Unacknowledged messages.
      */
     public List<OutNetworkObject> unacknowledgedMessages() {
@@ -121,6 +127,8 @@ public class RecoveryDescriptor {
 
     /**
      * Tries to add a sent message to the unacknowledged queue.
+     *
+     * <p>Must only be called from the thread in which this descriptor was acquired last time.
      *
      * @param msg Message.
      * @return {@code true} if the message was added, {@code false} if the descriptor is already closed.
@@ -200,6 +208,11 @@ public class RecoveryDescriptor {
      */
     @Nullable DescriptorAcquiry holder() {
         return channelHolder.get();
+    }
+
+    @Nullable Channel holderChannel() {
+        DescriptorAcquiry acquiry = holder();
+        return acquiry == null ? null : acquiry.channel();
     }
 
     /**

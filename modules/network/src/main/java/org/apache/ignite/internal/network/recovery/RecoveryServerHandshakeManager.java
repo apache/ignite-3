@@ -179,19 +179,23 @@ public class RecoveryServerHandshakeManager implements HandshakeManager {
     /** {@inheritDoc} */
     @Override
     public void onMessage(NetworkMessage message) {
-        if (message instanceof HandshakeStartResponseMessage) {
-            onHandshakeStartResponseMessage((HandshakeStartResponseMessage) message);
-
-            return;
-        }
-
         if (message instanceof HandshakeRejectedMessage) {
             onHandshakeRejectedMessage((HandshakeRejectedMessage) message);
 
             return;
         }
 
+        if (message instanceof HandshakeStartResponseMessage) {
+            onHandshakeStartResponseMessage((HandshakeStartResponseMessage) message);
+
+            return;
+        }
+
+        // If we are here it means that we acquired the descriptor, we already handled a HandshakeStartresponseMessage and now we are
+        // getting unacked messages from another side and acks for our unacked messages that we sent there (if any).
+
         assert recoveryDescriptor != null : "Wrong server handshake flow";
+        assert recoveryDescriptor.holderChannel() == channel;
 
         if (recoveryDescriptor.unacknowledgedCount() == 0) {
             finishHandshake();

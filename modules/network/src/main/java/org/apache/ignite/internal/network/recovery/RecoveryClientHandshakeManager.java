@@ -165,14 +165,14 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
     /** {@inheritDoc} */
     @Override
     public void onMessage(NetworkMessage message) {
-        if (message instanceof HandshakeStartMessage) {
-            onHandshakeStartMessage((HandshakeStartMessage) message);
+        if (message instanceof HandshakeRejectedMessage) {
+            onHandshakeRejectedMessage((HandshakeRejectedMessage) message);
 
             return;
         }
 
-        if (message instanceof HandshakeRejectedMessage) {
-            onHandshakeRejectedMessage((HandshakeRejectedMessage) message);
+        if (message instanceof HandshakeStartMessage) {
+            onHandshakeStartMessage((HandshakeStartMessage) message);
 
             return;
         }
@@ -185,9 +185,7 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
 
             recoveryDescriptor.acknowledge(receivedCount);
 
-            int cnt = recoveryDescriptor.unacknowledgedCount();
-
-            if (cnt == 0) {
+            if (recoveryDescriptor.unacknowledgedCount() == 0) {
                 finishHandshake();
 
                 return;
@@ -204,9 +202,12 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
             return;
         }
 
-        int cnt = recoveryDescriptor.unacknowledgedCount();
+        // If we are here it means that we acquired the descriptor, we already handled a HandshakeFinishMessage and now we are
+        // getting unacked messages from another side and acks for our unacked messages that we sent there (if any).
 
-        if (cnt == 0) {
+        assert recoveryDescriptor.holderChannel() == channel;
+
+        if (recoveryDescriptor.unacknowledgedCount() == 0) {
             finishHandshake();
         }
 
