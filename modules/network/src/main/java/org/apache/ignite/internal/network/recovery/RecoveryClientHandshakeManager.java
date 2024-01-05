@@ -341,6 +341,7 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
 
         DescriptorAcquiry myAcquiry = descriptor.holder();
         assert myAcquiry != null;
+        assert myAcquiry.channel() != null;
         assert myAcquiry.channel() == ctx.channel() : "Expected the descriptor to be held by current channel " + ctx.channel()
                 + ", but it's held by another channel " + myAcquiry.channel();
 

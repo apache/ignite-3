@@ -22,7 +22,6 @@ import io.netty.channel.ChannelOutboundHandlerAdapter;
 import io.netty.channel.ChannelPromise;
 import org.apache.ignite.internal.network.recovery.RecoveryDescriptor;
 import org.apache.ignite.network.OutNetworkObject;
-import org.apache.ignite.network.RecipientLeftException;
 
 /** Outbound handler that adds outgoing message to the recovery descriptor. */
 public class OutboundRecoveryHandler extends ChannelOutboundHandlerAdapter {
@@ -47,9 +46,7 @@ public class OutboundRecoveryHandler extends ChannelOutboundHandlerAdapter {
         OutNetworkObject outNetworkObject = (OutNetworkObject) msg;
 
         if (outNetworkObject.shouldBeSavedForRecovery()) {
-            if (!descriptor.add(outNetworkObject)) {
-                outNetworkObject.failAcknowledgement(new RecipientLeftException());
-            }
+            descriptor.add(outNetworkObject);
         }
 
         super.write(ctx, msg, promise);

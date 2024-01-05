@@ -138,7 +138,7 @@ public class ScaleCubeClusterServiceFactory {
                 topologyService.addEventHandler(new TopologyEventHandler() {
                     @Override
                     public void onDisappeared(ClusterNode member) {
-                        connectionMgr.closeConnectionsWith(member.id());
+                        connectionMgr.handleNodeLeft(member.id());
                     }
                 });
 

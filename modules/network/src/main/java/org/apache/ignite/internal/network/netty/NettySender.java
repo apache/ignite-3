@@ -118,19 +118,6 @@ public class NettySender {
     }
 
     /**
-     * Executes the given task in the event loop corresponding to the channel.
-     *
-     * @param task Task to execute.
-     */
-    void executeInEventLoop(Runnable task) {
-        if (channel.eventLoop().inEventLoop()) {
-            task.run();
-        } else {
-            channel.eventLoop().execute(task);
-        }
-    }
-
-    /**
      * Returns channel.
      *
      * @return Channel.

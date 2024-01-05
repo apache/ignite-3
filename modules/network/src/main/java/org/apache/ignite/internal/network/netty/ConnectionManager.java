@@ -17,12 +17,15 @@
 
 package org.apache.ignite.internal.network.netty;
 
+import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.network.ChannelType.getChannel;
 
 import io.netty.bootstrap.Bootstrap;
+import io.netty.channel.Channel;
 import java.net.InetSocketAddress;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -33,6 +36,10 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
@@ -45,6 +52,7 @@ import org.apache.ignite.internal.network.NetworkMessagesFactory;
 import org.apache.ignite.internal.network.configuration.NetworkView;
 import org.apache.ignite.internal.network.handshake.ChannelAlreadyExistsException;
 import org.apache.ignite.internal.network.handshake.HandshakeManager;
+import org.apache.ignite.internal.network.recovery.DescriptorAcquiry;
 import org.apache.ignite.internal.network.recovery.RecoveryClientHandshakeManager;
 import org.apache.ignite.internal.network.recovery.RecoveryClientHandshakeManagerFactory;
 import org.apache.ignite.internal.network.recovery.RecoveryDescriptor;
@@ -52,8 +60,11 @@ import org.apache.ignite.internal.network.recovery.RecoveryDescriptorProvider;
 import org.apache.ignite.internal.network.recovery.RecoveryServerHandshakeManager;
 import org.apache.ignite.internal.network.recovery.StaleIdDetector;
 import org.apache.ignite.internal.network.serialization.SerializationService;
+import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.ChannelType;
 import org.apache.ignite.network.NettyBootstrapFactory;
+import org.apache.ignite.network.RecipientLeftException;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -115,6 +126,8 @@ public class ConnectionManager implements ChannelCreationListener {
 
     /** Network Configuration. */
     private final NetworkView networkConfiguration;
+
+    private final ExecutorService connectionMaintenanceExecutor;
 
     /**
      * Constructor.
@@ -181,6 +194,15 @@ public class ConnectionManager implements ChannelCreationListener {
         );
 
         this.clientBootstrap = bootstrapFactory.createClientBootstrap();
+
+        connectionMaintenanceExecutor = new ThreadPoolExecutor(
+                0,
+                1,
+                1,
+                TimeUnit.SECONDS,
+                new LinkedBlockingQueue<>(),
+                NamedThreadFactory.create(consistentId, "connection-maintenance", LOG)
+        );
     }
 
     /**
@@ -336,10 +358,22 @@ public class ConnectionManager implements ChannelCreationListener {
         // closeConnectionsWith() gets called as it subscribes first).
         // This is the only place where a new sender might be added to the map.
         if (staleIdDetector.isIdStale(channel.launchId())) {
-            closeSenderAndRecoveryDescriptor(channel);
+            closeSenderAndDisposeDescriptorOfLeftNode(channel);
 
             channels.remove(key, channel);
         }
+    }
+
+    private void closeSenderAndDisposeDescriptorOfLeftNode(NettySender sender) {
+        sender.closeAsync().whenCompleteAsync((res, ex) -> {
+            RecoveryDescriptor recoveryDescriptor = descriptorProvider.getRecoveryDescriptor(
+                    sender.consistentId(),
+                    UUID.fromString(sender.launchId()),
+                    sender.channelId()
+            );
+
+            blockAndDisposeDescriptor(recoveryDescriptor, new RecipientLeftException());
+        }, connectionMaintenanceExecutor);
     }
 
     /**
@@ -390,20 +424,23 @@ public class ConnectionManager implements ChannelCreationListener {
             return;
         }
 
-        Stream<CompletableFuture<Void>> stream = Stream.concat(Stream.concat(
+        Stream<CompletableFuture<Void>> futuresStream = Stream.concat(
+                Stream.concat(
                     clients.values().stream().map(NettyClient::stop),
                     Stream.of(server.stop())
                 ),
                 channels.values().stream().map(NettySender::closeAsync)
         );
 
-        CompletableFuture<Void> stopFut = CompletableFuture.allOf(stream.toArray(CompletableFuture<?>[]::new));
+        CompletableFuture<Void> stopFut = allOf(futuresStream.toArray(CompletableFuture<?>[]::new));
 
         try {
             stopFut.join();
         } catch (Exception e) {
             LOG.warn("Failed to stop connection manager [reason={}]", e.getMessage());
         }
+
+        IgniteUtils.shutdownAndAwaitTermination(connectionMaintenanceExecutor, 10, TimeUnit.SECONDS);
     }
 
     /**
@@ -502,48 +539,67 @@ public class ConnectionManager implements ChannelCreationListener {
 
     /**
      * Closes physical connections with an Ignite node identified by the given ID (it's not consistentId,
-     * it's ID that gets regenerated at each node restart).
+     * it's ID that gets regenerated at each node restart) and recovery descriptors corresponding to it.
      *
      * @param id ID of the node (it must have already left the topology).
      */
-    public void closeConnectionsWith(String id) {
-        // We rely on the fact that the node with the given ID has already left from the physical topology.
+    public void handleNodeLeft(String id) {
+        // We rely on the fact that the node with the given ID has already left the physical topology.
         assert staleIdDetector.isIdStale(id) : id + " is not stale yet";
 
-        closeChannelsAndDescriptorsWith(id);
-
-        // Also closing descriptors (as some of them might not have an operating channel attached, but they
-        // still might have unacknowledged messages/futures).
-        closeRecoveryDescriptorsWith(id);
+        connectionMaintenanceExecutor.submit(
+                () -> closeChannelsWith(id).whenCompleteAsync((res, ex) -> {
+                    // Closing descriptors separately (as some of them might not have an operating channel attached, but they
+                    // still might have unacknowledged messages/futures).
+                    closeRecoveryDescriptorsWithLeftNode(id);
+                }, connectionMaintenanceExecutor)
+        );
     }
 
-    private void closeChannelsAndDescriptorsWith(String id) {
+    private CompletableFuture<Void> closeChannelsWith(String id) {
         List<Entry<ConnectorKey<String>, NettySender>> entriesToRemove = channels.entrySet().stream()
                 .filter(entry -> entry.getValue().launchId().equals(id))
                 .collect(toList());
 
+        List<CompletableFuture<Void>> closeFutures = new ArrayList<>();
         for (Entry<ConnectorKey<String>, NettySender> entry : entriesToRemove) {
-            closeSenderAndRecoveryDescriptor(entry.getValue());
+            closeFutures.add(entry.getValue().closeAsync());
 
             channels.remove(entry.getKey());
         }
+
+        return allOf(closeFutures.toArray(CompletableFuture[]::new));
     }
 
-    private void closeSenderAndRecoveryDescriptor(NettySender sender) {
-        sender.closeAsync().whenComplete((res, ex) -> {
-            RecoveryDescriptor recoveryDescriptor = descriptorProvider.getRecoveryDescriptor(
-                    sender.consistentId(),
-                    UUID.fromString(sender.launchId()),
-                    sender.channelId()
-            );
+    private void closeRecoveryDescriptorsWithLeftNode(String id) {
+        Exception exceptionToFailSendFutures = new RecipientLeftException();
 
-            sender.executeInEventLoop(recoveryDescriptor::close);
-        });
-    }
-
-    private void closeRecoveryDescriptorsWith(String id) {
         for (RecoveryDescriptor descriptor : descriptorProvider.getRecoveryDescriptorsByLaunchId(UUID.fromString(id))) {
-            descriptor.closeInEventLoopOfLastOwner();
+            blockAndDisposeDescriptor(descriptor, exceptionToFailSendFutures);
         }
+    }
+
+    private void blockAndDisposeDescriptor(RecoveryDescriptor descriptor, Exception exceptionToFailSendFutures) {
+        while (!descriptor.block(exceptionToFailSendFutures)) {
+            DescriptorAcquiry acquiry = descriptor.holder();
+            if (acquiry == null) {
+                continue;
+            }
+
+            // Could not block, someone did not release the descriptor yet (but will do soon). Close their channel (just in case)
+            // and try again.
+            Channel channel = acquiry.channel();
+            assert channel != null;
+
+            NettyUtils.toCompletableFuture(channel.close())
+                    .whenCompleteAsync(
+                            (res, e) -> blockAndDisposeDescriptor(descriptor, exceptionToFailSendFutures),
+                            connectionMaintenanceExecutor
+                    );
+        }
+
+        // Now we hold the acquiry, so noone else can touch the unacknowledged queue and there is happens-before between all
+        // previous operations with this queue and our current actions.
+        descriptor.dispose(exceptionToFailSendFutures);
     }
 }
