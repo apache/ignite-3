@@ -198,7 +198,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     private static final IgniteLogger LOG = Loggers.forClass(TableManager.class);
 
     /** Name of a transaction state directory. */
-    private static final String TX_STATE_DIR = "tx-state-";
+    private static final String TX_STATE_DIR = "tx-state";
 
     /** Transaction storage flush delay. */
     private static final int TX_STATE_STORAGE_FLUSH_DELAY = 100;
@@ -312,9 +312,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
     private final CatalogService catalogService;
 
-    /** Partitions storage path. */
-    private final Path storagePath;
-
     /** Incoming RAFT snapshots executor. */
     private final ExecutorService incomingSnapshotsExecutor;
 
@@ -408,7 +405,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         this.replicaSvc = replicaSvc;
         this.txManager = txManager;
         this.dataStorageMgr = dataStorageMgr;
-        this.storagePath = storagePath;
         this.metaStorageMgr = metaStorageMgr;
         this.schemaManager = schemaManager;
         this.volatileLogStorageFactoryCreator = volatileLogStorageFactoryCreator;

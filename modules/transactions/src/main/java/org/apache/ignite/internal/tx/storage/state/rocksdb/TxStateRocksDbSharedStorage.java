@@ -127,6 +127,9 @@ public class TxStateRocksDbSharedStorage implements ManuallyCloseable {
         return flusher.awaitFlush(schedule);
     }
 
+    /**
+     * Starts the storage.
+     */
     public void start() {
         try {
             flusher = new RocksDbFlusher(
