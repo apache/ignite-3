@@ -20,6 +20,7 @@ package org.apache.ignite.internal.sql.engine;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.apache.ignite.internal.table.TableTestUtils.getTableStrict;
+import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
@@ -55,13 +56,13 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
     @Test
     public void pkWithNullableColumns() {
         assertThrowsSqlException(
-                Sql.STMT_VALIDATION_ERR,
+                STMT_VALIDATION_ERR,
                 "Primary key cannot contain nullable column [col=ID0]",
                 () -> sql("CREATE TABLE T0(ID0 INT NULL, ID1 INT NOT NULL, VAL INT, PRIMARY KEY (ID1, ID0))")
         );
 
         assertThrowsSqlException(
-                Sql.STMT_VALIDATION_ERR,
+                STMT_VALIDATION_ERR,
                 "Primary key cannot contain nullable column [col=ID]",
                 () -> sql("CREATE TABLE T0(ID INT NULL PRIMARY KEY, VAL INT)")
         );
@@ -70,7 +71,7 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
     @Test
     public void pkWithInvalidColumns() {
         assertThrowsSqlException(
-                Sql.STMT_VALIDATION_ERR,
+                STMT_VALIDATION_ERR,
                 "Primary key constraint contains undefined columns: [cols=[ID2]]",
                 () -> sql("CREATE TABLE T0(ID0 INT, ID1 INT, VAL INT, PRIMARY KEY (ID2, ID0))")
         );
@@ -85,7 +86,7 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
         );
 
         assertThrowsSqlException(
-                Sql.STMT_VALIDATION_ERR,
+                STMT_VALIDATION_ERR,
                 "Table without PRIMARY KEY is not supported",
                 () -> sql("CREATE TABLE T0(ID0 INT, ID1 INT, VAL INT)")
         );
@@ -100,7 +101,7 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
         );
 
         assertThrowsSqlException(
-                Sql.STMT_VALIDATION_ERR,
+                STMT_VALIDATION_ERR,
                 "Column with name 'ID0' specified more than once",
                 () -> sql("CREATE TABLE T0(ID0 INT PRIMARY KEY, ID1 INT, ID0 INT)")
         );
@@ -119,7 +120,7 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
     @Test
     public void undefinedColumnsInPrimaryKey() {
         assertThrowsSqlException(
-                Sql.STMT_VALIDATION_ERR,
+                STMT_VALIDATION_ERR,
                 "Primary key constraint contains undefined columns: [cols=[ID0, ID2, ID1]]",
                 () -> sql("CREATE TABLE T0(ID INT, VAL INT, PRIMARY KEY (ID1, ID0, ID2))")
         );
@@ -131,13 +132,13 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
     @Test
     public void invalidColocationColumns() {
         assertThrowsSqlException(
-                Sql.STMT_VALIDATION_ERR,
+                STMT_VALIDATION_ERR,
                 "Failed to validate query. Colocation column 'VAL' is not part of PK",
                 () -> sql("CREATE TABLE T0(ID0 INT, ID1 INT, VAL INT, PRIMARY KEY (ID1, ID0)) COLOCATE (ID0, VAL)")
         );
 
         assertThrowsSqlException(
-                Sql.STMT_VALIDATION_ERR,
+                STMT_VALIDATION_ERR,
                 "Failed to validate query. Colocation column 'ID1' specified more that once",
                 () -> sql("CREATE TABLE T0(ID0 INT, ID1 INT, VAL INT, PRIMARY KEY (ID1, ID0)) COLOCATE (ID1, ID0, ID1)")
         );
@@ -298,22 +299,9 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
     @Test
     public void doNotAllowFunctionsInNonPkColumns() {
         assertThrowsSqlException(
-                Sql.STMT_VALIDATION_ERR,
+                STMT_VALIDATION_ERR,
                 "Functional defaults are not supported for non-primary key columns",
                 () -> sql("create table t (id varchar primary key, val varchar default gen_random_uuid)")
         );
-    }
-
-    @Test
-    public void dummyAlterColumnDataType() {
-        sql("CREATE TABLE t0 (ID INT PRIMARY KEY, C2 varbinary, C3 varchar, C4 varbinary(10), C5 varchar(11))");
-        sql("ALTER TABLE t0 ALTER COLUMN C2 SET DATA TYPE varbinary");
-        sql("ALTER TABLE t0 ALTER COLUMN C4 SET DATA TYPE varbinary(10)");
-        sql("ALTER TABLE t0 ALTER COLUMN C5 SET DATA TYPE varchar(11)");
-
-        sql("CREATE TABLE t1 (ID INT PRIMARY KEY, DECIMAL_C2 DECIMAL(2))");
-        sql("ALTER TABLE t1 ALTER COLUMN DECIMAL_C2 SET DATA TYPE DECIMAL");
-        assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, "Decreasing the precision is not allowed",
-                () -> sql("ALTER TABLE t1 ALTER COLUMN DECIMAL_C2 SET DATA TYPE DECIMAL(1)"));
     }
 }

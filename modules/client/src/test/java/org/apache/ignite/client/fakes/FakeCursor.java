@@ -85,7 +85,12 @@ public class FakeCursor implements AsyncSqlCursor<InternalSqlRow> {
     }
 
     @Override
-    public void onClose(Runnable callback) {
+    public CompletableFuture<Void> onClose() {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public CompletableFuture<Void> onFirstPageReady() {
         throw new UnsupportedOperationException();
     }
 }

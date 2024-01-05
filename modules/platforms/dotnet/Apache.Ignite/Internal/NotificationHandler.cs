@@ -15,14 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.security.authentication.event;
+namespace Apache.Ignite.Internal;
 
-/**
- * Authentication events listener.
- */
-public interface AuthenticationListener {
-    /**
-     * Handle authentication event.
-     */
-    void onEvent(AuthenticationEvent event);
+using System.Threading.Tasks;
+using Buffers;
+
+/// <summary>
+/// Server -> client notification handler.
+/// </summary>
+internal sealed class NotificationHandler : TaskCompletionSource<PooledBuffer>
+{
+    // No-op.
 }

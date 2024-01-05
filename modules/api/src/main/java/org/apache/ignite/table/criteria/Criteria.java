@@ -21,7 +21,7 @@ import java.util.Arrays;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Represents a predicate for filtering table entries.
+ * Represents a criteria query predicate.
  *
  * <pre><code>
  *      public ClosableCursor&lt;Product&gt; uncategorizedProducts() {
@@ -35,9 +35,9 @@ public interface Criteria {
     /**
      * Accept the visitor with the given context.
      *
-     * @param <C> context type.
-     * @param v visitor.
-     * @param context context of visit.
+     * @param <C> Context type.
+     * @param v Visitor.
+     * @param context Context of visit.
      */
     <C> void accept(CriteriaVisitor<C> v, @Nullable C context);
 
@@ -54,7 +54,7 @@ public interface Criteria {
      * @return The created expression instance.
      */
     static Expression columnValue(String columnName, Condition condition) {
-        var oldElements = condition.getElements();
+        Criteria[] oldElements = condition.getElements();
         var newElements = new Criteria[oldElements.length + 1];
 
         newElements[0] = new Column(columnName);
@@ -119,7 +119,21 @@ public interface Criteria {
      * @param <T> Value type.
      * @param value Target value.
      */
-    static <T> Condition equalTo(T value) {
+    static <T> Condition equalTo(Comparable<T> value) {
+        return new Condition(Operator.EQ, new Parameter<>(value));
+    }
+
+    /**
+     * Creates a condition that test the examined object is equal to the specified {@code value}.
+     *
+     * <p>For example:
+     * <pre>
+     *     columnValue(&quot;category&quot;, equalTo(&quot;toys&quot;))
+     * </pre>
+     *
+     * @param value Target value.
+     */
+    static Condition equalTo(byte[] value) {
         return new Condition(Operator.EQ, new Parameter<>(value));
     }
 
@@ -134,7 +148,7 @@ public interface Criteria {
      * @param <T> Value type.
      * @param value Target value.
      */
-    static <T> Condition greaterThan(T value) {
+    static <T> Condition greaterThan(Comparable<T> value) {
         return new Condition(Operator.GT, new Parameter<>(value));
     }
 
@@ -149,7 +163,7 @@ public interface Criteria {
      * @param <T> Value type.
      * @param value Target value.
      */
-    static <T> Condition greaterThanOrEqualTo(T value) {
+    static <T> Condition greaterThanOrEqualTo(Comparable<T> value) {
         return new Condition(Operator.GOE, new Parameter<>(value));
     }
 
@@ -164,7 +178,7 @@ public interface Criteria {
      * @param <T> Value type.
      * @param value Target value.
      */
-    static <T> Condition lessThan(T value) {
+    static <T> Condition lessThan(Comparable<T> value) {
         return new Condition(Operator.LT, new Parameter<>(value));
     }
 
@@ -179,7 +193,7 @@ public interface Criteria {
      * @param <T> Value type.
      * @param value Target value.
      */
-    static <T> Condition lessThanOrEqualTo(T value) {
+    static <T> Condition lessThanOrEqualTo(Comparable<T> value) {
         return new Condition(Operator.LOE, new Parameter<>(value));
     }
 
@@ -218,7 +232,7 @@ public interface Criteria {
      * @param <T> Values type.
      * @param values The collection in which matching items must be found.
      */
-    static <T> Condition in(T... values) {
+    static <T> Condition in(Comparable<T>... values) {
         Criteria[] args = Arrays.stream(values)
                 .map(Parameter::new)
                 .toArray(Criteria[]::new);

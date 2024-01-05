@@ -53,6 +53,7 @@ import org.apache.ignite.table.criteria.CriteriaException;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -63,13 +64,18 @@ import org.junit.jupiter.params.provider.MethodSource;
 public class ItCriteriaQueryTest extends ClusterPerClassIntegrationTest {
     private static IgniteClient CLIENT;
 
+    /** {@inheritDoc} */
     @Override
     protected int initialNodes() {
         return 1;
     }
 
+    /** {@inheritDoc} */
     @BeforeAll
-    protected void beforeAll() {
+    @Override
+    protected void beforeAll(TestInfo testInfo) {
+        super.beforeAll(testInfo);
+
         CLIENT = IgniteClient.builder()
                 .addresses("127.0.0.1:" + CLUSTER.aliveNode().clientAddress().port()).build();
 
@@ -97,7 +103,7 @@ public class ItCriteriaQueryTest extends ClusterPerClassIntegrationTest {
     public void testRecordBinaryView(Ignite ignite) {
         RecordView<Tuple> view = ignite.tables().table(DEFAULT_TABLE_NAME).recordView();
 
-        try (Cursor<Tuple> cur = view.queryCriteria(null, null)) {
+        try (Cursor<Tuple> cur = view.query(null, null)) {
             assertThat(Lists.newArrayList(cur), containsInAnyOrder(
                     allOf(tupleValue("id", is(0)), tupleValue("name", is("name0")), tupleValue("salary", is(0.0d))),
                     allOf(tupleValue("id", is(1)), tupleValue("name", is("name1")), tupleValue("salary", is(10.0d))),
@@ -105,13 +111,13 @@ public class ItCriteriaQueryTest extends ClusterPerClassIntegrationTest {
             ));
         }
 
-        try (Cursor<Tuple> cur = view.queryCriteria(null, columnValue("id", equalTo(2)))) {
+        try (Cursor<Tuple> cur = view.query(null, columnValue("id", equalTo(2)))) {
             assertThat(Lists.newArrayList(cur), containsInAnyOrder(
                     allOf(tupleValue("id", is(2)), tupleValue("name", is("name2")), tupleValue("salary", is(20.0d)))
             ));
         }
 
-        try (Cursor<Tuple> cur = view.queryCriteria(null, not(columnValue("id", equalTo(2))))) {
+        try (Cursor<Tuple> cur = view.query(null, not(columnValue("id", equalTo(2))))) {
             assertThat(Lists.newArrayList(cur), containsInAnyOrder(
                     allOf(tupleValue("id", is(0)), tupleValue("name", is("name0")), tupleValue("salary", is(0.0d))),
                     allOf(tupleValue("id", is(1)), tupleValue("name", is("name1")), tupleValue("salary", is(10.0d)))
@@ -124,7 +130,7 @@ public class ItCriteriaQueryTest extends ClusterPerClassIntegrationTest {
     public void testRecordPojoView(Ignite ignite) {
         RecordView<Person> view = ignite.tables().table(DEFAULT_TABLE_NAME).recordView(Person.class);
 
-        try (Cursor<Person> cur = view.queryCriteria(null, null)) {
+        try (Cursor<Person> cur = view.query(null, null)) {
             assertThat(Lists.newArrayList(cur), containsInAnyOrder(
                     new Person(0, "name0", 0.0d),
                     new Person(1, "name1", 10.0d),
@@ -132,13 +138,13 @@ public class ItCriteriaQueryTest extends ClusterPerClassIntegrationTest {
             ));
         }
 
-        try (Cursor<Person> cur = view.queryCriteria(null, columnValue("id", equalTo(2)))) {
+        try (Cursor<Person> cur = view.query(null, columnValue("id", equalTo(2)))) {
             assertThat(Lists.newArrayList(cur), containsInAnyOrder(
                     new Person(2, "name2", 20.0d)
             ));
         }
 
-        try (Cursor<Person> cur = view.queryCriteria(null, not(columnValue("id", equalTo(2))))) {
+        try (Cursor<Person> cur = view.query(null, not(columnValue("id", equalTo(2))))) {
             assertThat(Lists.newArrayList(cur), containsInAnyOrder(
                     new Person(0, "name0", 0.0d),
                     new Person(1, "name1", 10.0d)
@@ -151,44 +157,44 @@ public class ItCriteriaQueryTest extends ClusterPerClassIntegrationTest {
     public void testKeyValueBinaryView(Ignite ignite) {
         KeyValueView<Tuple, Tuple> view = ignite.tables().table(DEFAULT_TABLE_NAME).keyValueView();
 
-        try (Cursor<Entry<Tuple, Tuple>> cur = view.queryCriteria(null, null)) {
+        try (Cursor<Entry<Tuple, Tuple>> cur = view.query(null, null)) {
             assertThat(toMap(cur), allOf(
                     aMapWithSize(3),
                     hasEntry(
                             tupleValue("id", is(0)),
-                            allOf(tupleValue("id", is(0)), tupleValue("name", is("name0")), tupleValue("salary", is(0.0d)))
+                            allOf(tupleValue("name", is("name0")), tupleValue("salary", is(0.0d)))
                     ),
                     hasEntry(
                             tupleValue("id", is(1)),
-                            allOf(tupleValue("id", is(1)), tupleValue("name", is("name1")), tupleValue("salary", is(10.0d)))
+                            allOf(tupleValue("name", is("name1")), tupleValue("salary", is(10.0d)))
                     ),
                     hasEntry(
                             tupleValue("id", is(2)),
-                            allOf(tupleValue("id", is(2)), tupleValue("name", is("name2")), tupleValue("salary", is(20.0d)))
+                            allOf(tupleValue("name", is("name2")), tupleValue("salary", is(20.0d)))
                     )
             ));
         }
 
-        try (Cursor<Entry<Tuple, Tuple>> cur = view.queryCriteria(null, columnValue("id", equalTo(2)))) {
+        try (Cursor<Entry<Tuple, Tuple>> cur = view.query(null, columnValue("id", equalTo(2)))) {
             assertThat(toMap(cur), allOf(
                     aMapWithSize(1),
                     hasEntry(
                             tupleValue("id", is(2)),
-                            allOf(tupleValue("id", is(2)), tupleValue("name", is("name2")), tupleValue("salary", is(20.0d)))
+                            allOf(tupleValue("name", is("name2")), tupleValue("salary", is(20.0d)))
                     )
             ));
         }
 
-        try (Cursor<Entry<Tuple, Tuple>> cur = view.queryCriteria(null, not(columnValue("id", equalTo(2))))) {
+        try (Cursor<Entry<Tuple, Tuple>> cur = view.query(null, not(columnValue("id", equalTo(2))))) {
             assertThat(toMap(cur), allOf(
                     aMapWithSize(2),
                     hasEntry(
                             tupleValue("id", is(0)),
-                            allOf(tupleValue("id", is(0)), tupleValue("name", is("name0")), tupleValue("salary", is(0.0d)))
+                            allOf(tupleValue("name", is("name0")), tupleValue("salary", is(0.0d)))
                     ),
                     hasEntry(
                             tupleValue("id", is(1)),
-                            allOf(tupleValue("id", is(1)), tupleValue("name", is("name1")), tupleValue("salary", is(10.0d)))
+                            allOf(tupleValue("name", is("name1")), tupleValue("salary", is(10.0d)))
                     )
             ));
         }
@@ -199,27 +205,27 @@ public class ItCriteriaQueryTest extends ClusterPerClassIntegrationTest {
     public void testKeyValueView(Ignite ignite) {
         KeyValueView<PersonKey, Person> view = ignite.tables().table(DEFAULT_TABLE_NAME).keyValueView(PersonKey.class, Person.class);
 
-        try (Cursor<Entry<PersonKey, Person>> cur = view.queryCriteria(null, null)) {
+        try (Cursor<Entry<PersonKey, Person>> cur = view.query(null, null)) {
             assertThat(toMap(cur), allOf(
                     aMapWithSize(3),
                     hasEntry(new PersonKey(0), new Person(0, "name0", 0.0d)),
-                    hasEntry(new PersonKey(1), new Person(1, "name1", 10.0d)),
-                    hasEntry(new PersonKey(2), new Person(2, "name2", 20.0d))
+                    hasEntry(new PersonKey(1), new Person(0, "name1", 10.0d)),
+                    hasEntry(new PersonKey(2), new Person(0, "name2", 20.0d))
             ));
         }
 
-        try (Cursor<Entry<PersonKey, Person>> cur = view.queryCriteria(null, columnValue("id", equalTo(2)))) {
+        try (Cursor<Entry<PersonKey, Person>> cur = view.query(null, columnValue("id", equalTo(2)))) {
             assertThat(toMap(cur), allOf(
                     aMapWithSize(1),
-                    hasEntry(new PersonKey(2), new Person(2, "name2", 20.0d))
+                    hasEntry(new PersonKey(2), new Person(0, "name2", 20.0d))
             ));
         }
 
-        try (Cursor<Entry<PersonKey, Person>> cur = view.queryCriteria(null, not(columnValue("id", equalTo(2))))) {
+        try (Cursor<Entry<PersonKey, Person>> cur = view.query(null, not(columnValue("id", equalTo(2))))) {
             assertThat(toMap(cur), allOf(
                     aMapWithSize(2),
                     hasEntry(new PersonKey(0), new Person(0, "name0", 0.0d)),
-                    hasEntry(new PersonKey(1), new Person(1, "name1", 10.0d))
+                    hasEntry(new PersonKey(1), new Person(0, "name1", 10.0d))
             ));
         }
     }
@@ -228,7 +234,7 @@ public class ItCriteriaQueryTest extends ClusterPerClassIntegrationTest {
     public void testOptions() {
         RecordView<Person> view = CLIENT.tables().table(DEFAULT_TABLE_NAME).recordView(Person.class);
 
-        AsyncCursor<Person> ars = await(view.queryCriteriaAsync(null, null, builder().pageSize(2).build()));
+        AsyncCursor<Person> ars = await(view.queryAsync(null, null, builder().pageSize(2).build()));
 
         assertNotNull(ars);
         assertEquals(2, ars.currentPageSize());
@@ -239,7 +245,7 @@ public class ItCriteriaQueryTest extends ClusterPerClassIntegrationTest {
     void testNoMorePages() {
         RecordView<Person> view = CLIENT.tables().table(DEFAULT_TABLE_NAME).recordView(Person.class);
 
-        AsyncCursor<Person> ars = await(view.queryCriteriaAsync(null, null, builder().pageSize(3).build()));
+        AsyncCursor<Person> ars = await(view.queryAsync(null, null, builder().pageSize(3).build()));
 
         assertNotNull(ars);
         assertThrows(CriteriaException.class, () -> await(ars.fetchNextPage()), Criteria.CURSOR_NO_MORE_PAGES_ERR,
@@ -250,7 +256,7 @@ public class ItCriteriaQueryTest extends ClusterPerClassIntegrationTest {
     void testFetchCursorIsClosed() {
         RecordView<Person> view = CLIENT.tables().table(DEFAULT_TABLE_NAME).recordView(Person.class);
 
-        AsyncCursor<Person> ars = await(view.queryCriteriaAsync(null, null, builder().pageSize(2).build()));
+        AsyncCursor<Person> ars = await(view.queryAsync(null, null, builder().pageSize(2).build()));
 
         assertNotNull(ars);
         await(ars.closeAsync());
@@ -261,7 +267,7 @@ public class ItCriteriaQueryTest extends ClusterPerClassIntegrationTest {
     void testInvalidColumnName() {
         RecordView<Person> view = CLIENT.tables().table(DEFAULT_TABLE_NAME).recordView(Person.class);
 
-        assertThrows(IllegalArgumentException.class, () -> await(view.queryCriteriaAsync(null, columnValue("id1", equalTo(2)))),
+        assertThrows(IllegalArgumentException.class, () -> await(view.queryAsync(null, columnValue("id1", equalTo(2)))),
                 "Unexpected column name: ID1");
     }
 

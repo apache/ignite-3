@@ -124,6 +124,13 @@ public class Replica {
     }
 
     /**
+     * Returns an instance of replica listener, associated with current replica.
+     */
+    ReplicaListener replicaListener() {
+        return listener;
+    }
+
+    /**
      * Processes a replication request on the replica.
      *
      * @param request Request to replication.

@@ -18,14 +18,12 @@
 package org.apache.ignite.internal.jdbc.proto.event;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.tostring.S;
-import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.sql.ColumnType;
 
 /**
@@ -41,7 +39,7 @@ public class JdbcQuerySingleResult extends Response {
     /** Flag indicating the query has no unfetched results. */
     private boolean last;
 
-    /** Flag indicating the query is SELECT query. {@code false} for DML/DDL queries. */
+    /** Flag indicating the query is SELECT/EXPLAIN query. {@code false} for DML/DDL/TX queries. */
     private boolean isQuery;
 
     /** Update count. */
@@ -53,10 +51,14 @@ public class JdbcQuerySingleResult extends Response {
     /** Decimal scales in appearance order. Can be empty in case no any decimal columns. */
     private int[] decimalScales;
 
+    /** {@code true} if results are available, {@code false} otherwise. */
+    private boolean resultsAvailable;
+
     /**
-     * Constructor. For deserialization purposes only.
+     * Constructor.
      */
     public JdbcQuerySingleResult() {
+        resultsAvailable = false;
     }
 
     /**
@@ -67,6 +69,8 @@ public class JdbcQuerySingleResult extends Response {
      */
     public JdbcQuerySingleResult(int status, String err) {
         super(status, err);
+
+        resultsAvailable = false;
     }
 
     /**
@@ -74,6 +78,8 @@ public class JdbcQuerySingleResult extends Response {
      *
      * @param cursorId Cursor ID.
      * @param rowTuples Serialized SQL result rows.
+     * @param columnTypes Ordered list of types of columns in serialized rows.
+     * @param decimalScales Decimal scales in appearance order.
      * @param last     Flag indicates the query has no unfetched results.
      */
     public JdbcQuerySingleResult(long cursorId, List<BinaryTupleReader> rowTuples, List<ColumnType> columnTypes, int[] decimalScales,
@@ -91,6 +97,7 @@ public class JdbcQuerySingleResult extends Response {
         this.isQuery = true;
 
         hasResults = true;
+        resultsAvailable = true;
 
         assert decimalScales != null;
     }
@@ -100,16 +107,14 @@ public class JdbcQuerySingleResult extends Response {
      *
      * @param updateCnt Update count for DML queries.
      */
-    public JdbcQuerySingleResult(long updateCnt) {
+    public JdbcQuerySingleResult(long cursorId, long updateCnt) {
         super();
 
-        this.last = true;
-        this.isQuery = false;
         this.updateCnt = updateCnt;
-        this.rowTuples = Collections.emptyList();
-        columnTypes = Collections.emptyList();
-        this.decimalScales = ArrayUtils.INT_EMPTY_ARRAY;
-        hasResults = true;
+        this.cursorId = cursorId;
+
+        hasResults = false;
+        resultsAvailable = true;
     }
 
     /**
@@ -143,7 +148,7 @@ public class JdbcQuerySingleResult extends Response {
      * Decimal scales.
      *
      * @return Decimal scales in appearance order in columns. Can be empty in case no any decimal columns.
-     * */
+     */
     public int[] decimalScales() {
         return decimalScales;
     }
@@ -166,6 +171,13 @@ public class JdbcQuerySingleResult extends Response {
         return isQuery;
     }
 
+    /** Results availability flag.
+     * If no more results available, returns {@code false}
+     */
+    public boolean resultAvailable() {
+        return resultsAvailable;
+    }
+
     /**
      * Get the update count.
      *
@@ -180,18 +192,22 @@ public class JdbcQuerySingleResult extends Response {
     public void writeBinary(ClientMessagePacker packer) {
         super.writeBinary(packer);
 
+        packer.packBoolean(resultsAvailable);
+        if (resultsAvailable) {
+            packer.packLong(updateCnt);
+
+            if (cursorId != null) {
+                packer.packLong(cursorId);
+            } else {
+                packer.packNil();
+            }
+        }
+
         if (!hasResults) {
             return;
         }
 
-        if (cursorId != null) {
-            packer.packLong(cursorId);
-        } else {
-            packer.packNil();
-        }
-
         packer.packBoolean(isQuery);
-        packer.packLong(updateCnt);
         packer.packBoolean(last);
 
         packer.packIntArray(decimalScales);
@@ -212,18 +228,22 @@ public class JdbcQuerySingleResult extends Response {
     @Override
     public void readBinary(ClientMessageUnpacker unpacker) {
         super.readBinary(unpacker);
+        resultsAvailable = unpacker.unpackBoolean();
+        if (resultsAvailable) {
+            updateCnt = unpacker.unpackLong();
+
+            if (unpacker.tryUnpackNil()) {
+                cursorId = null;
+            } else {
+                cursorId = unpacker.unpackLong();
+            }
+        }
 
         if (!hasResults) {
             return;
         }
 
-        if (unpacker.tryUnpackNil()) {
-            cursorId = null;
-        } else {
-            cursorId = unpacker.unpackLong();
-        }
         isQuery = unpacker.unpackBoolean();
-        updateCnt = unpacker.unpackLong();
         last = unpacker.unpackBoolean();
 
         decimalScales = unpacker.unpackIntArray();
@@ -239,7 +259,7 @@ public class JdbcQuerySingleResult extends Response {
 
         rowTuples = new ArrayList<>(size);
         for (int rowIdx = 0; rowIdx < size; rowIdx++) {
-            rowTuples.add(new BinaryTupleReader(columnTypes.size(), unpacker.readBinary()));
+            rowTuples.add(new BinaryTupleReader(count, unpacker.readBinary()));
         }
 
     }

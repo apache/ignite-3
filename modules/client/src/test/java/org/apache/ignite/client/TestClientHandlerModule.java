@@ -49,8 +49,6 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.security.authentication.AuthenticationManager;
-import org.apache.ignite.internal.security.authentication.AuthenticationManagerImpl;
-import org.apache.ignite.internal.security.configuration.SecurityConfiguration;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.distributed.schema.AlwaysSyncedSchemaSyncService;
@@ -101,7 +99,7 @@ public class TestClientHandlerModule implements IgniteComponent {
     private final NettyBootstrapFactory bootstrapFactory;
 
     /** Security configuration. */
-    private final SecurityConfiguration securityConfiguration;
+    private final AuthenticationManager authenticationManager;
 
     /**
      * Constructor.
@@ -115,8 +113,9 @@ public class TestClientHandlerModule implements IgniteComponent {
      * @param compute Compute.
      * @param clusterId Cluster id.
      * @param metrics Metrics.
-     * @param securityConfiguration Security configuration.
+     * @param authenticationManager Authentication manager.
      * @param clock Clock.
+     * @param placementDriver Placement driver.
      */
     public TestClientHandlerModule(
             Ignite ignite,
@@ -128,7 +127,7 @@ public class TestClientHandlerModule implements IgniteComponent {
             IgniteCompute compute,
             UUID clusterId,
             ClientHandlerMetricSource metrics,
-            SecurityConfiguration securityConfiguration,
+            AuthenticationManager authenticationManager,
             HybridClock clock,
             PlacementDriver placementDriver) {
         assert ignite != null;
@@ -144,7 +143,7 @@ public class TestClientHandlerModule implements IgniteComponent {
         this.compute = compute;
         this.clusterId = clusterId;
         this.metrics = metrics;
-        this.securityConfiguration = securityConfiguration;
+        this.authenticationManager = authenticationManager;
         this.clock = clock;
         this.placementDriver = placementDriver;
     }
@@ -216,7 +215,7 @@ public class TestClientHandlerModule implements IgniteComponent {
                                         ignite.sql(),
                                         CompletableFuture.completedFuture(clusterId),
                                         metrics,
-                                        authenticationManager(securityConfiguration),
+                                        authenticationManager,
                                         clock,
                                         new AlwaysSyncedSchemaSyncService(),
                                         catalogService,
@@ -304,11 +303,5 @@ public class TestClientHandlerModule implements IgniteComponent {
 
             super.channelRead(ctx, msg);
         }
-    }
-
-    private AuthenticationManager authenticationManager(SecurityConfiguration securityConfiguration) {
-        AuthenticationManagerImpl manager = new AuthenticationManagerImpl();
-        securityConfiguration.listen(manager);
-        return manager;
     }
 }

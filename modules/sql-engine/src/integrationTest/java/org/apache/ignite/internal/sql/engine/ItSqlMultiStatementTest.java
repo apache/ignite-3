@@ -24,15 +24,17 @@ import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.RUNTIME_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_FAILED_READ_WRITE_OPERATION_ERR;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Iterator;
 import java.util.List;
 import java.util.NoSuchElementException;
-import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
 import org.apache.ignite.tx.Transaction;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -71,18 +73,16 @@ public class ItSqlMultiStatementTest extends BaseSqlMultiStatementTest {
         cursors.forEach(AsyncSqlCursor::closeAsync);
 
         // Ensures that the script is executed completely, even if the cursor data has not been read.
-        cursors = fetchAllCursors(runScript("INSERT INTO test VALUES (1, 1);"
+        executeScript("INSERT INTO test VALUES (1, 1);"
                 + "INSERT INTO test VALUES (2, 2);"
                 + "SELECT * FROM test;"
-                + "INSERT INTO test VALUES (3, 3);"));
+                + "INSERT INTO test VALUES (3, 3);");
 
         assertQuery("select * from test")
                 .returns(1, 1)
                 .returns(2, 2)
                 .returns(3, 3)
                 .check();
-
-        cursors.forEach(AsyncSqlCursor::closeAsync);
     }
 
     /** Checks single statement execution using multi-statement API. */
@@ -107,7 +107,7 @@ public class ItSqlMultiStatementTest extends BaseSqlMultiStatementTest {
                 + "INSERT INTO test VALUES(?, DEFAULT);"
                 + "INSERT INTO test VALUES(?, ?);";
 
-        executeScript(sql, 0, "1", 2, 4, "5");;
+        executeScript(sql, 0, "1", 2, 4, "5");
 
         assertQuery("SELECT * FROM test")
                 .returns(0, "1")
@@ -132,22 +132,32 @@ public class ItSqlMultiStatementTest extends BaseSqlMultiStatementTest {
     void scriptStopsExecutionOnError() {
         // Runtime error.
         {
-            AsyncSqlCursor<InternalSqlRow> cursor = runScript(
-                    "CREATE TABLE test (id INT PRIMARY KEY);"
-                            + "SELECT 2/0;" // Runtime error.
-                            + "INSERT INTO test VALUES (0)"
+            assertThrowsSqlException(
+                    RUNTIME_ERR,
+                    "Division by zero",
+                    () -> executeScript(
+                            "CREATE TABLE test (id INT PRIMARY KEY);"
+                                    + "INSERT INTO test VALUES (2/0);" // Runtime error.
+                                    + "INSERT INTO test VALUES (0)"
+                    )
             );
-            assertTrue(cursor.hasNextResult());
-            cursor.closeAsync();
 
-            CompletableFuture<AsyncSqlCursor<InternalSqlRow>> curFut0 = cursor.nextResult();
-            assertThrowsSqlException(RUNTIME_ERR, "Division by zero", () -> await(curFut0));
+            assertQuery("SELECT count(*) FROM test")
+                    .returns(0L)
+                    .check();
         }
 
         // Validation error.
         {
-            assertThrowsSqlException(STMT_VALIDATION_ERR, "operator must have compatible types",
-                    () -> runScript("INSERT INTO test VALUES (?); INSERT INTO test VALUES (1)", null, "Incompatible param"));
+            assertThrowsSqlException(
+                    STMT_VALIDATION_ERR,
+                    "operator must have compatible types",
+                    () -> executeScript(
+                            "INSERT INTO test VALUES (?);"
+                                    + "INSERT INTO test VALUES (1)",
+                            "Incompatible param"
+                    )
+            );
 
             assertQuery("SELECT count(*) FROM test")
                     .returns(0L)
@@ -156,22 +166,16 @@ public class ItSqlMultiStatementTest extends BaseSqlMultiStatementTest {
 
         // Internal error.
         {
-            AsyncSqlCursor<InternalSqlRow> insCursor1 = runScript(
-                    "INSERT INTO test VALUES(0);"
-                            + "INSERT INTO test VALUES(1);"
-                            + "SELECT (SELECT id FROM test);" // Internal error.
-                            + "INSERT INTO test VALUES(2);"
+            assertThrowsSqlException(
+                    INTERNAL_ERR,
+                    "Subquery returned more than 1 value",
+                    () -> executeScript(
+                            "INSERT INTO test VALUES(0);"
+                                    + "INSERT INTO test VALUES(1);"
+                                    + "DELETE FROM test WHERE id = (SELECT id FROM test);" // Internal error.
+                                    + "INSERT INTO test VALUES(2);"
+                    )
             );
-
-            AsyncSqlCursor<InternalSqlRow> insCursor2 = await(insCursor1.nextResult());
-            assertNotNull(insCursor2);
-            assertTrue(insCursor2.hasNextResult());
-
-            CompletableFuture<AsyncSqlCursor<InternalSqlRow>> cursFut = insCursor2.nextResult();
-            assertThrowsSqlException(INTERNAL_ERR, "Subquery returned more than 1 value", () -> await(cursFut));
-
-            insCursor1.closeAsync();
-            insCursor2.closeAsync();
 
             assertQuery("SELECT * FROM test")
                     .returns(0)
@@ -188,7 +192,7 @@ public class ItSqlMultiStatementTest extends BaseSqlMultiStatementTest {
             assertThrowsSqlException(
                     TX_FAILED_READ_WRITE_OPERATION_ERR,
                     "Transaction is already finished",
-                    () -> runScript(
+                    () -> executeScript(
                             "INSERT INTO test VALUES(3); INSERT INTO test VALUES(4);",
                             (InternalTransaction) tx
                     )
@@ -200,5 +204,38 @@ public class ItSqlMultiStatementTest extends BaseSqlMultiStatementTest {
                     .returns(2)
                     .check();
         }
+    }
+
+    @Test
+    void concurrentExecutionDoesntAffectSelectWithImplicitTx() {
+        long tableSize = 1_000;
+
+        @SuppressWarnings("ConcatenationWithEmptyString")
+        String script = ""
+                + "CREATE TABLE integers (i INT PRIMARY KEY);"
+                + "INSERT INTO integers SELECT * FROM TABLE(system_range(1, " + tableSize + "));"
+                + "SELECT count(*) FROM integers;"
+                + "DELETE FROM integers;"
+                + "DROP TABLE integers;";
+
+        AsyncSqlCursor<InternalSqlRow> cursor = runScript(script); // CREATE TABLE...
+        cursor.closeAsync();
+
+        cursor = await(cursor.nextResult()); // INSERT...
+
+        assertThat(cursor, notNullValue());
+        cursor.closeAsync();
+
+        cursor = await(cursor.nextResult()); // SELECT...
+
+        assertThat(cursor, notNullValue());
+
+        BatchedResult<InternalSqlRow> batch = await(cursor.requestNextAsync(1));
+
+        assertThat(batch, notNullValue());
+
+        assertThat(batch.items().get(0).get(0), is(tableSize));
+
+        iterateThroughResultsAndCloseThem(cursor);
     }
 }

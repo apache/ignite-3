@@ -25,7 +25,7 @@ import static org.apache.ignite.lang.ErrorGroups.Criteria.COLUMN_NOT_FOUND_ERR;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
-import org.apache.ignite.internal.table.criteria.CursorSyncAdapter;
+import org.apache.ignite.internal.table.criteria.CursorAdapter;
 import org.apache.ignite.internal.table.criteria.SqlSerializer;
 import org.apache.ignite.lang.Cursor;
 import org.apache.ignite.sql.ResultSetMetadata;
@@ -39,7 +39,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Base class for client views.
  */
-abstract class AbstractClientView<R> implements CriteriaQuerySource<R> {
+abstract class AbstractClientView<T> implements CriteriaQuerySource<T> {
     /** Underlying table. */
     protected final ClientTable tbl;
 
@@ -86,11 +86,11 @@ abstract class AbstractClientView<R> implements CriteriaQuerySource<R> {
     }
 
     /**
-     * Construct SQL query and arguments for prepare statement and collect.
+     * Construct SQL query and arguments for prepare statement.
      *
      * @param tableName Table name.
      * @param columns Table columns.
-     * @param criteria The predicate to filter entries or {@code null} to return all entries in record view.
+     * @param criteria The predicate to filter entries or {@code null} to return all entries from the underlying table.
      * @return SQL query and it's arguments.
      */
     static SqlSerializer createSqlSerializer(String tableName, ClientColumn[] columns, @Nullable Criteria criteria) {
@@ -107,11 +107,7 @@ abstract class AbstractClientView<R> implements CriteriaQuerySource<R> {
 
     /** {@inheritDoc} */
     @Override
-    public Cursor<R> queryCriteria(
-            @Nullable Transaction tx,
-            @Nullable Criteria criteria,
-            CriteriaQueryOptions opts
-    ) {
-        return new CursorSyncAdapter<>(sync(queryCriteriaAsync(tx, criteria, opts)));
+    public Cursor<T> query(@Nullable Transaction tx, @Nullable Criteria criteria, @Nullable CriteriaQueryOptions opts) {
+        return new CursorAdapter<>(sync(queryAsync(tx, criteria, opts)));
     }
 }

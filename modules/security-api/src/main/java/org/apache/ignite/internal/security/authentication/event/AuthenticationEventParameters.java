@@ -15,21 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.client;
+package org.apache.ignite.internal.security.authentication.event;
 
-import org.jetbrains.annotations.Nullable;
+import org.apache.ignite.internal.event.EventParameters;
 
 /**
- * Client notification handler.
+ * Authentication event parameters.
  */
-@FunctionalInterface
-public interface NotificationHandler {
-    /**
-     * Consumes the notification.
-     *
-     * @param input Input, or {@code null} when failed.
-     * @param err Error, or {@code null} when successful.
-     * @throws Exception on failure.
-     */
-    void consume(@Nullable PayloadInputChannel input, @Nullable Throwable err) throws Exception;
+public interface AuthenticationEventParameters extends EventParameters {
+    AuthenticationEvent type();
 }

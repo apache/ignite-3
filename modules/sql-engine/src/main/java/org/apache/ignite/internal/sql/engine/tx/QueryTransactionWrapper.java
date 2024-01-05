@@ -30,6 +30,14 @@ public interface QueryTransactionWrapper {
     /** Commits an implicit transaction, if one has been started. */
     CompletableFuture<Void> commitImplicit();
 
+    /**
+     * Returns {@code true} if this transaction was implicitly started by query engine to
+     * execute one particular statement, returns {@code false} otherwise.
+     *
+     * @return {@code true} if transaction was started implicitly by query engine.
+     */
+    boolean implicit();
+
     /** Rolls back a transaction. */
     CompletableFuture<Void> rollback(Throwable cause);
 }

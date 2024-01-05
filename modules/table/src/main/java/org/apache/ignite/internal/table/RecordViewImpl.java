@@ -67,13 +67,14 @@ import org.jetbrains.annotations.Nullable;
  * Record view implementation.
  */
 public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordView<R> {
+    /** Record class mapper. */
+    private final Mapper<R> mapper;
+
     /** Marshaller factory. */
     private final Function<SchemaDescriptor, RecordMarshaller<R>> marshallerFactory;
 
     /** Record marshaller. */
     private volatile @Nullable RecordMarshaller<R> marsh;
-
-    private final Mapper<R> mapper;
 
     /**
      * Constructor.
@@ -93,8 +94,8 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
     ) {
         super(tbl, schemaVersions, schemaRegistry, sql);
 
-        marshallerFactory = (schema) -> new RecordMarshallerImpl<>(schema, mapper);
         this.mapper = mapper;
+        marshallerFactory = (schema) -> new RecordMarshallerImpl<>(schema, mapper);
     }
 
     /** {@inheritDoc} */
@@ -551,21 +552,18 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<AsyncCursor<R>> queryCriteriaAsync(
+    public CompletableFuture<AsyncCursor<R>> queryAsync(
             @Nullable Transaction tx,
             @Nullable Criteria criteria,
-            CriteriaQueryOptions opts
+            @Nullable CriteriaQueryOptions opts
     ) {
+        var opts0 = opts == null ? CriteriaQueryOptions.DEFAULT : opts;
+
         return withSchemaSync(tx, (schemaVersion) -> {
             SchemaDescriptor schema = rowConverter.registry().schema(schemaVersion);
+            SqlSerializer ser = createSqlSerializer(tbl.name(), schema.columnNames(), criteria);
 
-            SqlSerializer ser = new SqlSerializer.Builder()
-                    .tableName(tbl.name())
-                    .columns(schema.columnNames())
-                    .where(criteria)
-                    .build();
-
-            Statement statement = sql.statementBuilder().query(ser.toString()).pageSize(opts.pageSize()).build();
+            Statement statement = sql.statementBuilder().query(ser.toString()).pageSize(opts0.pageSize()).build();
             Session session = sql.createSession();
 
             return CriteriaExceptionMapperUtil.convertToPublicFuture(

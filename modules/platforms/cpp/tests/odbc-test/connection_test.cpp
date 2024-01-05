@@ -157,7 +157,7 @@ TEST_F(connection_test, username) {
     if (!SQL_SUCCEEDED(ret))
         FAIL() << (get_odbc_error_message(SQL_HANDLE_DBC, m_conn));
 
-    EXPECT_EQ(CORRECT_USERNAME, std::string(reinterpret_cast<char*>(buffer)));
+    EXPECT_EQ(CORRECT_USERNAME, std::string(reinterpret_cast<char *>(buffer)));
 }
 
 TEST_F(connection_test, username_no_auth) {
@@ -172,5 +172,5 @@ TEST_F(connection_test, username_no_auth) {
     if (!SQL_SUCCEEDED(ret))
         FAIL() << (get_odbc_error_message(SQL_HANDLE_DBC, m_conn));
 
-    EXPECT_EQ(std::string(""), std::string(reinterpret_cast<char*>(buffer)));
+    EXPECT_EQ(std::string(""), std::string(reinterpret_cast<char *>(buffer)));
 }

@@ -29,11 +29,11 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Stream;
+import org.apache.ignite.compute.ComputeException;
 import org.apache.ignite.internal.deployunit.DisposableDeploymentUnit;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.lang.ErrorGroups.Compute;
-import org.apache.ignite.lang.IgniteException;
 
 /**
  * Creates a class loader for a job.
@@ -75,7 +75,7 @@ public class JobClassLoaderFactory {
             Files.walkFileTree(unitDir, classpathCollector);
             return classpathCollector.classpathAsStream();
         } catch (IOException e) {
-            throw new IgniteException(
+            throw new ComputeException(
                     Compute.CLASS_PATH_ERR,
                     "Failed to construct classpath for job: " + unitDir,
                     e
