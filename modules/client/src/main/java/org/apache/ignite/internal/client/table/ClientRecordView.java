@@ -401,8 +401,9 @@ public class ClientRecordView<R> extends AbstractClientView<R> implements Record
                     Session session = new ClientSessionBuilder(tbl.channel()).build();
 
                     return CriteriaExceptionMapperUtil.convertToPublicFuture(
-                session.executeAsync(tx, this.ser.mapper(), statement, ser.getArguments())
-                            .thenApply(resultSet -> new QueryCriteriaAsyncCursor<>(resultSet, null, session::close)));
+                            session.executeAsync(tx, this.ser.mapper(), statement, ser.getArguments())
+                                    .thenApply(resultSet -> new QueryCriteriaAsyncCursor<>(resultSet, null, session::close))
+                    );
                 });
     }
 }
