@@ -116,7 +116,6 @@ public class SchemaManager implements IgniteComponent {
                         }
 
                         prevSchema = newSchema;
-
                         registries = registerSchema(registries, tableId, newSchema);
                     }
                 }

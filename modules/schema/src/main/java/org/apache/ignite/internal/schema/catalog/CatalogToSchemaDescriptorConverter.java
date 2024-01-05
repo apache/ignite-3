@@ -168,7 +168,7 @@ public final class CatalogToSchemaDescriptorConverter {
         }
 
         return new SchemaDescriptor(
-                tableDescriptor.tableVersion(),
+                tableVersion,
                 keyCols.toArray(Column[]::new),
                 tableDescriptor.colocationColumns().toArray(String[]::new),
                 valCols.toArray(Column[]::new)
