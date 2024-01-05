@@ -20,7 +20,6 @@ package org.apache.ignite.internal.catalog.commands;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_LENGTH;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PRECISION;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_SCALE;
-import static org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor.INITIAL_TABLE_VERSION;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.sql.ColumnType.INT32;
@@ -92,12 +91,9 @@ public class MakeIndexAvailableCommandValidationTest extends AbstractCommandVali
                 pkIndexId,
                 "TEST_TABLE",
                 zoneId,
-                INITIAL_TABLE_VERSION,
                 List.of(tableColumn(columnName)),
                 List.of(columnName),
-                null,
-                1,
-                1
+                null
         );
     }
 

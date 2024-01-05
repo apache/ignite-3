@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.table.distributed.schema;
 
-import static org.apache.ignite.internal.catalog.CatalogManagerImpl.INITIAL_CAUSALITY_TOKEN;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureCompletedMatcher.completedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
@@ -114,7 +113,7 @@ class CatalogValidationSchemasSourceTest extends BaseIgniteAbstractTest {
         );
 
         return new CatalogTableDescriptor(
-                tableId, -1, -1, "test", 0, tableVersion, columns, List.of("k1"), null, INITIAL_CAUSALITY_TOKEN, INITIAL_CAUSALITY_TOKEN
+                tableId, -1, -1, "test", 0, columns, List.of("k1"), null
         );
     }
 
