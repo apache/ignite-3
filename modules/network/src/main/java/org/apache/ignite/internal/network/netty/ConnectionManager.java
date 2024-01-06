@@ -371,15 +371,17 @@ public class ConnectionManager implements ChannelCreationListener {
     }
 
     private void closeSenderAndDisposeDescriptor(NettySender sender, Exception exceptionToFailSendFutures) {
-        sender.closeAsync().whenCompleteAsync((res, ex) -> {
-            RecoveryDescriptor recoveryDescriptor = descriptorProvider.getRecoveryDescriptor(
-                    sender.consistentId(),
-                    UUID.fromString(sender.launchId()),
-                    sender.channelId()
-            );
+        connectionMaintenanceExecutor.submit(() -> {
+            sender.closeAsync().whenCompleteAsync((res, ex) -> {
+                RecoveryDescriptor recoveryDescriptor = descriptorProvider.getRecoveryDescriptor(
+                        sender.consistentId(),
+                        UUID.fromString(sender.launchId()),
+                        sender.channelId()
+                );
 
-            blockAndDisposeDescriptor(recoveryDescriptor, exceptionToFailSendFutures);
-        }, connectionMaintenanceExecutor);
+                blockAndDisposeDescriptor(recoveryDescriptor, exceptionToFailSendFutures);
+            }, connectionMaintenanceExecutor);
+        });
     }
 
     /**
