@@ -20,6 +20,7 @@ package org.apache.ignite.internal.network.netty;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.network.ChannelType.getChannel;
 
 import io.netty.bootstrap.Bootstrap;
@@ -353,18 +354,23 @@ public class ConnectionManager implements ChannelCreationListener {
         // handshake manager.
         assert oldChannel == null || !oldChannel.isOpen() : "Incorrect channel creation flow";
 
-        // Preventing a race between calling closeConnectionsWith() and putting a new channel that was just opened (with the node
+        // Preventing a race between calling handleNodeLeft() and putting a new channel that was just opened (with the node
         // which is already stale). If it's stale, then the stale detector already knows it (and it knows it before
-        // closeConnectionsWith() gets called as it subscribes first).
+        // handleNodeLeft() gets called as it subscribes first).
         // This is the only place where a new sender might be added to the map.
         if (staleIdDetector.isIdStale(channel.launchId())) {
-            closeSenderAndDisposeDescriptorOfLeftNode(channel);
+            closeSenderAndDisposeDescriptor(channel, new RecipientLeftException());
+
+            channels.remove(key, channel);
+        } else if (stopping.get()) {
+            // Same thing as above, but for stopping this node instead of handling a 'node left' for another node.
+            closeSenderAndDisposeDescriptor(channel, new NodeStoppingException());
 
             channels.remove(key, channel);
         }
     }
 
-    private void closeSenderAndDisposeDescriptorOfLeftNode(NettySender sender) {
+    private void closeSenderAndDisposeDescriptor(NettySender sender, Exception exceptionToFailSendFutures) {
         sender.closeAsync().whenCompleteAsync((res, ex) -> {
             RecoveryDescriptor recoveryDescriptor = descriptorProvider.getRecoveryDescriptor(
                     sender.consistentId(),
@@ -372,7 +378,7 @@ public class ConnectionManager implements ChannelCreationListener {
                     sender.channelId()
             );
 
-            blockAndDisposeDescriptor(recoveryDescriptor, new RecipientLeftException());
+            blockAndDisposeDescriptor(recoveryDescriptor, exceptionToFailSendFutures);
         }, connectionMaintenanceExecutor);
     }
 
@@ -424,23 +430,38 @@ public class ConnectionManager implements ChannelCreationListener {
             return;
         }
 
-        Stream<CompletableFuture<Void>> futuresStream = Stream.concat(
+        assert stopping.get();
+
+        Stream<CompletableFuture<Void>> stopFutures = Stream.concat(
                 Stream.concat(
                     clients.values().stream().map(NettyClient::stop),
                     Stream.of(server.stop())
                 ),
                 channels.values().stream().map(NettySender::closeAsync)
         );
+        stopFutures = Stream.concat(stopFutures, Stream.of(disposeDescriptors()));
 
-        CompletableFuture<Void> stopFut = allOf(futuresStream.toArray(CompletableFuture<?>[]::new));
+        CompletableFuture<Void> finalStopFuture = allOf(stopFutures.toArray(CompletableFuture<?>[]::new));
 
         try {
-            stopFut.join();
+            finalStopFuture.join();
         } catch (Exception e) {
             LOG.warn("Failed to stop connection manager [reason={}]", e.getMessage());
         }
 
         IgniteUtils.shutdownAndAwaitTermination(connectionMaintenanceExecutor, 10, TimeUnit.SECONDS);
+    }
+
+    private CompletableFuture<Void> disposeDescriptors() {
+        Exception exceptionToFailSendFutures = new NodeStoppingException();
+
+        Collection<RecoveryDescriptor> descriptors = descriptorProvider.getAllRecoveryDescriptors();
+        List<CompletableFuture<Void>> disposeFutures = new ArrayList<>(descriptors.size());
+        for (RecoveryDescriptor descriptor : descriptors) {
+            disposeFutures.add(blockAndDisposeDescriptor(descriptor, exceptionToFailSendFutures));
+        }
+
+        return allOf(disposeFutures.toArray(CompletableFuture[]::new));
     }
 
     /**
@@ -553,7 +574,7 @@ public class ConnectionManager implements ChannelCreationListener {
                 () -> closeChannelsWith(id).whenCompleteAsync((res, ex) -> {
                     // Closing descriptors separately (as some of them might not have an operating channel attached, but they
                     // still might have unacknowledged messages/futures).
-                    closeRecoveryDescriptorsWithLeftNode(id);
+                    disposeRecoveryDescriptorsOfLeftNode(id);
                 }, connectionMaintenanceExecutor)
         );
     }
@@ -573,7 +594,7 @@ public class ConnectionManager implements ChannelCreationListener {
         return allOf(closeFutures.toArray(CompletableFuture[]::new));
     }
 
-    private void closeRecoveryDescriptorsWithLeftNode(String id) {
+    private void disposeRecoveryDescriptorsOfLeftNode(String id) {
         Exception exceptionToFailSendFutures = new RecipientLeftException();
 
         for (RecoveryDescriptor descriptor : descriptorProvider.getRecoveryDescriptorsByLaunchId(UUID.fromString(id))) {
@@ -581,11 +602,11 @@ public class ConnectionManager implements ChannelCreationListener {
         }
     }
 
-    private void blockAndDisposeDescriptor(RecoveryDescriptor descriptor, Exception exceptionToFailSendFutures) {
+    private CompletableFuture<Void> blockAndDisposeDescriptor(RecoveryDescriptor descriptor, Exception exceptionToFailSendFutures) {
         while (!descriptor.block(exceptionToFailSendFutures)) {
             if (descriptor.isBlocked()) {
                 // Already blocked concurrently, nothing to do here, the one who blocked it will handle the disposal (or already did).
-                return;
+                return nullCompletedFuture();
             }
 
             DescriptorAcquiry acquiry = descriptor.holder();
@@ -598,15 +619,18 @@ public class ConnectionManager implements ChannelCreationListener {
             Channel channel = acquiry.channel();
             assert channel != null;
 
-            NettyUtils.toCompletableFuture(channel.close())
-                    .whenCompleteAsync(
+            return NettyUtils.toCompletableFuture(channel.close())
+                    .handleAsync(
                             (res, e) -> blockAndDisposeDescriptor(descriptor, exceptionToFailSendFutures),
                             connectionMaintenanceExecutor
-                    );
+                    )
+                    .thenCompose(identity());
         }
 
         // Now we hold the acquiry, so noone else can touch the unacknowledged queue and there is happens-before between all
         // previous operations with this queue and our current actions.
         descriptor.dispose(exceptionToFailSendFutures);
+
+        return nullCompletedFuture();
     }
 }

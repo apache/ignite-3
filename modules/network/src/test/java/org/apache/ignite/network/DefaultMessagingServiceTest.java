@@ -518,7 +518,7 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
 
         @Override
         public void close() throws Exception {
-            IgniteUtils.closeAll(connectionManager::stop, messagingService::stop);
+            IgniteUtils.closeAll(connectionManager::initiateStopping, connectionManager::stop, messagingService::stop);
         }
     }
 

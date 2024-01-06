@@ -533,7 +533,7 @@ public class ItConnectionManagerTest extends BaseIgniteAbstractTest {
 
         @Override
         public void close() throws Exception {
-            IgniteUtils.closeAll(connectionManager::stop, nettyFactory::stop);
+            IgniteUtils.closeAll(connectionManager::initiateStopping, connectionManager::stop, nettyFactory::stop);
         }
 
         OrderingFuture<NettySender> openChannelTo(ConnectionManagerWrapper recipient) {

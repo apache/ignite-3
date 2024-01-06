@@ -19,6 +19,7 @@ package org.apache.ignite.internal.network.netty;
 
 import static java.util.stream.Collectors.toList;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -51,6 +52,11 @@ public class DefaultRecoveryDescriptorProvider implements RecoveryDescriptorProv
                 .filter(entry -> entry.getKey().launchId.equals(launchId))
                 .map(Entry::getValue)
                 .collect(toList());
+    }
+
+    @Override
+    public Collection<RecoveryDescriptor> getAllRecoveryDescriptors() {
+        return new ArrayList<>(recoveryDescriptors.values());
     }
 
     /** Channel key. */

@@ -41,4 +41,9 @@ public interface RecoveryDescriptorProvider {
      * @return Descriptors by launch ID.
      */
     Collection<RecoveryDescriptor> getRecoveryDescriptorsByLaunchId(UUID launchId);
+
+    /**
+     * Returns all descriptors.
+     */
+    Collection<RecoveryDescriptor> getAllRecoveryDescriptors();
 }

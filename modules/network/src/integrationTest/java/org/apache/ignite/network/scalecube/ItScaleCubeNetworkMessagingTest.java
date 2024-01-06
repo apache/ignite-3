@@ -687,14 +687,7 @@ class ItScaleCubeNetworkMessagingTest {
         ClusterService sender = testCluster.members.get(0);
         ClusterService receiver = testCluster.members.get(1);
 
-        receiver.messagingService().addMessageHandler(
-                TestMessageTypes.class,
-                (message, senderConsistentId, correlationId) -> {
-                    if (correlationId != null) {
-                        receiver.messagingService().respond(senderConsistentId, message, correlationId);
-                    }
-                }
-        );
+        echoMessagesBackAt(receiver);
 
         // Open a channel to allow a silencer to be installed on it.
         openDefaultChannelBetween(sender, receiver);
@@ -712,6 +705,17 @@ class ItScaleCubeNetworkMessagingTest {
         provokeAckFor(sender, receiver);
 
         assertThat(sendFuture, willCompleteSuccessfully());
+    }
+
+    private static void echoMessagesBackAt(ClusterService clusterService) {
+        clusterService.messagingService().addMessageHandler(
+                TestMessageTypes.class,
+                (message, senderConsistentId, correlationId) -> {
+                    if (correlationId != null) {
+                        clusterService.messagingService().respond(senderConsistentId, message, correlationId);
+                    }
+                }
+        );
     }
 
     private void openDefaultChannelBetween(ClusterService sender, ClusterService receiver) {
@@ -744,19 +748,46 @@ class ItScaleCubeNetworkMessagingTest {
         ClusterService notOutcast = testCluster.members.get(0);
         ClusterService outcast = testCluster.members.get(testCluster.members.size() - 1);
 
-        ClusterNode outcastNode = notOutcast.topologyService().getByConsistentId(outcast.nodeName());
-        ClusterNode notOutcastNode = outcast.topologyService().getByConsistentId(notOutcast.nodeName());
-        assertNotNull(outcastNode);
-        assertNotNull(notOutcastNode);
+        echoMessagesBackAt(outcast);
 
         openDefaultChannelBetween(notOutcast, outcast);
         dropAcksFrom(outcast);
 
-        CompletableFuture<Void> sendFuture = notOutcast.messagingService().send(outcastNode, messageFactory.testMessage().build());
+        CompletableFuture<Void> sendFuture = operation.send(
+                notOutcast.messagingService(),
+                messageFactory.testMessage().build(),
+                outcast.topologyService().localMember()
+        );
 
         knockOutNode(outcast.nodeName(), false);
 
         assertThat(sendFuture, willThrow(RecipientLeftException.class));
+    }
+
+    @ParameterizedTest
+    @EnumSource(SendOperation.class)
+    public void sendFutureFailsWhenSenderNodeStops(SendOperation operation) throws Exception {
+        testCluster = new Cluster(2, testInfo);
+
+        testCluster.startAwait();
+
+        ClusterService sender = testCluster.members.get(0);
+        ClusterService receiver = testCluster.members.get(testCluster.members.size() - 1);
+
+        echoMessagesBackAt(receiver);
+
+        openDefaultChannelBetween(sender, receiver);
+        dropAcksFrom(receiver);
+
+        CompletableFuture<Void> sendFuture = operation.send(
+                sender.messagingService(),
+                messageFactory.testMessage().build(),
+                receiver.topologyService().localMember()
+        );
+
+        sender.stop();
+
+        assertThat(sendFuture, willThrow(NodeStoppingException.class));
     }
 
     private void knockOutNode(String outcastName, boolean closeConnectionsForcibly) throws InterruptedException {
