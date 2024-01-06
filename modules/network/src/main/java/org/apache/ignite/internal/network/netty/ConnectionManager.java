@@ -583,6 +583,11 @@ public class ConnectionManager implements ChannelCreationListener {
 
     private void blockAndDisposeDescriptor(RecoveryDescriptor descriptor, Exception exceptionToFailSendFutures) {
         while (!descriptor.block(exceptionToFailSendFutures)) {
+            if (descriptor.isBlocked()) {
+                // Already blocked concurrently, nothing to do here, the one who blocked it will handle the disposal (or already did).
+                return;
+            }
+
             DescriptorAcquiry acquiry = descriptor.holder();
             if (acquiry == null) {
                 continue;

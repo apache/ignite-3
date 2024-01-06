@@ -212,6 +212,15 @@ public class RecoveryDescriptor {
     }
 
     /**
+     * Returns whether this descriptor is blocked (that is, it is acquired by ConnectionManager to dispose the descriptor
+     * and it will never be released).
+     */
+    public boolean isBlocked() {
+        DescriptorAcquiry acquiry = channelHolder.get();
+        return acquiry != null && acquiry.channel() == null;
+    }
+
+    /**
      * Returns context around the channel that holds this descriptor.
      */
     @Nullable public DescriptorAcquiry holder() {
