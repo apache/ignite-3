@@ -24,13 +24,14 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import org.apache.ignite.compute.DeploymentUnit;
+import org.apache.ignite.compute.JobExecution;
+import org.apache.ignite.compute.JobStatus;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.network.ClusterNode;
-import org.jetbrains.annotations.Nullable;
 
 /**
- * This is a helper class for {@link ComputeComponent} to handle job failover.
- * The usage of this class is following:
+ * This is a helper class for {@link ComputeComponent} to handle job failures. You can think about this class as a "retryable compute job
+ * with captured context".
  *
  * <p>If you want to execute a job on node1 and use node2 and node3 as failover candidates,
  * then you should create an instance of this class with workerNode = node1, failoverCandidates = [node2, node3] as arguments.
@@ -70,7 +71,6 @@ class ComputeJobFailover<T> {
             ComputeComponent computeComponent,
             NodeLeftEventsSource nodeLeftEventsSource,
             ClusterNode workerNode,
-            @Nullable
             Set<ClusterNode> failoverCandidates,
             List<DeploymentUnit> units,
             String jobClassName,
@@ -86,38 +86,74 @@ class ComputeJobFailover<T> {
     }
 
     /**
-     * Executes a job on the worker node and restarts the job on one of the
-     * failover candidates if the worker node leaves the cluster.
+     * Executes a job on the worker node and restarts the job on one of the failover candidates if the worker node leaves the cluster.
      *
-     * @return CompletableFuture with the result of the job.
+     * @return JobExecution with the result of the job.
      */
-    CompletableFuture<T> failSafeExecuteOnOneNode() {
+    JobExecution<T> failSafeExecute() {
         // Save the context to be able to restart the job on a failover candidate.
         jobContext = new RemoteExecutionContext<>();
         jobContext.units = units;
         jobContext.jobClassName = jobClassName;
         jobContext.args = args;
 
-        RemoteCompletableFutureWrapper<T> futureWrapper = new RemoteCompletableFutureWrapper<>(
-                computeComponent.executeRemotely(runningWorkerNode.get(), units, jobClassName, args)
-        );
-        jobContext.future = futureWrapper;
+        JobExecution<T> remoteJobExecution = computeComponent.executeRemotely(runningWorkerNode.get(), units, jobClassName, args);
 
-        UUID jobId = UUID.randomUUID(); //Todo
+        FailSafeJobExecution<T> failSafeJobExecution = new FailSafeJobExecution<>(remoteJobExecution);
+        jobContext.jobExecution = failSafeJobExecution;
+
+        UUID jobId = UUID.randomUUID(); // todo
+
         nodeLeftEventsSource.addEventHandler(jobId, new OnNodeLeft());
 
-        futureWrapper.onDispose(
-                () -> nodeLeftEventsSource.removeEventHandler(jobId)
-        );
+        remoteJobExecution.resultAsync().whenComplete((r, e) -> nodeLeftEventsSource.removeEventHandler(jobId));
 
-        return futureWrapper;
+        return failSafeJobExecution;
+    }
+
+    private static class FailSafeJobExecution<T> implements JobExecution<T> {
+        private final CompletableFuture<T> resultFuture;
+
+        private final AtomicReference<JobExecution<T>> runningJobExecution;
+
+        private FailSafeJobExecution(JobExecution<T> runningJobExecution) {
+            this.resultFuture = new CompletableFuture<>();
+            this.runningJobExecution = new AtomicReference<>(runningJobExecution);
+            registerCompleteHook();
+        }
+
+        private void registerCompleteHook() {
+            runningJobExecution.get().resultAsync().whenComplete((res, err) -> {
+                System.out.println("%%%% completing future: res = " + res + " err= " + err);
+                if (err == null) {
+                    resultFuture.complete(res);
+                } else {
+                    resultFuture.completeExceptionally(err);
+                }
+            });
+        }
+
+        @Override
+        public CompletableFuture<T> resultAsync() {
+            return resultFuture;
+        }
+
+        @Override
+        public CompletableFuture<JobStatus> statusAsync() {
+            return runningJobExecution.get().statusAsync();
+        }
+
+        @Override
+        public CompletableFuture<Void> cancelAsync() {
+            return runningJobExecution.get().cancelAsync();
+        }
     }
 
     private static class RemoteExecutionContext<T> {
         List<DeploymentUnit> units;
         String jobClassName;
         Object[] args;
-        RemoteCompletableFutureWrapper<T> future;
+        FailSafeJobExecution<T> jobExecution;
     }
 
     class OnNodeLeft implements Consumer<ClusterNode> {
@@ -127,23 +163,27 @@ class ComputeJobFailover<T> {
                 return;
             }
             if (failoverCandidates == null) {
-                jobContext.future.cancel(true);
+                // todo
+                jobContext.jobExecution.cancelAsync();
                 return;
             }
 
-            var futureWrapper = jobContext.future;
+            FailSafeJobExecution<?> failSafeJobExecution = jobContext.jobExecution;
             if (failoverCandidates.isEmpty()) {
-                futureWrapper.completeExceptionally(new IgniteInternalException("No failover candidates left"));
+                // todo
+                failSafeJobExecution.resultFuture.completeExceptionally(new IgniteInternalException("No failover candidates left"));
                 return;
             }
 
             ClusterNode candidate = failoverCandidates.stream().findFirst().get();
             runningWorkerNode.set(candidate);
             failoverCandidates.remove(candidate);
-            CompletableFuture<T> remoteFuture = computeComponent.executeRemotely(
+            JobExecution<T> jobExecution = computeComponent.executeRemotely(
                     candidate, jobContext.units, jobContext.jobClassName, jobContext.args
             );
-            futureWrapper.setFuture(remoteFuture);
+            // todo
+            jobContext.jobExecution.runningJobExecution.set(jobExecution);
+            jobContext.jobExecution.registerCompleteHook();
         }
     }
 }

@@ -51,7 +51,9 @@ public class IgniteComputeImpl implements IgniteCompute {
     private static final String DEFAULT_SCHEMA_NAME = "PUBLIC";
 
     private final TopologyService topologyService;
+
     private final IgniteTablesInternal tables;
+
     private final ComputeComponent computeComponent;
 
     private final ThreadLocalRandom random = ThreadLocalRandom.current();
@@ -68,6 +70,23 @@ public class IgniteComputeImpl implements IgniteCompute {
         this.nodeLeftEventsSource = new NodeLeftEventsSource(topologyService);
     }
 
+    private static ClusterNode leaderOfTablePartitionByTupleKey(TableViewInternal table, Tuple key) {
+        return requiredLeaderByPartition(table, table.partition(key));
+    }
+
+    private static <K> ClusterNode leaderOfTablePartitionByMappedKey(TableViewInternal table, K key, Mapper<K> keyMapper) {
+        return requiredLeaderByPartition(table, table.partition(key, keyMapper));
+    }
+
+    private static ClusterNode requiredLeaderByPartition(TableViewInternal table, int partitionIndex) {
+        ClusterNode leaderNode = table.leaderAssignment(partitionIndex);
+        if (leaderNode == null) {
+            throw new IgniteInternalException(Common.INTERNAL_ERR, "Leader not found for partition " + partitionIndex);
+        }
+
+        return leaderNode;
+    }
+
     /** {@inheritDoc} */
     @Override
     public <R> JobExecution<R> executeAsync(Set<ClusterNode> nodes, List<DeploymentUnit> units, String jobClassName, Object... args) {
@@ -82,41 +101,7 @@ public class IgniteComputeImpl implements IgniteCompute {
         Set<ClusterNode> candidates = new HashSet<>(nodes);
         ClusterNode targetNode = randomNode(candidates);
 
-        return new JobExecutionWrapper<>(executeOnOneNode(candidate, units, jobClassName, args);
-        return futureWrapper;
-    }
-        candidates.remove(targetNode);
-
-        return executeOnOneNode(targetNode, candidates, units, jobClassName, args);
-    private static class RemoteExecutionRequest<T> {
-        ClusterNode worker;
-        List<DeploymentUnit> units;
-        String jobClassName;
-        Object[] args;
-        Set<ClusterNode> failoverCandidates;
-        RemoteCompletableFutureWrapper<T> future;
-    }
-
-    public static class NodeLeftTopologyEventHandler implements TopologyEventHandler {
-        Map<ClusterNode, List<RemoteExecutionRequest>> runningJobs;
-        IgniteComputeImpl parent;
-
-        @Override
-        public void onDisappeared(ClusterNode member) {
-           runningJobs.get(member).forEach(req -> {
-               var futureWrapper = req.future;
-               if (req.failoverCandidates.isEmpty()) {
-                   futureWrapper.completeExceptionally(new IgniteInternalException("No failover candidates left"));
-                   return;
-               };
-
-               var remoteFuture = parent.executeOnOneNode(
-                           (ClusterNode) req.failoverCandidates.stream().findFirst().get(), req.units, req.jobClassName, req.args
-               );
-
-               futureWrapper.setFuture(remoteFuture));
-           });
-        }
+        return new JobExecutionWrapper<>(executeOnOneNodeWithFailover(targetNode, candidates, units, jobClassName, args));
     }
 
     /** {@inheritDoc} */
@@ -145,46 +130,7 @@ public class IgniteComputeImpl implements IgniteCompute {
         return iterator.next();
     }
 
-    class RemoteCompletableFutureWrapper<T> extends CompletableFuture<T> {
-        private CompletableFuture<T> remoteCompletableFuture;
-
-        public RemoteCompletableFutureWrapper(CompletableFuture<T> remoteCompletableFuture) {
-            this.remoteCompletableFuture = remoteCompletableFuture;
-        }
-
-        public void setFuture(CompletableFuture<T> fut) {
-            remoteCompletableFuture = fut;
-        }
-
-        @Override
-        public boolean cancel(boolean mayInterruptIfRunning) {
-            return remoteCompletableFuture.cancel(mayInterruptIfRunning);
-        }
-
-        @Override
-        public boolean isCancelled() {
-            return remoteCompletableFuture.isCancelled();
-        }
-
-        @Override
-        public boolean isDone() {
-            return remoteCompletableFuture.isDone();
-        }
-
-        @Override
-        public T get() throws InterruptedException, ExecutionException {
-            return remoteCompletableFuture.get();
-        }
-
-        @Override
-        public T get(long timeout, TimeUnit unit)
-                throws InterruptedException, ExecutionException, TimeoutException {
-            return remoteCompletableFuture.get(timeout, unit);
-        }
-    }
-
-    private <R> JobExecution<R> executeOnOneNode(
-    private <R> CompletableFuture<R> executeOnOneNode(
+    private <R> JobExecution<R> executeOnOneNodeWithFailover(
             ClusterNode targetNode,
             Set<ClusterNode> failoverCandidates,
             List<DeploymentUnit> units,
@@ -198,7 +144,20 @@ public class IgniteComputeImpl implements IgniteCompute {
                     computeComponent, nodeLeftEventsSource,
                     targetNode, failoverCandidates, units,
                     jobClassName, args
-            ).failSafeExecuteOnOneNode();
+            ).failSafeExecute();
+        }
+    }
+
+    private <R> JobExecution<R> executeOnOneNode(
+            ClusterNode targetNode,
+            List<DeploymentUnit> units,
+            String jobClassName,
+            Object[] args
+    ) {
+        if (isLocal(targetNode)) {
+            return computeComponent.executeLocally(units, jobClassName, args);
+        } else {
+            return computeComponent.executeRemotely(targetNode, units, jobClassName, args);
         }
     }
 
@@ -220,9 +179,11 @@ public class IgniteComputeImpl implements IgniteCompute {
         Objects.requireNonNull(units);
         Objects.requireNonNull(jobClassName);
 
-        return new JobExecutionFutureWrapper<>(requiredTable(tableName)
-                .thenApply(table -> leaderOfTablePartitionByTupleKey(table, key))
-                .thenApply(primaryNode -> executeOnOneNode(primaryNode, null, units, jobClassName, args)));
+        return new JobExecutionFutureWrapper<>(
+                requiredTable(tableName)
+                        .thenApply(table -> leaderOfTablePartitionByTupleKey(table, key))
+                        .thenApply(primaryNode -> executeOnOneNode(primaryNode, units, jobClassName, args))
+        );
     }
 
     /** {@inheritDoc} */
@@ -243,7 +204,7 @@ public class IgniteComputeImpl implements IgniteCompute {
 
         return new JobExecutionFutureWrapper<>(requiredTable(tableName)
                 .thenApply(table -> leaderOfTablePartitionByMappedKey(table, key, keyMapper))
-                .thenApply(primaryNode -> executeOnOneNode(primaryNode, null, units, jobClassName, args)));
+                .thenApply(primaryNode -> executeOnOneNode(primaryNode, units, jobClassName, args)));
     }
 
     /** {@inheritDoc} */
@@ -291,23 +252,6 @@ public class IgniteComputeImpl implements IgniteCompute {
                 });
     }
 
-    private static ClusterNode leaderOfTablePartitionByTupleKey(TableViewInternal table, Tuple key) {
-        return requiredLeaderByPartition(table, table.partition(key));
-    }
-
-    private static  <K> ClusterNode leaderOfTablePartitionByMappedKey(TableViewInternal table, K key, Mapper<K> keyMapper) {
-        return requiredLeaderByPartition(table, table.partition(key, keyMapper));
-    }
-
-    private static ClusterNode requiredLeaderByPartition(TableViewInternal table, int partitionIndex) {
-        ClusterNode leaderNode = table.leaderAssignment(partitionIndex);
-        if (leaderNode == null) {
-            throw new IgniteInternalException(Common.INTERNAL_ERR, "Leader not found for partition " + partitionIndex);
-        }
-
-        return leaderNode;
-    }
-
     /** {@inheritDoc} */
     @Override
     public <R> Map<ClusterNode, JobExecution<R>> broadcastAsync(
@@ -323,6 +267,5 @@ public class IgniteComputeImpl implements IgniteCompute {
         return nodes.stream()
                 .collect(toUnmodifiableMap(identity(),
                         node -> new JobExecutionWrapper<>(executeOnOneNode(node, units, jobClassName, args))));
-                .collect(toUnmodifiableMap(node -> node, node -> executeOnOneNode(node, null, units, jobClassName, args)));
     }
 }
