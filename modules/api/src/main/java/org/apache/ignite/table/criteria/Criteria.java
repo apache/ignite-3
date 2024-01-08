@@ -17,7 +17,10 @@
 
 package org.apache.ignite.table.criteria;
 
+import static java.util.Objects.requireNonNull;
+
 import java.util.Arrays;
+import java.util.Objects;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -75,6 +78,8 @@ public interface Criteria {
      * @return The created negation of the expression.
      */
     static Expression not(Expression expression) {
+        requireNonNull(expression, "expression must not be null");
+
         return new Expression(Operator.NOT, expression);
     }
 
@@ -90,6 +95,10 @@ public interface Criteria {
      * @return The created {@code and} expression instance.
      */
     static Expression and(Expression... expressions) {
+        if (expressions == null || expressions.length == 0 || Arrays.stream(expressions).anyMatch(Objects::isNull)) {
+            throw new IllegalArgumentException("expressions must not be empty or null");
+        }
+
         return new Expression(Operator.AND, expressions);
     }
 
@@ -105,6 +114,10 @@ public interface Criteria {
      * @return The created {@code or} expressions instance.
      */
     static Expression or(Expression... expressions) {
+        if (expressions == null || expressions.length == 0 || Arrays.stream(expressions).anyMatch(Objects::isNull)) {
+            throw new IllegalArgumentException("expressions must not be empty or null");
+        }
+
         return new Expression(Operator.OR, expressions);
     }
 
@@ -135,6 +148,35 @@ public interface Criteria {
      */
     static Condition equalTo(byte[] value) {
         return new Condition(Operator.EQ, new Parameter<>(value));
+    }
+
+    /**
+     * Creates a condition that test the examined object is not equal to the specified {@code value}.
+     *
+     * <p>For example:
+     * <pre>
+     *     columnValue(&quot;category&quot;, notEqualTo(&quot;toys&quot;))
+     * </pre>
+     *
+     * @param <T> Value type.
+     * @param value Target value.
+     */
+    static <T> Condition notEqualTo(Comparable<T> value) {
+        return new Condition(Operator.NOT_EQ, new Parameter<>(value));
+    }
+
+    /**
+     * Creates a condition that test the examined object is not equal to the specified {@code value}.
+     *
+     * <p>For example:
+     * <pre>
+     *     columnValue(&quot;password&quot;, notEqualTo(&quot;MyPassword&quot;.getBytes()))
+     * </pre>
+     *
+     * @param value Target value.
+     */
+    static Condition notEqualTo(byte[] value) {
+        return new Condition(Operator.NOT_EQ, new Parameter<>(value));
     }
 
     /**
@@ -233,10 +275,45 @@ public interface Criteria {
      * @param values The collection in which matching items must be found.
      */
     static <T> Condition in(Comparable<T>... values) {
+        if (values == null || values.length == 0) {
+            throw new IllegalArgumentException("values must not be empty or null");
+        }
+
+        if (values.length == 1) {
+            return equalTo(values[0]);
+        }
+
         Criteria[] args = Arrays.stream(values)
                 .map(Parameter::new)
                 .toArray(Criteria[]::new);
 
         return new Condition(Operator.IN, args);
+    }
+
+    /**
+     * Creates a condition that test the examined object is is not found within the specified {@code collection}.
+     *
+     * <p>For example:
+     * <pre>
+     *     columnValue(&quot;category&quot;, notIn(&quot;toys&quot;, &quot;games&quot;))
+     * </pre>
+     *
+     * @param <T> Values type.
+     * @param values The collection in which matching items must be not found.
+     */
+    static <T> Condition notIn(Comparable<T>... values) {
+        if (values == null || values.length == 0) {
+            throw new IllegalArgumentException("values must not be empty or null");
+        }
+
+        if (values.length == 1) {
+            return notEqualTo(values[0]);
+        }
+
+        Criteria[] args = Arrays.stream(values)
+                .map(Parameter::new)
+                .toArray(Criteria[]::new);
+
+        return new Condition(Operator.NOT_IN, args);
     }
 }

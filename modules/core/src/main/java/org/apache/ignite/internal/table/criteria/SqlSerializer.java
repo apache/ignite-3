@@ -19,14 +19,13 @@ package org.apache.ignite.internal.table.criteria;
 
 import static org.apache.ignite.internal.util.StringUtils.nullOrBlank;
 
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.table.criteria.Column;
 import org.apache.ignite.table.criteria.Criteria;
@@ -44,13 +43,14 @@ import org.jetbrains.annotations.Nullable;
 public class SqlSerializer implements CriteriaVisitor<Void> {
     private static final Map<Operator, String> ELEMENT_TEMPLATES = Map.of(
             Operator.EQ, "{0} = {1}",
+            Operator.NOT_EQ, "{0} <> {1}",
             Operator.IS_NULL, "{0} IS NULL",
             Operator.IS_NOT_NULL, "{0} IS NOT NULL",
             Operator.GOE, "{0} >= {1}",
             Operator.GT, "{0} > {1}",
             Operator.LOE, "{0} <= {1}",
             Operator.LT, "{0} < {1}",
-            Operator.NOT, "NOT {0}"
+            Operator.NOT, "NOT ({0})"
     );
 
     @SuppressWarnings("StringBufferField")
@@ -87,40 +87,34 @@ public class SqlSerializer implements CriteriaVisitor<Void> {
         Operator operator = expression.getOperator();
         Criteria[] elements = expression.getElements();
 
-        String template;
-
         if (operator == Operator.AND || operator == Operator.OR) {
-            String delimiter = operator == Operator.AND ? ") AND (" : ") OR (";
-
-            template = IntStream.range(0, elements.length)
-                    .mapToObj(i -> String.format("{%d}", i))
-                    .collect(Collectors.joining(delimiter, "(", ")"));
+            append(operator == Operator.AND ? ") AND (" : ") OR (", "(", ")", elements, context);
         } else if (operator == Operator.IN || operator == Operator.NOT_IN) {
-            String prefix = operator == Operator.IN ? "{0} IN (" : "{0} NOT (";
+            elements[0].accept(this, context);
+            append(operator == Operator.IN ? " IN " : " NOT IN ");
 
-            template = IntStream.range(1, elements.length)
-                    .mapToObj(i -> String.format("{%d}", i))
-                    .collect(Collectors.joining(", ", prefix, ")"));
+            Criteria[] tail = Arrays.copyOfRange(elements, 1, elements.length);
+            append(", ", "(", ")", tail, context);
         } else {
-            template = ELEMENT_TEMPLATES.get(operator);
-        }
+            String template = ELEMENT_TEMPLATES.get(operator);
 
-        int end = 0;
-        Matcher matcher = Pattern.compile("\\{(\\d+)\\}").matcher(template);
+            int end = 0;
+            Matcher matcher = Pattern.compile("\\{(\\d+)\\}").matcher(template);
 
-        while (matcher.find()) {
-            if (matcher.start() > end) {
-                append(template.substring(end, matcher.start()));
+            while (matcher.find()) {
+                if (matcher.start() > end) {
+                    append(template.substring(end, matcher.start()));
+                }
+
+                int index = Integer.parseInt(matcher.group(1));
+                elements[index].accept(this, context);
+
+                end = matcher.end();
             }
 
-            int index = Integer.parseInt(matcher.group(1));
-            elements[index].accept(this, context);
-
-            end = matcher.end();
-        }
-
-        if (end < template.length()) {
-            append(template.substring(end));
+            if (end < template.length()) {
+                append(template.substring(end));
+            }
         }
     }
 
@@ -140,6 +134,24 @@ public class SqlSerializer implements CriteriaVisitor<Void> {
         builder.append(str);
 
         return this;
+    }
+
+    private void append(String delimiter, String prefix, String suffix, Criteria[] elements, @Nullable Void context) {
+        if (elements.length > 1) {
+            append(prefix);
+        }
+
+        for (int i = 0; i < elements.length; i++) {
+            elements[i].accept(this, context);
+
+            if (i < elements.length - 1) {
+                append(delimiter);
+            }
+        }
+
+        if (elements.length > 1) {
+            append(suffix);
+        }
     }
 
     /**
