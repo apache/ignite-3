@@ -28,8 +28,8 @@ import org.apache.ignite.internal.placementdriver.message.LeaseGrantedMessageRes
  */
 public class LeaseAgreement {
     /**
-     * The agreement, which has not try negotiating yet. We assume that it is {@link #ready()} which allows both initiation and retries
-     * of negotiation.
+     * The agreement, which has not try negotiating yet. We assume that it is {@link #ready()} and not {@link #isAccepted()}
+     * which allows both initiation and retries of negotiation.
      */
     public static final LeaseAgreement UNDEFINED_AGREEMENT = new LeaseAgreement(null, nullCompletedFuture());
 
