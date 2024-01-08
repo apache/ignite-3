@@ -31,7 +31,6 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.MAX_PARTITION_COUNT;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.fromParams;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
-import static org.apache.ignite.internal.util.Constants.DUMMY_STORAGE_PROFILE;
 
 import java.util.List;
 import java.util.Objects;
@@ -128,10 +127,6 @@ public class CreateZoneCommand extends AbstractZoneCommand {
                 ? dataStorageParams
                 : DataStorageParams.builder().engine(DEFAULT_STORAGE_ENGINE).dataRegion(DEFAULT_DATA_REGION).build();
 
-        List<StorageProfileParams> storageProfileParams0 = storageProfileParams != null
-                ? storageProfileParams
-                : List.of(StorageProfileParams.builder().storageProfile(DUMMY_STORAGE_PROFILE).build());
-
         CatalogZoneDescriptor zone = new CatalogZoneDescriptor(
                 objectId,
                 zoneName,
@@ -145,7 +140,7 @@ public class CreateZoneCommand extends AbstractZoneCommand {
                 Objects.requireNonNullElse(dataNodesAutoAdjustScaleDown, INFINITE_TIMER_VALUE),
                 Objects.requireNonNullElse(filter, DEFAULT_FILTER),
                 fromParams(dataStorageParams0),
-                fromParams(storageProfileParams0)
+                fromParams(storageProfileParams)
         );
 
         return zone;
