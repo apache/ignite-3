@@ -75,7 +75,7 @@ public class DistributionZoneRebalanceEngine {
     /** Catalog service. */
     private final CatalogService catalogService;
 
-    public static final CompletableFuture recoveryFuture = new CompletableFuture<>();
+    public static final CompletableFuture<Void> recoveryFuture = new CompletableFuture<>();
 
     /**
      * Constructor.
@@ -135,7 +135,7 @@ public class DistributionZoneRebalanceEngine {
     // TODO: And then run the remote invoke, only if needed.
     private void rebalanceTriggersRecovery(long recoveryRevision) {
         if (recoveryRevision > 0) {
-            var zonesRecoveryFutures = catalogService.zones(catalogService.latestCatalogVersion())
+            List<CompletableFuture<Void>> zonesRecoveryFutures = catalogService.zones(catalogService.latestCatalogVersion())
                     .stream()
                     .map(zoneDesc ->
                             recalculateAssignmentsAndScheduleRebalance(
@@ -145,14 +145,17 @@ public class DistributionZoneRebalanceEngine {
                             )
                     )
                     .collect(Collectors.toUnmodifiableList());
-            allOf(zonesRecoveryFutures.toArray(new CompletableFuture[0]))
-                    .whenComplete((v, th) -> {
-                        if (th != null) {
-                            recoveryFuture.completeExceptionally(th);
-                        } else {
-                            recoveryFuture.complete(v);
-                        }
-                    });
+
+            IgniteUtils.inBusyLockAsync(busyLock, () ->
+                    allOf(zonesRecoveryFutures.toArray(new CompletableFuture[0]))
+                            .whenComplete((v, th) -> {
+                                if (th != null) {
+                                    recoveryFuture.completeExceptionally(th);
+                                } else {
+                                    recoveryFuture.complete(null);
+                                }
+                            })
+            );
         } else {
             recoveryFuture.complete(null);
         }
