@@ -30,9 +30,19 @@ import java.util.concurrent.Flow.Publisher;
 import org.apache.ignite.client.RetryLimitPolicy;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.proto.TuplePart;
+import org.apache.ignite.internal.client.sql.ClientSessionBuilder;
+import org.apache.ignite.internal.client.sql.ClientStatementBuilder;
 import org.apache.ignite.internal.streamer.StreamerBatchSender;
+import org.apache.ignite.internal.table.criteria.CursorAdapter;
+import org.apache.ignite.internal.table.criteria.QueryCriteriaAsyncCursor;
+import org.apache.ignite.lang.AsyncCursor;
+import org.apache.ignite.lang.Cursor;
+import org.apache.ignite.sql.Session;
+import org.apache.ignite.sql.Statement;
 import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.RecordView;
+import org.apache.ignite.table.criteria.Criteria;
+import org.apache.ignite.table.criteria.CriteriaQueryOptions;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
@@ -374,5 +384,29 @@ public class ClientRecordView<R> implements RecordView<R> {
                 new RetryLimitPolicy().retryLimit(opts.retryLimit()));
 
         return ClientDataStreamer.streamData(publisher, opts, batchSender, provider, tbl);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Cursor<R> query(@Nullable Transaction tx, @Nullable Criteria criteria, @Nullable CriteriaQueryOptions opts) {
+        return new CursorAdapter<>(sync(queryAsync(tx, criteria, opts)));
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<AsyncCursor<R>> queryAsync(
+            @Nullable Transaction tx,
+            @Nullable Criteria criteria,
+            @Nullable CriteriaQueryOptions opts
+    ) {
+        //TODO: implement serialization of criteria to SQL https://issues.apache.org/jira/browse/IGNITE-20879
+        var query = "SELECT * FROM " + tbl.name();
+        var opts0 = opts == null ? CriteriaQueryOptions.DEFAULT : opts;
+
+        Statement statement = new ClientStatementBuilder().query(query).pageSize(opts0.pageSize()).build();
+        Session session = new ClientSessionBuilder(tbl.channel()).build();
+
+        return session.executeAsync(tx, ser.mapper(), statement)
+                .thenApply(resultSet -> new QueryCriteriaAsyncCursor<>(resultSet, session::close));
     }
 }

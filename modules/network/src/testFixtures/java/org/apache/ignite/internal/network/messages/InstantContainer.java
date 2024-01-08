@@ -15,14 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.security.authentication.event;
+package org.apache.ignite.internal.network.messages;
+
+import java.time.Instant;
 
 /**
- * Authentication events listener.
+ * Container for an {@link Instant} (stored in a field).
  */
-public interface AuthenticationListener {
-    /**
-     * Handle authentication event.
-     */
-    void onEvent(AuthenticationEvent event);
+public class InstantContainer {
+    private final Instant instant;
+
+    public InstantContainer(Instant instant) {
+        this.instant = instant;
+    }
+
+    /** Returns the instant. */
+    public Instant instant() {
+        return instant;
+    }
 }

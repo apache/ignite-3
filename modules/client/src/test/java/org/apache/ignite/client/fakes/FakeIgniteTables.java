@@ -213,7 +213,8 @@ public class FakeIgniteTables implements IgniteTablesInternal {
                     public CompletableFuture<Integer> schemaVersionAtNow(int tableId) {
                         return completedFuture(schemaReg.lastKnownSchemaVersion());
                     }
-                }
+                },
+                new FakeIgniteSql()
         );
     }
 

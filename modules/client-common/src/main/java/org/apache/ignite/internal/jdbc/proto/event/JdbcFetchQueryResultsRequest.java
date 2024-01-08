@@ -23,30 +23,30 @@ import org.apache.ignite.internal.jdbc.proto.ClientMessage;
 import org.apache.ignite.internal.tostring.S;
 
 /**
- * JDBC query fetch request.
+ * JDBC query fetch results request.
  */
-public class JdbcQueryFetchRequest implements ClientMessage {
+public class JdbcFetchQueryResultsRequest implements ClientMessage {
     /** Cursor ID. */
     private long cursorId;
 
     /** Fetch size. */
-    private int pageSize;
+    private int fetchSize;
 
     /**
      * Constructor.
      */
-    public JdbcQueryFetchRequest() {
+    public JdbcFetchQueryResultsRequest() {
     }
 
     /**
      * Constructor.
      *
      * @param cursorId Cursor ID.
-     * @param pageSize Fetch size.
+     * @param fetchSize Fetch size.
      */
-    public JdbcQueryFetchRequest(long cursorId, int pageSize) {
+    public JdbcFetchQueryResultsRequest(long cursorId, int fetchSize) {
         this.cursorId = cursorId;
-        this.pageSize = pageSize;
+        this.fetchSize = fetchSize;
     }
 
     /**
@@ -59,31 +59,31 @@ public class JdbcQueryFetchRequest implements ClientMessage {
     }
 
     /**
-     * Get the fetch page size.
+     * Get the fetch size.
      *
-     * @return Fetch page size.
+     * @return Fetch size.
      */
-    public int pageSize() {
-        return pageSize;
+    public int fetchSize() {
+        return fetchSize;
     }
 
     /** {@inheritDoc} */
     @Override
     public void writeBinary(ClientMessagePacker packer) {
         packer.packLong(cursorId);
-        packer.packInt(pageSize);
+        packer.packInt(fetchSize);
     }
 
     /** {@inheritDoc} */
     @Override
     public void readBinary(ClientMessageUnpacker unpacker) {
         cursorId = unpacker.unpackLong();
-        pageSize = unpacker.unpackInt();
+        fetchSize = unpacker.unpackInt();
     }
 
     /** {@inheritDoc} */
     @Override
     public String toString() {
-        return S.toString(JdbcQueryFetchRequest.class, this);
+        return S.toString(JdbcFetchQueryResultsRequest.class, this);
     }
 }

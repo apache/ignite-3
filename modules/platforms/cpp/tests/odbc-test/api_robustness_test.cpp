@@ -647,8 +647,7 @@ TEST_F(api_robustness_test, sql_num_params) {
     // Everything is ok.
     ret = SQLNumParams(m_statement, &params);
 
-    // TODO IGNITE-19854: Uncomment once query execution is implemented.
-    // ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
+    ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
     SQLNumParams(m_statement, 0);
 }
@@ -671,9 +670,7 @@ TEST_F(api_robustness_test, sql_num_params_escaped) {
     // Everything is ok.
     ret = SQLNumParams(m_statement, &params);
 
-    UNUSED_VALUE ret;
-    // TODO IGNITE-19854: Uncomment once query execution is implemented.
-    // ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
+    ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
     SQLNumParams(m_statement, 0);
 }

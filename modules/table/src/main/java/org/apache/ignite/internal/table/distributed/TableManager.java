@@ -75,6 +75,7 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.IntSupplier;
 import java.util.function.LongFunction;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -166,6 +167,7 @@ import org.apache.ignite.internal.thread.StripedThreadPoolExecutor;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.impl.TxMessageSender;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbTableStorage;
@@ -184,6 +186,7 @@ import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.TopologyService;
 import org.apache.ignite.raft.jraft.storage.impl.VolatileRaftMetaStorage;
+import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.Table;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -338,6 +341,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     /** Placement driver. */
     private final PlacementDriver placementDriver;
 
+    /** A supplier function that returns {@link IgniteSql}. */
+    private final Supplier<IgniteSql> sql;
+
     private final SchemaVersions schemaVersions;
 
     private final PartitionReplicatorNodeRecovery partitionReplicatorNodeRecovery;
@@ -366,6 +372,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      * @param raftGroupServiceFactory Factory that is used for creation of raft group services for replication groups.
      * @param vaultManager Vault manager.
      * @param placementDriver Placement driver.
+     * @param sql A supplier function that returns {@link IgniteSql}.
      */
     public TableManager(
             String nodeName,
@@ -391,7 +398,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             SchemaSyncService schemaSyncService,
             CatalogService catalogService,
             HybridTimestampTracker observableTimestampTracker,
-            PlacementDriver placementDriver
+            PlacementDriver placementDriver,
+            Supplier<IgniteSql> sql
     ) {
         this.clusterService = clusterService;
         this.raftMgr = raftMgr;
@@ -413,16 +421,19 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         this.catalogService = catalogService;
         this.observableTimestampTracker = observableTimestampTracker;
         this.placementDriver = placementDriver;
+        this.sql = sql;
 
         TopologyService topologyService = clusterService.topologyService();
 
+        TxMessageSender txMessageSender = new TxMessageSender(clusterService.messagingService(), replicaSvc, clock);
+
         transactionStateResolver = new TransactionStateResolver(
-                replicaSvc,
                 txManager,
                 clock,
                 topologyService,
                 clusterService.messagingService(),
-                placementDriver
+                placementDriver,
+                txMessageSender
         );
 
         schemaVersions = new SchemaVersionsImpl(schemaSyncService, catalogService, clock);
@@ -1113,7 +1124,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 partitions, clusterService.topologyService(), txManager, tableStorage,
                 txStateStorage, replicaSvc, clock, observableTimestampTracker, placementDriver);
 
-        var table = new TableImpl(internalTable, lockMgr, schemaVersions);
+        var table = new TableImpl(internalTable, lockMgr, schemaVersions, sql.get());
 
         // TODO: IGNITE-18595 We need to do something different to wait for indexes before full rebalancing
         table.addIndexesToWait(collectTableIndexIds(tableId, catalogVersion, onNodeRecovery));

@@ -17,32 +17,20 @@
 
 package org.apache.ignite.internal.security.authentication;
 
-import org.apache.ignite.configuration.notifications.ConfigurationListener;
-import org.apache.ignite.internal.security.authentication.event.AuthenticationListener;
-import org.apache.ignite.internal.security.configuration.SecurityView;
+import org.apache.ignite.internal.event.EventProducer;
+import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.security.authentication.event.AuthenticationEvent;
+import org.apache.ignite.internal.security.authentication.event.AuthenticationEventParameters;
 
 /**
  * Authentication manager.
  */
-public interface AuthenticationManager extends Authenticator, ConfigurationListener<SecurityView> {
+public interface AuthenticationManager extends Authenticator, IgniteComponent,
+        EventProducer<AuthenticationEvent, AuthenticationEventParameters> {
     /**
      * Check if authentication is enabled.
      *
      * @return {@code true} if authentication is enabled.
      */
     boolean authenticationEnabled();
-
-    /**
-     * Listen to authentication events.
-     *
-     * @param listener Listener.
-     */
-    void listen(AuthenticationListener listener);
-
-    /**
-     * Stop listen to authentication events.
-     *
-     * @param listener Listener.
-     */
-    void stopListen(AuthenticationListener listener);
 }

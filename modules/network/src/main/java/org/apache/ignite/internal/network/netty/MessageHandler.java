@@ -34,8 +34,12 @@ public class MessageHandler extends ChannelInboundHandlerAdapter {
     /** Message listener. */
     private final Consumer<InNetworkObject> messageListener;
 
+    private final String launchId;
+
     /** Consistent id of the remote node. */
     private final String consistentId;
+
+    private final short connectionIndex;
 
     private final PerSessionSerializationService serializationService;
 
@@ -43,13 +47,22 @@ public class MessageHandler extends ChannelInboundHandlerAdapter {
      * Constructor.
      *
      * @param messageListener Message listener.
+     * @param launchId Launch ID (this is the ID that does not survive a restart) of the remote node.
      * @param consistentId Consistent id of the remote node.
+     * @param connectionIndex Connection index (aka channel ID).
      * @param serializationService Serialization service.
      */
-    public MessageHandler(Consumer<InNetworkObject> messageListener, String consistentId,
-            PerSessionSerializationService serializationService) {
+    public MessageHandler(
+            Consumer<InNetworkObject> messageListener,
+            String launchId,
+            String consistentId,
+            short connectionIndex,
+            PerSessionSerializationService serializationService
+    ) {
         this.messageListener = messageListener;
+        this.launchId = launchId;
         this.consistentId = consistentId;
+        this.connectionIndex = connectionIndex;
         this.serializationService = serializationService;
     }
 
@@ -62,6 +75,8 @@ public class MessageHandler extends ChannelInboundHandlerAdapter {
             return;
         }
 
-        messageListener.accept(new InNetworkObject(message, consistentId, serializationService.compositeDescriptorRegistry()));
+        messageListener.accept(
+                new InNetworkObject(message, launchId, consistentId, connectionIndex, serializationService.compositeDescriptorRegistry())
+        );
     }
 }

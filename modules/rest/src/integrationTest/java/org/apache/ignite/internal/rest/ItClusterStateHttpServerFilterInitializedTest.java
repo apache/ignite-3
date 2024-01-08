@@ -34,7 +34,7 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 /** Tests that after cluster is initialized, all endpoints are available. */
-public class ItNodeOnlyEndpointsFilterInitializedTest extends IntegrationTestBase {
+public class ItClusterStateHttpServerFilterInitializedTest extends IntegrationTestBase {
 
     @Inject
     @Client(NODE_URL + "/management/v1")

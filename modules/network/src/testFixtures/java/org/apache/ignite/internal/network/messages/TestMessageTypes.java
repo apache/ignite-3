@@ -40,4 +40,6 @@ public class TestMessageTypes {
     public static final short NESTED_MESSAGE = 6;
 
     public static final short TEST_MESSAGE_WITH_MARSHALLABLE = 7;
+
+    public static final short MESSAGE_WITH_INSTANT = 8;
 }

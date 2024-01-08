@@ -15,14 +15,11 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.security.authentication.event;
+package org.apache.ignite.table.criteria;
 
 /**
- * Represents the authentication event type.
+ * Represents a criteria query predicate.
  */
-public enum EventType {
-    AUTHENTICATION_ENABLED,
-    AUTHENTICATION_DISABLED,
-    AUTHENTICATION_PROVIDER_REMOVED,
-    AUTHENTICATION_PROVIDER_UPDATED
+public interface Criteria {
+    // No-op.
 }

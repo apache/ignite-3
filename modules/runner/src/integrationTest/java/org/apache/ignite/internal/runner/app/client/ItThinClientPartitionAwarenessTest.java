@@ -82,7 +82,7 @@ public class ItThinClientPartitionAwarenessTest extends ItAbstractThinClientTest
             Tuple keyTuple = Tuple.create().set("key", key);
             var primaryNodeName = proxyClient.compute()
                     .<String>executeColocatedAsync(TABLE_NAME, keyTuple, List.of(), NodeNameJob.class.getName())
-                    .join();
+                    .resultAsync().join();
 
             // Perform request and check routing with proxy.
             resetRequestCount();

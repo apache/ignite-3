@@ -34,6 +34,7 @@ import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.MessagingService;
+import org.apache.ignite.sql.IgniteSql;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -66,7 +67,8 @@ abstract class TableKvOperationsTestBase extends BaseIgniteAbstractTest {
                 internalTable,
                 new DummySchemaManagerImpl(schema),
                 new HeapLockManager(),
-                schemaVersions
+                schemaVersions,
+                mock(IgniteSql.class)
         );
     }
 

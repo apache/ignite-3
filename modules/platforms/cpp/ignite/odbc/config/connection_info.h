@@ -77,7 +77,7 @@ public:
     /**
      * Rebuild connection_info from config.
      */
-     void rebuild();
+    void rebuild();
 
 private:
     /** Associative array of string m_parameters. */
