@@ -57,7 +57,7 @@ abstract class AbstractClientView<T> implements CriteriaQuerySource<T> {
      * @param criteria The predicate to filter entries or {@code null} to return all entries from the underlying table.
      * @return SQL query and it's arguments.
      */
-    static SqlSerializer createSqlSerializer(String tableName, ClientColumn[] columns, @Nullable Criteria criteria) {
+    protected static SqlSerializer createSqlSerializer(String tableName, ClientColumn[] columns, @Nullable Criteria criteria) {
         Set<String> columnNames = Arrays.stream(columns)
                 .map(ClientColumn::name)
                 .collect(toSet());
