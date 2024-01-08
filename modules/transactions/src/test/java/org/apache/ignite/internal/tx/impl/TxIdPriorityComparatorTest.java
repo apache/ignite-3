@@ -27,12 +27,12 @@ import org.apache.ignite.internal.tx.TxPriority;
 import org.junit.jupiter.api.Test;
 
 class TxIdPriorityComparatorTest {
+    private final TxIdPriorityComparator comparator = new TxIdPriorityComparator();
+
     private final HybridClock clock = new HybridClockImpl();
 
     @Test
     public void compareEqualPriorities() {
-        var comparator = new TxIdPriorityComparator();
-
         var tx1 = TransactionIds.transactionId(clock.now(), 1, TxPriority.NORMAL);
         var tx2 = TransactionIds.transactionId(clock.now(), 1, TxPriority.NORMAL);
 
@@ -43,19 +43,15 @@ class TxIdPriorityComparatorTest {
 
     @Test
     public void compareOldNormalTxVsNewLowTx() {
-        var comparator = new TxIdPriorityComparator();
-
         var tx1 = TransactionIds.transactionId(clock.now(), 1, TxPriority.NORMAL);
         var tx2 = TransactionIds.transactionId(clock.now(), 1, TxPriority.LOW);
 
-        assertTrue(comparator.compare(tx1, tx2) > 0);
-        assertTrue(comparator.compare(tx2, tx1) < 0);
+        assertTrue(comparator.compare(tx1, tx2) < 0);
+        assertTrue(comparator.compare(tx2, tx1) > 0);
     }
 
     @Test
     public void compareOldLowTxVsNewNormalTx() {
-        var comparator = new TxIdPriorityComparator();
-
         var tx1 = TransactionIds.transactionId(clock.now(), 1, TxPriority.LOW);
         var tx2 = TransactionIds.transactionId(clock.now(), 1, TxPriority.NORMAL);
 
