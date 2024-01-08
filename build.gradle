@@ -44,6 +44,20 @@ ext {
             'apache-snapshot'  : "https://repository.apache.org/snapshots",
             'apache-staging'   : 'https://repository.apache.org/service/local/staging/deploy/maven2'
     ]
+
+    defaultJvmArgs = ["--add-opens=java.base/java.lang=ALL-UNNAMED",
+                      "--add-opens=java.base/java.lang.invoke=ALL-UNNAMED",
+                      "--add-opens=java.base/java.lang.reflect=ALL-UNNAMED",
+                      "--add-opens=java.base/java.io=ALL-UNNAMED",
+                      "--add-opens=java.base/java.nio=ALL-UNNAMED",
+                      "--add-opens=java.base/java.math=ALL-UNNAMED",
+                      "--add-opens=java.base/java.util=ALL-UNNAMED",
+                      "--add-opens=java.base/java.time=ALL-UNNAMED",
+                      "--add-opens=java.base/jdk.internal.misc=ALL-UNNAMED",
+                      "--add-opens=java.base/sun.nio.ch=ALL-UNNAMED",
+                      "--add-opens=java.base/sun.security.x509=ALL-UNNAMED",
+                      "-Dio.netty.tryReflectionSetAccessible=true",
+                      "-XX:+HeapDumpOnOutOfMemoryError"]
 }
 
 def compilerArgs = [
@@ -61,19 +75,7 @@ allprojects {
     tasks.withType(Test).configureEach {
         defaultCharacterEncoding = 'UTF-8'
 
-        jvmArgs += ["--add-opens=java.base/java.lang=ALL-UNNAMED",
-                    "--add-opens=java.base/java.lang.invoke=ALL-UNNAMED",
-                    "--add-opens=java.base/java.lang.reflect=ALL-UNNAMED",
-                    "--add-opens=java.base/java.io=ALL-UNNAMED",
-                    "--add-opens=java.base/java.nio=ALL-UNNAMED",
-                    "--add-opens=java.base/java.math=ALL-UNNAMED",
-                    "--add-opens=java.base/java.util=ALL-UNNAMED",
-                    "--add-opens=java.base/java.time=ALL-UNNAMED",
-                    "--add-opens=java.base/jdk.internal.misc=ALL-UNNAMED",
-                    "--add-opens=java.base/sun.nio.ch=ALL-UNNAMED",
-                    "--add-opens=java.base/sun.security.x509=ALL-UNNAMED",
-                    "-Dio.netty.tryReflectionSetAccessible=true",
-                    "-XX:+HeapDumpOnOutOfMemoryError"]
+        jvmArgs += defaultJvmArgs
 
         systemProperty 'jraft.available_processors', 1
 

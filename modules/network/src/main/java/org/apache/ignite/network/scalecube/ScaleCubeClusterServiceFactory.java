@@ -84,9 +84,18 @@ public class ScaleCubeClusterServiceFactory {
             MessageSerializationRegistry serializationRegistry,
             StaleIds staleIds
     ) {
-        var messageFactory = new NetworkMessagesFactory();
-
         var topologyService = new ScaleCubeTopologyService();
+
+        // Adding this handler as the first handler to make sure that StaleIds is at least up-to-date as any
+        // other component that watches topology events.
+        topologyService.addEventHandler(new TopologyEventHandler() {
+            @Override
+            public void onDisappeared(ClusterNode member) {
+                staleIds.markAsStale(member.id());
+            }
+        });
+
+        var messageFactory = new NetworkMessagesFactory();
 
         UserObjectSerializationContext userObjectSerialization = createUserObjectSerializationContext();
 
@@ -94,6 +103,7 @@ public class ScaleCubeClusterServiceFactory {
                 consistentId,
                 messageFactory,
                 topologyService,
+                staleIds,
                 userObjectSerialization.descriptorRegistry(),
                 userObjectSerialization.marshaller()
         );
@@ -115,7 +125,7 @@ public class ScaleCubeClusterServiceFactory {
 
                 NetworkView configView = networkConfiguration.value();
 
-                connectionMgr = new ConnectionManager(
+                ConnectionManager connectionMgr = new ConnectionManager(
                         configView,
                         serializationService,
                         launchId,
@@ -126,6 +136,13 @@ public class ScaleCubeClusterServiceFactory {
 
                 connectionMgr.start();
 
+                topologyService.addEventHandler(new TopologyEventHandler() {
+                    @Override
+                    public void onDisappeared(ClusterNode member) {
+                        connectionMgr.closeConnectionsWith(member.id());
+                    }
+                });
+
                 var transport = new ScaleCubeDirectMarshallerTransport(
                         connectionMgr.localAddress(),
                         messagingService,
@@ -134,7 +151,7 @@ public class ScaleCubeClusterServiceFactory {
                 );
 
                 NodeFinder finder = NodeFinderFactory.createNodeFinder(configView.nodeFinder());
-                cluster = new ClusterImpl(clusterConfig(configView.membership()))
+                ClusterImpl cluster = new ClusterImpl(clusterConfig(configView.membership()))
                         .handler(cl -> new ClusterMessageHandler() {
                             /** {@inheritDoc} */
                             @Override
@@ -150,24 +167,20 @@ public class ScaleCubeClusterServiceFactory {
                         .transport(opts -> opts.transportFactory(transportConfig -> transport))
                         .membership(opts -> opts.seedMembers(parseAddresses(finder.findNodes())));
 
-                shutdownFuture = cluster.onShutdown().toFuture();
+                this.shutdownFuture = cluster.onShutdown().toFuture();
 
                 // resolve cyclic dependencies
                 topologyService.setCluster(cluster);
                 messagingService.setConnectionManager(connectionMgr);
-
-                topologyService.addEventHandler(new TopologyEventHandler() {
-                    @Override
-                    public void onDisappeared(ClusterNode member) {
-                        staleIds.markAsStale(member.id());
-                    }
-                });
 
                 cluster.startAwait();
 
                 // emit an artificial event as if the local member has joined the topology (ScaleCube doesn't do that)
                 var localMembershipEvent = createAdded(cluster.member(), null, System.currentTimeMillis());
                 topologyService.onMembershipEvent(localMembershipEvent);
+
+                this.cluster = cluster;
+                this.connectionMgr = connectionMgr;
 
                 return nullCompletedFuture();
             }

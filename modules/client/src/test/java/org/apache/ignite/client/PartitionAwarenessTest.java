@@ -17,6 +17,7 @@
 
 package org.apache.ignite.client;
 
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -444,8 +445,8 @@ public class PartitionAwarenessTest extends AbstractClientTest {
         Tuple t1 = Tuple.create().set("ID", 1L);
         Tuple t2 = Tuple.create().set("ID", 2L);
 
-        assertEquals(nodeKey1, compute().executeColocatedAsync(table.name(), t1, List.of(), "job").join());
-        assertEquals(nodeKey2, compute().executeColocatedAsync(table.name(), t2, List.of(), "job").join());
+        assertThat(compute().executeColocatedAsync(table.name(), t1, List.of(), "job").resultAsync(), willBe(nodeKey1));
+        assertThat(compute().executeColocatedAsync(table.name(), t2, List.of(), "job").resultAsync(), willBe(nodeKey2));
     }
 
     @Test
@@ -453,8 +454,8 @@ public class PartitionAwarenessTest extends AbstractClientTest {
         var mapper = Mapper.of(Long.class);
         Table table = defaultTable();
 
-        assertEquals(nodeKey1, compute().executeColocatedAsync(table.name(), 1L, mapper, List.of(), "job").join());
-        assertEquals(nodeKey2, compute().executeColocatedAsync(table.name(), 2L, mapper, List.of(), "job").join());
+        assertThat(compute().executeColocatedAsync(table.name(), 1L, mapper, List.of(), "job").resultAsync(), willBe(nodeKey1));
+        assertThat(compute().executeColocatedAsync(table.name(), 2L, mapper, List.of(), "job").resultAsync(), willBe(nodeKey2));
     }
 
     @Test

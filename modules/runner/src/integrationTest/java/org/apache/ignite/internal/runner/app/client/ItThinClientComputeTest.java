@@ -18,10 +18,13 @@
 package org.apache.ignite.internal.runner.app.client;
 
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.will;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Table.COLUMN_ALREADY_EXISTS_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.oneOf;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
@@ -52,6 +55,7 @@ import org.apache.ignite.client.IgniteClient.Builder;
 import org.apache.ignite.client.IgniteClientConnectionException;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.DeploymentUnit;
+import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
@@ -96,11 +100,14 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
     @Test
     void testExecuteOnSpecificNodeAsync() {
-        String res1 = client().compute().<String>executeAsync(Set.of(node(0)), List.of(), NodeNameJob.class.getName()).join();
-        String res2 = client().compute().<String>executeAsync(Set.of(node(1)), List.of(), NodeNameJob.class.getName()).join();
-
-        assertEquals("itcct_n_3344", res1);
-        assertEquals("itcct_n_3345", res2);
+        assertThat(
+                client().compute().<String>executeAsync(Set.of(node(0)), List.of(), NodeNameJob.class.getName()).resultAsync(),
+                willBe("itcct_n_3344")
+        );
+        assertThat(
+                client().compute().<String>executeAsync(Set.of(node(1)), List.of(), NodeNameJob.class.getName()).resultAsync(),
+                willBe("itcct_n_3345")
+        );
     }
 
     @Test
@@ -112,14 +119,15 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
     @Test
     void testExecuteOnRandomNodeAsync() {
-        String res = client().compute().<String>executeAsync(new HashSet<>(sortedNodes()), List.of(), NodeNameJob.class.getName()).join();
-
-        assertTrue(Set.of("itcct_n_3344", "itcct_n_3345").contains(res));
+        assertThat(
+                client().compute().<String>executeAsync(new HashSet<>(sortedNodes()), List.of(), NodeNameJob.class.getName()).resultAsync(),
+                will(oneOf("itcct_n_3344", "itcct_n_3345"))
+        );
     }
 
     @Test
     void testBroadcastOneNode() {
-        Map<ClusterNode, CompletableFuture<String>> futuresPerNode = client().compute().broadcastAsync(
+        Map<ClusterNode, JobExecution<String>> futuresPerNode = client().compute().broadcastAsync(
                 Set.of(node(1)),
                 List.of(),
                 NodeNameJob.class.getName(),
@@ -128,14 +136,12 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
         assertEquals(1, futuresPerNode.size());
 
-        String res = futuresPerNode.get(node(1)).join();
-
-        assertEquals("itcct_n_3345__123", res);
+        assertThat(futuresPerNode.get(node(1)).resultAsync(), willBe("itcct_n_3345__123"));
     }
 
     @Test
     void testBroadcastAllNodes() {
-        Map<ClusterNode, CompletableFuture<String>> futuresPerNode = client().compute().broadcastAsync(
+        Map<ClusterNode, JobExecution<String>> futuresPerNode = client().compute().broadcastAsync(
                 new HashSet<>(sortedNodes()),
                 List.of(),
                 NodeNameJob.class.getName(),
@@ -144,19 +150,17 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
         assertEquals(2, futuresPerNode.size());
 
-        String res1 = futuresPerNode.get(node(0)).join();
-        String res2 = futuresPerNode.get(node(1)).join();
-
-        assertEquals("itcct_n_3344__123", res1);
-        assertEquals("itcct_n_3345__123", res2);
+        assertThat(futuresPerNode.get(node(0)).resultAsync(), willBe("itcct_n_3344__123"));
+        assertThat(futuresPerNode.get(node(1)).resultAsync(), willBe("itcct_n_3345__123"));
     }
 
     @Test
     void testExecuteWithArgs() {
         var nodes = new HashSet<>(client().clusterNodes());
-        String res = client().compute().<String>executeAsync(nodes, List.of(), ConcatJob.class.getName(), 1, "2", 3.3).join();
-
-        assertEquals("1_2_3.3", res);
+        assertThat(
+                client().compute().<String>executeAsync(nodes, List.of(), ConcatJob.class.getName(), 1, "2", 3.3).resultAsync(),
+                willBe("1_2_3.3")
+        );
     }
 
     @ParameterizedTest
@@ -167,7 +171,9 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         if (async) {
             CompletionException ex = assertThrows(
                     CompletionException.class,
-                    () -> client().compute().<String>executeAsync(Set.of(node(0)), List.of(), IgniteExceptionJob.class.getName()).join());
+                    () -> client().compute().<String>executeAsync(Set.of(node(0)), List.of(), IgniteExceptionJob.class.getName())
+                            .resultAsync().join()
+            );
 
             cause = (IgniteException) ex.getCause();
         } else {
@@ -193,7 +199,9 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         if (async) {
             CompletionException ex = assertThrows(
                     CompletionException.class,
-                    () -> client().compute().<String>executeAsync(Set.of(node(0)), List.of(), ExceptionJob.class.getName()).join());
+                    () -> client().compute().<String>executeAsync(Set.of(node(0)), List.of(), ExceptionJob.class.getName())
+                            .resultAsync().join()
+            );
 
             cause = (IgniteException) ex.getCause();
         } else {
@@ -219,7 +227,9 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         if (async) {
             CompletionException ex = assertThrows(
                     CompletionException.class,
-                    () -> client().compute().executeAsync(Set.of(node(1)), List.of(), ExceptionJob.class.getName()).join());
+                    () -> client().compute().executeAsync(Set.of(node(1)), List.of(), ExceptionJob.class.getName())
+                            .resultAsync().join()
+            );
 
             cause = (IgniteException) ex.getCause();
         } else {
@@ -248,18 +258,24 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         var keyTuple = Tuple.create().set(COLUMN_KEY, key);
         var keyPojo = new TestPojo(key);
 
-        String tupleRes = client().compute().<String>executeColocatedAsync(table, keyTuple, List.of(), NodeNameJob.class.getName()).join();
-        String pojoRes = client().compute().<TestPojo, String>executeColocatedAsync(
+        CompletableFuture<String> tupleRes = client().compute().<String>executeColocatedAsync(
+                table,
+                keyTuple,
+                List.of(),
+                NodeNameJob.class.getName()
+        ).resultAsync();
+
+        CompletableFuture<String> pojoRes = client().compute().<TestPojo, String>executeColocatedAsync(
                 table,
                 keyPojo,
                 Mapper.of(TestPojo.class),
                 List.of(),
                 NodeNameJob.class.getName()
-        ).join();
+        ).resultAsync();
 
         String expectedNode = "itcct_n_" + port;
-        assertEquals(expectedNode, tupleRes);
-        assertEquals(expectedNode, pojoRes);
+        assertThat(tupleRes, willBe(expectedNode));
+        assertThat(pojoRes, willBe(expectedNode));
     }
 
     @Test
@@ -269,7 +285,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
                 () -> client().compute().<String>executeAsync(
                         Set.of(node(0)),
                         List.of(new DeploymentUnit("u", "latest")),
-                        NodeNameJob.class.getName()).join());
+                        NodeNameJob.class.getName()).resultAsync().join());
 
         var cause = (IgniteException) ex.getCause();
         assertThat(cause.getMessage(), containsString("Deployment unit u:latest doesn't exist"));
@@ -286,7 +302,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
                         TABLE_NAME,
                         Tuple.create().set(COLUMN_KEY, 1),
                         List.of(new DeploymentUnit("u", "latest")),
-                        NodeNameJob.class.getName()).join());
+                        NodeNameJob.class.getName()).resultAsync().join());
 
         var cause = (IgniteException) ex.getCause();
         assertThat(cause.getMessage(), containsString("Deployment unit u:latest doesn't exist"));
@@ -300,8 +316,8 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         Builder builder = IgniteClient.builder().addresses(getClientAddresses().toArray(new String[0]));
         try (IgniteClient client = builder.build()) {
             int delayMs = 3000;
-            CompletableFuture<String> jobFut = client.compute().executeAsync(
-                    Set.of(node(0)), List.of(), SleepJob.class.getName(), delayMs);
+            CompletableFuture<String> jobFut = client.compute().<String>executeAsync(
+                    Set.of(node(0)), List.of(), SleepJob.class.getName(), delayMs).resultAsync();
 
             // Wait a bit and close the connection.
             Thread.sleep(10);
@@ -332,7 +348,8 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     }
 
     private void testEchoArg(Object arg) {
-        Object res = client().compute().executeAsync(Set.of(node(0)), List.of(), EchoJob.class.getName(), arg, arg.toString()).join();
+        Object res = client().compute().executeAsync(Set.of(node(0)), List.of(), EchoJob.class.getName(), arg, arg.toString())
+                .resultAsync().join();
 
         if (arg instanceof byte[]) {
             assertArrayEquals((byte[]) arg, (byte[]) res);

@@ -436,6 +436,8 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
             Runnable beforeHandshake,
             MessageSerializationRegistry registry
     ) {
+        StaleIdDetector staleIdDetector = new AllIdsAreFresh();
+
         ClassDescriptorRegistry classDescriptorRegistry = new ClassDescriptorRegistry();
         ClassDescriptorFactory classDescriptorFactory = new ClassDescriptorFactory(classDescriptorRegistry);
         UserObjectMarshaller marshaller = new DefaultUserObjectMarshaller(classDescriptorRegistry, classDescriptorFactory);
@@ -444,6 +446,7 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
                 node.name(),
                 networkMessagesFactory,
                 topologyService,
+                staleIdDetector,
                 classDescriptorRegistry,
                 marshaller
         );
@@ -457,8 +460,6 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
 
         NettyBootstrapFactory bootstrapFactory = new NettyBootstrapFactory(networkConfig, eventLoopGroupNamePrefix);
         bootstrapFactory.start();
-
-        StaleIdDetector staleIdDetector = new AllIdsAreFresh();
 
         UUID launchId = UUID.randomUUID();
         ConnectionManager connectionManager = new ConnectionManager(

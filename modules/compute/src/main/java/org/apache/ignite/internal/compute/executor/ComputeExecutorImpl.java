@@ -21,7 +21,6 @@ import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.compute.ComputeJob;
-import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.compute.JobStatus;
 import org.apache.ignite.internal.compute.ComputeUtils;
@@ -68,7 +67,7 @@ public class ComputeExecutorImpl implements ComputeExecutor {
     }
 
     @Override
-    public <R> JobExecution<R> executeJob(
+    public <R> JobExecutionInternal<R> executeJob(
             ExecutionOptions options,
             Class<? extends ComputeJob<R>> jobClass,
             Object[] args
@@ -84,7 +83,7 @@ public class ComputeExecutorImpl implements ComputeExecutor {
                 options.maxRetries()
         );
 
-        return new JobExecutionImpl<>(execution, isInterrupted);
+        return new JobExecutionInternal<>(execution, isInterrupted);
     }
 
     @Override

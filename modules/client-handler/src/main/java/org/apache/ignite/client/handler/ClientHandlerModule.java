@@ -23,6 +23,7 @@ import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
+import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelOption;
 import io.netty.handler.ssl.SslContext;
@@ -61,6 +62,7 @@ import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NettyBootstrapFactory;
 import org.apache.ignite.sql.IgniteSql;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Client handler module maintains TCP endpoint for thin client connections.
@@ -123,6 +125,9 @@ public class ClientHandlerModule implements IgniteComponent {
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
     private final AtomicBoolean stopGuard = new AtomicBoolean();
+
+    @TestOnly
+    private volatile ChannelHandler handler;
 
     /**
      * Constructor.
@@ -297,6 +302,8 @@ public class ClientHandlerModule implements IgniteComponent {
 
                             ClientInboundMessageHandler messageHandler = createInboundMessageHandler(
                                     configuration, clusterId, connectionId);
+
+                            handler = messageHandler;
 
                             ch.pipeline().addLast(
                                     new ClientMessageDecoder(),

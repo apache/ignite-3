@@ -25,10 +25,13 @@ import jakarta.inject.Inject;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import org.apache.ignite.internal.cli.CliIntegrationTestBase;
+import org.apache.ignite.internal.cli.call.connect.ConnectCall;
+import org.apache.ignite.internal.cli.call.connect.ConnectCallInput;
 import org.apache.ignite.internal.cli.commands.cliconfig.TestConfigManagerHelper;
 import org.apache.ignite.internal.cli.commands.cliconfig.TestConfigManagerProvider;
 import org.apache.ignite.internal.cli.config.CliConfigKeys;
 import org.apache.ignite.internal.cli.config.ConfigDefaultValueProvider;
+import org.apache.ignite.internal.cli.core.flow.builder.Flows;
 import org.apache.ignite.internal.cli.core.repl.EventListeningActivationPoint;
 import org.apache.ignite.internal.cli.core.repl.context.CommandLineContextProvider;
 import org.apache.ignite.internal.cli.core.repl.registry.JdbcUrlRegistry;
@@ -64,6 +67,9 @@ public class CliCommandTestNotInitializedIntegrationBase extends CliIntegrationT
 
     @Inject
     protected JdbcUrlRegistry jdbcUrlRegistry;
+
+    @Inject
+    protected ConnectCall connectCall;
 
     private CommandLine cmd;
 
@@ -193,5 +199,15 @@ public class CliCommandTestNotInitializedIntegrationBase extends CliIntegrationT
 
     protected String getConfigProperty(CliConfigKeys key) {
         return configManagerProvider.get().getCurrentProperty(key.value());
+    }
+
+    /** Mimics non-REPL "connect" command without starting REPL mode. Overriding getCommandClass and returning TopLevelCliReplCommand
+     * wouldn't help because it will start to ask questions.
+     */
+    protected void connect(String url) {
+        Flows.from(ConnectCallInput.builder().url(url).build())
+                .then(Flows.fromCall(connectCall))
+                .print()
+                .start();
     }
 }
