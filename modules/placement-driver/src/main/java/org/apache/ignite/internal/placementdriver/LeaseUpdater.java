@@ -328,6 +328,7 @@ public class LeaseUpdater {
 
                         continue;
                     } else if (agreement.ready()) {
+                        // Here we initiate negotiations for UNDEFINED_AGREEMENT and retry them on newly started active actor as well.
                         ClusterNode candidate = nextLeaseHolder(entry.getValue(), agreement.getRedirectTo());
 
                         if (candidate == null) {
