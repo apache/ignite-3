@@ -155,8 +155,8 @@ public class TxStateRocksDbTableStorage implements TxStateTableStorage {
 
     @Override
     public void destroy() {
-        byte[] start = ByteBuffer.allocate(Integer.BYTES).order(ByteOrder.BIG_ENDIAN).putInt(id).array();
-        byte[] end = ByteBuffer.allocate(Integer.BYTES).order(ByteOrder.BIG_ENDIAN).putInt(id + 1).array();
+        byte[] start = ByteBuffer.allocate(TABLE_PREFIX_SIZE_BYTES).order(BIG_ENDIAN).putInt(id).array();
+        byte[] end = ByteBuffer.allocate(TABLE_PREFIX_SIZE_BYTES).order(BIG_ENDIAN).putInt(id + 1).array();
 
         try {
             close();
