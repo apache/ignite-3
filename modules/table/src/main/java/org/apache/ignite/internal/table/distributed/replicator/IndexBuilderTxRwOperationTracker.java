@@ -138,11 +138,11 @@ class IndexBuilderTxRwOperationTracker implements ManuallyCloseable {
      * <p>It is expected that after the operation is completed, {@link #decrementOperationCount(int)} will be called.</p>
      *
      * @param catalogVersion Catalog version at the beginning of the RW transaction of operation.
-     * @throws RejectTxRwOperationException If the passed catalog version is less than the minimum available to start a RW transaction
-     *      operation.
+     * @return {@code true} if successful, otherwise {@code false} because the passed catalog version is less than the minimum available to
+     *      start a RW transaction operation.
      */
-    void incrementOperationCount(int catalogVersion) {
-        inBusyLock(busyLock, () -> {
+    boolean incrementOperationCount(int catalogVersion) {
+        return inBusyLock(busyLock, () -> {
             operationCounterByCatalogVersion.compute(catalogVersion, (i, txRwOperationCounter) -> {
                 if (txRwOperationCounter == null) {
                     return TxRwOperationCounter.withCountOne();
@@ -154,8 +154,10 @@ class IndexBuilderTxRwOperationTracker implements ManuallyCloseable {
             if (catalogVersion < minAllowedCatalogVersionForStartOperation.get()) {
                 decrementOperationCount(catalogVersion);
 
-                throw new RejectTxRwOperationException();
+                return false;
             }
+
+            return true;
         });
     }
 

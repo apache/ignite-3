@@ -20,9 +20,7 @@ package org.apache.ignite.internal.table.distributed.replicator;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runRace;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.concurrent.CompletableFuture;
@@ -91,10 +89,10 @@ public class IndexBuilderTxRwOperationTrackerTest {
     void testRejectTxRwOperation() {
         tracker.updateMinAllowedCatalogVersionForStartOperation(1);
 
-        assertThrows(RejectTxRwOperationException.class, () -> tracker.incrementOperationCount(0));
+        assertFalse(tracker.incrementOperationCount(0));
 
-        assertDoesNotThrow(() -> tracker.incrementOperationCount(1));
-        assertDoesNotThrow(() -> tracker.incrementOperationCount(2));
+        assertTrue(tracker.incrementOperationCount(1));
+        assertTrue(tracker.incrementOperationCount(2));
     }
 
     @Test
