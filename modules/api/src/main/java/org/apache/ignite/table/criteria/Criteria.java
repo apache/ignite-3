@@ -128,7 +128,7 @@ public interface Criteria {
      *
      * <p>For example:
      * <pre>
-     *     columnValue(&quot;category&quot;, equalTo(&quot;toys&quot;))
+     *     columnValue(&quot;password&quot;, equalTo(&quot;MyPassword&quot;.getBytes()))
      * </pre>
      *
      * @param value Target value.
