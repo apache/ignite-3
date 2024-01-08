@@ -99,7 +99,6 @@ public class ClientPrimaryReplicaTracker implements EventListener<EventParameter
             CatalogService catalogService,
             HybridClock clock,
             SchemaSyncService schemaSyncService
-
     ) {
         this.placementDriver = placementDriver;
         this.catalogService = catalogService;
