@@ -53,7 +53,7 @@ public class SqlSerializer implements CriteriaVisitor<Void> {
             Operator.NOT, "NOT ({0})"
     );
 
-    private static final Pattern TEMPLATE_PATTERN = Pattern.compile("\\{(\\d+)\\}");
+    private final Pattern pattern = Pattern.compile("\\{(\\d+)\\}");
 
     @SuppressWarnings("StringBufferField")
     private final StringBuilder builder = new StringBuilder(128);
@@ -101,7 +101,7 @@ public class SqlSerializer implements CriteriaVisitor<Void> {
             String template = ELEMENT_TEMPLATES.get(operator);
 
             int end = 0;
-            Matcher matcher = TEMPLATE_PATTERN.matcher(template);
+            Matcher matcher = pattern.matcher(template);
 
             while (matcher.find()) {
                 if (matcher.start() > end) {
