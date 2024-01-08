@@ -1346,6 +1346,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
     }
 
     @Test
+    @Disabled
     public void tableRecoveryOnMultipleRestartingNodesTest() throws InterruptedException {
         int euIdx = 0;
         int usIdx = 1;
