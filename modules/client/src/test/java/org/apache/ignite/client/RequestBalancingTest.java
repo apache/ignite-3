@@ -66,7 +66,8 @@ public class RequestBalancingTest extends BaseIgniteAbstractTest {
 
             // Execute on unknown node to fall back to balancing.
             List<Object> res = IntStream.range(0, 5)
-                    .mapToObj(i -> client.compute().<String>executeAsync(getClusterNodes("s123"), List.of(), "job").join())
+                    .mapToObj(i -> client.compute().<String>executeAsync(getClusterNodes("s123"), List.of(), "job")
+                            .resultAsync().join())
                     .collect(Collectors.toList());
 
             assertEquals(5, res.size());

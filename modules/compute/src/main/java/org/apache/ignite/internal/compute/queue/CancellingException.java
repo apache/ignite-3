@@ -15,30 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.compute;
+package org.apache.ignite.internal.compute.queue;
 
-import java.util.List;
-import org.apache.ignite.compute.DeploymentUnit;
-import org.apache.ignite.compute.JobExecution;
+import static org.apache.ignite.lang.ErrorGroups.Compute.CANCELLING_ERR;
+
+import java.util.UUID;
+import org.apache.ignite.compute.ComputeException;
 
 /**
- * Compute job starter interface.
+ * Thrown when job cancel request failed.
  */
-public interface JobStarter {
-    /**
-     * Start compute job.
-     *
-     * @param options Compute job execution options.
-     * @param units Deployment units. Can be empty.
-     * @param jobClassName Name of the job class to execute.
-     * @param args Arguments of the job.
-     * @param <R> Job result type.
-     * @return CompletableFuture Job result.
-     */
-    <R> JobExecution<R> start(
-            ExecutionOptions options,
-            List<DeploymentUnit> units,
-            String jobClassName,
-            Object... args
-    );
+public class CancellingException extends ComputeException {
+    public CancellingException(UUID jobId) {
+        super(CANCELLING_ERR, "Cancelling job " + jobId + " failed.");
+    }
 }

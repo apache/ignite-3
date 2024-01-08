@@ -17,9 +17,7 @@
 
 package org.apache.ignite.internal.compute.message;
 
-import java.util.List;
-import java.util.Set;
-import java.util.UUID;
+import org.apache.ignite.compute.JobStatus;
 import org.apache.ignite.internal.compute.ComputeMessageTypes;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.Marshallable;
@@ -27,22 +25,23 @@ import org.apache.ignite.network.annotations.Transferable;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Used to implement remote job execution in {@link org.apache.ignite.compute.IgniteCompute#execute(Set, List, String, Object...)}.
+ * Remote job status response.
  */
-@Transferable(ComputeMessageTypes.EXECUTE_RESPONSE)
-public interface ExecuteResponse extends NetworkMessage {
+@Transferable(ComputeMessageTypes.JOB_STATUS_RESPONSE)
+public interface JobStatusResponse extends NetworkMessage {
     /**
-     * Returns job id or {@code null} if the execution has failed.
+     * Returns job status ({@code null} if the request has failed or the job with requested id doesn't exist).
      *
-     * @return Job id or {@code null} if the execution has failed.
+     * @return job status ({@code null} if the request has failed or the job with requested id doesn't exist)
      */
     @Nullable
-    UUID jobId();
+    @Marshallable
+    JobStatus status();
 
     /**
-     * Returns a {@link Throwable} that was thrown during job execution ({@code null} if the execution was successful).
+     * Returns a {@link Throwable} that was thrown during job status request ({@code null} if the request was successful).
      *
-     * @return {@link Throwable} that was thrown during job execution ({@code null} if the execution was successful)
+     * @return {@link Throwable} that was thrown during job status request ({@code null} if the request was successful)
      */
     @Nullable
     @Marshallable

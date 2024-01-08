@@ -521,6 +521,12 @@ public class ErrorGroups {
 
         /** Compute job state transfer error. */
         public static final int COMPUTE_JOB_STATE_TRANSITION_ERR = COMPUTE_ERR_GROUP.registerErrorCode((short) 5);
+
+        /** Compute job cancel failed error. */
+        public static final int CANCELLING_ERR = COMPUTE_ERR_GROUP.registerErrorCode((short) 6);
+
+        /** Compute job result not found error. */
+        public static final int RESULT_NOT_FOUND_ERR = COMPUTE_ERR_GROUP.registerErrorCode((short) 7);
     }
 
     /** Catalog error group. */
