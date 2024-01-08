@@ -324,7 +324,11 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
             while (iter.hasPrevious()) {
                 IgniteComponent prev = iter.previous();
 
-                prev.beforeNodeStop();
+                try {
+                    prev.beforeNodeStop();
+                } catch (Exception e) {
+                    log.error("Error during calling `beforeNodeStop`", e);
+                }
             }
 
             iter = startedComponents.listIterator(startedComponents.size());
