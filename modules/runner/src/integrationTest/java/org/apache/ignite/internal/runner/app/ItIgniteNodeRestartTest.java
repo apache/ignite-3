@@ -18,9 +18,11 @@
 package org.apache.ignite.internal.runner.app;
 
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.alterZone;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartAssignmentsKey;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -30,12 +32,14 @@ import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFu
 import static org.apache.ignite.utils.ClusterServiceTestUtils.defaultSerializationRegistry;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -49,6 +53,7 @@ import java.util.Objects;
 import java.util.ServiceLoader;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
@@ -56,7 +61,6 @@ import java.util.function.Consumer;
 import java.util.function.IntFunction;
 import java.util.function.LongFunction;
 import java.util.function.LongSupplier;
-import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
@@ -91,6 +95,7 @@ import org.apache.ignite.internal.configuration.testframework.InjectConfiguratio
 import org.apache.ignite.internal.configuration.validation.ConfigurationValidatorImpl;
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
+import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.lang.ByteArray;
@@ -100,6 +105,7 @@ import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
+import org.apache.ignite.internal.metastorage.impl.EntryImpl;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
@@ -156,6 +162,7 @@ import org.apache.ignite.tx.TransactionException;
 import org.awaitility.Awaitility;
 import org.intellij.lang.annotations.Language;
 import org.jetbrains.annotations.Nullable;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
@@ -197,17 +204,29 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
     private static TransactionConfiguration txConfiguration;
 
     /**
+     * Accepts the node components and the starting component.
+     */
+    @Nullable
+    private BeforeComponentStartClosure beforeComponentStart = null;
+
+    private Map<Integer, Map<String, Entry>> metaStorageMockDataByNode = new ConcurrentHashMap<>();
+
+    @AfterEach
+    public void afterTest() {
+        metaStorageMockDataByNode.clear();
+        partialNodes.clear();
+    }
+
+    /**
      * Start some of Ignite components that are able to serve as Ignite node for test purposes.
      *
      * @param idx Node index.
      * @param cfgString Configuration string or {@code null} to use the default configuration.
-     * @param revisionCallback Callback on storage revision update.
      * @return Partial node.
      */
     private PartialNode startPartialNode(
             int idx,
-            @Nullable @Language("HOCON") String cfgString,
-            @Nullable Consumer<Long> revisionCallback
+            @Nullable @Language("HOCON") String cfgString
     ) {
         String name = testNodeName(testInfo, idx);
 
@@ -297,13 +316,43 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 raftGroupEventsClientListener
         );
 
+        Map<String, Entry> metaStorageMockData = metaStorageMockDataByNode.computeIfAbsent(idx, k -> new HashMap<>());
+
+        var metaStorage = new RocksDbKeyValueStorage(name, dir.resolve("metastorage")) {
+            @Override
+            public Entry get(byte[] key, long revUpperBound) {
+                var e = metaStorageMockData.get(new String(key, StandardCharsets.UTF_8));
+
+                return e != null ? e : super.get(key, revUpperBound);
+            }
+
+            @Override
+            public Collection<Entry> getAll(List<byte[]> keys) {
+                Collection<Entry> storageResults = super.getAll(keys);
+
+                List<Entry> results = new ArrayList<>();
+
+                for (var r : storageResults) {
+                    var e = metaStorageMockData.get(new String(r.key(), StandardCharsets.UTF_8));
+
+                    if (e == null) {
+                        results.add(r);
+                    } else {
+                        results.add(e);
+                    }
+                }
+
+                return results;
+            }
+        };
+
         var metaStorageMgr = new MetaStorageManagerImpl(
                 vault,
                 clusterSvc,
                 cmgManager,
                 logicalTopologyService,
                 raftMgr,
-                new RocksDbKeyValueStorage(name, dir.resolve("metastorage")),
+                metaStorage,
                 hybridClock,
                 topologyAwareRaftGroupServiceFactory,
                 metaStorageConfiguration
@@ -368,7 +417,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         DataStorageManager dataStorageManager = new DataStorageManager(
                 dataStorageModules.createStorageEngines(
                         name,
-                        clusterConfigRegistry,
+                        nodeCfgMgr.configurationRegistry(),
                         storagePath,
                         null
                 )
@@ -437,7 +486,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 tableManager,
                 schemaManager,
                 dataStorageManager,
-                () -> dataStorageModules.collectSchemasFields(modules.distributed().polymorphicSchemaExtensions()),
+                () -> dataStorageModules.collectSchemasFields(modules.local().polymorphicSchemaExtensions()),
                 replicaSvc,
                 hybridClock,
                 schemaSyncService,
@@ -481,6 +530,10 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         );
 
         for (IgniteComponent component : otherComponents) {
+            if (beforeComponentStart != null) {
+                beforeComponentStart.call(idx, otherComponents, hybridClock, component);
+            }
+
             component.start();
 
             components.add(component);
@@ -490,7 +543,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 nodeCfgMgr,
                 clusterCfgMgr,
                 metaStorageMgr,
-                revisionCallback,
                 components,
                 localConfigurationGenerator,
                 logicalTopology,
@@ -593,7 +645,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         List<CompletableFuture<Ignite>> futures = IntStream.range(0, amount)
                 .mapToObj(i -> startNodeAsync(i, null))
-                .collect(Collectors.toList());
+                .collect(toList());
 
         if (initNeeded) {
             String nodeName = CLUSTER_NODES_NAMES.get(0);
@@ -612,7 +664,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
                     return (IgniteImpl) future.join();
                 })
-                .collect(Collectors.toList());
+                .collect(toList());
     }
 
     /**
@@ -1061,7 +1113,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 "[\"localhost:" + DEFAULT_NODE_PORT + "\"]",
                 DEFAULT_CLIENT_PORT + 11,
                 DEFAULT_HTTP_PORT + 11,
-                DEFAULT_HTTPS_PORT + 11
+                DEFAULT_HTTPS_PORT + 11,
+                ""
         );
 
         IgniteImpl node1 = startNode(1, cfgString);
@@ -1127,22 +1180,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         PartialNode partialNode = startPartialNode(
                 nodes.size() - 1,
-                configurationString(nodes.size() - 1),
-                rev -> {
-                    log.info("Partially started node: applying revision: " + rev);
-
-                    if (rev == cfgGap / 2) {
-                        log.info("Stopping METASTORAGE");
-
-                        stopNode(0);
-
-                        log.info("Starting METASTORAGE");
-
-                        startNode(0);
-
-                        log.info("Restarted METASTORAGE");
-                    }
-                }
+                configurationString(nodes.size() - 1)
+        // TODO IGNITE-18919 here the revision callback was removed, because meta storage recovery process was changed.
         );
 
         TableManager tableManager = findComponent(partialNode.startedComponents(), TableManager.class);
@@ -1292,6 +1331,145 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         }
     }
 
+    @Test
+    public void tableRecoveryOnMultipleRestartingNodesTest() throws InterruptedException {
+        int euIdx = 0;
+        int usIdx = 1;
+        int ruIdx = 2;
+        int jpIdx = 3;
+
+        IgniteImpl nodeEu = startNode(euIdx, configurationString(euIdx, "{ region.attribute = \"EU\" }"));
+        IgniteImpl nodeUs = startNode(usIdx, configurationString(usIdx, "{ region.attribute = \"US\" }"));
+
+        startNode(ruIdx, configurationString(ruIdx, "{ region.attribute = \"RU\" }"));
+        startNode(jpIdx, configurationString(jpIdx, "{ region.attribute = \"JP\" }"));
+
+        Set<Assignment> expectedAssignments = Set.of(Assignment.forPeer(nodeEu.name()), Assignment.forPeer(nodeUs.name()));
+
+        WatchListenerInhibitor nodeEuInhibitor = WatchListenerInhibitor.metastorageEventsInhibitor(nodeEu);
+
+        String tableName = "TEST";
+        String startFilter = "$[?(@.region == \"EU\" || @.region == \"US\")]";
+        String alteredFilter = "$[?(@.region == \"RU\" || @.region == \"JP\")]";
+
+        try (Session session = nodeUs.sql().createSession()) {
+            session.execute(null, String.format("CREATE ZONE IF NOT EXISTS ZONE_%s WITH REPLICAS=%d, PARTITIONS=%d, "
+                            + "DATA_NODES_FILTER='%s'", tableName, 3, 1, startFilter));
+
+            nodeEuInhibitor.startInhibit();
+
+            session.execute(null, "CREATE TABLE " + tableName
+                    + "(id INT PRIMARY KEY, name VARCHAR) WITH PRIMARY_ZONE='ZONE_" + tableName + "';");
+        }
+
+        int tableId = tableId(nodeUs, tableName);
+
+        removeStableAssignments(usIdx, tableId, 0);
+        removeStableAssignments(ruIdx, tableId, 0);
+        removeStableAssignments(jpIdx, tableId, 0);
+
+        stopNode(usIdx);
+        stopNode(ruIdx);
+        stopNode(jpIdx);
+
+        CompletableFuture<Void> nodeRuFut = new CompletableFuture<>();
+        CompletableFuture<Void> nodeJpFut = new CompletableFuture<>();
+
+        var nodeRuLatch = new CountDownLatch(1);
+        var nodeJpLatch = new CountDownLatch(1);
+
+        beforeComponentStart = (nodeIndex, nodeComponents, clock, component) -> {
+            if (component instanceof TableManager) {
+                if (nodeIndex == ruIdx) {
+                    nodeRuLatch.countDown();
+                    nodeRuFut.join();
+                }
+
+                if (nodeIndex == jpIdx) {
+                    nodeJpLatch.countDown();
+                    nodeJpFut.join();
+                }
+            }
+        };
+
+        var nodeRuStartFut = runAsync(() -> {
+            startPartialNode(ruIdx, configurationString(ruIdx, "{ region.attribute = \"RU\" }"));
+        });
+
+        var nodeJpStartFut = runAsync(() -> {
+            nodeRuLatch.await();
+            startPartialNode(jpIdx, configurationString(jpIdx, "{ region.attribute = \"JP\" }"));
+        });
+
+        nodeJpLatch.await();
+
+        nodeEuInhibitor.stopInhibit();
+
+        alterZone(nodeEu.catalogManager(), "ZONE_" + tableName, null, null, alteredFilter);
+
+        // Imagine that node 0 failed right after altering the zone, without being able to write the stable assignments to meta storage.
+        removeStableAssignments(euIdx, tableId, 0);
+        stopNode(euIdx);
+
+        PartialNode[] partialNodeUs = new PartialNode[1];
+
+        var nodeUsStartFut = runAsync(() -> {
+            partialNodeUs[0] = startPartialNode(usIdx, configurationString(usIdx, "{ region.attribute = \"US\" }"));
+        });
+
+        nodeRuFut.complete(null);
+        nodeJpFut.complete(null);
+
+        nodeEu = startNode(euIdx, configurationString(euIdx, "{ region.attribute = \"EU\" }"));
+
+        assertThat(nodeRuStartFut, willCompleteSuccessfully());
+        assertThat(nodeJpStartFut, willCompleteSuccessfully());
+        assertThat(nodeUsStartFut, willCompleteSuccessfully());
+
+        // Clear fake data.
+        metaStorageMockDataByNode.clear();
+
+        byte[] assignmentsKey = stablePartAssignmentsKey(new TablePartitionId(tableId, 0)).bytes();
+        checkAssignmentsInMetaStorage(nodeEu.metaStorageManager(), assignmentsKey, expectedAssignments);
+
+        for (PartialNode partialNode : partialNodes) {
+            MetaStorageManager metaStorageManager = component(partialNode.startedComponents(), MetaStorageManager.class);
+
+            checkAssignmentsInMetaStorage(metaStorageManager, assignmentsKey, expectedAssignments);
+        }
+    }
+
+    private void checkAssignmentsInMetaStorage(MetaStorageManager metaStorageManager, byte[] assignmentsKey, Set<Assignment> expected) {
+        var future = metaStorageManager.get(new ByteArray(assignmentsKey));
+
+        var e = future.join();
+
+        assertNotNull(e);
+
+        assertFalse(e.empty() || e.tombstone());
+
+        Set<Assignment> actual = ByteUtils.fromBytes(e.value());
+
+        assertEquals(expected, actual);
+    }
+
+    private <T extends IgniteComponent> @Nullable T component(List<IgniteComponent> components, Class<T> cls) {
+        return (T) components.stream().filter(c -> cls.isAssignableFrom(c.getClass())).findFirst().orElse(null);
+    }
+
+    private void removeStableAssignments(int partialNodeIdx, int tableId, int partId) {
+        Map<String, Entry> metaStorageMockData = metaStorageMockDataByNode.computeIfAbsent(partialNodeIdx, k -> new HashMap<>());
+
+        metaStorageMockData.put(
+                new String(stablePartAssignmentsKey(new TablePartitionId(tableId, partId)).bytes(), StandardCharsets.UTF_8),
+                new EntryImpl(null, null, 0, 0)
+        );
+    }
+
+    private int tableId(Ignite node, String tableName) {
+        return ((TableImpl) node.tables().table(tableName)).tableId();
+    }
+
     /**
      * Checks the table exists and validates all data in it.
      *
@@ -1406,5 +1584,9 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         }
 
         return ignite.tables().table(name);
+    }
+
+    private interface BeforeComponentStartClosure {
+        void call(Integer nodeIndex, List<IgniteComponent> nodeComponents, HybridClock clock, IgniteComponent currentComponent);
     }
 }

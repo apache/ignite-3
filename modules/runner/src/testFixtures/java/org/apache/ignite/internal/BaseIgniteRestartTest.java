@@ -29,7 +29,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.ListIterator;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Consumer;
+import java.util.concurrent.CopyOnWriteArrayList;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.internal.close.ManuallyCloseable;
@@ -78,6 +78,7 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
             + "}";
 
     /** Nodes bootstrap configuration pattern. */
+    @Language("HOCON")
     protected static final String NODE_BOOTSTRAP_CFG = "{\n"
             + "  network.port: {},\n"
             + "  network.nodeFinder.netClusterNodes: {}\n"
@@ -95,7 +96,10 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
             + "  rest: {\n"
             + "    port: {}, \n"
             + "    ssl.port: {} \n"
-            + "  }\n"
+            + "  },\n"
+            + "  nodeAttributes: {"
+            + "    nodeAttributes: {}"
+            + "  }"
             + "}";
 
     public TestInfo testInfo;
@@ -110,7 +114,7 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
     @BeforeEach
     void setUp(TestInfo testInfo) {
         this.testInfo = testInfo;
-        this.partialNodes = new ArrayList<>();
+        this.partialNodes = new CopyOnWriteArrayList<>();
     }
 
     /**
@@ -209,6 +213,17 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
      * @return Configuration string.
      */
     protected static String configurationString(int idx) {
+        return configurationString(idx, "{}");
+    }
+
+    /**
+     * Build a configuration string.
+     *
+     * @param idx Node index.
+     * @param attributes Node attributes, should be empty string if not needed.
+     * @return Configuration string.
+     */
+    protected static String configurationString(int idx, String attributes) {
         int port = DEFAULT_NODE_PORT + idx;
         int clientPort = DEFAULT_CLIENT_PORT + idx;
         int httpPort = DEFAULT_HTTP_PORT + idx;
@@ -217,7 +232,7 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
         // The address of the first node.
         @Language("HOCON") String connectAddr = "[localhost\":\"" + DEFAULT_NODE_PORT + "]";
 
-        return IgniteStringFormatter.format(NODE_BOOTSTRAP_CFG, port, connectAddr, clientPort, httpPort, httpsPort);
+        return IgniteStringFormatter.format(NODE_BOOTSTRAP_CFG, port, connectAddr, clientPort, httpPort, httpsPort, attributes);
     }
 
     /**
@@ -226,7 +241,6 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
      *
      * @param nodeCfgMgr Node configuration manager.
      * @param clusterCfgMgr Cluster configuration manager.
-     * @param revisionCallback RevisionCallback Callback on storage revision update.
      * @param components Started components of a node.
      * @param localConfigurationGenerator Local configuration generator.
      * @param logicalTopology Logical topology.
@@ -239,7 +253,6 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
             ConfigurationManager nodeCfgMgr,
             ConfigurationManager clusterCfgMgr,
             MetaStorageManager metaStorageMgr,
-            @Nullable Consumer<Long> revisionCallback,
             List<IgniteComponent> components,
             ConfigurationTreeGenerator localConfigurationGenerator,
             LogicalTopologyImpl logicalTopology,

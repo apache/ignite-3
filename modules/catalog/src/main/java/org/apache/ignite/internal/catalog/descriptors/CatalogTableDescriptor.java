@@ -27,6 +27,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.tostring.IgniteToStringExclude;
 import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.Nullable;
@@ -55,6 +56,8 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor {
     private transient Map<String, CatalogTableColumnDescriptor> columnsMap;
 
     private long creationToken;
+
+    private int catalogVersionOnCreation;
 
     /**
      * Constructor.
@@ -164,10 +167,22 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor {
         return creationToken;
     }
 
+    public int catalogVersionOnCreation() {
+        return catalogVersionOnCreation;
+    }
+
     @Override
     public void updateToken(long updateToken) {
         super.updateToken(updateToken);
 
         this.creationToken = this.creationToken == INITIAL_CAUSALITY_TOKEN ? updateToken : this.creationToken;
+    }
+
+    public void updateToken(Catalog catalog, long updateToken) {
+        if (this.creationToken == INITIAL_CAUSALITY_TOKEN) {
+            this.catalogVersionOnCreation = catalog.version();
+        }
+
+        updateToken(updateToken);
     }
 }

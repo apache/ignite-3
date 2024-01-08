@@ -26,6 +26,7 @@ import static java.util.concurrent.CompletableFuture.anyOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.CompletableFuture.runAsync;
+import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.causality.IncrementalVersionedValue.dependingOn;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.partitionAssignmentsGetLocally;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.tableAssignmentsGetLocally;
@@ -75,7 +76,6 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.IntSupplier;
 import java.util.function.LongFunction;
-import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.affinity.AffinityUtils;
@@ -592,6 +592,39 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
             return metaStorageMgr
                     .invoke(condition, partitionAssignments, Collections.emptyList())
+                    .thenApply(invokeResult -> {
+                        if (invokeResult) {
+                            LOG.info(IgniteStringFormatter.format("Assignments calculated from data nodes are successfully "
+                                            + "written to meta storage [tableId={}, assignments={}]", tableId, newAssignments));
+                        } else {
+                            Set<ByteArray> partKeys = IntStream.range(0, newAssignments.size())
+                                    .mapToObj(p -> stablePartAssignmentsKey(new TablePartitionId(tableId, p)))
+                                    .collect(toSet());
+
+                            CompletableFuture<Map<ByteArray, Entry>> resFuture = metaStorageMgr.getAll(partKeys);
+
+                            resFuture.thenAccept(metaStorageAssignments -> {
+                                for (int p = 0; p < newAssignments.size(); p++) {
+                                    Set<Assignment> calculated = newAssignments.get(p);
+
+                                    var partId = new TablePartitionId(tableId, p);
+                                    Entry assignmentsEntry = metaStorageAssignments.get(stablePartAssignmentsKey(partId));
+
+                                    Set<Assignment> real = assignmentsEntry == null || assignmentsEntry.value() == null
+                                            ? emptySet()
+                                            : ByteUtils.fromBytes(assignmentsEntry.value());
+
+                                    if (!real.equals(calculated)) {
+                                        LOG.warn(IgniteStringFormatter.format("Assignments calculated from data nodes are not the same "
+                                                + "as written to meta storage [tableId={}, calculated={}, real={}]", tableId, calculated,
+                                                real));
+                                    }
+                                }
+                            });
+                        }
+
+                        return invokeResult;
+                    })
                     .exceptionally(e -> {
                         LOG.error("Couldn't write assignments to metastore", e);
 
@@ -1044,12 +1077,20 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 assignmentsFuture = completedFuture(
                         tableAssignmentsGetLocally(metaStorageMgr, tableId, zoneDescriptor.partitions(), causalityToken));
             } else {
-                assignmentsFuture = distributionZoneManager.dataNodes(causalityToken, catalogVersion, zoneId)
+                long tableCreationRevision = tableDescriptor.creationToken();
+                int catalogVersionOnCreation = tableDescriptor.catalogVersionOnCreation();
+
+                assignmentsFuture = distributionZoneManager.dataNodes(tableCreationRevision, catalogVersionOnCreation, zoneId)
                         .thenApply(dataNodes -> AffinityUtils.calculateAssignments(
                                 dataNodes,
                                 zoneDescriptor.partitions(),
                                 zoneDescriptor.replicas()
                         ));
+
+                assignmentsFuture.thenAccept(assignmentsList -> {
+                    LOG.info(IgniteStringFormatter.format("Assignments calculated from data nodes [table={}, tableId={}, assignments={}, "
+                                    + "revision={}]", tableDescriptor.name(), tableId, assignmentsList, tableCreationRevision));
+                });
             }
 
             return createTableLocally(
@@ -1289,7 +1330,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         Set<ByteArray> assignmentKeys = IntStream.range(0, partitions)
                 .mapToObj(p -> stablePartAssignmentsKey(new TablePartitionId(tableId, p)))
-                .collect(Collectors.toSet());
+                .collect(toSet());
 
         metaStorageMgr.removeAll(assignmentKeys);
     }

@@ -286,7 +286,6 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
                 nodeCfgMgr,
                 clusterCfgMgr,
                 metastore,
-                null,
                 components,
                 localConfigurationGenerator,
                 logicalTopology,
