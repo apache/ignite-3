@@ -85,7 +85,7 @@ class SqlSerializerTest {
     }
 
     @Test
-    void testSqlInjection() {
+    void testColumnNameValidation() {
         IllegalArgumentException iae = assertThrows(
                 IllegalArgumentException.class,
                 () -> new SqlSerializer.Builder()
@@ -94,7 +94,7 @@ class SqlSerializerTest {
                         .build()
         );
 
-        assertThat(iae.getMessage(), containsString("The columns of the table must be specified to prevent SQL injection"));
+        assertThat(iae.getMessage(), containsString("The columns of the table must be specified to validate input"));
 
         iae = assertThrows(
                 IllegalArgumentException.class,

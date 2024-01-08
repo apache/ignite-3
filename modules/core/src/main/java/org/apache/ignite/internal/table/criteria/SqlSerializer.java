@@ -206,7 +206,7 @@ public class SqlSerializer implements CriteriaVisitor<Void> {
 
             if (where != null) {
                 if (CollectionUtils.nullOrEmpty(columnNames)) {
-                    throw new IllegalArgumentException("The columns of the table must be specified to prevent SQL injection");
+                    throw new IllegalArgumentException("The columns of the table must be specified to validate input");
                 }
 
                 ColumnValidator.INSTANCE.visit(where, columnNames);
