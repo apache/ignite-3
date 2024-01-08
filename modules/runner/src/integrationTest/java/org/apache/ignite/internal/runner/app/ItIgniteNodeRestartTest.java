@@ -1128,7 +1128,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 DEFAULT_CLIENT_PORT + 11,
                 DEFAULT_HTTP_PORT + 11,
                 DEFAULT_HTTPS_PORT + 11,
-                ""
+                "{}"
         );
 
         IgniteImpl node1 = startNode(1, cfgString);
