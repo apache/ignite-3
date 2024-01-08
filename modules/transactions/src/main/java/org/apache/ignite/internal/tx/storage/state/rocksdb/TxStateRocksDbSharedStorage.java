@@ -171,26 +171,22 @@ public class TxStateRocksDbSharedStorage implements ManuallyCloseable {
     }
 
     @Override
-    public void close() {
+    public void close() throws Exception {
         if (!stopGuard.compareAndSet(false, true)) {
             return;
         }
 
         busyLock.block();
 
-        try {
-            List<AutoCloseable> resources = new ArrayList<>();
+        List<AutoCloseable> resources = new ArrayList<>();
 
-            resources.add(readOptions);
-            resources.add(writeOptions);
-            resources.add(dbOptions);
-            resources.add(db);
+        resources.add(readOptions);
+        resources.add(writeOptions);
+        resources.add(dbOptions);
+        resources.add(db);
 
-            reverse(resources);
+        reverse(resources);
 
-            IgniteUtils.closeAll(resources);
-        } catch (Exception e) {
-            throw new IgniteInternalException("Failed to stop transaction state storage", e);
-        }
+        IgniteUtils.closeAll(resources);
     }
 }
