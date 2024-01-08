@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.tx.storage.state.rocksdb;
 
+import static java.nio.ByteOrder.BIG_ENDIAN;
+import static org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbTableStorage.TABLE_PREFIX_SIZE_BYTES;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToLong;
 import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
 import static org.apache.ignite.internal.util.ByteUtils.putLongToBytes;
@@ -27,7 +29,6 @@ import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_STATE_STORAGE_R
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_STATE_STORAGE_STOPPED_ERR;
 
 import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
@@ -56,7 +57,9 @@ import org.rocksdb.WriteBatch;
  * Tx state storage implementation based on RocksDB.
  */
 public class TxStateRocksDbStorage implements TxStateStorage {
-    private static final int PREFIX_SIZE_BYTES = Integer.BYTES + Short.BYTES;
+    /** Prefix length for the payload. Consists of tableId (4 bytes) and partitionId (2 bytes), both in Big Endian. */
+    private static final int PREFIX_SIZE_BYTES = TABLE_PREFIX_SIZE_BYTES + Short.BYTES;
+
     /** Partition id. */
     private final int partitionId;
 
@@ -71,7 +74,11 @@ public class TxStateRocksDbStorage implements TxStateStorage {
 
     /** Database key for the last applied index+term. */
     private final byte[] lastAppliedIndexAndTermKey;
+
+    /** Shared TX state storage. */
     private final TxStateRocksDbSharedStorage sharedStorage;
+
+    /** Table ID. */
     private final int tableId;
 
     /** On-heap-cached last applied index value. */
@@ -97,7 +104,7 @@ public class TxStateRocksDbStorage implements TxStateStorage {
         this.tableStorage = tableStorage;
         this.sharedStorage = tableStorage.sharedStorage;
         this.tableId = tableStorage.id;
-        this.lastAppliedIndexAndTermKey = ByteBuffer.allocate(PREFIX_SIZE_BYTES).order(ByteOrder.BIG_ENDIAN)
+        this.lastAppliedIndexAndTermKey = ByteBuffer.allocate(PREFIX_SIZE_BYTES).order(BIG_ENDIAN)
                 .putInt(tableId)
                 .putShort((short) partitionId)
                 .array();
@@ -232,7 +239,8 @@ public class TxStateRocksDbStorage implements TxStateStorage {
         return busy(() -> {
             throwExceptionIfStorageInProgressOfRebalance();
 
-            byte[] lowerBound = ByteBuffer.allocate(PREFIX_SIZE_BYTES + 1).order(ByteOrder.BIG_ENDIAN)
+            // This lower bound is the lowest possible key that goes after "lastAppliedIndexAndTermKey".
+            byte[] lowerBound = ByteBuffer.allocate(PREFIX_SIZE_BYTES + 1).order(BIG_ENDIAN)
                     .putInt(tableId)
                     .putShort((short) partitionId)
                     .put((byte) 0)
@@ -391,21 +399,21 @@ public class TxStateRocksDbStorage implements TxStateStorage {
     }
 
     private byte[] partitionStartPrefix() {
-        return ByteBuffer.allocate(PREFIX_SIZE_BYTES).order(ByteOrder.BIG_ENDIAN)
+        return ByteBuffer.allocate(PREFIX_SIZE_BYTES).order(BIG_ENDIAN)
                 .putInt(tableId)
                 .putShort((short) (partitionId))
                 .array();
     }
 
     private byte[] partitionEndPrefix() {
-        return ByteBuffer.allocate(PREFIX_SIZE_BYTES).order(ByteOrder.BIG_ENDIAN)
+        return ByteBuffer.allocate(PREFIX_SIZE_BYTES).order(BIG_ENDIAN)
                 .putInt(tableId)
                 .putShort((short) (partitionId + 1))
                 .array();
     }
 
     private byte[] txIdToKey(UUID txId) {
-        return ByteBuffer.allocate(PREFIX_SIZE_BYTES + 2 * Long.BYTES).order(ByteOrder.BIG_ENDIAN)
+        return ByteBuffer.allocate(PREFIX_SIZE_BYTES + 2 * Long.BYTES).order(BIG_ENDIAN)
                 .putInt(tableId)
                 .putShort((short) partitionId)
                 .putLong(txId.getMostSignificantBits())

@@ -17,11 +17,10 @@
 
 package org.apache.ignite.internal.tx.storage.state.rocksdb;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Collections.reverse;
 import static java.util.stream.Collectors.toList;
 
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -34,7 +33,6 @@ import java.util.function.IntSupplier;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.rocksdb.flush.RocksDbFlusher;
-import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.rocksdb.ColumnFamilyDescriptor;
@@ -47,7 +45,8 @@ import org.rocksdb.RocksDB;
 import org.rocksdb.WriteOptions;
 
 /**
- * RocksDb implementation of {@link TxStateTableStorage}.
+ * Shared RocksDB storage instance to be used in {@link TxStateRocksDbTableStorage}. Exists to make "createTable" operation faster, as well
+ * as reducing the amount of resources that would otherwise be used by multiple RocksDB instances, if they existed on per-table basis.
  */
 public class TxStateRocksDbSharedStorage implements ManuallyCloseable {
     static {
@@ -55,7 +54,7 @@ public class TxStateRocksDbSharedStorage implements ManuallyCloseable {
     }
 
     /** Column family name for transaction states. */
-    private static final String TX_STATE_CF = new String(RocksDB.DEFAULT_COLUMN_FAMILY, StandardCharsets.UTF_8);
+    private static final String TX_STATE_CF = new String(RocksDB.DEFAULT_COLUMN_FAMILY, UTF_8);
 
     /** Rocks DB instance. */
     private volatile RocksDB db;
@@ -81,6 +80,7 @@ public class TxStateRocksDbSharedStorage implements ManuallyCloseable {
     /** Busy lock to stop synchronously. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
+    /** Scheduled executor to be used by internal operations, such as {@link #awaitFlush(boolean)}. */
     private final ScheduledExecutorService scheduledExecutor;
 
     /** Thread pool to execute after-flush actions. */
@@ -93,7 +93,11 @@ public class TxStateRocksDbSharedStorage implements ManuallyCloseable {
      * Constructor.
      *
      * @param dbPath Database path.
-     * @param scheduledExecutor Scheduled executor.
+     * @param scheduledExecutor Scheduled executor for delayed flushes.
+     * @param threadPool Thread pool for internal operations.
+     * @param flushDelaySupplier Flush delay supplier.
+     *
+     * @see RocksDbFlusher
      */
     public TxStateRocksDbSharedStorage(
             Path dbPath,
@@ -105,12 +109,6 @@ public class TxStateRocksDbSharedStorage implements ManuallyCloseable {
         this.scheduledExecutor = scheduledExecutor;
         this.threadPool = threadPool;
         this.flushDelaySupplier = flushDelaySupplier;
-
-        try {
-            Files.createDirectories(dbPath);
-        } catch (IOException e) {
-            throw new IgniteInternalException("Failed to create transaction state storage directory", e);
-        }
     }
 
     /**
@@ -129,9 +127,13 @@ public class TxStateRocksDbSharedStorage implements ManuallyCloseable {
 
     /**
      * Starts the storage.
+     *
+     * @throws IgniteInternalException If failed to create directory or start the RocksDB storage.
      */
     public void start() {
         try {
+            Files.createDirectories(dbPath);
+
             flusher = new RocksDbFlusher(
                     busyLock,
                     scheduledExecutor,
@@ -154,7 +156,7 @@ public class TxStateRocksDbSharedStorage implements ManuallyCloseable {
                         .collect(toList());
 
                 cfDescriptors = cfDescriptors.isEmpty()
-                        ? List.of(new ColumnFamilyDescriptor(TX_STATE_CF.getBytes(StandardCharsets.UTF_8), new ColumnFamilyOptions()))
+                        ? List.of(new ColumnFamilyDescriptor(TX_STATE_CF.getBytes(UTF_8), new ColumnFamilyOptions()))
                         : cfDescriptors;
             }
 
@@ -185,6 +187,7 @@ public class TxStateRocksDbSharedStorage implements ManuallyCloseable {
             resources.add(db);
 
             reverse(resources);
+
             IgniteUtils.closeAll(resources);
         } catch (Exception e) {
             throw new IgniteInternalException("Failed to stop transaction state storage", e);

@@ -17,10 +17,10 @@
 
 package org.apache.ignite.internal.tx.storage.state.rocksdb;
 
+import static java.nio.ByteOrder.BIG_ENDIAN;
 import static java.util.Collections.reverse;
 
 import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -37,6 +37,9 @@ import org.jetbrains.annotations.Nullable;
  * RocksDb implementation of {@link TxStateTableStorage}.
  */
 public class TxStateRocksDbTableStorage implements TxStateTableStorage {
+    /** Prefix length for the payload within a table. Consists of tableId (4 bytes) in Big Endian.  */
+    static final int TABLE_PREFIX_SIZE_BYTES = Integer.BYTES;
+
     /** Partition storages. */
     private final AtomicReferenceArray<TxStateRocksDbStorage> storages;
 

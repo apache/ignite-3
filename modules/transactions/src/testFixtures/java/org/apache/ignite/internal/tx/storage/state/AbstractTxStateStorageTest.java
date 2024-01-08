@@ -76,7 +76,7 @@ public abstract class AbstractTxStateStorageTest {
     }
 
     @AfterEach
-    protected void afterTest() {
+    protected void afterTest() throws Exception {
         tableStorage.close();
     }
 

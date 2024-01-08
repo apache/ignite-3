@@ -74,12 +74,14 @@ public class RocksDbTxStateStorageTest extends AbstractTxStateStorageTest {
 
     @Override
     @AfterEach
-    protected void afterTest() {
+    protected void afterTest() throws Exception {
         super.afterTest();
 
-        sharedStorage.close();
-        IgniteUtils.shutdownAndAwaitTermination(scheduledExecutor, 10, TimeUnit.SECONDS);
-        IgniteUtils.shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS);
+        IgniteUtils.closeAllManually(
+                sharedStorage,
+                () -> IgniteUtils.shutdownAndAwaitTermination(scheduledExecutor, 10, TimeUnit.SECONDS),
+                () -> IgniteUtils.shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS)
+        );
     }
 
     @Test
