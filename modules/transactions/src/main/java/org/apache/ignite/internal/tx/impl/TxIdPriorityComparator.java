@@ -17,34 +17,25 @@
 
 package org.apache.ignite.internal.tx.impl;
 
+import java.util.Comparator;
 import java.util.UUID;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.tx.TransactionIds;
 import org.apache.ignite.internal.tx.TxPriority;
 
 /**
- * Generates transaction IDs.
+ * Comparator for transaction IDs based on their associated priorities and the IDs themselves. The IDs with higher priorities are sorted
+ * first. If the priorities are equal, the IDs are sorted by their natural order.
  */
-public class TransactionIdGenerator {
-    /** Supplies nodeId for transactionId generation. */
-    private final NodeIdSupplier nodeIdSupplier;
+public class TxIdPriorityComparator implements Comparator<UUID> {
+    @Override
+    public int compare(UUID o1, UUID o2) {
+        TxPriority priority1 = TransactionIds.priority(o1);
+        TxPriority priority2 = TransactionIds.priority(o2);
 
-    public TransactionIdGenerator(NodeIdSupplier nodeIdSupplier) {
-        this.nodeIdSupplier = nodeIdSupplier;
-    }
-
-    public TransactionIdGenerator(int nodeId) {
-        this(() -> nodeId);
-    }
-
-    /**
-     * Creates a transaction ID with the given begin timestamp.
-     *
-     * @param beginTimestamp Transaction begin timestamp.
-     * @param priority Transaction priority.
-     * @return Transaction ID.
-     */
-    public UUID transactionIdFor(HybridTimestamp beginTimestamp, TxPriority priority) {
-        return TransactionIds.transactionId(beginTimestamp, nodeIdSupplier.nodeId(), priority);
+        if (priority1 == priority2) {
+            return o1.compareTo(o2);
+        } else {
+            return Byte.compare(priority1.byteValue(), priority2.byteValue()) * -1;
+        }
     }
 }

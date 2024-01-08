@@ -31,10 +31,23 @@ public class TransactionIds {
      *
      * @param beginTimestamp Transaction begin timestamp.
      * @param nodeId Unique ID of the current node used to make generated transaction IDs globally unique.
+     * @param priority Transaction priority.
      * @return Transaction ID corresponding to the provided values.
      */
-    public static UUID transactionId(HybridTimestamp beginTimestamp, int nodeId) {
-        return new UUID(beginTimestamp.longValue(), Integer.toUnsignedLong(nodeId));
+    public static UUID transactionId(HybridTimestamp beginTimestamp, int nodeId, TxPriority priority) {
+        return transactionId(beginTimestamp.longValue(), nodeId, priority);
+    }
+
+    /**
+     * Creates a transaction ID from the given begin timestamp and nodeId.
+     *
+     * @param beginTimestamp Transaction begin timestamp.
+     * @param nodeId Unique ID of the current node used to make generated transaction IDs globally unique.
+     * @param priority Transaction priority.
+     * @return Transaction ID corresponding to the provided values.
+     */
+    public static UUID transactionId(long beginTimestamp, int nodeId, TxPriority priority) {
+        return new UUID(beginTimestamp, combine(nodeId, priority));
     }
 
     /**
@@ -45,5 +58,17 @@ public class TransactionIds {
      */
     public static HybridTimestamp beginTimestamp(UUID transactionId) {
         return hybridTimestamp(transactionId.getMostSignificantBits());
+    }
+
+    public static int nodeId(UUID transactionId) {
+        return (int) (transactionId.getLeastSignificantBits() >>> 8);
+    }
+
+    public static TxPriority priority(UUID transactionId) {
+        return TxPriority.fromPriority((byte) (transactionId.getLeastSignificantBits() & 0xFF));
+    }
+
+    private static long combine(int nodeId, TxPriority priority) {
+        return ((long) nodeId << 8) | (priority.byteValue() & 0xFF);
     }
 }

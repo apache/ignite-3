@@ -27,6 +27,7 @@ import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.tx.LockKey;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.LockMode;
+import org.apache.ignite.internal.tx.TxPriority;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.openjdk.jmh.annotations.Benchmark;
@@ -92,7 +93,7 @@ public class LockManagerBenchmark {
         int c = 0;
 
         for (int i = 0; i < concTxns; i++) {
-            UUID txId = generator.transactionIdFor(clock.now());
+            UUID txId = generator.transactionIdFor(clock.now(), TxPriority.NORMAL);
             ids.add(txId);
             lockManager.acquire(txId, new LockKey(0, new RowId(0, new UUID(0, c++))), LockMode.X).join();
         }

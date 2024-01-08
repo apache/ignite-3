@@ -77,6 +77,7 @@ import org.apache.ignite.internal.tx.TransactionAlreadyFinishedException;
 import org.apache.ignite.internal.tx.TransactionMeta;
 import org.apache.ignite.internal.tx.TransactionResult;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.TxPriority;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.TxStateMetaFinishing;
@@ -225,13 +226,18 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
     @Override
     public InternalTransaction begin(HybridTimestampTracker timestampTracker) {
-        return begin(timestampTracker, false);
+        return begin(timestampTracker, false, TxPriority.NORMAL);
     }
 
     @Override
     public InternalTransaction begin(HybridTimestampTracker timestampTracker, boolean readOnly) {
+        return begin(timestampTracker, readOnly, TxPriority.NORMAL);
+    }
+
+    @Override
+    public InternalTransaction begin(HybridTimestampTracker timestampTracker, boolean readOnly, TxPriority priority) {
         HybridTimestamp beginTimestamp = clock.now();
-        UUID txId = transactionIdGenerator.transactionIdFor(beginTimestamp);
+        UUID txId = transactionIdGenerator.transactionIdFor(beginTimestamp, priority);
         updateTxMeta(txId, old -> new TxStateMeta(PENDING, localNodeId, null, null));
 
         if (!readOnly) {

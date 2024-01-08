@@ -68,6 +68,7 @@ import org.apache.ignite.internal.table.distributed.schema.FullTableSchema;
 import org.apache.ignite.internal.table.distributed.schema.ValidationSchemasSource;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tx.TransactionIds;
+import org.apache.ignite.internal.tx.TxPriority;
 import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -93,7 +94,7 @@ class SchemaCompatibilityValidatorTest extends BaseIgniteAbstractTest {
 
     private final HybridTimestamp commitTimestamp = new HybridTimestamp(2, 2);
 
-    private final UUID txId = TransactionIds.transactionId(beginTimestamp, 0);
+    private final UUID txId = TransactionIds.transactionId(beginTimestamp, 0, TxPriority.NORMAL);
 
     private static final int TABLE_ID = 1;
     private static final String TABLE_NAME = "test";

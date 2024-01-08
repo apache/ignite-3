@@ -165,6 +165,7 @@ import org.apache.ignite.internal.tx.TransactionMeta;
 import org.apache.ignite.internal.tx.TransactionResult;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxMeta;
+import org.apache.ignite.internal.tx.TxPriority;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
@@ -1537,7 +1538,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     }
 
     private static UUID transactionIdFor(HybridTimestamp beginTimestamp) {
-        return TestTransactionIds.TRANSACTION_ID_GENERATOR.transactionIdFor(beginTimestamp);
+        return TestTransactionIds.TRANSACTION_ID_GENERATOR.transactionIdFor(beginTimestamp, TxPriority.NORMAL);
     }
 
     @Test

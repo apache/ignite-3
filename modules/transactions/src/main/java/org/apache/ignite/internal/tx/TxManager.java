@@ -45,7 +45,8 @@ public interface TxManager extends IgniteComponent {
     InternalTransaction begin(HybridTimestampTracker timestampTracker);
 
     /**
-     * Starts either read-write or read-only transaction, depending on {@code readOnly} parameter value.
+     * Starts either read-write or read-only transaction, depending on {@code readOnly} parameter value. The transaction has
+     * {@link TxPriority#NORMAL} priority.
      *
      * @param timestampTracker Observable timestamp tracker is used to track a timestamp for either read-write or read-only
      *         transaction execution. The tracker is also used to determine the read timestamp for read-only transactions. Each client
@@ -57,6 +58,22 @@ public interface TxManager extends IgniteComponent {
      *         available in the tables.
      */
     InternalTransaction begin(HybridTimestampTracker timestampTracker, boolean readOnly);
+
+    /**
+     * Starts either read-write or read-only transaction, depending on {@code readOnly} parameter value.
+     *
+     * @param timestampTracker Observable timestamp tracker is used to track a timestamp for either read-write or read-only
+     *         transaction execution. The tracker is also used to determine the read timestamp for read-only transactions. Each client
+     *         should pass its own tracker to provide linearizability between read-write and read-only transactions started by this client.
+     * @param readOnly {@code true} in order to start a read-only transaction, {@code false} in order to start read-write one.
+     *         Calling begin with readOnly {@code false} is an equivalent of TxManager#begin().
+     * @param priority Transaction priority. The priority is used to resolve conflicts between transactions. The higher priority is
+     *         the more likely the transaction will win the conflict.
+     * @return The started transaction.
+     * @throws IgniteInternalException with {@link Transactions#TX_READ_ONLY_TOO_OLD_ERR} if transaction much older than the data
+     *         available in the tables.
+     */
+    InternalTransaction begin(HybridTimestampTracker timestampTracker, boolean readOnly, TxPriority priority);
 
     /**
      * Returns a transaction state meta.
