@@ -786,23 +786,23 @@ public class IgniteImpl implements Ignite {
         ExecutorService startupExecutor = Executors.newSingleThreadExecutor(NamedThreadFactory.create(name, "start", LOG));
 
         try {
-            List<CompletableFuture<Void>> startFutures = new ArrayList<>();
+            List<CompletableFuture<Void>> startFuturesBeforeJoin = new ArrayList<>();
 
-            List<CompletableFuture<Void>> startFutures2 = new ArrayList<>();
+            List<CompletableFuture<Void>> startFuturesAfterJoin = new ArrayList<>();
 
             metricManager.registerSource(new JvmMetricSource());
 
-            startFutures.add(lifecycleManager.startComponent(longJvmPauseDetector));
+            startFuturesBeforeJoin.add(lifecycleManager.startComponent(longJvmPauseDetector));
 
-            startFutures.add(lifecycleManager.startComponent(vaultMgr));
+            startFuturesBeforeJoin.add(lifecycleManager.startComponent(vaultMgr));
 
             vaultMgr.putName(name).get();
 
             // Node configuration manager startup.
-            startFutures.add(lifecycleManager.startComponent(nodeCfgMgr));
+            startFuturesBeforeJoin.add(lifecycleManager.startComponent(nodeCfgMgr));
 
             // Start the components that are required to join the cluster.
-            startFutures.add(lifecycleManager.startComponents(
+            startFuturesBeforeJoin.add(lifecycleManager.startComponents(
                     threadPoolsManager,
                     clockWaiter,
                     nettyBootstrapFactory,
@@ -839,8 +839,7 @@ public class IgniteImpl implements Ignite {
 
                         // Start all other components after the join request has completed and the node has been validated.
                         try {
-
-                            startFutures2.add(lifecycleManager.startComponents(
+                            startFuturesAfterJoin.add(lifecycleManager.startComponents(
                                     catalogManager,
                                     clusterCfgMgr,
                                     authenticationManager,
@@ -865,7 +864,7 @@ public class IgniteImpl implements Ignite {
 
                             // The system view manager comes last because other components
                             // must register system views before it starts.
-                            startFutures2.add(lifecycleManager.startComponent(systemViewManager));
+                            startFuturesAfterJoin.add(lifecycleManager.startComponent(systemViewManager));
                         } catch (NodeStoppingException e) {
                             throw new CompletionException(e);
                         }
@@ -875,7 +874,7 @@ public class IgniteImpl implements Ignite {
 
                         return recoverComponentsStateOnStart(
                                 startupExecutor,
-                                CompletableFuture.allOf(startFutures2.toArray(CompletableFuture[]::new))
+                                CompletableFuture.allOf(startFuturesAfterJoin.toArray(CompletableFuture[]::new))
                         );
                     }, startupExecutor)
                     .thenComposeAsync(v -> clusterCfgMgr.configurationRegistry().onDefaultsPersisted(), startupExecutor)
@@ -906,7 +905,7 @@ public class IgniteImpl implements Ignite {
                     .whenCompleteAsync((res, ex) -> {
                         startupExecutor.shutdownNow();
                     });
-            return CompletableFuture.allOf(startFutures.toArray(CompletableFuture[]::new)).thenCompose((ignored) -> startFuture);
+            return CompletableFuture.allOf(startFuturesBeforeJoin.toArray(CompletableFuture[]::new)).thenCompose((ignored) -> startFuture);
         } catch (Throwable e) {
             startupExecutor.shutdownNow();
 

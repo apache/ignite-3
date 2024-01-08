@@ -360,7 +360,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
 
         appliedRevision = readRevisionFromVault();
 
-        return cmgMgr.metaStorageNodes()
+        cmgMgr.metaStorageNodes()
                 .thenCompose(metaStorageNodes -> {
                     if (!busyLock.enterBusy()) {
                         return CompletableFuture.failedFuture(new NodeStoppingException());
@@ -382,7 +382,9 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
 
                         metaStorageSvcFut.complete(service);
                     }
-                }).thenApply(ignored -> null);
+                });
+
+        return nullCompletedFuture();
     }
 
     private long readRevisionFromVault() {
