@@ -21,7 +21,6 @@ import static java.util.concurrent.CompletableFuture.allOf;
 import static org.apache.ignite.internal.util.CollectionUtils.first;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
-import com.github.benmanes.caffeine.cache.Caffeine;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.ints.IntObjectPair;
@@ -33,7 +32,6 @@ import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executor;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -72,7 +70,7 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
     private final ExecutionTargetProvider targetProvider;
     private final Executor taskExecutor;
     private final Cache<PlanId, FragmentsTemplate> templatesCache;
-    private final ConcurrentMap<PlanId, MappingsCacheValue> mappingsCache;
+    private final Cache<PlanId, MappingsCacheValue> mappingsCache;
 
     /**
      * Constructor.
@@ -94,10 +92,7 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
         this.targetProvider = targetProvider;
         this.templatesCache = cacheFactory.create(cacheSize);
         this.taskExecutor = taskExecutor;
-        this.mappingsCache = Caffeine.newBuilder()
-                .maximumSize(cacheSize)
-                .<PlanId, MappingsCacheValue>build()
-                .asMap();
+        this.mappingsCache = cacheFactory.create(cacheSize);
     }
 
     @Override
@@ -117,7 +112,7 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
         int tabId = ((TablePartitionId) parameters.groupId()).tableId();
 
         // TODO https://issues.apache.org/jira/browse/IGNITE-21201 Move complex computations to a different thread.
-        mappingsCache.values().removeIf(value -> value.tableIds.contains(tabId));
+        mappingsCache.removeIfValue(value -> value.tableIds.contains(tabId));
 
         return CompletableFutures.falseCompletedFuture();
     }

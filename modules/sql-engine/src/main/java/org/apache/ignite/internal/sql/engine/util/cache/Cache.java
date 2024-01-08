@@ -17,7 +17,9 @@
 
 package org.apache.ignite.internal.sql.engine.util.cache;
 
+import java.util.function.BiFunction;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -60,4 +62,23 @@ public interface Cache<K, V> {
 
     /** Clears the given cache. That is, remove all keys and associated values. */
     void clear();
+
+    /**
+     * Attempts to compute a mapping for the specified key and its current
+     * mapped value (or {@code null} if there is no current mapping).
+     *
+     * @param key key with which the specified value is to be associated
+     * @param remappingFunction the remapping function to compute a value
+     * @return the new value associated with the specified key, or null if none
+     */
+    V compute(K key, BiFunction<? super K, ? super V, ? extends V> remappingFunction);
+
+    /**
+     * Removes all cache entries whose values match the specified predicate.
+     * Errors or runtime exceptions thrown during iteration or by the predicate
+     * are relayed to the caller.
+     *
+     * @param valueFilter a predicate which returns {@code true} for the values of entries to be removed.
+     */
+    void removeIfValue(Predicate<? super V> valueFilter);
 }
