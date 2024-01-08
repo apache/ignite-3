@@ -604,8 +604,8 @@ public class TableManagerTest extends IgniteAbstractTest {
             subscriber.onComplete();
         });
 
-        when(msm.invoke(any(), any(Operation.class), any(Operation.class))).thenReturn(nullCompletedFuture());
-        when(msm.invoke(any(), any(List.class), any(List.class))).thenReturn(nullCompletedFuture());
+        when(msm.invoke(any(), any(Operation.class), any(Operation.class))).thenReturn(trueCompletedFuture());
+        when(msm.invoke(any(), any(List.class), any(List.class))).thenReturn(trueCompletedFuture());
         when(msm.get(any())).thenReturn(nullCompletedFuture());
 
         when(msm.recoveryFinishedFuture()).thenReturn(completedFuture(1L));
