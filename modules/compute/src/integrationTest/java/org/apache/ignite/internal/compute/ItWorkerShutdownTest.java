@@ -18,13 +18,19 @@
 package org.apache.ignite.internal.compute;
 
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.compute.JobState.CANCELED;
+import static org.apache.ignite.compute.JobState.COMPLETED;
+import static org.apache.ignite.compute.JobState.EXECUTING;
+import static org.apache.ignite.compute.JobState.FAILED;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.in;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.not;
+import static org.hamcrest.Matchers.notNullValue;
 
 import java.util.Arrays;
 import java.util.HashMap;
@@ -33,6 +39,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -133,11 +140,15 @@ class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest {
         GLOBAL_SIGNALS.offer(Signal.RETURN);
     }
 
-    private static void checkGlobalInteractiveJobAlive(JobExecution<?> execution) throws InterruptedException {
+    private static void checkGlobalInteractiveJobAlive(JobExecution<?> execution) throws InterruptedException, ExecutionException {
         GLOBAL_SIGNALS.offer(Signal.CONTINUE);
         assertThat(GLOBAL_CHANNEL.poll(10, TimeUnit.SECONDS), equalTo(ack));
 
         assertThat(execution.resultAsync().isDone(), equalTo(false));
+        assertThat(execution.idAsync().get(), notNullValue());
+
+        // During the fob failover we might get a job that is restarted, the state will be not EXECUTING for some short time.
+        await().until(() -> execution.statusAsync().get().state() == EXECUTING);
     }
 
     private static void checkInteractiveJobAlive(ClusterNode clusterNode, JobExecution<?> execution) {
@@ -192,6 +203,9 @@ class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest {
         String workerNodeName = getWorkerNodeNameFromGlobalInteractiveJob();
         // And job is running.
         checkGlobalInteractiveJobAlive(execution);
+        // And save job create time and start time BEFORE worker has failed.
+        long createTimeBeforeFail = execution.statusAsync().get().createTime().toEpochMilli();
+        long startTimeBeforeFail = execution.statusAsync().get().startTime().toEpochMilli();
 
         // When stop worker node.
         stopNode(workerNodeName);
@@ -203,12 +217,23 @@ class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest {
         // And remaining candidate was chosen as a failover worker.
         String failoverWorker = getWorkerNodeNameFromGlobalInteractiveJob();
         assertThat(remoteWorkerCandidates, hasItem(failoverWorker));
+        // And check create time was not changed but start time changed.
+        long createTimeAfterFail = execution.statusAsync().get().createTime().toEpochMilli();
+        long startTimeAfterFail = execution.statusAsync().get().startTime().toEpochMilli();
+        assertThat(createTimeAfterFail, equalTo(createTimeBeforeFail));
+        assertThat(startTimeAfterFail, greaterThan(startTimeBeforeFail));
 
         // When finish job.
         finishGlobalJob();
 
         // Then it is successfully finished.
         assertThat(execution.resultAsync().get(10, TimeUnit.SECONDS), equalTo("Done"));
+        // And.
+        assertThat(execution.statusAsync().get().state(), is(COMPLETED));
+        // And finish time is greater then create time and start time.
+        long finishTime = execution.statusAsync().get().finishTime().toEpochMilli();
+        assertThat(finishTime, greaterThan(createTimeAfterFail));
+        assertThat(finishTime, greaterThan(startTimeAfterFail));
     }
 
     @Test
@@ -231,12 +256,12 @@ class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest {
         stopNode(workerNodeName);
 
         // Then the job is failed, because there is no any failover worker.
-        // todo check other fields
         await().until(() -> execution.resultAsync().isCompletedExceptionally());
+        assertThat(execution.statusAsync().get().state(), is(FAILED));
     }
 
     @Test
-    void localExecutionWorkerShutdown() throws InterruptedException {
+    void localExecutionWorkerShutdown() throws Exception {
         // Given entry node.
         IgniteImpl entryNode = node(0);
 
@@ -254,6 +279,7 @@ class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest {
 
         // Then the job is failed, because there is no any failover worker.
         assertThat(execution.resultAsync().isCompletedExceptionally(), equalTo(true));
+        assertThat(execution.statusAsync().get().state(), is(FAILED));
     }
 
     @Test
@@ -295,8 +321,43 @@ class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest {
     }
 
     @Test
+    void cancelRemoteExecutionOnRestartedJob() throws Exception {
+        // Given entry node.
+        IgniteImpl entryNode = node(0);
+        // And remote candidates to execute a job.
+        Set<String> remoteWorkerCandidates = workerCandidates(node(1), node(2));
+
+        // When execute job.
+        JobExecution<String> execution = executeGlobalInteractiveJob(entryNode, remoteWorkerCandidates);
+
+        // Then one of candidates became a worker and run the job.
+        String workerNodeName = getWorkerNodeNameFromGlobalInteractiveJob();
+        // And job is running.
+        checkGlobalInteractiveJobAlive(execution);
+
+        // When stop worker node.
+        stopNode(workerNodeName);
+        // And remove it from candidates.
+        remoteWorkerCandidates.remove(workerNodeName);
+
+        // Then the job is alive: it has been restarted on another candidate.
+        checkGlobalInteractiveJobAlive(execution);
+        // And remaining candidate was chosen as a failover worker.
+        String failoverWorker = getWorkerNodeNameFromGlobalInteractiveJob();
+        assertThat(remoteWorkerCandidates, hasItem(failoverWorker));
+
+        // When cancel job.
+        execution.cancelAsync().get();
+
+        // Then it is cancelled.
+        assertThat(execution.resultAsync().isCancelled(), is(true));
+        // And.
+        assertThat(execution.statusAsync().get().state(), is(CANCELED));
+    }
+
+    @Test
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-20864")
-    void colocatedExecutionWorkerShutdown() throws InterruptedException {
+    void colocatedExecutionWorkerShutdown() throws Exception {
         // Given table.
         initChannels(allNodeNames());
         createTestTableWithOneRow();

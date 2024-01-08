@@ -134,17 +134,17 @@ class ComputeJobFailover<T> {
         }
 
         @Override
-        public CompletableFuture<T> resultAsync() {
+        public CompletableFuture<T> resultAsync() {             // durable
             return resultFuture;
         }
 
         @Override
-        public CompletableFuture<JobStatus> statusAsync() {
+        public CompletableFuture<JobStatus> statusAsync() {    // not durable
             return runningJobExecution.get().statusAsync();
         }
 
         @Override
-        public CompletableFuture<Void> cancelAsync() {
+        public CompletableFuture<Void> cancelAsync() {         //
             return runningJobExecution.get().cancelAsync();
         }
     }
