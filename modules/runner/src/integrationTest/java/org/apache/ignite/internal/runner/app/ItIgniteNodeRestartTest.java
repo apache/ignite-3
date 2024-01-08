@@ -165,7 +165,7 @@ import org.apache.ignite.tx.TransactionException;
 import org.awaitility.Awaitility;
 import org.intellij.lang.annotations.Language;
 import org.jetbrains.annotations.Nullable;
-import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
@@ -214,8 +214,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
     private Map<Integer, Map<String, Entry>> metaStorageMockDataByNode = new ConcurrentHashMap<>();
 
-    @AfterEach
-    public void afterTest() {
+    @BeforeEach
+    public void beforeTest() {
         metaStorageMockDataByNode.clear();
         partialNodes.clear();
     }
