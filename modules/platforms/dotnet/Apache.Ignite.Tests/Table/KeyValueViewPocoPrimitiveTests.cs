@@ -83,13 +83,10 @@ public class KeyValueViewPocoPrimitiveTests : IgniteTestsBase
     }
 
     [Test]
-    public void TestPutNullThrowsArgumentException()
+    public void TestPutNullKeyThrowsArgumentException()
     {
         var keyEx = Assert.ThrowsAsync<ArgumentNullException>(async () => await KvView.PutAsync(null, null!, null!));
         Assert.AreEqual("Value cannot be null. (Parameter 'key')", keyEx!.Message);
-
-        var valEx = Assert.ThrowsAsync<ArgumentNullException>(async () => await KvView.PutAsync(null, GetKeyPoco(1L), null!));
-        Assert.AreEqual("Value cannot be null. (Parameter 'val')", valEx!.Message);
     }
 
     [Test]

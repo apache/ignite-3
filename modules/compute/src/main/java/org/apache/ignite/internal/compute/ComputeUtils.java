@@ -19,19 +19,24 @@ package org.apache.ignite.internal.compute;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Compute.CLASS_INITIALIZATION_ERR;
 
 import java.lang.reflect.Constructor;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
+import org.apache.ignite.compute.ComputeException;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.DeploymentUnit;
+import org.apache.ignite.compute.JobStatus;
 import org.apache.ignite.compute.version.Version;
 import org.apache.ignite.internal.compute.message.DeploymentUnitMsg;
 import org.apache.ignite.internal.compute.message.ExecuteResponse;
-import org.apache.ignite.internal.lang.IgniteInternalException;
-import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.internal.compute.message.JobCancelResponse;
+import org.apache.ignite.internal.compute.message.JobResultResponse;
+import org.apache.ignite.internal.compute.message.JobStatusResponse;
 
 /**
  * Utility class for compute.
@@ -48,7 +53,7 @@ public class ComputeUtils {
      */
     public static <R> ComputeJob<R> instantiateJob(Class<? extends ComputeJob<R>> computeJobClass) {
         if (!(ComputeJob.class.isAssignableFrom(computeJobClass))) {
-            throw new IgniteException(
+            throw new ComputeException(
                     CLASS_INITIALIZATION_ERR,
                     "'" + computeJobClass.getName() + "' does not implement ComputeJob interface"
             );
@@ -63,7 +68,7 @@ public class ComputeUtils {
 
             return constructor.newInstance();
         } catch (ReflectiveOperationException e) {
-            throw new IgniteInternalException(
+            throw new ComputeException(
                     CLASS_INITIALIZATION_ERR,
                     "Cannot instantiate job",
                     e
@@ -83,7 +88,7 @@ public class ComputeUtils {
         try {
             return (Class<ComputeJob<R>>) Class.forName(jobClassName, true, jobClassLoader);
         } catch (ClassNotFoundException e) {
-            throw new IgniteInternalException(
+            throw new ComputeException(
                     CLASS_INITIALIZATION_ERR,
                     "Cannot load job class by name '" + jobClassName + "'",
                     e
@@ -105,19 +110,64 @@ public class ComputeUtils {
     }
 
     /**
-     * Extract Compute job result from execute response.
+     * Extract compute job id from execute response.
      *
      * @param executeResponse Execution message response.
-     * @param <R> Compute job return type.
      * @return Completable future with result.
      */
-    public static <R> CompletableFuture<R> resultFromExecuteResponse(ExecuteResponse executeResponse) {
+    public static CompletableFuture<UUID> jobIdFromExecuteResponse(ExecuteResponse executeResponse) {
         Throwable throwable = executeResponse.throwable();
         if (throwable != null) {
             return failedFuture(throwable);
         }
 
-        return completedFuture((R) executeResponse.result());
+        return completedFuture(executeResponse.jobId());
+    }
+
+    /**
+     * Extract Compute job result from execute response.
+     *
+     * @param jobResultResponse Job execution result message response.
+     * @param <R> Compute job return type.
+     * @return Completable future with result.
+     */
+    public static <R> CompletableFuture<R> resultFromJobResultResponse(JobResultResponse jobResultResponse) {
+        Throwable throwable = jobResultResponse.throwable();
+        if (throwable != null) {
+            return failedFuture(throwable);
+        }
+
+        return completedFuture((R) jobResultResponse.result());
+    }
+
+    /**
+     * Extract compute job status from status response.
+     *
+     * @param jobStatusResponse Job status result message response.
+     * @return Completable future with result.
+     */
+    public static CompletableFuture<JobStatus> statusFromJobStatusResponse(JobStatusResponse jobStatusResponse) {
+        Throwable throwable = jobStatusResponse.throwable();
+        if (throwable != null) {
+            return failedFuture(throwable);
+        }
+
+        return completedFuture(jobStatusResponse.status());
+    }
+
+    /**
+     * Extract compute job cancel result from cancel response.
+     *
+     * @param jobStatusResponse Job cancel message response.
+     * @return Completable future with result.
+     */
+    public static CompletableFuture<Void> cancelFromJobCancelResponse(JobCancelResponse jobStatusResponse) {
+        Throwable throwable = jobStatusResponse.throwable();
+        if (throwable != null) {
+            return failedFuture(throwable);
+        }
+
+        return nullCompletedFuture();
     }
 
     /**

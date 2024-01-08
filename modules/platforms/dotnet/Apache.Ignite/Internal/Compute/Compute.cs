@@ -193,12 +193,11 @@ namespace Apache.Ignite.Internal.Compute
             using var writer = ProtoCommon.GetMessageWriter();
             Write();
 
-            var notificationHandler = new TaskCompletionSource<PooledBuffer>();
-
-            using var res = await _socket.DoOutInOpAsync(
-                    ClientOp.ComputeExecute, writer, PreferredNode.FromName(node.Name), notificationHandler)
+            using PooledBuffer res = await _socket.DoOutInOpAsync(
+                    ClientOp.ComputeExecute, writer, PreferredNode.FromName(node.Name), expectNotifications: true)
                 .ConfigureAwait(false);
 
+            var notificationHandler = (NotificationHandler)res.Metadata!;
             using var notificationRes = await notificationHandler.Task.ConfigureAwait(false);
             return Read(notificationRes);
 
@@ -267,12 +266,12 @@ namespace Apache.Ignite.Internal.Compute
                     using var bufferWriter = ProtoCommon.GetMessageWriter();
                     var colocationHash = Write(bufferWriter, table, schema);
                     var preferredNode = await table.GetPreferredNode(colocationHash, null).ConfigureAwait(false);
-                    var notificationHandler = new TaskCompletionSource<PooledBuffer>();
 
                     using var res = await _socket.DoOutInOpAsync(
-                            ClientOp.ComputeExecuteColocated, bufferWriter, preferredNode, notificationHandler)
+                            ClientOp.ComputeExecuteColocated, bufferWriter, preferredNode, expectNotifications: true)
                         .ConfigureAwait(false);
 
+                    var notificationHandler = (NotificationHandler)res.Metadata!;
                     using var notificationRes = await notificationHandler.Task.ConfigureAwait(false);
                     return Read(notificationRes);
                 }

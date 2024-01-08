@@ -42,7 +42,7 @@ import org.apache.ignite.network.ClusterService;
 public class DeployMessagingService {
     private static final IgniteLogger LOG = Loggers.forClass(DeployMessagingService.class);
 
-    private static final ChannelType DEPLOYMENT_CHANNEL = ChannelType.register((short) 1, "DeploymentUnits");
+    private static final ChannelType DEPLOYMENT_CHANNEL = ChannelType.register((short) 2, "DeploymentUnits");
 
     /**
      * Cluster service.

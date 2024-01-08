@@ -20,6 +20,7 @@ package org.apache.ignite.table;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.table.criteria.CriteriaQuerySource;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 
@@ -29,7 +30,7 @@ import org.jetbrains.annotations.Nullable;
  * @param <R> Mapped record type.
  * @see org.apache.ignite.table.mapper.Mapper
  */
-public interface RecordView<R> extends DataStreamerTarget<R> {
+public interface RecordView<R> extends DataStreamerTarget<R>, CriteriaQuerySource<R> {
     /**
      * Gets a record with the same key column values as the given one from a table.
      *

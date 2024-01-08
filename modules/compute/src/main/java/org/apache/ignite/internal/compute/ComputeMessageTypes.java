@@ -20,6 +20,10 @@ package org.apache.ignite.internal.compute;
 import org.apache.ignite.internal.compute.message.DeploymentUnitMsg;
 import org.apache.ignite.internal.compute.message.ExecuteRequest;
 import org.apache.ignite.internal.compute.message.ExecuteResponse;
+import org.apache.ignite.internal.compute.message.JobResultRequest;
+import org.apache.ignite.internal.compute.message.JobResultResponse;
+import org.apache.ignite.internal.compute.message.JobStatusRequest;
+import org.apache.ignite.internal.compute.message.JobStatusResponse;
 import org.apache.ignite.network.annotations.MessageGroup;
 
 /**
@@ -41,4 +45,22 @@ public class ComputeMessageTypes {
      * Type for {@link DeploymentUnitMsg}.
      */
     public static final short DEPLOYMENT_UNIT = 2;
+
+    /** Type for {@link JobResultRequest}. */
+    public static final short JOB_RESULT_REQUEST = 3;
+
+    /** Type for {@link JobResultResponse}. */
+    public static final short JOB_RESULT_RESPONSE = 4;
+
+    /** Type for {@link JobStatusRequest}. */
+    public static final short JOB_STATUS_REQUEST = 5;
+
+    /** Type for {@link JobStatusResponse}. */
+    public static final short JOB_STATUS_RESPONSE = 6;
+
+    /** Type for {@link JobCancelRequest}. */
+    public static final short JOB_CANCEL_REQUEST = 7;
+
+    /** Type for {@link JobCancelResponse}. */
+    public static final short JOB_CANCEL_RESPONSE = 8;
 }

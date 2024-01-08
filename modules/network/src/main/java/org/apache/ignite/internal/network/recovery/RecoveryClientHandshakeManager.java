@@ -28,6 +28,8 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Function;
+import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
@@ -266,23 +268,29 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
 
     private void handleStaleServerId(HandshakeStartMessage msg) {
         String message = msg.consistentId() + ":" + msg.launchId() + " is stale, server should be restarted so that clients can connect";
-        HandshakeRejectedMessage rejectionMessage = MESSAGE_FACTORY.handshakeRejectedMessage()
-                .reasonString(HandshakeRejectionReason.STALE_LAUNCH_ID.name())
-                .message(message)
-                .build();
 
-        sendHandshakeRejectedMessage(rejectionMessage, message);
+        sendRejectionMessageAndFailHandshake(message, HandshakeRejectionReason.STALE_LAUNCH_ID, HandshakeException::new);
     }
 
     private void handleRefusalToEstablishConnectionDueToStopping(HandshakeStartMessage msg) {
         String message = msg.consistentId() + ":" + msg.launchId() + " tried to establish a connection with " + consistentId
                 + ", but it's stopping";
-        HandshakeRejectedMessage rejectionMessage = MESSAGE_FACTORY.handshakeRejectedMessage()
-                .reasonString(HandshakeRejectionReason.STOPPING.name())
-                .message(message)
-                .build();
 
-        sendHandshakeRejectedMessage(rejectionMessage, message);
+        sendRejectionMessageAndFailHandshake(message, HandshakeRejectionReason.STOPPING, m -> new NodeStoppingException());
+    }
+
+    private void sendRejectionMessageAndFailHandshake(
+            String message,
+            HandshakeRejectionReason rejectionReason,
+            Function<String, Exception> exceptionFactory
+    ) {
+        HandshakeManagerUtils.sendRejectionMessageAndFailHandshake(
+                message,
+                rejectionReason,
+                channel,
+                localHandshakeCompleteFuture,
+                exceptionFactory
+        );
     }
 
     private void onHandshakeRejectedMessage(HandshakeRejectedMessage msg) {
@@ -334,20 +342,6 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
         }
     }
 
-    private void sendHandshakeRejectedMessage(HandshakeRejectedMessage rejectionMessage, String reason) {
-        ChannelFuture sendFuture = channel.writeAndFlush(new OutNetworkObject(rejectionMessage, emptyList(), false));
-
-        NettyUtils.toCompletableFuture(sendFuture).whenComplete((unused, throwable) -> {
-            if (throwable != null) {
-                localHandshakeCompleteFuture.completeExceptionally(
-                        new HandshakeException("Failed to send handshake rejected message: " + throwable.getMessage(), throwable)
-                );
-            } else {
-                localHandshakeCompleteFuture.completeExceptionally(new HandshakeException(reason));
-            }
-        });
-    }
-
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<NettySender> localHandshakeFuture() {
@@ -387,7 +381,7 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
      * @return New message handler.
      */
     private MessageHandler createMessageHandler() {
-        return handler.createMessageHandler(remoteConsistentId);
+        return handler.createMessageHandler(remoteLaunchId.toString(), remoteConsistentId, connectionId);
     }
 
     /**

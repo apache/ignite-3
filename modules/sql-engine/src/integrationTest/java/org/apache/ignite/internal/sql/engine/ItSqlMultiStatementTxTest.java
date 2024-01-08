@@ -24,6 +24,8 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCo
 import static org.apache.ignite.lang.ErrorGroups.Sql.RUNTIME_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.hasSize;
+import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -230,22 +232,18 @@ public class ItSqlMultiStatementTxTest extends BaseSqlMultiStatementTest {
 
     @Test
     void openedScriptTransactionRollsBackOnError() {
-        {
-            AsyncSqlCursor<InternalSqlRow> cursor = runScript(
-                    "START TRANSACTION READ WRITE;"
-                    + "INSERT INTO test VALUES(2);"
-                    + "INSERT INTO test VALUES(2/0);"
-                    + "SELECT 1;"
-                    + "COMMIT;"
-            );
+        String script = "START TRANSACTION READ WRITE;"
+                + "INSERT INTO test VALUES(2);"
+                + "INSERT INTO test VALUES(2/0);"
+                + "SELECT 1;"
+                + "COMMIT;";
 
-            assertThrowsSqlException(RUNTIME_ERR, "Division by zero", () -> fetchAllCursors(cursor));
+        assertThrowsSqlException(RUNTIME_ERR, "Division by zero", () -> executeScript(script));
 
-            verifyFinishedTxCount(1);
+        verifyFinishedTxCount(1);
 
-            assertQuery("select count(id) from test")
-                    .returns(0L).check();
-        }
+        assertQuery("select count(id) from test")
+                .returns(0L).check();
     }
 
     @Test
@@ -308,6 +306,46 @@ public class ItSqlMultiStatementTxTest extends BaseSqlMultiStatementTest {
                 () -> await(insCur.nextResult()));
 
         verifyFinishedTxCount(1);
+    }
+
+    @Test
+    void concurrentExecutionDoesntAffectSelectWithExplicitTx() {
+        long tableSize = BIG_TABLE_ROWS_COUNT;
+
+        @SuppressWarnings("ConcatenationWithEmptyString")
+        String script = ""
+                + "CREATE TABLE integers (i INT PRIMARY KEY);"
+                + "START TRANSACTION;"
+                + "INSERT INTO integers SELECT * FROM TABLE(system_range(1, " + tableSize + "));"
+                + "SELECT count(*) FROM integers;"
+                + "DELETE FROM integers;"
+                + "COMMIT;"
+                + "DROP TABLE integers;";
+
+        AsyncSqlCursor<InternalSqlRow> cursor = runScript(script); // CREATE TABLE...
+        cursor.closeAsync();
+
+        cursor = await(cursor.nextResult()); // BEGIN...
+
+        assertThat(cursor, notNullValue());
+        cursor.closeAsync();
+
+        cursor = await(cursor.nextResult()); // INSERT...
+
+        assertThat(cursor, notNullValue());
+        cursor.closeAsync();
+
+        cursor = await(cursor.nextResult()); // SELECT...
+
+        assertThat(cursor, notNullValue());
+
+        BatchedResult<InternalSqlRow> batch = await(cursor.requestNextAsync(1));
+
+        assertThat(batch, notNullValue());
+
+        assertThat(batch.items().get(0).get(0), is(tableSize));
+
+        iterateThroughResultsAndCloseThem(cursor);
     }
 
     @Test
