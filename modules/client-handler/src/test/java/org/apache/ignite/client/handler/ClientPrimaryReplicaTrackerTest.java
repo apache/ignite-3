@@ -68,7 +68,8 @@ class ClientPrimaryReplicaTrackerTest extends BaseIgniteAbstractTest {
                 driver,
                 new FakeCatalogService(PARTITIONS),
                 new TestHybridClock(currentTime::get),
-                new AlwaysSyncedSchemaSyncService());
+                new AlwaysSyncedSchemaSyncService()
+        );
     }
 
     @Test
