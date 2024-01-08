@@ -29,13 +29,14 @@ class TxRwOperationCounter {
 
     private final CompletableFuture<Void> completeOperationFuture;
 
-    TxRwOperationCounter() {
-        this(1, new CompletableFuture<>());
-    }
-
     private TxRwOperationCounter(long operationCount, CompletableFuture<Void> completeOperationFuture) {
         this.operationCount = operationCount;
         this.completeOperationFuture = completeOperationFuture;
+    }
+
+    /** Returns new RW transactions operations with {@code 1} operation. */
+    static TxRwOperationCounter withCountOne() {
+        return new TxRwOperationCounter(1, new CompletableFuture<>());
     }
 
     /** Returns a new counter with the count of RW transactions operations incremented by {@code 1}. */
@@ -58,8 +59,7 @@ class TxRwOperationCounter {
     }
 
     /**
-     * Returns a future that will complete when the count of RW transaction operations is {@code 0}, should to be completed from the
-     * outside.
+     * Returns a future that will complete when the count of RW transaction operations is {@code 0}, should be completed from the outside.
      */
     CompletableFuture<Void> operationsFuture() {
         return completeOperationFuture;

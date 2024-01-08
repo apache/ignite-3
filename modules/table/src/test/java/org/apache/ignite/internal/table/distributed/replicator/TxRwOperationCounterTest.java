@@ -27,67 +27,63 @@ import org.junit.jupiter.api.Test;
 /** For {@link TxRwOperationCounter} testing. */
 public class TxRwOperationCounterTest {
     @Test
-    void testDecrement() {
-        var counter0 = new TxRwOperationCounter();
+    void testWithCountOne() {
+        var counter = TxRwOperationCounter.withCountOne();
 
-        assertFalse(counter0.isOperationsOver());
-        assertFalse(counter0.operationsFuture().isDone());
+        assertOperationsIsNotComplete(counter);
+    }
+
+    @Test
+    void testDecrement() {
+        var counter0 = TxRwOperationCounter.withCountOne();
 
         TxRwOperationCounter counter1 = counter0.decrementOperationCount();
 
         assertNotSame(counter0, counter1);
 
-        assertFalse(counter0.isOperationsOver());
-        assertTrue(counter1.isOperationsOver());
-
         assertSame(counter0.operationsFuture(), counter1.operationsFuture());
 
-        assertFalse(counter0.operationsFuture().isDone());
+        assertOperationsIsNotComplete(counter0);
+
+        assertTrue(counter1.isOperationsOver());
         assertFalse(counter1.operationsFuture().isDone());
     }
 
     @Test
     void testIncrement() {
-        var counter0 = new TxRwOperationCounter();
-
-        assertFalse(counter0.isOperationsOver());
-        assertFalse(counter0.operationsFuture().isDone());
+        var counter0 = TxRwOperationCounter.withCountOne();
 
         TxRwOperationCounter counter1 = counter0.incrementOperationCount();
 
         assertNotSame(counter0, counter1);
 
-        assertFalse(counter0.isOperationsOver());
-        assertFalse(counter1.isOperationsOver());
-
         assertSame(counter0.operationsFuture(), counter1.operationsFuture());
 
-        assertFalse(counter0.operationsFuture().isDone());
-        assertFalse(counter1.operationsFuture().isDone());
+        assertOperationsIsNotComplete(counter0);
+        assertOperationsIsNotComplete(counter1);
     }
 
     @Test
     void testSeveralOperation() {
-        var counter = new TxRwOperationCounter();
+        TxRwOperationCounter counter = TxRwOperationCounter.withCountOne().incrementOperationCount();
+        assertOperationsIsNotComplete(counter);
 
         counter = counter.incrementOperationCount();
-        assertFalse(counter.isOperationsOver());
-        assertFalse(counter.operationsFuture().isDone());
-
-        counter = counter.incrementOperationCount();
-        assertFalse(counter.isOperationsOver());
-        assertFalse(counter.operationsFuture().isDone());
+        assertOperationsIsNotComplete(counter);
 
         counter = counter.decrementOperationCount();
-        assertFalse(counter.isOperationsOver());
-        assertFalse(counter.operationsFuture().isDone());
+        assertOperationsIsNotComplete(counter);
 
         counter = counter.decrementOperationCount();
-        assertFalse(counter.isOperationsOver());
-        assertFalse(counter.operationsFuture().isDone());
+        assertOperationsIsNotComplete(counter);
 
         counter = counter.decrementOperationCount();
         assertTrue(counter.isOperationsOver());
+        assertFalse(counter.operationsFuture().isDone());
+    }
+
+    private static void assertOperationsIsNotComplete(TxRwOperationCounter counter) {
+        assertFalse(counter.isOperationsOver());
         assertFalse(counter.operationsFuture().isDone());
     }
 }

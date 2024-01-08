@@ -101,22 +101,22 @@ public class IndexBuilderTxRwOperationTrackerTest {
     void testConcurrentUpdateMinAllowedAndAwaitCompleteOperations0() {
         runRace(
                 () -> {
-                    for (int i = 0; i < 100; i++) {
+                    for (int i = 0; i < REPEATS; i++) {
                         tracker.updateMinAllowedCatalogVersionForStartOperation(i);
                     }
                 },
                 () -> {
-                    for (int i = 0; i < 100; i++) {
+                    for (int i = 0; i < REPEATS; i++) {
                         assertThat(tracker.awaitCompleteTxRwOperations(i), willSucceedFast());
                     }
                 },
                 () -> {
-                    for (int i = 0; i < 100; i += 5) {
+                    for (int i = 0; i < REPEATS; i += 5) {
                         assertThat(tracker.awaitCompleteTxRwOperations(i), willSucceedFast());
                     }
                 },
                 () -> {
-                    for (int i = 0; i < 100; i += 10) {
+                    for (int i = 0; i < REPEATS; i += 10) {
                         assertThat(tracker.awaitCompleteTxRwOperations(i), willSucceedFast());
                     }
                 }
@@ -139,13 +139,13 @@ public class IndexBuilderTxRwOperationTrackerTest {
     void testConcurrentIncrementAndDecrementOperationCount0() {
         runRace(
                 () -> {
-                    for (int i = 0; i < 100; i++) {
+                    for (int i = 0; i < REPEATS; i++) {
                         tracker.incrementOperationCount(0);
                         tracker.decrementOperationCount(0);
                     }
                 },
                 () -> {
-                    for (int i = 0; i < 100; i++) {
+                    for (int i = 0; i < REPEATS; i++) {
                         tracker.incrementOperationCount(0);
                         tracker.decrementOperationCount(0);
                     }

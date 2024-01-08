@@ -32,7 +32,7 @@ import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 
 /**
- * Class to track the completion of RW transactions operations before the backfill process begins.
+ * Class to track the completion of RW transactions' operations before the backfill process begins.
  *
  * <p>Allows us to cover some corner cases when a new index transitions to backfill states just before it starts.</p>
  *
@@ -48,8 +48,7 @@ import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 class IndexBuilderTxRwOperationTracker implements ManuallyCloseable {
     private final AtomicInteger minAllowedCatalogVersionForStartOperation = new AtomicInteger(-1);
 
-    private final NavigableMap<Integer, CompletableFuture<Void>> awaitCompleteOperationsFutureByCatalogVersion
-            = new ConcurrentSkipListMap<>();
+    private final NavigableMap<Integer, CompletableFuture<Void>> minAllowedVersionRaiseFutures = new ConcurrentSkipListMap<>();
 
     private final NavigableMap<Integer, TxRwOperationCounter> operationCounterByCatalogVersion = new ConcurrentSkipListMap<>();
 
@@ -75,7 +74,8 @@ class IndexBuilderTxRwOperationTracker implements ManuallyCloseable {
      *
      * <p>It is expected that it will be updated when the index transitions to the backfield state and will increase monotonically.</p>
      *
-     * @param catalogVersion Catalog version in which the new index appeared.
+     * @param catalogVersion Catalog version in which the new index appeared. New operations for RW transactions started on versions
+     *      strictly before this one will not be allowed to start.
      */
     void updateMinAllowedCatalogVersionForStartOperation(int catalogVersion) {
         inBusyLock(busyLock, () -> {
@@ -86,7 +86,7 @@ class IndexBuilderTxRwOperationTracker implements ManuallyCloseable {
                 return catalogVersion;
             });
 
-            Collection<CompletableFuture<Void>> futures = awaitCompleteOperationsFutureByCatalogVersion.headMap(catalogVersion, true)
+            Collection<CompletableFuture<Void>> futures = minAllowedVersionRaiseFutures.headMap(catalogVersion, true)
                     .values();
 
             futures.forEach(future -> future.complete(null));
@@ -96,7 +96,7 @@ class IndexBuilderTxRwOperationTracker implements ManuallyCloseable {
     }
 
     /**
-     * Waits for RW transactions operations to complete before the requested catalog version.
+     * Waits for RW transactions operations to complete strictly lower than the requested version.
      *
      * <p>It first waits for the requested catalog version to be reached in {@link #updateMinAllowedCatalogVersionForStartOperation(int)}
      * and then waits for all RW transaction operations to complete.</p>
@@ -106,27 +106,27 @@ class IndexBuilderTxRwOperationTracker implements ManuallyCloseable {
     CompletableFuture<Void> awaitCompleteTxRwOperations(int catalogVersion) {
         return inBusyLock(busyLock, () -> {
             // This code is needed to avoid races with updateAllowedCatalogVersionForStartOperation.
-            CompletableFuture<Void> awaitFuture = awaitCompleteOperationsFutureByCatalogVersion.computeIfAbsent(
+            CompletableFuture<Void> waitForMinAllowedReachingVersion = minAllowedVersionRaiseFutures.computeIfAbsent(
                     catalogVersion,
                     i -> new CompletableFuture<>()
             );
 
             if (catalogVersion <= minAllowedCatalogVersionForStartOperation.get()) {
-                awaitCompleteOperationsFutureByCatalogVersion.remove(catalogVersion);
+                minAllowedVersionRaiseFutures.remove(catalogVersion);
 
-                awaitFuture.complete(null);
+                waitForMinAllowedReachingVersion.complete(null);
             }
 
-            // Let's prevent freezing.
-            awaitFuture = orCloseFuture(awaitFuture);
+            // To avoid freezing after closing the tracker.
+            waitForMinAllowedReachingVersion = orCloseFuture(waitForMinAllowedReachingVersion);
 
-            return awaitFuture.thenCompose(unused -> {
+            return waitForMinAllowedReachingVersion.thenCompose(unused -> {
                 // Let's select counters for versions up to (not including) the requested catalog version.
                 CompletableFuture<?>[] futures = operationCounterByCatalogVersion.headMap(catalogVersion, false).values().stream()
                         .map(TxRwOperationCounter::operationsFuture)
                         .toArray(CompletableFuture[]::new);
 
-                // Let's prevent freezing.
+                // To avoid freezing after closing the tracker.
                 return orCloseFuture(allOf(futures));
             });
         });
@@ -145,7 +145,7 @@ class IndexBuilderTxRwOperationTracker implements ManuallyCloseable {
         inBusyLock(busyLock, () -> {
             operationCounterByCatalogVersion.compute(catalogVersion, (i, txRwOperationCounter) -> {
                 if (txRwOperationCounter == null) {
-                    return new TxRwOperationCounter();
+                    return TxRwOperationCounter.withCountOne();
                 }
 
                 return txRwOperationCounter.incrementOperationCount();
@@ -174,6 +174,7 @@ class IndexBuilderTxRwOperationTracker implements ManuallyCloseable {
             operationCounterByCatalogVersion.compute(catalogVersion, (i, txRwOperationCounter) -> {
                 assert txRwOperationCounter != null : catalogVersion;
 
+                // Reset due to a retry on an unsuccessful CAS on the map key.
                 localHolder[0] = null;
 
                 txRwOperationCounter = txRwOperationCounter.decrementOperationCount();
