@@ -22,7 +22,7 @@ package org.apache.ignite.table.criteria;
  *
  * @see Criteria
  */
-public class Condition {
+public final class Condition {
     private final Operator operator;
 
     private final Criteria[] elements;

@@ -22,7 +22,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Represents a column reference for criteria query.
  */
-public class Column implements Criteria {
+public final class Column implements Criteria {
     private final String name;
 
     /**
