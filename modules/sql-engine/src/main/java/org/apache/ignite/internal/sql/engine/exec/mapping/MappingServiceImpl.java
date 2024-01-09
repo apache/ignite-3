@@ -42,7 +42,7 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopolog
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
 import org.apache.ignite.internal.replicator.TablePartitionId;
-import org.apache.ignite.internal.sql.engine.exec.mapping.MappingServiceImpl.LogicalTopologyHolder.TopSnapshot;
+import org.apache.ignite.internal.sql.engine.exec.mapping.MappingServiceImpl.LogicalTopologyHolder.TopologySnapshot;
 import org.apache.ignite.internal.sql.engine.prepare.Fragment;
 import org.apache.ignite.internal.sql.engine.prepare.MultiStepPlan;
 import org.apache.ignite.internal.sql.engine.prepare.PlanId;
@@ -118,7 +118,7 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
     }
 
     private CompletableFuture<List<MappedFragment>> map0(MultiStepPlan multiStepPlan) {
-        TopSnapshot topology = topologyHolder.topology();
+        TopologySnapshot topology = topologyHolder.topology();
         MappingContext context = new MappingContext(localNodeName, topology.nodes());
 
         FragmentsTemplate template = getOrCreateTemplate(multiStepPlan, context);
@@ -126,16 +126,16 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
         MappingsCacheValue cacheValue = mappingsCache.compute(multiStepPlan.id(), (key, val) -> {
             if (val == null) {
                 IntSet tableIds = new IntOpenHashSet();
-                boolean topAware = false;
+                boolean topologyAware = false;
 
                 for (Fragment fragment : template.fragments) {
-                    topAware = topAware || !fragment.systemViews().isEmpty();
+                    topologyAware = topologyAware || !fragment.systemViews().isEmpty();
                     for (IgniteDataSource source : fragment.tables()) {
                         tableIds.add(source.id());
                     }
                 }
 
-                long topVer = topAware ? topology.version() : Long.MAX_VALUE;
+                long topVer = topologyAware ? topology.version() : Long.MAX_VALUE;
 
                 return new MappingsCacheValue(topVer, tableIds, mapFragments(context, template));
             }
@@ -332,12 +332,12 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
      * Holder for topology snapshots that guarantees monotonically increasing versions.
      */
     class LogicalTopologyHolder {
-        private volatile TopSnapshot topology = new TopSnapshot(Long.MIN_VALUE, List.of());
+        private volatile TopologySnapshot topology = new TopologySnapshot(Long.MIN_VALUE, List.of());
 
         void update(LogicalTopologySnapshot topologySnapshot) {
             synchronized (this) {
                 if (topology.version() < topologySnapshot.version()) {
-                    topology = new TopSnapshot(topologySnapshot.version(), deriveNodeNames(topologySnapshot));
+                    topology = new TopologySnapshot(topologySnapshot.version(), deriveNodeNames(topologySnapshot));
                 }
 
                 if (initialTopologyFuture.isDone() || !topology.nodes().contains(localNodeName)) {
@@ -348,7 +348,7 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
             initialTopologyFuture.complete(null);
         }
 
-        TopSnapshot topology() {
+        TopologySnapshot topology() {
             return topology;
         }
 
@@ -358,11 +358,11 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
                     .collect(Collectors.toUnmodifiableList());
         }
 
-        class TopSnapshot {
+        class TopologySnapshot {
             private final List<String> nodes;
             private final long version;
 
-            TopSnapshot(long version, List<String> nodes) {
+            TopologySnapshot(long version, List<String> nodes) {
                 this.version = version;
                 this.nodes = nodes;
             }
