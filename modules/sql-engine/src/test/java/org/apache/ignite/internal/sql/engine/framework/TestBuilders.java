@@ -591,15 +591,15 @@ public class TestBuilders {
                                 mappingService,
                                 new TestExecutableTableRegistry(nodeName2tableName2table.get(name), schemaManager),
                                 ddlHandler,
-                                systemViewManager,
-                                catalogManager
+                                systemViewManager
                         );
                     })
                     .collect(Collectors.toMap(TestNode::name, Function.identity()));
 
             return new TestCluster(
                     nodes,
-                    List.of(new ComponentToLifecycleAwareAdaptor(catalogManager), prepareService),
+                    catalogManager,
+                    prepareService,
                     initClosure
             );
         }
@@ -1170,24 +1170,6 @@ public class TestBuilders {
          * @return An instance of the parent builder.
          */
         ParentT end();
-    }
-
-    private static class ComponentToLifecycleAwareAdaptor implements LifecycleAware {
-        private final IgniteComponent component;
-
-        ComponentToLifecycleAwareAdaptor(IgniteComponent component) {
-            this.component = component;
-        }
-
-        @Override
-        public void start() {
-            component.start();
-        }
-
-        @Override
-        public void stop() throws Exception {
-            component.stop();
-        }
     }
 
     private static class TestExecutableTableRegistry implements ExecutableTableRegistry {

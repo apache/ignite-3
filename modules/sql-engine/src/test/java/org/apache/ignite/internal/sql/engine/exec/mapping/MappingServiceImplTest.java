@@ -209,7 +209,7 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
         List<String> nodeNames = List.of(localNodeName, "NODE1");
 
         Function<String, PrimaryReplicaEventParameters> prepareEvtParams = (name) -> {
-            CatalogService catalogService = cluster.node("N1").catalogService();
+            CatalogService catalogService = cluster.catalogService();
             Catalog catalog = catalogService.catalog(catalogService.latestCatalogVersion());
 
             Optional<Integer> tblId = catalog.tables().stream()
