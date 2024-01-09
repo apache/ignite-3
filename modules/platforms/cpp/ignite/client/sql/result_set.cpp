@@ -45,7 +45,7 @@ bool result_set::close() {
 }
 
 std::vector<ignite_tuple> result_set::current_page() && {
-    return m_impl->current_page();
+    return std::move(*m_impl).current_page();
 }
 
 const std::vector<ignite_tuple>& result_set::current_page() const& {
