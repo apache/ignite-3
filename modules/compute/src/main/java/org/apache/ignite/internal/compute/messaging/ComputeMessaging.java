@@ -355,7 +355,7 @@ public class ComputeMessaging {
             execution.changePriority(request.priority())
                     .whenComplete((result, err) -> sendJobChangePriorityResponse(err, senderConsistentId, correlationId));
         } else {
-            ComputeException ex = new ComputeException(Compute.CHANGE_JOB_PRIORITY_NO_JOB_ERR, "Can not change job priority,"
+            ComputeException ex = new ComputeException(Compute.CHANGE_JOB_PRIORITY_ERR, "Can not change job priority,"
                     + " job not found for the job id " + jobId);
             sendJobChangePriorityResponse(ex, senderConsistentId, correlationId);
         }
