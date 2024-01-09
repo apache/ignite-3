@@ -18,8 +18,8 @@
 package org.apache.ignite.internal.compute;
 
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.compute.DeploymentUnit;
+import org.apache.ignite.compute.JobExecution;
 
 /**
  * Compute job starter interface.
@@ -35,7 +35,7 @@ public interface JobStarter {
      * @param <R> Job result type.
      * @return CompletableFuture Job result.
      */
-    <R> CompletableFuture<R> start(
+    <R> JobExecution<R> start(
             ExecutionOptions options,
             List<DeploymentUnit> units,
             String jobClassName,

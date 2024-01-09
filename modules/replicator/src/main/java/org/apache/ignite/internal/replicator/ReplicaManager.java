@@ -21,6 +21,7 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.replicator.LocalReplicaEvent.AFTER_REPLICA_STARTED;
 import static org.apache.ignite.internal.replicator.LocalReplicaEvent.BEFORE_REPLICA_STOPPED;
+import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
@@ -50,6 +51,8 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
+import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
+import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessageGroup;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessagesFactory;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverReplicaMessage;
@@ -68,6 +71,7 @@ import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.replicator.message.ReplicaSafeTimeSyncRequest;
 import org.apache.ignite.internal.replicator.message.TimestampAware;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.StripedThreadPoolExecutor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.network.ChannelType;
@@ -129,6 +133,12 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     /** A hybrid logical clock. */
     private final HybridClock clock;
 
+    /**
+     * On this pool, a stripe is chosen using {@link ReplicationGroupStripes#stripeFor(ReplicationGroupId, StripedThreadPoolExecutor)}
+     * so that requests concerning the same {@link ReplicationGroupId} are executed on the same thread.
+     */
+    private final StripedThreadPoolExecutor requestsExecutor;
+
     /** Scheduled executor for idle safe time sync. */
     private final ScheduledExecutorService scheduledIdleSafeTimeSyncExecutor;
 
@@ -158,7 +168,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             ClusterManagementGroupManager cmgMgr,
             HybridClock clock,
             Set<Class<?>> messageGroupsToHandle,
-            PlacementDriver placementDriver
+            PlacementDriver placementDriver,
+            StripedThreadPoolExecutor requestsExecutor
     ) {
         this(
                 nodeName,
@@ -167,6 +178,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 clock,
                 messageGroupsToHandle,
                 placementDriver,
+                requestsExecutor,
                 () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS
         );
     }
@@ -180,6 +192,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * @param clock A hybrid logical clock.
      * @param messageGroupsToHandle Message handlers.
      * @param placementDriver A placement driver.
+     * @param requestsExecutor Executor that will be used to execute requests by replicas.
      * @param idleSafeTimePropagationPeriodMsSupplier Used to get idle safe time propagation period in ms.
      */
     public ReplicaManager(
@@ -189,6 +202,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             HybridClock clock,
             Set<Class<?>> messageGroupsToHandle,
             PlacementDriver placementDriver,
+            StripedThreadPoolExecutor requestsExecutor,
             LongSupplier idleSafeTimePropagationPeriodMsSupplier
     ) {
         this.clusterNetSvc = clusterNetSvc;
@@ -198,6 +212,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         this.handler = this::onReplicaMessageReceived;
         this.placementDriverMessageHandler = this::onPlacementDriverMessageReceived;
         this.placementDriver = placementDriver;
+        this.requestsExecutor = requestsExecutor;
         this.idleSafeTimePropagationPeriodMsSupplier = idleSafeTimePropagationPeriodMsSupplier;
 
         scheduledIdleSafeTimeSyncExecutor = Executors.newScheduledThreadPool(
@@ -215,6 +230,9 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 new LinkedBlockingQueue<>(),
                 NamedThreadFactory.create(nodeName, "replica", LOG)
         );
+
+        placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, this::onPrimaryReplicaElected);
+        placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, this::onPrimaryReplicaExpired);
     }
 
     private void onReplicaMessageReceived(NetworkMessage message, String senderConsistentId, @Nullable Long correlationId) {
@@ -226,6 +244,11 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
         ReplicaRequest request = (ReplicaRequest) message;
 
+        ExecutorService stripeExecutor = ReplicationGroupStripes.stripeFor(request.groupId(), requestsExecutor);
+        stripeExecutor.execute(() -> handleReplicaRequest(request, senderConsistentId, correlationId));
+    }
+
+    private void handleReplicaRequest(ReplicaRequest request, String senderConsistentId, @Nullable Long correlationId) {
         if (!busyLock.enterBusy()) {
             if (LOG.isInfoEnabled()) {
                 LOG.info("Failed to process replica request (the node is stopping) [request={}].", request);
@@ -724,6 +747,51 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                     .errorReplicaResponse()
                     .throwable(ex)
                     .build();
+        }
+    }
+
+
+    /**
+     * Event handler for {@link PrimaryReplicaEvent#PRIMARY_REPLICA_ELECTED}. Propagates execution to the
+     *      {@link ReplicaListener#onPrimaryElected(PrimaryReplicaEventParameters, Throwable)} of the replica, that corresponds
+     *      to a given {@link PrimaryReplicaEventParameters#groupId()}.
+     */
+    private CompletableFuture<Boolean> onPrimaryReplicaElected(
+            PrimaryReplicaEventParameters primaryReplicaEventParameters,
+            Throwable throwable
+    ) {
+        CompletableFuture<Replica> replica = replicas.get(primaryReplicaEventParameters.groupId());
+
+        if (replica == null) {
+            return falseCompletedFuture();
+        }
+
+        if (replica.isDone() && !replica.isCompletedExceptionally()) {
+            return replica.join().replicaListener().onPrimaryElected(primaryReplicaEventParameters, throwable);
+        } else {
+            return replica.thenCompose(r -> r.replicaListener().onPrimaryElected(primaryReplicaEventParameters, throwable));
+        }
+    }
+
+    /**
+     * Event handler for {@link PrimaryReplicaEvent#PRIMARY_REPLICA_EXPIRED}. Propagates execution to the
+     *      {@link ReplicaListener#onPrimaryExpired(PrimaryReplicaEventParameters, Throwable)} of the replica, that corresponds
+     *      to a given {@link PrimaryReplicaEventParameters#groupId()}.
+     */
+    private CompletableFuture<Boolean> onPrimaryReplicaExpired(
+            PrimaryReplicaEventParameters primaryReplicaEventParameters,
+            Throwable throwable
+    ) {
+        CompletableFuture<Replica> replica = replicas.get(primaryReplicaEventParameters.groupId());
+
+        if (replica == null) {
+            return falseCompletedFuture();
+        }
+
+        if (replica.isDone() && !replica.isCompletedExceptionally()) {
+            return replica.join().replicaListener().onPrimaryExpired(primaryReplicaEventParameters, throwable);
+        } else {
+            return replica.thenCompose(r -> r.replicaListener().onPrimaryExpired(primaryReplicaEventParameters, throwable));
         }
     }
 

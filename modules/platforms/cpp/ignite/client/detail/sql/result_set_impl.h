@@ -140,13 +140,24 @@ public:
      *
      * @return Current page size.
      */
-    [[nodiscard]] std::vector<ignite_tuple> current_page() {
+    [[nodiscard]] std::vector<ignite_tuple> current_page() && {
         require_result_set();
 
         auto ret = std::move(m_page);
         m_page.clear();
 
         return ret;
+    }
+
+    /**
+     * Get current page size.
+     *
+     * @return Current page size.
+     */
+    [[nodiscard]] const std::vector<ignite_tuple>& current_page() const & {
+        require_result_set();
+
+        return m_page;
     }
 
     /**

@@ -34,11 +34,13 @@ import static org.mockito.Mockito.verify;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelPromise;
+import io.netty.channel.DefaultChannelProgressivePromise;
 import io.netty.util.concurrent.EventExecutor;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.atomic.AtomicBoolean;
+import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
 import org.apache.ignite.internal.network.handshake.ChannelAlreadyExistsException;
 import org.apache.ignite.internal.network.handshake.HandshakeException;
@@ -94,6 +96,8 @@ class RecoveryClientHandshakeManagerTest extends BaseIgniteAbstractTest {
 
     private final RecoveryDescriptor recoveryDescriptor = new RecoveryDescriptor(100);
 
+    private final AtomicBoolean clientHandshakeManagerStopping = new AtomicBoolean(false);
+
     @BeforeEach
     void initMocks() {
         lenient().when(thisContext.channel()).thenReturn(thisChannel);
@@ -104,6 +108,12 @@ class RecoveryClientHandshakeManagerTest extends BaseIgniteAbstractTest {
 
         lenient().when(recoveryDescriptorProvider.getRecoveryDescriptor(any(), any(), anyShort()))
                 .thenReturn(recoveryDescriptor);
+
+        lenient().when(thisChannel.writeAndFlush(any())).then(invocation -> {
+            DefaultChannelProgressivePromise future = new DefaultChannelProgressivePromise(thisChannel, eventExecutor);
+            future.setSuccess();
+            return future;
+        });
     }
 
     /**
@@ -146,7 +156,7 @@ class RecoveryClientHandshakeManagerTest extends BaseIgniteAbstractTest {
                 recoveryDescriptorProvider,
                 new AllIdsAreFresh(),
                 channelCreationListener,
-                new AtomicBoolean(false)
+                clientHandshakeManagerStopping
         );
 
         manager.onInit(thisContext);
@@ -203,5 +213,19 @@ class RecoveryClientHandshakeManagerTest extends BaseIgniteAbstractTest {
                 .reasonString(HandshakeRejectionReason.CLINCH.name())
                 .message("Rejected")
                 .build();
+    }
+
+    @Test
+    void gettingHandshakeStartMessageWhenStoppingCausesHandshakeToBeFinishedWithNodeStoppingException() {
+        RecoveryClientHandshakeManager manager = clientHandshakeManager(LOWER_ID);
+        clientHandshakeManagerStopping.set(true);
+
+        CompletableFuture<NettySender> localHandshakeFuture = manager.localHandshakeFuture();
+        CompletionStage<NettySender> finalHandshakeFuture = manager.finalHandshakeFuture();
+
+        manager.onMessage(handshakeStartMessageFrom(HIGHER_ID));
+
+        assertWillThrowFast(localHandshakeFuture, NodeStoppingException.class);
+        assertWillThrowFast(finalHandshakeFuture.toCompletableFuture(), NodeStoppingException.class);
     }
 }

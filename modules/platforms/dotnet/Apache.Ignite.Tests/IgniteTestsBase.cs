@@ -37,6 +37,7 @@ namespace Apache.Ignite.Tests
         protected const string TableName = "TBL1";
 
         protected const string TableAllColumnsName = "TBL_ALL_COLUMNS";
+        protected const string TableAllColumnsNotNullName = "TBL_ALL_COLUMNS_NOT_NULL";
         protected const string TableAllColumnsSqlName = "TBL_ALL_COLUMNS_SQL";
 
         protected const string TableInt8Name = "TBL_INT8";
@@ -105,8 +106,10 @@ namespace Apache.Ignite.Tests
             PocoView = Table.GetRecordView<Poco>();
 
             var tableAllColumns = await Client.Tables.GetTableAsync(TableAllColumnsName);
-            PocoAllColumnsView = tableAllColumns!.GetRecordView<PocoAllColumns>();
-            PocoAllColumnsNullableView = tableAllColumns.GetRecordView<PocoAllColumnsNullable>();
+            PocoAllColumnsNullableView = tableAllColumns!.GetRecordView<PocoAllColumnsNullable>();
+
+            var tableAllColumnsNotNull = await Client.Tables.GetTableAsync(TableAllColumnsNotNullName);
+            PocoAllColumnsView = tableAllColumnsNotNull!.GetRecordView<PocoAllColumns>();
 
             var tableAllColumnsSql = await Client.Tables.GetTableAsync(TableAllColumnsSqlName);
             PocoAllColumnsSqlView = tableAllColumnsSql!.GetRecordView<PocoAllColumnsSql>();

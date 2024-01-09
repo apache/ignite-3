@@ -35,7 +35,7 @@ public partial class LinqTests
             .Select(x => x.Key)
             .OrderBy(x => x);
 
-        List<sbyte> res = query.ToList();
+        List<sbyte?> res = query.ToList();
 
         Assert.AreEqual(new[] { 0, 1, 2, 3 }, res);
 

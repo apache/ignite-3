@@ -64,7 +64,7 @@ namespace Apache.Ignite.Internal
         private readonly ConcurrentDictionary<long, TaskCompletionSource<PooledBuffer>> _requests = new();
 
         /** Current notification handlers, map from request id. */
-        private readonly ConcurrentDictionary<long, TaskCompletionSource<PooledBuffer>> _notificationHandlers = new();
+        private readonly ConcurrentDictionary<long, NotificationHandler> _notificationHandlers = new();
 
         /** Requests can be sent by one thread at a time.  */
         [SuppressMessage(
@@ -260,12 +260,12 @@ namespace Apache.Ignite.Internal
         /// </summary>
         /// <param name="clientOp">Client op code.</param>
         /// <param name="request">Request data.</param>
-        /// <param name="notificationHandler">Notification handler.</param>
+        /// <param name="expectNotifications">Whether to expect notifications as a result of the operation.</param>
         /// <returns>Response data.</returns>
-        public Task<PooledBuffer> DoOutInOpAsync(
+        public async Task<PooledBuffer> DoOutInOpAsync(
             ClientOp clientOp,
             PooledArrayBuffer? request = null,
-            TaskCompletionSource<PooledBuffer>? notificationHandler = null)
+            bool expectNotifications = false)
         {
             var ex = _exception;
 
@@ -289,45 +289,42 @@ namespace Apache.Ignite.Internal
             var taskCompletionSource = new TaskCompletionSource<PooledBuffer>();
             _requests[requestId] = taskCompletionSource;
 
-            if (notificationHandler != null)
+            NotificationHandler? notificationHandler = null;
+            if (expectNotifications)
             {
+                notificationHandler = new NotificationHandler();
                 _notificationHandlers[requestId] = notificationHandler;
             }
 
             Metrics.RequestsActiveIncrement();
 
-            SendRequestAsync(request, clientOp, requestId)
-                .AsTask()
-                .ContinueWith(
-                    (task, state) =>
-                    {
-                        var completionSource = (TaskCompletionSource<PooledBuffer>)state!;
+            try
+            {
+                await SendRequestAsync(request, clientOp, requestId).ConfigureAwait(false);
+                PooledBuffer resBuf = await taskCompletionSource.Task.ConfigureAwait(false);
 
-                        if (task.IsCanceled || task.Exception?.GetBaseException() is OperationCanceledException or ObjectDisposedException)
-                        {
-                            // Canceled task means Dispose was called.
-                            completionSource.TrySetException(
-                                new IgniteClientConnectionException(ErrorGroups.Client.Connection, "Connection closed."));
-                        }
-                        else if (task.Exception != null)
-                        {
-                            completionSource.TrySetException(task.Exception);
-                        }
+                return notificationHandler == null
+                    ? resBuf
+                    : resBuf.WithMetadata(notificationHandler);
+            }
+            catch (Exception e)
+            {
+                if (_requests.TryRemove(requestId, out _))
+                {
+                    Metrics.RequestsFailed.Add(1);
+                    Metrics.RequestsActiveDecrement();
+                }
 
-                        if (_requests.TryRemove(requestId, out _))
-                        {
-                            Metrics.RequestsFailed.Add(1);
-                            Metrics.RequestsActiveDecrement();
-                        }
+                _notificationHandlers.TryRemove(requestId, out _);
 
-                        _notificationHandlers.TryRemove(requestId, out _);
-                    },
-                    taskCompletionSource,
-                    CancellationToken.None,
-                    TaskContinuationOptions.NotOnRanToCompletion,
-                    TaskScheduler.Default);
+                if (e is OperationCanceledException or ObjectDisposedException)
+                {
+                    // Canceled task means Dispose was called.
+                    throw new IgniteClientConnectionException(ErrorGroups.Client.Connection, "Connection closed.", e);
+                }
 
-            return taskCompletionSource.Task;
+                throw;
+            }
         }
 
         /// <inheritdoc/>

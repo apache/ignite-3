@@ -31,7 +31,7 @@ public interface ClientChannel extends AutoCloseable {
      * @param opCode              Operation code.
      * @param payloadWriter       Payload writer to stream or {@code null} if request has no payload.
      * @param payloadReader       Payload reader from stream or {@code null} if response has no payload.
-     * @param notificationHandler Notification handler or {@code null} if request does not trigger notifications.
+     * @param expectNotifications Whether to expect notifications as a result of the operation.
      * @param <T>                 Response type.
      * @return Future for the operation.
      */
@@ -39,7 +39,7 @@ public interface ClientChannel extends AutoCloseable {
             int opCode,
             @Nullable PayloadWriter payloadWriter,
             @Nullable PayloadReader<T> payloadReader,
-            @Nullable NotificationHandler notificationHandler
+            boolean expectNotifications
     );
 
     /**
@@ -56,7 +56,7 @@ public interface ClientChannel extends AutoCloseable {
             @Nullable PayloadWriter payloadWriter,
             @Nullable PayloadReader<T> payloadReader
     ) {
-        return serviceAsync(opCode, payloadWriter, payloadReader, null);
+        return serviceAsync(opCode, payloadWriter, payloadReader, false);
     }
 
     /**

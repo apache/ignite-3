@@ -22,21 +22,21 @@ import org.apache.ignite.internal.security.authentication.basic.BasicAuthenticat
 import org.apache.ignite.internal.security.authentication.basic.BasicAuthenticator;
 import org.apache.ignite.internal.security.authentication.basic.BasicUser;
 import org.apache.ignite.internal.security.authentication.configuration.AuthenticationProviderView;
-import org.apache.ignite.security.AuthenticationType;
 
 /** Factory for {@link Authenticator}. */
 class AuthenticatorFactory {
     static Authenticator create(AuthenticationProviderView view) {
-        AuthenticationType type = AuthenticationType.parse(view.type());
-        if (type == AuthenticationType.BASIC) {
+        if (view instanceof BasicAuthenticationProviderView) {
             BasicAuthenticationProviderView basicAuthProviderView = (BasicAuthenticationProviderView) view;
             return new BasicAuthenticator(
                     view.name(),
-                    basicAuthProviderView.users().stream().map(basicUserView -> new BasicUser(basicUserView.username(),
-                    basicUserView.password())).collect(Collectors.toList())
+                    basicAuthProviderView.users()
+                            .stream()
+                            .map(basicUserView -> new BasicUser(basicUserView.username(), basicUserView.password()))
+                            .collect(Collectors.toList())
             );
         } else {
-            throw new IllegalArgumentException("Unexpected authentication type: " + type);
+            throw new IllegalArgumentException("Unexpected authentication provider view: " + view);
         }
     }
 }
