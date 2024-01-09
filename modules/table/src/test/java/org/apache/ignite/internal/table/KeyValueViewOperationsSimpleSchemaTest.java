@@ -35,8 +35,6 @@ import java.util.stream.Collectors;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaTestUtils;
-import org.apache.ignite.internal.table.distributed.schema.ConstantSchemaVersions;
-import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.internal.type.NativeTypes;
@@ -498,8 +496,7 @@ public class KeyValueViewOperationsSimpleSchemaTest extends TableKvOperationsTes
 
             assertFalse(type.mismatch(NativeTypes.fromObject(val)));
 
-            KeyValueViewImpl<Long, Object> kvView = kvViewForValueType(type,
-                    (Class<Object>) val.getClass(), true);
+            KeyValueView<Long, Object> kvView = kvViewForValueType(type, (Class<Object>) val.getClass(), true);
 
             kvView.put(null, key, val);
 
@@ -651,7 +648,7 @@ public class KeyValueViewOperationsSimpleSchemaTest extends TableKvOperationsTes
     @SuppressWarnings("ConstantConditions")
     @Test
     public void nonNullableValueColumn() {
-        KeyValueViewImpl<Long, Long> tbl = kvViewForValueType(NativeTypes.INT64, Long.class, false);
+        KeyValueView<Long, Long> tbl = kvViewForValueType(NativeTypes.INT64, Long.class, false);
 
         assertThrows(NullPointerException.class, () -> tbl.getAndPut(null, 1L, null));
         assertThrows(NullPointerException.class, () -> tbl.getAndReplace(null, 1L, null));
@@ -675,7 +672,7 @@ public class KeyValueViewOperationsSimpleSchemaTest extends TableKvOperationsTes
      * @param valueClass Value class.
      * @param nullable Nullability flag for the value type.
      */
-    private <T> KeyValueViewImpl<Long, T> kvViewForValueType(NativeType type, Class<T> valueClass, boolean nullable) {
+    private <T> KeyValueView<Long, T> kvViewForValueType(NativeType type, Class<T> valueClass, boolean nullable) {
         Mapper<Long> keyMapper = Mapper.of(Long.class, "id");
         Mapper<T> valMapper = Mapper.of(valueClass, "val");
 
@@ -687,12 +684,6 @@ public class KeyValueViewOperationsSimpleSchemaTest extends TableKvOperationsTes
 
         TableViewInternal table = createTable(schema);
 
-        return new KeyValueViewImpl<>(
-                table.internalTable(),
-                new DummySchemaManagerImpl(schema),
-                new ConstantSchemaVersions(1),
-                keyMapper,
-                valMapper
-        );
+        return table.keyValueView(keyMapper, valMapper);
     }
 }

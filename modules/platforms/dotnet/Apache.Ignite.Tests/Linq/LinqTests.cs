@@ -419,7 +419,7 @@ public partial class LinqTests : IgniteTestsBase
             .Select(x => x.Val)
             .Distinct();
 
-        List<sbyte> res = query.ToList();
+        List<sbyte?> res = query.ToList();
 
         CollectionAssert.AreEquivalent(new[] { 0, 1, 2, 3 }, res);
 
@@ -557,7 +557,7 @@ public partial class LinqTests : IgniteTestsBase
     {
         var query = PocoDecimalView.AsQueryable()
             .OrderByDescending(x => x.Val)
-            .Select(x => new PocoDecimal(x.Val, x.Key));
+            .Select(x => new PocoDecimal(x.Key, x.Val));
 
         var res = query.ToList();
         Assert.AreEqual(9.0m, res[0].Val);
@@ -723,27 +723,27 @@ public partial class LinqTests : IgniteTestsBase
         B = 300
     }
 
-    private record PocoByte(sbyte Key, sbyte Val);
+    private record PocoByte(sbyte Key, sbyte? Val);
 
-    private record PocoShort(short Key, short Val);
+    private record PocoShort(short Key, short? Val);
 
-    private record PocoInt(int Key, int Val);
+    private record PocoInt(int Key, int? Val);
 
-    private record PocoLong(long Key, long Val);
+    private record PocoLong(long Key, long? Val);
 
-    private record PocoFloat(float Key, float Val);
+    private record PocoFloat(float Key, float? Val);
 
-    private record PocoDouble(double Key, double Val);
+    private record PocoDouble(double Key, double? Val);
 
-    private record PocoDecimal(decimal Key, decimal Val);
+    private record PocoDecimal(decimal Key, decimal? Val);
 
-    private record PocoString(string Key, string Val);
+    private record PocoString(string Key, string? Val);
 
-    private record PocoDate(LocalDate Key, LocalDate Val);
+    private record PocoDate(LocalDate Key, LocalDate? Val);
 
-    private record PocoTime(LocalTime Key, LocalTime Val);
+    private record PocoTime(LocalTime Key, LocalTime? Val);
 
-    private record PocoDateTime(LocalDateTime Key, LocalDateTime Val);
+    private record PocoDateTime(LocalDateTime Key, LocalDateTime? Val);
 
-    private record PocoIntEnum(int Key, TestEnum Val);
+    private record PocoIntEnum(int Key, TestEnum? Val);
 }

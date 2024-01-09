@@ -205,6 +205,8 @@ dependencies {
 tasks.register("runnerPlatformTest", JavaExec) {
     mainClass = "org.apache.ignite.internal.runner.app.PlatformTestNodeRunner"
 
+    jvmArgs += defaultJvmArgs
+
     classpath = sourceSets.integrationTest.runtimeClasspath
 
     enableAssertions = true
@@ -212,6 +214,8 @@ tasks.register("runnerPlatformTest", JavaExec) {
 
 tasks.register("runnerPlatformBenchmark", JavaExec) {
     mainClass = "org.apache.ignite.internal.runner.app.PlatformBenchmarkNodeRunner"
+
+    jvmArgs += defaultJvmArgs
 
     classpath = sourceSets.integrationTest.runtimeClasspath
 

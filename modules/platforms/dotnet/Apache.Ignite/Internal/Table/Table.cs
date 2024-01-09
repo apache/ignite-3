@@ -136,8 +136,7 @@ namespace Apache.Ignite.Internal.Table
 
         /// <inheritdoc/>
         public IKeyValueView<TK, TV> GetKeyValueView<TK, TV>()
-            where TK : notnull
-            where TV : notnull =>
+            where TK : notnull =>
             new KeyValueView<TK, TV>(GetRecordViewInternal<KvPair<TK, TV>>());
 
         /// <inheritdoc/>
