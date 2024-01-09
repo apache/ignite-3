@@ -74,7 +74,7 @@ int main(int argc, char **argv) {
 
     if (!check_test_node_connectable(std::chrono::seconds(5))) {
         runner.start();
-        ensure_node_connectable(std::chrono::seconds(60));
+        ensure_node_connectable(std::chrono::minutes(2));
     }
 
     try {
