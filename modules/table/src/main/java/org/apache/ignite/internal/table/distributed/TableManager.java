@@ -1496,17 +1496,29 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         return inBusyLockAsync(busyLock, () -> {
             HybridTimestamp now = clock.now();
 
-            return orStopManagerFuture(schemaSyncService.waitForMetadataCompleteness(now))
-                    .thenComposeAsync(unused -> inBusyLockAsync(busyLock, () -> {
-                        CatalogTableDescriptor tableDescriptor = catalogService.table(name, now.longValue());
+            CompletableFuture<Void> fut = schemaSyncService.waitForMetadataCompleteness(now);
 
-                        // Check if the table has been deleted.
-                        if (tableDescriptor == null) {
-                            return nullCompletedFuture();
-                        }
+            if (fut.isDone()) {
+                CatalogTableDescriptor tableDescriptor = catalogService.table(name, now.longValue());
 
-                        return tableAsyncInternalBusy(tableDescriptor.id());
-                    }), ioExecutor);
+                // Check if the table has been deleted.
+                if (tableDescriptor == null) {
+                    return nullCompletedFuture();
+                }
+
+                return tableAsyncInternalBusy(tableDescriptor.id());
+            }
+
+            return orStopManagerFuture(fut).thenComposeAsync(unused -> inBusyLockAsync(busyLock, () -> {
+                CatalogTableDescriptor tableDescriptor = catalogService.table(name, now.longValue());
+
+                // Check if the table has been deleted.
+                if (tableDescriptor == null) {
+                    return nullCompletedFuture();
+                }
+
+                return tableAsyncInternalBusy(tableDescriptor.id());
+            }), ioExecutor);
         });
     }
 
