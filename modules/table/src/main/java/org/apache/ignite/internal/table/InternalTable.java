@@ -424,16 +424,6 @@ public interface InternalTable extends ManuallyCloseable {
     int partitions();
 
     /**
-     * Gets a list of current table assignments.
-     *
-     * <p>Returns a list where on the i-th place resides a node id that considered as a leader for
-     * the i-th partition on the moment of invocation.
-     *
-     * @return List of current assignments.
-     */
-    List<String> assignments();
-
-    /**
      * Returns cluster node that is the leader of the corresponding partition group or throws an exception if
      * it cannot be found.
      *

@@ -458,7 +458,16 @@ public class PartitionReplicaListener implements ReplicaListener {
                             .flatMap(Collection::stream)
                             .toArray(CompletableFuture[]::new);
 
-                    futs.add(allOf(txFuts).whenComplete((unused, throwable) -> releaseTxLocks(txId)));
+                    futs.add(allOf(txFuts).whenComplete((unused, throwable) -> {
+                        releaseTxLocks(txId);
+
+                        try {
+                            closeAllTransactionCursors(txId);
+                        } catch (Exception e) {
+                            LOG.warn("Unable to clear resource for transaction on primary replica expiration [tx={}, replicationGrp={}]", e,
+                                    txId, replicationGroupId);
+                        }
+                    }));
 
                     txOps.futures.clear();
                 }
