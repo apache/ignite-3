@@ -158,9 +158,11 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertNotNull(defaultSchema);
         assertSame(defaultSchema, manager.activeSchema(DEFAULT_SCHEMA_NAME, clock.nowLong()));
         assertSame(defaultSchema, manager.schema(0));
+        assertSame(defaultSchema, manager.schema(defaultSchema.id(), 0));
         assertSame(defaultSchema, manager.activeSchema(clock.nowLong()));
 
         assertNull(manager.schema(1));
+        assertNull(manager.schema(defaultSchema.id(), 1));
         assertThrows(IllegalStateException.class, () -> manager.activeSchema(-1L));
 
         // Validate default schema.
@@ -188,6 +190,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertNotNull(systemSchema, "system schema");
         assertSame(systemSchema, manager.activeSchema(SYSTEM_SCHEMA_NAME, clock.nowLong()));
         assertSame(systemSchema, manager.schema(SYSTEM_SCHEMA_NAME, 0));
+        assertSame(systemSchema, manager.schema(systemSchema.id(), 0));
 
         // Validate system schema.
         assertEquals(SYSTEM_SCHEMA_NAME, systemSchema.name());
