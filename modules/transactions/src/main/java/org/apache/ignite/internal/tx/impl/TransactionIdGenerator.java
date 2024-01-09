@@ -41,6 +41,16 @@ public class TransactionIdGenerator {
      * Creates a transaction ID with the given begin timestamp.
      *
      * @param beginTimestamp Transaction begin timestamp.
+     * @return Transaction ID.
+     */
+    public UUID transactionIdFor(HybridTimestamp beginTimestamp) {
+        return transactionIdFor(beginTimestamp, TxPriority.NORMAL);
+    }
+
+    /**
+     * Creates a transaction ID with the given begin timestamp.
+     *
+     * @param beginTimestamp Transaction begin timestamp.
      * @param priority Transaction priority.
      * @return Transaction ID.
      */

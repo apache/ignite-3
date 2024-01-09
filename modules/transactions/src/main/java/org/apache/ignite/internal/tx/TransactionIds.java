@@ -43,11 +43,22 @@ public class TransactionIds {
      *
      * @param beginTimestamp Transaction begin timestamp.
      * @param nodeId Unique ID of the current node used to make generated transaction IDs globally unique.
+     * @return Transaction ID corresponding to the provided values.
+     */
+    public static UUID transactionId(HybridTimestamp beginTimestamp, int nodeId) {
+        return transactionId(beginTimestamp.longValue(), nodeId, TxPriority.NORMAL);
+    }
+
+    /**
+     * Creates a transaction ID from the given begin timestamp and nodeId.
+     *
+     * @param beginTimestamp Transaction begin timestamp.
+     * @param nodeId Unique ID of the current node used to make generated transaction IDs globally unique.
      * @param priority Transaction priority.
      * @return Transaction ID corresponding to the provided values.
      */
     public static UUID transactionId(long beginTimestamp, int nodeId, TxPriority priority) {
-        return new UUID(beginTimestamp, combine(nodeId, priority));
+        return new UUID(beginTimestamp, combine(nodeId, encodePriority(priority)));
     }
 
     /**
@@ -61,14 +72,26 @@ public class TransactionIds {
     }
 
     public static int nodeId(UUID transactionId) {
-        return (int) (transactionId.getLeastSignificantBits() >>> 8);
+        return (int) (transactionId.getLeastSignificantBits() >> 32);
     }
 
-    public static TxPriority priority(UUID transactionId) {
-        return TxPriority.fromPriority((byte) (transactionId.getLeastSignificantBits() & 0xFF));
+    public static TxPriority priority(UUID txId) {
+        long flag = txId.getLeastSignificantBits() & 1;
+        return decodePriority(flag == 1);
     }
 
-    private static long combine(int nodeId, TxPriority priority) {
-        return ((long) nodeId << 8) | (priority.byteValue() & 0xFF);
+    private static long combine(int nodeId, boolean priority) {
+        int priorityAsInt = priority ? 1 : 0;
+
+        // Shift the int 32 bits and combine with the boolean
+        return ((long) nodeId << 32) | priorityAsInt;
+    }
+
+    private static boolean encodePriority(TxPriority priority) {
+        return priority == TxPriority.NORMAL;
+    }
+
+    private static TxPriority decodePriority(boolean priority) {
+        return priority ? TxPriority.NORMAL : TxPriority.LOW;
     }
 }

@@ -23,32 +23,6 @@ import org.apache.ignite.internal.tx.impl.WaitDieDeadlockPreventionPolicy;
  * Transaction priority. The priority is used in {@link WaitDieDeadlockPreventionPolicy} to determine if a waiter should wait or abort.
  */
 public enum TxPriority {
-    LOW((byte) 0),
-    NORMAL((byte) 1);
-    private final byte byteValue;
-
-    TxPriority(byte byteValue) {
-        this.byteValue = byteValue;
-    }
-
-    public byte byteValue() {
-        return byteValue;
-    }
-
-    /**
-     * Returns the priority from the byte value.
-     *
-     * @param byteValue the byte value.
-     * @return the priority.
-     */
-    static TxPriority fromPriority(byte byteValue) {
-        switch (byteValue) {
-            case 0:
-                return LOW;
-            case 1:
-                return NORMAL;
-            default:
-                throw new IllegalArgumentException("Unknown priority: " + byteValue);
-        }
-    }
+    LOW,
+    NORMAL;
 }

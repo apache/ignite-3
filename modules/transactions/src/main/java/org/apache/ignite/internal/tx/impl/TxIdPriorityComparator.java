@@ -27,15 +27,32 @@ import org.apache.ignite.internal.tx.TxPriority;
  * first. If the priorities are equal, the IDs are sorted by their natural order.
  */
 public class TxIdPriorityComparator implements Comparator<UUID> {
+    private static final Comparator<TxPriority> TX_PRIORITY_COMPARATOR = new TxPriorityComparator().reversed();
+
     @Override
     public int compare(UUID o1, UUID o2) {
         TxPriority priority1 = TransactionIds.priority(o1);
         TxPriority priority2 = TransactionIds.priority(o2);
 
-        if (priority1 == priority2) {
+        int priorityComparison = TX_PRIORITY_COMPARATOR.compare(priority1, priority2);
+
+        if (priorityComparison == 0) {
             return o1.compareTo(o2);
         } else {
-            return Byte.compare(priority1.byteValue(), priority2.byteValue()) * -1;
+            return priorityComparison;
+        }
+    }
+
+    private static class TxPriorityComparator implements Comparator<TxPriority> {
+        @Override
+        public int compare(TxPriority o1, TxPriority o2) {
+            if (o1 == o2) {
+                return 0;
+            } else if (o1 == TxPriority.NORMAL) {
+                return 1;
+            } else {
+                return -1;
+            }
         }
     }
 }

@@ -38,7 +38,6 @@ import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.TxManager;
-import org.apache.ignite.internal.tx.TxPriority;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.test.TestTransactionIds;
@@ -79,7 +78,7 @@ class ReadWriteTransactionImplTest extends BaseIgniteAbstractTest {
     public void effectiveSchemaTimestampIsBeginTimestamp() {
         HybridTimestamp beginTs = clock.now();
 
-        UUID txId = TestTransactionIds.TRANSACTION_ID_GENERATOR.transactionIdFor(beginTs, TxPriority.NORMAL);
+        UUID txId = TestTransactionIds.TRANSACTION_ID_GENERATOR.transactionIdFor(beginTs);
 
         var tx = new ReadWriteTransactionImpl(txManager, new HybridTimestampTracker(), txId);
 
@@ -110,7 +109,7 @@ class ReadWriteTransactionImplTest extends BaseIgniteAbstractTest {
 
         HybridTimestamp beginTs = clock.now();
 
-        UUID txId = TestTransactionIds.TRANSACTION_ID_GENERATOR.transactionIdFor(beginTs, TxPriority.NORMAL);
+        UUID txId = TestTransactionIds.TRANSACTION_ID_GENERATOR.transactionIdFor(beginTs);
 
         var tx = new ReadWriteTransactionImpl(txManager, new HybridTimestampTracker(), txId);
 

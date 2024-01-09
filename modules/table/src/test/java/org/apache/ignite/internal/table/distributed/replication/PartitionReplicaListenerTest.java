@@ -1538,7 +1538,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     }
 
     private static UUID transactionIdFor(HybridTimestamp beginTimestamp) {
-        return TestTransactionIds.TRANSACTION_ID_GENERATOR.transactionIdFor(beginTimestamp, TxPriority.NORMAL);
+        return TestTransactionIds.TRANSACTION_ID_GENERATOR.transactionIdFor(beginTimestamp);
     }
 
     @Test

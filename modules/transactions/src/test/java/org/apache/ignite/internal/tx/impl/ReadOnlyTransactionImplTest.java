@@ -25,7 +25,6 @@ import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
-import org.apache.ignite.internal.tx.TxPriority;
 import org.apache.ignite.internal.tx.test.TestTransactionIds;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -40,7 +39,7 @@ class ReadOnlyTransactionImplTest extends BaseIgniteAbstractTest {
     @Test
     void effectiveSchemaTimestampIsReadTimestamp() {
         HybridTimestamp readTimestamp = new HybridClockImpl().now();
-        UUID txId = TestTransactionIds.TRANSACTION_ID_GENERATOR.transactionIdFor(readTimestamp, TxPriority.NORMAL);
+        UUID txId = TestTransactionIds.TRANSACTION_ID_GENERATOR.transactionIdFor(readTimestamp);
 
         var tx = new ReadOnlyTransactionImpl(txManager, new HybridTimestampTracker(), txId, readTimestamp);
 
