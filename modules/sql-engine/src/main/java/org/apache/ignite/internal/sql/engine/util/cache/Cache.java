@@ -67,16 +67,16 @@ public interface Cache<K, V> {
      * Attempts to compute a mapping for the specified key and its current
      * mapped value (or {@code null} if there is no current mapping).
      *
-     * @param key key with which the specified value is to be associated
-     * @param remappingFunction the remapping function to compute a value
-     * @return the new value associated with the specified key, or null if none
+     * @param key Key with which the specified value is to be associated.
+     * @param remappingFunction The remapping function to compute a value.
+     * @return The new value associated with the specified key, or null if none.
      */
     V compute(K key, BiFunction<? super K, ? super V, ? extends V> remappingFunction);
 
     /**
      * Removes all cache entries whose values match the specified predicate.
      *
-     * @param valueFilter a predicate which returns {@code true} for the values of entries to be removed.
+     * @param valueFilter A predicate which returns {@code true} for the values of entries to be removed.
      */
     void removeIfValue(Predicate<? super V> valueFilter);
 }
