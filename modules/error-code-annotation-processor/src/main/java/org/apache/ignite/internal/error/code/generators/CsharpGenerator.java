@@ -48,7 +48,7 @@ public class CsharpGenerator extends GenericGenerator {
         line("namespace Apache.Ignite");
         line("{");
         line("    using System;");
-        line("");
+        line();
         generateClass(descriptors);
         line("}");
     }
@@ -66,7 +66,7 @@ public class CsharpGenerator extends GenericGenerator {
         for (var descriptor : descriptors) {
             line("            " + descriptor.className + ".GroupCode => " + descriptor.className + ".GroupName,");
         }
-        line("");
+        line();
         line("            _ => UnknownGroupName");
         line("        };");
         for (var descriptor : descriptors) {
@@ -76,23 +76,23 @@ public class CsharpGenerator extends GenericGenerator {
     }
 
     private void generateErrorGroupClass(ErrorCodeGroupDescriptor descriptor) throws IOException {
-        line("");
+        line();
         line("        /// <summary> " + descriptor.className + " errors. </summary>");
         line("        public static class " + descriptor.className);
         line("        {");
 
         line("            /// <summary> " + descriptor.className + " group code. </summary>");
         line("            public const short GroupCode = " + descriptor.groupCode + ";");
-        line("");
+        line();
 
         line("            /// <summary> " + descriptor.className + " group name. </summary>");
         line("            public const String GroupName = \"" + descriptor.groupName + "\";");
-        line("");
+        line();
 
         for (int i = 0; i < descriptor.errorCodes.size(); i++) {
             generateErrorCode(descriptor.errorCodes.get(i).name, descriptor.errorCodes.get(i).code);
             if (i != descriptor.errorCodes.size() - 1) {
-                line("");
+                line();
             }
         }
 

@@ -36,6 +36,8 @@ public class CppGenerator extends GenericGenerator {
     }
 
     private void generateHeader() throws IOException {
+        line("// THIS IS AUTO-GENERATED FILE. DO NOT EDIT.");
+        line();
         line("#pragma once");
         line();
         line("#include <cstdint>");
