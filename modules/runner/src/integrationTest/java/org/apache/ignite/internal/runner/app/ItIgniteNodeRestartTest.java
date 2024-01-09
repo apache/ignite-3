@@ -1360,8 +1360,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         startNode(ruIdx, configurationString(ruIdx, "{ region.attribute = \"RU\" }"));
         startNode(jpIdx, configurationString(jpIdx, "{ region.attribute = \"JP\" }"));
 
-        Set<Assignment> expectedAssignments = Set.of(Assignment.forPeer(nodeEu.name()), Assignment.forPeer(nodeUs.name()));
-
         WatchListenerInhibitor nodeEuInhibitor = WatchListenerInhibitor.metastorageEventsInhibitor(nodeEu);
 
         String tableName = "TEST";
@@ -1446,7 +1444,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         metaStorageMockDataByNode.clear();
 
         byte[] assignmentsKey = stablePartAssignmentsKey(new TablePartitionId(tableId, 0)).bytes();
-        checkAssignmentsInMetaStorage(nodeEu.metaStorageManager(), assignmentsKey, expectedAssignments);
+        var expectedAssignments = getAssignmentsFromMetaStorage(nodeEu.metaStorageManager(), assignmentsKey);
 
         for (PartialNode partialNode : partialNodes) {
             MetaStorageManager metaStorageManager = component(partialNode.startedComponents(), MetaStorageManager.class);
@@ -1456,6 +1454,12 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
     }
 
     private void checkAssignmentsInMetaStorage(MetaStorageManager metaStorageManager, byte[] assignmentsKey, Set<Assignment> expected) {
+        Set<Assignment> a = getAssignmentsFromMetaStorage(metaStorageManager, assignmentsKey);
+
+        assertEquals(expected, a);
+    }
+
+    private Set<Assignment> getAssignmentsFromMetaStorage(MetaStorageManager metaStorageManager, byte[] assignmentsKey) {
         var future = metaStorageManager.get(new ByteArray(assignmentsKey));
 
         var e = future.join();
@@ -1464,9 +1468,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         assertFalse(e.empty() || e.tombstone());
 
-        Set<Assignment> actual = ByteUtils.fromBytes(e.value());
-
-        assertEquals(expected, actual);
+        return ByteUtils.fromBytes(e.value());
     }
 
     private <T extends IgniteComponent> @Nullable T component(List<IgniteComponent> components, Class<T> cls) {
