@@ -81,15 +81,15 @@ public class CatalogTableSchemaVersions implements Serializable {
      * Returns an existing table version, or {@code null} if it's not found.
      */
     public @Nullable TableVersion get(int version) {
-        try {
-            return versions[version - base];
-        } catch (ArrayIndexOutOfBoundsException e) {
+        if (version < base || version >= base + versions.length) {
             return null;
         }
+
+        return versions[version - base];
     }
 
     /**
-     * Creates a new instance of {@link CatalogTableSchemaVersions} with one new version appened.
+     * Creates a new instance of {@link CatalogTableSchemaVersions} with one new version appended.
      */
     public CatalogTableSchemaVersions append(TableVersion tableVersion, int version) {
         assert version == latestVersion() + 1;

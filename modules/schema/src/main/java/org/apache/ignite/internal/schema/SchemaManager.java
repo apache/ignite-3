@@ -21,7 +21,6 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
-import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 
@@ -90,13 +89,10 @@ public class SchemaManager implements IgniteComponent {
     }
 
     private void registerExistingTables() {
-        // TODO: IGNITE-20051 - add proper recovery (consider tables that are removed now; take token and catalog version
-        // exactly matching the tables).
-
         long causalityToken = metastorageMgr.appliedRevision();
 
-        for (int v = catalogService.latestCatalogVersion(); v >= catalogService.earliestCatalogVersion(); v--) {
-            Collection<CatalogTableDescriptor> tables = catalogService.tables(v);
+        for (int catalogVer = catalogService.latestCatalogVersion(); catalogVer >= catalogService.earliestCatalogVersion(); catalogVer--) {
+            Collection<CatalogTableDescriptor> tables = catalogService.tables(catalogVer);
 
             registriesVv.update(causalityToken, (registries, throwable) -> {
                 for (CatalogTableDescriptor tableDescriptor : tables) {
@@ -108,8 +104,8 @@ public class SchemaManager implements IgniteComponent {
 
                     SchemaDescriptor prevSchema = null;
                     CatalogTableSchemaVersions schemaVersions = tableDescriptor.schemaVersions();
-                    for (int ver = schemaVersions.earliestVersion(); ver <= schemaVersions.latestVersion(); ver++) {
-                        SchemaDescriptor newSchema = CatalogToSchemaDescriptorConverter.convert(tableDescriptor, ver);
+                    for (int tableVer = schemaVersions.earliestVersion(); tableVer <= schemaVersions.latestVersion(); tableVer++) {
+                        SchemaDescriptor newSchema = CatalogToSchemaDescriptorConverter.convert(tableDescriptor, tableVer);
 
                         if (prevSchema != null) {
                             newSchema.columnMapping(SchemaUtils.columnMapper(prevSchema, newSchema));
@@ -218,12 +214,14 @@ public class SchemaManager implements IgniteComponent {
      * @return Schema representation.
      */
     private SchemaDescriptor loadSchemaDescriptor(int tblId, int ver) {
-        int version = catalogService.latestCatalogVersion();
+        int catalogVersion = catalogService.latestCatalogVersion();
 
-        while (version >= catalogService.earliestCatalogVersion()) {
-            CatalogTableDescriptor tableDescriptor = catalogService.table(tblId, version);
+        while (catalogVersion >= catalogService.earliestCatalogVersion()) {
+            CatalogTableDescriptor tableDescriptor = catalogService.table(tblId, catalogVersion);
 
             if (tableDescriptor == null) {
+                catalogVersion--;
+
                 continue;
             }
 
@@ -231,17 +229,6 @@ public class SchemaManager implements IgniteComponent {
         }
 
         throw new AssertionError(format("Schema descriptor is not found [tableId={}, schemaId={}]", tblId, ver));
-    }
-
-    /**
-     * Saves a schema in the MetaStorage.
-     *
-     * @param tableId Table id.
-     * @param schema Schema descriptor.
-     * @return Future that will be completed when the schema gets saved.
-     */
-    private CompletableFuture<Void> saveSchemaDescriptor(int tableId, SchemaDescriptor schema) {
-        return nullCompletedFuture();
     }
 
     /**

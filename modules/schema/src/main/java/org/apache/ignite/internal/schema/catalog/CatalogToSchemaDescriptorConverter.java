@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.schema.catalog;
 
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -28,6 +30,7 @@ import org.apache.ignite.internal.catalog.commands.DefaultValue.FunctionCall;
 import org.apache.ignite.internal.catalog.commands.DefaultValue.Type;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableSchemaVersions.TableVersion;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.DefaultValueGenerator;
 import org.apache.ignite.internal.schema.DefaultValueProvider;
@@ -157,7 +160,12 @@ public final class CatalogToSchemaDescriptorConverter {
 
         int idx = 0;
 
-        for (CatalogTableColumnDescriptor column : tableDescriptor.schemaVersions().get(tableVersion).columns()) {
+        TableVersion tableVersionInstance = tableDescriptor.schemaVersions().get(tableVersion);
+
+        assert tableVersionInstance != null
+                : format("Cannot find table version {} in table descriptor {}", tableVersion, tableDescriptor);
+
+        for (CatalogTableColumnDescriptor column : tableVersionInstance.columns()) {
             if (keyColumnsNames.contains(column.name())) {
                 keyCols.add(convert(idx, column));
             } else {
