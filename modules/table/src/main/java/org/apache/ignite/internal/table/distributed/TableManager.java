@@ -594,7 +594,15 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         return createTableLocally(parameters.causalityToken(), parameters.catalogVersion(), parameters.tableDescriptor(), false);
     }
 
-    private CompletableFuture<Boolean> writeTableAssignmentsToMetastore(
+    /**
+     * Writes the set of assignments to meta storage. If there are some assignments already, gets them from meta storage. Returns
+     * the list of assignments that really are in meta storage.
+     *
+     * @param tableId  Table id.
+     * @param assignmentsFuture Assignments future, to get the assignments that should be written.
+     * @return Real list of assignments.
+     */
+    private CompletableFuture<List<Set<Assignment>>> writeTableAssignmentsToMetastore(
             int tableId,
             CompletableFuture<List<Set<Assignment>>> assignmentsFuture
     ) {
@@ -614,10 +622,12 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
             return metaStorageMgr
                     .invoke(condition, partitionAssignments, Collections.emptyList())
-                    .thenApply(invokeResult -> {
+                    .thenCompose(invokeResult -> {
                         if (invokeResult) {
                             LOG.info(IgniteStringFormatter.format("Assignments calculated from data nodes are successfully "
                                             + "written to meta storage [tableId={}, assignments={}]", tableId, newAssignments));
+
+                            return completedFuture(newAssignments);
                         } else {
                             Set<ByteArray> partKeys = IntStream.range(0, newAssignments.size())
                                     .mapToObj(p -> stablePartAssignmentsKey(new TablePartitionId(tableId, p)))
@@ -625,27 +635,24 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
                             CompletableFuture<Map<ByteArray, Entry>> resFuture = metaStorageMgr.getAll(partKeys);
 
-                            resFuture.thenAccept(metaStorageAssignments -> {
-                                for (int p = 0; p < newAssignments.size(); p++) {
-                                    Set<Assignment> calculated = newAssignments.get(p);
+                            return resFuture.thenApply(metaStorageAssignments -> {
+                                List<Set<Assignment>> realAssignments = new ArrayList<>();
 
+                                for (int p = 0; p < newAssignments.size(); p++) {
                                     var partId = new TablePartitionId(tableId, p);
                                     Entry assignmentsEntry = metaStorageAssignments.get(stablePartAssignmentsKey(partId));
 
-                                    Set<Assignment> real = assignmentsEntry == null || assignmentsEntry.value() == null
-                                            ? emptySet()
-                                            : ByteUtils.fromBytes(assignmentsEntry.value());
+                                    assert assignmentsEntry != null && !assignmentsEntry.empty() && !assignmentsEntry.tombstone()
+                                            : "Unexpected assignments for partition [" + partId + ", entry=" + assignmentsEntry + "].";
 
-                                    if (!real.equals(calculated)) {
-                                        LOG.warn(IgniteStringFormatter.format("Assignments calculated from data nodes are not the same "
-                                                + "as written to meta storage [tableId={}, calculated={}, real={}]", tableId, calculated,
-                                                real));
-                                    }
+                                    Set<Assignment> real = ByteUtils.fromBytes(assignmentsEntry.value());
+
+                                    realAssignments.add(real);
                                 }
+
+                                return realAssignments;
                             });
                         }
-
-                        return invokeResult;
                     })
                     .exceptionally(e -> {
                         LOG.error("Couldn't write assignments to metastore", e);
@@ -1094,17 +1101,14 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
             CompletableFuture<List<Set<Assignment>>> assignmentsFuture;
 
-            // Check if the table already has assignments in the vault.
-            // So, it means, that it is a recovery process and we should use the vault assignments instead of calculation for the new ones.
-            // TODO https://issues.apache.org/jira/browse/IGNITE-20993
+            // Check if the table already has assignments in the meta storage locally.
+            // So, it means, that it is a recovery process and we should use the meta storage local assignments instead of calculation
+            // of the new ones.
             if (partitionAssignmentsGetLocally(metaStorageMgr, tableId, 0, causalityToken) != null) {
                 assignmentsFuture = completedFuture(
                         tableAssignmentsGetLocally(metaStorageMgr, tableId, zoneDescriptor.partitions(), causalityToken));
             } else {
-                long tableCreationRevision = tableDescriptor.creationToken();
-                int catalogVersionOnCreation = tableDescriptor.catalogVersionOnCreation();
-
-                assignmentsFuture = distributionZoneManager.dataNodes(tableCreationRevision, catalogVersionOnCreation, zoneId)
+                assignmentsFuture = distributionZoneManager.dataNodes(causalityToken, catalogVersion, zoneId)
                         .thenApply(dataNodes -> AffinityUtils.calculateAssignments(
                                 dataNodes,
                                 zoneDescriptor.partitions(),
@@ -1113,18 +1117,21 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
                 assignmentsFuture.thenAccept(assignmentsList -> {
                     LOG.info(IgniteStringFormatter.format("Assignments calculated from data nodes [table={}, tableId={}, assignments={}, "
-                                    + "revision={}]", tableDescriptor.name(), tableId, assignmentsList, tableCreationRevision));
+                                    + "revision={}]", tableDescriptor.name(), tableId, assignmentsList, causalityToken));
                 });
             }
+
+            CompletableFuture<List<Set<Assignment>>> assignmentsFutureAfterInvoke =
+                    writeTableAssignmentsToMetastore(tableId, assignmentsFuture);
 
             return createTableLocally(
                     causalityToken,
                     tableDescriptor,
                     zoneDescriptor,
-                    assignmentsFuture,
+                    assignmentsFutureAfterInvoke,
                     catalogVersion,
                     onNodeRecovery
-            ).thenCompose(ignored -> writeTableAssignmentsToMetastore(tableId, assignmentsFuture));
+            );
         });
     }
 

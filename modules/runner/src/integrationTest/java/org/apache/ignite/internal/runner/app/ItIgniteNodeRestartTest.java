@@ -544,6 +544,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         );
 
         for (IgniteComponent component : otherComponents) {
+            System.out.println("qqq starting node=" + idx + ", component=" + component.getClass());
+
             if (beforeComponentStart != null) {
                 beforeComponentStart.call(idx, otherComponents, hybridClock, component);
             }

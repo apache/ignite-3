@@ -27,8 +27,6 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import org.apache.ignite.internal.catalog.Catalog;
-import org.apache.ignite.internal.catalog.storage.UpdateEntry;
 import org.apache.ignite.internal.tostring.IgniteToStringExclude;
 import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.Nullable;
@@ -57,8 +55,6 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor {
     private transient Map<String, CatalogTableColumnDescriptor> columnsMap;
 
     private long creationToken;
-
-    private int catalogVersionOnCreation;
 
     /**
      * Constructor.
@@ -168,31 +164,10 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor {
         return creationToken;
     }
 
-    public int catalogVersionOnCreation() {
-        return catalogVersionOnCreation;
-    }
-
     @Override
     public void updateToken(long updateToken) {
         super.updateToken(updateToken);
 
         this.creationToken = this.creationToken == INITIAL_CAUSALITY_TOKEN ? updateToken : this.creationToken;
-    }
-
-    /**
-     * Set token of the update of the descriptor. Must be called only once when
-     * {@link UpdateEntry#applyUpdate(org.apache.ignite.internal.catalog.Catalog, long)} is called for the corresponding catalog descriptor.
-     * This token is the token that is associated with the corresponding update being applied to
-     * the Catalog. Any new catalog descriptor associated with an {@link UpdateEntry}, meaning that this token is set only once.
-     *
-     * @param catalog Catalog.
-     * @param updateToken Update token of the descriptor.
-     */
-    public void updateToken(Catalog catalog, long updateToken) {
-        if (this.creationToken == INITIAL_CAUSALITY_TOKEN) {
-            this.catalogVersionOnCreation = catalog.version();
-        }
-
-        updateToken(updateToken);
     }
 }
