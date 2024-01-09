@@ -423,11 +423,6 @@ public class FakeInternalTable implements InternalTable {
     }
 
     @Override
-    public List<String> assignments() {
-        throw new IgniteInternalException(new OperationNotSupportedException());
-    }
-
-    @Override
     public ClusterNode leaderAssignment(int partition) {
         throw new IgniteInternalException(new OperationNotSupportedException());
     }
