@@ -75,8 +75,6 @@ public interface Cache<K, V> {
 
     /**
      * Removes all cache entries whose values match the specified predicate.
-     * Errors or runtime exceptions thrown during iteration or by the predicate
-     * are relayed to the caller.
      *
      * @param valueFilter a predicate which returns {@code true} for the values of entries to be removed.
      */

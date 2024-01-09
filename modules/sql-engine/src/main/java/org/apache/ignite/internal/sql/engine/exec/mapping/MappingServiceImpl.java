@@ -68,9 +68,9 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
 
     private final String localNodeName;
     private final ExecutionTargetProvider targetProvider;
-    private final Executor taskExecutor;
     private final Cache<PlanId, FragmentsTemplate> templatesCache;
     private final Cache<PlanId, MappingsCacheValue> mappingsCache;
+    private final Executor taskExecutor;
 
     /**
      * Constructor.
@@ -91,8 +91,8 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
         this.localNodeName = localNodeName;
         this.targetProvider = targetProvider;
         this.templatesCache = cacheFactory.create(cacheSize);
-        this.taskExecutor = taskExecutor;
         this.mappingsCache = cacheFactory.create(cacheSize);
+        this.taskExecutor = taskExecutor;
     }
 
     @Override
