@@ -262,6 +262,7 @@ sql_state error_code_to_sql_state(error::code code) {
         // Authentication group. Group code: 15
         case error::code::UNSUPPORTED_AUTHENTICATION_TYPE:
         case error::code::INVALID_CREDENTIALS:
+        case error::code::BASIC_PROVIDER:
             return sql_state::S08004_CONNECTION_REJECTED;
 
         // Compute group. Group code: 16
@@ -270,6 +271,8 @@ sql_state error_code_to_sql_state(error::code code) {
         case error::code::CLASS_INITIALIZATION:
         case error::code::QUEUE_OVERFLOW:
         case error::code::COMPUTE_JOB_STATE_TRANSITION:
+        case error::code::CANCELLING:
+        case error::code::RESULT_NOT_FOUND:
             return sql_state::SHY000_GENERAL_ERROR;
 
         // Catalog group. Group code: 17
