@@ -155,6 +155,7 @@ enum class code : underlying_t {
     // Authentication group. Group code: 15
     UNSUPPORTED_AUTHENTICATION_TYPE = 0xf0001,
     INVALID_CREDENTIALS = 0xf0002,
+    BASIC_PROVIDER = 0xf0003,
 
     // Compute group. Group code: 16
     CLASS_PATH = 0x100001,
@@ -162,6 +163,8 @@ enum class code : underlying_t {
     CLASS_INITIALIZATION = 0x100003,
     QUEUE_OVERFLOW = 0x100004,
     COMPUTE_JOB_STATE_TRANSITION = 0x100005,
+    CANCELLING = 0x100006,
+    RESULT_NOT_FOUND = 0x100007,
 
     // Catalog group. Group code: 17
     VALIDATION = 0x110001,

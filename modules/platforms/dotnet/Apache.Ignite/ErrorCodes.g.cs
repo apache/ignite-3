@@ -446,6 +446,9 @@ namespace Apache.Ignite
 
             /// <summary> InvalidCredentials error. </summary>
             public const int InvalidCredentials = (GroupCode << 16) | (2 & 0xFFFF);
+
+            /// <summary> BasicProvider error. </summary>
+            public const int BasicProvider = (GroupCode << 16) | (3 & 0xFFFF);
         }
 
         /// <summary> Compute errors. </summary>
@@ -471,6 +474,12 @@ namespace Apache.Ignite
 
             /// <summary> ComputeJobStateTransition error. </summary>
             public const int ComputeJobStateTransition = (GroupCode << 16) | (5 & 0xFFFF);
+
+            /// <summary> Cancelling error. </summary>
+            public const int Cancelling = (GroupCode << 16) | (6 & 0xFFFF);
+
+            /// <summary> ResultNotFound error. </summary>
+            public const int ResultNotFound = (GroupCode << 16) | (7 & 0xFFFF);
         }
 
         /// <summary> Catalog errors. </summary>
