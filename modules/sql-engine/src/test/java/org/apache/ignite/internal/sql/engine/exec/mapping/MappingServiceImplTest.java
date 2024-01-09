@@ -220,7 +220,7 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
             assertTrue(tblId.isPresent());
 
             return new PrimaryReplicaEventParameters(
-                    0, new TablePartitionId(tblId.get(), 0), "test", HybridTimestamp.MIN_VALUE);
+                    0, new TablePartitionId(tblId.get(), 0), "ignored", "ignored", HybridTimestamp.MIN_VALUE);
         };
 
         // Initialize mapping service.
