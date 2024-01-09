@@ -18,43 +18,58 @@
 package org.apache.ignite.internal.compute;
 
 import java.util.List;
+import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.JobExecution;
-import org.apache.ignite.compute.JobStatus;
 import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.lang.ErrorGroups.Compute;
 import org.apache.ignite.network.ClusterNode;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * This is a helper class for {@link ComputeComponent} to handle job failures. You can think about this class as a "retryable compute job
- * with captured context".
+ * with captured context". Retry logic is applied ONLY if the worker node leaves the cluster. If the job itself is failing, then the
+ * exception is propagated to the caller and this class does not handle it.
  *
  * <p>If you want to execute a job on node1 and use node2 and node3 as failover candidates,
- * then you should create an instance of this class with workerNode = node1, failoverCandidates = [node2, node3] as arguments.
+ * then you should create an instance of this class with workerNode = node1, failoverCandidates = [node2, node3] as arguments and
+ * call {@link #failSafeExecute()}.
  *
  * @param <T> the type of the result of the job.
  */
 class ComputeJobFailover<T> {
+    private static final IgniteLogger LOG = Loggers.forClass(ComputeJobFailover.class);
 
+    /**
+     * Compute component that is called when the {@link #runningWorkerNode} has left the cluster.
+     */
     private final ComputeComponent computeComponent;
 
+    /**
+     * The failover listens this event source to know when the {@link #runningWorkerNode} has left the cluster.
+     */
     private final NodeLeftEventsSource nodeLeftEventsSource;
 
-    private final Set<ClusterNode> failoverCandidates;
+    /**
+     * Set of worker candidates in case {@link #runningWorkerNode} has left the cluster.
+     */
+    private final ConcurrentLinkedDeque<ClusterNode> failoverCandidates;
 
+    /**
+     * The node where the job is being executed at a given moment. If node leaves the cluster, then the job is restarted on one of the
+     * {@link #failoverCandidates} and the reference is CASed to the new node.
+     */
     private final AtomicReference<ClusterNode> runningWorkerNode;
 
-    private final List<DeploymentUnit> units;
-
-    private final String jobClassName;
-
-    private final Object[] args;
-
-    private volatile RemoteExecutionContext<T> jobContext;
+    /** Context of the called job. Captures deployment units, jobClassName and arguments. */
+    private final RemoteExecutionContext<T> jobContext;
 
     /**
      * Creates a per-job instance.
@@ -79,111 +94,65 @@ class ComputeJobFailover<T> {
         this.computeComponent = computeComponent;
         this.nodeLeftEventsSource = nodeLeftEventsSource;
         this.runningWorkerNode = new AtomicReference<>(workerNode);
-        this.failoverCandidates = failoverCandidates;
-        this.units = units;
-        this.jobClassName = jobClassName;
-        this.args = args;
+        this.failoverCandidates = new ConcurrentLinkedDeque<>(failoverCandidates);
+        this.jobContext = new RemoteExecutionContext<>(units, jobClassName, args);
     }
 
     /**
      * Executes a job on the worker node and restarts the job on one of the failover candidates if the worker node leaves the cluster.
      *
-     * @return JobExecution with the result of the job.
+     * @return JobExecution with the result of the job and the status of the job.
      */
     JobExecution<T> failSafeExecute() {
-        // Save the context to be able to restart the job on a failover candidate.
-        jobContext = new RemoteExecutionContext<>();
-        jobContext.units = units;
-        jobContext.jobClassName = jobClassName;
-        jobContext.args = args;
+        JobExecution<T> remoteJobExecution = launchJobOn(runningWorkerNode);
+        jobContext.initJobExecution(new FailSafeJobExecution<>(remoteJobExecution));
 
-        JobExecution<T> remoteJobExecution = computeComponent.executeRemotely(runningWorkerNode.get(), units, jobClassName, args);
+        UUID handlerId = UUID.randomUUID();
+        nodeLeftEventsSource.addEventHandler(handlerId, new OnNodeLeft());
+        remoteJobExecution.resultAsync().whenComplete((r, e) -> nodeLeftEventsSource.removeEventHandler(handlerId));
 
-        FailSafeJobExecution<T> failSafeJobExecution = new FailSafeJobExecution<>(remoteJobExecution);
-        jobContext.jobExecution = failSafeJobExecution;
-
-        UUID jobId = UUID.randomUUID(); // todo
-
-        nodeLeftEventsSource.addEventHandler(jobId, new OnNodeLeft());
-
-        remoteJobExecution.resultAsync().whenComplete((r, e) -> nodeLeftEventsSource.removeEventHandler(jobId));
-
-        return failSafeJobExecution;
+        return jobContext.failSafeJobExecution();
     }
 
-    private static class FailSafeJobExecution<T> implements JobExecution<T> {
-        private final CompletableFuture<T> resultFuture;
-
-        private final AtomicReference<JobExecution<T>> runningJobExecution;
-
-        private FailSafeJobExecution(JobExecution<T> runningJobExecution) {
-            this.resultFuture = new CompletableFuture<>();
-            this.runningJobExecution = new AtomicReference<>(runningJobExecution);
-            registerCompleteHook();
-        }
-
-        private void registerCompleteHook() {
-            runningJobExecution.get().resultAsync().whenComplete((res, err) -> {
-                System.out.println("%%%% completing future: res = " + res + " err= " + err);
-                if (err == null) {
-                    resultFuture.complete(res);
-                } else {
-                    resultFuture.completeExceptionally(err);
-                }
-            });
-        }
-
-        @Override
-        public CompletableFuture<T> resultAsync() {             // durable
-            return resultFuture;
-        }
-
-        @Override
-        public CompletableFuture<JobStatus> statusAsync() {    // not durable
-            return runningJobExecution.get().statusAsync();
-        }
-
-        @Override
-        public CompletableFuture<Void> cancelAsync() {         //
-            return runningJobExecution.get().cancelAsync();
-        }
-    }
-
-    private static class RemoteExecutionContext<T> {
-        List<DeploymentUnit> units;
-        String jobClassName;
-        Object[] args;
-        FailSafeJobExecution<T> jobExecution;
+    private JobExecution<T> launchJobOn(AtomicReference<ClusterNode> runningWorkerNode) {
+        return computeComponent.executeRemotely(runningWorkerNode.get(), jobContext.units(), jobContext.jobClassName(), jobContext.args());
     }
 
     class OnNodeLeft implements Consumer<ClusterNode> {
         @Override
-        public void accept(ClusterNode clusterNode) {
-            if (!runningWorkerNode.get().equals(clusterNode)) {
-                return;
-            }
-            if (failoverCandidates == null) {
-                // todo
-                jobContext.jobExecution.cancelAsync();
+        public void accept(ClusterNode leftNode) {
+            if (!runningWorkerNode.get().equals(leftNode)) {
                 return;
             }
 
-            FailSafeJobExecution<?> failSafeJobExecution = jobContext.jobExecution;
-            if (failoverCandidates.isEmpty()) {
-                // todo
-                failSafeJobExecution.resultFuture.completeExceptionally(new IgniteInternalException("No failover candidates left"));
+            ClusterNode nextWorkerCandidate = takeCandidate();
+            if (nextWorkerCandidate == null) {
+                LOG.warn("No more worker nodes to restart the job. Failing the job {}.", jobContext.jobClassName());
+
+                FailSafeJobExecution<?> failSafeJobExecution = jobContext.failSafeJobExecution();
+                failSafeJobExecution.completeExceptionally(
+                        new IgniteInternalException(Compute.COMPUTE_JOB_FAILED)
+                );
                 return;
             }
 
-            ClusterNode candidate = failoverCandidates.stream().findFirst().get();
-            runningWorkerNode.set(candidate);
-            failoverCandidates.remove(candidate);
-            JobExecution<T> jobExecution = computeComponent.executeRemotely(
-                    candidate, jobContext.units, jobContext.jobClassName, jobContext.args
+            LOG.warn(
+                    "Worker node {} has left the cluster. Restarting the job {} on node {}.",
+                    leftNode, jobContext.jobClassName(), nextWorkerCandidate
             );
-            // todo
-            jobContext.jobExecution.runningJobExecution.set(jobExecution);
-            jobContext.jobExecution.registerCompleteHook();
+
+            runningWorkerNode.set(nextWorkerCandidate);
+            JobExecution<T> jobExecution = launchJobOn(runningWorkerNode);
+            jobContext.updateJobExecution(jobExecution);
+        }
+
+        @Nullable
+        private ClusterNode takeCandidate() {
+            try {
+                return failoverCandidates.pop();
+            } catch (NoSuchElementException ex) {
+                return null;
+            }
         }
     }
 }

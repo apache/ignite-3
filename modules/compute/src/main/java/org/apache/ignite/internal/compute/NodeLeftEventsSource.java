@@ -26,7 +26,8 @@ import org.apache.ignite.network.TopologyEventHandler;
 import org.apache.ignite.network.TopologyService;
 
 /**
- * Todo:  remove and use TopologyService after <a href="https://issues.apache.org/jira/browse/IGNITE-14519">IGNITE-14519</a>.
+ * This is a workaround for implementing add and remove event handlers for node left events.
+ * todo:  remove and use TopologyService after <a href="https://issues.apache.org/jira/browse/IGNITE-14519">IGNITE-14519</a>.
  */
 class NodeLeftEventsSource {
     private final Map<UUID, Consumer<ClusterNode>> handlers;
@@ -37,8 +38,8 @@ class NodeLeftEventsSource {
         delegate.addEventHandler(new NodeLeftTopologyEventHandler());
     }
 
-    void addEventHandler(UUID jobId, Consumer<ClusterNode> onNodeLeftHandler) {
-        handlers.put(jobId, onNodeLeftHandler);
+    void addEventHandler(UUID handlerId, Consumer<ClusterNode> onNodeLeftHandler) {
+        handlers.put(handlerId, onNodeLeftHandler);
     }
 
     void removeEventHandler(UUID jobId) {

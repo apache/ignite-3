@@ -266,6 +266,7 @@ public class IgniteComputeImpl implements IgniteCompute {
 
         return nodes.stream()
                 .collect(toUnmodifiableMap(identity(),
-                        node -> new JobExecutionWrapper<>(executeOnOneNode(node, units, jobClassName, args))));
+                        // No failover nodes for broadcast.
+                        node -> new JobExecutionWrapper<>(executeOnOneNodeWithFailover(node, Set.of(), units, jobClassName, args))));
     }
 }
