@@ -21,13 +21,7 @@ plugins {
     alias(libs.plugins.cmake)
 }
 
-apply from: "$rootDir/buildscripts/java-core.gradle"
-
 import org.gradle.crypto.checksum.Checksum
-
-dependencies {
-    implementation project(':ignite-api')
-}
 
 configurations {
     odbc

@@ -109,8 +109,8 @@ public class ErrorCodeGroupProcessor extends AbstractProcessor {
         }
 
         List<AbstractCodeGenerator> generators = List.of(
-            new CppGenerator(processingEnv, Path.of("error_codes.h")),
-            new CsharpGenerator(processingEnv, Path.of("ErrorCodes.g.cs"))
+            new CppGenerator(processingEnv, Path.of("cpp/ignite/common/error_codes.h")),
+            new CsharpGenerator(processingEnv, Path.of("dotnet/Apache.Ignite/ErrorCodes.g.cs"))
         );
 
         for (var generator : generators) {

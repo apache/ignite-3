@@ -39,8 +39,7 @@ public:
      * @param message Message.
      */
     explicit ignite_error(std::string message) noexcept
-        : m_status_code(error::code::GENERIC)
-        , m_message(std::move(message)) {} // NOLINT(bugprone-throw-keyword-missing)
+        : m_message(std::move(message)) {} // NOLINT(bugprone-throw-keyword-missing)
 
     /**
      * Constructor.
@@ -90,7 +89,7 @@ public:
 
 private:
     /** Status code. */
-    error::code m_status_code{error::code::INTERNAL};
+    error::code m_status_code{error::code::GENERIC};
 
     /** Message. */
     std::string m_message;

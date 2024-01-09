@@ -38,10 +38,6 @@ list(APPEND CMAKE_PREFIX_PATH ${CMAKE_BINARY_DIR})
 
 get_property(is_multi_config GLOBAL PROPERTY GENERATOR_IS_MULTI_CONFIG)
 
-set(GENERATED_HEADER_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../../api/build/generated/sources/annotationProcessor/java/main/)
-message("Generated header dir: " ${GENERATED_HEADER_DIR})
-include_directories(${GENERATED_HEADER_DIR})
-
 set(conan_packages
     msgpack-c/4.0.0
 )

@@ -37,4 +37,8 @@ dependencies {
     testFixturesImplementation libs.jetbrains.annotations
 }
 
+compileJava {
+    options.headerOutputDirectory = file("${projectDir}/../platforms/")
+}
+
 description = 'ignite-api'

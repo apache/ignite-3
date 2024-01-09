@@ -18,7 +18,7 @@
 #include "ignite/protocol/utils.h"
 #include "ignite/protocol/reader.h"
 
-#include "error_codes.h"
+#include "ignite/common/error_codes.h"
 
 #include <msgpack.h>
 

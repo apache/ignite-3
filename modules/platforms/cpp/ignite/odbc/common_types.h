@@ -17,7 +17,7 @@
 
 #pragma once
 
-#include "error_codes.h"
+#include "ignite/common/error_codes.h"
 #include "ignite/odbc/system/odbc_constants.h"
 
 #include <cstdint>

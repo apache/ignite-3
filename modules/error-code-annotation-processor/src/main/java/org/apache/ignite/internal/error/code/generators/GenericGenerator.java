@@ -20,7 +20,12 @@ package org.apache.ignite.internal.error.code.generators;
 import java.io.BufferedWriter;
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.List;
 import javax.annotation.processing.ProcessingEnvironment;
+import javax.tools.FileObject;
+import javax.tools.StandardLocation;
+import org.apache.ignite.internal.error.code.processor.ErrorCodeGroupDescriptor;
+import org.apache.ignite.internal.error.code.processor.ErrorCodeGroupProcessorException;
 
 /**
  * Generic base class for error codes generators.
@@ -43,5 +48,24 @@ public abstract class GenericGenerator implements AbstractCodeGenerator {
     GenericGenerator(ProcessingEnvironment processingEnvironment, Path outFilePath) {
         this.processingEnvironment = processingEnvironment;
         this.outFilePath = outFilePath;
+    }
+
+    void generateFile(List<ErrorCodeGroupDescriptor> descriptors) throws IOException, ErrorCodeGroupProcessorException {
+        throw new ErrorCodeGroupProcessorException("generateFile not implemented!");
+    }
+
+    @Override
+    public void generate(List<ErrorCodeGroupDescriptor> descriptors) {
+        try {
+            FileObject resource = processingEnvironment.getFiler().createResource(StandardLocation.NATIVE_HEADER_OUTPUT,
+                    "",
+                    outFilePath.toString());
+
+            writer = new BufferedWriter(resource.openWriter());
+            generateFile(descriptors);
+            writer.flush();
+        } catch (IOException e) {
+            throw new ErrorCodeGroupProcessorException("IO exception during annotation processing", e);
+        }
     }
 }

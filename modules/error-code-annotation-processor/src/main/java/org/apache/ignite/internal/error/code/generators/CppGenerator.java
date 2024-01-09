@@ -17,14 +17,11 @@
 
 package org.apache.ignite.internal.error.code.generators;
 
-import java.io.BufferedWriter;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.stream.Collectors;
 import javax.annotation.processing.ProcessingEnvironment;
-import javax.tools.FileObject;
-import javax.tools.StandardLocation;
 import org.apache.ignite.internal.error.code.processor.ErrorCodeGroupDescriptor;
 import org.apache.ignite.internal.error.code.processor.ErrorCodeGroupProcessorException;
 
@@ -86,7 +83,8 @@ public class CppGenerator extends GenericGenerator {
         line();
     }
 
-    private void generateNamespace(List<ErrorCodeGroupDescriptor> descriptors) throws IOException {
+    @Override
+    void generateFile(List<ErrorCodeGroupDescriptor> descriptors) throws IOException {
         generateHeader();
         line("namespace ignite {");
         line();
@@ -124,20 +122,5 @@ public class CppGenerator extends GenericGenerator {
         }
 
         return name;
-    }
-
-    @Override
-    public void generate(List<ErrorCodeGroupDescriptor> descriptors) {
-        try {
-            FileObject resource = processingEnvironment.getFiler().createResource(StandardLocation.SOURCE_OUTPUT,
-                    "",
-                    outFilePath.toString());
-
-            writer = new BufferedWriter(resource.openWriter());
-            generateNamespace(descriptors);
-            writer.flush();
-        } catch (IOException e) {
-            throw new ErrorCodeGroupProcessorException("IO exception during annotation processing", e);
-        }
     }
 }
