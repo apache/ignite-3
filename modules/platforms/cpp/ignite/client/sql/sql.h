@@ -71,22 +71,22 @@ public:
     /**
      * Executes a multi-statement SQL query asynchronously.
      *
-     * @param query SQL query template.
+     * @param statement Statement to execute.
      * @param args Arguments for the template (can be empty).
      * @param callback A callback called on operation completion with SQL result set.
      */
-    IGNITE_API void execute_script_async(std::string query, std::vector<primitive> args,
+    IGNITE_API void execute_script_async(const sql_statement &statement, std::vector<primitive> args,
         ignite_callback<void> callback);
 
     /**
      * Executes a multi-statement SQL query.
      *
-     * @param query SQL query template.
+     * @param statement Statement to execute.
      * @param args Arguments for the template (can be empty).
      */
-    IGNITE_API void execute_script(std::string query, std::vector<primitive> args) {
-        sync<void>([this, query = std::move(query), args = std::move(args)](auto callback) mutable {
-            execute_script_async(std::move(query), std::move(args), std::move(callback));
+    IGNITE_API void execute_script(const sql_statement &statement, std::vector<primitive> args) {
+        sync<void>([this, &statement, args = std::move(args)](auto callback) mutable {
+            execute_script_async(statement, std::move(args), std::move(callback));
         });
     }
 

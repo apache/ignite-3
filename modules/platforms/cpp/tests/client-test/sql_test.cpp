@@ -38,6 +38,8 @@ protected:
         auto client = ignite_client::start(cfg, std::chrono::seconds(30));
 
         client.get_sql().execute(nullptr, {"DROP TABLE IF EXISTS TEST"}, {});
+        client.get_sql().execute(nullptr, {"DROP TABLE IF EXISTS execute_script_success"}, {});
+
         client.get_sql().execute(nullptr, {"CREATE TABLE TEST(ID INT PRIMARY KEY, VAL VARCHAR)"}, {});
 
         for (std::int32_t i = 0; i < 10; ++i) {
@@ -62,7 +64,7 @@ protected:
 
         client.get_sql().execute(nullptr, {"DELETE FROM TBL_ALL_COLUMNS_SQL"}, {});
         client.get_sql().execute(nullptr, {"DROP TABLE TEST"}, {});
-        client.get_sql().execute(nullptr, {"DROP TABLE IF EXISTS TestDdlDml"}, {});
+        client.get_sql().execute(nullptr, {"DROP TABLE IF EXISTS execute_script_success"}, {});
     }
 
     void SetUp() override {
@@ -420,4 +422,25 @@ TEST_F(sql_test, null_column) {
     auto value = result_set.current_page().front().get(0);
     EXPECT_EQ(ignite_type::NIL, value.get_type());
     EXPECT_TRUE(value.is_null());
+}
+
+TEST_F(sql_test, execute_script_success) {
+    m_client.get_sql().execute_script({
+        "CREATE TABLE execute_script_success (id INT PRIMARY KEY, step INTEGER); "
+        "INSERT INTO execute_script_success VALUES(1, 0); "
+        "UPDATE execute_script_success SET step = 1; "
+        "UPDATE execute_script_success SET step = 2; "}, {});
+
+    auto result_set = m_client.get_sql().execute(nullptr, {"SELECT step FROM execute_script_success"}, {});
+    EXPECT_TRUE(result_set.has_rowset());
+    EXPECT_FALSE(result_set.has_more_pages());
+
+    auto &columns = result_set.metadata().columns();
+    EXPECT_EQ(1, columns.size());
+    EXPECT_EQ(ignite_type::INT32, columns.at(0).type());
+
+    ASSERT_EQ(1, result_set.current_page().size());
+    auto value = result_set.current_page().front().get(0);
+    EXPECT_EQ(ignite_type::INT32, value.get_type());
+    EXPECT_EQ(2, value.get<std::int32_t>());
 }

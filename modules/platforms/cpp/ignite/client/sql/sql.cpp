@@ -26,9 +26,9 @@ void sql::execute_async(transaction *tx, const sql_statement &statement, std::ve
     m_impl->execute_async(tx, statement, std::move(args), std::move(callback));
 }
 
-void sql::execute_script_async(std::string query, std::vector<primitive> args, ignite_callback<void> callback) {
-    detail::arg_check::container_non_empty(query, "Query can not be empty");
-    m_impl->execute_script_async(std::move(query), std::move(args), std::move(callback));
+void sql::execute_script_async(const sql_statement &statement, std::vector<primitive> args,
+    ignite_callback<void> callback) {
+    m_impl->execute_script_async(statement, std::move(args), std::move(callback));
 }
 
 } // namespace ignite
