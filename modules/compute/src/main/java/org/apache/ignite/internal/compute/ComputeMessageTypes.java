@@ -24,6 +24,8 @@ import org.apache.ignite.internal.compute.message.JobResultRequest;
 import org.apache.ignite.internal.compute.message.JobResultResponse;
 import org.apache.ignite.internal.compute.message.JobStatusRequest;
 import org.apache.ignite.internal.compute.message.JobStatusResponse;
+import org.apache.ignite.internal.compute.message.JobChangePriorityRequest;
+import org.apache.ignite.internal.compute.message.JobChangePriorityResponse;
 import org.apache.ignite.network.annotations.MessageGroup;
 
 /**
@@ -63,4 +65,10 @@ public class ComputeMessageTypes {
 
     /** Type for {@link JobCancelResponse}. */
     public static final short JOB_CANCEL_RESPONSE = 8;
+
+    /** Type for {@link JobChangePriorityRequest}. */
+    public static final short JOB_CHANGE_PRIORITY_REQUEST = 9;
+
+    /** Type for {@link JobChangePriorityResponse}. */
+    public static final short JOB_CHANGE_PRIORITY_RESPONSE = 10;
 }

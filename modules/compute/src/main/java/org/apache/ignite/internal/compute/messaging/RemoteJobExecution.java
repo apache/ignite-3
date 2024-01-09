@@ -81,4 +81,11 @@ public class RemoteJobExecution<R> implements JobExecution<R> {
                 jobIdFuture.thenCompose(jobId -> messaging.remoteCancelAsync(remoteNode, jobId))
         );
     }
+
+    @Override
+    public CompletableFuture<Void> changePriority(int newPriority) {
+        return inFlightFutures.registerFuture(
+                jobIdFuture.thenCompose(jobId -> messaging.remoteChangePriorityAsync(remoteNode, jobId, newPriority))
+        );
+    }
 }

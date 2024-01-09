@@ -147,6 +147,24 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
         await().until(execution::statusAsync, willBe(jobStatusWithState(JobState.CANCELED)));
     }
 
+    @Test
+    void changeJobPriorityLocally() {
+        IgniteImpl entryNode = node(0);
+
+        JobExecution<String> execution = entryNode.compute().executeAsync(Set.of(entryNode.node()), units(), LongJob.class.getName());
+
+        assertThat(execution.changePriority(2), willCompleteSuccessfully());
+    }
+
+    @Test
+    void changeJobPriorityRemotely() {
+        IgniteImpl entryNode = node(0);
+
+        JobExecution<String> execution = entryNode.compute().executeAsync(Set.of(node(1).node()), units(), LongJob.class.getName());
+
+        assertThat(execution.changePriority(2), willCompleteSuccessfully());
+    }
+
     private static class ConcatJob implements ComputeJob<String> {
         /** {@inheritDoc} */
         @Override

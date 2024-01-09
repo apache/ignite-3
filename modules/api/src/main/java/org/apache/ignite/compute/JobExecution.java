@@ -57,4 +57,12 @@ public interface JobExecution<R> {
      * @return The future which will be completed when cancel request is processed.
      */
     CompletableFuture<Void> cancelAsync();
+
+    /**
+     * Changes job priority.
+     *
+     * @param newPriority new priority.
+     * @return The future which will be completed when change priority request is processed.
+     */
+    CompletableFuture<Void> changePriority(int newPriority);
 }

@@ -23,6 +23,7 @@ import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.compute.ComputeException;
 import org.apache.ignite.compute.JobStatus;
@@ -42,7 +43,7 @@ class QueueExecutionImpl<R> implements QueueExecution<R> {
 
     private final UUID jobId;
     private final Callable<R> job;
-    private final int priority;
+    private final AtomicInteger priority;
     private final ThreadPoolExecutor executor;
     private final ComputeStateMachine stateMachine;
 
@@ -68,7 +69,7 @@ class QueueExecutionImpl<R> implements QueueExecution<R> {
     ) {
         this.jobId = jobId;
         this.job = job;
-        this.priority = priority;
+        this.priority = new AtomicInteger(priority);
         this.executor = executor;
         this.stateMachine = stateMachine;
     }
@@ -95,8 +96,15 @@ class QueueExecutionImpl<R> implements QueueExecution<R> {
             }
         } catch (IllegalJobStateTransition e) {
             LOG.info("Cannot cancel the job", e);
+            // ToDo: change to ComputeException?
             throw new CancellingException(jobId);
         }
+    }
+
+    @Override
+    public void changePriority(int newPriority) {
+        // new priority will be used on queue entry run.
+        this.priority.set(newPriority);
     }
 
     /**
@@ -108,7 +116,7 @@ class QueueExecutionImpl<R> implements QueueExecution<R> {
         QueueEntry<R> queueEntry = new QueueEntry<>(() -> {
             stateMachine.executeJob(jobId);
             return job.call();
-        }, priority);
+        }, priority.get());
 
         // Ignoring previous value since it can't be running because we are calling run either after the construction or after the failure.
         this.queueEntry.set(queueEntry);

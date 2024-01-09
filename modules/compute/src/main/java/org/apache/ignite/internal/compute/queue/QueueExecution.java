@@ -22,7 +22,8 @@ import org.apache.ignite.compute.JobStatus;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Provides information about the task executing on the {@link PriorityQueueExecutor}, allows cancelling the task.
+ * Provides information about the task executing on the {@link PriorityQueueExecutor}, allows cancelling the task,
+ * change the job priority.
  *
  * @param <R> Job result type.
  */
@@ -47,4 +48,11 @@ public interface QueueExecution<R> {
      * Cancels the job.
      */
     void cancel();
+
+    /**
+     * Change job priority.
+     *
+     * @param newPriority new priority.
+     */
+    void changePriority(int newPriority);
 }
