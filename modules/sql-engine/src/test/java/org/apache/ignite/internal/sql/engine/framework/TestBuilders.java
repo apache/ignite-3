@@ -56,12 +56,10 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
-import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.sql.engine.exec.ExecutableTable;
 import org.apache.ignite.internal.sql.engine.exec.ExecutableTableRegistry;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
-import org.apache.ignite.internal.sql.engine.exec.LifecycleAware;
 import org.apache.ignite.internal.sql.engine.exec.NodeWithTerm;
 import org.apache.ignite.internal.sql.engine.exec.PartitionWithTerm;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutor;
@@ -598,7 +596,8 @@ public class TestBuilders {
 
             return new TestCluster(
                     nodes,
-                    List.of(new ComponentToLifecycleAwareAdaptor(catalogManager), prepareService),
+                    catalogManager,
+                    prepareService,
                     initClosure
             );
         }
@@ -1169,24 +1168,6 @@ public class TestBuilders {
          * @return An instance of the parent builder.
          */
         ParentT end();
-    }
-
-    private static class ComponentToLifecycleAwareAdaptor implements LifecycleAware {
-        private final IgniteComponent component;
-
-        ComponentToLifecycleAwareAdaptor(IgniteComponent component) {
-            this.component = component;
-        }
-
-        @Override
-        public void start() {
-            component.start();
-        }
-
-        @Override
-        public void stop() throws Exception {
-            component.stop();
-        }
     }
 
     private static class TestExecutableTableRegistry implements ExecutableTableRegistry {
