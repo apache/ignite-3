@@ -24,6 +24,33 @@
 
 namespace ignite::detail {
 
+void write_args(protocol::writer &writer, const std::vector<primitive> &args) {
+    if (args.empty()) {
+        writer.write_nil();
+
+        return;
+    }
+
+    auto args_num = std::int32_t(args.size());
+
+    writer.write(args_num);
+
+    binary_tuple_builder args_builder{args_num * 3};
+
+    args_builder.start();
+    for (const auto &arg : args) {
+        protocol::claim_primitive_with_type(args_builder, arg);
+    }
+
+    args_builder.layout();
+    for (const auto &arg : args) {
+        protocol::append_primitive_with_type(args_builder, arg);
+    }
+
+    auto args_data = args_builder.build();
+    writer.write_binary(args_data);
+}
+
 void sql_impl::execute_async(transaction *tx, const sql_statement &statement, std::vector<primitive> &&args,
     ignite_callback<result_set> &&callback) {
     auto tx0 = tx ? tx->m_impl : nullptr;
@@ -63,28 +90,7 @@ void sql_impl::execute_async(transaction *tx, const sql_statement &statement, st
 
         writer.write(statement.query());
 
-        if (args.empty()) {
-            writer.write_nil();
-        } else {
-            auto args_num = std::int32_t(args.size());
-
-            writer.write(args_num);
-
-            binary_tuple_builder args_builder{args_num * 3};
-
-            args_builder.start();
-            for (const auto &arg : args) {
-                protocol::claim_primitive_with_type(args_builder, arg);
-            }
-
-            args_builder.layout();
-            for (const auto &arg : args) {
-                protocol::append_primitive_with_type(args_builder, arg);
-            }
-
-            auto args_data = args_builder.build();
-            writer.write_binary(args_data);
-        }
+        write_args(writer, args);
 
         writer.write(m_connection->get_observable_timestamp());
     };
@@ -100,7 +106,14 @@ void sql_impl::execute_async(transaction *tx, const sql_statement &statement, st
 void sql_impl::execute_script_async(std::string &&query, std::vector<primitive> &&args,
     ignite_callback<void> &&callback) {
 
-    throw ignite_error("Feature is not implemented");
+    auto writer_func = [this, query = std::move(query), args = std::move(args)](protocol::writer &writer) {
+        writer.write(query);
+        write_args(writer, args);
+        writer.write(m_connection->get_observable_timestamp());
+    };
+
+    m_connection->perform_request_wr<void>(
+        protocol::client_operation::SQL_EXEC_SCRIPT, nullptr, writer_func, std::move(callback));
 }
 
 } // namespace ignite::detail
