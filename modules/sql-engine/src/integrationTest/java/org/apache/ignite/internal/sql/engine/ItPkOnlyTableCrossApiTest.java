@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine;
 
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
+import static org.apache.ignite.internal.util.Constants.DUMMY_STORAGE_PROFILE;
 import static org.apache.ignite.lang.ErrorGroups.Sql.CONSTRAINT_VIOLATION_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.instanceOf;
@@ -76,7 +77,12 @@ public class ItPkOnlyTableCrossApiTest extends BaseSqlIntegrationTest {
         for (String engine : ENGINES) {
             String testZoneName = ("test_zone_" + engine).toUpperCase();
 
-            sql(String.format("create zone %s engine %s with partitions=1, replicas=3;", testZoneName, engine));
+            sql(String.format(
+                    "create zone %s engine %s with partitions=1, replicas=3, storage_profiles = '%s';",
+                    testZoneName,
+                    engine,
+                    DUMMY_STORAGE_PROFILE
+            ));
             sql(String.format("create table %s (ID int, NAME varchar, primary key(ID, NAME)) with primary_zone='%s'",
                     tableName(engine), testZoneName));
         }

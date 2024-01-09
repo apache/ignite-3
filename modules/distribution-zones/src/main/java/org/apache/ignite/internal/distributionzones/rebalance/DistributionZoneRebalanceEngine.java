@@ -150,7 +150,7 @@ public class DistributionZoneRebalanceEngine {
 
                     Set<String> filteredDataNodes = filterDataNodes(
                             dataNodes,
-                            zoneDescriptor.filter(),
+                            zoneDescriptor,
                             distributionZoneManager.nodesAttributes()
                     );
 

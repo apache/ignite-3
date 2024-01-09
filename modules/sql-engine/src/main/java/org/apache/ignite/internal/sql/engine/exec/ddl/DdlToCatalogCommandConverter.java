@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine.exec.ddl;
 
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_DATA_REGION;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_STORAGE_ENGINE;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.parseStorageProfiles;
 
 import java.util.List;
 import java.util.Objects;
@@ -97,6 +98,7 @@ class DdlToCatalogCommandConverter {
                 .dataNodesAutoAdjustScaleUp(cmd.dataNodesAutoAdjustScaleUp())
                 .dataNodesAutoAdjustScaleDown(cmd.dataNodesAutoAdjustScaleDown())
                 .dataStorageParams(DataStorageParams.builder().engine(engine).dataRegion(dataRegion).build())
+                .storageProfilesParams(parseStorageProfiles(cmd.storageProfiles()))
                 .build();
     }
 

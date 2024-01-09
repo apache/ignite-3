@@ -38,7 +38,7 @@ public class CreateZoneCommand extends AbstractZoneDdlCommand {
     private String affinity;
 
     /** Data nodes filter expression. */
-    private String nodeFiler;
+    private String nodeFilter;
 
     /** Data nodes auto adjust timeout. */
     private Integer dataNodesAutoAdjust;
@@ -51,6 +51,9 @@ public class CreateZoneCommand extends AbstractZoneDdlCommand {
 
     /** Data storage. */
     private String dataStorage;
+
+    /** Storage profiles. */
+    private String storageProfiles;
 
     /** Data storage options. */
     private Map<String, Object> dataStorageOptions;
@@ -65,6 +68,14 @@ public class CreateZoneCommand extends AbstractZoneDdlCommand {
 
     public Map<String, Object> dataStorageOptions() {
         return (dataStorageOptions == null) ? Map.of() : dataStorageOptions;
+    }
+
+    public String storageProfiles() {
+        return storageProfiles;
+    }
+
+    public void storageProfiles(String storageProfiles) {
+        this.storageProfiles = storageProfiles;
     }
 
     /**
@@ -114,11 +125,11 @@ public class CreateZoneCommand extends AbstractZoneDdlCommand {
     }
 
     @Nullable public String nodeFilter() {
-        return nodeFiler;
+        return nodeFilter;
     }
 
     public void nodeFilter(String nodeFiler) {
-        this.nodeFiler = nodeFiler;
+        this.nodeFilter = nodeFiler;
     }
 
     @Nullable public Integer dataNodesAutoAdjust() {

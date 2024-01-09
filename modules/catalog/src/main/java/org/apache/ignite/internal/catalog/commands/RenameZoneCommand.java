@@ -75,7 +75,8 @@ public class RenameZoneCommand extends AbstractZoneCommand {
                 zone.dataNodesAutoAdjustScaleUp(),
                 zone.dataNodesAutoAdjustScaleDown(),
                 zone.filter(),
-                zone.dataStorage()
+                zone.dataStorage(),
+                zone.storageProfiles()
         );
 
         return List.of(new AlterZoneEntry(descriptor));

@@ -21,6 +21,7 @@ import static ca.seinesoftware.hamcrest.path.PathMatcher.exists;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.Constants.DUMMY_STORAGE_PROFILE;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.everyItem;
@@ -74,7 +75,7 @@ class ItRaftStorageVolatilityTest extends ClusterPerTestIntegrationTest {
     }
 
     private void createInMemoryTable() {
-        executeSql("CREATE ZONE ZONE_" + TABLE_NAME + " ENGINE aimem");
+        executeSql("CREATE ZONE ZONE_" + TABLE_NAME + " ENGINE aimem WITH STORAGE_PROFILES = '" + DUMMY_STORAGE_PROFILE + "'");
 
         executeSql("CREATE TABLE " + TABLE_NAME
                 + " (k int, v int, CONSTRAINT PK PRIMARY KEY (k)) WITH PRIMARY_ZONE='ZONE_"
@@ -162,7 +163,7 @@ class ItRaftStorageVolatilityTest extends ClusterPerTestIntegrationTest {
     }
 
     private void createPersistentTable() {
-        executeSql("CREATE ZONE ZONE_" + TABLE_NAME + " ENGINE rocksdb");
+        executeSql("CREATE ZONE ZONE_" + TABLE_NAME + " ENGINE rocksdb WITH STORAGE_PROFILES = '" + DUMMY_STORAGE_PROFILE + "'");
 
         executeSql("CREATE TABLE " + TABLE_NAME
                 + " (k int, v int, CONSTRAINT PK PRIMARY KEY (k)) WITH PRIMARY_ZONE='ZONE_"
@@ -239,7 +240,10 @@ class ItRaftStorageVolatilityTest extends ClusterPerTestIntegrationTest {
         assertThat(configUpdateFuture, willCompleteSuccessfully());
 
         cluster.doInSession(0, session -> {
-            session.execute(null, "create zone zone1 engine aimem with partitions=1, replicas=1");
+            session.execute(
+                    null,
+                    "create zone zone1 engine aimem with partitions=1, replicas=1, storage_profiles = '" + DUMMY_STORAGE_PROFILE + "'"
+            );
             session.execute(null, "create table " + tableName + " (id int primary key, name varchar) with primary_zone='ZONE1'");
         });
     }

@@ -25,7 +25,9 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.MAX_PARTITION_COUNT;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
+import static org.apache.ignite.internal.util.Constants.DUMMY_STORAGE_PROFILE;
 
+import java.util.List;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
@@ -229,6 +231,25 @@ public class CreateZoneCommandValidationTest extends AbstractCommandValidationTe
     }
 
     @Test
+    void zoneStorageProfiles() {
+        assertThrows(
+                CatalogValidationException.class,
+                () -> createZoneBuilder(ZONE_NAME).storageProfilesParams(List.of()).build(),
+                "Storage profile cannot be empty"
+        );
+
+        assertThrows(
+                CatalogValidationException.class,
+                () -> createZoneBuilder(ZONE_NAME).storageProfilesParams(null).build(),
+                "Storage profile cannot be null"
+        );
+
+        // Let's check the success case.
+        createZoneBuilder(ZONE_NAME + 0).storageProfilesParams(
+                List.of(StorageProfileParams.builder().storageProfile("lru_rocks").build())).build();
+    }
+
+    @Test
     void exceptionIsThrownIfZoneAlreadyExist() {
         CreateZoneCommandBuilder builder = CreateZoneCommand.builder();
 
@@ -236,6 +257,7 @@ public class CreateZoneCommandValidationTest extends AbstractCommandValidationTe
 
         CatalogCommand command = builder
                 .zoneName("some_zone")
+                .storageProfilesParams(List.of(StorageProfileParams.builder().storageProfile(DUMMY_STORAGE_PROFILE).build()))
                 .build();
 
         assertThrows(

@@ -22,6 +22,8 @@ import static org.apache.ignite.lang.ErrorGroups.Catalog.VALIDATION_ERR;
 
 import com.jayway.jsonpath.InvalidPathException;
 import com.jayway.jsonpath.JsonPath;
+import java.util.List;
+import org.apache.ignite.internal.catalog.commands.StorageProfileParams;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.util.StringUtils;
 import org.jetbrains.annotations.Nullable;
@@ -96,6 +98,25 @@ public class CatalogParamsValidationUtils {
                     "Invalid filter: [value={}, error={}]",
                     e,
                     filter, error
+            );
+        }
+    }
+
+    /**
+     * Validates correctness of the storage profiles.
+     */
+    public static void validateStorageProfiles(List<StorageProfileParams> storageProfiles) {
+        if (storageProfiles == null) {
+            throw new CatalogValidationException(
+                    VALIDATION_ERR,
+                    "Storage profile cannot be null"
+            );
+        }
+
+        if (storageProfiles.isEmpty()) {
+            throw new CatalogValidationException(
+                    VALIDATION_ERR,
+                    "Storage profile cannot be empty"
             );
         }
     }

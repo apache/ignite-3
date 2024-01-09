@@ -17,9 +17,11 @@
 
 package org.apache.ignite.client.handler;
 
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.fromParams;
 import static org.mockito.Mockito.mock;
 
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.catalog.Catalog;
@@ -111,7 +113,7 @@ public class FakeCatalogService implements CatalogService {
 
     @Override
     public CatalogZoneDescriptor zone(int zoneId, long timestamp) {
-        return new CatalogZoneDescriptor(zoneId, "zone", partitions, 0, 0, 0, 0, "", null);
+        return new CatalogZoneDescriptor(zoneId, "zone", partitions, 0, 0, 0, 0, "", null, fromParams(Collections.emptyList()));
     }
 
     @Override

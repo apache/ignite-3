@@ -37,11 +37,14 @@ import org.apache.ignite.internal.catalog.TableNotFoundValidationException;
 import org.apache.ignite.internal.catalog.descriptors.CatalogDataStorageDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogStorageProfileDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogStorageProfilesDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.type.NativeTypes;
+import org.apache.ignite.internal.util.Constants;
 import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.Nullable;
 
@@ -149,6 +152,9 @@ public class CatalogUtils {
         DataStorageParams dataStorageParams =
                 DataStorageParams.builder().engine(DEFAULT_STORAGE_ENGINE).dataRegion(DEFAULT_DATA_REGION).build();
 
+        List<StorageProfileParams> storageProfiles =
+                List.of(StorageProfileParams.builder().storageProfile(Constants.DUMMY_STORAGE_PROFILE).build());
+
         return new CatalogZoneDescriptor(
                 id,
                 zoneName,
@@ -158,7 +164,8 @@ public class CatalogUtils {
                 IMMEDIATE_TIMER_VALUE,
                 INFINITE_TIMER_VALUE,
                 DEFAULT_FILTER,
-                fromParams(dataStorageParams)
+                fromParams(dataStorageParams),
+                fromParams(storageProfiles)
         );
     }
 
@@ -171,6 +178,18 @@ public class CatalogUtils {
     // TODO: IGNITE-19719 Must be storage engine specific
     public static CatalogDataStorageDescriptor fromParams(DataStorageParams params) {
         return new CatalogDataStorageDescriptor(params.engine(), params.dataRegion());
+    }
+
+    /**
+     * Converts StorageProfileParams to descriptor.
+     *
+     * @param params Parameters.
+     * @return Storage profiles descriptor.
+     */
+    public static CatalogStorageProfilesDescriptor fromParams(List<StorageProfileParams> params) {
+        return new CatalogStorageProfilesDescriptor(
+                params.stream().map(p -> new CatalogStorageProfileDescriptor(p.storageProfile())).collect(toList())
+        );
     }
 
     /**

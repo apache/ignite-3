@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.cluster.management.topology;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
+import static org.apache.ignite.internal.util.Constants.DUMMY_STORAGE_PROFILE;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.is;
@@ -195,7 +196,7 @@ class ItLogicalTopologyTest extends ClusterPerTestIntegrationTest {
         assertThat(event.node.name(), is(secondIgnite.name()));
         assertThat(event.topologyVersion, is(3L));
         assertThat(event.node.userAttributes(), is(Collections.emptyMap()));
-        assertThat(event.node.storageProfiles(), is(Collections.emptyList()));
+        assertThat(event.node.storageProfiles(), is(List.of(DUMMY_STORAGE_PROFILE)));
 
         assertThat(events, is(empty()));
     }

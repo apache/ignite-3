@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.distributionzones;
 
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_FILTER;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.filter;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.filterNodeAttributes;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -28,14 +28,14 @@ import org.junit.jupiter.api.Test;
 /**
  * Tests scenarios for filtering attributes of a node.
  */
-public class DistributionZoneFiltersTest {
+public class DistributionZoneAttributeFiltersTest {
     @Test
     void testNodeAttributesFilterScenario1() {
         Map<String, String> newAttributesMap = Map.of("region", "US", "storage", "SSD", "dataRegionSize", "10");
 
         String filter = "$[?(@.dataRegionSize == 10)]";
 
-        assertTrue(filter(newAttributesMap, filter));
+        assertTrue(filterNodeAttributes(newAttributesMap, filter));
     }
 
     @Test
@@ -44,7 +44,7 @@ public class DistributionZoneFiltersTest {
 
         String filter = "$[?(@.region == 'US')]";
 
-        assertTrue(filter(newAttributesMap, filter));
+        assertTrue(filterNodeAttributes(newAttributesMap, filter));
     }
 
     @Test
@@ -53,7 +53,7 @@ public class DistributionZoneFiltersTest {
 
         String filter = "$[?(@.dataRegionSize == 10 && @.region == 'US')]";
 
-        assertTrue(filter(newAttributesMap, filter));
+        assertTrue(filterNodeAttributes(newAttributesMap, filter));
     }
 
     @Test
@@ -62,7 +62,7 @@ public class DistributionZoneFiltersTest {
 
         String filter = "$[?(@.dataRegionSize == 10 && @.region == 'US')]";
 
-        assertFalse(filter(newAttributesMap, filter));
+        assertFalse(filterNodeAttributes(newAttributesMap, filter));
     }
 
     @Test
@@ -71,7 +71,7 @@ public class DistributionZoneFiltersTest {
 
         String filter = "$[?(@.dataRegionSize == 10 && @.region == 'US')]";
 
-        assertFalse(filter(newAttributesMap, filter));
+        assertFalse(filterNodeAttributes(newAttributesMap, filter));
     }
 
     @Test
@@ -80,21 +80,21 @@ public class DistributionZoneFiltersTest {
 
         String filter = "$[?(@.storage == 'SSD' && @.region == 'US')]";
 
-        assertFalse(filter(newAttributesMap, filter));
+        assertFalse(filterNodeAttributes(newAttributesMap, filter));
     }
 
     @Test
     void testNodeAttributesFilterScenario7() {
         Map<String, String> newAttributesMap = Map.of("region", "US", "storage", "SSD", "dataRegionSize", "10");
 
-        assertTrue(filter(newAttributesMap, DEFAULT_FILTER));
+        assertTrue(filterNodeAttributes(newAttributesMap, DEFAULT_FILTER));
     }
 
     @Test
     void testNodeAttributesFilterScenario8() {
         Map<String, String> newAttributesMap = Map.of();
 
-        assertTrue(filter(newAttributesMap, DEFAULT_FILTER));
+        assertTrue(filterNodeAttributes(newAttributesMap, DEFAULT_FILTER));
     }
 
     @Test
@@ -103,7 +103,7 @@ public class DistributionZoneFiltersTest {
 
         String filter = "$.[?(@.newValue == 100)]";
 
-        assertFalse(filter(newAttributesMap, filter));
+        assertFalse(filterNodeAttributes(newAttributesMap, filter));
     }
 
     @Test
@@ -112,7 +112,7 @@ public class DistributionZoneFiltersTest {
 
         String filter = "$.[?(@.newValue != 100)]";
 
-        assertTrue(filter(newAttributesMap, filter));
+        assertTrue(filterNodeAttributes(newAttributesMap, filter));
     }
 
     @Test
@@ -121,7 +121,7 @@ public class DistributionZoneFiltersTest {
 
         String filter = "$.[?(@.newValue && @.newValue != 100)]";
 
-        assertFalse(filter(newAttributesMap, filter));
+        assertFalse(filterNodeAttributes(newAttributesMap, filter));
     }
 
     @Test
@@ -130,7 +130,7 @@ public class DistributionZoneFiltersTest {
 
         String filter = "$[?(@.dataRegionSize != 10)]";
 
-        assertFalse(filter(newAttributesMap, filter));
+        assertFalse(filterNodeAttributes(newAttributesMap, filter));
     }
 
     @Test
@@ -139,7 +139,7 @@ public class DistributionZoneFiltersTest {
 
         String filter = "$[?(@.region != 'EU')]";
 
-        assertTrue(filter(newAttributesMap, filter));
+        assertTrue(filterNodeAttributes(newAttributesMap, filter));
     }
 
     @Test
@@ -148,7 +148,7 @@ public class DistributionZoneFiltersTest {
 
         String filter = "$[?(@.region != 'EU' && @.dataRegionSize > 5)]";
 
-        assertTrue(filter(newAttributesMap, filter));
+        assertTrue(filterNodeAttributes(newAttributesMap, filter));
     }
 
     @Test
@@ -157,7 +157,7 @@ public class DistributionZoneFiltersTest {
 
         String filter = "$[?(@.region != 'EU' && @.dataRegionSize < 5)]";
 
-        assertFalse(filter(newAttributesMap, filter));
+        assertFalse(filterNodeAttributes(newAttributesMap, filter));
     }
 
     @Test
@@ -166,7 +166,7 @@ public class DistributionZoneFiltersTest {
 
         String filter = "$[?(@.dataRegionSize > 5 && @.dataRegionSize < 5)]";
 
-        assertFalse(filter(newAttributesMap, filter));
+        assertFalse(filterNodeAttributes(newAttributesMap, filter));
     }
 
     @Test
@@ -175,7 +175,7 @@ public class DistributionZoneFiltersTest {
 
         String filter = "$[?(@.region == 'US' && @.region == 'EU')]";
 
-        assertFalse(filter(newAttributesMap, filter));
+        assertFalse(filterNodeAttributes(newAttributesMap, filter));
     }
 
     @Test
@@ -184,6 +184,6 @@ public class DistributionZoneFiltersTest {
 
         String filter = "$[?(@.region == 'EU' || @.dataRegionSize > 5)]";
 
-        assertTrue(filter(newAttributesMap, filter));
+        assertTrue(filterNodeAttributes(newAttributesMap, filter));
     }
 }

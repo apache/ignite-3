@@ -15,27 +15,39 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.util;
+package org.apache.ignite.internal.catalog.descriptors;
+
+import java.io.Serializable;
+import org.apache.ignite.internal.tostring.S;
 
 /**
- * Utility class with magic constants.
+ * Storage profile descriptor.
  */
-public final class Constants {
-    /** Bytes in kilo-byte  (IEC 80000-13). */
-    public static final int KiB = 1024;
+public class CatalogStorageProfileDescriptor implements Serializable {
+    private static final long serialVersionUID = 1653344099975758919L;
 
-    /** Bytes in mega-byte (IEC 80000-13). */
-    public static final int MiB = 1024 * KiB;
+    private final String storageProfile;
 
-    /** Bytes in giga-byte (IEC 80000-13). */
-    public static final int GiB = 1024 * MiB;
+    /**
+     * Constructor.
+     *
+     * @param storageProfile Storage profile name.
+     */
+    public CatalogStorageProfileDescriptor(String storageProfile) {
+        this.storageProfile = storageProfile;
+    }
 
-    /** Dummy storage profile. */
-    // TODO: https://issues.apache.org/jira/browse/IGNITE-20990 Replace dummy with the real target storages.
-    public static final String DUMMY_STORAGE_PROFILE = "dummy";
+    @Override
+    public String toString() {
+        return S.toString(this);
+    }
 
-    /** Stub. */
-    private Constants() {
-        //Noop.
+    /**
+     * Storage profile name.
+     *
+     * @return Name of the storage profile.
+     */
+    public String storageProfile() {
+        return storageProfile;
     }
 }

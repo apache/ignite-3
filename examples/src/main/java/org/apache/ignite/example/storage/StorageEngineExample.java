@@ -68,7 +68,8 @@ class StorageEngineExample {
                 stmt.executeUpdate(
                         "CREATE ZONE ACCOUNTS_ZONE "
                                 + "ENGINE "  + engineName
-                                + " WITH DATAREGION='" + dataRegionName + "'"
+                                + " WITH DATAREGION='" + dataRegionName + "', "
+                                + " STORAGE_PROFILES='dummy' "
                 );
                 stmt.executeUpdate(
                         "CREATE TABLE ACCOUNTS ( "

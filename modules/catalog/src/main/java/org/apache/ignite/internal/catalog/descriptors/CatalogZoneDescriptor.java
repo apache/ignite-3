@@ -48,6 +48,9 @@ public class CatalogZoneDescriptor extends CatalogObjectDescriptor {
     /** Data storage descriptor. */
     private final CatalogDataStorageDescriptor dataStorage;
 
+    /** Storage profiles descriptor. */
+    private final CatalogStorageProfilesDescriptor storageProfiles;
+
     /**
      * Constructs a distribution zone descriptor.
      *
@@ -60,6 +63,7 @@ public class CatalogZoneDescriptor extends CatalogObjectDescriptor {
      * @param dataNodesAutoAdjustScaleDown Data nodes auto adjust scale down timeout.
      * @param filter Nodes filter.
      * @param dataStorage Data storage descriptor.
+     * @param storageProfiles Storage profiles descriptor.
      */
     public CatalogZoneDescriptor(
             int id,
@@ -70,7 +74,8 @@ public class CatalogZoneDescriptor extends CatalogObjectDescriptor {
             int dataNodesAutoAdjustScaleUp,
             int dataNodesAutoAdjustScaleDown,
             String filter,
-            CatalogDataStorageDescriptor dataStorage
+            CatalogDataStorageDescriptor dataStorage,
+            CatalogStorageProfilesDescriptor storageProfiles
     ) {
         super(id, Type.ZONE, name, INITIAL_CAUSALITY_TOKEN);
 
@@ -81,6 +86,7 @@ public class CatalogZoneDescriptor extends CatalogObjectDescriptor {
         this.dataNodesAutoAdjustScaleDown = dataNodesAutoAdjustScaleDown;
         this.filter = filter;
         this.dataStorage = dataStorage;
+        this.storageProfiles = storageProfiles;
     }
 
     /**
@@ -137,6 +143,13 @@ public class CatalogZoneDescriptor extends CatalogObjectDescriptor {
     // TODO: IGNITE-19719 Must be storage engine specific
     public CatalogDataStorageDescriptor dataStorage() {
         return dataStorage;
+    }
+
+    /**
+     * Returns the storage profiles descriptor.
+     */
+    public CatalogStorageProfilesDescriptor storageProfiles() {
+        return storageProfiles;
     }
 
     @Override

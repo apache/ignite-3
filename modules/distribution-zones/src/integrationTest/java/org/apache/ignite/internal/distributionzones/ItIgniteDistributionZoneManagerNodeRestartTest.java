@@ -27,6 +27,7 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertDataNodesFromManager;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertLogicalTopologyInMetastorage;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertValueInStorage;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.createZone;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.dataNodes;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.toDataNodesMap;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
@@ -39,6 +40,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCo
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
+import static org.apache.ignite.internal.util.Constants.DUMMY_STORAGE_PROFILE;
 import static org.apache.ignite.internal.util.IgniteUtils.startsWith;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.defaultSerializationRegistry;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -123,17 +125,23 @@ import org.junit.jupiter.params.provider.MethodSource;
 public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRestartTest {
     private static final LogicalNode A = new LogicalNode(
             new ClusterNodeImpl("1", "A", new NetworkAddress("localhost", 123)),
-            Map.of("region", "US", "storage", "SSD", "dataRegionSize", "10")
+            Map.of("region", "US", "storage", "SSD", "dataRegionSize", "10"),
+            Map.of(),
+            List.of(DUMMY_STORAGE_PROFILE)
     );
 
     private static final LogicalNode B = new LogicalNode(
             new ClusterNodeImpl("2", "B", new NetworkAddress("localhost", 123)),
-            Map.of("region", "EU", "storage", "HHD", "dataRegionSize", "30")
+            Map.of("region", "EU", "storage", "HHD", "dataRegionSize", "30"),
+            Map.of(),
+            List.of(DUMMY_STORAGE_PROFILE)
     );
 
     private static final LogicalNode C = new LogicalNode(
             new ClusterNodeImpl("3", "C", new NetworkAddress("localhost", 123)),
-            Map.of("region", "CN", "storage", "SSD", "dataRegionSize", "20")
+            Map.of("region", "CN", "storage", "SSD", "dataRegionSize", "20"),
+            Map.of(),
+            List.of(DUMMY_STORAGE_PROFILE)
     );
 
     private static final String ZONE_NAME = "zone1";
@@ -316,7 +324,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         node.logicalTopology().putNode(B);
         node.logicalTopology().putNode(C);
 
-        createZone(node, ZONE_NAME, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE);
+        createZone(getCatalogManager(node), ZONE_NAME, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE, null, DUMMY_STORAGE_PROFILE);
 
         int zoneId = getZoneId(node, ZONE_NAME);
 
@@ -326,7 +334,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         assertDataNodesFromManager(distributionZoneManager, metastore::appliedRevision, catalogManager::latestCatalogVersion, zoneId,
                 Set.of(A, B, C), TIMEOUT_MILLIS);
 
-        Map<String, Map<String, String>> nodeAttributesBeforeRestart = distributionZoneManager.nodesAttributes();
+        Map<String, NodeWithAttributes> nodeAttributesBeforeRestart = distributionZoneManager.nodesAttributes();
 
         node.stop();
 
@@ -334,7 +342,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
         distributionZoneManager = getDistributionZoneManager(node);
 
-        Map<String, Map<String, String>> nodeAttributesAfterRestart = distributionZoneManager.nodesAttributes();
+        Map<String, NodeWithAttributes> nodeAttributesAfterRestart = distributionZoneManager.nodesAttributes();
 
         assertEquals(3, nodeAttributesAfterRestart.size());
 
@@ -396,7 +404,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         node.logicalTopology().putNode(C);
 
         Set<NodeWithAttributes> logicalTopology = Stream.of(A, B, C)
-                .map(n -> new NodeWithAttributes(n.name(), n.id(), n.userAttributes()))
+                .map(n -> new NodeWithAttributes(n.name(), n.id(), n.userAttributes(), n.storageProfiles()))
                 .collect(toSet());
 
         DistributionZoneManager distributionZoneManager = getDistributionZoneManager(node);
@@ -423,7 +431,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         node.logicalTopology().putNode(B);
 
         Set<NodeWithAttributes> logicalTopology = Stream.of(A, B)
-                .map(n -> new NodeWithAttributes(n.name(), n.id(), n.userAttributes()))
+                .map(n -> new NodeWithAttributes(n.name(), n.id(), n.userAttributes(), n.storageProfiles()))
                 .collect(toSet());
 
         DistributionZoneManager distributionZoneManager = getDistributionZoneManager(node);
@@ -453,7 +461,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         node.logicalTopology().putNode(C);
 
         Set<NodeWithAttributes> newLogicalTopology = Stream.of(A, B, C)
-                .map(n -> new NodeWithAttributes(n.name(), n.id(), n.userAttributes()))
+                .map(n -> new NodeWithAttributes(n.name(), n.id(), n.userAttributes(), n.storageProfiles()))
                 .collect(toSet());
 
         assertTrue(waitForCondition(() -> newLogicalTopology.equals(finalDistributionZoneManager.logicalTopology()), TIMEOUT_MILLIS));
@@ -503,7 +511,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         node.logicalTopology().putNode(C);
 
         Set<NodeWithAttributes> newLogicalTopology = Stream.of(C)
-                .map(n -> new NodeWithAttributes(n.name(), n.id(), n.userAttributes()))
+                .map(n -> new NodeWithAttributes(n.name(), n.id(), n.userAttributes(), n.storageProfiles()))
                 .collect(toSet());
 
         assertTrue(waitForCondition(() -> newLogicalTopology.equals(finalDistributionZoneManager.logicalTopology()), TIMEOUT_MILLIS));
@@ -546,7 +554,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         node.logicalTopology().putNode(C);
 
         Set<NodeWithAttributes> logicalTopology = Stream.of(A, B, C)
-                .map(n -> new NodeWithAttributes(n.name(), n.id(), n.userAttributes()))
+                .map(n -> new NodeWithAttributes(n.name(), n.id(), n.userAttributes(), n.storageProfiles()))
                 .collect(toSet());
 
         DistributionZoneManager distributionZoneManager = getDistributionZoneManager(node);
@@ -594,7 +602,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
             return dataNodeKeyOptional.isPresent();
         }));
 
-        createZone(node, "zone1", INFINITE_TIMER_VALUE, INFINITE_TIMER_VALUE);
+        createZone(getCatalogManager(node), "zone1", INFINITE_TIMER_VALUE, INFINITE_TIMER_VALUE, null, DUMMY_STORAGE_PROFILE);
 
         // Assert that after creation of a zone, data nodes are still tombstone, but not the logical topology, as for default zone.
         assertThat(metastore.get(new ByteArray(dataNodeKey[0])).thenApply(Entry::tombstone), willBe(true));
@@ -794,7 +802,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
                 assertTrue(waitForCondition(() -> zoneState.scaleDownTask().isDone(), TIMEOUT_MILLIS));
             }
         } else {
-            createZone(node, ZONE_NAME, scaleUp, scaleDown);
+            createZone(getCatalogManager(node), ZONE_NAME, scaleUp, scaleDown, null, DUMMY_STORAGE_PROFILE);
         }
     }
 
@@ -835,10 +843,6 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
     private static int getZoneId(PartialNode node, String zoneName) {
         return DistributionZonesTestUtil.getZoneId(getCatalogManager(node), zoneName, node.clock().nowLong());
-    }
-
-    private static void createZone(PartialNode node, String zoneName, int scaleUp, int scaleDown) {
-        DistributionZonesTestUtil.createZone(getCatalogManager(node), zoneName, scaleUp, scaleDown, null);
     }
 
     private static void alterZone(
