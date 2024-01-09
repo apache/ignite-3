@@ -288,8 +288,8 @@ TEST_F(sql_test, sql_create_existing_table) {
             try {
                 m_client.get_sql().execute(nullptr, {"CREATE TABLE TEST(ID INT PRIMARY KEY, VAL VARCHAR)"}, {});
             } catch (const ignite_error &e) {
-                // TODO: IGNITE-19944 Propagate SQL errors from engine to driver
                 EXPECT_THAT(e.what_str(), ::testing::HasSubstr("Table with name 'PUBLIC.TEST' already exists"));
+                EXPECT_THAT(e.get_status_code(), ignite::error::code::TABLE_ALREADY_EXISTS);
                 throw;
             }
         },
@@ -302,8 +302,8 @@ TEST_F(sql_test, sql_add_existing_column) {
             try {
                 m_client.get_sql().execute(nullptr, {"ALTER TABLE TEST ADD COLUMN ID INT"}, {});
             } catch (const ignite_error &e) {
-                // TODO: IGNITE-19944 Propagate SQL errors from engine to driver
                 EXPECT_THAT(e.what_str(), ::testing::HasSubstr("Column with name 'ID' already exists"));
+                EXPECT_THAT(e.get_status_code(), ignite::error::code::COLUMN_ALREADY_EXISTS);
                 throw;
             }
         },
@@ -316,8 +316,8 @@ TEST_F(sql_test, sql_alter_nonexisting_table) {
             try {
                 m_client.get_sql().execute(nullptr, {"ALTER TABLE UNKNOWN_TABLE ADD COLUMN ID INT"}, {});
             } catch (const ignite_error &e) {
-                // TODO: IGNITE-19944 Propagate SQL errors from engine to driver
                 EXPECT_THAT(e.what_str(), ::testing::HasSubstr("Table with name 'PUBLIC.UNKNOWN_TABLE' not found"));
+                EXPECT_THAT(e.get_status_code(), ignite::error::code::TABLE_NOT_FOUND);
                 throw;
             }
         },

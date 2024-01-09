@@ -71,7 +71,7 @@ public class CsharpGenerator extends GenericGenerator {
         }
         line("");
         line("            _ => UnknownGroupName");
-        line("        }");
+        line("        };");
         for (var descriptor : descriptors) {
             generateErrorGroupClass(descriptor);
         }
@@ -85,11 +85,11 @@ public class CsharpGenerator extends GenericGenerator {
         line("        {");
 
         line("            /// <summary> " + descriptor.className + " group code. </summary>");
-        line("            public const short GroupCode = " + descriptor.groupCode);
+        line("            public const short GroupCode = " + descriptor.groupCode + ";");
         line("");
 
         line("            /// <summary> " + descriptor.className + " group name. </summary>");
-        line("            public const short GroupName = \"" + descriptor.groupName + "\"");
+        line("            public const String GroupName = \"" + descriptor.groupName + "\";");
         line("");
 
         for (int i = 0; i < descriptor.errorCodes.size(); i++) {

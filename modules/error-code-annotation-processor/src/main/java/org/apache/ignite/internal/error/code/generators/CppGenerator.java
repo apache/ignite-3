@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.error.code.generators;
 
-import com.google.common.base.CaseFormat;
 import java.io.BufferedWriter;
 import java.io.IOException;
 import java.nio.file.Path;
@@ -61,19 +60,37 @@ public class CppGenerator extends GenericGenerator {
         line();
     }
 
-    private void generateErrorCodeGroup(ErrorCodeGroupDescriptor descriptor) throws IOException {
+    private void generateErrorCodeGroup(ErrorCodeGroupDescriptor descriptor, boolean lastGroup) throws IOException {
         var groupCode = descriptor.groupCode;
-        generateEnum("// " + descriptor.className + " group.",
-                CaseFormat.UPPER_CAMEL.to(CaseFormat.LOWER_UNDERSCORE, descriptor.className),
-                descriptor.errorCodes.stream().map(ec -> composeName(ec.name)).collect(Collectors.toList()),
-                descriptor.errorCodes.stream().map(ec -> composeCode(groupCode, ec.code)).collect(Collectors.toList()));
+        line("    // " + descriptor.className + " group. Group code: " + descriptor.groupCode);
+
+        for (int i = 0; i < descriptor.errorCodes.size(); i++) {
+            var lastInGroup = i == descriptor.errorCodes.size() - 1;
+            var ec = descriptor.errorCodes.get(i);
+            var name = composeName(ec.name);
+            var code = Integer.toHexString(composeCode(groupCode, ec.code));
+            line(String.format("    %s = 0x%s%s", name, code, lastGroup && lastInGroup ? "" : ","));
+            if(lastInGroup && !lastGroup) {
+                line();
+            }
+        }
+    }
+
+    private void generateErrorCodeEnumStart() throws IOException {
+        line("// Error codes.");
+        line("enum class code : underlying_t {");
+    }
+
+    private void generateErrorCodeEnumEnd() throws IOException {
+        line("};");
+        line();
     }
 
     private void generateNamespace(List<ErrorCodeGroupDescriptor> descriptors) throws IOException {
         generateHeader();
         line("namespace ignite {");
         line();
-        line("namespace error_codes {");
+        line("namespace error {");
         line();
         line("using underlying_t = std::uint32_t;");
         line();
@@ -87,10 +104,12 @@ public class CppGenerator extends GenericGenerator {
         line("    return group(code >> group_shift);");
         line("}");
         line();
-        for (var descriptor : descriptors) {
-            generateErrorCodeGroup(descriptor);
+        generateErrorCodeEnumStart();
+        for (int i = 0; i < descriptors.size(); i++) {
+            generateErrorCodeGroup(descriptors.get(i), i == descriptors.size() - 1);
         }
-        line("} // namespace error_codes");
+        generateErrorCodeEnumEnd();
+        line("} // namespace error");
         line();
         line("} // namespace ignite");
     }

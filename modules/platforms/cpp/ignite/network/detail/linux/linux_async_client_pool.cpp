@@ -97,8 +97,8 @@ void linux_async_client_pool::close_and_release(uint64_t id, std::optional<ignit
     bool closed = client->close();
     if (closed) {
         ignite_error err0(client->get_close_error());
-        if (err0.get_status_code() == status_code::SUCCESS)
-            err0 = ignite_error(status_code::NETWORK, "Connection closed by server");
+        if (err0.get_status_code() == error::code::INTERNAL)
+            err0 = ignite_error(error::code::CONNECTION, "Connection closed by server");
 
         if (!err)
             err = std::move(err0);

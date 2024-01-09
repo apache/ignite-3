@@ -60,4 +60,10 @@
     <None Include="..\README.md" Pack="true" PackagePath="\" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Compile Include="..\..\..\api\build\generated\sources\annotationProcessor\java\main\ErrorCodes.g.cs">
+      <Link>ErrorCodes.g.cs</Link>
+    </Compile>
+  </ItemGroup>
+
 </Project>

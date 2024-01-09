@@ -148,10 +148,10 @@ public class ErrorCodeGroupProcessor extends AbstractProcessor {
                 if (expr instanceof ParenthesizedTree) {
                     expr = ((ParenthesizedTree) expr).getExpression();
                 }
-                // example: extract 1 from "(short) (1)" expression.
+                // example: extract 1 from "(short) 1" expression.
                 this.descriptor.errorCodes.add(new ErrorCode((Integer) ((LiteralTree) expr).getValue(), name));
             } catch (Exception e) {
-                ex = new ErrorCodeGroupProcessorException("ASt parsing error", e);
+                ex = new ErrorCodeGroupProcessorException("AST parsing error", e);
             }
 
             return super.visitVariable(variableTree, trees);
@@ -169,7 +169,7 @@ public class ErrorCodeGroupProcessor extends AbstractProcessor {
                 this.descriptor.groupName = (String) groupNameExpr.getValue();
                 this.descriptor.groupCode = (Integer) ((LiteralTree) groupCodeExpr).getValue();
             } catch (Exception e) {
-                ex = new ErrorCodeGroupProcessorException("ASt parsing error", e);
+                ex = new ErrorCodeGroupProcessorException("AST parsing error", e);
             }
 
             return super.visitVariable(variableTree, trees);

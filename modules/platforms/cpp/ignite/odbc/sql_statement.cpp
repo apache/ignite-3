@@ -23,8 +23,8 @@
 #include "ignite/odbc/query/data_query.h"
 #include "ignite/odbc/query/foreign_keys_query.h"
 #include "ignite/odbc/query/primary_keys_query.h"
-#include "ignite/odbc/query/table_metadata_query.h"
 #include "ignite/odbc/query/special_columns_query.h"
+#include "ignite/odbc/query/table_metadata_query.h"
 #include "ignite/odbc/query/type_info_query.h"
 #include "ignite/odbc/sql_statement.h"
 #include "ignite/odbc/system/odbc_constants.h"
@@ -815,7 +815,7 @@ sql_result sql_statement::internal_get_column_attribute(uint16_t column_idx, uin
         return sql_result::AI_ERROR;
 
     if (column_idx > meta->size() || column_idx < 1) {
-        add_status_record(sql_state::SHY000_GENERAL_ERROR, "Column index is out of range.", 0, column_idx);
+        add_status_record(sql_state::S42S22_COLUMN_NOT_FOUND, "Column index is out of range.", 0, column_idx);
 
         return sql_result::AI_ERROR;
     }
