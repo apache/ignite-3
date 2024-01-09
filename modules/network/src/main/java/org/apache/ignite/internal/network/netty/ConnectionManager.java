@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.network.netty;
 
 import static java.util.function.Function.identity;
+import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.network.ChannelType.getChannel;
 
 import io.netty.bootstrap.Bootstrap;
@@ -26,6 +27,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -327,6 +329,15 @@ public class ConnectionManager implements ChannelCreationListener {
         // Old channel can still be in the map, but it must be closed already by the tie breaker in the
         // handshake manager.
         assert oldChannel == null || !oldChannel.isOpen() : "Incorrect channel creation flow";
+
+        // Preventing a race between calling closeConnectionsWith() and putting a new channel that was just opened (with the node
+        // which is already stale). If it's stale, then the stale detector already knows it (and it knows it before
+        // closeConnectionsWith() gets called as it subscribes first).
+        // This is the only place where a new sender might be added to the map.
+        if (staleIdDetector.isIdStale(channel.launchId())) {
+            channel.close();
+            channels.remove(key, channel);
+        }
     }
 
     /**
@@ -485,5 +496,23 @@ public class ConnectionManager implements ChannelCreationListener {
      */
     public void initiateStopping() {
         stopping.set(true);
+    }
+
+    /**
+     * Closes physical connections with an Ignite node identified by the given ID (it's not consistentId,
+     * it's ID that gets regenerated at each node restart).
+     *
+     * @param id ID of the node.
+     */
+    public void closeConnectionsWith(String id) {
+        List<Entry<ConnectorKey<String>, NettySender>> entriesToRemove = channels.entrySet().stream()
+                .filter(entry -> entry.getValue().launchId().equals(id))
+                .collect(toList());
+
+        for (Entry<ConnectorKey<String>, NettySender> entry : entriesToRemove) {
+            entry.getValue().close();
+
+            channels.remove(entry.getKey());
+        }
     }
 }

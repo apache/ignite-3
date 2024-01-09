@@ -79,7 +79,6 @@ import org.apache.ignite.internal.lang.SafeTimeReorderException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
-import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.service.RaftCommandRunner;
@@ -344,13 +343,17 @@ public class PartitionReplicaListener implements ReplicaListener {
         cursors = new ConcurrentSkipListMap<>(IgniteUuid.globalOrderComparator());
 
         schemaCompatValidator = new SchemaCompatibilityValidator(validationSchemasSource, catalogService, schemaSyncService);
-
-        placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, this::onPrimaryElected);
-        placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, this::onPrimaryExpired);
     }
 
-    private CompletableFuture<Boolean> onPrimaryElected(PrimaryReplicaEventParameters evt, @Nullable Throwable exception) {
-        if (!localNode.name().equals(evt.leaseholder()) || !replicationGroupId.equals(evt.groupId())) {
+    @Override
+    public CompletableFuture<Boolean> onPrimaryElected(PrimaryReplicaEventParameters evt, @Nullable Throwable exception) {
+        assert replicationGroupId.equals(evt.groupId()) : format(
+                "The replication group listener does not match the event [grp={}, eventGrp={}]",
+                replicationGroupId,
+                evt.groupId()
+        );
+
+        if (!localNode.id().equals(evt.leaseholderId())) {
             return falseCompletedFuture();
         }
 
@@ -428,8 +431,15 @@ public class PartitionReplicaListener implements ReplicaListener {
         });
     }
 
-    private CompletableFuture<Boolean> onPrimaryExpired(PrimaryReplicaEventParameters evt, @Nullable Throwable exception) {
-        if (!localNode.name().equals(evt.leaseholder()) || !replicationGroupId.equals(evt.groupId())) {
+    @Override
+    public CompletableFuture<Boolean> onPrimaryExpired(PrimaryReplicaEventParameters evt, @Nullable Throwable exception) {
+        assert replicationGroupId.equals(evt.groupId()) : format(
+                "The replication group listener does not match the event [grp={}, eventGrp={}]",
+                replicationGroupId,
+                evt.groupId()
+        );
+
+        if (!localNode.id().equals(evt.leaseholderId())) {
             return falseCompletedFuture();
         }
 
@@ -2638,18 +2648,21 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                     // TODO: https://issues.apache.org/jira/browse/IGNITE-20124 Temporary code below
                     // Try to avoid double write if an entry is already replicated.
-                    // In case of full (1PC) commit double update is only a matter of optimisation and not correctness, because
-                    // there's no other transaction that can rewrite given key because of locks and same transaction re-write isn't possible
-                    // just because there's only one operation in 1PC.
-                    storageUpdateHandler.handleUpdate(
-                            cmd.txId(),
-                            cmd.rowUuid(),
-                            cmd.tablePartitionId().asTablePartitionId(),
-                            cmd.rowToUpdate(),
-                            false,
-                            null,
-                            cmd.safeTime(),
-                            null);
+                    synchronized (safeTime) {
+                        if (cmd.safeTime().compareTo(safeTime.current()) > 0) {
+                            storageUpdateHandler.handleUpdate(
+                                    cmd.txId(),
+                                    cmd.rowUuid(),
+                                    cmd.tablePartitionId().asTablePartitionId(),
+                                    cmd.rowToUpdate(),
+                                    false,
+                                    null,
+                                    cmd.safeTime(),
+                                    null);
+
+                            updateTrackerIgnoringTrackerClosedException(safeTime, cmd.safeTime());
+                        }
+                    }
 
                     return null;
                 });
@@ -2770,17 +2783,21 @@ public class PartitionReplicaListener implements ReplicaListener {
                             assert res == null : "Replication result is lost";
 
                             // TODO: https://issues.apache.org/jira/browse/IGNITE-20124 Temporary code below
-                            // In case of full (1PC) commit double update is only a matter of optimisation and not correctness, because
-                            // there's no other transaction that can rewrite given key because of locks and same transaction re-write isn't
-                            // possible just because there's only one operation in 1PC.
-                            storageUpdateHandler.handleUpdateAll(
-                                    cmd.txId(),
-                                    cmd.rowsToUpdate(),
-                                    cmd.tablePartitionId().asTablePartitionId(),
-                                    false,
-                                    null,
-                                    cmd.safeTime()
-                            );
+                            // Try to avoid double write if an entry is already replicated.
+                            synchronized (safeTime) {
+                                if (cmd.safeTime().compareTo(safeTime.current()) > 0) {
+                                    storageUpdateHandler.handleUpdateAll(
+                                            cmd.txId(),
+                                            cmd.rowsToUpdate(),
+                                            cmd.tablePartitionId().asTablePartitionId(),
+                                            false,
+                                            null,
+                                            cmd.safeTime()
+                                    );
+
+                                    updateTrackerIgnoringTrackerClosedException(safeTime, cmd.safeTime());
+                                }
+                            }
 
                             return null;
                         });

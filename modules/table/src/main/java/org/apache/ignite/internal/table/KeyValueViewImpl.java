@@ -42,6 +42,7 @@ import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.NullableValue;
 import org.apache.ignite.lang.UnexpectedNullValueException;
+import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.mapper.Mapper;
@@ -64,6 +65,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
      * @param tbl Table storage.
      * @param schemaRegistry Schema registry.
      * @param schemaVersions Schema versions access.
+     * @param sql Ignite SQL facade.
      * @param keyMapper Key class mapper.
      * @param valueMapper Value class mapper.
      */
@@ -71,10 +73,11 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
             InternalTable tbl,
             SchemaRegistry schemaRegistry,
             SchemaVersions schemaVersions,
+            IgniteSql sql,
             Mapper<K> keyMapper,
             Mapper<V> valueMapper
     ) {
-        super(tbl, schemaVersions, schemaRegistry);
+        super(tbl, schemaVersions, schemaRegistry, sql);
 
         marshallerFactory = (schema) -> new KvMarshallerImpl<>(schema, keyMapper, valueMapper);
     }

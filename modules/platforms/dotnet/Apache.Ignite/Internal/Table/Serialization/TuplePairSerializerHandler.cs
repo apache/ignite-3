@@ -72,12 +72,22 @@ internal sealed class TuplePairSerializerHandler : IRecordSerializerHandler<KvPa
         int columnCount,
         Span<byte> noValueSet)
     {
+        var key = record.Key;
+        var val = record.Val;
+
+        IgniteArgumentCheck.NotNull(key);
+
+        if (columnCount > schema.KeyColumnCount)
+        {
+            IgniteArgumentCheck.NotNull(val);
+        }
+
         int written = 0;
 
         for (var index = 0; index < columnCount; index++)
         {
             var col = schema.Columns[index];
-            var rec = index < schema.KeyColumnCount ? record.Key : record.Val;
+            var rec = index < schema.KeyColumnCount ? key : val;
             var colIdx = rec.GetOrdinal(col.Name);
 
             if (colIdx >= 0)

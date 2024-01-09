@@ -28,6 +28,8 @@ public class InNetworkObject {
     /** Message. */
     private final NetworkMessage message;
 
+    private final String launchId;
+
     /** Sender's consistent id. */
     private final String consistentId;
 
@@ -37,8 +39,15 @@ public class InNetworkObject {
     private final DescriptorRegistry registry;
 
     /** Constructor. */
-    public InNetworkObject(NetworkMessage message, String consistentId, short connectionIndex, DescriptorRegistry registry) {
+    public InNetworkObject(
+            NetworkMessage message,
+            String launchId,
+            String consistentId,
+            short connectionIndex,
+            DescriptorRegistry registry
+    ) {
         this.message = message;
+        this.launchId = launchId;
         this.consistentId = consistentId;
         this.connectionIndex = connectionIndex;
         this.registry = registry;
@@ -51,6 +60,13 @@ public class InNetworkObject {
      */
     public NetworkMessage message() {
         return message;
+    }
+
+    /**
+     * Returns node ID of the sender that does not survive node restart (aka launch ID).
+     */
+    public String launchId() {
+        return launchId;
     }
 
     /**

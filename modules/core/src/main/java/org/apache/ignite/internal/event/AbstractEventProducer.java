@@ -81,20 +81,32 @@ public abstract class AbstractEventProducer<T extends Event, P extends EventPara
             return nullCompletedFuture();
         }
 
-        CompletableFuture<?>[] futures = new CompletableFuture[listeners.size()];
+        // Lazy init.
+        List<CompletableFuture<?>> futures = null;
 
         for (int i = 0; i < listeners.size(); i++) {
             EventListener<P> listener = listeners.get(i);
 
-            futures[i] = listener.notify(params, err)
-                    .thenAccept(remove -> {
-                        if (remove) {
-                            removeListener(evt, listener);
-                        }
-                    });
+            CompletableFuture<Boolean> future = listener.notify(params, err);
+
+            if (future.isDone() && !future.isCompletedExceptionally()) {
+                if (future.join()) {
+                    removeListener(evt, listener);
+                }
+            } else {
+                if (futures == null) {
+                    futures = new ArrayList<>();
+                }
+
+                futures.add(future.thenAccept(remove -> {
+                    if (remove) {
+                        removeListener(evt, listener);
+                    }
+                }));
+            }
         }
 
-        return allOf(futures);
+        return futures == null ? nullCompletedFuture() : allOf(futures.toArray(CompletableFuture[]::new));
     }
 
     /**

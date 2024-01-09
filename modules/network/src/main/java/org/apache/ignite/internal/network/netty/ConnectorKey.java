@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.network.netty;
 
+import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.network.ChannelType;
 
 /**
@@ -68,5 +69,10 @@ public class ConnectorKey<T> {
         int result = id != null ? id.hashCode() : 0;
         result = 31 * result + (type != null ? type.hashCode() : 0);
         return result;
+    }
+
+    @Override
+    public String toString() {
+        return S.toString(ConnectorKey.class, this);
     }
 }

@@ -31,6 +31,7 @@ import org.apache.ignite.internal.table.distributed.replicator.InternalSchemaVer
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.ExceptionUtils;
+import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 
@@ -46,16 +47,21 @@ abstract class AbstractTableView {
     /** Table row view converter. */
     protected final TableViewRowConverter rowConverter;
 
+    /** Ignite SQL facade. */
+    protected final IgniteSql sql;
+
     /**
      * Constructor.
      *
      * @param tbl Internal table.
      * @param schemaVersions Schema versions access.
      * @param schemaReg Schema registry.
+     * @param sql Ignite SQL facade.
      */
-    AbstractTableView(InternalTable tbl, SchemaVersions schemaVersions, SchemaRegistry schemaReg) {
+    AbstractTableView(InternalTable tbl, SchemaVersions schemaVersions, SchemaRegistry schemaReg, IgniteSql sql) {
         this.tbl = tbl;
         this.schemaVersions = schemaVersions;
+        this.sql = sql;
 
         this.rowConverter = new TableViewRowConverter(schemaReg);
     }

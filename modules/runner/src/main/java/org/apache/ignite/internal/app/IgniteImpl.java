@@ -109,7 +109,7 @@ import org.apache.ignite.internal.metrics.configuration.MetricConfiguration;
 import org.apache.ignite.internal.metrics.sources.JvmMetricSource;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.network.configuration.NetworkConfigurationSchema;
-import org.apache.ignite.internal.network.recovery.VaultStateIds;
+import org.apache.ignite.internal.network.recovery.VaultStaleIds;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.PlacementDriverManager;
 import org.apache.ignite.internal.raft.Loza;
@@ -380,7 +380,7 @@ public class IgniteImpl implements Ignite {
                 networkConfiguration,
                 nettyBootstrapFactory,
                 serializationRegistry,
-                new VaultStateIds(vaultMgr)
+                new VaultStaleIds(vaultMgr)
         );
 
         clock = new HybridClockImpl();
@@ -610,7 +610,8 @@ public class IgniteImpl implements Ignite {
                 schemaSyncService,
                 catalogManager,
                 observableTimestampTracker,
-                placementDriverMgr.placementDriver()
+                placementDriverMgr.placementDriver(),
+                this::sql
         );
 
         indexManager = new IndexManager(schemaManager, distributedTblMgr, catalogManager, metaStorageMgr, registry);

@@ -82,4 +82,5 @@ dependencies {
     integrationTestImplementation libs.netty.handler
     integrationTestImplementation libs.scalecube.cluster
     integrationTestImplementation libs.javapoet
+    integrationTestImplementation libs.jetbrains.annotations
 }
