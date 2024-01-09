@@ -291,6 +291,32 @@ public interface Criteria {
     }
 
     /**
+     * Creates a condition that test the examined object is is found within the specified {@code collection}.
+     *
+     * <p>For example:
+     * <pre>
+     *     columnValue(&quot;password&quot;, in(&quot;MyPassword&quot;.getBytes(), &quot;MyOtherPassword&quot;.getBytes()))
+     * </pre>
+     *
+     * @param values The collection in which matching items must be found.
+     */
+    static Condition in(byte[]... values) {
+        if (values == null || values.length == 0) {
+            throw new IllegalArgumentException("values must not be empty or null");
+        }
+
+        if (values.length == 1) {
+            return equalTo(values[0]);
+        }
+
+        Criteria[] args = Arrays.stream(values)
+                .map(Parameter::new)
+                .toArray(Criteria[]::new);
+
+        return new Condition(Operator.IN, args);
+    }
+
+    /**
      * Creates a condition that test the examined object is is not found within the specified {@code collection}.
      *
      * <p>For example:
@@ -302,6 +328,32 @@ public interface Criteria {
      * @param values The collection in which matching items must be not found.
      */
     static <T> Condition notIn(Comparable<T>... values) {
+        if (values == null || values.length == 0) {
+            throw new IllegalArgumentException("values must not be empty or null");
+        }
+
+        if (values.length == 1) {
+            return notEqualTo(values[0]);
+        }
+
+        Criteria[] args = Arrays.stream(values)
+                .map(Parameter::new)
+                .toArray(Criteria[]::new);
+
+        return new Condition(Operator.NOT_IN, args);
+    }
+
+    /**
+     * Creates a condition that test the examined object is is not found within the specified {@code collection}.
+     *
+     * <p>For example:
+     * <pre>
+     *     columnValue(&quot;password&quot;, notIn(&quot;MyPassword&quot;.getBytes(), &quot;MyOtherPassword&quot;.getBytes()))
+     * </pre>
+     *
+     * @param values The collection in which matching items must be not found.
+     */
+    static Condition notIn(byte[]... values) {
         if (values == null || values.length == 0) {
             throw new IllegalArgumentException("values must not be empty or null");
         }

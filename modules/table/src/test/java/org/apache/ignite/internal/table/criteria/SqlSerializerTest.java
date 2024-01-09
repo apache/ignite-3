@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.table.criteria;
 
-import static org.apache.ignite.internal.util.ArrayUtils.BYTE_EMPTY_ARRAY;
 import static org.apache.ignite.internal.util.ArrayUtils.OBJECT_EMPTY_ARRAY;
 import static org.apache.ignite.table.criteria.Criteria.and;
 import static org.apache.ignite.table.criteria.Criteria.columnValue;
@@ -55,11 +54,14 @@ import org.junit.jupiter.params.provider.MethodSource;
  */
 class SqlSerializerTest {
     static Stream<Arguments> testCondition() {
+        byte[] arr1 = "arr1".getBytes();
+        byte[] arr2 = "arr2".getBytes();
+
         return Stream.of(
                 of(columnValue("a", equalTo("a1")), "A = ?", new Object[] {"a1"}),
-                of(columnValue("a", equalTo(BYTE_EMPTY_ARRAY)), "A = ?", new Object[] {BYTE_EMPTY_ARRAY}),
+                of(columnValue("a", equalTo(arr1)), "A = ?", new Object[] {arr1}),
                 of(columnValue("a", notEqualTo("a1")), "A <> ?", new Object[] {"a1"}),
-                of(columnValue("a", notEqualTo(BYTE_EMPTY_ARRAY)), "A <> ?", new Object[] {BYTE_EMPTY_ARRAY}),
+                of(columnValue("a", notEqualTo(arr1)), "A <> ?", new Object[] {arr1}),
                 of(columnValue("a", greaterThan("a1")), "A > ?", new Object[] {"a1"}),
                 of(columnValue("a", greaterThanOrEqualTo("a1")), "A >= ?", new Object[] {"a1"}),
                 of(columnValue("a", lessThan("a1")), "A < ?", new Object[] {"a1"}),
@@ -68,6 +70,8 @@ class SqlSerializerTest {
                 of(columnValue("a", notNullValue()), "A IS NOT NULL", OBJECT_EMPTY_ARRAY),
                 of(columnValue("a", in("a1", "a2")), "A IN (?, ?)", new Object[] {"a1", "a2"}),
                 of(columnValue("a", in("a1")), "A = ?", new Object[] {"a1"}),
+                of(columnValue("a", in(arr1, arr2)), "A IN (?, ?)", new Object[] {arr1, arr2}),
+                of(columnValue("a", in(arr1)), "A = ?", new Object[] {arr1}),
                 of(columnValue("a", notIn("a1", "a2")), "A NOT IN (?, ?)", new Object[] {"a1", "a2"}),
                 of(columnValue("a", notIn("a1")), "A <> ?", new Object[] {"a1"})
         );
