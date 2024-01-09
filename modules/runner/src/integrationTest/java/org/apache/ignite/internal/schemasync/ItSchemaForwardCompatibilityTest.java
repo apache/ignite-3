@@ -135,9 +135,8 @@ class ItSchemaForwardCompatibilityTest extends ClusterPerTestIntegrationTest {
         ADD_COLUMN_WITH_DEFAULT("ALTER TABLE " + TABLE_NAME + " ADD COLUMN new_col INT NOT NULL DEFAULT 42"),
         // TODO: IGNITE-19485, IGNITE-20315 - Uncomment this after column rename support gets aded.
         //RENAME_COLUMN("ALTER TABLE " + TABLE_NAME + " RENAME COLUMN not_null_int to new_col"),
-        DROP_NOT_NULL("ALTER TABLE " + TABLE_NAME + " ALTER COLUMN not_null_int DROP NOT NULL");
-        // TODO: Uncomment after https://issues.apache.org/jira/browse/IGNITE-20906 is fixed.
-        //WIDEN_COLUMN_TYPE("ALTER TABLE " + TABLE_NAME + " ALTER COLUMN not_null_int SET DATA TYPE BIGINT"),
+        DROP_NOT_NULL("ALTER TABLE " + TABLE_NAME + " ALTER COLUMN not_null_int DROP NOT NULL"),
+        WIDEN_COLUMN_TYPE("ALTER TABLE " + TABLE_NAME + " ALTER COLUMN not_null_int SET DATA TYPE BIGINT");
 
         private final String ddl;
 

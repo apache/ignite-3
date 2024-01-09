@@ -116,6 +116,9 @@ enum class client_operation {
     /** Close cursor. */
     SQL_CURSOR_CLOSE = 52,
 
+    /** Execute SQL script. */
+    SQL_EXEC_SCRIPT = 56,
+
     /** SQL parameter metadata. */
     SQL_PARAM_META = 57,
 };

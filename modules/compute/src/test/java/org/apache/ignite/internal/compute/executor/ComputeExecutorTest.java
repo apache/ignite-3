@@ -31,7 +31,6 @@ import static org.hamcrest.Matchers.is;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.compute.ComputeJob;
-import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.compute.JobStatus;
 import org.apache.ignite.internal.compute.ExecutionOptions;
@@ -70,7 +69,11 @@ class ComputeExecutorTest extends BaseIgniteAbstractTest {
 
     @Test
     void threadInterruption() {
-        JobExecution<Integer> execution = computeExecutor.executeJob(ExecutionOptions.DEFAULT, InterruptingJob.class, new Object[]{});
+        JobExecutionInternal<Integer> execution = computeExecutor.executeJob(
+                ExecutionOptions.DEFAULT,
+                InterruptingJob.class,
+                new Object[]{}
+        );
         JobStatus executingStatus = await().until(execution::status, jobStatusWithState(EXECUTING));
         execution.cancel();
         await().until(
@@ -95,7 +98,11 @@ class ComputeExecutorTest extends BaseIgniteAbstractTest {
 
     @Test
     void cooperativeCancellation() {
-        JobExecution<Integer> execution = computeExecutor.executeJob(ExecutionOptions.DEFAULT, CancellingJob.class, new Object[]{});
+        JobExecutionInternal<Integer> execution = computeExecutor.executeJob(
+                ExecutionOptions.DEFAULT,
+                CancellingJob.class,
+                new Object[]{}
+        );
         JobStatus executingStatus = await().until(execution::status, jobStatusWithState(EXECUTING));
         execution.cancel();
         await().until(
@@ -126,7 +133,7 @@ class ComputeExecutorTest extends BaseIgniteAbstractTest {
 
         int maxRetries = 5;
 
-        JobExecution<Integer> execution = computeExecutor.executeJob(
+        JobExecutionInternal<Integer> execution = computeExecutor.executeJob(
                 ExecutionOptions.builder().maxRetries(maxRetries).build(),
                 RetryJobFail.class,
                 new Object[]{runTimes}
@@ -153,7 +160,7 @@ class ComputeExecutorTest extends BaseIgniteAbstractTest {
 
         int maxRetries = 5;
 
-        JobExecution<Integer> execution = computeExecutor.executeJob(
+        JobExecutionInternal<Integer> execution = computeExecutor.executeJob(
                 ExecutionOptions.builder().maxRetries(maxRetries).build(),
                 RetryJobSuccess.class,
                 new Object[]{runTimes, maxRetries}
@@ -184,7 +191,7 @@ class ComputeExecutorTest extends BaseIgniteAbstractTest {
 
         int maxRetries = 5;
 
-        JobExecution<Integer> execution = computeExecutor.executeJob(
+        JobExecutionInternal<Integer> execution = computeExecutor.executeJob(
                 ExecutionOptions.builder().maxRetries(maxRetries).build(),
                 JobSuccess.class,
                 new Object[]{runTimes}

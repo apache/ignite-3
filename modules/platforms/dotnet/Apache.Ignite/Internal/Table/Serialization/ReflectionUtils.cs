@@ -81,7 +81,17 @@ namespace Apache.Ignite.Internal.Table.Serialization
         /// </summary>
         /// <param name="type">Type to unwrap.</param>
         /// <returns>Underlying type when enum; type itself otherwise.</returns>
-        public static Type UnwrapEnum(this Type type) => type.IsEnum ? Enum.GetUnderlyingType(type) : type;
+        public static Type UnwrapEnum(this Type type)
+        {
+            if (Nullable.GetUnderlyingType(type) is { IsEnum: true } underlyingType)
+            {
+                return typeof(Nullable<>).MakeGenericType(Enum.GetUnderlyingType(underlyingType));
+            }
+
+            return type.IsEnum
+                ? Enum.GetUnderlyingType(type)
+                : type;
+        }
 
         /// <summary>
         /// Gets a map of fields by column name. Ignores case, handles <see cref="ColumnAttribute"/> and <see cref="NotMappedAttribute"/>.
