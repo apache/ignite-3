@@ -36,6 +36,7 @@ public interface JobChangePriorityRequest extends NetworkMessage {
 
     /**
      * Returns job priority.
+     *
      * @return job priority.
      */
     int priority();

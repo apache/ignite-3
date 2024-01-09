@@ -60,7 +60,7 @@ public class JobExecutionInternal<R> {
 
     /**
      * Change priority of job execution.
-     * 
+     *
      * @param newPriority new priority.
      */
     public void changePriority(int newPriority) {
