@@ -70,7 +70,7 @@ public class CppGenerator extends GenericGenerator {
             var name = composeName(ec.name);
             var code = Integer.toHexString(composeCode(groupCode, ec.code));
             line(String.format("    %s = 0x%s%s", name, code, lastGroup && lastInGroup ? "" : ","));
-            if(lastInGroup && !lastGroup) {
+            if (lastInGroup && !lastGroup) {
                 line();
             }
         }
