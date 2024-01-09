@@ -715,13 +715,21 @@ public class ItTxTestCluster {
 
                 var mvPartStorage = new TestMvPartitionStorage(partId);
                 var txStateStorage = txStateStorages.get(assignment);
+
+                TxMessageSender txMessageSender =
+                        new TxMessageSender(
+                                clusterServices.get(assignment).messagingService(),
+                                replicaServices.get(assignment),
+                                clocks.get(assignment)
+                        );
+
                 var transactionStateResolver = new TransactionStateResolver(
-                        replicaServices.get(assignment),
                         txManagers.get(assignment),
                         clocks.get(assignment),
                         nodeResolver,
                         clusterServices.get(assignment).messagingService(),
-                        placementDriver
+                        placementDriver,
+                        txMessageSender
                 );
                 transactionStateResolver.start();
 

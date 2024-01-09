@@ -21,10 +21,12 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.util.ArrayList;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import javax.cache.CacheManager;
 import javax.cache.configuration.CacheEntryListenerConfiguration;
 import javax.cache.configuration.Configuration;
@@ -35,20 +37,27 @@ import javax.cache.processor.EntryProcessor;
 import javax.cache.processor.EntryProcessorException;
 import javax.cache.processor.EntryProcessorResult;
 import org.apache.ignite.cache.Cache;
+import org.apache.ignite.cache.CacheTransaction;
+import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.SchemaRegistry;
+import org.apache.ignite.internal.schema.marshaller.TupleMarshaller;
+import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
+import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
+import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.TypeConverter;
-import org.apache.ignite.tx.IgniteTransactions;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Key-value view implementation.
  */
-public class CacheImpl<K, V> extends KeyValueBinaryViewImpl implements Cache<K, V> {
+public class CacheImpl<K, V> extends AbstractTableView implements Cache<K, V> {
     private static final byte[] TOMBSTONE = new byte[0];
 
     public static final String KEY_COL = "KEY";
@@ -61,53 +70,82 @@ public class CacheImpl<K, V> extends KeyValueBinaryViewImpl implements Cache<K, 
     private final CacheLoader<K, V> loader;
     private final CacheWriter<K, V> writer;
 
-    private final IgniteTransactions transactions;
-    private final int schemaVersion;
+    private final TxManager txManager;
+
+    private final TupleMarshaller marshaller;
 
     public CacheImpl(
             InternalTable tbl,
             SchemaVersions schemaVersions,
             SchemaRegistry schemaReg,
-            IgniteTransactions transactions,
+            TxManager txManager,
             @Nullable CacheLoader<K, V> loader,
             @Nullable CacheWriter<K, V> writer,
             @Nullable TypeConverter<K, byte[]> keyConverter,
             @Nullable TypeConverter<V, byte[]> valueConverter
     ) {
-        super(tbl, schemaReg, schemaVersions);
+        super(tbl, schemaVersions, schemaReg);
 
-        // Schema is immutable for cache.
-        this.schemaVersion = rowConverter.registry().lastKnownSchemaVersion();
-
-        this.transactions = transactions;
+        this.txManager = txManager; // TODO get from internal table.
         this.loader = loader;
         this.writer = writer;
         this.keySerializer = keyConverter == null ? new SerializingConverter<>() : keyConverter;
         this.valueSerializer = valueConverter == null ? new SerializingConverter<>() : valueConverter;
+
+        marshaller = new TupleMarshallerImpl(schemaReg.lastKnownSchema());
     }
 
     @Override
     public @Nullable V get(K key) {
-        InternalTransaction tx = (InternalTransaction) transactions.begin();
+        CacheTransaction tx = beginTransaction();
+
+        try {
+            return get(tx, key);
+        } catch (TransactionException e) {
+            try {
+                tx.rollback();
+            } catch (TransactionException ex) {
+                e.addSuppressed(ex);
+            }
+
+            throw e;
+        } finally {
+            tx.commit();
+        }
+    }
+
+    @Override
+    public @Nullable V get(CacheTransaction tx, K key) {
+        InternalTransaction tx0 = (InternalTransaction) tx;
+
+        if (writer != null) {
+            Object val0 = tx0.dirtyCache().get(key);
+
+            if (val0 != null) {
+                return val0 == TOMBSTONE ? null : (V) val0;
+            }
+        }
 
         try {
             Tuple keyTup = Tuple.create().set(KEY_COL, keySerializer.toColumnType(key));
 
-            Row keyRow = marshal(keyTup, null, schemaVersion);
+            Row keyRow = marshaller.marshal(keyTup, null);
 
-            Tuple valTup = tbl.getForCache(keyRow, tx).thenApply(row -> unmarshalValue(row, schemaVersion)).join();
+            Tuple valTup = tbl.getForCache(keyRow, tx0).thenApply(row -> unmarshalValue(row, marshaller.schemaVersion())).join();
 
             if (valTup == null) {
                 if (loader != null) {
                     V val = loader.load(key);
                     if (val == null) {
-                        valTup = Tuple.create().set(VAL_COL, TOMBSTONE).set(TTL_COL, 0L); // TODO ttl from policy
+                        // TODO need ttl for tombstones even if no ttl configured by user
+                        valTup = Tuple.create().set(VAL_COL, TOMBSTONE).set(TTL_COL, 0L);
                     } else {
+                        // TODO set ttl defined by user
                         valTup = Tuple.create().set(VAL_COL, valueSerializer.toColumnType(val)).set(TTL_COL, 0L);
                     }
 
-                    Row row = marshal(keyTup, valTup, schemaVersion);
-                    tbl.putForCache(row, tx).join();
+                    Row row = marshaller.marshal(keyTup, valTup);
+                    tbl.putForCache(row, tx0).join();
                 }
 
                 return null;
@@ -124,17 +162,8 @@ public class CacheImpl<K, V> extends KeyValueBinaryViewImpl implements Cache<K, 
             }
 
             return (V) keySerializer.toObjectType(val);
-        } catch (TransactionException e) {
-            tx.safeCleanup(false);
-
-            throw e;
         } catch (Exception e) {
-            tx.safeCleanup(false);
-
-            // TODO mapper error has no codes. Need to refactor converter exceptions.
             throw new TransactionException(e);
-        } finally {
-            tx.safeCleanup(true);
         }
     }
 
@@ -155,30 +184,38 @@ public class CacheImpl<K, V> extends KeyValueBinaryViewImpl implements Cache<K, 
 
     @Override
     public void put(K key, V value) {
-        InternalTransaction tx = (InternalTransaction) transactions.begin();
+        CacheTransaction tx = beginTransaction();
 
-        Objects.requireNonNull(key);
-        Objects.requireNonNull(value);
+        try {
+            put(tx, key, value);
+        } catch (TransactionException e) {
+            try {
+                tx.rollback();
+            } catch (TransactionException ex) {
+                e.addSuppressed(ex);
+            }
 
+            throw e;
+        } finally {
+            tx.commit();
+        }
+    }
+
+    @Override
+    public void put(CacheTransaction tx, K key, V value) {
         try {
             Tuple keyTup = Tuple.create().set(KEY_COL, keySerializer.toColumnType(key));
             Tuple valTup = Tuple.create().set(VAL_COL, valueSerializer.toColumnType(value)).set(TTL_COL, 0L);
 
-            Row row = marshal(keyTup, valTup, schemaVersion);
-            tbl.putForCache(row, tx).join();
+            InternalTransaction tx0 = (InternalTransaction) tx;
+
+            Row row = marshaller.marshal(keyTup, valTup);
+            tbl.putForCache(row, tx0).join();
 
             if (writer != null) {
-                writer.write(new CacheEntryImpl<>(key, value));
+                tx0.dirtyCache().put(key, value); // Safe for external commit.
             }
-
-            tx.safeCleanup(true);
-        } catch (TransactionException e) {
-            tx.safeCleanup(false); // Async cleanup.
-
-            throw e;
         } catch (Exception e) {
-            tx.safeCleanup(false); // Async cleanup.
-
             throw new TransactionException(e);
         }
     }
@@ -200,32 +237,49 @@ public class CacheImpl<K, V> extends KeyValueBinaryViewImpl implements Cache<K, 
 
     @Override
     public boolean remove(K key) {
-        InternalTransaction tx = (InternalTransaction) transactions.begin();
+        CacheTransaction tx = beginTransaction();
 
-        Objects.requireNonNull(key);
+        try {
+            return remove(tx, key);
+        } catch (TransactionException e) {
+            try {
+                tx.rollback();
+            } catch (TransactionException ex) {
+                e.addSuppressed(ex);
+            }
+
+            throw e;
+        } finally {
+            tx.commit();
+        }
+    }
+
+    @Override
+    public boolean remove(CacheTransaction tx, K key) {
+        InternalTransaction tx0 = (InternalTransaction) tx;
+
+        if (writer != null) {
+            Object val = tx0.dirtyCache().get(key);
+
+            if (val == TOMBSTONE) {
+                return false; // Already removed.
+            }
+        }
 
         try {
             Tuple keyTup = Tuple.create().set(KEY_COL, keySerializer.toColumnType(key));
 
-            Row row = marshal(keyTup, null, schemaVersion);
+            Row row = marshaller.marshalKey(keyTup);
 
-            boolean removed = tbl.removeForCache(row, tx).join();
+            boolean removed = tbl.removeForCache(row, tx0).join();
 
             // Always call external delete.
             if (writer != null) {
-                writer.delete(key);
+                tx0.dirtyCache().put(key, TOMBSTONE);
             }
 
-            tx.safeCleanup(true); // Safe to call in final block.
-
             return removed;
-        } catch (TransactionException e) {
-            tx.safeCleanup(false); // Async cleanup.
-
-            throw e;
         } catch (Exception e) {
-            tx.safeCleanup(false); // Async cleanup.
-
             throw new TransactionException(e);
         }
     }
@@ -324,6 +378,49 @@ public class CacheImpl<K, V> extends KeyValueBinaryViewImpl implements Cache<K, 
     @Override
     public Iterator<Entry<K, V>> iterator() {
         return null;
+    }
+
+    @Override
+    public CacheTransaction beginTransaction() {
+        // TODO use correct observable tracker.
+        return txManager.beginForCache(new HybridTimestampTracker(), (writer == null) ? null : txn -> {
+            if (txn.dirtyCache().isEmpty()) {
+                return CompletableFutures.nullCompletedFuture();
+            }
+
+            Set<Map.Entry<Object, Object>> entries = txn.dirtyCache().entrySet();
+
+            List<CompletableFuture<Void>> futs = new ArrayList<>();
+
+            // TODO make batch
+            for (Map.Entry<Object, Object> entry : entries) {
+                if (entry.getValue() == TOMBSTONE) {
+                    writer.delete(entry.getKey());
+                } else {
+                    CacheEntryImpl<Object, Object> cacheEntry = new CacheEntryImpl<>(entry.getKey(), entry.getValue());
+                    writer.write((Entry<? extends K, ? extends V>) cacheEntry);
+                }
+
+                futs.add(CompletableFutures.nullCompletedFuture());
+            }
+
+            return CompletableFuture.allOf(futs.toArray(new CompletableFuture[0]));
+        });
+    }
+
+    /**
+     * Returns value tuple of given row.
+     *
+     * @param row Binary row.
+     * @param schemaVersion The version to use when unmarshalling.
+     * @return Value tuple.
+     */
+    protected @Nullable Tuple unmarshalValue(BinaryRow row, int schemaVersion) {
+        if (row == null) {
+            return null;
+        }
+
+        return TableRow.valueTuple(rowConverter.resolveRow(row, schemaVersion));
     }
 
     private static class SerializingConverter<T> implements TypeConverter<T, byte[]> {

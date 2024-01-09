@@ -29,20 +29,25 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.function.Function;
 import java.util.stream.Collectors;
+import org.apache.ignite.cache.CacheTransaction;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
+import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TransactionIds;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.TransactionException;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * The read-write implementation of an internal transaction.
  */
-public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
+public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl implements CacheTransaction {
     /** Commit partition updater. */
     private static final AtomicReferenceFieldUpdater<ReadWriteTransactionImpl, TablePartitionId> COMMIT_PART_UPDATER =
             AtomicReferenceFieldUpdater.newUpdater(ReadWriteTransactionImpl.class, TablePartitionId.class, "commitPart");
@@ -62,17 +67,30 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
     /** The future is initialized when this transaction starts committing or rolling back and is finished together with the transaction. */
     private CompletableFuture<Void> finishFuture;
 
+    /** Dirty cache. */
+    private final Map<Object, Object> dirtyCache = new ConcurrentHashMap<>();
+
+    /** External commit callback. */
+    private final @Nullable Function<InternalTransaction, CompletableFuture<Void>> externalCommit;
+
     /**
      * Constructs an explicit read-write transaction.
      *
      * @param txManager The tx manager.
      * @param observableTsTracker Observable timestamp tracker.
      * @param id The id.
+     * @param externalCommit External commit callback.
      */
-    public ReadWriteTransactionImpl(TxManager txManager, HybridTimestampTracker observableTsTracker, UUID id) {
+    public ReadWriteTransactionImpl(
+            TxManager txManager,
+            HybridTimestampTracker observableTsTracker,
+            UUID id,
+            @Nullable Function<InternalTransaction, CompletableFuture<Void>> externalCommit
+    ) {
         super(txManager, id);
 
         this.observableTsTracker = observableTsTracker;
+        this.externalCommit = externalCommit;
     }
 
     /** {@inheritDoc} */
@@ -132,14 +150,24 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
     /** {@inheritDoc} */
     @Override
     protected CompletableFuture<Void> finish(boolean commit) {
-        return finishInternal(commit, false);
+        if (externalCommit == null) {
+            return finishInternal(commit, false);
+        } else {
+            if (!commit) {
+                return finishInternal(false, true);
+            }
+
+            CompletableFuture<Void> fut = externalCommit.apply(this);
+
+            return fut.handle((unused, err) -> finishInternal(err == null, true)).thenCompose(x -> x);
+        }
     }
 
     /**
      * Internal method for finishing this transaction.
      *
      * @param commit {@code true} to commit, false to rollback.
-     * @param skipCommitPartition {@code true} to skip commit partition step (a txn will be committed externally).
+     * @param skipCommitPartition {@code true} to skip commit partition step (a txn was committed externally).
      * @return The future of transaction completion.
      */
     private CompletableFuture<Void> finishInternal(boolean commit, boolean skipCommitPartition) {
@@ -169,8 +197,6 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
         } finally {
             enlistPartitionLock.writeLock().unlock();
         }
-
-
     }
 
     /** {@inheritDoc} */
@@ -191,7 +217,7 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
     }
 
     @Override
-    public CompletableFuture<Void> safeCleanup(boolean commit) {
-        return finishInternal(commit, true);
+    public Map<Object, Object> dirtyCache() {
+        return dirtyCache;
     }
 }

@@ -17,8 +17,17 @@
 
 package org.apache.ignite.cache;
 
+import org.jetbrains.annotations.Nullable;
+
 /**
  *
  */
 public interface Cache<K, V> extends javax.cache.Cache<K, V> {
+    @Nullable V get(CacheTransaction tx, K key);
+
+    void put(CacheTransaction tx, K key, V value);
+
+    boolean remove(CacheTransaction tx, K key);
+
+    CacheTransaction beginTransaction();
 }

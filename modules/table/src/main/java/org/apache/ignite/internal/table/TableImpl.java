@@ -49,6 +49,7 @@ import org.apache.ignite.internal.table.distributed.TableIndexStoragesSupplier;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
 import org.apache.ignite.internal.tx.LockManager;
+import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.lang.ErrorGroups;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.KeyValueView;
@@ -308,13 +309,13 @@ public class TableImpl implements TableViewInternal {
 
     @Override
     public <K, V> Cache<K, V> cacheView(
-            IgniteTransactions transactions,
+            TxManager txManager,
             @Nullable CacheLoader<K, V> loader,
             @Nullable CacheWriter<K, V> writer,
             @Nullable TypeConverter<K, byte[]> keyConverter,
             @Nullable TypeConverter<V, byte[]> valueConverter
     ) {
-        return new CacheImpl<>(tbl, schemaVersions, schemaReg, transactions, loader, writer, keyConverter, valueConverter);
+        return new CacheImpl<>(tbl, schemaVersions, schemaReg, txManager, loader, writer, keyConverter, valueConverter);
     }
 
     private void awaitIndexes() {

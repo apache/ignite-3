@@ -54,6 +54,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.function.LongSupplier;
 import java.util.function.Supplier;
+import org.apache.ignite.cache.CacheTransaction;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
@@ -235,7 +236,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         updateTxMeta(txId, old -> new TxStateMeta(PENDING, localNodeId, null, null));
 
         if (!readOnly) {
-            return new ReadWriteTransactionImpl(this, timestampTracker, txId);
+            return new ReadWriteTransactionImpl(this, timestampTracker, txId, null);
         }
 
         HybridTimestamp observableTimestamp = timestampTracker.get();
@@ -272,6 +273,18 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         }
 
         return new ReadOnlyTransactionImpl(this, timestampTracker, txId, readTimestamp);
+    }
+
+    @Override
+    public CacheTransaction beginForCache(
+            HybridTimestampTracker timestampTracker,
+            Function<InternalTransaction, CompletableFuture<Void>> externalCommit
+    ) {
+        HybridTimestamp beginTimestamp = clock.now();
+        UUID txId = transactionIdGenerator.transactionIdFor(beginTimestamp);
+        updateTxMeta(txId, old -> new TxStateMeta(PENDING, localNodeId, null, null));
+
+        return new ReadWriteTransactionImpl(this, timestampTracker, txId, externalCommit);
     }
 
     /**
@@ -427,7 +440,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                         (unused, throwable) -> {
                             boolean verifiedCommit = throwable == null && commit;
 
-                            // A tx will be externally committed.
+                            // A tx will be externally committed, need only cleanup.
                             if (commitPartition == null) {
                                 return cleanupOnly(
                                         observableTimestampTracker,
@@ -465,73 +478,21 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             UUID txId,
             CompletableFuture<TransactionMeta> txFinishFuture
     ) {
-        return cleanup(replicationGroupIds, commit, commitTimestamp, txId)
-                .handle((res, ex) -> {
-                    if (ex != null) {
-                        Throwable cause = ExceptionUtils.unwrapCause(ex);
+        TxStateMeta finalTxStateMeta = updateTxMeta(txId, old -> new TxStateMeta(
+                commit ? COMMITTED : ABORTED,
+                old.txCoordinatorId(),
+                null,
+                commitTimestamp
+        ));
 
-                        if (cause instanceof TransactionException) {
-                            TransactionException transactionException = (TransactionException) cause;
+        txFinishFuture.complete(finalTxStateMeta);
 
-                            if (transactionException.code() == TX_WAS_ABORTED_ERR) {
-                                updateTxMeta(txId, old -> {
-                                    TxStateMeta txStateMeta = new TxStateMeta(ABORTED, old.txCoordinatorId(), null, null);
+        if (commit) {
+            observableTimestampTracker.update(commitTimestamp);
+        }
 
-                                    txFinishFuture.complete(txStateMeta);
-
-                                    return txStateMeta;
-                                });
-
-                                return CompletableFuture.<Void>failedFuture(cause);
-                            }
-                        }
-
-                        if (TransactionFailureHandler.isRecoverable(cause)) {
-                            LOG.warn("Failed to cleanup Tx. The operation will be retried [txId={}].", ex, txId);
-
-                            // Safe to retry, cleanup is idempotent.
-                            return cleanupOnly(
-                                    observableTimestampTracker,
-                                    commitTimestamp,
-                                    replicationGroupIds,
-                                    commit,
-                                    txId,
-                                    txFinishFuture
-                            );
-                        } else {
-                            LOG.warn("Failed to cleanup Tx [txId={}].", ex, txId);
-
-                            return CompletableFuture.<Void>failedFuture(cause);
-                        }
-                    } else {
-                        updateTxMeta(txId, old -> {
-                            if (isFinalState(old.txState())) {
-                                txFinishFuture.complete(old);
-
-                                return old;
-                            }
-
-                            assert old instanceof TxStateMetaFinishing;
-
-                            TxStateMeta finalTxStateMeta = coordinatorFinalTxStateMeta(
-                                    commit,
-                                    old.commitPartitionId(),
-                                    commitTimestamp
-                            );
-
-                            txFinishFuture.complete(finalTxStateMeta);
-
-                            return finalTxStateMeta;
-                        });
-
-                        if (commit) {
-                            observableTimestampTracker.update(commitTimestamp);
-                        }
-                    }
-
-                    return CompletableFutures.<Void>nullCompletedFuture();
-                })
-                .thenCompose(Function.identity());
+        // TBD must retry until all enlisted partitions are cleaned up.
+        return cleanup(replicationGroupIds, commit, commitTimestamp, txId);
     }
 
     /**

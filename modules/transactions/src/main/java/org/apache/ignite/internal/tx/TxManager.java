@@ -23,6 +23,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import org.apache.ignite.cache.CacheTransaction;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.manager.IgniteComponent;
@@ -57,6 +58,11 @@ public interface TxManager extends IgniteComponent {
      *         available in the tables.
      */
     InternalTransaction begin(HybridTimestampTracker timestampTracker, boolean readOnly);
+
+    CacheTransaction beginForCache(
+            HybridTimestampTracker timestampTracker,
+            @Nullable Function<InternalTransaction, CompletableFuture<Void>> externalCommit
+    );
 
     /**
      * Returns a transaction state meta.

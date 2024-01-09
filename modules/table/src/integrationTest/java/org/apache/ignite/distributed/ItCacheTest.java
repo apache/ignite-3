@@ -30,6 +30,7 @@ import javax.cache.integration.CacheLoaderException;
 import javax.cache.integration.CacheWriter;
 import javax.cache.integration.CacheWriterException;
 import org.apache.ignite.cache.Cache;
+import org.apache.ignite.cache.CacheTransaction;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -93,7 +94,7 @@ public class ItCacheTest extends IgniteAbstractTest {
                 workDir,
                 1,
                 1,
-                false,
+                true,
                 timestampTracker
         );
         txTestCluster.prepareCluster();
@@ -113,7 +114,7 @@ public class ItCacheTest extends IgniteAbstractTest {
      */
     @Test
     public void testBasic() {
-        try (Cache<Integer, Integer> view = testTable.cacheView(txTestCluster.igniteTransactions, null, null, null, null)) {
+        try (Cache<Integer, Integer> view = testTable.cacheView(txTestCluster.clientTxManager, null, null, null, null)) {
             view.put(1, 1);
 
             assertEquals(1, view.get(1));
@@ -133,6 +134,36 @@ public class ItCacheTest extends IgniteAbstractTest {
     }
 
     /**
+     * Test explicit cache transaction (without external store).
+     */
+    @Test
+    public void testExplicitTxn() {
+        try (Cache<Integer, Integer> view = testTable.cacheView(txTestCluster.clientTxManager, null, null, null, null)) {
+            CacheTransaction tx = view.beginTransaction();
+
+            view.put(tx, 1, 1);
+
+            assertEquals(1, view.get(tx, 1));
+
+            assertTrue(view.remove(tx, 1));
+
+            assertNull(view.get(tx, 1));
+
+            view.put(tx, 1, 2);
+
+            assertEquals(2, view.get(tx, 1));
+
+            assertTrue(view.remove(tx, 1));
+
+            assertNull(view.get(tx, 1));
+
+            tx.commit();
+
+            assertNull(view.get(1));
+        }
+    }
+
+    /**
      * Test basic cache operations.
      */
     @Test
@@ -142,7 +173,7 @@ public class ItCacheTest extends IgniteAbstractTest {
         TestCacheLoader loader = new TestCacheLoader(testStore);
         TestCacheWriter writer = new TestCacheWriter(testStore);
         try (Cache<Integer, Integer> view = testTable.cacheView(
-                txTestCluster.igniteTransactions,
+                txTestCluster.clientTxManager,
                 loader,
                 writer,
                 null,
@@ -168,8 +199,52 @@ public class ItCacheTest extends IgniteAbstractTest {
         }
     }
 
+    /**
+     * Test basic cache operations.
+     */
+    @Test
+    public void testReadWriteThroughExplicitTTxn() {
+        Map<Integer, Integer> testStore = new HashMap<>();
+
+        TestCacheLoader loader = new TestCacheLoader(testStore);
+        TestCacheWriter writer = new TestCacheWriter(testStore);
+        try (Cache<Integer, Integer> view = testTable.cacheView(
+                txTestCluster.clientTxManager,
+                loader,
+                writer,
+                null,
+                null)
+        ) {
+            CacheTransaction tx = view.beginTransaction();
+
+            assertNull(view.get(tx, 1));
+            validate(testStore, loader, writer, 0, 1, 0, 0);
+
+            assertNull(view.get(tx, 1)); // Repeating get should fetch tombstone and avoid loading from store.
+            validate(testStore, loader, writer, 0, 1, 0, 0);
+
+            view.put(tx, 1, 1);
+            validate(testStore, loader, writer, 0, 1, 0, 0);
+
+            assertEquals(1, view.get(tx, 1));
+            validate(testStore, loader, writer, 0, 1, 0, 0);
+
+            assertTrue(view.remove(tx, 1));
+            validate(testStore, loader, writer, 0, 1, 0, 0);
+
+            assertNull(view.get(tx, 1));
+            validate(testStore, loader, writer, 0, 1, 0, 0);
+
+            tx.commit();
+
+            assertNull(view.get(1));
+            validate(testStore, loader, writer, 0, 2, 0, 1);
+        }
+    }
+
     private static void validate(
-            Map<Integer, Integer> testStore, TestCacheLoader loader,
+            Map<Integer, Integer> testStore,
+            TestCacheLoader loader,
             TestCacheWriter writer,
             int expSize,
             int expRead,

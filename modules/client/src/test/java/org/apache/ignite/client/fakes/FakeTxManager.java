@@ -25,6 +25,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import org.apache.ignite.cache.CacheTransaction;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
@@ -138,6 +139,12 @@ public class FakeTxManager implements TxManager {
                 return timestamp;
             }
         };
+    }
+
+    @Override
+    public CacheTransaction beginForCache(HybridTimestampTracker timestampTracker,
+            Function<InternalTransaction, CompletableFuture<Void>> externalCommit) {
+        return null;
     }
 
     @Override

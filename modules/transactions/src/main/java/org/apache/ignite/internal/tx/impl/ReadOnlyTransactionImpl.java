@@ -119,11 +119,4 @@ class ReadOnlyTransactionImpl extends IgniteAbstractTransactionImpl {
                         old -> new TxStateMeta(COMMITTED, old.txCoordinatorId(), old.commitPartitionId(), old.commitTimestamp())
                 ));
     }
-
-    @Override
-    public CompletableFuture<Void> safeCleanup(boolean commit) {
-        assert false;
-
-        return null;
-    }
 }

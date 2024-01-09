@@ -25,6 +25,7 @@ import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
 import org.apache.ignite.internal.table.distributed.PartitionSet;
+import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
@@ -137,7 +138,7 @@ public interface TableViewInternal extends Table {
     void unregisterIndex(int indexId);
 
     /**
-     * @param transactions Transactions facade.
+     * @param txManager Tx manager.
      * @param loader Cache loader.
      * @param writer Cache writer.
      * @param keyConverter Key converter.
@@ -147,7 +148,7 @@ public interface TableViewInternal extends Table {
      * @return The instance.
      */
     <K, V> Cache<K, V> cacheView(
-            IgniteTransactions transactions,
+            TxManager txManager,
             @Nullable CacheLoader<K, V> loader,
             @Nullable CacheWriter<K, V> writer,
             @Nullable TypeConverter<K, byte[]> keyConverter,
