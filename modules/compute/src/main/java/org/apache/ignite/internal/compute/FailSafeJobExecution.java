@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.compute;
 
+import java.time.Instant;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -78,12 +80,20 @@ class FailSafeJobExecution<T> implements JobExecution<T> {
                 if (status != null) {
                     this.capturedStatus.set(status);
                 } else {
-                    this.capturedStatus.set(JobStatus.builder().state(JobState.FAILED).build());
+                    this.capturedStatus.set(
+                            failedStatus()
+                    );
                 }
             }).get(10, TimeUnit.SECONDS);
         } catch (TimeoutException | InterruptedException | ExecutionException e) {
-            this.capturedStatus.set(JobStatus.builder().state(JobState.FAILED).build());
+            this.capturedStatus.set(
+                    failedStatus()
+            );
         }
+    }
+
+    private static JobStatus failedStatus() {
+        return JobStatus.builder().id(UUID.randomUUID()).createTime(Instant.now()).state(JobState.FAILED).build();
     }
 
     /**
