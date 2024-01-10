@@ -20,7 +20,8 @@ package org.apache.ignite.internal.tx;
 import org.apache.ignite.internal.tx.impl.WaitDieDeadlockPreventionPolicy;
 
 /**
- * Transaction priority. The priority is used in {@link WaitDieDeadlockPreventionPolicy} to determine if a waiter should wait or abort.
+ * Enum representing transaction priorities. These priorities are used in the context of the {@link WaitDieDeadlockPreventionPolicy} to
+ * resolve conflicts between transactions. The priorities are ordered from lowest to highest importance.
  */
 public enum TxPriority {
     LOW,
