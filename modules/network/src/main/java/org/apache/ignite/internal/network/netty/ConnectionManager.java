@@ -128,6 +128,7 @@ public class ConnectionManager implements ChannelCreationListener {
     /** Network Configuration. */
     private final NetworkView networkConfiguration;
 
+    /** Thread pool used for connection management tasks (like disposing recovery descriptors on node left or on stop). */
     private final ExecutorService connectionMaintenanceExecutor;
 
     /**
