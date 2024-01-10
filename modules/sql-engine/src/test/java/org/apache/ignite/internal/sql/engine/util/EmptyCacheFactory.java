@@ -17,7 +17,9 @@
 
 package org.apache.ignite.internal.sql.engine.util;
 
+import java.util.function.BiFunction;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import org.apache.ignite.internal.sql.engine.util.cache.Cache;
 import org.apache.ignite.internal.sql.engine.util.cache.CacheFactory;
 import org.apache.ignite.internal.sql.engine.util.cache.StatsCounter;
@@ -67,6 +69,16 @@ public class EmptyCacheFactory implements CacheFactory {
         @Override
         public void clear() {
             // NO-OP
+        }
+
+        @Override
+        public V compute(K key, BiFunction<? super K, ? super V, ? extends V> remappingFunction) {
+            return remappingFunction.apply(key, null);
+        }
+
+        @Override
+        public void removeIfValue(Predicate<? super V> valueFilter) {
+            // NO-OP.
         }
     }
 }

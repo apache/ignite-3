@@ -95,6 +95,7 @@ class QueueExecutionImpl<R> implements QueueExecution<R> {
             }
         } catch (IllegalJobStateTransition e) {
             LOG.info("Cannot cancel the job", e);
+            throw new CancellingException(jobId);
         }
     }
 
@@ -125,20 +126,20 @@ class QueueExecutionImpl<R> implements QueueExecution<R> {
                     stateMachine.queueJob(jobId);
                     run(numRetries - 1);
                 } else {
-                    result.completeExceptionally(throwable);
                     if (queueEntry.isInterrupted()) {
                         stateMachine.cancelJob(jobId);
                     } else {
                         stateMachine.failJob(jobId);
                     }
+                    result.completeExceptionally(throwable);
                 }
             } else {
-                result.complete(r);
                 if (queueEntry.isInterrupted()) {
                     stateMachine.cancelJob(jobId);
                 } else {
                     stateMachine.completeJob(jobId);
                 }
+                result.complete(r);
             }
         });
     }

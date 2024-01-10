@@ -44,7 +44,7 @@ public class FakeCatalogService implements CatalogService {
     }
 
     @Override
-    public Catalog catalog(int version) {
+    public Catalog catalog(int catalogVersion) {
         return null;
     }
 
@@ -95,12 +95,17 @@ public class FakeCatalogService implements CatalogService {
     }
 
     @Override
-    public CatalogSchemaDescriptor schema(int version) {
+    public CatalogSchemaDescriptor schema(int catalogVersion) {
         return null;
     }
 
     @Override
-    public CatalogSchemaDescriptor schema(String schemaName, int version) {
+    public CatalogSchemaDescriptor schema(String schemaName, int catalogVersion) {
+        return null;
+    }
+
+    @Override
+    public CatalogSchemaDescriptor schema(int schemaId, int catalogVersion) {
         return null;
     }
 

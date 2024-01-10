@@ -187,7 +187,7 @@ class IndexBuildController implements ManuallyCloseable {
         return inBusyLockAsync(busyLock, () -> {
             TablePartitionId primaryReplicaId = (TablePartitionId) parameters.groupId();
 
-            if (isLocalNode(parameters.leaseholder())) {
+            if (isLocalNode(parameters.leaseholderId())) {
                 primaryReplicaIds.add(primaryReplicaId);
 
                 // It is safe to get the latest version of the catalog because the PRIMARY_REPLICA_ELECTED event is handled on the
@@ -316,8 +316,8 @@ class IndexBuildController implements ManuallyCloseable {
         );
     }
 
-    private boolean isLocalNode(String nodeConsistentId) {
-        return nodeConsistentId.equals(localNode().name());
+    private boolean isLocalNode(String nodeId) {
+        return nodeId.equals(localNode().id());
     }
 
     private ClusterNode localNode() {

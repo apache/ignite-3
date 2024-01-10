@@ -50,7 +50,7 @@ public interface CatalogService extends EventProducer<CatalogEvent, CatalogEvent
 
     String DEFAULT_ZONE_NAME = "Default";
 
-    Catalog catalog(int version);
+    @Nullable Catalog catalog(int catalogVersion);
 
     @Nullable CatalogTableDescriptor table(String tableName, long timestamp);
 
@@ -70,9 +70,11 @@ public interface CatalogService extends EventProducer<CatalogEvent, CatalogEvent
 
     List<CatalogIndexDescriptor> indexes(int catalogVersion, int tableId);
 
-    @Nullable CatalogSchemaDescriptor schema(int version);
+    @Nullable CatalogSchemaDescriptor schema(int catalogVersion);
 
-    @Nullable CatalogSchemaDescriptor schema(@Nullable String schemaName, int version);
+    @Nullable CatalogSchemaDescriptor schema(@Nullable String schemaName, int catalogVersion);
+
+    @Nullable CatalogSchemaDescriptor schema(int schemaId, int catalogVersion);
 
     @Nullable CatalogZoneDescriptor zone(String zoneName, long timestamp);
 

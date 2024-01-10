@@ -313,7 +313,13 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
 
             return replicaMetaFuture.thenCompose(replicaMeta -> fireEvent(
                     PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED,
-                    new PrimaryReplicaEventParameters(causalityToken, replicaId, replicaMeta.getLeaseholder(), replicaMeta.getStartTime())
+                    new PrimaryReplicaEventParameters(
+                            causalityToken,
+                            replicaId,
+                            replicaMeta.getLeaseholderId(),
+                            replicaMeta.getLeaseholder(),
+                            replicaMeta.getStartTime()
+                    )
             ));
         }
     }
