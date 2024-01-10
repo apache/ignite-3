@@ -29,7 +29,7 @@ import org.apache.ignite.lang.ErrorGroups.Compute;
 
 /**
  * Fail-safe wrapper for the {@link JobExecution} that should be returned to the client. This wrapper holds the original
- * job execution object this object can be updated during the lifetime of {@link FailSafeJobExecution}.
+ * job execution object. This object can be updated during the lifetime of {@link FailSafeJobExecution}.
  *
  * <p>The problem that is solved by this wrapper is the following: client can join the {@link JobExecution#resultAsync()}
  * future b1ut this original future will never be completed in case the remote worker node has left the topology. By returning
