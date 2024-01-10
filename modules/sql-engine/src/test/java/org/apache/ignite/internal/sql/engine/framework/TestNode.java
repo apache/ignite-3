@@ -79,6 +79,7 @@ public class TestNode implements LifecycleAware {
 
     private final List<LifecycleAware> services = new ArrayList<>();
     volatile boolean exceptionRaised;
+    IgniteSpinBusyLock holdLock;
 
     /**
      * Constructs the object.
@@ -113,8 +114,10 @@ public class TestNode implements LifecycleAware {
 
         QueryTaskExecutor taskExecutor = registerService(queryExec);
 
+        holdLock = new IgniteSpinBusyLock();
+
         messageService = registerService(new MessageServiceImpl(
-                nodeName, messagingService, taskExecutor, new IgniteSpinBusyLock()
+                nodeName, messagingService, taskExecutor, holdLock
         ));
         ExchangeService exchangeService = registerService(new ExchangeServiceImpl(
                 mailboxRegistry, messageService
@@ -149,6 +152,8 @@ public class TestNode implements LifecycleAware {
     /** {@inheritDoc} */
     @Override
     public void stop() throws Exception {
+        holdLock.block();
+
         List<AutoCloseable> closeables = services.stream()
                 .map(service -> ((AutoCloseable) service::stop))
                 .collect(Collectors.toList());
@@ -164,6 +169,10 @@ public class TestNode implements LifecycleAware {
 
     MessageService messageService() {
         return messageService;
+    }
+
+    IgniteSpinBusyLock holdLock() {
+        return holdLock;
     }
 
     /**

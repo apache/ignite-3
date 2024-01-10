@@ -229,13 +229,19 @@ public class TestClusterTest extends BaseIgniteAbstractTest {
 
         await(cur.requestNextAsync(1));
 
-        stoppedNode.messageService().stop();
+        stoppedNode.holdLock().block();
 
-        await(cur.closeAsync());
+        try {
+            stoppedNode.messageService().stop();
 
-        gatewayNode.stop();
+            await(cur.closeAsync());
 
-        assertFalse(stoppedNode.exceptionRaised);
+            gatewayNode.stop();
+
+            assertFalse(stoppedNode.exceptionRaised);
+        } finally {
+            stoppedNode.holdLock().unblock();
+        }
     }
 
     private static IgniteRel lastNode(IgniteRel root) {

@@ -46,8 +46,6 @@ public class MessageServiceImpl implements MessageService {
 
     private volatile Map<Short, MessageListener> lsnrs;
 
-    private boolean stopped = false;
-
     /**
      * Constructor.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
@@ -77,8 +75,6 @@ public class MessageServiceImpl implements MessageService {
         if (!busyLock.enterBusy()) {
             return nullCompletedFuture();
         }
-
-        assert !stopped : "service is stopped";
 
         try {
             if (localNodeName.equals(nodeName)) {
@@ -121,10 +117,6 @@ public class MessageServiceImpl implements MessageService {
             return;
         }
 
-        if (stopped) {
-            return;
-        }
-
         try {
             assert msg.groupType() == GROUP_TYPE : "unexpected message group grpType=" + msg.groupType();
 
@@ -154,8 +146,6 @@ public class MessageServiceImpl implements MessageService {
     /** {@inheritDoc} */
     @Override
     public void stop() {
-        stopped = true;
-
         if (lsnrs != null) {
             lsnrs.clear();
         }
