@@ -196,6 +196,8 @@ public class ConnectionManager implements ChannelCreationListener {
 
         this.clientBootstrap = bootstrapFactory.createClientBootstrap();
 
+        // We don't just use Executors#newSingleThreadExecutor() here because it defines corePoolSize=1, so the maintenance thread will
+        // be kept alive forever, and we only need it from time to time, so it seems a waste to keep the thread alive.
         connectionMaintenanceExecutor = new ThreadPoolExecutor(
                 0,
                 1,
