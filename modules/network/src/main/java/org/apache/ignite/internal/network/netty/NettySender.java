@@ -65,11 +65,7 @@ public class NettySender {
     public CompletableFuture<Void> send(OutNetworkObject obj) {
         CompletableFuture<Void> writeFuture = toCompletableFuture(channel.writeAndFlush(obj));
 
-        if (!obj.networkMessage().needAck()) {
-            return writeFuture;
-        }
-
-        return writeFuture.thenCompose(unused -> obj.acknowledgedFuture());
+        return obj.networkMessage().needAck() ? writeFuture.thenCompose(unused -> obj.acknowledgedFuture()) : writeFuture;
     }
 
     /**
