@@ -19,8 +19,8 @@ package org.apache.ignite.internal.network.netty;
 
 import static java.util.stream.Collectors.toList;
 
-import java.util.ArrayList;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.UUID;
@@ -56,7 +56,7 @@ public class DefaultRecoveryDescriptorProvider implements RecoveryDescriptorProv
 
     @Override
     public Collection<RecoveryDescriptor> getAllRecoveryDescriptors() {
-        return new ArrayList<>(recoveryDescriptors.values());
+        return List.copyOf(recoveryDescriptors.values());
     }
 
     /** Channel key. */
