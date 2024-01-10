@@ -67,24 +67,6 @@ public class IgniteComputeImpl implements IgniteCompute {
         this.topologyService = topologyService;
         this.tables = tables;
         this.computeComponent = computeComponent;
-        this.nodeLeftEventsSource = new NodeLeftEventsSource(topologyService);
-    }
-
-    private static ClusterNode leaderOfTablePartitionByTupleKey(TableViewInternal table, Tuple key) {
-        return requiredLeaderByPartition(table, table.partition(key));
-    }
-
-    private static <K> ClusterNode leaderOfTablePartitionByMappedKey(TableViewInternal table, K key, Mapper<K> keyMapper) {
-        return requiredLeaderByPartition(table, table.partition(key, keyMapper));
-    }
-
-    private static ClusterNode requiredLeaderByPartition(TableViewInternal table, int partitionIndex) {
-        ClusterNode leaderNode = table.leaderAssignment(partitionIndex);
-        if (leaderNode == null) {
-            throw new IgniteInternalException(Common.INTERNAL_ERR, "Leader not found for partition " + partitionIndex);
-        }
-
-        return leaderNode;
     }
 
     /** {@inheritDoc} */
@@ -100,6 +82,7 @@ public class IgniteComputeImpl implements IgniteCompute {
 
         Set<ClusterNode> candidates = new HashSet<>(nodes);
         ClusterNode targetNode = randomNode(candidates);
+        candidates.remove(targetNode);
 
         return new JobExecutionWrapper<>(executeOnOneNodeWithFailover(targetNode, candidates, units, jobClassName, args));
     }
@@ -250,6 +233,23 @@ public class IgniteComputeImpl implements IgniteCompute {
                     }
                     return table;
                 });
+    }
+
+    private static ClusterNode leaderOfTablePartitionByTupleKey(TableViewInternal table, Tuple key) {
+        return requiredLeaderByPartition(table, table.partition(key));
+    }
+
+    private static  <K> ClusterNode leaderOfTablePartitionByMappedKey(TableViewInternal table, K key, Mapper<K> keyMapper) {
+        return requiredLeaderByPartition(table, table.partition(key, keyMapper));
+    }
+
+    private static ClusterNode requiredLeaderByPartition(TableViewInternal table, int partitionIndex) {
+        ClusterNode leaderNode = table.leaderAssignment(partitionIndex);
+        if (leaderNode == null) {
+            throw new IgniteInternalException(Common.INTERNAL_ERR, "Leader not found for partition " + partitionIndex);
+        }
+
+        return leaderNode;
     }
 
     /** {@inheritDoc} */
