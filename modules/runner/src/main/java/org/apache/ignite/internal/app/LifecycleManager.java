@@ -110,8 +110,13 @@ class LifecycleManager implements StateProvider {
         }
     }
 
+    /**
+     * Represents future that will be completed when all components start futures will be completed.
+     *
+     * @return Future that will be completed when all components start futures will be completed.
+     */
     synchronized CompletableFuture<Void> allComponentsStartFuture() {
-        return allOf(allComponentsStartFuture.toArray(CompletableFuture[]::new));
+        return allOf(allComponentsStartFuture.toArray(CompletableFuture[]::new)).whenComplete((v, e) -> allComponentsStartFuture.clear());
     }
 
     /**
@@ -144,7 +149,5 @@ class LifecycleManager implements StateProvider {
                 LOG.warn("Unable to stop component [component={}, nodeName={}]", e, component, nodeName);
             }
         });
-
-        allComponentsStartFuture.clear();
     }
 }
