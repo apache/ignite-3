@@ -20,7 +20,6 @@ package org.apache.ignite.internal.network.netty;
 import static org.apache.ignite.internal.network.netty.NettyUtils.toCompletableFuture;
 
 import io.netty.channel.Channel;
-import io.netty.channel.ChannelFuture;
 import io.netty.handler.stream.ChunkedInput;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.network.direct.DirectMessageWriter;
@@ -61,10 +60,12 @@ public class NettySender {
      * Sends the message.
      *
      * @param obj Network message wrapper.
-     * @return Future of the send operation.
+     * @return Future of the send operation (that gets completed when the message gets acknowledged by the receiver).
      */
     public CompletableFuture<Void> send(OutNetworkObject obj) {
-        return toCompletableFuture(channel.writeAndFlush(obj));
+        CompletableFuture<Void> writeFuture = toCompletableFuture(channel.writeAndFlush(obj));
+
+        return obj.networkMessage().needAck() ? writeFuture.thenCompose(unused -> obj.acknowledgedFuture()) : writeFuture;
     }
 
     /**
@@ -92,15 +93,6 @@ public class NettySender {
      */
     public short channelId() {
         return channelId;
-    }
-
-    /**
-     * Closes channel and returns the {@link Channel#closeFuture()}.
-     *
-     * @return {@link Channel#closeFuture()} of the {@link #channel}.
-     */
-    public ChannelFuture close() {
-        return this.channel.close();
     }
 
     /**
