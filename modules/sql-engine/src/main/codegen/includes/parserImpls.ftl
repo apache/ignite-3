@@ -378,6 +378,10 @@ SqlNode ColumnWithType() :
         <NOT> <NULL> {
             nullable = false;
         }
+        |
+        <NULL> {
+            nullable = true;
+        }
     ]
     (
         <DEFAULT_> { s.add(this); } dflt = Literal() {
