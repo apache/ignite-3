@@ -167,7 +167,7 @@ public class RecoveryDescriptor {
     }
 
     /**
-     * Releases this descriptor if it's acquired by the given channel, otherwise does nothing.
+     * Releases this descriptor if it's been acquired by the given channel, otherwise does nothing.
      *
      * @param ctx Channel handler context.
      */
