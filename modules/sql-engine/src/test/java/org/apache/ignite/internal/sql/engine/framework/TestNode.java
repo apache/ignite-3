@@ -75,8 +75,10 @@ public class TestNode implements LifecycleAware {
     private final PrepareService prepareService;
     private final ExecutionService executionService;
     private final ParserService parserService;
+    private final MessageService messageService;
 
     private final List<LifecycleAware> services = new ArrayList<>();
+    volatile boolean exceptionRaised;
 
     /**
      * Constructs the object.
@@ -106,9 +108,12 @@ public class TestNode implements LifecycleAware {
         RowHandler<Object[]> rowHandler = ArrayRowHandler.INSTANCE;
 
         MailboxRegistry mailboxRegistry = registerService(new MailboxRegistryImpl());
-        QueryTaskExecutor taskExecutor = registerService(new QueryTaskExecutorImpl(nodeName));
+        QueryTaskExecutorImpl queryExec = new QueryTaskExecutorImpl(nodeName);
+        queryExec.exceptionHandler((t, e) -> exceptionRaised = true);
 
-        MessageService messageService = registerService(new MessageServiceImpl(
+        QueryTaskExecutor taskExecutor = registerService(queryExec);
+
+        messageService = registerService(new MessageServiceImpl(
                 nodeName, messagingService, taskExecutor, new IgniteSpinBusyLock()
         ));
         ExchangeService exchangeService = registerService(new ExchangeServiceImpl(
@@ -155,6 +160,10 @@ public class TestNode implements LifecycleAware {
     /** Returns the name of the current node. */
     public String name() {
         return nodeName;
+    }
+
+    MessageService messageService() {
+        return messageService;
     }
 
     /**
