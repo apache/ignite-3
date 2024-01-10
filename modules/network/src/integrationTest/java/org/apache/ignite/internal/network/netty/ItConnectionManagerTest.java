@@ -18,10 +18,10 @@
 package org.apache.ignite.internal.network.netty;
 
 import static java.util.Collections.emptyList;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureCompletedMatcher.completedFuture;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowWithCauseOrSuppressed;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willTimeoutIn;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.defaultSerializationRegistry;
@@ -248,11 +248,9 @@ public class ItConnectionManagerTest extends BaseIgniteAbstractTest {
 
         manager2.close();
 
-        NettySender finalSender = sender;
-
-        assertThrowsWithCause(
-                () ->  finalSender.send(new OutNetworkObject(testMessage, emptyList())).get(3, TimeUnit.SECONDS),
-                ClosedChannelException.class
+        assertThat(
+                sender.send(new OutNetworkObject(testMessage, emptyList())),
+                willThrowWithCauseOrSuppressed(ClosedChannelException.class)
         );
 
         manager2 = startManager(port2);
