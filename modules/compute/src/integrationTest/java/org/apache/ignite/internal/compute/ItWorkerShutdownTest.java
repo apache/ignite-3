@@ -150,7 +150,6 @@ class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest {
         assertThat(GLOBAL_CHANNEL.poll(10, TimeUnit.SECONDS), equalTo(ack));
 
         assertThat(execution.resultAsync().isDone(), equalTo(false));
-        System.out.println("%%%%% () checking id");
         assertThat(idSync(execution), notNullValue());
 
         // During the fob failover we might get a job that is restarted, the state will be not EXECUTING for some short time.
