@@ -50,6 +50,8 @@ class LifecycleManager implements StateProvider {
      */
     private final List<IgniteComponent> startedComponents = new ArrayList<>();
 
+    private final List<CompletableFuture<Void>> allComponentsStartFuture = new ArrayList<>();
+
     LifecycleManager(String nodeName) {
         this.nodeName = nodeName;
     }
@@ -66,7 +68,7 @@ class LifecycleManager implements StateProvider {
      * @param component Ignite component to start.
      * @throws NodeStoppingException If node stopping intention was detected.
      */
-    CompletableFuture<Void> startComponent(IgniteComponent component) throws NodeStoppingException {
+    void startComponent(IgniteComponent component) throws NodeStoppingException {
         if (status.get() == State.STOPPING) {
             throw new NodeStoppingException("Node=[" + nodeName + "] was stopped");
         }
@@ -74,7 +76,7 @@ class LifecycleManager implements StateProvider {
         synchronized (this) {
             startedComponents.add(component);
 
-            return component.start();
+            allComponentsStartFuture.add(component.start());
         }
     }
 
@@ -84,13 +86,10 @@ class LifecycleManager implements StateProvider {
      * @param components Ignite components to start.
      * @throws NodeStoppingException If node stopping intention was detected.
      */
-    CompletableFuture<Void> startComponents(IgniteComponent... components) throws NodeStoppingException {
-        List<CompletableFuture<Void>> startFutures = new ArrayList<>();
+    void startComponents(IgniteComponent... components) throws NodeStoppingException {
         for (IgniteComponent component : components) {
-            startFutures.add(startComponent(component));
+            startComponent(component);
         }
-
-        return allOf(startFutures.toArray(CompletableFuture[]::new));
     }
 
     /**
@@ -109,6 +108,11 @@ class LifecycleManager implements StateProvider {
         } else if (currentStatus != State.STARTING) {
             throw new IllegalStateException("Unexpected node status: " + currentStatus);
         }
+    }
+
+    synchronized CompletableFuture<Void> allComponentsStartFuture() {
+        // Nullify array
+        return allOf(allComponentsStartFuture.toArray(CompletableFuture[]::new));
     }
 
     /**
@@ -141,5 +145,7 @@ class LifecycleManager implements StateProvider {
                 LOG.warn("Unable to stop component [component={}, nodeName={}]", e, component, nodeName);
             }
         });
+
+        allComponentsStartFuture.clear();
     }
 }
