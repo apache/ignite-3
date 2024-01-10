@@ -26,11 +26,11 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Represents a criteria query predicate.
  *
- * <pre><code>
- *      public ClosableCursor&lt;Product&gt; uncategorizedProducts() {
- *         return products.recordView(Product.class).queryCriteria(null, columnValue(&quot;category&quot;, nullValue()));
+ * <pre>{@code
+ *      public ClosableCursor<Product> uncategorizedProducts() {
+ *         return products.recordView(Product.class).queryCriteria(null, columnValue("category", nullValue()));
  *      }
- * </code></pre>
+ * }</pre>
  *
  * @see CriteriaQuerySource
  */
@@ -48,11 +48,14 @@ public interface Criteria {
      * Creates a predicate that tests whether the column value is equal to the given condition.
      *
      * <p>For example:
-     * <pre>
-     *     columnValue(&quot;category&quot;, equalTo(&quot;toys&quot;))
-     * </pre>
+     * <pre>{@code
+     *     columnValue("category", equalTo("toys"))
+     *     columnValue(IgniteNameUtils.quote("subCategory"), equalTo("puzzle"))
+     * }</pre>
      *
-     * @param columnName Column name.
+     * @param columnName Column name must use SQL-parser style notation; e.g., <br>
+     *                   "myColumn", creates a predicate for the column ignores case sensitivity, <br>
+     *                   "\"MyColumn\"", creates a predicate for the column with respect to case sensitivity.
      * @param condition Target condition.
      * @return The created expression instance.
      */
@@ -70,9 +73,9 @@ public interface Criteria {
      * Creates the negation of the predicate.
      *
      * <p>For example:
-     * <pre>
-     *     not(columnValue(&quot;category&quot;, equalTo(&quot;toys&quot;)))
-     * </pre>
+     * <pre>{@code
+     *     not(columnValue("category", equalTo("toys")))
+     * }</pre>
      *
      * @param expression Expression.
      * @return The created negation of the expression.
@@ -87,9 +90,9 @@ public interface Criteria {
      * Creates the {@code and} of the expressions.
      *
      * <p>For example:
-     * <pre>
-     *     and(columnValue(&quot;category&quot;, equalTo(&quot;toys&quot;)), columnValue(&quot;quantity&quot;, lessThan(20)))
-     * </pre>
+     * <pre>{@code
+     *     and(columnValue("category", equalTo("toys")), columnValue("quantity", lessThan(20)))
+     * }</pre>
      *
      * @param expressions Expressions.
      * @return The created {@code and} expression instance.
@@ -106,9 +109,9 @@ public interface Criteria {
      * Creates the {@code or} of the expressions.
      *
      * <p>For example:
-     * <pre>
-     *     or(columnValue(&quot;category&quot;, equalTo(&quot;toys&quot;)), columnValue(&quot;category&quot;, equalTo(&quot;games&quot;)))
-     * </pre>
+     * <pre>{@code
+     *     or(columnValue("category", equalTo("toys")), columnValue("category", equalTo("games")))
+     * }</pre>
      *
      * @param expressions Expressions.
      * @return The created {@code or} expressions instance.
@@ -125,9 +128,9 @@ public interface Criteria {
      * Creates a condition that test the examined object is equal to the specified {@code value}.
      *
      * <p>For example:
-     * <pre>
-     *     columnValue(&quot;category&quot;, equalTo(&quot;toys&quot;))
-     * </pre>
+     * <pre>{@code
+     *     columnValue("category", equalTo("toys"))
+     * }</pre>
      *
      * @param <T> Value type.
      * @param value Target value.
@@ -144,9 +147,9 @@ public interface Criteria {
      * Creates a condition that test the examined object is equal to the specified {@code value}.
      *
      * <p>For example:
-     * <pre>
-     *     columnValue(&quot;password&quot;, equalTo(&quot;MyPassword&quot;.getBytes()))
-     * </pre>
+     * <pre>{@code
+     *     columnValue("password", equalTo("MyPassword".getBytes()))
+     * }</pre>
      *
      * @param value Target value.
      */
@@ -162,9 +165,9 @@ public interface Criteria {
      * Creates a condition that test the examined object is not equal to the specified {@code value}.
      *
      * <p>For example:
-     * <pre>
-     *     columnValue(&quot;category&quot;, notEqualTo(&quot;toys&quot;))
-     * </pre>
+     * <pre>{@code
+     *     columnValue("category", notEqualTo("toys"))
+     * }</pre>
      *
      * @param <T> Value type.
      * @param value Target value.
@@ -181,9 +184,9 @@ public interface Criteria {
      * Creates a condition that test the examined object is not equal to the specified {@code value}.
      *
      * <p>For example:
-     * <pre>
-     *     columnValue(&quot;password&quot;, notEqualTo(&quot;MyPassword&quot;.getBytes()))
-     * </pre>
+     * <pre>{@code
+     *     columnValue("password", notEqualTo("MyPassword".getBytes()))
+     * }</pre>
      *
      * @param value Target value.
      */
@@ -199,9 +202,9 @@ public interface Criteria {
      * Creates a condition that test the examined object is greater than the specified {@code value}.
      *
      * <p>For example:
-     * <pre>
+     * <pre>{@code
      *     columnValue("age", greaterThan(35))
-     * </pre>
+     * }</pre>
      *
      * @param <T> Value type.
      * @param value Target value.
@@ -214,9 +217,9 @@ public interface Criteria {
      * Creates a condition that test the examined object is greater than or equal than the specified {@code value}.
      *
      * <p>For example:
-     * <pre>
+     * <pre>{@code
      *     columnValue("age", greaterThanOrEqualTo(35))
-     * </pre>
+     * }</pre>
      *
      * @param <T> Value type.
      * @param value Target value.
@@ -229,9 +232,9 @@ public interface Criteria {
      * Creates a condition that test the examined object is less than the specified {@code value}.
      *
      * <p>For example:
-     * <pre>
+     * <pre>{@code
      *     columnValue("age", lessThan(35))
-     * </pre>
+     * }</pre>
      *
      * @param <T> Value type.
      * @param value Target value.
@@ -244,9 +247,9 @@ public interface Criteria {
      * Creates a condition that test the examined object is less than or equal than the specified {@code value}.
      *
      * <p>For example:
-     * <pre>
+     * <pre>{@code
      *     columnValue("age", lessThanOrEqualTo(35))
-     * </pre>
+     * }</pre>
      *
      * @param <T> Value type.
      * @param value Target value.
@@ -259,9 +262,9 @@ public interface Criteria {
      * Creates a condition that test the examined object is null.
      *
      * <p>For example:
-     * <pre>
-     *     columnValue(&quot;category&quot;, nullValue())
-     * </pre>
+     * <pre>{@code
+     *     columnValue("category", nullValue())
+     * }</pre>
      */
     static Condition nullValue() {
         return new Condition(Operator.IS_NULL);
@@ -271,9 +274,9 @@ public interface Criteria {
      * Creates a condition that test the examined object is not null.
      *
      * <p>For example:
-     * <pre>
-     *     columnValue(&quot;category&quot;, notNullValue())
-     * </pre>
+     * <pre>{@code
+     *     columnValue("category", notNullValue())
+     * }</pre>
      */
     static Condition notNullValue() {
         return new Condition(Operator.IS_NOT_NULL);
@@ -283,9 +286,9 @@ public interface Criteria {
      * Creates a condition that test the examined object is is found within the specified {@code collection}.
      *
      * <p>For example:
-     * <pre>
-     *     columnValue(&quot;category&quot;, in(&quot;toys&quot;, &quot;games&quot;))
-     * </pre>
+     * <pre>{@code
+     *     columnValue("category", in("toys", "games"))
+     * }</pre>
      *
      * @param <T> Values type.
      * @param values The collection in which matching items must be found.
@@ -310,9 +313,9 @@ public interface Criteria {
      * Creates a condition that test the examined object is is found within the specified {@code collection}.
      *
      * <p>For example:
-     * <pre>
-     *     columnValue(&quot;password&quot;, in(&quot;MyPassword&quot;.getBytes(), &quot;MyOtherPassword&quot;.getBytes()))
-     * </pre>
+     * <pre>{@code
+     *     columnValue("password", in("MyPassword".getBytes(), "MyOtherPassword".getBytes()))
+     * }</pre>
      *
      * @param values The collection in which matching items must be found.
      */
@@ -336,9 +339,9 @@ public interface Criteria {
      * Creates a condition that test the examined object is is not found within the specified {@code collection}.
      *
      * <p>For example:
-     * <pre>
-     *     columnValue(&quot;category&quot;, notIn(&quot;toys&quot;, &quot;games&quot;))
-     * </pre>
+     * <pre>{@code
+     *     columnValue("category", notIn("toys", "games"))
+     * }</pre>
      *
      * @param <T> Values type.
      * @param values The collection in which matching items must be not found.
@@ -363,9 +366,9 @@ public interface Criteria {
      * Creates a condition that test the examined object is is not found within the specified {@code collection}.
      *
      * <p>For example:
-     * <pre>
-     *     columnValue(&quot;password&quot;, notIn(&quot;MyPassword&quot;.getBytes(), &quot;MyOtherPassword&quot;.getBytes()))
-     * </pre>
+     * <pre>{@code
+     *     columnValue("password", notIn("MyPassword".getBytes(), "MyOtherPassword".getBytes()))
+     * }</pre>
      *
      * @param values The collection in which matching items must be not found.
      */
