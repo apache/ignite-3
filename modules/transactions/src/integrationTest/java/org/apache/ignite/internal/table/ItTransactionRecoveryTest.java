@@ -944,7 +944,11 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
     }
 
     private IgniteImpl nonPrimaryNode(String leaseholder) {
-        return findNode(n -> !leaseholder.equals(n.name()));
+        return IntStream.range(1, initialNodes())
+                .mapToObj(this::node)
+                .filter(n -> !leaseholder.equals(n.name()))
+                .findFirst()
+                .get();
     }
 
     private String waitAndGetLeaseholder(IgniteImpl node, ReplicationGroupId tblReplicationGrp) throws InterruptedException {

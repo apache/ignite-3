@@ -387,6 +387,12 @@ public class Cluster {
         stopNode(nodeIndex(name));
     }
 
+    /**
+     * Returns index of the node.
+     *
+     * @param name Node name.
+     * @return Node index.
+     */
     public int nodeIndex(String name) {
         for (int i = 0; i < nodes.size(); i++) {
             if (nodes.get(i) != null && nodes.get(i).name().equals(name)) {
