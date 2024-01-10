@@ -65,7 +65,6 @@ public class FakeTxManager implements TxManager {
         return begin(tracker, false);
     }
 
-
     @Override
     public InternalTransaction begin(HybridTimestampTracker timestampTracker, boolean readOnly) {
         return begin(timestampTracker, readOnly, TxPriority.NORMAL);
