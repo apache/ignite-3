@@ -424,7 +424,13 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         });
 
         var err = assertThrows(CompletionException.class, fut0::join);
-        assertEquals(IllegalArgumentException.class, err.getCause().getClass());
+
+        try {
+            assertEquals(IllegalArgumentException.class, err.getCause().getClass());
+        } catch (AssertionError e) {
+            throw new AssertionError("Unexpected exception type", err);
+        }
+
         assertEquals(balance, view.get(null, makeKey(1)).doubleValue("balance"));
     }
 
@@ -444,7 +450,12 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         });
 
         var err = assertThrows(CompletionException.class, fut0::join);
-        assertEquals(NullPointerException.class, err.getCause().getClass());
+
+        try {
+            assertEquals(NullPointerException.class, err.getCause().getClass());
+        } catch (AssertionError e) {
+            throw new AssertionError("Unexpected exception type", err);
+        }
     }
 
     @Test
