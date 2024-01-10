@@ -35,7 +35,7 @@ public class SchemaUtils {
      * @return Schema descriptor.
      */
     public static SchemaDescriptor prepareSchemaDescriptor(CatalogTableDescriptor tableDescriptor) {
-        return CatalogToSchemaDescriptorConverter.convert(tableDescriptor);
+        return CatalogToSchemaDescriptorConverter.convert(tableDescriptor, tableDescriptor.tableVersion());
     }
 
     /**

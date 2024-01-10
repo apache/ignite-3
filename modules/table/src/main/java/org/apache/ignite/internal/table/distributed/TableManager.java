@@ -46,8 +46,6 @@ import static org.apache.ignite.internal.utils.RebalanceUtil.pendingPartAssignme
 import static org.apache.ignite.internal.utils.RebalanceUtil.stablePartAssignmentsKey;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
-import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -132,7 +130,6 @@ import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
-import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
@@ -170,6 +167,7 @@ import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.TxMessageSender;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
+import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbSharedStorage;
 import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbTableStorage;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.CompletableFutures;
@@ -200,10 +198,10 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     private static final IgniteLogger LOG = Loggers.forClass(TableManager.class);
 
     /** Name of a transaction state directory. */
-    private static final String TX_STATE_DIR = "tx-state-";
+    private static final String TX_STATE_DIR = "tx-state";
 
     /** Transaction storage flush delay. */
-    private static final int TX_STATE_STORAGE_FLUSH_DELAY = 1000;
+    private static final int TX_STATE_STORAGE_FLUSH_DELAY = 100;
     private static final IntSupplier TX_STATE_STORAGE_FLUSH_DELAY_SUPPLIER = () -> TX_STATE_STORAGE_FLUSH_DELAY;
 
     private final ClusterService clusterService;
@@ -287,6 +285,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     /** Transaction state storage pool. */
     private final ExecutorService txStateStoragePool;
 
+    private final TxStateRocksDbSharedStorage sharedTxStateStorage;
+
     /** Scan request executor. */
     private final ExecutorService scanRequestExecutor;
 
@@ -311,9 +311,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     private final SchemaSyncService schemaSyncService;
 
     private final CatalogService catalogService;
-
-    /** Partitions storage path. */
-    private final Path storagePath;
 
     /** Incoming RAFT snapshots executor. */
     private final ExecutorService incomingSnapshotsExecutor;
@@ -408,7 +405,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         this.replicaSvc = replicaSvc;
         this.txManager = txManager;
         this.dataStorageMgr = dataStorageMgr;
-        this.storagePath = storagePath;
         this.metaStorageMgr = metaStorageMgr;
         this.schemaManager = schemaManager;
         this.volatileLogStorageFactoryCreator = volatileLogStorageFactoryCreator;
@@ -495,6 +491,13 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         );
 
         startVv = new IncrementalVersionedValue<>(registry);
+
+        sharedTxStateStorage = new TxStateRocksDbSharedStorage(
+                storagePath.resolve(TX_STATE_DIR),
+                txStateStorageScheduledPool,
+                txStateStoragePool,
+                TX_STATE_STORAGE_FLUSH_DELAY_SUPPLIER
+        );
     }
 
     @Override
@@ -986,7 +989,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 () -> shutdownAndAwaitTermination(txStateStoragePool, 10, TimeUnit.SECONDS),
                 () -> shutdownAndAwaitTermination(txStateStorageScheduledPool, 10, TimeUnit.SECONDS),
                 () -> shutdownAndAwaitTermination(scanRequestExecutor, 10, TimeUnit.SECONDS),
-                () -> shutdownAndAwaitTermination(incomingSnapshotsExecutor, 10, TimeUnit.SECONDS)
+                () -> shutdownAndAwaitTermination(incomingSnapshotsExecutor, 10, TimeUnit.SECONDS),
+                sharedTxStateStorage
         );
     }
 
@@ -1229,21 +1233,10 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     protected TxStateTableStorage createTxStateTableStorage(CatalogTableDescriptor tableDescriptor, CatalogZoneDescriptor zoneDescriptor) {
         int tableId = tableDescriptor.id();
 
-        Path path = storagePath.resolve(TX_STATE_DIR + tableId);
-
-        try {
-            Files.createDirectories(path);
-        } catch (IOException e) {
-            throw new StorageException("Failed to create transaction state storage directory for table: " + tableId, e);
-        }
-
         TxStateTableStorage txStateTableStorage = new TxStateRocksDbTableStorage(
                 tableId,
                 zoneDescriptor.partitions(),
-                path,
-                txStateStorageScheduledPool,
-                txStateStoragePool,
-                TX_STATE_STORAGE_FLUSH_DELAY_SUPPLIER
+                sharedTxStateStorage
         );
 
         txStateTableStorage.start();
@@ -1916,7 +1909,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      * @param partitionId Partition ID.
      * @return PartitionStorages.
      */
-    private PartitionStorages getPartitionStorages(TableImpl table, int partitionId) {
+    private static PartitionStorages getPartitionStorages(TableImpl table, int partitionId) {
         InternalTable internalTable = table.internalTable();
 
         MvPartitionStorage mvPartition = internalTable.storage().getMvPartition(partitionId);
@@ -1946,9 +1939,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                             return allOf(
                                     internalTable.storage().clearPartition(partitionId),
                                     txStateStorage.clear()
-                            ).thenApply(unused -> new PartitionStorages(mvPartitionStorage, txStateStorage));
+                            );
                         } else {
-                            return completedFuture(new PartitionStorages(mvPartitionStorage, txStateStorage));
+                            return nullCompletedFuture();
                         }
                     }, ioExecutor);
         }).toArray(CompletableFuture[]::new);
@@ -2210,6 +2203,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     }
 
     private void startTables(long recoveryRevision) {
+        sharedTxStateStorage.start();
+
         int catalogVersion = catalogService.latestCatalogVersion();
 
         List<CompletableFuture<?>> startTableFutures = new ArrayList<>();

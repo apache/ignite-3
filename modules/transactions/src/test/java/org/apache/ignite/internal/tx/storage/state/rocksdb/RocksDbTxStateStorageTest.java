@@ -36,6 +36,7 @@ import org.apache.ignite.internal.tx.storage.state.AbstractTxStateStorageTest;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -47,6 +48,8 @@ public class RocksDbTxStateStorageTest extends AbstractTxStateStorageTest {
     @WorkDirectory
     private Path workDir;
 
+    private TxStateRocksDbSharedStorage sharedStorage;
+
     private final ScheduledExecutorService scheduledExecutor = Executors.newSingleThreadScheduledExecutor();
 
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
@@ -56,20 +59,29 @@ public class RocksDbTxStateStorageTest extends AbstractTxStateStorageTest {
         return new TxStateRocksDbTableStorage(
                 TABLE_ID,
                 3,
-                workDir,
-                scheduledExecutor,
-                executor,
-                () -> 1_000
+                sharedStorage
         );
     }
 
     @Override
+    @BeforeEach
+    protected void beforeTest() {
+        sharedStorage = new TxStateRocksDbSharedStorage(workDir, scheduledExecutor, executor, () -> 0);
+        sharedStorage.start();
+
+        super.beforeTest();
+    }
+
+    @Override
     @AfterEach
-    protected void afterTest() {
+    protected void afterTest() throws Exception {
         super.afterTest();
 
-        IgniteUtils.shutdownAndAwaitTermination(scheduledExecutor, 10, TimeUnit.SECONDS);
-        IgniteUtils.shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS);
+        IgniteUtils.closeAllManually(
+                sharedStorage,
+                () -> IgniteUtils.shutdownAndAwaitTermination(scheduledExecutor, 10, TimeUnit.SECONDS),
+                () -> IgniteUtils.shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS)
+        );
     }
 
     @Test
