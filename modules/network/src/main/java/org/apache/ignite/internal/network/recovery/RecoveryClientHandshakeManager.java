@@ -228,7 +228,7 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
                 connectionId
         );
 
-        while (!descriptor.acquire(ctx, localHandshakeCompleteFuture)) {
+        while (!descriptor.tryAcquire(ctx, localHandshakeCompleteFuture)) {
             // Don't use the tie-breaking logic as this handshake attempt is late: the competitor has already acquired
             // recovery descriptors on both sides, so this handshake attempt must fail regardless of the Tie Breaker's opinion.
             if (LOG.isDebugEnabled()) {

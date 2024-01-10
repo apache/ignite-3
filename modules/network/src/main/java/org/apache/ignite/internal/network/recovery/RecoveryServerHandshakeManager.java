@@ -276,7 +276,7 @@ public class RecoveryServerHandshakeManager implements HandshakeManager {
                 this.remoteChannelId
         );
 
-        while (!descriptor.acquire(ctx, handshakeCompleteFuture)) {
+        while (!descriptor.tryAcquire(ctx, handshakeCompleteFuture)) {
             if (shouldCloseChannel(launchId, remoteLaunchId)) {
                 // A competitor is holding the descriptor and we win the clinch; so we need to wait on the 'clinch resolved' future till
                 // the competitor realises it should terminate (this realization will happen on the other side of the channel), send

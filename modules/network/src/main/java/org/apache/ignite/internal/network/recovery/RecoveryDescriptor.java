@@ -42,8 +42,8 @@ import org.jetbrains.annotations.Nullable;
  * <ol>
  *     <li>Each descriptor belongs to at most one owner at a time (usually, owners are Channels, but the last
  *     owner is ConnectionManager when it disposes a descriptor)</li>
- *     <li>Owner starts 'owning' a descriptor by acquiring it (using {@link #acquire(ChannelHandlerContext, CompletableFuture)}
- *     or {@link #block(Exception)}) and stops owning it by releasing it with {@link #release(ChannelHandlerContext)}</li>
+ *     <li>Owner starts 'owning' a descriptor by acquiring it (using {@link #tryAcquire(ChannelHandlerContext, CompletableFuture)}
+ *     or {@link #tryBlock(Exception)}) and stops owning it by releasing it with {@link #release(ChannelHandlerContext)}</li>
  *     <li>Only the owner can access non-volatile state of the descriptor, and only in the same thread in which it
  *     acquired it and in which it will release it</li>
  *     <li>Acquiry, accesses while owning and release happen in the same thread, so there is happens-before between them even without
@@ -194,11 +194,11 @@ public class RecoveryDescriptor {
      * @param handshakeCompleteFuture Future that gets completed when the corresponding handshake completes.
      * @return Whether the descriptor was successfully acquired.
      */
-    public boolean acquire(ChannelHandlerContext ctx, CompletableFuture<NettySender> handshakeCompleteFuture) {
-        return doAcquire(ctx.channel(), handshakeCompleteFuture);
+    public boolean tryAcquire(ChannelHandlerContext ctx, CompletableFuture<NettySender> handshakeCompleteFuture) {
+        return doTryAcquire(ctx.channel(), handshakeCompleteFuture);
     }
 
-    private boolean doAcquire(@Nullable Channel channel, CompletableFuture<NettySender> handshakeCompleteFuture) {
+    private boolean doTryAcquire(@Nullable Channel channel, CompletableFuture<NettySender> handshakeCompleteFuture) {
         return channelHolder.compareAndSet(null, new DescriptorAcquiry(channel, handshakeCompleteFuture));
     }
 
@@ -207,8 +207,8 @@ public class RecoveryDescriptor {
      *
      * @param ex Exception with which the handshake future will be completed.
      */
-    public boolean block(Exception ex) {
-        return doAcquire(null, failedFuture(ex));
+    public boolean tryBlock(Exception ex) {
+        return doTryAcquire(null, failedFuture(ex));
     }
 
     /**

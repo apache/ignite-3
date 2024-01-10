@@ -145,7 +145,7 @@ class RecoveryClientHandshakeManagerTest extends BaseIgniteAbstractTest {
         CompletableFuture<NettySender> localHandshakeFuture = manager.localHandshakeFuture();
         CompletionStage<NettySender> finalHandshakeFuture = manager.finalHandshakeFuture();
 
-        recoveryDescriptor.acquire(thisContext, completedFuture(competitorNettySender));
+        recoveryDescriptor.tryAcquire(thisContext, completedFuture(competitorNettySender));
 
         manager.onMessage(handshakeStartMessageFrom(serverLaunchId));
 
@@ -192,12 +192,12 @@ class RecoveryClientHandshakeManagerTest extends BaseIgniteAbstractTest {
         CompletableFuture<NettySender> localHandshakeFuture = manager.localHandshakeFuture();
         CompletionStage<NettySender> finalHandshakeFuture = manager.finalHandshakeFuture();
 
-        recoveryDescriptor.acquire(thisContext, new CompletableFuture<>());
+        recoveryDescriptor.tryAcquire(thisContext, new CompletableFuture<>());
 
         DescriptorAcquiry thisAcquiry = recoveryDescriptor.holder();
         assertThat(thisAcquiry, notNullValue());
         thisAcquiry.clinchResolved().whenComplete(((unused, ex) -> {
-            assertThat(recoveryDescriptor.acquire(competitorContext, completedFuture(competitorNettySender)), is(true));
+            assertThat(recoveryDescriptor.tryAcquire(competitorContext, completedFuture(competitorNettySender)), is(true));
         }));
 
         manager.onMessage(handshakeRejectedMessageDueToClinchFrom());
@@ -215,7 +215,7 @@ class RecoveryClientHandshakeManagerTest extends BaseIgniteAbstractTest {
         CompletableFuture<NettySender> localHandshakeFuture = manager.localHandshakeFuture();
         CompletionStage<NettySender> finalHandshakeFuture = manager.finalHandshakeFuture();
 
-        recoveryDescriptor.acquire(thisContext, new CompletableFuture<>());
+        recoveryDescriptor.tryAcquire(thisContext, new CompletableFuture<>());
 
         manager.onMessage(handshakeRejectedMessageDueToClinchFrom());
 
