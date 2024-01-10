@@ -89,23 +89,13 @@ public class AlterColumnEntry implements UpdateEntry, Fireable {
                         schema.id(),
                         schema.name(),
                         Arrays.stream(schema.tables())
-                                .map(table -> table.id() != tableId
-                                        ? table
-                                        : new CatalogTableDescriptor(
-                                                table.id(),
-                                                table.schemaId(),
-                                                table.primaryKeyIndexId(),
+                                .map(table -> table.id() == tableId ? table.newDescriptor(
                                                 table.name(),
-                                                table.zoneId(),
                                                 table.tableVersion() + 1,
                                                 table.columns().stream()
                                                         .map(source -> source.name().equals(column.name()) ? column : source)
                                                         .collect(toList()),
-                                                table.primaryKeyColumns(),
-                                                table.colocationColumns(),
-                                                causalityToken,
-                                                table.creationToken()
-                                        )
+                                                causalityToken) : table
                                 )
                                 .toArray(CatalogTableDescriptor[]::new),
                         schema.indexes(),
