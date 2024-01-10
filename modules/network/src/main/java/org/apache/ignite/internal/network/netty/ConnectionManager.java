@@ -43,7 +43,6 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
-import java.util.stream.Stream;
 import org.apache.ignite.internal.future.OrderingFuture;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
@@ -437,14 +436,10 @@ public class ConnectionManager implements ChannelCreationListener {
 
         assert stopping.get();
 
-        Stream<CompletableFuture<Void>> stopFutures = Stream.concat(
-                Stream.concat(
-                    clients.values().stream().map(NettyClient::stop),
-                    Stream.of(server.stop())
-                ),
-                channels.values().stream().map(NettySender::closeAsync)
-        );
-        stopFutures = Stream.concat(stopFutures, Stream.of(disposeDescriptors()));
+        List<CompletableFuture<Void>> stopFutures = clients.values().stream().map(NettyClient::stop).collect(toList());
+        stopFutures.add(server.stop());
+        stopFutures.addAll(channels.values().stream().map(NettySender::closeAsync).collect(toList()));
+        stopFutures.add(disposeDescriptors());
 
         CompletableFuture<Void> finalStopFuture = allOf(stopFutures.toArray(CompletableFuture<?>[]::new));
 
