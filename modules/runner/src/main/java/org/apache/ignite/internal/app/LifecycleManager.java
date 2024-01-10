@@ -116,7 +116,12 @@ class LifecycleManager implements StateProvider {
      * @return Future that will be completed when all components start futures will be completed.
      */
     synchronized CompletableFuture<Void> allComponentsStartFuture() {
-        return allOf(allComponentsStartFuture.toArray(CompletableFuture[]::new)).whenComplete((v, e) -> allComponentsStartFuture.clear());
+        return allOf(allComponentsStartFuture.toArray(CompletableFuture[]::new))
+                .whenComplete((v, e) -> {
+                    synchronized (this) {
+                        allComponentsStartFuture.clear();
+                    }
+                });
     }
 
     /**
