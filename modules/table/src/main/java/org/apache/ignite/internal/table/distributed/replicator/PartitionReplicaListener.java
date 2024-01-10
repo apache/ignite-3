@@ -1682,7 +1682,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             @Nullable HybridTimestamp commitTimestamp,
             String txCoordinatorId
     ) {
-        assert !commit || (commitTimestamp != null);
+        assert !(commit && commitTimestamp == null) : "Cannot commit without the timestamp.";
 
         HybridTimestamp tsForCatalogVersion = commit ? commitTimestamp : hybridClock.now();
 
