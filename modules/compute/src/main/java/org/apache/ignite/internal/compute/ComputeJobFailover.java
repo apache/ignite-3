@@ -20,7 +20,6 @@ package org.apache.ignite.internal.compute;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Set;
-import java.util.UUID;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
@@ -68,7 +67,9 @@ class ComputeJobFailover<T> {
      */
     private final AtomicReference<ClusterNode> runningWorkerNode;
 
-    /** Context of the called job. Captures deployment units, jobClassName and arguments. */
+    /**
+     * Context of the called job. Captures deployment units, jobClassName and arguments.
+     */
     private final RemoteExecutionContext<T> jobContext;
 
     /**
@@ -107,9 +108,9 @@ class ComputeJobFailover<T> {
         JobExecution<T> remoteJobExecution = launchJobOn(runningWorkerNode);
         jobContext.initJobExecution(new FailSafeJobExecution<>(remoteJobExecution));
 
-        UUID handlerId = UUID.randomUUID();
-        nodeLeftEventsSource.addEventHandler(handlerId, new OnNodeLeft());
-        remoteJobExecution.resultAsync().whenComplete((r, e) -> nodeLeftEventsSource.removeEventHandler(handlerId));
+        Consumer<ClusterNode> handler = new OnNodeLeft();
+        nodeLeftEventsSource.addEventHandler(handler);
+        remoteJobExecution.resultAsync().whenComplete((r, e) -> nodeLeftEventsSource.removeEventHandler(handler));
 
         return jobContext.failSafeJobExecution();
     }

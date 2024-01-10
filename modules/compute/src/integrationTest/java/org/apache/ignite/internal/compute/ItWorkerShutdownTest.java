@@ -22,6 +22,7 @@ import static org.apache.ignite.compute.JobState.CANCELED;
 import static org.apache.ignite.compute.JobState.COMPLETED;
 import static org.apache.ignite.compute.JobState.EXECUTING;
 import static org.apache.ignite.compute.JobState.FAILED;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
@@ -54,9 +55,9 @@ import org.apache.ignite.compute.JobStatus;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.table.TableImpl;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Tuple;
-import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -149,6 +150,7 @@ class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest {
         assertThat(GLOBAL_CHANNEL.poll(10, TimeUnit.SECONDS), equalTo(ack));
 
         assertThat(execution.resultAsync().isDone(), equalTo(false));
+        System.out.println("%%%%% () checking id");
         assertThat(idSync(execution), notNullValue());
 
         // During the fob failover we might get a job that is restarted, the state will be not EXECUTING for some short time.
@@ -170,13 +172,16 @@ class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest {
         return execution.statusAsync().get(10, TimeUnit.SECONDS);
     }
 
-    @NotNull
     private Set<ClusterNode> clusterNodesByNames(Set<String> nodes) {
         return nodes.stream()
                 .map(NODES_NAMES_TO_INDEXES::get)
                 .map(this::node)
                 .map(IgniteImpl::node)
                 .collect(Collectors.toSet());
+    }
+
+    private static UUID idSync(JobExecution<?> execution) throws InterruptedException, ExecutionException, TimeoutException {
+        return execution.idAsync().get(10, TimeUnit.SECONDS);
     }
 
     /**
@@ -189,6 +194,7 @@ class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest {
         NODE_SIGNALS.clear();
         NODE_CHANNELS.clear();
         INTERACTIVE_JOB_RUN_TIMES.clear();
+        NODES_NAMES_TO_INDEXES.clear();
 
         for (int i = 0; i < 3; i++) {
             NODES_NAMES_TO_INDEXES.put(node(i).name(), i);
@@ -251,10 +257,6 @@ class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest {
         assertThat(idSync(execution), equalTo(jobIdBeforeFail));
     }
 
-    private static UUID idSync(JobExecution<?> execution) throws InterruptedException, ExecutionException, TimeoutException {
-        return execution.idAsync().get(10, TimeUnit.SECONDS);
-    }
-
     @Test
     void remoteExecutionSingleWorkerShutdown() throws Exception {
         // Given.
@@ -275,7 +277,7 @@ class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest {
         stopNode(workerNodeName);
 
         // Then the job is failed, because there is no any failover worker.
-        await().until(() -> execution.resultAsync().isCompletedExceptionally());
+        assertThat(execution.resultAsync(), willThrow(IgniteException.class));
         assertThat(execution.statusAsync().isCompletedExceptionally(), equalTo(true));
     }
 
@@ -325,7 +327,7 @@ class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest {
         // Then two jobs are alive.
         executions.forEach((node, execution) -> {
             if (node.name().equals(node(1).name())) {
-                await().until(() -> execution.resultAsync().isCompletedExceptionally());
+                assertThat(execution.resultAsync(), willThrow(IgniteException.class));
             } else {
                 checkInteractiveJobAlive(node, execution);
             }
@@ -368,7 +370,7 @@ class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest {
         execution.cancelAsync().get(10, TimeUnit.SECONDS);
 
         // Then it is cancelled.
-        await().until(() -> execution.resultAsync().isCompletedExceptionally());
+        assertThat(execution.resultAsync(), willThrow(IgniteException.class));
         // And.
         assertThat(statusSync(execution).state(), is(CANCELED));
     }
@@ -485,7 +487,6 @@ class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest {
      * Interactive job that communicates via {@link #GLOBAL_CHANNEL} and {@link #GLOBAL_SIGNALS}.
      */
     static class GlobalInteractiveJob implements ComputeJob<String> {
-        @NotNull
         private static Signal listenSignal() {
             Signal recievedSignal;
             try {
@@ -523,7 +524,6 @@ class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest {
      * executed via {@link #INTERACTIVE_JOB_RUN_TIMES}.
      */
     static class InteractiveJob implements ComputeJob<String> {
-        @NotNull
         private static Signal listenSignal(BlockingQueue<Signal> channel) {
             Signal recievedSignal = null;
             try {

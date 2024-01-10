@@ -67,6 +67,7 @@ public class IgniteComputeImpl implements IgniteCompute {
         this.topologyService = topologyService;
         this.tables = tables;
         this.computeComponent = computeComponent;
+        this.nodeLeftEventsSource = new NodeLeftEventsSource(topologyService);
     }
 
     /** {@inheritDoc} */
@@ -266,7 +267,8 @@ public class IgniteComputeImpl implements IgniteCompute {
 
         return nodes.stream()
                 .collect(toUnmodifiableMap(identity(),
-                        // No failover nodes for broadcast.
+                        // No failover nodes for broadcast. We use failover here in order to complete futures with exceptions
+                        // if worker node has left the cluster.
                         node -> new JobExecutionWrapper<>(executeOnOneNodeWithFailover(node, Set.of(), units, jobClassName, args))));
     }
 }

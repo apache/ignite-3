@@ -19,13 +19,14 @@ package org.apache.ignite.internal.compute;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.compute.JobExecution;
+import org.apache.ignite.compute.JobState;
 import org.apache.ignite.compute.JobStatus;
-import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.lang.ErrorGroups.Compute;
 
 /**
  * Fail-safe wrapper for the {@link JobExecution} that should be returned to the client. This wrapper holds the original
@@ -54,19 +55,35 @@ class FailSafeJobExecution<T> implements JobExecution<T> {
     /**
      * The status of the first job execution attempt. It is used to preserve the original job creation time.
      */
-    private final CompletableFuture<JobStatus> capturedStatus;
+    private final AtomicReference<JobStatus> capturedStatus;
 
     /**
      * Link to the current job execution object. It can be updated when the job is restarted on another node.
      */
     private final AtomicReference<JobExecution<T>> runningJobExecution;
 
-    FailSafeJobExecution(JobExecution<T> runningJobExecution) {
+    FailSafeJobExecution(JobExecution<T> runningJobExecution) throws RuntimeException {
         this.resultFuture = new CompletableFuture<>();
         this.runningJobExecution = new AtomicReference<>(runningJobExecution);
-        this.capturedStatus = runningJobExecution.statusAsync();
+
+        this.capturedStatus = new AtomicReference<>(null);
+        captureStatus(runningJobExecution);
 
         registerCompleteHook();
+    }
+
+    private void captureStatus(JobExecution<T> runningJobExecution) {
+        try {
+            runningJobExecution.statusAsync().whenComplete((status, e) -> {
+                if (status != null) {
+                    this.capturedStatus.set(status);
+                } else {
+                    this.capturedStatus.set(JobStatus.builder().state(JobState.FAILED).build());
+                }
+            }).get(10, TimeUnit.SECONDS);
+        } catch (TimeoutException | InterruptedException | ExecutionException e) {
+            this.capturedStatus.set(JobStatus.builder().state(JobState.FAILED).build());
+        }
     }
 
     /**
@@ -98,16 +115,10 @@ class FailSafeJobExecution<T> implements JobExecution<T> {
      * @return transformed job status.
      */
     private JobStatus transformStatus(JobStatus jobStatus) {
-        try {
-            return jobStatus.toBuilder()
-                    .createTime(capturedStatus.get().createTime())
-                    .id(capturedStatus.get().id())
-                    .build();
-        } catch (InterruptedException | ExecutionException e) {
-            LOG.warn("Failed to get the job status", e);
-
-            throw new IgniteInternalException(Compute.FAIL_TO_GET_JOB_STATUS_ERR);
-        }
+        return jobStatus.toBuilder()
+                .createTime(capturedStatus.get().createTime())
+                .id(capturedStatus.get().id())
+                .build();
     }
 
     @Override

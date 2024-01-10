@@ -17,9 +17,8 @@
 
 package org.apache.ignite.internal.compute;
 
-import java.util.Map;
-import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Consumer;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.TopologyEventHandler;
@@ -30,26 +29,26 @@ import org.apache.ignite.network.TopologyService;
  * todo:  remove and use TopologyService after <a href="https://issues.apache.org/jira/browse/IGNITE-14519">IGNITE-14519</a>.
  */
 class NodeLeftEventsSource {
-    private final Map<UUID, Consumer<ClusterNode>> handlers;
+    private final List<Consumer<ClusterNode>> handlers;
 
     NodeLeftEventsSource(TopologyService delegate) {
-        this.handlers = new ConcurrentHashMap<>();
+        this.handlers = new CopyOnWriteArrayList<>();
 
         delegate.addEventHandler(new NodeLeftTopologyEventHandler());
     }
 
-    void addEventHandler(UUID handlerId, Consumer<ClusterNode> onNodeLeftHandler) {
-        handlers.put(handlerId, onNodeLeftHandler);
+    void addEventHandler(Consumer<ClusterNode> onNodeLeftHandler) {
+        handlers.add(onNodeLeftHandler);
     }
 
-    void removeEventHandler(UUID jobId) {
-        handlers.remove(jobId);
+    void removeEventHandler(Consumer<ClusterNode> onNodeLeftHandler) {
+        handlers.remove(onNodeLeftHandler);
     }
 
     private class NodeLeftTopologyEventHandler implements TopologyEventHandler {
         @Override
         public void onDisappeared(ClusterNode member) {
-            handlers.values().forEach(handler -> handler.accept(member));
+            handlers.forEach(handler -> handler.accept(member));
         }
     }
 }

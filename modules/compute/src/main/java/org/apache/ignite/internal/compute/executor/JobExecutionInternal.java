@@ -41,7 +41,7 @@ public class JobExecutionInternal<R> {
      */
     JobExecutionInternal(QueueExecution<R> execution, AtomicBoolean isInterrupted) {
         this.execution = execution;
-        this.isInterrupted = isInterrupted; // todo what if already interupted?
+        this.isInterrupted = isInterrupted;
     }
 
     public CompletableFuture<R> resultAsync() {
