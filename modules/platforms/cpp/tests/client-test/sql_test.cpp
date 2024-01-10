@@ -291,7 +291,8 @@ TEST_F(sql_test, sql_create_existing_table) {
                 m_client.get_sql().execute(nullptr, {"CREATE TABLE TEST(ID INT PRIMARY KEY, VAL VARCHAR)"}, {});
             } catch (const ignite_error &e) {
                 EXPECT_THAT(e.what_str(), ::testing::HasSubstr("Table with name 'PUBLIC.TEST' already exists"));
-                EXPECT_THAT(e.get_status_code(), ignite::error::code::TABLE_ALREADY_EXISTS);
+                // TODO: IGNITE-21217 Check STMT_VALIDATION error code usage
+                EXPECT_THAT(e.get_status_code(), ignite::error::code::STMT_VALIDATION);
                 throw;
             }
         },
@@ -305,7 +306,8 @@ TEST_F(sql_test, sql_add_existing_column) {
                 m_client.get_sql().execute(nullptr, {"ALTER TABLE TEST ADD COLUMN ID INT"}, {});
             } catch (const ignite_error &e) {
                 EXPECT_THAT(e.what_str(), ::testing::HasSubstr("Column with name 'ID' already exists"));
-                EXPECT_THAT(e.get_status_code(), ignite::error::code::COLUMN_ALREADY_EXISTS);
+                // TODO: IGNITE-21217 Check STMT_VALIDATION error code usage
+                EXPECT_THAT(e.get_status_code(), ignite::error::code::STMT_VALIDATION);
                 throw;
             }
         },
@@ -319,7 +321,8 @@ TEST_F(sql_test, sql_alter_nonexisting_table) {
                 m_client.get_sql().execute(nullptr, {"ALTER TABLE UNKNOWN_TABLE ADD COLUMN ID INT"}, {});
             } catch (const ignite_error &e) {
                 EXPECT_THAT(e.what_str(), ::testing::HasSubstr("Table with name 'PUBLIC.UNKNOWN_TABLE' not found"));
-                EXPECT_THAT(e.get_status_code(), ignite::error::code::TABLE_NOT_FOUND);
+                // TODO: IGNITE-21217 Check STMT_VALIDATION error code usage
+                EXPECT_THAT(e.get_status_code(), ignite::error::code::STMT_VALIDATION);
                 throw;
             }
         },
