@@ -221,25 +221,26 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     }
 
     @Override
-    public @Nullable CatalogSchemaDescriptor schema(int version) {
-        Catalog catalog = catalog(version);
-
-        if (catalog == null) {
-            return null;
-        }
-
-        return catalog.schema(DEFAULT_SCHEMA_NAME);
+    public @Nullable CatalogSchemaDescriptor schema(int catalogVersion) {
+        return schema(DEFAULT_SCHEMA_NAME, catalogVersion);
     }
 
     @Override
-    public @Nullable CatalogSchemaDescriptor schema(String schemaName, int version) {
-        Catalog catalog = catalog(version);
+    public @Nullable CatalogSchemaDescriptor schema(String schemaName, int catalogVersion) {
+        Catalog catalog = catalog(catalogVersion);
 
         if (catalog == null) {
             return null;
         }
 
         return catalog.schema(schemaName == null ? DEFAULT_SCHEMA_NAME : schemaName);
+    }
+
+    @Override
+    public @Nullable CatalogSchemaDescriptor schema(int schemaId, int catalogVersion) {
+        Catalog catalog = catalog(catalogVersion);
+
+        return catalog == null ? null : catalog.schema(schemaId);
     }
 
     @Override
@@ -293,8 +294,8 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     }
 
     @Override
-    public Catalog catalog(int version) {
-        return catalogByVer.get(version);
+    public @Nullable Catalog catalog(int catalogVersion) {
+        return catalogByVer.get(catalogVersion);
     }
 
     private Catalog catalogAt(long timestamp) {

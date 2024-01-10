@@ -79,6 +79,7 @@ public class SessionImpl implements AbstractSession {
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
     private final AtomicBoolean closed = new AtomicBoolean(false);
+    private final CompletableFuture<Void> closedFut = new CompletableFuture<>();
 
     private final AtomicInteger cursorIdGen = new AtomicInteger();
 
@@ -227,14 +228,15 @@ public class SessionImpl implements AbstractSession {
                         try {
                             int cursorId = registerCursor(cur);
 
+                            cur.onClose().whenComplete((r, e) -> openedCursors.remove(cursorId));
+
                             return cur.requestNextAsync(pageSize)
                                     .thenApply(
                                             batchRes -> new AsyncResultSetImpl<>(
                                                     cur,
                                                     batchRes,
                                                     pageSize,
-                                                    expirationTracker,
-                                                    () -> openedCursors.remove(cursorId)
+                                                    expirationTracker
                                             )
                                     );
                         } finally {
@@ -463,9 +465,12 @@ public class SessionImpl implements AbstractSession {
     @Override
     public CompletableFuture<Void> closeAsync() {
         try {
-            closeInternal();
+            return closeInternal()
+                    .exceptionally(e -> {
+                        sneakyThrow(mapToPublicSqlException(e));
 
-            return nullCompletedFuture();
+                        return null;
+                    });
         } catch (Exception e) {
             return CompletableFuture.failedFuture(mapToPublicSqlException(e));
         }
@@ -491,16 +496,65 @@ public class SessionImpl implements AbstractSession {
         return sessionId;
     }
 
-    @SuppressWarnings("resource")
-    private void closeInternal() {
+    @SuppressWarnings("rawtypes")
+    private CompletableFuture<Void> closeInternal() {
         if (closed.compareAndSet(false, true)) {
             busyLock.block();
 
-            openedCursors.values().forEach(AsyncSqlCursor::closeAsync);
+            List<AsyncSqlCursor<?>> cursorsToClose = new ArrayList<>(openedCursors.values());
+
             openedCursors.clear();
 
-            onClose.run();
+            CompletableFuture[] closeCursorFutures = new CompletableFuture[cursorsToClose.size()];
+
+            int idx = 0;
+            for (AsyncSqlCursor<?> cursor : cursorsToClose) {
+                closeCursorFutures[idx++] = cursor.closeAsync();
+            }
+
+            CompletableFuture.allOf(closeCursorFutures)
+                    .whenComplete((r, e) -> {
+                        Throwable error = null;
+
+                        if (e != null) {
+                            for (CompletableFuture<?> fut : closeCursorFutures) {
+                                if (!fut.isCompletedExceptionally()) {
+                                    continue;
+                                }
+
+                                try {
+                                    fut.getNow(null);
+                                } catch (Throwable th) {
+                                    Throwable unwrapped = ExceptionUtils.unwrapCause(th);
+
+                                    if (error == null) {
+                                        error = unwrapped;
+                                    } else {
+                                        error.addSuppressed(unwrapped);
+                                    }
+                                }
+                            }
+                        }
+
+                        try {
+                            onClose.run();
+                        } catch (Throwable th) {
+                            if (error == null) {
+                                error = th;
+                            } else {
+                                error.addSuppressed(th);
+                            }
+                        }
+
+                        if (error != null) {
+                            closedFut.completeExceptionally(error);
+                        } else {
+                            closedFut.complete(null);
+                        }
+                    });
         }
+
+        return closedFut;
     }
 
     private static void validateDmlResult(AsyncCursor.BatchedResult<InternalSqlRow> page) {

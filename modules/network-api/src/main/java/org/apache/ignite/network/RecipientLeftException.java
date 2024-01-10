@@ -15,20 +15,17 @@
  * limitations under the License.
  */
 
-#include "ignite/client/sql/sql.h"
-#include "ignite/client/detail/argument_check_utils.h"
-#include "ignite/client/detail/sql/sql_impl.h"
+package org.apache.ignite.network;
 
-namespace ignite {
+import org.apache.ignite.lang.ErrorGroups.Network;
+import org.apache.ignite.lang.IgniteException;
 
-void sql::execute_async(transaction *tx, const sql_statement &statement, std::vector<primitive> args,
-    ignite_callback<result_set> callback) {
-    m_impl->execute_async(tx, statement, std::move(args), std::move(callback));
+/**
+ * Thrown when a message could not be sent (or it was sent, but will never be acknowledged) because the recipient
+ * has left the physical topology.
+ */
+public class RecipientLeftException extends IgniteException {
+    public RecipientLeftException() {
+        super(Network.RECIPIENT_LEFT_ERR);
+    }
 }
-
-void sql::execute_script_async(const sql_statement &statement, std::vector<primitive> args,
-    ignite_callback<void> callback) {
-    m_impl->execute_script_async(statement, std::move(args), std::move(callback));
-}
-
-} // namespace ignite

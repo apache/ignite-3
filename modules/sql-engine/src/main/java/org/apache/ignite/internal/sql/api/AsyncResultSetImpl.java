@@ -55,8 +55,6 @@ public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
 
     private final int pageSize;
 
-    private final Runnable closeRun;
-
     /**
      * Constructor.
      *
@@ -65,20 +63,17 @@ public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
      * @param pageSize Size of the page to fetch.
      * @param expirationTracker A tracker to register any interaction with given result set.
      *      Used to prevent session from expiration.
-     * @param closeRun Callback to be invoked after result is closed.
      */
     AsyncResultSetImpl(
             AsyncSqlCursor<InternalSqlRow> cursor,
             BatchedResult<InternalSqlRow> page,
             int pageSize,
-            IdleExpirationTracker expirationTracker,
-            Runnable closeRun
+            IdleExpirationTracker expirationTracker
     ) {
         this.cursor = cursor;
         this.curPage = page;
         this.pageSize = pageSize;
         this.expirationTracker = expirationTracker;
-        this.closeRun = closeRun;
     }
 
     /** {@inheritDoc} */
@@ -171,7 +166,7 @@ public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> closeAsync() {
-        return cursor.closeAsync().thenRun(closeRun);
+        return cursor.closeAsync();
     }
 
     private void requireResultSet() {

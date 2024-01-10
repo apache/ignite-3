@@ -128,6 +128,8 @@ class SessionImplTest extends BaseIgniteAbstractTest {
 
         when(result.requestNextAsync(anyInt()))
                 .thenReturn(completedFuture(new BatchedResult<>(List.of(new ListToInternalSqlRowAdapter(List.of(0L))), false)));
+        when(result.onClose())
+                .thenReturn(nullCompletedFuture());
 
         when(queryProcessor.querySingleAsync(any(), any(), any(), any(), any(Object[].class)))
                 .thenReturn(completedFuture(result));
@@ -170,6 +172,8 @@ class SessionImplTest extends BaseIgniteAbstractTest {
                 .thenReturn(completedFuture(new BatchedResult<>(List.of(new ListToInternalSqlRowAdapter(List.of(0L))), false)));
         when(result.queryType())
                 .thenReturn(SqlQueryType.QUERY);
+        when(result.onClose())
+                .thenReturn(nullCompletedFuture());
 
         when(queryProcessor.querySingleAsync(any(), any(), any(), any(), any(Object[].class)))
                 .thenReturn(completedFuture(result));
@@ -214,13 +218,15 @@ class SessionImplTest extends BaseIgniteAbstractTest {
 
     @Test
     @SuppressWarnings("unchecked")
-    void resultSetCleanItselfOnClose() {
+    void resultSetIsUnregisteredWhenUnderlyingCursorIsClosed() {
         AsyncSqlCursor<InternalSqlRow> result = mock(AsyncSqlCursor.class);
 
         when(result.requestNextAsync(anyInt()))
                 .thenReturn(completedFuture(new BatchedResult<>(List.of(new ListToInternalSqlRowAdapter(List.of(0L))), true)));
-        when(result.closeAsync())
-                .thenReturn(nullCompletedFuture());
+
+        CompletableFuture<Void> closeFuture = new CompletableFuture<>();
+        when(result.onClose())
+                .thenReturn(closeFuture);
 
         when(queryProcessor.querySingleAsync(any(), any(), any(), any(), any(Object[].class)))
                 .thenReturn(completedFuture(result));
@@ -232,7 +238,7 @@ class SessionImplTest extends BaseIgniteAbstractTest {
         assertThat(rs, notNullValue());
         assertThat(session.openedCursors(), hasSize(1));
 
-        await(rs.closeAsync());
+        closeFuture.complete(null);
 
         assertThat(session.openedCursors(), empty());
     }
@@ -328,8 +334,16 @@ class SessionImplTest extends BaseIgniteAbstractTest {
                 .thenAnswer(ignored -> completedFuture(new BatchedResult<>(List.of(List.of(0L)), hasMore.get())));
         when(result.queryType())
                 .thenReturn(SqlQueryType.QUERY);
+
+        CompletableFuture<Void> closeFuture = new CompletableFuture<>();
         when(result.closeAsync())
-                .thenReturn(nullCompletedFuture());
+                .thenAnswer(ignored -> {
+                    closeFuture.complete(null);
+
+                    return closeFuture;
+                });
+        when(result.onClose())
+                .thenReturn(closeFuture);
 
         when(queryProcessor.querySingleAsync(any(), any(), any(), any(), any(Object[].class)))
                 .thenReturn(completedFuture(result));
