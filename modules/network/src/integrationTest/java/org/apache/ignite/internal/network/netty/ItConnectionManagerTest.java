@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.network.netty;
 
 import static java.util.Collections.emptyList;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureCompletedMatcher.completedFuture;
@@ -228,6 +229,7 @@ public class ItConnectionManagerTest extends BaseIgniteAbstractTest {
      *
      * @throws Exception If failed.
      */
+    @SuppressWarnings("ThrowableNotThrown")
     @Test
     public void testCanReconnectAfterFail() throws Exception {
         String msgText = "test";
@@ -240,6 +242,7 @@ public class ItConnectionManagerTest extends BaseIgniteAbstractTest {
         ConnectionManagerWrapper manager2 = startManager(port2);
 
         NettySender sender = manager1.openChannelTo(manager2).get(3, TimeUnit.SECONDS);
+        assertNotNull(sender);
 
         TestMessage testMessage = messageFactory.testMessage().msg(msgText).build();
 
@@ -247,13 +250,10 @@ public class ItConnectionManagerTest extends BaseIgniteAbstractTest {
 
         NettySender finalSender = sender;
 
-        assertThrows(ClosedChannelException.class, () -> {
-            try {
-                finalSender.send(new OutNetworkObject(testMessage, emptyList())).get(3, TimeUnit.SECONDS);
-            } catch (ExecutionException e) {
-                throw e.getCause();
-            }
-        });
+        assertThrowsWithCause(
+                () ->  finalSender.send(new OutNetworkObject(testMessage, emptyList())).get(3, TimeUnit.SECONDS),
+                ClosedChannelException.class
+        );
 
         manager2 = startManager(port2);
 
@@ -262,6 +262,7 @@ public class ItConnectionManagerTest extends BaseIgniteAbstractTest {
         manager2.connectionManager.addListener((obj) -> fut.complete(obj.message()));
 
         sender = manager1.openChannelTo(manager2).get(3, TimeUnit.SECONDS);
+        assertNotNull(sender);
 
         sender.send(new OutNetworkObject(testMessage, emptyList())).get(3, TimeUnit.SECONDS);
 
