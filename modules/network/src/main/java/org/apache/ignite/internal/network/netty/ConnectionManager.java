@@ -436,7 +436,8 @@ public class ConnectionManager implements ChannelCreationListener {
 
         assert stopping.get();
 
-        List<CompletableFuture<Void>> stopFutures = clients.values().stream().map(NettyClient::stop).collect(toList());
+        //noinspection FuseStreamOperations
+        List<CompletableFuture<Void>> stopFutures = new ArrayList<>(clients.values().stream().map(NettyClient::stop).collect(toList()));
         stopFutures.add(server.stop());
         stopFutures.addAll(channels.values().stream().map(NettySender::closeAsync).collect(toList()));
         stopFutures.add(disposeDescriptors());
