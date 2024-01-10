@@ -37,6 +37,7 @@ import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.test.WatchListenerInhibitor;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -76,7 +77,7 @@ public class ItRebalanceTriggersRecoveryTest extends ClusterPerTestIntegrationTe
         return 1;
     }
 
-    @Test
+    @RepeatedTest(20)
     void testRebalanceTriggersRecovery() throws InterruptedException {
         // The nodes from different regions/zones needed to implement the predictable way of nodes choice.
         startNode(1, US_NODE_BOOTSTRAP_CFG_TEMPLATE);
