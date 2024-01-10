@@ -175,7 +175,7 @@ public class SqlSerializer implements CriteriaVisitor<Void> {
         private Criteria where;
 
         /**
-         * Sets the table name (the number of entries that will be sent to the cluster in one network call).
+         * Sets the table name. Must be unquoted name or name is cast to upper case.
          *
          * @param tableName Table name.
          * @return This builder instance.
@@ -189,7 +189,7 @@ public class SqlSerializer implements CriteriaVisitor<Void> {
         /**
          * Sets the valid table column names to prevent SQL injection.
          *
-         * @param columnNames Acceptable columns names.
+         * @param columnNames Acceptable columns names. Must be unquoted name or name is cast to upper case.
          * @return This builder instance.
          */
         public SqlSerializer.Builder columns(Collection<String> columnNames) {
