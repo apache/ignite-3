@@ -88,6 +88,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CreateTableEventParameters;
 import org.apache.ignite.internal.catalog.events.DropTableEventParameters;
+import org.apache.ignite.internal.catalog.events.RenameTableEventParameters;
 import org.apache.ignite.internal.causality.CompletionListener;
 import org.apache.ignite.internal.causality.IncrementalVersionedValue;
 import org.apache.ignite.internal.close.ManuallyCloseable;
@@ -535,6 +536,16 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 return onTableDelete(((DropTableEventParameters) parameters)).thenApply(unused -> false);
             });
 
+            catalogService.listen(CatalogEvent.TABLE_ALTER, (parameters, exception) -> {
+                assert exception == null : parameters;
+
+                if (parameters instanceof RenameTableEventParameters) {
+                    return onTableRename((RenameTableEventParameters) parameters).thenApply(unused -> false);
+                } else {
+                    return falseCompletedFuture();
+                }
+            });
+
             partitionReplicatorNodeRecovery.start();
         });
     }
@@ -581,7 +592,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                         return assignmentsEventHandler.apply(entry, revision);
                     })
                     .toArray(CompletableFuture[]::new);
-
 
             return allOf(futures)
                     // Simply log any errors, we don't want to block watch processing.
@@ -639,6 +649,24 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
             return nullCompletedFuture();
         });
+    }
+
+    private CompletableFuture<?> onTableRename(RenameTableEventParameters parameters) {
+        return inBusyLockAsync(busyLock, () -> tablesByIdVv.update(
+                parameters.causalityToken(),
+                (tablesById, e) -> {
+                    if (e != null) {
+                        return failedFuture(e);
+                    }
+
+                    TableImpl table = tablesById.get(parameters.tableId());
+
+                    // TODO: revisit this approach, see https://issues.apache.org/jira/browse/IGNITE-21235.
+                    table.name(parameters.newTableName());
+
+                    return completedFuture(tablesById);
+                })
+        );
     }
 
     /**

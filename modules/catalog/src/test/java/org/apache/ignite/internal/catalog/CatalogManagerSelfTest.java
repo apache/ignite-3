@@ -61,6 +61,7 @@ import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.hasItems;
+import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
@@ -104,6 +105,7 @@ import org.apache.ignite.internal.catalog.commands.DefaultValue;
 import org.apache.ignite.internal.catalog.commands.DropIndexCommand;
 import org.apache.ignite.internal.catalog.commands.DropZoneCommand;
 import org.apache.ignite.internal.catalog.commands.MakeIndexAvailableCommand;
+import org.apache.ignite.internal.catalog.commands.RenameTableCommand;
 import org.apache.ignite.internal.catalog.commands.RenameZoneCommand;
 import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
@@ -124,6 +126,7 @@ import org.apache.ignite.internal.catalog.events.DropIndexEventParameters;
 import org.apache.ignite.internal.catalog.events.DropTableEventParameters;
 import org.apache.ignite.internal.catalog.events.DropZoneEventParameters;
 import org.apache.ignite.internal.catalog.events.MakeIndexAvailableEventParameters;
+import org.apache.ignite.internal.catalog.events.RenameTableEventParameters;
 import org.apache.ignite.internal.catalog.storage.ObjectIdGenUpdateEntry;
 import org.apache.ignite.internal.catalog.storage.UpdateLog;
 import org.apache.ignite.internal.catalog.storage.UpdateLog.OnUpdateHandler;
@@ -2065,6 +2068,71 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         int catalogVersion = manager.latestCatalogVersion();
 
         assertThat(tableIndexIds(catalogVersion, tableId(TABLE_NAME)), equalTo(List.of(indexId0, indexId1, indexId2)));
+    }
+
+    @Test
+    void testTableRename() {
+        createSomeTable(TABLE_NAME);
+
+        int prevVersion = manager.latestCatalogVersion();
+
+        int tableId = manager.tables(prevVersion).iterator().next().id();
+
+        CatalogCommand command = RenameTableCommand.builder()
+                .schemaName(SCHEMA_NAME)
+                .tableName(TABLE_NAME)
+                .newTableName(TABLE_NAME_2)
+                .build();
+
+        CompletableFuture<Void> renameFuture = manager.execute(command);
+
+        assertThat(renameFuture, willCompleteSuccessfully());
+
+        int curVersion = manager.latestCatalogVersion();
+
+        CatalogTableDescriptor prevDescriptor = manager.table(tableId, prevVersion);
+        CatalogTableDescriptor curDescriptor = manager.table(tableId, curVersion);
+
+        assertThat(prevDescriptor, is(notNullValue()));
+        assertThat(prevDescriptor.name(), is(TABLE_NAME));
+
+        assertThat(curDescriptor, is(notNullValue()));
+        assertThat(curDescriptor.name(), is(TABLE_NAME_2));
+
+        assertThat(curDescriptor.tableVersion(), is(prevDescriptor.tableVersion() + 1));
+    }
+
+    @Test
+    void testTableRenameFiresEvent() {
+        createSomeTable(TABLE_NAME);
+
+        var eventFuture = new CompletableFuture<CatalogEventParameters>();
+
+        manager.listen(CatalogEvent.TABLE_ALTER, (parameters, e) -> {
+            if (e != null) {
+                eventFuture.completeExceptionally(e);
+            } else {
+                eventFuture.complete(parameters);
+            }
+
+            return trueCompletedFuture();
+        });
+
+        CatalogCommand command = RenameTableCommand.builder()
+                .schemaName(SCHEMA_NAME)
+                .tableName(TABLE_NAME)
+                .newTableName(TABLE_NAME_2)
+                .build();
+
+        CompletableFuture<Void> renameFuture = manager.execute(command);
+
+        assertThat(renameFuture, willCompleteSuccessfully());
+        assertThat(eventFuture, willCompleteSuccessfully());
+
+        CatalogEventParameters eventParameters = eventFuture.join();
+
+        assertThat(eventParameters, is(instanceOf(RenameTableEventParameters.class)));
+        assertThat(((RenameTableEventParameters) eventParameters).newTableName(), is(TABLE_NAME_2));
     }
 
     private CompletableFuture<Void> changeColumn(
