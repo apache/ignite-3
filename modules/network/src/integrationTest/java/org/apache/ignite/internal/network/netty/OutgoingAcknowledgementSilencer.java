@@ -17,15 +17,15 @@
 
 package org.apache.ignite.internal.network.netty;
 
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.netty.channel.ChannelHandler.Sharable;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelOutboundHandlerAdapter;
 import io.netty.channel.ChannelPromise;
 import java.util.Collection;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.internal.network.recovery.message.AcknowledgementMessage;
 import org.apache.ignite.network.OutNetworkObject;
 
@@ -35,11 +35,11 @@ import org.apache.ignite.network.OutNetworkObject;
 @Sharable
 public class OutgoingAcknowledgementSilencer extends ChannelOutboundHandlerAdapter {
     /** Name of this handler. */
-    static final String NAME = "acknowledgement-silencer";
+    private static final String NAME = "acknowledgement-silencer";
 
     private volatile boolean silenceAcks = true;
 
-    private final AtomicInteger addedCount = new AtomicInteger();
+    private final CountDownLatch addedToPipelinesLatch;
 
     /**
      * Install this silencer on the given channels; it will drop {@link AcknowledgementMessage}s sent by them.
@@ -50,15 +50,19 @@ public class OutgoingAcknowledgementSilencer extends ChannelOutboundHandlerAdapt
      */
     public static OutgoingAcknowledgementSilencer installOn(Collection<NettySender> senders)
             throws InterruptedException {
-        OutgoingAcknowledgementSilencer ackSilencer = new OutgoingAcknowledgementSilencer();
+        OutgoingAcknowledgementSilencer ackSilencer = new OutgoingAcknowledgementSilencer(senders.size());
 
         for (NettySender sender : senders) {
             sender.channel().pipeline().addAfter(OutboundEncoder.NAME, NAME, ackSilencer);
         }
 
-        ackSilencer.waitForAddedTo(senders.size());
+        ackSilencer.waitForAddedToAllPipelines();
 
         return ackSilencer;
+    }
+
+    private OutgoingAcknowledgementSilencer(int channelCount) {
+        addedToPipelinesLatch = new CountDownLatch(channelCount);
     }
 
     /**
@@ -71,11 +75,10 @@ public class OutgoingAcknowledgementSilencer extends ChannelOutboundHandlerAdapt
     /**
      * Waits for this silencer being added to the required number of pipelines.
      *
-     * @param count Number of pipelines.
      * @throws InterruptedException If interrupted while waiting.
      */
-    private void waitForAddedTo(int count) throws InterruptedException {
-        waitForCondition(() -> addedCount.get() >= count, TimeUnit.SECONDS.toMillis(10));
+    private void waitForAddedToAllPipelines() throws InterruptedException {
+        assertTrue(addedToPipelinesLatch.await(10, TimeUnit.SECONDS));
     }
 
     @Override
@@ -94,6 +97,6 @@ public class OutgoingAcknowledgementSilencer extends ChannelOutboundHandlerAdapt
     public void handlerAdded(ChannelHandlerContext ctx) throws Exception {
         super.handlerAdded(ctx);
 
-        addedCount.incrementAndGet();
+        addedToPipelinesLatch.countDown();
     }
 }
