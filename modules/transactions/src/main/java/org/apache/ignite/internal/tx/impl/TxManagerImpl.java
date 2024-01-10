@@ -675,18 +675,10 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     }
 
     @Override
-    public boolean addInflight(UUID txId, TablePartitionId groupId) {
+    public boolean addInflight(UUID txId) {
         boolean[] res = {true};
 
-        if (placementDriver.primaryExpired(groupId)) {
-            throw new PrimaryReplicaMissException();
-        }
-
         txCtxMap.compute(txId, (uuid, tuple) -> {
-            if (placementDriver.primaryExpired(groupId)) {
-                throw new PrimaryReplicaMissException();
-            }
-
             if (tuple == null) {
                 tuple = new TxContext();
             }
@@ -707,32 +699,11 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
     @Override
     public void removeInflight(UUID txId) {
-        boolean[] wasRemoved = new boolean[1];
-
         TxContext tuple = txCtxMap.compute(txId, (uuid, ctx) -> {
-            assert ctx != null : "Transaction context is missing [txId=" + txId + "].";
+            assert ctx != null && ctx.inflights > 0 : ctx;
 
-            if (ctx.inflights > 0) {
-                //noinspection NonAtomicOperationOnVolatileField
-                ctx.inflights--;
-
-                wasRemoved[0] = true;
-            }
-
-            return ctx;
-        });
-
-        if (wasRemoved[0]) {
-            // Avoid completion under lock.
-            tuple.onRemovedInflights();
-        }
-    }
-
-    private void removeAllInflights(UUID txId) {
-        TxContext tuple = txCtxMap.compute(txId, (uuid, ctx) -> {
-            assert ctx != null : "Transaction context is missing [txId=" + txId + "].";
-
-            ctx.inflights = 0;
+            //noinspection NonAtomicOperationOnVolatileField
+            ctx.inflights--;
 
             return ctx;
         });

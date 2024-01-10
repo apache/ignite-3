@@ -30,13 +30,6 @@ public class PrimaryReplicaMissException extends IgniteInternalException impleme
 
     /**
      * Constructor.
-     */
-    public PrimaryReplicaMissException() {
-        super(REPLICA_MISS_ERR, "The primary replica has changed on request attempt.");
-    }
-
-    /**
-     * Constructor.
      *
      * @param expectedLeaseholder Expected leaseholder.
      * @param currentLeaseholder Current leaseholder, {@code null} if absent.
