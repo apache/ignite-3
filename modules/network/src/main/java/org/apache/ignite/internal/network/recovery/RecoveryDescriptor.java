@@ -43,7 +43,7 @@ import org.jetbrains.annotations.Nullable;
  *     <li>Each descriptor belongs to at most one owner at a time (usually, owners are Channels, but the last
  *     owner is ConnectionManager when it disposes a descriptor)</li>
  *     <li>Owner starts 'owning' a descriptor by acquiring it (using {@link #tryAcquire(ChannelHandlerContext, CompletableFuture)}
- *     or {@link #tryBlock(Exception)}) and stops owning it by releasing it with {@link #release(ChannelHandlerContext)}</li>
+ *     or {@link #tryBlockForever(Exception)}) and stops owning it by releasing it with {@link #release(ChannelHandlerContext)}</li>
  *     <li>Only the owner can access non-volatile state of the descriptor, and only in the same thread in which it
  *     acquired it and in which it will release it</li>
  *     <li>Acquiry, accesses while owning and release happen in the same thread, so there is happens-before between them even without
@@ -207,7 +207,7 @@ public class RecoveryDescriptor {
      *
      * @param ex Exception with which the handshake future will be completed.
      */
-    public boolean tryBlock(Exception ex) {
+    public boolean tryBlockForever(Exception ex) {
         return doTryAcquire(null, failedFuture(ex));
     }
 
@@ -215,7 +215,7 @@ public class RecoveryDescriptor {
      * Returns whether this descriptor is blocked (that is, it is acquired by ConnectionManager to dispose the descriptor
      * and it will never be released).
      */
-    public boolean isBlocked() {
+    public boolean isBlockedForever() {
         DescriptorAcquiry acquiry = channelHolder.get();
         return acquiry != null && acquiry.channel() == null;
     }
