@@ -611,6 +611,7 @@ public class ConnectionManager implements ChannelCreationListener {
 
             DescriptorAcquiry acquiry = descriptor.holder();
             if (acquiry == null) {
+                // The descriptor was acquired when we tried to block it, but now it was released. Let's try blocking it again.
                 continue;
             }
 
