@@ -35,7 +35,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Recovery protocol descriptor.
  *
- * <p>Main state the descriptor holds (unacked messages queue and counters) is not protected by synchronization primitives
+ * <p>Main state held by a descriptor (unacked messages queue and counters) is not protected by synchronization primitives
  * to make it fast to access it (which happens on each message send/receive). Here is how thread-safety of these
  * accesses is maintained:
  *
