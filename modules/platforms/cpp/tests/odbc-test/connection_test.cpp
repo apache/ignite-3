@@ -27,7 +27,7 @@ using namespace ignite;
 /**
  * Test suite.
  */
-class connection_test : public odbc_suite, public basic_auth_test_suite {
+class connection_test : public odbc_suite, public password_auth_test_suite {
 public:
     /**
      * Tear down.

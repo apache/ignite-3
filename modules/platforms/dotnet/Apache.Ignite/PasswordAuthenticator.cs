@@ -22,12 +22,12 @@ using Internal.Common;
 using Internal.Proto;
 
 /// <summary>
-/// Basic authenticator with username and password.
+/// Password authenticator with username and password.
 /// <para />
 /// Credentials are sent to the server in plain text, unless SSL/TLS is enabled - see
 /// <see cref="IgniteClientConfiguration.SslStreamFactory"/>.
 /// </summary>
-public sealed class BasicAuthenticator : IAuthenticator
+public sealed class PasswordAuthenticator : IAuthenticator
 {
     private string _username = string.Empty;
 
@@ -52,7 +52,7 @@ public sealed class BasicAuthenticator : IAuthenticator
     }
 
     /// <inheritdoc />
-    public string Type => HandshakeExtensions.AuthenticationTypeBasic;
+    public string Type => HandshakeExtensions.AuthenticationTypePassword;
 
     /// <inheritdoc />
     public object Identity => Username;

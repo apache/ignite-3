@@ -20,7 +20,7 @@ project(ignite-client-test)
 set(TARGET ${PROJECT_NAME})
 
 set(SOURCES
-    basic_authenticator_test.cpp
+    password_authenticator_test.cpp
     compute_test.cpp
     gtest_logger.h
     ignite_client_test.cpp

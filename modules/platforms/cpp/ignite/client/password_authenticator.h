@@ -24,17 +24,17 @@
 namespace ignite {
 
 /**
- * Basic authenticator with username and password.
+ * Password authenticator with username and password.
  *
  * Credentials are sent to the server in plain text, unless SSL/TLS is enabled.
  */
-class basic_authenticator : public ignite_client_authenticator {
+class password_authenticator : public ignite_client_authenticator {
 public:
     /** Type constant. */
-    inline static const std::string TYPE{"basic"};
+    inline static const std::string TYPE{"password"};
 
     // Default
-    basic_authenticator() = default;
+    password_authenticator() = default;
 
     /**
      * Constructor.
@@ -42,7 +42,7 @@ public:
      * @param username Username.
      * @param password Password.
      */
-    basic_authenticator(std::string username, std::string password)
+    password_authenticator(std::string username, std::string password)
         : m_username(std::move(username))
         , m_password(std::move(password)) {}
 

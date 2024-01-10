@@ -227,30 +227,30 @@ public interface ConnectionProperties {
     String getKeyStorePassword();
 
     /**
-     * Basic authentication username.
+     * Authentication username.
      *
-     * @return Basic authentication username.
+     * @return Authentication username.
      */
-    String getBasicAuthenticationUsername();
+    String getUsername();
 
     /**
-     * Set basic authentication username.
+     * Set authentication username.
      *
-     * @param username Basic authentication username.
+     * @param username Authentication username.
      */
-    void setBasicAuthenticationUsername(String username);
+    void setUsername(String username);
 
     /**
-     * Basic authentication password.
+     * Authentication password.
      *
-     * @return Basic authentication password.
+     * @return Authentication password.
      */
-    String getBasicAuthenticationPassword();
+    String getPassword();
 
     /**
-     * Set basic authentication password.
+     * Set authentication password.
      *
-     * @param password Basic authentication password.
+     * @param password Authentication password.
      */
-    void setBasicAuthenticationPassword(String password);
+    void setPassword(String password);
 }

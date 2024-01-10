@@ -60,7 +60,7 @@ public class ClientAuthenticationTest extends BaseIgniteAbstractTest {
     public void testAuthnOnClientNoAuthnOnServer() {
         server = startServer(false);
 
-        client = startClient(BasicAuthenticator.builder().username("u").password("p").build());
+        client = startClient(PasswordAuthenticator.builder().username("u").password("p").build());
     }
 
     @Test
@@ -74,7 +74,7 @@ public class ClientAuthenticationTest extends BaseIgniteAbstractTest {
     public void testAuthnOnServerBadAuthnOnClient() {
         server = startServer(true);
 
-        BasicAuthenticator authenticator = BasicAuthenticator.builder().username("u").password("p").build();
+        PasswordAuthenticator authenticator = PasswordAuthenticator.builder().username("u").password("p").build();
 
         IgniteTestUtils.assertThrowsWithCause(() -> startClient(authenticator), InvalidCredentialsException.class, "Authentication failed");
     }
@@ -83,7 +83,7 @@ public class ClientAuthenticationTest extends BaseIgniteAbstractTest {
     public void testAuthnOnClientAuthnOnServer() {
         server = startServer(false);
 
-        client = startClient(BasicAuthenticator.builder().username("usr").password("pwd").build());
+        client = startClient(PasswordAuthenticator.builder().username("usr").password("pwd").build());
     }
 
     private IgniteClient startClient(@Nullable IgniteClientAuthenticator authenticator) {

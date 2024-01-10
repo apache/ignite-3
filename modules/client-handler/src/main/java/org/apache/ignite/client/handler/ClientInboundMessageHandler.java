@@ -418,7 +418,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
             return new AnonymousRequest();
         }
 
-        if (authnType instanceof String && AuthenticationType.BASIC.name().equalsIgnoreCase((String) authnType)) {
+        if (authnType instanceof String && AuthenticationType.PASSWORD.name().equalsIgnoreCase((String) authnType)) {
             return new UsernamePasswordRequest(
                     (String) extensions.get(HandshakeExtension.AUTHENTICATION_IDENTITY),
                     (String) extensions.get(HandshakeExtension.AUTHENTICATION_SECRET));

@@ -175,7 +175,7 @@ namespace Apache.Ignite
         /// <summary>
         /// Gets or sets the authenticator. When null, no authentication is performed.
         /// <para />
-        /// See <see cref="BasicAuthenticator"/>.
+        /// See <see cref="PasswordAuthenticator"/>.
         /// </summary>
         public IAuthenticator? Authenticator { get; set; }
     }

@@ -26,7 +26,7 @@
 #include "odbc_test_utils.h"
 #include "test_utils.h"
 
-#include "tests/test-common/basic_auth_test_suite.h"
+#include "tests/test-common/password_auth_test_suite.h"
 
 #include <gtest/gtest.h>
 

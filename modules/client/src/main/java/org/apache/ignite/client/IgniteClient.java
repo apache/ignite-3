@@ -322,7 +322,7 @@ public interface IgniteClient extends Ignite {
         /**
          * Sets the authenticator.
          *
-         * <p>See also: {@link BasicAuthenticator}.
+         * <p>See also: {@link PasswordAuthenticator}.
          *
          * @param authenticator Authenticator.
          * @return This instance.

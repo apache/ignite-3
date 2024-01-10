@@ -38,7 +38,7 @@ internal static class HandshakeExtensions
     public const string AuthenticationSecret = "authn-secret";
 
     /// <summary>
-    /// Basic authentication type name.
+    /// Password authentication type name.
     /// </summary>
-    public const string AuthenticationTypeBasic = "basic";
+    public const string AuthenticationTypePassword = "password";
 }
