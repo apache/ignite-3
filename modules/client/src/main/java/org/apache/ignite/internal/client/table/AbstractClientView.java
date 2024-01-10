@@ -19,6 +19,7 @@ package org.apache.ignite.internal.client.table;
 
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.client.ClientUtils.sync;
+import static org.apache.ignite.lang.util.IgniteNameUtils.parseSimpleName;
 
 import java.util.Arrays;
 import java.util.Set;
@@ -63,7 +64,7 @@ abstract class AbstractClientView<T> implements CriteriaQuerySource<T> {
                 .collect(toSet());
 
         return new SqlSerializer.Builder()
-                .tableName(tableName)
+                .tableName(parseSimpleName(tableName))
                 .columns(columnNames)
                 .where(criteria)
                 .build();

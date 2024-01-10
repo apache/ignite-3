@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.table.criteria;
 
 import static org.apache.ignite.internal.util.StringUtils.nullOrBlank;
+import static org.apache.ignite.lang.util.IgniteNameUtils.quote;
 
 import java.util.Arrays;
 import java.util.Collection;
@@ -80,7 +81,7 @@ public class SqlSerializer implements CriteriaVisitor<Void> {
     /** {@inheritDoc} */
     @Override
     public <T> void visit(Column column, @Nullable Void context) {
-        append(column.getName());
+        append(quoteIfNeeded(column.getName()));
     }
 
     /** {@inheritDoc} */
@@ -156,6 +157,10 @@ public class SqlSerializer implements CriteriaVisitor<Void> {
         }
     }
 
+    private static String quoteIfNeeded(String name) {
+        return name.chars().allMatch(Character::isUpperCase) ? name : quote(name);
+    }
+
     /**
      * Builder.
      */
@@ -216,7 +221,7 @@ public class SqlSerializer implements CriteriaVisitor<Void> {
 
             SqlSerializer ser = new SqlSerializer()
                     .append("SELECT * ")
-                    .append("FROM ").append(tableName);
+                    .append("FROM ").append(quoteIfNeeded(tableName));
 
             if (where != null) {
                 if (CollectionUtils.nullOrEmpty(columnNames)) {

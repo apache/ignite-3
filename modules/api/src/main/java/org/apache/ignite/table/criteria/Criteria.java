@@ -133,6 +133,10 @@ public interface Criteria {
      * @param value Target value.
      */
     static <T> Condition equalTo(Comparable<T> value) {
+        if (value == null) {
+            return nullValue();
+        }
+
         return new Condition(Operator.EQ, new Parameter<>(value));
     }
 
@@ -147,6 +151,10 @@ public interface Criteria {
      * @param value Target value.
      */
     static Condition equalTo(byte[] value) {
+        if (value == null) {
+            return nullValue();
+        }
+
         return new Condition(Operator.EQ, new Parameter<>(value));
     }
 
@@ -162,6 +170,10 @@ public interface Criteria {
      * @param value Target value.
      */
     static <T> Condition notEqualTo(Comparable<T> value) {
+        if (value == null) {
+            return notNullValue();
+        }
+
         return new Condition(Operator.NOT_EQ, new Parameter<>(value));
     }
 
@@ -176,6 +188,10 @@ public interface Criteria {
      * @param value Target value.
      */
     static Condition notEqualTo(byte[] value) {
+        if (value == null) {
+            return notNullValue();
+        }
+
         return new Condition(Operator.NOT_EQ, new Parameter<>(value));
     }
 
@@ -275,7 +291,7 @@ public interface Criteria {
      * @param values The collection in which matching items must be found.
      */
     static <T> Condition in(Comparable<T>... values) {
-        if (values == null || values.length == 0) {
+        if (values.length == 0) {
             throw new IllegalArgumentException("values must not be empty or null");
         }
 
@@ -301,7 +317,7 @@ public interface Criteria {
      * @param values The collection in which matching items must be found.
      */
     static Condition in(byte[]... values) {
-        if (values == null || values.length == 0) {
+        if (values.length == 0) {
             throw new IllegalArgumentException("values must not be empty or null");
         }
 
@@ -328,7 +344,7 @@ public interface Criteria {
      * @param values The collection in which matching items must be not found.
      */
     static <T> Condition notIn(Comparable<T>... values) {
-        if (values == null || values.length == 0) {
+        if (values.length == 0) {
             throw new IllegalArgumentException("values must not be empty or null");
         }
 
@@ -354,7 +370,7 @@ public interface Criteria {
      * @param values The collection in which matching items must be not found.
      */
     static Condition notIn(byte[]... values) {
-        if (values == null || values.length == 0) {
+        if (values.length == 0) {
             throw new IllegalArgumentException("values must not be empty or null");
         }
 

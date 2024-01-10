@@ -17,7 +17,9 @@
 
 package org.apache.ignite.internal.table.criteria;
 
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.util.ArrayUtils.OBJECT_EMPTY_ARRAY;
+import static org.apache.ignite.lang.util.IgniteNameUtils.quote;
 import static org.apache.ignite.table.criteria.Criteria.and;
 import static org.apache.ignite.table.criteria.Criteria.columnValue;
 import static org.apache.ignite.table.criteria.Criteria.equalTo;
@@ -58,22 +60,31 @@ class SqlSerializerTest {
         byte[] arr2 = "arr2".getBytes();
 
         return Stream.of(
-                of(columnValue("a", equalTo("a1")), "A = ?", new Object[] {"a1"}),
-                of(columnValue("a", equalTo(arr1)), "A = ?", new Object[] {arr1}),
-                of(columnValue("a", notEqualTo("a1")), "A <> ?", new Object[] {"a1"}),
-                of(columnValue("a", notEqualTo(arr1)), "A <> ?", new Object[] {arr1}),
-                of(columnValue("a", greaterThan("a1")), "A > ?", new Object[] {"a1"}),
-                of(columnValue("a", greaterThanOrEqualTo("a1")), "A >= ?", new Object[] {"a1"}),
-                of(columnValue("a", lessThan("a1")), "A < ?", new Object[] {"a1"}),
-                of(columnValue("a", lessThanOrEqualTo("a1")), "A <= ?", new Object[] {"a1"}),
+                of(columnValue("a", equalTo("a1")), "A = ?", new Object[]{"a1"}),
+                of(columnValue("a", equalTo(arr1)), "A = ?", new Object[]{arr1}),
+                of(columnValue("a", equalTo((Comparable<Object>) null)), "A IS NULL", OBJECT_EMPTY_ARRAY),
+                of(columnValue("a", equalTo((byte[]) null)), "A IS NULL", OBJECT_EMPTY_ARRAY),
+                of(columnValue("a", notEqualTo("a1")), "A <> ?", new Object[]{"a1"}),
+                of(columnValue("a", notEqualTo(arr1)), "A <> ?", new Object[]{arr1}),
+                of(columnValue("a", notEqualTo((Comparable<Object>) null)), "A IS NOT NULL", OBJECT_EMPTY_ARRAY),
+                of(columnValue("a", notEqualTo((byte[]) null)), "A IS NOT NULL", OBJECT_EMPTY_ARRAY),
+                of(columnValue("a", greaterThan("a1")), "A > ?", new Object[]{"a1"}),
+                of(columnValue("a", greaterThanOrEqualTo("a1")), "A >= ?", new Object[]{"a1"}),
+                of(columnValue("a", lessThan("a1")), "A < ?", new Object[]{"a1"}),
+                of(columnValue("a", lessThanOrEqualTo("a1")), "A <= ?", new Object[]{"a1"}),
                 of(columnValue("a", nullValue()), "A IS NULL", OBJECT_EMPTY_ARRAY),
                 of(columnValue("a", notNullValue()), "A IS NOT NULL", OBJECT_EMPTY_ARRAY),
-                of(columnValue("a", in("a1", "a2")), "A IN (?, ?)", new Object[] {"a1", "a2"}),
-                of(columnValue("a", in("a1")), "A = ?", new Object[] {"a1"}),
-                of(columnValue("a", in(arr1, arr2)), "A IN (?, ?)", new Object[] {arr1, arr2}),
-                of(columnValue("a", in(arr1)), "A = ?", new Object[] {arr1}),
-                of(columnValue("a", notIn("a1", "a2")), "A NOT IN (?, ?)", new Object[] {"a1", "a2"}),
-                of(columnValue("a", notIn("a1")), "A <> ?", new Object[] {"a1"})
+                of(columnValue("a", in("a1", "a2")), "A IN (?, ?)", new Object[]{"a1", "a2"}),
+                of(columnValue("a", in("a1")), "A = ?", new Object[]{"a1"}),
+                of(columnValue("a", in(arr1, arr2)), "A IN (?, ?)", new Object[]{arr1, arr2}),
+                of(columnValue("a", in(arr1)), "A = ?", new Object[]{arr1}),
+                of(columnValue("a", in((Comparable<Object>) null)), "A IS NULL", OBJECT_EMPTY_ARRAY),
+                of(columnValue("a", in((byte[]) null)), "A IS NULL", OBJECT_EMPTY_ARRAY),
+                of(columnValue("a", notIn("a1", "a2")), "A NOT IN (?, ?)", new Object[]{"a1", "a2"}),
+                of(columnValue("a", notIn("a1")), "A <> ?", new Object[]{"a1"}),
+                of(columnValue("a", notIn("a1")), "A <> ?", new Object[]{"a1"}),
+                of(columnValue("a", notIn((Comparable<Object>) null)), "A IS NOT NULL", OBJECT_EMPTY_ARRAY),
+                of(columnValue("a", notIn((byte[]) null)), "A IS NOT NULL", OBJECT_EMPTY_ARRAY)
         );
     }
 
@@ -88,6 +99,14 @@ class SqlSerializerTest {
 
         assertThat(ser.toString(), endsWith(wherePart));
         assertArrayEquals(arguments, ser.getArguments());
+    }
+
+    @Test
+    void testInvalidCondition() {
+        assertThrows(IllegalArgumentException.class, () -> in(new Comparable[0]), "values must not be empty or null");
+        assertThrows(IllegalArgumentException.class, () -> in(new byte[0][0]), "values must not be empty or null");
+        assertThrows(IllegalArgumentException.class, () -> notIn(new Comparable[0]), "values must not be empty or null");
+        assertThrows(IllegalArgumentException.class, () -> notIn(new byte[0][0]), "values must not be empty or null");
     }
 
     static Stream<Arguments> testExpression() {
@@ -135,7 +154,7 @@ class SqlSerializerTest {
         assertArrayEquals(arguments, ser.getArguments());
     }
 
-    static Stream<Arguments> testInvalidExpressionArgument() {
+    static Stream<Arguments> testInvalidExpression() {
         return Stream.<Consumer<Expression[]>>of(
                 Criteria::and,
                 Criteria::or
@@ -144,7 +163,7 @@ class SqlSerializerTest {
 
     @ParameterizedTest
     @MethodSource
-    void testInvalidExpressionArgument(Consumer<Expression[]> consumer) {
+    void testInvalidExpression(Consumer<Expression[]> consumer) {
         assertThrows(IllegalArgumentException.class, () -> consumer.accept(null), "expressions must not be empty or null");
         assertThrows(IllegalArgumentException.class, () -> consumer.accept(new Expression[0]), "expressions must not be empty or null");
         assertThrows(IllegalArgumentException.class, () -> consumer.accept(new Expression[]{columnValue("a", equalTo("a1")), null}),
@@ -173,5 +192,17 @@ class SqlSerializerTest {
         );
 
         assertThat(iae.getMessage(), containsString("Unexpected column name: A"));
+    }
+
+    @Test
+    void testQuote() {
+        SqlSerializer ser = new SqlSerializer.Builder()
+                .tableName("Test")
+                .columns(Set.of("Aa"))
+                .where(columnValue(quote("Aa"), equalTo(1)))
+                .build();
+
+        assertThat(ser.toString(), endsWith(format("FROM {} WHERE {} = ?", quote("Test"), quote("Aa"))));
+        assertArrayEquals(new Object[]{1}, ser.getArguments());
     }
 }
