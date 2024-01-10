@@ -199,8 +199,9 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
                 .check();
     }
 
+    /** Test that adding nullable column via ALTER TABLE ADD name type NULL works. */
     @Test
-    public void testAddNullColumn() {
+    public void testNullableColumn() {
         sql("CREATE TABLE my (c1 INT PRIMARY KEY, c2 INT)");
         sql("INSERT INTO my VALUES (1, 1)");
         sql("ALTER TABLE my ADD COLUMN c3 INT NULL");
