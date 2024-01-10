@@ -26,6 +26,7 @@ import static org.apache.ignite.internal.util.ExceptionUtils.extractCodeFrom;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
@@ -34,13 +35,18 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Predicate;
 import java.util.stream.IntStream;
 import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
+import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessagesFactory;
+import org.apache.ignite.internal.placementdriver.message.StopLeaseProlongationMessage;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.message.ErrorTimestampAwareReplicaResponse;
+import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteSingleRowReplicaRequest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
@@ -60,6 +66,7 @@ import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
+import org.apache.ignite.tx.TransactionException;
 import org.apache.ignite.tx.TransactionOptions;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
@@ -70,6 +77,8 @@ import org.junit.jupiter.api.TestInfo;
  * Abandoned transactions integration tests.
  */
 public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
+    private static final PlacementDriverMessagesFactory PLACEMENT_DRIVER_MESSAGES_FACTORY = new PlacementDriverMessagesFactory();
+
     /** Table name. */
     private static final String TABLE_NAME = "test_table";
 
@@ -697,6 +706,119 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
         assertThat(finish2, willThrow(TransactionAlreadyFinishedException.class));
     }
 
+    @Test
+    public void testPrimaryFailureRightAfterCommitMsg() throws Exception {
+        TableImpl tbl = (TableImpl) node(0).tables().table(TABLE_NAME);
+
+        var tblReplicationGrp = new TablePartitionId(tbl.tableId(), 0);
+
+        String leaseholder = waitAndGetLeaseholder(node(0), tblReplicationGrp);
+
+        IgniteImpl commitPartNode = commitPartitionPrimaryNode(leaseholder);
+
+        log.info("Transaction commit partition is determined [node={}].", commitPartNode.name());
+
+        IgniteImpl txCrdNode = nonPrimaryNode(leaseholder);
+
+        log.info("Transaction coordinator node is determined [node={}].", txCrdNode.name());
+
+        Transaction rwTx1 = createRwTransaction(txCrdNode);
+
+        CompletableFuture<?> commitMsgSentFut = new CompletableFuture<>();
+        CompletableFuture<?> cancelLeaseFuture = new CompletableFuture<>();
+
+        txCrdNode.dropMessages((nodeName, msg) -> {
+            if (msg instanceof TxFinishReplicaRequest) {
+                boolean isFirst = !commitMsgSentFut.isDone();
+
+                if (isFirst) {
+                    commitMsgSentFut.complete(null);
+
+                    return true;
+                } else {
+                    cancelLeaseFuture.join();
+
+                    return false;
+                }
+            } else if (msg instanceof ReadWriteSingleRowReplicaRequest) {
+                return true;
+            }
+
+            return false;
+        });
+
+        CompletableFuture<Void> commitFut = rwTx1.commitAsync();
+
+        commitMsgSentFut.join();
+
+        cancelLease(commitPartNode, tblReplicationGrp);
+
+        waitAndGetLeaseholder(txCrdNode, tblReplicationGrp);
+
+        cancelLeaseFuture.complete(null);
+
+        assertThat(commitFut, willCompleteSuccessfully());
+
+        RecordView<Tuple> view = txCrdNode.tables().table(TABLE_NAME).recordView();
+
+        var rec = view.get(null, Tuple.create().set("key", 42));
+
+        assertNotNull(rec);
+        assertEquals((Integer) 42, rec.value("key"));
+        assertEquals("val1", rec.value("val"));
+    }
+
+    @Test
+    public void testPrimaryFailureWhileInflightInProgress() throws Exception {
+        TableImpl tbl = (TableImpl) node(0).tables().table(TABLE_NAME);
+
+        var tblReplicationGrp = new TablePartitionId(tbl.tableId(), 0);
+
+        CompletableFuture<ReplicaMeta> primaryReplicaFut = node(0).placementDriver().awaitPrimaryReplica(
+                tblReplicationGrp,
+                node(0).clock().now(),
+                10,
+                SECONDS
+        );
+
+        assertThat(primaryReplicaFut, willCompleteSuccessfully());
+
+        String leaseholder = primaryReplicaFut.join().getLeaseholder();
+
+        IgniteImpl commitPartNode = commitPartitionPrimaryNode(leaseholder);
+
+        log.info("Transaction commit partition is determined [node={}].", commitPartNode.name());
+
+        IgniteImpl txCrdNode = nonPrimaryNode(leaseholder);
+
+        log.info("Transaction coordinator node is determined [node={}].", txCrdNode.name());
+
+        Transaction rwTx1 = createRwTransaction(txCrdNode);
+
+        txCrdNode.dropMessages((nodeName, msg) -> {
+            if (msg instanceof ReadWriteSingleRowReplicaRequest) {
+                return true;
+            }
+
+            return false;
+        });
+
+        try {
+            RecordView<Tuple> view = txCrdNode.tables().table(TABLE_NAME).recordView();
+            view.upsert(rwTx1, Tuple.create().set("key", 1).set("val", "val1"));
+        } catch (TransactionException e) {
+            // No-op: exception is expected.
+        }
+
+        CompletableFuture<Void> commitFut = rwTx1.commitAsync();
+
+        commitPartNode.stop();
+
+        waitForCondition(() -> commitFut.isDone(), 10_000);
+
+        commitFut.join();
+    }
+
     private DefaultMessagingService messaging(IgniteImpl node) {
         ClusterService coordinatorService = IgniteTestUtils.getFieldValue(node, IgniteImpl.class, "clusterSvc");
 
@@ -809,19 +931,42 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
         return rwTx1;
     }
 
-    private IgniteImpl commitPartitionPrimaryNode(String leaseholder) {
+    private IgniteImpl findNode(Predicate<IgniteImpl> filter) {
         return IntStream.range(0, initialNodes())
                 .mapToObj(this::node)
-                .filter(n -> leaseholder.equals(n.name()))
+                .filter(n -> filter.test(n))
                 .findFirst()
                 .get();
     }
 
+    private IgniteImpl commitPartitionPrimaryNode(String leaseholder) {
+        return findNode(n -> leaseholder.equals(n.name()));
+    }
+
     private IgniteImpl nonPrimaryNode(String leaseholder) {
-        return IntStream.range(1, initialNodes())
-                .mapToObj(this::node)
-                .filter(n -> !leaseholder.equals(n.name()))
-                .findFirst()
-                .get();
+        return findNode(n -> !leaseholder.equals(n.name()));
+    }
+
+    private String waitAndGetLeaseholder(IgniteImpl node, ReplicationGroupId tblReplicationGrp) throws InterruptedException {
+        CompletableFuture<ReplicaMeta> primaryReplicaFut = node.placementDriver().awaitPrimaryReplica(
+                tblReplicationGrp,
+                node.clock().now(),
+                10,
+                SECONDS
+        );
+
+        assertThat(primaryReplicaFut, willCompleteSuccessfully());
+
+        return primaryReplicaFut.join().getLeaseholder();
+    }
+
+    private void cancelLease(IgniteImpl leaseholder, ReplicationGroupId groupId) {
+        StopLeaseProlongationMessage msg = PLACEMENT_DRIVER_MESSAGES_FACTORY
+                .stopLeaseProlongationMessage()
+                .groupId(groupId)
+                .build();
+
+        // Just sent it to all nodes to not determine the exact placement driver active actor.
+        runningNodes().forEach(node -> leaseholder.sendFakeMessage(node.name(), msg));
     }
 }
