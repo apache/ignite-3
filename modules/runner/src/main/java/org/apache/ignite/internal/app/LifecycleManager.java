@@ -111,7 +111,6 @@ class LifecycleManager implements StateProvider {
     }
 
     synchronized CompletableFuture<Void> allComponentsStartFuture() {
-        // Nullify array
         return allOf(allComponentsStartFuture.toArray(CompletableFuture[]::new));
     }
 

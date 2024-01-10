@@ -263,13 +263,10 @@ public class DistributionZoneManager implements IgniteComponent {
 
             restoreGlobalStateFromLocalMetastorage(recoveryRevision);
 
-            List<CompletableFuture<Void>> futures = new ArrayList<>();
-
-            futures.add(createOrRestoreZonesStates(recoveryRevision));
-
-            futures.add(restoreLogicalTopologyChangeEventAndStartTimers(recoveryRevision));
-
-            return allOf(futures.toArray(CompletableFuture[]::new)).thenRun(rebalanceEngine::start);
+            return allOf(
+                    createOrRestoreZonesStates(recoveryRevision),
+                    restoreLogicalTopologyChangeEventAndStartTimers(recoveryRevision)
+            ).thenRun(rebalanceEngine::start);
         });
     }
 
