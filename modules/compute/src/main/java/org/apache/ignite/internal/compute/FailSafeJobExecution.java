@@ -106,7 +106,7 @@ class FailSafeJobExecution<T> implements JobExecution<T> {
         } catch (InterruptedException | ExecutionException e) {
             LOG.warn("Failed to get the job status", e);
 
-            throw new IgniteInternalException(Compute.FAIL_TO_GET_JOB_STATUS);
+            throw new IgniteInternalException(Compute.FAIL_TO_GET_JOB_STATUS_ERR);
         }
     }
 

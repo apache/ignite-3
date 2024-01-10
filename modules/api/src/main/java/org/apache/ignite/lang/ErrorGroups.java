@@ -529,10 +529,10 @@ public class ErrorGroups {
         public static final int RESULT_NOT_FOUND_ERR = COMPUTE_ERR_GROUP.registerErrorCode((short) 7);
 
         /** Compute job status can not be retrieved. */
-        public static final int FAIL_TO_GET_JOB_STATUS = COMPUTE_ERR_GROUP.registerErrorCode((short) 8);
+        public static final int FAIL_TO_GET_JOB_STATUS_ERR = COMPUTE_ERR_GROUP.registerErrorCode((short) 8);
 
         /** Compute job failed. */
-        public static final int COMPUTE_JOB_FAILED = COMPUTE_ERR_GROUP.registerErrorCode((short) 9);
+        public static final int COMPUTE_JOB_FAILED_ERR = COMPUTE_ERR_GROUP.registerErrorCode((short) 9);
     }
 
     /** Catalog error group. */

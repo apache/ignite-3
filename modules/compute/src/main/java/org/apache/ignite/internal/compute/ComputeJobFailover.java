@@ -131,7 +131,7 @@ class ComputeJobFailover<T> {
 
                 FailSafeJobExecution<?> failSafeJobExecution = jobContext.failSafeJobExecution();
                 failSafeJobExecution.completeExceptionally(
-                        new IgniteInternalException(Compute.COMPUTE_JOB_FAILED)
+                        new IgniteInternalException(Compute.COMPUTE_JOB_FAILED_ERR)
                 );
                 return;
             }
