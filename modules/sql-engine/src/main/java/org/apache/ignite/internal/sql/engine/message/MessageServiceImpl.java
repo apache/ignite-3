@@ -154,18 +154,10 @@ public class MessageServiceImpl implements MessageService {
     /** {@inheritDoc} */
     @Override
     public void stop() {
-        if (!busyLock.enterBusy()) {
-            return;
-        }
+        stopped = true;
 
-        try {
-            stopped = true;
-
-            if (lsnrs != null) {
-                lsnrs.clear();
-            }
-        } finally {
-            busyLock.leaveBusy();
+        if (lsnrs != null) {
+            lsnrs.clear();
         }
     }
 }
