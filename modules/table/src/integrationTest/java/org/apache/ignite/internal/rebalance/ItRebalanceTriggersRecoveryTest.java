@@ -37,8 +37,6 @@ import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.test.WatchListenerInhibitor;
-import org.junit.jupiter.api.Disabled;
-import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -78,7 +76,7 @@ public class ItRebalanceTriggersRecoveryTest extends ClusterPerTestIntegrationTe
         return 1;
     }
 
-    @RepeatedTest(20)
+    @Test
     void testRebalanceTriggersRecoveryAfterFilterUpdate() throws InterruptedException {
         // The nodes from different regions/zones needed to implement the predictable way of nodes choice.
         startNode(1, US_NODE_BOOTSTRAP_CFG_TEMPLATE);
@@ -122,58 +120,7 @@ public class ItRebalanceTriggersRecoveryTest extends ClusterPerTestIntegrationTe
         assertTrue(waitForCondition(() -> containsPartition(cluster.node(2)), 10_000));
     }
 
-    @Disabled
-    void testRebalanceTriggersRecoveryAfterDataNodesUpdate() throws InterruptedException {
-        // The nodes from different regions/zones needed to implement the predictable way of nodes choice.
-        startNode(1, US_NODE_BOOTSTRAP_CFG_TEMPLATE);
-        startNode(2, GLOBAL_NODE_BOOTSTRAP_CFG_TEMPLATE);
-        startNode(3, GLOBAL_NODE_BOOTSTRAP_CFG_TEMPLATE);
-        startNode(4, GLOBAL_NODE_BOOTSTRAP_CFG_TEMPLATE);
-
-        cluster.doInSession(0, session -> {
-            session.execute(null, "CREATE ZONE TEST_ZONE WITH PARTITIONS=1, REPLICAS=3, DATA_NODES_FILTER='$[?(@.zone == \"global\")]'");
-            session.execute(null, "CREATE TABLE TEST (id INT PRIMARY KEY, name INT) WITH PRIMARY_ZONE='TEST_ZONE'");
-            session.execute(null, "INSERT INTO TEST VALUES (0, 0)");
-        });
-
-        assertTrue(waitForCondition(() -> containsPartition(cluster.node(1)), 10_000));
-        assertTrue(waitForCondition(() -> containsPartition(cluster.node(2)), 10_000));
-        assertTrue(waitForCondition(() -> containsPartition(cluster.node(3)), 10_000));
-        assertFalse(containsPartition(cluster.node(4)));
-
-        // By this we guarantee, that there will no any partition data nodes, which will be available to perform the rebalance.
-        // To run the actual changePeersAsync we need the partition leader, which catch the metastore event about new pending keys.
-        WatchListenerInhibitor.metastorageEventsInhibitor(cluster.node(1)).startInhibit();
-        WatchListenerInhibitor.metastorageEventsInhibitor(cluster.node(2)).startInhibit();
-        WatchListenerInhibitor.metastorageEventsInhibitor(cluster.node(3)).startInhibit();
-        WatchListenerInhibitor.metastorageEventsInhibitor(cluster.node(4)).startInhibit();
-
-        stopNode(3);
-
-        // Check that metastore node schedule the rebalance procedure.
-        assertTrue(waitForCondition(
-                (() -> getPartitionPendingClusterNodes(node(0), 0).equals(Set.of(
-                        Assignment.forPeer(node(4).name()),
-                        Assignment.forPeer(node(2).name()),
-                        Assignment.forPeer(node(1).name())))),
-                10_000));
-
-        // Remove the pending keys in a barbarian way. So, the rebalance can be triggered only by the recovery logic now.
-        Integer tableId = getTableId(node(0).catalogManager(), "TEST", new HybridClockImpl().nowLong());
-        node(0)
-                .metaStorageManager()
-                .remove(pendingPartAssignmentsKey(new TablePartitionId(tableId, 0))).join();
-
-        restartNode(1);
-        restartNode(2);
-        restartNode(4);
-
-        // Check that new replica from 'global' zone received the data and rebalance really happened.
-        assertTrue(waitForCondition(() -> containsPartition(cluster.node(4)), 10_000));
-    }
-
-
-    @RepeatedTest(20)
+    @Test
     void testRebalanceTriggersRecoveryAfterReplicasUpdate() throws InterruptedException {
         // The nodes from different regions/zones needed to implement the predictable way of nodes choice.
         startNode(1, US_NODE_BOOTSTRAP_CFG_TEMPLATE);
