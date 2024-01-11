@@ -448,7 +448,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
      *
      * @return Amount of pending cursors.
      */
-    public Integer pendingCursors() {
+    public int pendingCursors() {
         return pendingCursors.get();
     }
 
