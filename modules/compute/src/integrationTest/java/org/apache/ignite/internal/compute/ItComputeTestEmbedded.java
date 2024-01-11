@@ -52,7 +52,7 @@ import org.junit.jupiter.params.provider.MethodSource;
  * Integration tests for Compute functionality in embedded Ignite mode.
  */
 @SuppressWarnings("resource")
-class ItComputeTestBaseEmbedded extends ItComputeBaseTest {
+class ItComputeTestEmbedded extends ItComputeBaseTest {
     @Override
     protected List<DeploymentUnit> units() {
         return List.of();

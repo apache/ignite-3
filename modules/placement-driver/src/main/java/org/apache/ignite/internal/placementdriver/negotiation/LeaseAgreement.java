@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.placementdriver.negotiation;
 
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.placementdriver.leases.Lease;
 import org.apache.ignite.internal.placementdriver.message.LeaseGrantedMessageResponse;
@@ -25,8 +27,11 @@ import org.apache.ignite.internal.placementdriver.message.LeaseGrantedMessageRes
  * The agreement is formed from {@link LeaseGrantedMessageResponse}.
  */
 public class LeaseAgreement {
-    /** The agreement, which has not try negotiating yet. */
-    public static final LeaseAgreement UNDEFINED_AGREEMENT = new LeaseAgreement(null, null);
+    /**
+     * The agreement, which has not try negotiating yet. We assume that it is {@link #ready()} and not {@link #isAccepted()}
+     * which allows both initiation and retries of negotiation.
+     */
+    public static final LeaseAgreement UNDEFINED_AGREEMENT = new LeaseAgreement(null, nullCompletedFuture());
 
     /** Lease. */
     private final Lease lease;

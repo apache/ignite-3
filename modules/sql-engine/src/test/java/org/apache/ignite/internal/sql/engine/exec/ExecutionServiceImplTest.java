@@ -381,6 +381,47 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         assertTrue(batchFut.toCompletableFuture().isCompletedExceptionally());
     }
 
+    @Test
+    void cursorCloseCompletesSuccessfullyIfRootWasInitializedWithError() throws InterruptedException {
+        ExecutionService execService = executionServices.get(0);
+        BaseQueryContext ctx = createContext();
+        QueryPlan plan = prepare("SELECT * FROM test_tbl", ctx);
+
+        nodeNames.stream().map(testCluster::node).forEach(TestNode::pauseScan);
+
+        var expectedEx = new RuntimeException("Test error");
+
+        testCluster.node(nodeNames.get(0)).interceptor((nodeName, msg, original) -> {
+            if (msg instanceof QueryStartRequest && ((QueryStartRequest) msg).fragmentDescription().target() == null) {
+                testCluster.node(nodeNames.get(0)).messageService().send(nodeName, new SqlQueryMessagesFactory().queryStartResponse()
+                        .queryId(((QueryStartRequest) msg).queryId())
+                        .fragmentId(((QueryStartRequest) msg).fragmentId())
+                        .error(expectedEx)
+                        .build()
+                );
+            } else {
+                original.onMessage(nodeName, msg);
+            }
+
+            return nullCompletedFuture();
+        });
+
+        InternalTransaction tx = new NoOpTransaction(nodeNames.get(0));
+        AsyncCursor<InternalSqlRow> cursor = execService.executePlan(tx, plan, ctx);
+
+        await(cursor.closeAsync());
+
+        // try gather all possible nodes.
+        List<AbstractNode<?>> execNodes = executionServices.stream()
+                .flatMap(s -> s.localFragments(ctx.queryId()).stream()).collect(Collectors.toList());
+
+        assertTrue(waitForCondition(
+                () -> executionServices.stream().map(es -> es.localFragments(ctx.queryId()).size())
+                        .mapToInt(i -> i).sum() == 0, TIMEOUT_IN_MS));
+
+        awaitContextCancellation(execNodes);
+    }
+
     /**
      * The very simple case where a query is cancelled in the middle of a normal execution on non-initiator node.
      */
@@ -575,7 +616,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         AsyncCursor<InternalSqlRow> cursor = execService.executePlan(tx, plan, ctx);
 
         // Wait till the query fails due to nodes' unavailability.
-        ExecutionException eex = assertThrows(ExecutionException.class, () -> cursor.closeAsync().get(10, TimeUnit.SECONDS));
+        ExecutionException eex = assertThrows(ExecutionException.class, () -> cursor.requestNextAsync(1).get(10, TimeUnit.SECONDS));
         assertThat(eex.getCause(), instanceOf(NodeLeftException.class));
         assertThat(eex.getCause().getMessage(), containsString("cause=Node left the cluster"));
         assertThat(((NodeLeftException) eex.getCause()).code(), equalTo(NODE_LEFT_ERR));

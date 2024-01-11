@@ -20,7 +20,6 @@ package org.apache.ignite.internal.table.distributed.replication;
 import static java.util.Collections.singletonList;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.internal.catalog.CatalogManagerImpl.INITIAL_CAUSALITY_TOKEN;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestampToLong;
 import static org.apache.ignite.internal.schema.BinaryRowMatcher.equalToRow;
 import static org.apache.ignite.internal.testframework.asserts.CompletableFutureAssert.assertWillThrowFast;
@@ -334,7 +333,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     private KvMarshaller<TestKey, TestValue> kvMarshallerVersion2;
 
     private final CatalogTableDescriptor tableDescriptor = new CatalogTableDescriptor(
-            TABLE_ID, 1, 2, "table", 1, CURRENT_SCHEMA_VERSION,
+            TABLE_ID, 1, 2, "table", 1,
             List.of(
                     new CatalogTableColumnDescriptor("intKey", ColumnType.INT32, false, 0, 0, 0, null),
                     new CatalogTableColumnDescriptor("strKey", ColumnType.STRING, false, 0, 0, 0, null),
@@ -342,9 +341,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                     new CatalogTableColumnDescriptor("strVal", ColumnType.STRING, false, 0, 0, 0, null)
             ),
             List.of("intKey", "strKey"),
-            null,
-            INITIAL_CAUSALITY_TOKEN,
-            INITIAL_CAUSALITY_TOKEN
+            null
     );
 
     /** Partition replication listener to test. */
