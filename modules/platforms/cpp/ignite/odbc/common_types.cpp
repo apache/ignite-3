@@ -239,6 +239,7 @@ sql_state error_code_to_sql_state(error::code code) {
         // Network group. Group code: 11
         case error::code::UNRESOLVABLE_CONSISTENT_ID:
         case error::code::PORT_IN_USE:
+        case error::code::RECIPIENT_LEFT:
             return sql_state::S08001_CANNOT_CONNECT;
 
         // NodeConfiguration group. Group code: 12
@@ -273,6 +274,8 @@ sql_state error_code_to_sql_state(error::code code) {
         case error::code::COMPUTE_JOB_STATE_TRANSITION:
         case error::code::CANCELLING:
         case error::code::RESULT_NOT_FOUND:
+        case error::code::FAIL_TO_GET_JOB_STATUS:
+        case error::code::COMPUTE_JOB_FAILED:
             return sql_state::SHY000_GENERAL_ERROR;
 
         // Catalog group. Group code: 17
