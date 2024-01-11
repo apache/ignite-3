@@ -42,7 +42,6 @@ import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.compute.JobState;
 import org.apache.ignite.internal.app.IgniteImpl;
-import org.apache.ignite.internal.compute.queue.CancellingException;
 import org.apache.ignite.lang.ErrorGroup;
 import org.apache.ignite.lang.IgniteException;
 import org.junit.jupiter.api.Test;
@@ -150,19 +149,21 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
     }
 
     @Test
-    void changeJobPriorityLocallyCancellingException() {
+    void changeJobPriorityLocallyComputeException() {
         IgniteImpl entryNode = node(0);
 
         JobExecution<String> execution = entryNode.compute().executeAsync(Set.of(entryNode.node()), units(), LongJob.class.getName());
+        await().until(execution::statusAsync, willBe(jobStatusWithState(JobState.EXECUTING)));
 
         assertThat(execution.changePriority(2), willThrow(ComputeException.class));
     }
 
     @Test
-    void changeJobPriorityRemotelyCancellingException() {
+    void changeJobPriorityRemotelyComputeException() {
         IgniteImpl entryNode = node(0);
 
         JobExecution<String> execution = entryNode.compute().executeAsync(Set.of(node(1).node()), units(), LongJob.class.getName());
+        await().until(execution::statusAsync, willBe(jobStatusWithState(JobState.EXECUTING)));
 
         assertThat(execution.changePriority(2), willThrow(ComputeException.class));
     }
