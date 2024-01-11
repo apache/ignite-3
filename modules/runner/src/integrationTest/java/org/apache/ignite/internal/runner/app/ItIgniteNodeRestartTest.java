@@ -1368,7 +1368,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
             "false,false"
     })
     public void createTableCallOnMultipleNodesTest(boolean populateStableAssignmentsBeforeTableCreation, boolean restart)
-            throws InterruptedException{
+            throws InterruptedException {
         int nodesCount = 3;
 
         var nodes = startNodes(3);
@@ -1381,7 +1381,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         // Prefix that will be updated after the table creation.
         String testPrefix = "testPrefix";
 
-        for (int i = 0 ; i < nodesCount; i++) {
+        for (int i = 0; i < nodesCount; i++) {
             stableAssignmentsChangeCounters.put(i, new AtomicInteger());
             lateChangeFlag.put(i, new AtomicBoolean());
 
