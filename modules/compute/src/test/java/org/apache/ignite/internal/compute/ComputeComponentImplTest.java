@@ -65,6 +65,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.compute.ComputeException;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.JobExecution;
@@ -213,7 +214,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
         assertThat(execution.resultAsync(), willBe("jobResponse"));
         assertThat(execution.statusAsync(), willBe(jobStatusWithState(COMPLETED)));
         assertThat(execution.cancelAsync(), willThrow(CancellingException.class));
-        assertThat(execution.changePriority(1), willCompleteSuccessfully());
+        assertThat(execution.changePriority(1), willThrow(ComputeException.class));
 
         assertThatNoRequestsWereSent();
     }
@@ -289,7 +290,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void changePriorityRemotelyUsingNetworkCommunication1() {
+    void changePriorityRemotelyUsingNetworkCommunication() {
         UUID jobId = UUID.randomUUID();
         respondWithExecuteResponseWhenExecuteRequestIsSent(jobId);
         respondWithJobChangePriorityResponseWhenJobChangePriorityRequestIsSent(jobId);

@@ -19,6 +19,7 @@ package org.apache.ignite.internal.compute;
 
 import static java.util.stream.Collectors.joining;
 import static org.apache.ignite.internal.compute.utils.ComputeTestUtils.assertPublicException;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.JobStatusMatcher.jobStatusWithState;
@@ -41,6 +42,7 @@ import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.compute.JobState;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.compute.queue.CancellingException;
 import org.apache.ignite.lang.ErrorGroup;
 import org.apache.ignite.lang.IgniteException;
 import org.junit.jupiter.api.Test;
@@ -148,21 +150,21 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
     }
 
     @Test
-    void changeJobPriorityLocally() {
+    void changeJobPriorityLocallyCancellingException() {
         IgniteImpl entryNode = node(0);
 
         JobExecution<String> execution = entryNode.compute().executeAsync(Set.of(entryNode.node()), units(), LongJob.class.getName());
 
-        assertThat(execution.changePriority(2), willCompleteSuccessfully());
+        assertThat(execution.changePriority(2), willThrow(ComputeException.class));
     }
 
     @Test
-    void changeJobPriorityRemotely() {
+    void changeJobPriorityRemotelyCancellingException() {
         IgniteImpl entryNode = node(0);
 
         JobExecution<String> execution = entryNode.compute().executeAsync(Set.of(node(1).node()), units(), LongJob.class.getName());
 
-        assertThat(execution.changePriority(2), willCompleteSuccessfully());
+        assertThat(execution.changePriority(2), willThrow(ComputeException.class));
     }
 
     private static class ConcatJob implements ComputeJob<String> {
