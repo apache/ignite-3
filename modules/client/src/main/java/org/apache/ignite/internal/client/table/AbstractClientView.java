@@ -77,7 +77,7 @@ abstract class AbstractClientView<T> implements CriteriaQuerySource<T> {
                 .map(ClientColumn::name)
                 .map(IgniteNameUtils::quoteIfNeeded)
                 .map((columnName) -> {
-                    var rowIdx = metadata.indexOf(columnName);
+                    int rowIdx = metadata.indexOf(columnName);
 
                     if (rowIdx == -1) {
                         throw new CriteriaException(COLUMN_NOT_FOUND_ERR, "Missing required column in query results: " + columnName);

@@ -557,7 +557,7 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
             @Nullable Criteria criteria,
             @Nullable CriteriaQueryOptions opts
     ) {
-        var opts0 = opts == null ? CriteriaQueryOptions.DEFAULT : opts;
+        CriteriaQueryOptions opts0 = opts == null ? CriteriaQueryOptions.DEFAULT : opts;
 
         return withSchemaSync(tx, (schemaVersion) -> {
             SchemaDescriptor schema = rowConverter.registry().schema(schemaVersion);
