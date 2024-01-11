@@ -555,10 +555,10 @@ public class ErrorGroups {
         public static final int COMPUTE_JOB_FAILED_ERR = COMPUTE_ERR_GROUP.registerErrorCode((short) 9);
 
         /** Can not change job priority, compute job not found error. */
-        public static final int CHANGE_JOB_PRIORITY_ERR_NO_JOB = COMPUTE_ERR_GROUP.registerErrorCode((short) 10);
+        public static final int CHANGE_JOB_PRIORITY_NO_JOB_ERR = COMPUTE_ERR_GROUP.registerErrorCode((short) 10);
 
         /** Can not change job priority, compute job has already executing */
-        public static final int CHANGE_JOB_PRIORITY_ERR_JOB_EXECUTING = COMPUTE_ERR_GROUP.registerErrorCode((short) 11);
+        public static final int CHANGE_JOB_PRIORITY_JOB_EXECUTING_ERR = COMPUTE_ERR_GROUP.registerErrorCode((short) 11);
     }
 
     /** Catalog error group. */

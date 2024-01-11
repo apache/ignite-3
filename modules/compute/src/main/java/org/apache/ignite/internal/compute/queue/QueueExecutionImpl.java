@@ -135,7 +135,7 @@ class QueueExecutionImpl<R> implements QueueExecution<R> {
                 changePriorityLock.unlock();
             }
         } else {
-            throw new ComputeException(Compute.CHANGE_JOB_PRIORITY_ERR_JOB_EXECUTING, "Can not change job priority,"
+            throw new ComputeException(Compute.CHANGE_JOB_PRIORITY_JOB_EXECUTING_ERR, "Can not change job priority,"
                     + " job already processing. job id " + jobId);
         }
     }
