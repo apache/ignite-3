@@ -19,6 +19,7 @@ package org.apache.ignite.internal.tx.impl;
 
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.tx.TxState.ABANDONED;
+import static org.apache.ignite.internal.tx.TxState.FINISHING;
 import static org.apache.ignite.internal.tx.TxState.isFinalState;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -255,6 +256,7 @@ public class OrphanDetector {
     private boolean isRecoveryNeeded(TxStateMeta txState) {
         return txState != null
                 && !isFinalState(txState.txState())
+                && txState.txState() != FINISHING
                 && !isTxAbandonedRecently(txState);
     }
 

@@ -24,7 +24,6 @@ import static org.apache.ignite.internal.tx.TxState.ABORTED;
 import static org.apache.ignite.internal.tx.TxState.COMMITTED;
 import static org.apache.ignite.internal.tx.TxState.FINISHING;
 import static org.apache.ignite.internal.tx.TxState.PENDING;
-import static org.apache.ignite.internal.tx.TxState.checkTransitionCorrectness;
 import static org.apache.ignite.internal.tx.TxState.isFinalState;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
@@ -299,17 +298,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
     @Override
     public @Nullable <T extends TxStateMeta> T updateTxMeta(UUID txId, Function<TxStateMeta, TxStateMeta> updater) {
-        return txStateVolatileStorage.updateMeta(txId, oldMeta -> {
-            TxStateMeta newMeta = updater.apply(oldMeta);
-
-            if (newMeta == null) {
-                return null;
-            }
-
-            TxState oldState = oldMeta == null ? null : oldMeta.txState();
-
-            return checkTransitionCorrectness(oldState, newMeta.txState()) ? newMeta : oldMeta;
-        });
+        return txStateVolatileStorage.updateMeta(txId, updater);
     }
 
     @Override

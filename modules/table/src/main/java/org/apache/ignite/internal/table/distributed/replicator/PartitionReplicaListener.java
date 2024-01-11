@@ -533,7 +533,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                     .whenComplete((v, ex) -> runCleanupOnNode(txId, senderId));
         }
 
-        LOG.info("Orphan transaction has to be aborted [tx={}].", txId);
+        LOG.info("Orphan transaction has to be aborted [tx={}, meta={}].", txId, txMeta);
 
         return triggerTxRecovery(txId, senderId);
     }
