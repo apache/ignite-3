@@ -37,9 +37,15 @@ public class TxStateMetaFinishing extends TxStateMeta {
      *
      * @param txCoordinatorId Transaction coordinator id.
      * @param commitPartitionId Commit partition id.
+     * @param readOnly {@code true} for a read-only transaction, {@code false} for a read-write transaction and {@code null} if unknown,
+     *      for example, if there is no previous meta.
      */
-    public TxStateMetaFinishing(@Nullable String txCoordinatorId, @Nullable TablePartitionId commitPartitionId) {
-        super(TxState.FINISHING, txCoordinatorId, commitPartitionId, null);
+    public TxStateMetaFinishing(
+            @Nullable String txCoordinatorId,
+            @Nullable TablePartitionId commitPartitionId,
+            @Nullable Boolean readOnly
+    ) {
+        super(TxState.FINISHING, txCoordinatorId, commitPartitionId, null, readOnly);
     }
 
     /**

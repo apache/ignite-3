@@ -967,7 +967,19 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     hybridClock
             );
 
+            clockWaiter = new ClockWaiter(name, hybridClock);
+
+            LongSupplier delayDurationMsSupplier = () -> 10L;
+
+            catalogManager = new CatalogManagerImpl(
+                    new UpdateLogImpl(metaStorageManager),
+                    clockWaiter,
+                    delayDurationMsSupplier,
+                    partitionIdleSafeTimePropagationPeriodMsSupplier
+            );
+
             txManager = new TxManagerImpl(
+                    name,
                     txConfiguration,
                     clusterService,
                     replicaSvc,
@@ -975,7 +987,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     hybridClock,
                     new TransactionIdGenerator(addr.port()),
                     placementDriver,
-                    partitionIdleSafeTimePropagationPeriodMsSupplier
+                    partitionIdleSafeTimePropagationPeriodMsSupplier,
+                    catalogManager
             );
 
             cfgStorage = new DistributedConfigurationStorage(metaStorageManager);
@@ -1013,17 +1026,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                             dir.resolve("storage"),
                             null
                     )
-            );
-
-            clockWaiter = new ClockWaiter(name, hybridClock);
-
-            LongSupplier delayDurationMsSupplier = () -> 10L;
-
-            catalogManager = new CatalogManagerImpl(
-                    new UpdateLogImpl(metaStorageManager),
-                    clockWaiter,
-                    delayDurationMsSupplier,
-                    partitionIdleSafeTimePropagationPeriodMsSupplier
             );
 
             schemaManager = new SchemaManager(registry, catalogManager, metaStorageManager);

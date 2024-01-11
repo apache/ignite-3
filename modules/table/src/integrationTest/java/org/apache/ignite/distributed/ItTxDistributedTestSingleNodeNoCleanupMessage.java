@@ -103,14 +103,17 @@ public class ItTxDistributedTestSingleNodeNoCleanupMessage extends ItTxDistribut
         ) {
             @Override
             protected TxManagerImpl newTxManager(
+                    String nodeName,
                     ClusterService clusterService,
                     ReplicaService replicaSvc,
                     HybridClock clock,
                     TransactionIdGenerator generator,
                     ClusterNode node,
-                    PlacementDriver placementDriver
+                    PlacementDriver placementDriver,
+                    CatalogService catalogService
             ) {
-                return new  TxManagerImpl(
+                return new TxManagerImpl(
+                        nodeName,
                         txConfiguration,
                         clusterService,
                         replicaSvc,
@@ -118,7 +121,8 @@ public class ItTxDistributedTestSingleNodeNoCleanupMessage extends ItTxDistribut
                         clock,
                         generator,
                         placementDriver,
-                        () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS
+                        () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS,
+                        catalogService
                 ) {
                     @Override
                     public CompletableFuture<Void> executeCleanupAsync(Runnable runnable) {

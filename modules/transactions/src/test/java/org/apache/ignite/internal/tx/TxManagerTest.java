@@ -46,6 +46,7 @@ import static org.mockito.Mockito.when;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.LongSupplier;
+import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -123,6 +124,7 @@ public class TxManagerTest extends IgniteAbstractTest {
         when(replicaService.invoke(anyString(), any())).thenReturn(nullCompletedFuture());
 
         txManager = new TxManagerImpl(
+                LOCAL_NODE.name(),
                 txConfiguration,
                 clusterService,
                 replicaService,
@@ -130,7 +132,8 @@ public class TxManagerTest extends IgniteAbstractTest {
                 clock,
                 new TransactionIdGenerator(0xdeadbeef),
                 placementDriver,
-                idleSafeTimePropagationPeriodMsSupplier
+                idleSafeTimePropagationPeriodMsSupplier,
+                mock(CatalogService.class)
         );
 
         txManager.start();

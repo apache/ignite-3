@@ -19,58 +19,42 @@ package org.apache.ignite.internal.tx.message;
 
 import org.apache.ignite.network.annotations.MessageGroup;
 
-/**
- * Message types for transactions.
- */
+/** Message types for transactions. */
 @MessageGroup(groupType = 5, groupName = "TxMessages")
 public class TxMessageGroup {
-    /**
-     * Message type for {@link TxFinishReplicaRequest}.
-     */
+    /** Message type for {@link TxFinishReplicaRequest}. */
     public static final short TX_FINISH_REQUEST = 0;
 
-    /**
-     * Message type for {@link TxFinishResponse}.
-     */
+    /** Message type for {@link TxFinishResponse}. */
     public static final short TX_FINISH_RESPONSE = 1;
 
-    /**
-     * Message type for {@link WriteIntentSwitchReplicaRequest}.
-     */
+    /** Message type for {@link WriteIntentSwitchReplicaRequest}. */
     public static final short WRITE_INTENT_SWITCH_REQUEST = 2;
 
-    /**
-     * Message type for {@link TxStateCommitPartitionRequest}.
-     */
+    /** Message type for {@link TxStateCommitPartitionRequest}. */
     public static final short TX_STATE_COMMIT_PARTITION_REQUEST = 3;
 
-    /**
-     * Message type for {@link TxStateCoordinatorRequest}.
-     */
+    /** Message type for {@link TxStateCoordinatorRequest}. */
     public static final short TX_STATE_COORDINATOR_REQUEST = 4;
 
-    /**
-     * Message type for {@link TxStateResponse}.
-     */
+    /** Message type for {@link TxStateResponse}. */
     public static final short TX_STATE_RESPONSE = 5;
 
-    /**
-     * Message type for {@link TxRecoveryMessage}.
-     */
+    /** Message type for {@link TxRecoveryMessage}. */
     public static final short TX_RECOVERY_MSG = 6;
 
-    /**
-     * Message type for {@link TxCleanupMessage}.
-     */
+    /** Message type for {@link TxCleanupMessage}. */
     public static final short TX_CLEANUP_MSG = 7;
 
-    /**
-     * Message type for {@link TxCleanupMessageResponse}.
-     */
+    /** Message type for {@link TxCleanupMessageResponse}. */
     public static final short TX_CLEANUP_MSG_RESPONSE = 8;
 
-    /**
-     * Message type for {@link TxCleanupMessageErrorResponse}.
-     */
+    /** Message type for {@link TxCleanupMessageErrorResponse}. */
     public static final short TX_CLEANUP_MSG_ERR_RESPONSE = 9;
+
+    /** Message type for {@link RwTransactionsFinishedRequest}. */
+    public static final short RW_TRANSACTIONS_FINISHED_REQUEST = 10;
+
+    /** Message type for {@link RwTransactionsFinishedResponse}. */
+    public static final short RW_TRANSACTIONS_FINISHED_RESPONSE = 11;
 }

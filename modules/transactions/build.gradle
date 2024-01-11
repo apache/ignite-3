@@ -37,6 +37,7 @@ dependencies {
     implementation project(':ignite-distribution-zones')
     implementation project(':ignite-configuration-api')
     implementation project(':ignite-placement-driver-api')
+    implementation project(':ignite-catalog')
     implementation libs.auto.service.annotations
     implementation libs.jetbrains.annotations
     implementation libs.fastutil.core
@@ -51,6 +52,10 @@ dependencies {
     testImplementation libs.hamcrest.core
 
     integrationTestImplementation project(':ignite-api')
+    integrationTestImplementation project(':ignite-catalog')
+    integrationTestImplementation project(':ignite-table')
+    integrationTestImplementation project(':ignite-network-api')
+    integrationTestImplementation project(':ignite-storage-api')
     integrationTestImplementation(testFixtures(project(':ignite-core')))
     integrationTestImplementation(testFixtures(project(':ignite-runner')))
 

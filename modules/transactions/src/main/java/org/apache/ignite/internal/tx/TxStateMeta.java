@@ -42,62 +42,45 @@ public class TxStateMeta implements TransactionMeta {
     private final HybridTimestamp commitTimestamp;
 
     /**
+     * {@code True} for a read-only transaction, {@code false} for a read-write transaction and {@code null} if unknown, for example, if
+     * there is no previous meta.
+     */
+    private final @Nullable Boolean readOnly;
+
+    /**
      * Constructor.
      *
      * @param txState Transaction state.
      * @param txCoordinatorId Transaction coordinator id.
      * @param commitPartitionId Commit partition replication group id.
      * @param commitTimestamp Commit timestamp.
+     * @param readOnly {@code true} for a read-only transaction, {@code false} for a read-write transaction and {@code null} if unknown,
+     *      for example, if there is no previous meta.
      */
     public TxStateMeta(
             TxState txState,
             @Nullable String txCoordinatorId,
             @Nullable TablePartitionId commitPartitionId,
-            @Nullable HybridTimestamp commitTimestamp
-    ) {
-        this(txState, txCoordinatorId, commitPartitionId, commitTimestamp, 0);
-    }
-
-    /**
-     * Constructor.
-     *
-     * @param txState Transaction state.
-     * @param txCoordinatorId Transaction coordinator id.
-     * @param commitPartitionId Commit partition replication group id.
-     * @param commitTimestamp Commit timestamp.
-     * @param lastAbandonedMarkerTs Timestamp indicates when the transaction is marked as abandoned.
-     */
-    private TxStateMeta(
-            TxState txState,
-            @Nullable String txCoordinatorId,
-            @Nullable TablePartitionId commitPartitionId,
             @Nullable HybridTimestamp commitTimestamp,
-            long lastAbandonedMarkerTs
+            @Nullable Boolean readOnly
     ) {
         this.txState = txState;
         this.txCoordinatorId = txCoordinatorId;
         this.commitPartitionId = commitPartitionId;
         this.commitTimestamp = commitTimestamp;
+        this.readOnly = readOnly;
     }
 
-    /**
-     * Creates a transaction state for the same transaction, but this one is marked abandoned.
-     *
-     * @return Transaction state meta.
-     */
+    /** Creates a transaction state for the same transaction, but this one is marked abandoned. */
     public TxStateMetaAbandoned abandoned() {
         assert checkTransitionCorrectness(txState, ABANDONED) : "Transaction state is incorrect [txState=" + txState + "].";
 
-        return new TxStateMetaAbandoned(txCoordinatorId, commitPartitionId);
+        return new TxStateMetaAbandoned(txCoordinatorId, commitPartitionId, readOnly);
     }
 
-    /**
-     * Creates a transaction state for the same transaction, but this one is marked finishing.
-     *
-     * @return Transaction state meta.
-     */
+    /** Creates a transaction state for the same transaction, but this one is marked finishing. */
     public TxStateMetaFinishing finishing() {
-        return new TxStateMetaFinishing(txCoordinatorId, commitPartitionId);
+        return new TxStateMetaFinishing(txCoordinatorId, commitPartitionId, readOnly);
     }
 
     @Override
@@ -116,6 +99,14 @@ public class TxStateMeta implements TransactionMeta {
     @Override
     public @Nullable HybridTimestamp commitTimestamp() {
         return commitTimestamp;
+    }
+
+    /**
+     * Returns {@code true} for a read-only transaction, {@code false} for a read-write transaction and {@code null} if unknown, for
+     * example, if there is no previous meta.
+     */
+    public @Nullable Boolean readOnly() {
+        return readOnly;
     }
 
     @Override
@@ -140,12 +131,20 @@ public class TxStateMeta implements TransactionMeta {
             return false;
         }
 
-        return commitTimestamp != null ? commitTimestamp.equals(that.commitTimestamp) : that.commitTimestamp == null;
+        if (commitTimestamp != null ? !commitTimestamp.equals(that.commitTimestamp) : that.commitTimestamp != null) {
+            return false;
+        }
+
+        if (readOnly != null ? !readOnly.equals(that.readOnly) : that.readOnly != null) {
+            return false;
+        }
+
+        return true;
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(txState, txCoordinatorId, commitPartitionId, commitTimestamp);
+        return Objects.hash(txState, txCoordinatorId, commitPartitionId, commitTimestamp, readOnly);
     }
 
     @Override

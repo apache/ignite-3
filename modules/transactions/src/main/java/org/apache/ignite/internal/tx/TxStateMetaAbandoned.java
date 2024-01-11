@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.tx.TxState.ABANDONED;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.FastTimestamps;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Abandoned transaction state meta.
@@ -37,12 +38,15 @@ public class TxStateMetaAbandoned extends TxStateMeta {
      *
      * @param txCoordinatorId Transaction coordinator id.
      * @param commitPartitionId Commit partition replication group id.
+     * @param readOnly {@code true} for a read-only transaction, {@code false} for a read-write transaction and {@code null} if unknown,
+     *      for example, if there is no previous meta.
      */
     TxStateMetaAbandoned(
             String txCoordinatorId,
-            TablePartitionId commitPartitionId
+            TablePartitionId commitPartitionId,
+            @Nullable Boolean readOnly
     ) {
-        super(ABANDONED, txCoordinatorId, commitPartitionId, null);
+        super(ABANDONED, txCoordinatorId, commitPartitionId, null, readOnly);
 
         this.lastAbandonedMarkerTs = FastTimestamps.coarseCurrentTimeMillis();
     }

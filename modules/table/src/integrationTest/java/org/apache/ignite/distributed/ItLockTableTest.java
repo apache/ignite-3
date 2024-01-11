@@ -23,6 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -120,14 +121,17 @@ public class ItLockTableTest extends IgniteAbstractTest {
         ) {
             @Override
             protected TxManagerImpl newTxManager(
+                    String nodeName,
                     ClusterService clusterService,
                     ReplicaService replicaSvc,
                     HybridClock clock,
                     TransactionIdGenerator generator,
                     ClusterNode node,
-                    PlacementDriver placementDriver
+                    PlacementDriver placementDriver,
+                    CatalogService catalogService
             ) {
                 return new TxManagerImpl(
+                        nodeName,
                         txConfiguration,
                         clusterService,
                         replicaSvc,
@@ -135,11 +139,13 @@ public class ItLockTableTest extends IgniteAbstractTest {
                                 DeadlockPreventionPolicy.NO_OP,
                                 HeapLockManager.SLOTS,
                                 CACHE_SIZE,
-                                new HeapUnboundedLockManager()),
+                                new HeapUnboundedLockManager()
+                        ),
                         clock,
                         generator,
                         placementDriver,
-                        () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS
+                        () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS,
+                        catalogService
                 );
             }
         };

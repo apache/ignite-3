@@ -57,6 +57,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
+import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
@@ -160,6 +161,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
         ReplicaService replicaService = mock(ReplicaService.class, RETURNS_DEEP_STUBS);
 
         txManager = new TxManagerImpl(
+                clusterNode.name(),
                 txConfiguration,
                 clusterService,
                 replicaService,
@@ -167,7 +169,8 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
                 new HybridClockImpl(),
                 new TransactionIdGenerator(0xdeadbeef),
                 new TestPlacementDriver(clusterNode),
-                () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS
+                () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS,
+                mock(CatalogService.class)
         ) {
             @Override
             public CompletableFuture<Void> finish(

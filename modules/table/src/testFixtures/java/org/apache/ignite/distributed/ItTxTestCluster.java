@@ -32,8 +32,8 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
-import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
@@ -153,6 +153,8 @@ import org.junit.jupiter.api.TestInfo;
 public class ItTxTestCluster {
     private static final int SCHEMA_VERSION = 1;
 
+    private static final String CLIENT_NODE_NAME = "client";
+
     private final List<NetworkAddress> localAddresses;
 
     private final NodeFinder nodeFinder;
@@ -250,6 +252,8 @@ public class ItTxTestCluster {
 
     /** Observable timestamp tracker. */
     private final HybridTimestampTracker timestampTracker;
+
+    private final CatalogService catalogService = mock(CatalogService.class);
 
     /**
      * The constructor.
@@ -373,12 +377,14 @@ public class ItTxTestCluster {
             replicaServices.put(node.name(), replicaSvc);
 
             TxManagerImpl txMgr = newTxManager(
+                    node.name(),
                     cluster.get(i),
                     replicaSvc,
                     clock,
                     new TransactionIdGenerator(i),
                     node,
-                    placementDriver
+                    placementDriver,
+                    catalogService
             );
 
             txMgr.start();
@@ -407,14 +413,17 @@ public class ItTxTestCluster {
     }
 
     protected TxManagerImpl newTxManager(
+            String nodeName,
             ClusterService clusterService,
             ReplicaService replicaSvc,
             HybridClock clock,
             TransactionIdGenerator generator,
             ClusterNode node,
-            PlacementDriver placementDriver
+            PlacementDriver placementDriver,
+            CatalogService catalogService
     ) {
         return new TxManagerImpl(
+                nodeName,
                 txConfiguration,
                 clusterService,
                 replicaSvc,
@@ -422,7 +431,8 @@ public class ItTxTestCluster {
                 clock,
                 generator,
                 placementDriver,
-                () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS
+                () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS,
+                catalogService
         );
     }
 
@@ -439,12 +449,10 @@ public class ItTxTestCluster {
      * @return Groups map.
      */
     public TableViewInternal startTable(String tableName, int tableId, SchemaDescriptor schemaDescriptor) throws Exception {
-        CatalogService catalogService = mock(CatalogService.class);
-
         CatalogTableDescriptor tableDescriptor = mock(CatalogTableDescriptor.class);
         when(tableDescriptor.tableVersion()).thenReturn(SCHEMA_VERSION);
 
-        lenient().when(catalogService.table(anyInt(), anyLong())).thenReturn(tableDescriptor);
+        lenient().when(catalogService.table(eq(tableId), anyLong())).thenReturn(tableDescriptor);
 
         List<Set<Assignment>> calculatedAssignments = AffinityUtils.calculateAssignments(
                 cluster.stream().map(node -> node.topologyService().localMember().name()).collect(toList()),
@@ -839,7 +847,7 @@ public class ItTxTestCluster {
     }
 
     private void startClient() throws InterruptedException {
-        client = startNode(testInfo, "client", NODE_PORT_BASE - 1, nodeFinder);
+        client = startNode(testInfo, CLIENT_NODE_NAME, NODE_PORT_BASE - 1, nodeFinder);
 
         assertTrue(waitForTopology(client, nodes + 1, 1000));
 
@@ -857,6 +865,7 @@ public class ItTxTestCluster {
 
     private void initializeClientTxComponents() {
         clientTxManager = new TxManagerImpl(
+                CLIENT_NODE_NAME,
                 txConfiguration,
                 client,
                 clientReplicaSvc,
@@ -864,7 +873,8 @@ public class ItTxTestCluster {
                 clientClock,
                 new TransactionIdGenerator(-1),
                 placementDriver,
-                () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS
+                () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS,
+                mock(CatalogService.class)
         );
 
         clientTxStateResolver = new TransactionStateResolver(

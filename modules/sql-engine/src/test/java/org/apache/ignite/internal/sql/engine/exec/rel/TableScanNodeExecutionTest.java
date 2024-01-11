@@ -37,6 +37,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.calcite.rel.type.RelDataType;
+import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -139,6 +140,7 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
             ReplicaService replicaSvc = mock(ReplicaService.class, RETURNS_DEEP_STUBS);
 
             TxManagerImpl txManager = new TxManagerImpl(
+                    "test-node",
                     txConfiguration,
                     clusterService,
                     replicaSvc,
@@ -146,7 +148,8 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
                     new HybridClockImpl(),
                     new TransactionIdGenerator(0xdeadbeef),
                     new TestPlacementDriver(leaseholder, leaseholder),
-                    () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS
+                    () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS,
+                    mock(CatalogService.class)
             );
 
             txManager.start();

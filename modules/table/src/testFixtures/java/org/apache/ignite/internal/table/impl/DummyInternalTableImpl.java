@@ -441,6 +441,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
         when(clusterService.topologyService()).thenReturn(topologyService);
 
         var txManager = new TxManagerImpl(
+                LOCAL_NODE.name(),
                 txConfiguration,
                 clusterService,
                 replicaSvc,
@@ -448,7 +449,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 CLOCK,
                 new TransactionIdGenerator(0xdeadbeef),
                 placementDriver,
-                () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS
+                () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS,
+                mock(CatalogService.class)
         );
 
         txManager.start();
