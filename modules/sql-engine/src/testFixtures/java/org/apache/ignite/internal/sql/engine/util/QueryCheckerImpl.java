@@ -303,7 +303,7 @@ abstract class QueryCheckerImpl implements QueryChecker {
             }
         }
 
-        // Check only columns metadata.
+        // Check column metadata only.
         if (resultChecker == null && metadataMatchers != null) {
             QueryMetadata queryMetadata = await(qryProc.prepareSingleAsync(PROPERTIES, tx, qry, params));
 
