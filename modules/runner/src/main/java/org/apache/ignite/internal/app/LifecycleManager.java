@@ -112,6 +112,7 @@ class LifecycleManager implements StateProvider {
 
     /**
      * Represents future that will be completed when all components start futures will be completed.
+     * Note that it is designed that this method is called only once.
      *
      * @return Future that will be completed when all components start futures will be completed.
      */
