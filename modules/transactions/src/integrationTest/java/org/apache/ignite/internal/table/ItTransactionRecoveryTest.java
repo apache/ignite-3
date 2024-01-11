@@ -113,16 +113,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
 
         var tblReplicationGrp = new TablePartitionId(tbl.tableId(), 0);
 
-        CompletableFuture<ReplicaMeta> primaryReplicaFut = node(0).placementDriver().awaitPrimaryReplica(
-                tblReplicationGrp,
-                node(0).clock().now(),
-                10,
-                SECONDS
-        );
-
-        assertThat(primaryReplicaFut, willCompleteSuccessfully());
-
-        String leaseholder = primaryReplicaFut.join().getLeaseholder();
+        String leaseholder = waitAndGetLeaseholder(node(0), tblReplicationGrp);
 
         IgniteImpl commitPartNode = commitPartitionPrimaryNode(leaseholder);
 
@@ -177,16 +168,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
 
         var tblReplicationGrp = new TablePartitionId(tbl.tableId(), 0);
 
-        CompletableFuture<ReplicaMeta> primaryReplicaFut = node(0).placementDriver().awaitPrimaryReplica(
-                tblReplicationGrp,
-                node(0).clock().now(),
-                10,
-                SECONDS
-        );
-
-        assertThat(primaryReplicaFut, willCompleteSuccessfully());
-
-        String leaseholder = primaryReplicaFut.join().getLeaseholder();
+        String leaseholder = waitAndGetLeaseholder(node(0), tblReplicationGrp);
 
         IgniteImpl commitPartNode = commitPartitionPrimaryNode(leaseholder);
 
@@ -229,16 +211,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
 
         var tblReplicationGrp = new TablePartitionId(tbl.tableId(), 0);
 
-        CompletableFuture<ReplicaMeta> primaryReplicaFut = node(0).placementDriver().awaitPrimaryReplica(
-                tblReplicationGrp,
-                node(0).clock().now(),
-                10,
-                SECONDS
-        );
-
-        assertThat(primaryReplicaFut, willCompleteSuccessfully());
-
-        String leaseholder = primaryReplicaFut.join().getLeaseholder();
+        String leaseholder = waitAndGetLeaseholder(node(0), tblReplicationGrp);
 
         IgniteImpl commitPartNode = commitPartitionPrimaryNode(leaseholder);
 
@@ -284,16 +257,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
 
         var tblReplicationGrp = new TablePartitionId(tbl.tableId(), 0);
 
-        CompletableFuture<ReplicaMeta> primaryReplicaFut = node(0).placementDriver().awaitPrimaryReplica(
-                tblReplicationGrp,
-                node(0).clock().now(),
-                10,
-                SECONDS
-        );
-
-        assertThat(primaryReplicaFut, willCompleteSuccessfully());
-
-        String leaseholder = primaryReplicaFut.join().getLeaseholder();
+        String leaseholder = waitAndGetLeaseholder(node(0), tblReplicationGrp);
 
         IgniteImpl commitPartNode = commitPartitionPrimaryNode(leaseholder);
 
@@ -338,16 +302,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
 
         var tblReplicationGrp = new TablePartitionId(tbl.tableId(), 0);
 
-        CompletableFuture<ReplicaMeta> primaryReplicaFut = node(0).placementDriver().awaitPrimaryReplica(
-                tblReplicationGrp,
-                node(0).clock().now(),
-                10,
-                SECONDS
-        );
-
-        assertThat(primaryReplicaFut, willCompleteSuccessfully());
-
-        String leaseholder = primaryReplicaFut.join().getLeaseholder();
+        String leaseholder = waitAndGetLeaseholder(node(0), tblReplicationGrp);
 
         IgniteImpl commitPartNode = commitPartitionPrimaryNode(leaseholder);
 
@@ -410,16 +365,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
 
         var tblReplicationGrp = new TablePartitionId(tbl.tableId(), 0);
 
-        CompletableFuture<ReplicaMeta> primaryReplicaFut = node(0).placementDriver().awaitPrimaryReplica(
-                tblReplicationGrp,
-                node(0).clock().now(),
-                10,
-                SECONDS
-        );
-
-        assertThat(primaryReplicaFut, willCompleteSuccessfully());
-
-        String leaseholder = primaryReplicaFut.join().getLeaseholder();
+        String leaseholder = waitAndGetLeaseholder(node(0), tblReplicationGrp);
 
         IgniteImpl commitPartNode = commitPartitionPrimaryNode(leaseholder);
 
@@ -488,16 +434,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
 
         var tblReplicationGrp = new TablePartitionId(tbl.tableId(), 0);
 
-        CompletableFuture<ReplicaMeta> primaryReplicaFut = node(0).placementDriver().awaitPrimaryReplica(
-                tblReplicationGrp,
-                node(0).clock().now(),
-                10,
-                SECONDS
-        );
-
-        assertThat(primaryReplicaFut, willCompleteSuccessfully());
-
-        String leaseholder = primaryReplicaFut.join().getLeaseholder();
+        String leaseholder = waitAndGetLeaseholder(node(0), tblReplicationGrp);
 
         IgniteImpl commitPartNode = commitPartitionPrimaryNode(leaseholder);
 
@@ -575,16 +512,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
 
         var tblReplicationGrp = new TablePartitionId(tbl.tableId(), 0);
 
-        CompletableFuture<ReplicaMeta> primaryReplicaFut = node(0).placementDriver().awaitPrimaryReplica(
-                tblReplicationGrp,
-                node(0).clock().now(),
-                10,
-                SECONDS
-        );
-
-        assertThat(primaryReplicaFut, willCompleteSuccessfully());
-
-        String leaseholder = primaryReplicaFut.join().getLeaseholder();
+        String leaseholder = waitAndGetLeaseholder(node(0), tblReplicationGrp);
 
         IgniteImpl commitPartNode = commitPartitionPrimaryNode(leaseholder);
 
@@ -665,16 +593,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
 
         var tblReplicationGrp = new TablePartitionId(tbl.tableId(), 0);
 
-        CompletableFuture<ReplicaMeta> primaryReplicaFut = node(0).placementDriver().awaitPrimaryReplica(
-                tblReplicationGrp,
-                node(0).clock().now(),
-                10,
-                SECONDS
-        );
-
-        assertThat(primaryReplicaFut, willCompleteSuccessfully());
-
-        String leaseholder = primaryReplicaFut.join().getLeaseholder();
+        String leaseholder = waitAndGetLeaseholder(node(0), tblReplicationGrp);
 
         IgniteImpl commitPartNode = commitPartitionPrimaryNode(leaseholder);
 
@@ -774,16 +693,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
 
         var tblReplicationGrp = new TablePartitionId(tbl.tableId(), 0);
 
-        CompletableFuture<ReplicaMeta> primaryReplicaFut = node(0).placementDriver().awaitPrimaryReplica(
-                tblReplicationGrp,
-                node(0).clock().now(),
-                10,
-                SECONDS
-        );
-
-        assertThat(primaryReplicaFut, willCompleteSuccessfully());
-
-        String leaseholder = primaryReplicaFut.join().getLeaseholder();
+        String leaseholder = waitAndGetLeaseholder(node(0), tblReplicationGrp);
 
         IgniteImpl commitPartNode = commitPartitionPrimaryNode(leaseholder);
 
@@ -931,24 +841,20 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
         return rwTx1;
     }
 
-    private IgniteImpl findNode(Predicate<IgniteImpl> filter) {
-        return IntStream.range(0, initialNodes())
+    private IgniteImpl findNode(int startRange, int endRange, Predicate<IgniteImpl> filter) {
+        return IntStream.range(startRange, endRange)
                 .mapToObj(this::node)
-                .filter(n -> filter.test(n))
+                .filter(filter::test)
                 .findFirst()
                 .get();
     }
 
     private IgniteImpl commitPartitionPrimaryNode(String leaseholder) {
-        return findNode(n -> leaseholder.equals(n.name()));
+        return findNode(0, initialNodes(), n -> leaseholder.equals(n.name()));
     }
 
     private IgniteImpl nonPrimaryNode(String leaseholder) {
-        return IntStream.range(1, initialNodes())
-                .mapToObj(this::node)
-                .filter(n -> !leaseholder.equals(n.name()))
-                .findFirst()
-                .get();
+        return findNode(1, initialNodes(), n -> !leaseholder.equals(n.name()));
     }
 
     private String waitAndGetLeaseholder(IgniteImpl node, ReplicationGroupId tblReplicationGrp) throws InterruptedException {
