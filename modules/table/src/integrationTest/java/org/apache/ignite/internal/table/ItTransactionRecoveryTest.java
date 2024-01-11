@@ -27,6 +27,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
@@ -713,20 +714,16 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
             return false;
         });
 
-        try {
+        assertThrows(TransactionException.class, () -> {
             RecordView<Tuple> view = txCrdNode.tables().table(TABLE_NAME).recordView();
             view.upsert(rwTx1, Tuple.create().set("key", 1).set("val", "val1"));
-        } catch (TransactionException e) {
-            // No-op: exception is expected.
-        }
+        });
 
         CompletableFuture<Void> commitFut = rwTx1.commitAsync();
 
         commitPartNode.stop();
 
-        waitForCondition(() -> commitFut.isDone(), 10_000);
-
-        commitFut.join();
+        assertThat(commitFut, willCompleteSuccessfully());
     }
 
     private DefaultMessagingService messaging(IgniteImpl node) {
