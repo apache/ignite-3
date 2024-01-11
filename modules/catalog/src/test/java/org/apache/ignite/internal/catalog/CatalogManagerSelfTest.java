@@ -2076,22 +2076,18 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
         int prevVersion = manager.latestCatalogVersion();
 
-        int tableId = manager.tables(prevVersion).iterator().next().id();
-
         CatalogCommand command = RenameTableCommand.builder()
                 .schemaName(SCHEMA_NAME)
                 .tableName(TABLE_NAME)
                 .newTableName(TABLE_NAME_2)
                 .build();
 
-        CompletableFuture<Void> renameFuture = manager.execute(command);
-
-        assertThat(renameFuture, willCompleteSuccessfully());
+        assertThat(manager.execute(command), willCompleteSuccessfully());
 
         int curVersion = manager.latestCatalogVersion();
 
-        CatalogTableDescriptor prevDescriptor = manager.table(tableId, prevVersion);
-        CatalogTableDescriptor curDescriptor = manager.table(tableId, curVersion);
+        CatalogTableDescriptor prevDescriptor = table(prevVersion, TABLE_NAME);
+        CatalogTableDescriptor curDescriptor = table(curVersion, TABLE_NAME_2);
 
         assertThat(prevDescriptor, is(notNullValue()));
         assertThat(prevDescriptor.name(), is(TABLE_NAME));
@@ -2099,7 +2095,19 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertThat(curDescriptor, is(notNullValue()));
         assertThat(curDescriptor.name(), is(TABLE_NAME_2));
 
+        assertThat(table(prevVersion, TABLE_NAME_2), is(nullValue()));
+        assertThat(table(curVersion, TABLE_NAME), is(nullValue()));
+
         assertThat(curDescriptor.tableVersion(), is(prevDescriptor.tableVersion() + 1));
+
+        // Assert that all other properties have been left intact.
+        assertThat(curDescriptor.id(), is(prevDescriptor.id()));
+        assertThat(curDescriptor.columns(), is(prevDescriptor.columns()));
+        assertThat(curDescriptor.colocationColumns(), is(prevDescriptor.colocationColumns()));
+        assertThat(curDescriptor.creationToken(), is(prevDescriptor.creationToken()));
+        assertThat(curDescriptor.primaryKeyColumns(), is(prevDescriptor.primaryKeyColumns()));
+        assertThat(curDescriptor.primaryKeyIndexId(), is(prevDescriptor.primaryKeyIndexId()));
+        assertThat(curDescriptor.schemaId(), is(prevDescriptor.schemaId()));
     }
 
     @Test
@@ -2124,15 +2132,18 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
                 .newTableName(TABLE_NAME_2)
                 .build();
 
-        CompletableFuture<Void> renameFuture = manager.execute(command);
-
-        assertThat(renameFuture, willCompleteSuccessfully());
+        assertThat(manager.execute(command), willCompleteSuccessfully());
         assertThat(eventFuture, willCompleteSuccessfully());
+
+        CatalogTableDescriptor tableDescriptor = table(manager.latestCatalogVersion(), TABLE_NAME_2);
+
+        assertThat(tableDescriptor, is(notNullValue()));
 
         CatalogEventParameters eventParameters = eventFuture.join();
 
         assertThat(eventParameters, is(instanceOf(RenameTableEventParameters.class)));
-        assertThat(((RenameTableEventParameters) eventParameters).newTableName(), is(TABLE_NAME_2));
+        assertThat(((RenameTableEventParameters) eventParameters).tableId(), is(tableDescriptor.id()));
+        assertThat(((RenameTableEventParameters) eventParameters).newTableName(), is(tableDescriptor.name()));
     }
 
     private CompletableFuture<Void> changeColumn(
