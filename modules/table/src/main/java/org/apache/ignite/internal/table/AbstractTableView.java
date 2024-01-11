@@ -164,7 +164,7 @@ abstract class AbstractTableView<R> implements CriteriaQuerySource<R> {
                 .map(Column::name)
                 .map(IgniteNameUtils::quoteIfNeeded)
                 .map((columnName) -> {
-                    var rowIdx = metadata.indexOf(columnName);
+                    int rowIdx = metadata.indexOf(columnName);
 
                     if (rowIdx == -1) {
                         throw new IgniteException(Sql.RUNTIME_ERR, "Missing required column in query results: " + columnName);
