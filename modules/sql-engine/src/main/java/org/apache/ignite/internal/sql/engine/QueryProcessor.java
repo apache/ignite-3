@@ -19,7 +19,7 @@ package org.apache.ignite.internal.sql.engine;
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.manager.IgniteComponent;
-import org.apache.ignite.internal.sql.engine.prepare.ParameterMetadata;
+import org.apache.ignite.internal.sql.engine.prepare.QueryMetadata;
 import org.apache.ignite.internal.sql.engine.property.SqlProperties;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.lang.IgniteException;
@@ -43,7 +43,7 @@ public interface QueryProcessor extends IgniteComponent {
      * @throws IgniteException in case of an error.
      * @see QueryProperty
      */
-    CompletableFuture<ParameterMetadata> prepareSingleAsync(SqlProperties properties,
+    CompletableFuture<QueryMetadata> prepareSingleAsync(SqlProperties properties,
             @Nullable InternalTransaction transaction,
             String qry, Object... params);
 
