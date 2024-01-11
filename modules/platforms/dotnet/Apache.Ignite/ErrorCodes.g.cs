@@ -506,6 +506,12 @@ namespace Apache.Ignite
 
             /// <summary> ComputeJobFailed error. </summary>
             public const int ComputeJobFailed = (GroupCode << 16) | (9 & 0xFFFF);
+
+            /// <summary> ChangeJobPriorityErrNoJob error. </summary>
+            public const int ChangeJobPriorityErrNoJob = (GroupCode << 16) | (10 & 0xFFFF);
+
+            /// <summary> ChangeJobPriorityErrJobExecuting error. </summary>
+            public const int ChangeJobPriorityErrJobExecuting = (GroupCode << 16) | (11 & 0xFFFF);
         }
 
         /// <summary> Catalog errors. </summary>
