@@ -26,6 +26,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
+import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshaller;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
@@ -33,6 +34,7 @@ import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.streamer.StreamerBatchSender;
 import org.apache.ignite.internal.table.criteria.CursorAdapter;
 import org.apache.ignite.internal.table.criteria.QueryCriteriaAsyncCursor;
+import org.apache.ignite.internal.table.criteria.SqlSerializer;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.lang.AsyncCursor;
@@ -458,14 +460,17 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
             @Nullable Criteria criteria,
             @Nullable CriteriaQueryOptions opts
     ) {
-        //TODO: implement serialization of criteria to SQL https://issues.apache.org/jira/browse/IGNITE-20879
-        var query = "SELECT * FROM " + tbl.name();
         var opts0 = opts == null ? CriteriaQueryOptions.DEFAULT : opts;
 
-        Statement statement = sql.statementBuilder().query(query).pageSize(opts0.pageSize()).build();
-        Session session = sql.createSession();
+        return withSchemaSync(tx, (schemaVersion) -> {
+            SchemaDescriptor schema = rowConverter.registry().schema(schemaVersion);
+            SqlSerializer ser = createSqlSerializer(tbl.name(), schema.columnNames(), criteria);
 
-        return session.executeAsync(tx, statement)
-                .thenApply(resultSet -> new QueryCriteriaAsyncCursor<>(resultSet, session::close));
+            Statement statement = sql.statementBuilder().query(ser.toString()).pageSize(opts0.pageSize()).build();
+            Session session = sql.createSession();
+
+            return session.executeAsync(tx, statement, ser.getArguments())
+                    .thenApply(resultSet -> new QueryCriteriaAsyncCursor<>(resultSet, session::close));
+        });
     }
 }

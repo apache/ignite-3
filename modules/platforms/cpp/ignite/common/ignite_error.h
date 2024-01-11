@@ -17,26 +17,13 @@
 
 #pragma once
 
+#include "error_codes.h"
+
 #include <cstdint>
 #include <exception>
 #include <string>
 
 namespace ignite {
-
-/**
- * Status code.
- */
-enum class status_code : std::int32_t {
-    SUCCESS = 0,
-
-    GENERIC,
-
-    UNKNOWN,
-
-    NETWORK,
-
-    OS,
-};
 
 /**
  * Ignite Error.
@@ -52,8 +39,7 @@ public:
      * @param message Message.
      */
     explicit ignite_error(std::string message) noexcept
-        : m_status_code(status_code::GENERIC)
-        , m_message(std::move(message)) {} // NOLINT(bugprone-throw-keyword-missing)
+        : m_message(std::move(message)) {} // NOLINT(bugprone-throw-keyword-missing)
 
     /**
      * Constructor.
@@ -61,8 +47,8 @@ public:
      * @param statusCode Status code.
      * @param message Message.
      */
-    explicit ignite_error(status_code statusCode, std::string message) noexcept
-        : m_status_code(statusCode)
+    explicit ignite_error(error::code code, std::string message) noexcept
+        : m_status_code(code)
         , m_message(std::move(message)) {} // NOLINT(bugprone-throw-keyword-missing)
 
     /**
@@ -72,8 +58,8 @@ public:
      * @param message Message.
      * @param cause Error cause.
      */
-    explicit ignite_error(status_code statusCode, std::string message, std::exception_ptr cause) noexcept
-        : m_status_code(statusCode)
+    explicit ignite_error(error::code code, std::string message, std::exception_ptr cause) noexcept
+        : m_status_code(code)
         , m_message(std::move(message))
         , m_cause(std::move(cause)) {} // NOLINT(bugprone-throw-keyword-missing)
 
@@ -92,7 +78,7 @@ public:
      *
      * @return Status code.
      */
-    [[nodiscard]] status_code get_status_code() const noexcept { return m_status_code; }
+    [[nodiscard]] error::code get_status_code() const noexcept { return m_status_code; }
 
     /**
      * Get error cause.
@@ -103,7 +89,7 @@ public:
 
 private:
     /** Status code. */
-    status_code m_status_code{status_code::SUCCESS};
+    error::code m_status_code{error::code::GENERIC};
 
     /** Message. */
     std::string m_message;
