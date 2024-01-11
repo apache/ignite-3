@@ -19,6 +19,7 @@ package org.apache.ignite.internal.compute.queue;
 
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
@@ -41,7 +42,7 @@ class QueueEntry<R> implements Runnable, Comparable<QueueEntry<R>> {
 
     private final Callable<R> jobAction;
 
-    private final int priority;
+    private final AtomicInteger priority;
 
     private final long seqNum;
 
@@ -60,7 +61,7 @@ class QueueEntry<R> implements Runnable, Comparable<QueueEntry<R>> {
      */
     QueueEntry(Callable<R> jobAction, int priority) {
         this.jobAction = jobAction;
-        this.priority = priority;
+        this.priority = new AtomicInteger(priority);
         seqNum = seq.getAndIncrement();
     }
 
@@ -97,6 +98,15 @@ class QueueEntry<R> implements Runnable, Comparable<QueueEntry<R>> {
     }
 
     /**
+     * Updates priority.
+     *
+     * @param newPriority new priority.
+     */
+    void setPriority(int newPriority) {
+        this.priority.set(newPriority);
+    }
+
+    /**
      * Sets interrupt status of the worker thread.
      */
     void interrupt() {
@@ -123,7 +133,7 @@ class QueueEntry<R> implements Runnable, Comparable<QueueEntry<R>> {
 
     @Override
     public int compareTo(QueueEntry o) {
-        int compare = Integer.compare(o.priority, this.priority);
+        int compare = Integer.compare(o.priority.get(), this.priority.get());
         if (compare == 0 && this != o) {
             return seqNum < o.seqNum ? -1 : 1;
         }
