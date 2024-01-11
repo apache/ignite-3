@@ -155,6 +155,7 @@ enum class code : underlying_t {
     // Network group. Group code: 11
     UNRESOLVABLE_CONSISTENT_ID = 0xb0001,
     PORT_IN_USE = 0xb0002,
+    RECIPIENT_LEFT = 0xb0005,
 
     // NodeConfiguration group. Group code: 12
     CONFIG_READ = 0xc0001,
@@ -184,6 +185,8 @@ enum class code : underlying_t {
     COMPUTE_JOB_STATE_TRANSITION = 0x100005,
     CANCELLING = 0x100006,
     RESULT_NOT_FOUND = 0x100007,
+    FAIL_TO_GET_JOB_STATUS = 0x100008,
+    COMPUTE_JOB_FAILED = 0x100009,
 
     // Catalog group. Group code: 17
     VALIDATION = 0x110001,
