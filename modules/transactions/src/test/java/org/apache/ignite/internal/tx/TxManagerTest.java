@@ -99,10 +99,10 @@ public class TxManagerTest extends IgniteAbstractTest {
 
     private TxManager txManager;
 
-    @Mock
+    @Mock(answer = RETURNS_DEEP_STUBS)
     private ClusterService clusterService;
 
-    @Mock
+    @Mock(answer = RETURNS_DEEP_STUBS)
     private ReplicaService replicaService;
 
     private final HybridClock clock = spy(new HybridClockImpl());
@@ -116,11 +116,7 @@ public class TxManagerTest extends IgniteAbstractTest {
     /** Init test callback. */
     @BeforeEach
     public void setup() {
-        clusterService = mock(ClusterService.class, RETURNS_DEEP_STUBS);
-
         when(clusterService.topologyService().localMember().address()).thenReturn(LOCAL_NODE.address());
-
-        replicaService = mock(ReplicaService.class, RETURNS_DEEP_STUBS);
 
         when(replicaService.invoke(any(ClusterNode.class), any())).thenReturn(nullCompletedFuture());
 
