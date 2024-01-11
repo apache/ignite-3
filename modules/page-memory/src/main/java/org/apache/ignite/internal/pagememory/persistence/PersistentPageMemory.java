@@ -34,6 +34,9 @@ import static org.apache.ignite.internal.pagememory.persistence.PageHeader.readP
 import static org.apache.ignite.internal.pagememory.persistence.PageHeader.tempBufferPointer;
 import static org.apache.ignite.internal.pagememory.persistence.PageHeader.writeTimestamp;
 import static org.apache.ignite.internal.pagememory.persistence.PagePool.SEGMENT_INDEX_MASK;
+import static org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory.CheckpointUrgency.MUST_TRIGGER;
+import static org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory.CheckpointUrgency.NOT_REQUIRED;
+import static org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory.CheckpointUrgency.SHOULD_TRIGGER;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.effectivePageId;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.pageIndex;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.partitionId;
@@ -71,6 +74,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.lang.IgniteInternalException;
@@ -197,8 +201,8 @@ public class PersistentPageMemory implements PageMemory {
     /** {@code False} if memory was not started or already stopped and is not supposed for any usage. */
     private volatile boolean started;
 
-    /** See {@link #safeToUpdate()}. */
-    private final AtomicBoolean safeToUpdate = new AtomicBoolean(true);
+    /** See {@link #checkpointUrgency()}. */
+    private final AtomicReference<CheckpointUrgency> checkpointUrgency = new AtomicReference<>(NOT_REQUIRED);
 
     /** Checkpoint page pool, {@code null} if not {@link #start() started}. */
     @Nullable
@@ -1237,8 +1241,18 @@ public class PersistentPageMemory implements PageMemory {
                 Segment seg = segment(pageId.groupId(), pageId.pageId());
 
                 if (seg.dirtyPages.add(pageId)) {
-                    if (seg.dirtyPagesCntr.incrementAndGet() >= seg.maxDirtyPages) {
-                        safeToUpdate.set(false);
+                    long dirtyPagesCnt = seg.dirtyPagesCntr.incrementAndGet();
+
+                    if (dirtyPagesCnt >= seg.dirtyPagesSoftThreshold) {
+                        CheckpointUrgency urgency = checkpointUrgency.get();
+
+                        if (urgency != MUST_TRIGGER) {
+                            if (dirtyPagesCnt >= seg.dirtyPagesHardThreshold) {
+                                checkpointUrgency.set(MUST_TRIGGER);
+                            } else if (urgency != SHOULD_TRIGGER) {
+                                checkpointUrgency.compareAndSet(NOT_REQUIRED, SHOULD_TRIGGER);
+                            }
+                        }
                     }
                 }
             }
@@ -1292,6 +1306,28 @@ public class PersistentPageMemory implements PageMemory {
     }
 
     /**
+     * Checkpoint urgency status enum.
+     */
+    public enum CheckpointUrgency {
+        /**
+         * Signifies that there's enough free space in page memory and there's no need to trigger checkpoint.
+         */
+        NOT_REQUIRED,
+
+        /**
+         * Signifies that there's still enough free space in page memory, but we're at the point where we should schedule a checkpoint.
+         * It's still safe to take new checkpoint read locks while new checkpoint is not started.
+         */
+        SHOULD_TRIGGER,
+
+        /**
+         * Signifies that there might not be enough free space in page memory, and we shouldn't allow taking new checkpoint read locks
+         * until scheduled checkpoint is started, and collections of dirty pages is empty once again.
+         */
+        MUST_TRIGGER
+    }
+
+    /**
      * Page segment.
      */
     public class Segment extends ReentrantReadWriteLock {
@@ -1332,8 +1368,11 @@ public class PersistentPageMemory implements PageMemory {
         @Nullable
         private volatile CheckpointPages checkpointPages;
 
-        /** Maximum number of dirty pages. */
-        private final long maxDirtyPages;
+        /** Maximum number of dirty pages for {@link CheckpointUrgency#NOT_REQUIRED}. */
+        private final long dirtyPagesSoftThreshold;
+
+        /** Maximum number of dirty pages for {@link CheckpointUrgency#SHOULD_TRIGGER}. */
+        private final long dirtyPagesHardThreshold;
 
         /** Initial partition generation. */
         private static final int INIT_PART_GENERATION = 1;
@@ -1381,7 +1420,8 @@ public class PersistentPageMemory implements PageMemory {
                     pool.pages()
             );
 
-            maxDirtyPages = pool.pages() * 3L / 4;
+            dirtyPagesSoftThreshold = pool.pages() * 3L / 4;
+            dirtyPagesHardThreshold = pool.pages() * 9L / 10;
         }
 
         /**
@@ -1571,7 +1611,8 @@ public class PersistentPageMemory implements PageMemory {
             return new IgniteOutOfMemoryException("Failed to find a page for eviction (" + reason + ") ["
                     + "segmentCapacity=" + loadedPages.capacity()
                     + ", loaded=" + loadedPages.size()
-                    + ", maxDirtyPages=" + maxDirtyPages
+                    + ", dirtyPagesSoftThreshold=" + dirtyPagesSoftThreshold
+                    + ", dirtyPagesHardThreshold=" + dirtyPagesHardThreshold
                     + ", dirtyPages=" + dirtyPagesCntr
                     + ", pinned=" + acquiredPages()
                     + ']' + lineSeparator() + "Out of memory in data region ["
@@ -1743,14 +1784,10 @@ public class PersistentPageMemory implements PageMemory {
      * Heuristic method which allows a thread to check if it is safe to start memory structure modifications in regard with checkpointing.
      * May return false-negative result during or after partition eviction.
      *
-     * @return {@code False} if there are too many dirty pages and a thread should wait for a checkpoint to begin.
+     * @see CheckpointUrgency
      */
-    public boolean safeToUpdate() {
-        if (segments != null) {
-            return safeToUpdate.get();
-        }
-
-        return true;
+    public CheckpointUrgency checkpointUrgency() {
+        return checkpointUrgency.get();
     }
 
     /**
@@ -2055,7 +2092,7 @@ public class PersistentPageMemory implements PageMemory {
             segment.resetDirtyPages();
         }
 
-        safeToUpdate.set(true);
+        checkpointUrgency.set(NOT_REQUIRED);
 
         return CollectionUtils.concat(dirtyPageIds);
     }

@@ -31,6 +31,7 @@ import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMeta;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMetaManager;
+import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory.CheckpointUrgency;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointDirtyPages.CheckpointDirtyPagesView;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
@@ -59,7 +60,7 @@ public class CheckpointTestUtils {
         return new CheckpointTimeoutLock(
                 mock(CheckpointReadWriteLock.class),
                 Long.MAX_VALUE,
-                () -> true,
+                () -> CheckpointUrgency.NOT_REQUIRED,
                 mock(Checkpointer.class)
         ) {
             @Override
