@@ -45,6 +45,7 @@ import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.TestReplicaMetaImpl;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.tx.impl.PlacementDriverHelper;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TxCleanupRequestSender;
@@ -65,7 +66,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
  * Tests for a transaction cleanup.
  */
 @ExtendWith(MockitoExtension.class)
-public class TxCleanupTest {
+public class TxCleanupTest extends IgniteAbstractTest {
 
     private static final ClusterNode LOCAL_NODE =
             new ClusterNodeImpl("local_id", "local", new NetworkAddress("127.0.0.1", 2024), null);
