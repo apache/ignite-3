@@ -23,25 +23,30 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
+import org.apache.ignite.compute.ComputeException;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobStatus;
+import org.apache.ignite.internal.compute.configuration.ComputeConfiguration;
 import org.apache.ignite.internal.compute.executor.ComputeExecutor;
 import org.apache.ignite.internal.compute.executor.JobExecutionInternal;
 import org.apache.ignite.internal.compute.loader.JobContext;
 import org.apache.ignite.internal.compute.loader.JobContextManager;
 import org.apache.ignite.internal.compute.messaging.ComputeMessaging;
 import org.apache.ignite.internal.compute.messaging.RemoteJobExecution;
+import org.apache.ignite.internal.compute.queue.CancellingException;
 import org.apache.ignite.internal.future.InFlightFutures;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.apache.ignite.lang.ErrorGroups.Compute;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.MessagingService;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Implementation of {@link ComputeComponent}.
@@ -61,17 +66,23 @@ public class ComputeComponentImpl implements ComputeComponent {
 
     private final ComputeMessaging messaging;
 
+    private final Cleaner<JobExecution<?>> cleaner;
+
+    private final Map<UUID, JobExecution<?>> executions = new ConcurrentHashMap<>();
+
     /**
      * Creates a new instance.
      */
     public ComputeComponentImpl(
             MessagingService messagingService,
             JobContextManager jobContextManager,
-            ComputeExecutor executor
+            ComputeExecutor executor,
+            ComputeConfiguration computeCfg
     ) {
         this.jobContextManager = jobContextManager;
         this.executor = executor;
-        messaging = new ComputeMessaging(messagingService);
+        messaging = new ComputeMessaging(this, messagingService);
+        cleaner = new Cleaner<>(computeCfg);
     }
 
     /** {@inheritDoc} */
@@ -82,7 +93,12 @@ public class ComputeComponentImpl implements ComputeComponent {
             String jobClassName,
             Object... args
     ) {
-        return start(options, units, jobClassName, args);
+        JobExecution<R> result = start(options, units, jobClassName, args);
+        result.idAsync().thenAccept(jobId -> {
+            executions.put(jobId, result);
+            result.resultAsync().whenComplete((r, throwable) -> cleaner.scheduleRemove(jobId));
+        });
+        return result;
     }
 
     /** {@inheritDoc} */
@@ -102,20 +118,55 @@ public class ComputeComponentImpl implements ComputeComponent {
 
         try {
             CompletableFuture<UUID> jobIdFuture = messaging.remoteExecuteRequestAsync(options, remoteNode, units, jobClassName, args);
-            CompletableFuture<R> resultFuture = jobIdFuture.thenCompose(jobId -> messaging.remoteJobResultRequestAsync(remoteNode, jobId));
+            CompletableFuture<R> resultFuture = jobIdFuture.thenCompose(jobId -> messaging.<R>remoteJobResultRequestAsync(remoteNode, jobId)
+                    .whenComplete((r, throwable) -> cleaner.scheduleRemove(jobId)));
 
             inFlightFutures.registerFuture(jobIdFuture);
             inFlightFutures.registerFuture(resultFuture);
 
-            return new RemoteJobExecution<>(remoteNode, jobIdFuture, resultFuture, inFlightFutures, messaging);
+            JobExecution<R> result = new RemoteJobExecution<>(remoteNode, jobIdFuture, resultFuture, inFlightFutures, messaging);
+            jobIdFuture.thenAccept(jobId -> executions.put(jobId, result));
+            return result;
         } finally {
             busyLock.leaveBusy();
         }
     }
 
-    @Override
-    public @Nullable JobStatus getJobStatus(UUID jobId) {
-        return executor.status(jobId);
+    /**
+     * Returns job's execution result.
+     *
+     * @param jobId Job id.
+     * @return Job's execution result future.
+     */
+    public CompletableFuture<?> resultAsync(UUID jobId) {
+        JobExecution<?> execution = executions.get(jobId);
+        if (execution != null) {
+            return execution.resultAsync();
+        }
+        return failedFuture(new ComputeException(Compute.RESULT_NOT_FOUND_ERR, "Job result not found for the job id " + jobId));
+    }
+
+    /**
+     * Returns the current status of the job. The job status may be deleted and thus return {@code null} if the time for retaining job
+     * status has been exceeded.
+     *
+     * @param jobId Job id.
+     * @return The current status of the job, or {@code null} if the job status no longer exists due to exceeding the retention time limit.
+     */
+    public CompletableFuture<JobStatus> statusAsync(UUID jobId) {
+        JobExecution<?> execution = executions.get(jobId);
+        return execution != null ? execution.statusAsync() : nullCompletedFuture();
+    }
+
+    /**
+     * Cancels the job.
+     *
+     * @param jobId Job id.
+     * @return The future which will be completed when cancel request is processed.
+     */
+    public CompletableFuture<Void> cancelAsync(UUID jobId) {
+        JobExecution<?> execution = executions.get(jobId);
+        return execution != null ? execution.cancelAsync() : failedFuture(new CancellingException(jobId));
     }
 
     private <R> JobExecution<R> start(
@@ -152,7 +203,8 @@ public class ComputeComponentImpl implements ComputeComponent {
     @Override
     public CompletableFuture<Void> start() {
         executor.start();
-        messaging.start(this::start, this::getJobStatus);
+        messaging.start();
+        cleaner.start(executions::remove);
 
         return nullCompletedFuture();
     }
@@ -167,6 +219,7 @@ public class ComputeComponentImpl implements ComputeComponent {
         busyLock.block();
         inFlightFutures.cancelInFlightFutures();
 
+        cleaner.stop();
         messaging.stop();
         executor.stop();
     }

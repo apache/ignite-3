@@ -215,6 +215,12 @@ public class ClientUtils {
             case ClientOp.COMPUTE_EXECUTE_COLOCATED:
                 return ClientOperationType.COMPUTE_EXECUTE;
 
+            case ClientOp.COMPUTE_GET_STATUS:
+                return ClientOperationType.COMPUTE_GET_STATUS;
+
+            case ClientOp.COMPUTE_CANCEL:
+                return ClientOperationType.COMPUTE_CANCEL;
+
             case ClientOp.CLUSTER_GET_NODES:
                 return null;
 

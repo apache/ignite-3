@@ -26,12 +26,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ThreadLocalRandom;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.compute.JobExecution;
+import org.apache.ignite.compute.JobStatus;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.TableViewInternal;
@@ -47,14 +49,14 @@ import org.apache.ignite.table.mapper.Mapper;
 /**
  * Implementation of {@link IgniteCompute}.
  */
-public class IgniteComputeImpl implements IgniteCompute {
+public class IgniteComputeImpl implements IgniteComputeInternal {
     private static final String DEFAULT_SCHEMA_NAME = "PUBLIC";
 
     private final TopologyService topologyService;
 
     private final IgniteTablesInternal tables;
 
-    private final ComputeComponent computeComponent;
+    private final ComputeComponentImpl computeComponent;
 
     private final ThreadLocalRandom random = ThreadLocalRandom.current();
 
@@ -63,7 +65,7 @@ public class IgniteComputeImpl implements IgniteCompute {
     /**
      * Create new instance.
      */
-    public IgniteComputeImpl(TopologyService topologyService, IgniteTablesInternal tables, ComputeComponent computeComponent) {
+    public IgniteComputeImpl(TopologyService topologyService, IgniteTablesInternal tables, ComputeComponentImpl computeComponent) {
         this.topologyService = topologyService;
         this.tables = tables;
         this.computeComponent = computeComponent;
@@ -270,5 +272,15 @@ public class IgniteComputeImpl implements IgniteCompute {
                         // No failover nodes for broadcast. We use failover here in order to complete futures with exceptions
                         // if worker node has left the cluster.
                         node -> new JobExecutionWrapper<>(executeOnOneNodeWithFailover(node, Set.of(), units, jobClassName, args))));
+    }
+
+    @Override
+    public CompletableFuture<JobStatus> statusAsync(UUID jobId) {
+        return computeComponent.statusAsync(jobId);
+    }
+
+    @Override
+    public CompletableFuture<Void> cancelAsync(UUID jobId) {
+        return computeComponent.cancelAsync(jobId);
     }
 }

@@ -25,21 +25,17 @@ import static org.apache.ignite.internal.compute.ComputeUtils.toDeploymentUnit;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.Function;
 import java.util.stream.Collectors;
-import org.apache.ignite.compute.ComputeException;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobStatus;
+import org.apache.ignite.internal.compute.ComputeComponentImpl;
 import org.apache.ignite.internal.compute.ComputeMessageTypes;
 import org.apache.ignite.internal.compute.ComputeMessagesFactory;
 import org.apache.ignite.internal.compute.ComputeUtils;
 import org.apache.ignite.internal.compute.ExecutionOptions;
-import org.apache.ignite.internal.compute.JobStarter;
 import org.apache.ignite.internal.compute.message.DeploymentUnitMsg;
 import org.apache.ignite.internal.compute.message.ExecuteRequest;
 import org.apache.ignite.internal.compute.message.ExecuteResponse;
@@ -49,11 +45,9 @@ import org.apache.ignite.internal.compute.message.JobResultRequest;
 import org.apache.ignite.internal.compute.message.JobResultResponse;
 import org.apache.ignite.internal.compute.message.JobStatusRequest;
 import org.apache.ignite.internal.compute.message.JobStatusResponse;
-import org.apache.ignite.internal.compute.queue.CancellingException;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
-import org.apache.ignite.lang.ErrorGroups.Compute;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.network.NetworkMessage;
@@ -67,23 +61,21 @@ public class ComputeMessaging {
 
     private final ComputeMessagesFactory messagesFactory = new ComputeMessagesFactory();
 
+    private final ComputeComponentImpl computeComponent;
+
     private final MessagingService messagingService;
 
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
-    //TODO https://issues.apache.org/jira/browse/IGNITE-21168
-    private final Map<UUID, JobExecution<Object>> executions = new ConcurrentHashMap<>();
-
-    public ComputeMessaging(MessagingService messagingService) {
+    public ComputeMessaging(ComputeComponentImpl computeComponent, MessagingService messagingService) {
+        this.computeComponent = computeComponent;
         this.messagingService = messagingService;
     }
 
     /**
      * Start messaging service.
-     *
-     * @param starter Compute job starter.
      */
-    public void start(JobStarter starter, Function<UUID, JobStatus> jobStatus) {
+    public void start() {
         messagingService.addMessageHandler(ComputeMessageTypes.class, (message, senderConsistentId, correlationId) -> {
             assert correlationId != null;
 
@@ -98,7 +90,7 @@ public class ComputeMessaging {
             }
 
             try {
-                processRequest(message, senderConsistentId, correlationId, starter, jobStatus);
+                processRequest(message, senderConsistentId, correlationId);
             } finally {
                 busyLock.leaveBusy();
             }
@@ -125,16 +117,14 @@ public class ComputeMessaging {
     private void processRequest(
             NetworkMessage message,
             String senderConsistentId,
-            long correlationId,
-            JobStarter starter,
-            Function<UUID, JobStatus> jobStatus
+            long correlationId
     ) {
         if (message instanceof ExecuteRequest) {
-            processExecuteRequest(starter, (ExecuteRequest) message, senderConsistentId, correlationId);
+            processExecuteRequest((ExecuteRequest) message, senderConsistentId, correlationId);
         } else if (message instanceof JobResultRequest) {
             processJobResultRequest((JobResultRequest) message, senderConsistentId, correlationId);
         } else if (message instanceof JobStatusRequest) {
-            processJobStatusRequest(jobStatus, (JobStatusRequest) message, senderConsistentId, correlationId);
+            processJobStatusRequest((JobStatusRequest) message, senderConsistentId, correlationId);
         } else if (message instanceof JobCancelRequest) {
             processJobCancelRequest((JobCancelRequest) message, senderConsistentId, correlationId);
         }
@@ -179,16 +169,20 @@ public class ComputeMessaging {
                 .thenCompose(networkMessage -> jobIdFromExecuteResponse((ExecuteResponse) networkMessage));
     }
 
-    private void processExecuteRequest(JobStarter starter, ExecuteRequest request, String senderConsistentId, long correlationId) {
+    private void processExecuteRequest(
+            ExecuteRequest request,
+            String senderConsistentId,
+            long correlationId
+    ) {
         List<DeploymentUnit> units = toDeploymentUnit(request.deploymentUnits());
 
-        JobExecution<Object> execution = starter.start(request.executeOptions(), units, request.jobClassName(), request.args());
-        execution.idAsync().whenComplete((jobId, err) -> {
-            if (jobId != null) {
-                executions.put(jobId, execution);
-            }
-            sendExecuteResponse(jobId, err, senderConsistentId, correlationId);
-        });
+        JobExecution<Object> execution = computeComponent.executeLocally(
+                request.executeOptions(),
+                units,
+                request.jobClassName(),
+                request.args()
+        );
+        execution.idAsync().whenComplete((jobId, err) -> sendExecuteResponse(jobId, err, senderConsistentId, correlationId));
     }
 
     private void sendExecuteResponse(@Nullable UUID jobId, @Nullable Throwable ex, String senderConsistentId, Long correlationId) {
@@ -217,20 +211,16 @@ public class ComputeMessaging {
                 .thenCompose(networkMessage -> resultFromJobResultResponse((JobResultResponse) networkMessage));
     }
 
-    private void processJobResultRequest(JobResultRequest request, String senderConsistentId, long correlationId) {
-        UUID jobId = request.jobId();
-        JobExecution<Object> execution = executions.get(jobId);
-        if (execution != null) {
-            execution.resultAsync()
-                    .whenComplete((result, err) -> sendJobResultResponse(result, err, senderConsistentId, correlationId)
-                            .whenComplete((unused, throwable) -> executions.remove(jobId)));
-        } else {
-            ComputeException ex = new ComputeException(Compute.RESULT_NOT_FOUND_ERR, "Job result not found for the job id " + jobId);
-            sendJobResultResponse(null, ex, senderConsistentId, correlationId);
-        }
+    private void processJobResultRequest(
+            JobResultRequest request,
+            String senderConsistentId,
+            long correlationId
+    ) {
+        computeComponent.resultAsync(request.jobId())
+                .whenComplete((result, err) -> sendJobResultResponse(result, err, senderConsistentId, correlationId));
     }
 
-    private CompletableFuture<Void> sendJobResultResponse(
+    private void sendJobResultResponse(
             @Nullable Object result,
             @Nullable Throwable ex,
             String senderConsistentId,
@@ -241,7 +231,7 @@ public class ComputeMessaging {
                 .throwable(ex)
                 .build();
 
-        return messagingService.respond(senderConsistentId, jobResultResponse, correlationId);
+        messagingService.respond(senderConsistentId, jobResultResponse, correlationId);
     }
 
     /**
@@ -261,12 +251,12 @@ public class ComputeMessaging {
     }
 
     private void processJobStatusRequest(
-            Function<UUID, JobStatus> jobStatus,
             JobStatusRequest request,
             String senderConsistentId,
             long correlationId
     ) {
-        sendJobStatusResponse(jobStatus.apply(request.jobId()), null, senderConsistentId, correlationId);
+        computeComponent.statusAsync(request.jobId())
+                .whenComplete((status, throwable) -> sendJobStatusResponse(status, throwable, senderConsistentId, correlationId));
     }
 
     private void sendJobStatusResponse(
@@ -300,14 +290,8 @@ public class ComputeMessaging {
     }
 
     private void processJobCancelRequest(JobCancelRequest request, String senderConsistentId, long correlationId) {
-        UUID jobId = request.jobId();
-        JobExecution<Object> execution = executions.get(jobId);
-        if (execution != null) {
-            execution.cancelAsync()
-                    .whenComplete((result, err) -> sendJobCancelResponse(err, senderConsistentId, correlationId));
-        } else {
-            sendJobCancelResponse(new CancellingException(jobId), senderConsistentId, correlationId);
-        }
+        computeComponent.cancelAsync(request.jobId())
+                .whenComplete((result, err) -> sendJobCancelResponse(err, senderConsistentId, correlationId));
     }
 
     private void sendJobCancelResponse(

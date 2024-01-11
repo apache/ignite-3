@@ -17,9 +17,12 @@
 
 package org.apache.ignite.internal.runner.app.client;
 
+import static org.apache.ignite.compute.JobState.COMPLETED;
+import static org.apache.ignite.compute.JobState.FAILED;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.will;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
+import static org.apache.ignite.internal.testframework.matchers.JobStatusMatcher.jobStatusWithState;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Table.COLUMN_ALREADY_EXISTS_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -100,14 +103,14 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
     @Test
     void testExecuteOnSpecificNodeAsync() {
-        assertThat(
-                client().compute().<String>executeAsync(Set.of(node(0)), List.of(), NodeNameJob.class.getName()).resultAsync(),
-                willBe("itcct_n_3344")
-        );
-        assertThat(
-                client().compute().<String>executeAsync(Set.of(node(1)), List.of(), NodeNameJob.class.getName()).resultAsync(),
-                willBe("itcct_n_3345")
-        );
+        JobExecution<String> execution1 = client().compute().executeAsync(Set.of(node(0)), List.of(), NodeNameJob.class.getName());
+        JobExecution<String> execution2 = client().compute().executeAsync(Set.of(node(1)), List.of(), NodeNameJob.class.getName());
+
+        assertThat(execution1.resultAsync(), willBe("itcct_n_3344"));
+        assertThat(execution2.resultAsync(), willBe("itcct_n_3345"));
+
+        assertThat(execution1.statusAsync(), willBe(jobStatusWithState(COMPLETED)));
+        assertThat(execution2.statusAsync(), willBe(jobStatusWithState(COMPLETED)));
     }
 
     @Test
@@ -119,10 +122,14 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
     @Test
     void testExecuteOnRandomNodeAsync() {
+        JobExecution<String> execution = client().compute()
+                .executeAsync(new HashSet<>(sortedNodes()), List.of(), NodeNameJob.class.getName());
+
         assertThat(
-                client().compute().<String>executeAsync(new HashSet<>(sortedNodes()), List.of(), NodeNameJob.class.getName()).resultAsync(),
+                execution.resultAsync(),
                 will(oneOf("itcct_n_3344", "itcct_n_3345"))
         );
+        assertThat(execution.statusAsync(), willBe(jobStatusWithState(COMPLETED)));
     }
 
     @Test
@@ -136,7 +143,10 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
         assertEquals(1, futuresPerNode.size());
 
-        assertThat(futuresPerNode.get(node(1)).resultAsync(), willBe("itcct_n_3345__123"));
+        JobExecution<String> execution = futuresPerNode.get(node(1));
+
+        assertThat(execution.resultAsync(), willBe("itcct_n_3345__123"));
+        assertThat(execution.statusAsync(), willBe(jobStatusWithState(COMPLETED)));
     }
 
     @Test
@@ -150,17 +160,23 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
         assertEquals(2, futuresPerNode.size());
 
-        assertThat(futuresPerNode.get(node(0)).resultAsync(), willBe("itcct_n_3344__123"));
-        assertThat(futuresPerNode.get(node(1)).resultAsync(), willBe("itcct_n_3345__123"));
+        JobExecution<String> execution1 = futuresPerNode.get(node(0));
+        JobExecution<String> execution2 = futuresPerNode.get(node(1));
+
+        assertThat(execution1.resultAsync(), willBe("itcct_n_3344__123"));
+        assertThat(execution2.resultAsync(), willBe("itcct_n_3345__123"));
+
+        assertThat(execution1.statusAsync(), willBe(jobStatusWithState(COMPLETED)));
+        assertThat(execution2.statusAsync(), willBe(jobStatusWithState(COMPLETED)));
     }
 
     @Test
     void testExecuteWithArgs() {
         var nodes = new HashSet<>(client().clusterNodes());
-        assertThat(
-                client().compute().<String>executeAsync(nodes, List.of(), ConcatJob.class.getName(), 1, "2", 3.3).resultAsync(),
-                willBe("1_2_3.3")
-        );
+        JobExecution<String> execution = client().compute().executeAsync(nodes, List.of(), ConcatJob.class.getName(), 1, "2", 3.3);
+
+        assertThat(execution.resultAsync(), willBe("1_2_3.3"));
+        assertThat(execution.statusAsync(), willBe(jobStatusWithState(COMPLETED)));
     }
 
     @ParameterizedTest
@@ -169,11 +185,15 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         IgniteException cause;
 
         if (async) {
+            JobExecution<String> execution = client().compute()
+                    .executeAsync(Set.of(node(0)), List.of(), IgniteExceptionJob.class.getName());
+
             CompletionException ex = assertThrows(
                     CompletionException.class,
-                    () -> client().compute().<String>executeAsync(Set.of(node(0)), List.of(), IgniteExceptionJob.class.getName())
-                            .resultAsync().join()
+                    () -> execution.resultAsync().join()
             );
+
+            assertThat(execution.statusAsync(), willBe(jobStatusWithState(FAILED)));
 
             cause = (IgniteException) ex.getCause();
         } else {
@@ -197,11 +217,14 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         IgniteException cause;
 
         if (async) {
+            JobExecution<String> execution = client().compute().executeAsync(Set.of(node(0)), List.of(), ExceptionJob.class.getName());
+
             CompletionException ex = assertThrows(
                     CompletionException.class,
-                    () -> client().compute().<String>executeAsync(Set.of(node(0)), List.of(), ExceptionJob.class.getName())
-                            .resultAsync().join()
+                    () -> execution.resultAsync().join()
             );
+
+            assertThat(execution.statusAsync(), willBe(jobStatusWithState(FAILED)));
 
             cause = (IgniteException) ex.getCause();
         } else {
@@ -225,11 +248,14 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         IgniteException cause;
 
         if (async) {
+            JobExecution<String> execution = client().compute().executeAsync(Set.of(node(1)), List.of(), ExceptionJob.class.getName());
+
             CompletionException ex = assertThrows(
                     CompletionException.class,
-                    () -> client().compute().executeAsync(Set.of(node(1)), List.of(), ExceptionJob.class.getName())
-                            .resultAsync().join()
+                    () -> execution.resultAsync().join()
             );
+
+            assertThat(execution.statusAsync(), willBe(jobStatusWithState(FAILED)));
 
             cause = (IgniteException) ex.getCause();
         } else {
@@ -258,24 +284,27 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         var keyTuple = Tuple.create().set(COLUMN_KEY, key);
         var keyPojo = new TestPojo(key);
 
-        CompletableFuture<String> tupleRes = client().compute().<String>executeColocatedAsync(
+        JobExecution<String> tupleExecution = client().compute().executeColocatedAsync(
                 table,
                 keyTuple,
                 List.of(),
                 NodeNameJob.class.getName()
-        ).resultAsync();
+        );
 
-        CompletableFuture<String> pojoRes = client().compute().<TestPojo, String>executeColocatedAsync(
+        JobExecution<String> pojoExecution = client().compute().executeColocatedAsync(
                 table,
                 keyPojo,
                 Mapper.of(TestPojo.class),
                 List.of(),
                 NodeNameJob.class.getName()
-        ).resultAsync();
+        );
 
         String expectedNode = "itcct_n_" + port;
-        assertThat(tupleRes, willBe(expectedNode));
-        assertThat(pojoRes, willBe(expectedNode));
+        assertThat(tupleExecution.resultAsync(), willBe(expectedNode));
+        assertThat(pojoExecution.resultAsync(), willBe(expectedNode));
+
+        assertThat(tupleExecution.statusAsync(), willBe(jobStatusWithState(COMPLETED)));
+        assertThat(pojoExecution.statusAsync(), willBe(jobStatusWithState(COMPLETED)));
     }
 
     @Test

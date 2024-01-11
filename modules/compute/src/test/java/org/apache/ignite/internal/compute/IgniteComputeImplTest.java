@@ -61,7 +61,7 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
     private IgniteTablesInternal igniteTables;
 
     @Mock
-    private ComputeComponent computeComponent;
+    private ComputeComponentImpl computeComponent;
 
     @InjectMocks
     private IgniteComputeImpl compute;

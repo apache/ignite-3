@@ -132,12 +132,12 @@ public class JobStatus implements Serializable {
             return this;
         }
 
-        public Builder startTime(Instant startTime) {
+        public Builder startTime(@Nullable Instant startTime) {
             this.startTime = startTime;
             return this;
         }
 
-        public Builder finishTime(Instant finishTime) {
+        public Builder finishTime(@Nullable Instant finishTime) {
             this.finishTime = finishTime;
             return this;
         }

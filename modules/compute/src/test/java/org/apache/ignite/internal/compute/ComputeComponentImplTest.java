@@ -188,7 +188,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
 
         computeExecutor = new ComputeExecutorImpl(ignite, new InMemoryComputeStateMachine(computeConfiguration), computeConfiguration);
 
-        computeComponent = new ComputeComponentImpl(messagingService, jobContextManager, computeExecutor);
+        computeComponent = new ComputeComponentImpl(messagingService, jobContextManager, computeExecutor, computeConfiguration);
 
         computeComponent.start();
     }
@@ -626,8 +626,8 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
         computeComponent = new ComputeComponentImpl(
                 messagingService,
                 jobContextManager,
-                computeExecutor
-        );
+                computeExecutor,
+                computeConfiguration);
         computeComponent.start();
 
         // take the only executor thread

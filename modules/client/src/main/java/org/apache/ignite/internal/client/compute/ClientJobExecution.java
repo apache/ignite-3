@@ -17,37 +17,115 @@
 
 package org.apache.ignite.internal.client.compute;
 
-import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
-
+import java.time.Instant;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.compute.JobExecution;
+import org.apache.ignite.compute.JobState;
 import org.apache.ignite.compute.JobStatus;
+import org.apache.ignite.internal.client.PayloadInputChannel;
+import org.apache.ignite.internal.client.ReliableChannel;
+import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
+import org.apache.ignite.internal.client.proto.ClientOp;
+import org.jetbrains.annotations.Nullable;
 
 
 /**
  * Client job execution implementation.
  */
 class ClientJobExecution<R> implements JobExecution<R> {
-    private final CompletableFuture<R> result;
+    private final ReliableChannel ch;
 
-    ClientJobExecution(CompletableFuture<R> result) {
-        this.result = result;
+    private final CompletableFuture<JobIdCoordinatorId> jobIdCoordinatorId;
+
+    private final CompletableFuture<R> resultAsync;
+
+    public ClientJobExecution(ReliableChannel ch, CompletableFuture<PayloadInputChannel> reqFuture) {
+        this.ch = ch;
+        jobIdCoordinatorId = reqFuture
+                .thenApply(r -> new JobIdCoordinatorId(r.in().unpackUuid(), r.in().unpackString()));
+
+        resultAsync = reqFuture
+                .thenCompose(PayloadInputChannel::notificationFuture)
+                .thenApply(r -> {
+                    // Notifications require explicit input close.
+                    try (r) {
+                        return (R) r.in().unpackObjectFromBinaryTuple();
+                    }
+                });
+    }
+
+    private static class JobIdCoordinatorId {
+        JobIdCoordinatorId(UUID jobId, String coordinatorId) {
+            this.jobId = jobId;
+            this.coordinatorId = coordinatorId;
+        }
+
+        UUID jobId;
+        String coordinatorId;
     }
 
     @Override
     public CompletableFuture<R> resultAsync() {
-        return result;
+        return resultAsync;
     }
 
     @Override
     public CompletableFuture<JobStatus> statusAsync() {
-        // TODO https://issues.apache.org/jira/browse/IGNITE-21148
-        return nullCompletedFuture();
+        return jobIdCoordinatorId.thenCompose(this::getJobStatus);
     }
 
     @Override
     public CompletableFuture<Void> cancelAsync() {
-        // TODO https://issues.apache.org/jira/browse/IGNITE-21148
-        return nullCompletedFuture();
+        return jobIdCoordinatorId.thenCompose(this::cancelJob);
+    }
+
+    private CompletableFuture<JobStatus> getJobStatus(JobIdCoordinatorId jobIdCoordinatorId) {
+        return ch.serviceAsync(
+                ClientOp.COMPUTE_GET_STATUS,
+                w -> w.out().packUuid(jobIdCoordinatorId.jobId),
+                ClientJobExecution::unpackJobStatus,
+                jobIdCoordinatorId.coordinatorId,
+                null,
+                false
+        );
+    }
+
+    private CompletableFuture<Void> cancelJob(JobIdCoordinatorId jobIdCoordinatorId) {
+        return ch.serviceAsync(
+                ClientOp.COMPUTE_CANCEL,
+                w -> w.out().packUuid(jobIdCoordinatorId.jobId),
+                null,
+                jobIdCoordinatorId.coordinatorId,
+                null,
+                false
+        );
+    }
+
+    private static @Nullable JobStatus unpackJobStatus(PayloadInputChannel payloadInputChannel) {
+        ClientMessageUnpacker unpacker = payloadInputChannel.in();
+        if (unpacker.tryUnpackNil()) {
+            return null;
+        }
+        return JobStatus.builder()
+                .id(unpacker.unpackUuid())
+                .state(JobState.valueOf(unpacker.unpackString()))
+                .createTime(unpackInstant(unpacker))
+                .startTime(unpackInstantNullable(unpacker))
+                .finishTime(unpackInstantNullable(unpacker))
+                .build();
+    }
+
+    private static @Nullable Instant unpackInstantNullable(ClientMessageUnpacker unpacker) {
+        if (unpacker.tryUnpackNil()) {
+            return null;
+        }
+        return unpackInstant(unpacker);
+    }
+
+    private static Instant unpackInstant(ClientMessageUnpacker unpacker) {
+        long seconds = unpacker.unpackLong();
+        int nanos = unpacker.unpackInt();
+        return Instant.ofEpochSecond(seconds, nanos);
     }
 }

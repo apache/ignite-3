@@ -18,13 +18,10 @@
 package org.apache.ignite.internal.compute;
 
 import java.util.List;
-import java.util.UUID;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.JobExecution;
-import org.apache.ignite.compute.JobStatus;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.network.ClusterNode;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Compute functionality.
@@ -101,13 +98,4 @@ public interface ComputeComponent extends IgniteComponent {
     ) {
         return executeRemotely(ExecutionOptions.DEFAULT, remoteNode, units, jobClassName, args);
     }
-
-    /**
-     * Returns job status by ID.
-     *
-     * @param jobId Job ID.
-     * @return Job status. {@code null} if job with the given ID does not exist.
-     */
-    @Nullable
-    JobStatus getJobStatus(UUID jobId);
 }

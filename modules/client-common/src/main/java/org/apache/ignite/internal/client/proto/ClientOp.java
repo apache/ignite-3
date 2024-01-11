@@ -155,4 +155,10 @@ public class ClientOp {
 
     /** JDBC get more results command. */
     public static final int JDBC_MORE_RESULTS = 58;
+
+    /** Get compute job status. */
+    public static final int COMPUTE_GET_STATUS = 59;
+
+    /** Cancel compute job. */
+    public static final int COMPUTE_CANCEL = 60;
 }
