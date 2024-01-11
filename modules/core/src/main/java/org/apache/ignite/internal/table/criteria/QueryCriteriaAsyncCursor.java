@@ -29,7 +29,6 @@ import org.jetbrains.annotations.Nullable;
  * Wrapper over {@link AsyncResultSet} for criteria queries.
  */
 public class QueryCriteriaAsyncCursor<T, R> implements AsyncCursor<T> {
-    /** Wrapped async result set. */
     private final AsyncResultSet<R> ars;
 
     @Nullable

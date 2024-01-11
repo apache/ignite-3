@@ -323,7 +323,13 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
             if (!sameLease) {
                 CompletableFuture<Void> prev = expirationFutureByGroup.put(grpId, fireEvent(
                         PRIMARY_REPLICA_EXPIRED,
-                        new PrimaryReplicaEventParameters(causalityToken, grpId, currentLease.getLeaseholder(), currentLease.getStartTime())
+                        new PrimaryReplicaEventParameters(
+                                causalityToken,
+                                grpId,
+                                currentLease.getLeaseholderId(),
+                                currentLease.getLeaseholder(),
+                                currentLease.getStartTime()
+                        )
                 ));
 
                 assert prev == null || prev.isDone() : "Previous lease expiration process has not completed yet [grpId=" + grpId + ']';
@@ -332,13 +338,19 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
     }
 
     private CompletableFuture<Void> fireEventReplicaBecomePrimary(long causalityToken, Lease lease) {
-        String leaseholder = lease.getLeaseholder();
+        String leaseholderId = lease.getLeaseholderId();
 
-        assert leaseholder != null : lease;
+        assert leaseholderId != null : lease;
 
         return fireEvent(
                 PRIMARY_REPLICA_ELECTED,
-                new PrimaryReplicaEventParameters(causalityToken, lease.replicationGroupId(), leaseholder, lease.getStartTime())
+                new PrimaryReplicaEventParameters(
+                        causalityToken,
+                        lease.replicationGroupId(),
+                        leaseholderId,
+                        lease.getLeaseholder(),
+                        lease.getStartTime()
+                )
         );
     }
 

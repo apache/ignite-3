@@ -353,37 +353,16 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
      * {@link #deletePeople(String, int...)} to remove people.
      */
     protected static class Person {
-        int id;
+        final int id;
 
-        String name;
+        final String name;
 
-        double salary;
-
-        public Person() {
-            //No-op.
-        }
+        final double salary;
 
         public Person(int id, String name, double salary) {
             this.id = id;
             this.name = name;
             this.salary = salary;
-        }
-
-        @Override
-        public boolean equals(Object o) {
-            if (this == o) {
-                return true;
-            }
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-            Person person = (Person) o;
-            return id == person.id && Double.compare(salary, person.salary) == 0 && Objects.equals(name, person.name);
-        }
-
-        @Override
-        public int hashCode() {
-            return Objects.hash(id, name, salary);
         }
     }
 
@@ -392,10 +371,8 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
      */
     protected static void waitForReadTimestampThatObservesMostRecentCatalog()  {
         // See TxManagerImpl::currentReadTimestamp.
-        // We also wait for the delay duration, because a Catalog update's activation timestamp is set in the future for that amount.
-        long delay = HybridTimestamp.CLOCK_SKEW
-                + TestIgnitionManager.DEFAULT_PARTITION_IDLE_SYNC_TIME_INTERVAL_MS
-                + TestIgnitionManager.DEFAULT_DELAY_DURATION_MS;
+        long delay = HybridTimestamp.CLOCK_SKEW + TestIgnitionManager.DEFAULT_PARTITION_IDLE_SYNC_TIME_INTERVAL_MS;
+
         try {
             TimeUnit.MILLISECONDS.sleep(delay);
         } catch (InterruptedException e) {
@@ -407,38 +384,38 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
         CatalogManager catalogManager = node.catalogManager();
 
         // Get existing indexes
-        Set<Integer> existing = catalogManager.indexes(catalogManager.latestCatalogVersion())
-                .stream().map(CatalogObjectDescriptor::id)
+        Set<Integer> existing = catalogManager.indexes(catalogManager.latestCatalogVersion()).stream()
+                .map(CatalogObjectDescriptor::id)
                 .collect(Collectors.toSet());
 
         List<List<Object>> result = statement.apply(node);
 
         // Get indexes after a statement and compute the difference
-        Set<Integer> difference = catalogManager.indexes(catalogManager.latestCatalogVersion()).stream()
+        List<Integer> difference = catalogManager.indexes(catalogManager.latestCatalogVersion()).stream()
                 .map(CatalogObjectDescriptor::id)
-                .collect(Collectors.toSet());
-
-        difference.removeAll(existing);
+                .filter(id -> !existing.contains(id))
+                .collect(Collectors.toList());
 
         if (difference.isEmpty()) {
             return result;
         }
 
         // If there are new indexes, wait for them to become available.
+        HybridClock clock = node.clock();
 
         try {
-            assertTrue(waitForCondition(() -> {
-                int latestVersion = catalogManager.latestCatalogVersion();
-                int notAvailable = 0;
+            assertTrue(waitForCondition(
+                    () -> {
+                        // Using the timestamp instead of the latest Catalog version, because the index update is set in the future and
+                        // we must wait for the activation delay to pass.
+                        long now = clock.nowLong();
 
-                for (CatalogIndexDescriptor index : catalogManager.indexes(latestVersion)) {
-                    if (!index.available() && difference.contains(index.id())) {
-                        notAvailable++;
-                    }
-                }
-
-                return notAvailable == 0;
-            }, 10_000));
+                        return difference.stream()
+                                .map(id -> catalogManager.index(id, now))
+                                .allMatch(indexDescriptor -> indexDescriptor != null && indexDescriptor.available());
+                    },
+                    10_000L
+            ));
 
             // We have no knowledge whether the next transaction is readonly or not,
             // so we have to assume that the next transaction is read only transaction.
@@ -478,8 +455,7 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
     protected static void awaitIndexesBecomeAvailable(IgniteImpl ignite, String... indexNames) throws Exception {
         assertTrue(waitForCondition(
                 () -> Arrays.stream(indexNames).allMatch(indexName -> isIndexAvailable(ignite, indexName)),
-                10,
-                30_000L
+                10_000L
         ));
     }
 }

@@ -24,7 +24,7 @@ import org.jetbrains.annotations.Nullable;
  *
  * @param <T> Parameter type.
  */
-public class Parameter<T> implements Criteria {
+public final class Parameter<T> implements Criteria {
     private final T value;
 
     /**

@@ -18,10 +18,13 @@
 package org.apache.ignite.internal.network.recovery;
 
 import static org.apache.ignite.internal.testframework.asserts.CompletableFutureAssert.assertWillThrowFast;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.nullValue;
 import static org.hamcrest.Matchers.startsWith;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyShort;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -40,6 +43,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.BooleanSupplier;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
 import org.apache.ignite.internal.network.handshake.HandshakeException;
@@ -122,7 +126,7 @@ class RecoveryServerHandshakeManagerTest extends BaseIgniteAbstractTest {
         RecoveryServerHandshakeManager manager = serverHandshakeManager(serverLaunchId);
         CompletableFuture<NettySender> handshakeFuture = manager.localHandshakeFuture();
 
-        recoveryDescriptor.acquire(context, new CompletableFuture<>());
+        recoveryDescriptor.tryAcquire(context, new CompletableFuture<>());
 
         manager.onMessage(handshakeStartResponseMessageFrom(clientLaunchId));
 
@@ -147,6 +151,10 @@ class RecoveryServerHandshakeManagerTest extends BaseIgniteAbstractTest {
     }
 
     private RecoveryServerHandshakeManager serverHandshakeManager(UUID launchId) {
+        return serverHandshakeManager(launchId, serverHandshakeManagerStopping::get);
+    }
+
+    private RecoveryServerHandshakeManager serverHandshakeManager(UUID launchId, BooleanSupplier stopping) {
         RecoveryServerHandshakeManager manager = new RecoveryServerHandshakeManager(
                 launchId,
                 SERVER_CONSISTENT_ID,
@@ -154,7 +162,7 @@ class RecoveryServerHandshakeManagerTest extends BaseIgniteAbstractTest {
                 recoveryDescriptorProvider,
                 new AllIdsAreFresh(),
                 channelCreationListener,
-                serverHandshakeManagerStopping
+                stopping
         );
 
         manager.onInit(context);
@@ -183,5 +191,34 @@ class RecoveryServerHandshakeManagerTest extends BaseIgniteAbstractTest {
 
         assertWillThrowFast(localHandshakeFuture, NodeStoppingException.class);
         assertWillThrowFast(finalHandshakeFuture.toCompletableFuture(), NodeStoppingException.class);
+    }
+
+    private void assertHandshakeRejectedMessageIsSentWithReason(HandshakeRejectionReason reason) {
+        verify(channel).writeAndFlush(sentMessageCaptor.capture());
+
+        OutNetworkObject outObject = sentMessageCaptor.getValue();
+        assertThat(outObject.networkMessage(), instanceOf(HandshakeRejectedMessage.class));
+
+        HandshakeRejectedMessage message = (HandshakeRejectedMessage) outObject.networkMessage();
+        assertThat(message.reason(), is(reason));
+    }
+
+    @Test
+    void failsHandshakeIfNodeLeavesOrOurNodeInitiatesStopConcurrentlyWithAcquiringDescriptor() {
+        BooleanSupplier stoppingWhenDescriptorAcquired = () -> recoveryDescriptor.holder() != null;
+        assertFalse(stoppingWhenDescriptorAcquired.getAsBoolean());
+
+        RecoveryServerHandshakeManager manager = serverHandshakeManager(LOWER_ID, stoppingWhenDescriptorAcquired);
+        CompletableFuture<NettySender> localHandshakeFuture = manager.localHandshakeFuture();
+        CompletionStage<NettySender> finalHandshakeFuture = manager.finalHandshakeFuture();
+
+        manager.onMessage(handshakeStartResponseMessageFrom(HIGHER_ID));
+
+        assertHandshakeRejectedMessageIsSentWithReason(HandshakeRejectionReason.STOPPING);
+
+        assertThat(localHandshakeFuture, willThrow(NodeStoppingException.class));
+        assertThat(finalHandshakeFuture.toCompletableFuture(), willThrow(NodeStoppingException.class));
+
+        assertThat(recoveryDescriptor.holder(), is(nullValue()));
     }
 }

@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.schema.catalog;
 
-import static org.apache.ignite.internal.catalog.CatalogManagerImpl.INITIAL_CAUSALITY_TOKEN;
 import static org.apache.ignite.internal.schema.SchemaTestUtils.specToType;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
@@ -134,7 +133,6 @@ public class CatalogToSchemaDescriptorConverterTest extends AbstractSchemaConver
                 -1,
                 "test",
                 0,
-                1,
                 List.of(
                         new CatalogTableColumnDescriptor("C1", ColumnType.INT32, false, 0, 0, 0, null),
                         new CatalogTableColumnDescriptor("K2", ColumnType.INT32, false, 0, 0, 0, null),
@@ -142,12 +140,10 @@ public class CatalogToSchemaDescriptorConverterTest extends AbstractSchemaConver
                         new CatalogTableColumnDescriptor("K1", ColumnType.INT32, false, 0, 0, 0, null)
                 ),
                 List.of("K1", "K2"),
-                List.of("K2"),
-                INITIAL_CAUSALITY_TOKEN,
-                INITIAL_CAUSALITY_TOKEN
+                List.of("K2")
         );
 
-        SchemaDescriptor schema = CatalogToSchemaDescriptorConverter.convert(tableDescriptor);
+        SchemaDescriptor schema = CatalogToSchemaDescriptorConverter.convert(tableDescriptor, tableDescriptor.tableVersion());
 
         assertThat(schema.keyColumns().length(), equalTo(2));
         assertThat(schema.keyColumns().column(0).name(), equalTo("K1"));

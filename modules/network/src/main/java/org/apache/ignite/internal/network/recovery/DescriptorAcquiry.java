@@ -21,25 +21,33 @@ import io.netty.channel.Channel;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import org.apache.ignite.internal.network.netty.NettySender;
+import org.apache.ignite.internal.tostring.IgniteToStringExclude;
+import org.apache.ignite.internal.tostring.S;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Context around a fact that a {@link RecoveryDescriptor} is acquired by some channel.
  */
-class DescriptorAcquiry {
+public class DescriptorAcquiry {
+    @Nullable
     private final Channel channel;
+    @IgniteToStringExclude
     private final CompletableFuture<NettySender> handshakeCompleteFuture;
 
+    @IgniteToStringExclude
     private final CompletableFuture<Void> clinchResolved = new CompletableFuture<>();
 
-    DescriptorAcquiry(Channel channel, CompletableFuture<NettySender> handshakeCompleteFuture) {
+    DescriptorAcquiry(@Nullable Channel channel, CompletableFuture<NettySender> handshakeCompleteFuture) {
         this.channel = channel;
         this.handshakeCompleteFuture = handshakeCompleteFuture;
     }
 
     /**
-     * Returns the channel that owns the descriptor.
+     * Returns the channel that owns the descriptor. Might be null if the acquiry represents a block due to the counterpart node
+     * having left or this node stopping.
      */
-    Channel channel() {
+    @Nullable
+    public Channel channel() {
         return channel;
     }
 
@@ -63,5 +71,10 @@ class DescriptorAcquiry {
      */
     CompletionStage<NettySender> handshakeCompleteFuture() {
         return handshakeCompleteFuture;
+    }
+
+    @Override
+    public String toString() {
+        return S.toString(this);
     }
 }

@@ -24,14 +24,14 @@ import static org.hamcrest.Matchers.notNullValue;
 import java.time.Instant;
 import org.apache.ignite.compute.JobState;
 import org.apache.ignite.compute.JobStatus;
-import org.hamcrest.BaseMatcher;
 import org.hamcrest.Description;
 import org.hamcrest.Matcher;
+import org.hamcrest.TypeSafeMatcher;
 
 /**
  * Matcher for {@link JobStatus}.
  */
-public class JobStatusMatcher extends BaseMatcher<JobStatus> {
+public class JobStatusMatcher extends TypeSafeMatcher<JobStatus> {
     private final Matcher<JobState> stateMatcher;
     private final Matcher<Instant> createTimeMatcher;
     private final Matcher<Instant> startTimeMatcher;
@@ -185,12 +185,7 @@ public class JobStatusMatcher extends BaseMatcher<JobStatus> {
     }
 
     @Override
-    public boolean matches(Object actual) {
-        if (!(actual instanceof JobStatus)) {
-            return false;
-        }
-
-        JobStatus status = (JobStatus) actual;
+    protected boolean matchesSafely(JobStatus status) {
         return stateMatcher.matches(status.state())
                 && createTimeMatcher.matches(status.createTime())
                 && startTimeMatcher.matches(status.startTime())
@@ -198,20 +193,15 @@ public class JobStatusMatcher extends BaseMatcher<JobStatus> {
     }
 
     @Override
-    public void describeMismatch(Object actual, Description mismatchDescription) {
-        if (!(actual instanceof JobStatus)) {
-            mismatchDescription.appendText("was not a JobStatus: ").appendValue(actual);
-        } else {
-            JobStatus status = (JobStatus) actual;
-            mismatchDescription.appendText("state ");
-            stateMatcher.describeMismatch(status.state(), mismatchDescription);
-            mismatchDescription.appendText(", create time ");
-            createTimeMatcher.describeMismatch(status.createTime(), mismatchDescription);
-            mismatchDescription.appendText(", start time ");
-            startTimeMatcher.describeMismatch(status.startTime(), mismatchDescription);
-            mismatchDescription.appendText(" and finish time ");
-            finishTimeMatcher.describeMismatch(status.finishTime(), mismatchDescription);
-        }
+    protected void describeMismatchSafely(JobStatus status, Description mismatchDescription) {
+        mismatchDescription.appendText("state ");
+        stateMatcher.describeMismatch(status.state(), mismatchDescription);
+        mismatchDescription.appendText(", create time ");
+        createTimeMatcher.describeMismatch(status.createTime(), mismatchDescription);
+        mismatchDescription.appendText(", start time ");
+        startTimeMatcher.describeMismatch(status.startTime(), mismatchDescription);
+        mismatchDescription.appendText(" and finish time ");
+        finishTimeMatcher.describeMismatch(status.finishTime(), mismatchDescription);
     }
 
     @Override

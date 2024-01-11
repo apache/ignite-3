@@ -55,7 +55,6 @@ import org.apache.ignite.internal.table.criteria.QueryCriteriaAsyncCursor;
 import org.apache.ignite.internal.table.criteria.SqlRowProjection;
 import org.apache.ignite.internal.table.criteria.SqlSerializer;
 import org.apache.ignite.lang.AsyncCursor;
-import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.NullableValue;
 import org.apache.ignite.lang.UnexpectedNullValueException;
@@ -585,7 +584,7 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
                                                 (V) valMarsh.readObject(new TupleReader(new SqlRowProjection(row, valMapping)), null)
                                         );
                                     } catch (MarshallerException e) {
-                                        throw new IgniteException(Sql.RUNTIME_ERR, "Failed to map SQL result set: " + e.getMessage(), e);
+                                        throw new IgniteException(INTERNAL_ERR, "Failed to map query results: " + e.getMessage(), e);
                                     }
                                 };
 

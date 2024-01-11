@@ -38,6 +38,9 @@ protected:
         auto client = ignite_client::start(cfg, std::chrono::seconds(30));
 
         client.get_sql().execute(nullptr, {"DROP TABLE IF EXISTS TEST"}, {});
+        client.get_sql().execute(nullptr, {"DROP TABLE IF EXISTS execute_script_success"}, {});
+        client.get_sql().execute(nullptr, {"DROP TABLE IF EXISTS execute_script_fail"}, {});
+
         client.get_sql().execute(nullptr, {"CREATE TABLE TEST(ID INT PRIMARY KEY, VAL VARCHAR)"}, {});
 
         for (std::int32_t i = 0; i < 10; ++i) {
@@ -62,7 +65,7 @@ protected:
 
         client.get_sql().execute(nullptr, {"DELETE FROM TBL_ALL_COLUMNS_SQL"}, {});
         client.get_sql().execute(nullptr, {"DROP TABLE TEST"}, {});
-        client.get_sql().execute(nullptr, {"DROP TABLE IF EXISTS TestDdlDml"}, {});
+        client.get_sql().execute(nullptr, {"DROP TABLE IF EXISTS execute_script_success"}, {});
     }
 
     void SetUp() override {
@@ -102,7 +105,7 @@ TEST_F(sql_test, sql_simple_select) {
 
     check_columns(result_set.metadata(), {{"42", ignite_type::INT32}, {"'Lorem'", ignite_type::STRING}});
 
-    auto page = result_set.current_page();
+    auto page = std::move(result_set).current_page();
 
     EXPECT_EQ(1, page.size());
     EXPECT_EQ(42, page.front().get(0).get<std::int32_t>());
@@ -131,7 +134,7 @@ TEST_F(sql_test, sql_table_select) {
     }
 
     EXPECT_FALSE(result_set.has_more_pages());
-    EXPECT_EQ(0, result_set.current_page().size());
+    EXPECT_EQ(10, result_set.current_page().size());
 }
 
 TEST_F(sql_test, sql_select_multiple_pages) {
@@ -160,7 +163,6 @@ TEST_F(sql_test, sql_select_multiple_pages) {
     }
 
     EXPECT_FALSE(result_set.has_more_pages());
-    EXPECT_EQ(0, result_set.current_page().size());
 }
 
 TEST_F(sql_test, sql_close_non_empty_cursor) {
@@ -288,8 +290,9 @@ TEST_F(sql_test, sql_create_existing_table) {
             try {
                 m_client.get_sql().execute(nullptr, {"CREATE TABLE TEST(ID INT PRIMARY KEY, VAL VARCHAR)"}, {});
             } catch (const ignite_error &e) {
-                // TODO: IGNITE-19944 Propagate SQL errors from engine to driver
                 EXPECT_THAT(e.what_str(), ::testing::HasSubstr("Table with name 'PUBLIC.TEST' already exists"));
+                // TODO: IGNITE-21217 Check STMT_VALIDATION error code usage
+                EXPECT_THAT(e.get_status_code(), ignite::error::code::STMT_VALIDATION);
                 throw;
             }
         },
@@ -302,8 +305,9 @@ TEST_F(sql_test, sql_add_existing_column) {
             try {
                 m_client.get_sql().execute(nullptr, {"ALTER TABLE TEST ADD COLUMN ID INT"}, {});
             } catch (const ignite_error &e) {
-                // TODO: IGNITE-19944 Propagate SQL errors from engine to driver
                 EXPECT_THAT(e.what_str(), ::testing::HasSubstr("Column with name 'ID' already exists"));
+                // TODO: IGNITE-21217 Check STMT_VALIDATION error code usage
+                EXPECT_THAT(e.get_status_code(), ignite::error::code::STMT_VALIDATION);
                 throw;
             }
         },
@@ -316,8 +320,9 @@ TEST_F(sql_test, sql_alter_nonexisting_table) {
             try {
                 m_client.get_sql().execute(nullptr, {"ALTER TABLE UNKNOWN_TABLE ADD COLUMN ID INT"}, {});
             } catch (const ignite_error &e) {
-                // TODO: IGNITE-19944 Propagate SQL errors from engine to driver
                 EXPECT_THAT(e.what_str(), ::testing::HasSubstr("Table with name 'PUBLIC.UNKNOWN_TABLE' not found"));
+                // TODO: IGNITE-21217 Check STMT_VALIDATION error code usage
+                EXPECT_THAT(e.get_status_code(), ignite::error::code::STMT_VALIDATION);
                 throw;
             }
         },
@@ -400,7 +405,7 @@ TEST_F(sql_test, uuid_literal) {
 TEST_F(sql_test, uuid_argument) {
     uuid req{0x123e4567e89b12d3, 0x7456426614174000};
     auto result_set = m_client.get_sql().execute(
-        nullptr, {"select MAX(\"UUID\") from TBL_ALL_COLUMNS_SQL WHERE \"UUID\" = ?"}, {req});
+        nullptr, {R"(select MAX("UUID") from TBL_ALL_COLUMNS_SQL WHERE "UUID" = ?)"}, {req});
 
     EXPECT_TRUE(result_set.has_rowset());
 
@@ -420,4 +425,56 @@ TEST_F(sql_test, null_column) {
     auto value = result_set.current_page().front().get(0);
     EXPECT_EQ(ignite_type::NIL, value.get_type());
     EXPECT_TRUE(value.is_null());
+}
+
+TEST_F(sql_test, execute_script_success) {
+    m_client.get_sql().execute_script({
+        "CREATE TABLE execute_script_success (id INT PRIMARY KEY, step INTEGER); "
+        "INSERT INTO execute_script_success VALUES(1, 0); "
+        "UPDATE execute_script_success SET step = 1; "
+        "UPDATE execute_script_success SET step = 2; "}, {});
+
+    auto result_set = m_client.get_sql().execute(nullptr, {"SELECT step FROM execute_script_success"}, {});
+    EXPECT_TRUE(result_set.has_rowset());
+    EXPECT_FALSE(result_set.has_more_pages());
+
+    auto &columns = result_set.metadata().columns();
+    EXPECT_EQ(1, columns.size());
+    EXPECT_EQ(ignite_type::INT32, columns.at(0).type());
+
+    ASSERT_EQ(1, result_set.current_page().size());
+    auto value = result_set.current_page().front().get(0);
+    EXPECT_EQ(ignite_type::INT32, value.get_type());
+    EXPECT_EQ(2, value.get<std::int32_t>());
+}
+
+TEST_F(sql_test, execute_script_fail) {
+    EXPECT_THROW(
+        {
+            try {
+                m_client.get_sql().execute_script({
+                    "CREATE TABLE execute_script_fail (id INT PRIMARY KEY, step INTEGER); "
+                    "INSERT INTO execute_script_fail VALUES(1, 0); "
+                    "UPDATE execute_script_fail SET step = 1; "
+                    "UPDATE execute_script_fail SET step = 3 WHERE step > 1/0; "
+                    "UPDATE execute_script_fail SET step = 2; "}, {});
+            } catch (const ignite_error &e) {
+                EXPECT_THAT(e.what_str(), ::testing::HasSubstr("Division by zero"));
+                throw;
+            }
+        },
+        ignite_error);
+
+    auto result_set = m_client.get_sql().execute(nullptr, {"SELECT step FROM execute_script_fail"}, {});
+    EXPECT_TRUE(result_set.has_rowset());
+    EXPECT_FALSE(result_set.has_more_pages());
+
+    auto &columns = result_set.metadata().columns();
+    EXPECT_EQ(1, columns.size());
+    EXPECT_EQ(ignite_type::INT32, columns.at(0).type());
+
+    ASSERT_EQ(1, result_set.current_page().size());
+    auto value = result_set.current_page().front().get(0);
+    EXPECT_EQ(ignite_type::INT32, value.get_type());
+    EXPECT_EQ(1, value.get<std::int32_t>());
 }

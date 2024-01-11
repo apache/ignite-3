@@ -173,7 +173,7 @@ public class JdbcMetadataCatalog {
                 .filter(t -> tableNameAndSchemaMatches(t, schemaNameRegex, tlbNameRegex))
                 .flatMap(
                     tbl -> {
-                        SchemaDescriptor schema = CatalogToSchemaDescriptorConverter.convert(tbl);
+                        SchemaDescriptor schema = CatalogToSchemaDescriptorConverter.convert(tbl, tbl.tableVersion());
 
                         return Stream.concat(Arrays.stream(schema.keyColumns().columns()), Arrays.stream(schema.valueColumns().columns()))
                                 .map(column -> new Pair<>(tbl.name(), column));

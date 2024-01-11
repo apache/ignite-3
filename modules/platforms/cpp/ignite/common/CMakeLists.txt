@@ -28,6 +28,7 @@ set(PUBLIC_HEADERS
     bytes_view.h
     config.h
     end_point.h
+    error_codes.h
     ignite_date.h
     ignite_date_time.h
     ignite_duration.h

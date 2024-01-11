@@ -18,15 +18,15 @@
 package org.apache.ignite.internal.table.criteria;
 
 import static org.apache.ignite.internal.util.StringUtils.nullOrBlank;
+import static org.apache.ignite.lang.util.IgniteNameUtils.quoteIfNeeded;
 
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.table.criteria.Column;
 import org.apache.ignite.table.criteria.Criteria;
@@ -38,18 +38,23 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * Serializes {@link Criteria} into into SQL.
+ *
+ * <p>Note: Doesn't required any context to traverse an criteria tree, {@code null} can be used as initial context.
  */
 public class SqlSerializer implements CriteriaVisitor<Void> {
     private static final Map<Operator, String> ELEMENT_TEMPLATES = Map.of(
             Operator.EQ, "{0} = {1}",
+            Operator.NOT_EQ, "{0} <> {1}",
             Operator.IS_NULL, "{0} IS NULL",
             Operator.IS_NOT_NULL, "{0} IS NOT NULL",
             Operator.GOE, "{0} >= {1}",
             Operator.GT, "{0} > {1}",
             Operator.LOE, "{0} <= {1}",
             Operator.LT, "{0} < {1}",
-            Operator.NOT, "NOT {0}"
+            Operator.NOT, "NOT ({0})"
     );
+
+    private final Pattern pattern = Pattern.compile("\\{(\\d+)\\}");
 
     @SuppressWarnings("StringBufferField")
     private final StringBuilder builder = new StringBuilder(128);
@@ -76,7 +81,7 @@ public class SqlSerializer implements CriteriaVisitor<Void> {
     /** {@inheritDoc} */
     @Override
     public <T> void visit(Column column, @Nullable Void context) {
-        append(column.getName());
+        append(quoteIfNeeded(column.getName()));
     }
 
     /** {@inheritDoc} */
@@ -85,40 +90,34 @@ public class SqlSerializer implements CriteriaVisitor<Void> {
         Operator operator = expression.getOperator();
         Criteria[] elements = expression.getElements();
 
-        String template;
-
         if (operator == Operator.AND || operator == Operator.OR) {
-            String delimiter = operator == Operator.AND ? ") AND (" : ") OR (";
-
-            template = IntStream.range(0, elements.length)
-                    .mapToObj(i -> String.format("{%d}", i))
-                    .collect(Collectors.joining(delimiter, "(", ")"));
+            append(operator == Operator.AND ? ") AND (" : ") OR (", "(", ")", elements, context);
         } else if (operator == Operator.IN || operator == Operator.NOT_IN) {
-            String prefix = operator == Operator.IN ? "{0} IN (" : "{0} NOT (";
+            elements[0].accept(this, context);
+            append(operator == Operator.IN ? " IN " : " NOT IN ");
 
-            template = IntStream.range(1, elements.length)
-                    .mapToObj(i -> String.format("{%d}", i))
-                    .collect(Collectors.joining(", ", prefix, ")"));
+            Criteria[] tail = Arrays.copyOfRange(elements, 1, elements.length);
+            append(", ", "(", ")", tail, context);
         } else {
-            template = ELEMENT_TEMPLATES.get(operator);
-        }
+            String template = ELEMENT_TEMPLATES.get(operator);
 
-        int end = 0;
-        Matcher matcher = Pattern.compile("\\{(\\d+)\\}").matcher(template);
+            int end = 0;
+            Matcher matcher = pattern.matcher(template);
 
-        while (matcher.find()) {
-            if (matcher.start() > end) {
-                append(template.substring(end, matcher.start()));
+            while (matcher.find()) {
+                if (matcher.start() > end) {
+                    append(template.substring(end, matcher.start()));
+                }
+
+                int index = Integer.parseInt(matcher.group(1));
+                elements[index].accept(this, context);
+
+                end = matcher.end();
             }
 
-            int index = Integer.parseInt(matcher.group(1));
-            elements[index].accept(this, context);
-
-            end = matcher.end();
-        }
-
-        if (end < template.length()) {
-            append(template.substring(end));
+            if (end < template.length()) {
+                append(template.substring(end));
+            }
         }
     }
 
@@ -140,6 +139,24 @@ public class SqlSerializer implements CriteriaVisitor<Void> {
         return this;
     }
 
+    private void append(String delimiter, String prefix, String suffix, Criteria[] elements, @Nullable Void context) {
+        if (elements.length > 1) {
+            append(prefix);
+        }
+
+        for (int i = 0; i < elements.length; i++) {
+            elements[i].accept(this, context);
+
+            if (i < elements.length - 1) {
+                append(delimiter);
+            }
+        }
+
+        if (elements.length > 1) {
+            append(suffix);
+        }
+    }
+
     /**
      * Builder.
      */
@@ -154,7 +171,7 @@ public class SqlSerializer implements CriteriaVisitor<Void> {
         private Criteria where;
 
         /**
-         * Sets the table name (the number of entries that will be sent to the cluster in one network call).
+         * Sets the table name. Must be unquoted name or name is cast to upper case.
          *
          * @param tableName Table name.
          * @return This builder instance.
@@ -168,7 +185,7 @@ public class SqlSerializer implements CriteriaVisitor<Void> {
         /**
          * Sets the valid table column names to prevent SQL injection.
          *
-         * @param columnNames Acceptable columns names.
+         * @param columnNames Acceptable columns names. Must be unquoted name or name is cast to upper case.
          * @return This builder instance.
          */
         public SqlSerializer.Builder columns(Collection<String> columnNames) {
@@ -200,11 +217,11 @@ public class SqlSerializer implements CriteriaVisitor<Void> {
 
             SqlSerializer ser = new SqlSerializer()
                     .append("SELECT * ")
-                    .append("FROM ").append(tableName);
+                    .append("FROM ").append(quoteIfNeeded(tableName));
 
             if (where != null) {
                 if (CollectionUtils.nullOrEmpty(columnNames)) {
-                    throw new IllegalArgumentException("The columns of the table must be specified to prevent SQL injection");
+                    throw new IllegalArgumentException("The columns of the table must be specified to validate input");
                 }
 
                 ColumnValidator.INSTANCE.visit(where, columnNames);

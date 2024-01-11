@@ -27,7 +27,9 @@ import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertSame;
 
 import java.util.List;
+import java.util.function.BiFunction;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
@@ -223,6 +225,16 @@ public class ParserServiceImplTest {
                 @Override
                 public void clear() {
                     // NO-OP
+                }
+
+                @Override
+                public V compute(K key, BiFunction<? super K, ? super V, ? extends V> remappingFunction) {
+                    return (V) object;
+                }
+
+                @Override
+                public void removeIfValue(Predicate<? super V> valueFilter) {
+                    // NO-OP.
                 }
             };
         }

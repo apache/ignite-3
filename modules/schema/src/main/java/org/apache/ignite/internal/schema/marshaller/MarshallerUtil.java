@@ -134,7 +134,7 @@ public final class MarshallerUtil {
     /**
      * Converts a given {@link Column} into a {@link MarshallerColumn}.
      */
-    private static MarshallerColumn toMarshallerColumn(Column column) {
+    public static MarshallerColumn toMarshallerColumn(Column column) {
         NativeType columnType = column.type();
 
         return new MarshallerColumn(

@@ -104,7 +104,7 @@ void cluster_connection::on_connection_error(const end_point &addr, ignite_error
     m_logger->log_warning(
         "Failed to establish connection with remote host " + addr.to_string() + ", reason: " + err.what());
 
-    if (err.get_status_code() == status_code::OS)
+    if (err.get_status_code() == error::code::INTERNAL || err.get_status_code() == error::code::GENERIC)
         initial_connect_result(std::move(err));
 }
 
