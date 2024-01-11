@@ -653,6 +653,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                                     realAssignments.add(real);
                                 }
 
+                                LOG.info(IgniteStringFormatter.format("Assignments picked up from meta storage [tableId={}, "
+                                        + "assignments={}]", tableId, realAssignments));
+
                                 return realAssignments;
                             });
                         }

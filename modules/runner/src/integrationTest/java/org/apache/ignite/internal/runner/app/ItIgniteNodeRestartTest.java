@@ -21,6 +21,7 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.alterZone;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.STABLE_ASSIGNMENTS_PREFIX;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
@@ -28,6 +29,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCo
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.defaultSerializationRegistry;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -56,6 +58,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.IntFunction;
@@ -105,6 +109,8 @@ import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.metastorage.WatchEvent;
+import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
 import org.apache.ignite.internal.metastorage.impl.EntryImpl;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
@@ -171,6 +177,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 /**
@@ -544,8 +551,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         );
 
         for (IgniteComponent component : otherComponents) {
-            System.out.println("qqq starting node=" + idx + ", component=" + component.getClass());
-
             if (beforeComponentStart != null) {
                 beforeComponentStart.call(idx, otherComponents, hybridClock, component);
             }
@@ -1347,6 +1352,147 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         }
     }
 
+    /**
+     * Checks that after create table call there is the same value of stable assignments in every node's meta storage, and it was
+     * changed only once.
+     *
+     * @param populateStableAssignmentsBeforeTableCreation Whether to populate stable assignments before table creation.
+     * @param restart Whether to restart one of the nodes while creating the table.
+     * @throws InterruptedException If interrupted.
+     */
+    @ParameterizedTest
+    @CsvSource({
+            "true,true",
+            "true,false",
+            "false,true",
+            "false,false"
+    })
+    public void createTableCallOnMultipleNodesTest(boolean populateStableAssignmentsBeforeTableCreation, boolean restart)
+            throws InterruptedException{
+        int nodesCount = 3;
+
+        var nodes = startNodes(3);
+
+        var node = nodes.get(0);
+
+        Map<Integer, AtomicInteger> stableAssignmentsChangeCounters = new ConcurrentHashMap<>();
+        Map<Integer, AtomicBoolean> lateChangeFlag = new ConcurrentHashMap<>();
+
+        // Prefix that will be updated after the table creation.
+        String testPrefix = "testPrefix";
+
+        for (int i = 0 ; i < nodesCount; i++) {
+            stableAssignmentsChangeCounters.put(i, new AtomicInteger());
+            lateChangeFlag.put(i, new AtomicBoolean());
+
+            final int fi = i;
+            createWatchListener(
+                    nodes.get(i).metaStorageManager(),
+                    STABLE_ASSIGNMENTS_PREFIX,
+                    e -> {
+                        System.out.println("qqq rev=" + e.revision());
+                        stableAssignmentsChangeCounters.get(fi).incrementAndGet();
+                    }
+            );
+
+            createWatchListener(
+                    nodes.get(i).metaStorageManager(),
+                    testPrefix,
+                    e -> lateChangeFlag.get(fi).set(true)
+            );
+        }
+
+        // Assume that the table id will always be 6 for the test table. There is an assertion below to check this is true.
+        int tableId = 6;
+
+        var partId = new TablePartitionId(tableId, 0);
+
+        // Populate the stable assignments before calling table create, if needed.
+        if (populateStableAssignmentsBeforeTableCreation) {
+            node.metaStorageManager().put(stablePartAssignmentsKey(partId), ByteUtils.toBytes(Set.of(Assignment.forPeer(node.name()))));
+
+            waitForCondition(() -> lateChangeFlag.values().stream().allMatch(AtomicBoolean::get), 5_000);
+
+            lateChangeFlag.values().forEach(v -> v.set(false));
+        }
+
+        String zoneName = "TEST_ZONE";
+
+        if (restart) {
+            stopNode(nodesCount - 2);
+        }
+
+        try (Session session = node.sql().createSession()) {
+            session.execute(null, String.format("CREATE ZONE IF NOT EXISTS %s WITH REPLICAS=%d, PARTITIONS=%d", zoneName, nodesCount, 1));
+
+            session.execute(null, "CREATE TABLE " + TABLE_NAME
+                    + "(id INT PRIMARY KEY, name VARCHAR) WITH PRIMARY_ZONE='" + zoneName + "';");
+        }
+
+        assertEquals(tableId, tableId(node, TABLE_NAME));
+
+        node.metaStorageManager().put(new ByteArray(testPrefix.getBytes(StandardCharsets.UTF_8)), new byte[0]);
+
+        if (restart) {
+            IgniteImpl restartedNode = startNode(nodesCount - 2);
+            nodes.set(nodesCount - 2, restartedNode);
+        }
+
+        // Waiting for late prefix on all nodes.
+        waitForCondition(() -> lateChangeFlag.values().stream().allMatch(AtomicBoolean::get), 5_000);
+
+        var assignmentsKey = stablePartAssignmentsKey(partId).bytes();
+
+        Set<Assignment> expectedAssignments = getAssignmentsFromMetaStorage(node.metaStorageManager(), assignmentsKey);
+
+        // Checking that the stable assignments are same and were changed only once on every node.
+        for (int i = 0; i < nodesCount; i++) {
+            if (!restart) {
+                // TODO IGNITE-21194 return this check
+                assertEquals(1, stableAssignmentsChangeCounters.get(i).get(), "node index=" + i);
+            }
+
+            assertEquals(
+                    expectedAssignments,
+                    getAssignmentsFromMetaStorage(nodes.get(i).metaStorageManager(), assignmentsKey),
+                    "node index=" + i
+            );
+        }
+    }
+
+    private void createWatchListener(MetaStorageManager metaStorageManager, String prefix, Consumer<WatchEvent> listener) {
+        metaStorageManager.registerPrefixWatch(
+                new ByteArray(prefix.getBytes(StandardCharsets.UTF_8)),
+                new WatchListener() {
+                    @Override
+                    public CompletableFuture<Void> onUpdate(WatchEvent event) {
+                        listener.accept(event);
+
+                        return nullCompletedFuture();
+                    }
+
+                    @Override
+                    public void onError(Throwable e) {
+                        log.error("Error in test watch listener", e);
+                    }
+                }
+        );
+    }
+
+    /**
+     * This test starts 4 nodes with different region attributes: EU, US, RU, JP. After that, the zone is created with a filter
+     * leaving only 2 regions as available for data nodes for this zone, and a table in this zone. After the table creation, the zone
+     * filter is changed so that another 2 regions are now available instead of original two.
+     * <br>
+     * The test imitates a node failure of 3 nodes: US, RU, JP. The EU node does not catch up the table creation until the restart
+     * of other 3 nodes is in progress. None of the failed nodes were able to write the stable assignments for the created table.
+     * As the alive node is lagging, it hasn't written the assignments as well, so they are empty while the nodes are starting again.
+     * Nodes RU, JP start on the recovery revision which is before the zone filter change, so they calculate the data nodes for the old
+     * filter; node US starts after the filter is changed and calculates data nodes for the new filter. The test checks that all the nodes
+     * end up with the same stable assignments for the table in their local meta storage.
+     *
+     * @throws InterruptedException If interrupted.
+     */
     @Test
     public void tableRecoveryOnMultipleRestartingNodesTest() throws InterruptedException {
         int euIdx = 0;
@@ -1363,17 +1509,18 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         WatchListenerInhibitor nodeEuInhibitor = WatchListenerInhibitor.metastorageEventsInhibitor(nodeEu);
 
         String tableName = "TEST";
+        String zoneName = "ZONE_TEST";
         String startFilter = "$[?(@.region == \"EU\" || @.region == \"US\")]";
         String alteredFilter = "$[?(@.region == \"RU\" || @.region == \"JP\")]";
 
         try (Session session = nodeUs.sql().createSession()) {
-            session.execute(null, String.format("CREATE ZONE IF NOT EXISTS ZONE_%s WITH REPLICAS=%d, PARTITIONS=%d, "
-                            + "DATA_NODES_FILTER='%s'", tableName, 3, 1, startFilter));
+            session.execute(null, String.format("CREATE ZONE IF NOT EXISTS %s WITH REPLICAS=%d, PARTITIONS=%d, "
+                            + "DATA_NODES_FILTER='%s'", zoneName, 3, 1, startFilter));
 
             nodeEuInhibitor.startInhibit();
 
             session.execute(null, "CREATE TABLE " + tableName
-                    + "(id INT PRIMARY KEY, name VARCHAR) WITH PRIMARY_ZONE='ZONE_" + tableName + "';");
+                    + "(id INT PRIMARY KEY, name VARCHAR) WITH PRIMARY_ZONE='" + zoneName + "';");
         }
 
         int tableId = tableId(nodeUs, tableName);
@@ -1475,6 +1622,14 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         return (T) components.stream().filter(c -> cls.isAssignableFrom(c.getClass())).findFirst().orElse(null);
     }
 
+    /**
+     * Important: this method can be used only in case of starting the {@link #partialNode}. Removes the corresponding entry from partial
+     * node's meta storage, which is actually mock storage on top of real one.
+     *
+     * @param partialNodeIdx Partial node index.
+     * @param tableId Table id.
+     * @param partId Partition id.
+     */
     private void removeStableAssignments(int partialNodeIdx, int tableId, int partId) {
         Map<String, Entry> metaStorageMockData = metaStorageMockDataByNode.computeIfAbsent(partialNodeIdx, k -> new HashMap<>());
 
