@@ -57,9 +57,6 @@ public enum IgniteMethod {
     /** See {@link ExecutionContext#correlatedVariable(int)}. */
     CONTEXT_GET_CORRELATED_VALUE(ExecutionContext.class, "correlatedVariable", int.class),
 
-    /** See {@link ExecutionContext#nullBound()}. */
-    CONTEXT_NULL_BOUND(ExecutionContext.class, "nullBound"),
-
     /** See {@link ExecutionContext#getParameter(String, Type)}. */
     CONTEXT_GET_PARAMETER_VALUE(ExecutionContext.class, "getParameter", String.class, Type.class),
 
