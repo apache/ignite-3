@@ -27,6 +27,10 @@ public interface IgniteComponent {
      * Starts the component. Depending on component flow both configuration properties listeners, meta storage watch registration, starting
      * thread pools and threads goes here.
      *
+     * <p>All actions in the component startup is divided into two categories: sync actions,
+     * that can be executed synchronously in order for the component to be usable by other components during their startup,
+     * and async actions, that are wrapped in a CompletableFuture and returned from the start method.
+     *
      * @return Future that will be completed when the asynchronous part of the start is processed.
      */
     CompletableFuture<Void> start();
