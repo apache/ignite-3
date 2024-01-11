@@ -27,6 +27,9 @@ import static org.apache.ignite.internal.pagememory.io.PageIo.getPageId;
 import static org.apache.ignite.internal.pagememory.io.PageIo.getType;
 import static org.apache.ignite.internal.pagememory.io.PageIo.getVersion;
 import static org.apache.ignite.internal.pagememory.io.PageIo.setPageId;
+import static org.apache.ignite.internal.pagememory.persistence.CheckpointUrgency.MUST_TRIGGER;
+import static org.apache.ignite.internal.pagememory.persistence.CheckpointUrgency.NOT_REQUIRED;
+import static org.apache.ignite.internal.pagememory.persistence.CheckpointUrgency.SHOULD_TRIGGER;
 import static org.apache.ignite.internal.pagememory.persistence.PageHeader.dirty;
 import static org.apache.ignite.internal.pagememory.persistence.PageHeader.fullPageId;
 import static org.apache.ignite.internal.pagememory.persistence.PageHeader.isAcquired;
@@ -34,9 +37,6 @@ import static org.apache.ignite.internal.pagememory.persistence.PageHeader.readP
 import static org.apache.ignite.internal.pagememory.persistence.PageHeader.tempBufferPointer;
 import static org.apache.ignite.internal.pagememory.persistence.PageHeader.writeTimestamp;
 import static org.apache.ignite.internal.pagememory.persistence.PagePool.SEGMENT_INDEX_MASK;
-import static org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory.CheckpointUrgency.MUST_TRIGGER;
-import static org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory.CheckpointUrgency.NOT_REQUIRED;
-import static org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory.CheckpointUrgency.SHOULD_TRIGGER;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.effectivePageId;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.pageIndex;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.partitionId;
@@ -1303,28 +1303,6 @@ public class PersistentPageMemory implements PageMemory {
         }
 
         return res;
-    }
-
-    /**
-     * Checkpoint urgency status enum.
-     */
-    public enum CheckpointUrgency {
-        /**
-         * Signifies that there's enough free space in page memory and there's no need to trigger checkpoint.
-         */
-        NOT_REQUIRED,
-
-        /**
-         * Signifies that there's still enough free space in page memory, but we're at the point where we should schedule a checkpoint.
-         * It's still safe to take new checkpoint read locks while new checkpoint is not started.
-         */
-        SHOULD_TRIGGER,
-
-        /**
-         * Signifies that there might not be enough free space in page memory, and we shouldn't allow taking new checkpoint read locks
-         * until scheduled checkpoint is started, and collections of dirty pages is empty once again.
-         */
-        MUST_TRIGGER
     }
 
     /**
