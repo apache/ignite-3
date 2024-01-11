@@ -390,7 +390,7 @@ public class ClientRecordView<R> extends AbstractClientView<R> implements Record
             @Nullable Criteria criteria,
             @Nullable CriteriaQueryOptions opts
     ) {
-        var opts0 = opts == null ? CriteriaQueryOptions.DEFAULT : opts;
+        CriteriaQueryOptions opts0 = opts == null ? CriteriaQueryOptions.DEFAULT : opts;
 
         return tbl.getLatestSchema()
                 .thenCompose((schema) -> {

@@ -392,7 +392,7 @@ public class ClientRecordBinaryView extends AbstractClientView<Tuple> implements
             @Nullable Criteria criteria,
             @Nullable CriteriaQueryOptions opts
     ) {
-        var opts0 = opts == null ? CriteriaQueryOptions.DEFAULT : opts;
+        CriteriaQueryOptions opts0 = opts == null ? CriteriaQueryOptions.DEFAULT : opts;
 
         return tbl.getLatestSchema()
                 .thenCompose((schema) -> {
