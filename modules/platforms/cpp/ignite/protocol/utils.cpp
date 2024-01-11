@@ -18,6 +18,8 @@
 #include "ignite/protocol/utils.h"
 #include "ignite/protocol/reader.h"
 
+#include "ignite/common/error_codes.h"
+
 #include <msgpack.h>
 
 #include <limits>
@@ -216,7 +218,7 @@ ignite_error read_error(reader &reader) {
         err_msg_builder << ": " << *message;
     err_msg_builder << " (" << code << ", " << trace_id << ")";
 
-    return ignite_error{status_code(code), err_msg_builder.str()};
+    return ignite_error{error::code(code), err_msg_builder.str()};
 }
 
 void claim_primitive_with_type(binary_tuple_builder &builder, const primitive &value) {

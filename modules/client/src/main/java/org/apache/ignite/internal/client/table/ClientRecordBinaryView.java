@@ -34,7 +34,6 @@ import org.apache.ignite.internal.client.sql.ClientStatementBuilder;
 import org.apache.ignite.internal.streamer.StreamerBatchSender;
 import org.apache.ignite.internal.table.criteria.CriteriaExceptionMapperUtil;
 import org.apache.ignite.internal.table.criteria.QueryCriteriaAsyncCursor;
-import org.apache.ignite.internal.table.criteria.SqlRowProjection;
 import org.apache.ignite.internal.table.criteria.SqlSerializer;
 import org.apache.ignite.lang.AsyncCursor;
 import org.apache.ignite.sql.Session;
@@ -405,13 +404,7 @@ public class ClientRecordBinaryView extends AbstractClientView<Tuple> implements
 
                     return CriteriaExceptionMapperUtil.convertToPublicFuture(
                             session.executeAsync(tx, statement, ser.getArguments())
-                                    .thenApply(resultSet -> {
-                                        List<Integer> idxMapping = indexMapping(schema.columns(), 0, schema.columns().length,
-                                                resultSet.metadata());
-
-                                        return new QueryCriteriaAsyncCursor<>(resultSet, (row) -> new SqlRowProjection(row, idxMapping),
-                                                session::close);
-                                    }));
+                                    .thenApply(resultSet -> new QueryCriteriaAsyncCursor<>(resultSet, null, session::close)));
                 });
     }
 }

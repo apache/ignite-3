@@ -378,6 +378,10 @@ SqlNode ColumnWithType() :
         <NOT> <NULL> {
             nullable = false;
         }
+        |
+        <NULL> {
+            nullable = true;
+        }
     ]
     (
         <DEFAULT_> { s.add(this); } dflt = Literal() {
@@ -605,17 +609,6 @@ void AlterZoneOption(List<SqlNode> list) :
   val = Literal()
   {
       list.add(new IgniteSqlZoneOption(key, val, s.end(this)));
-  }
-}
-
-SqlLiteral ParseDecimalLiteral():
-{
-    final BigDecimal value;
-}
-{
-  <DECIMAL> <QUOTED_STRING> {
-    value = IgniteSqlParserUtil.parseDecimal(token.image, getPos());
-    return IgniteSqlDecimalLiteral.create(value, getPos());
   }
 }
 

@@ -21,6 +21,7 @@ import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.client.ClientUtils.sync;
 import static org.apache.ignite.lang.ErrorGroups.Criteria.COLUMN_NOT_FOUND_ERR;
+import static org.apache.ignite.lang.util.IgniteNameUtils.parseSimpleName;
 
 import java.util.Arrays;
 import java.util.List;
@@ -28,6 +29,7 @@ import java.util.Set;
 import org.apache.ignite.internal.table.criteria.CursorAdapter;
 import org.apache.ignite.internal.table.criteria.SqlSerializer;
 import org.apache.ignite.lang.Cursor;
+import org.apache.ignite.lang.util.IgniteNameUtils;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.table.criteria.Criteria;
 import org.apache.ignite.table.criteria.CriteriaException;
@@ -55,12 +57,12 @@ abstract class AbstractClientView<T> implements CriteriaQuerySource<T> {
     }
 
     /**
-     * Get mapping between for columns in query and record view.
+     * Get index mapping from result set to schema.
      *
      * @param columns Columns to map.
      * @param metadata Metadata for query results.
-     * @param startInclusive the first index to cover.
-     * @param endExclusive index immediately past the last index to cover.
+     * @param startInclusive The first index to cover.
+     * @param endExclusive Index immediately past the last index to cover.
      * @return Index mapping.
      */
     static List<Integer> indexMapping(
@@ -73,6 +75,7 @@ abstract class AbstractClientView<T> implements CriteriaQuerySource<T> {
 
         return Arrays.stream(columns, startInclusive, endExclusive)
                 .map(ClientColumn::name)
+                .map(IgniteNameUtils::quoteIfNeeded)
                 .map((columnName) -> {
                     var rowIdx = metadata.indexOf(columnName);
 
@@ -93,13 +96,13 @@ abstract class AbstractClientView<T> implements CriteriaQuerySource<T> {
      * @param criteria The predicate to filter entries or {@code null} to return all entries from the underlying table.
      * @return SQL query and it's arguments.
      */
-    static SqlSerializer createSqlSerializer(String tableName, ClientColumn[] columns, @Nullable Criteria criteria) {
+    protected static SqlSerializer createSqlSerializer(String tableName, ClientColumn[] columns, @Nullable Criteria criteria) {
         Set<String> columnNames = Arrays.stream(columns)
                 .map(ClientColumn::name)
                 .collect(toSet());
 
         return new SqlSerializer.Builder()
-                .tableName(tableName)
+                .tableName(parseSimpleName(tableName))
                 .columns(columnNames)
                 .where(criteria)
                 .build();

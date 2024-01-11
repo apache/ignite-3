@@ -20,7 +20,6 @@ package org.apache.ignite.compute;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
@@ -42,7 +41,7 @@ public interface IgniteCompute {
      * @param <R> Job result type.
      * @return CompletableFuture Job result.
      */
-    <R> CompletableFuture<R> executeAsync(
+    <R> JobExecution<R> executeAsync(
             Set<ClusterNode> nodes,
             List<DeploymentUnit> units,
             String jobClassName,
@@ -78,7 +77,7 @@ public interface IgniteCompute {
      * @param <R> Job result type.
      * @return CompletableFuture Job result.
      */
-    <R> CompletableFuture<R> executeColocatedAsync(
+    <R> JobExecution<R> executeColocatedAsync(
             String tableName,
             Tuple key,
             List<DeploymentUnit> units,
@@ -100,7 +99,7 @@ public interface IgniteCompute {
      * @return CompletableFuture Job result.
      * @throws ComputeException If there is any problem executing the job.
      */
-    <K, R> CompletableFuture<R> executeColocatedAsync(
+    <K, R> JobExecution<R> executeColocatedAsync(
             String tableName,
             K key,
             Mapper<K> keyMapper,
@@ -161,7 +160,7 @@ public interface IgniteCompute {
      * @param <R> Job result type.
      * @return Map from node to job result future.
      */
-    <R> Map<ClusterNode, CompletableFuture<R>> broadcastAsync(
+    <R> Map<ClusterNode, JobExecution<R>> broadcastAsync(
             Set<ClusterNode> nodes,
             List<DeploymentUnit> units,
             String jobClassName,

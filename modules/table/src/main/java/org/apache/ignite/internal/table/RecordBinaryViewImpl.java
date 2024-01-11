@@ -26,7 +26,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
-import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshaller;
@@ -35,17 +34,13 @@ import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.streamer.StreamerBatchSender;
 import org.apache.ignite.internal.table.criteria.CriteriaExceptionMapperUtil;
 import org.apache.ignite.internal.table.criteria.QueryCriteriaAsyncCursor;
-import org.apache.ignite.internal.table.criteria.SqlRowProjection;
-import org.apache.ignite.internal.table.criteria.SqlSerializer;
 import org.apache.ignite.internal.table.criteria.SqlSerializer;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
 import org.apache.ignite.internal.tx.InternalTransaction;
-import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.lang.AsyncCursor;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.MarshallerException;
 import org.apache.ignite.sql.IgniteSql;
-import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.Statement;
 import org.apache.ignite.table.DataStreamerOptions;
@@ -469,15 +464,7 @@ public class RecordBinaryViewImpl extends AbstractTableView<Tuple> implements Re
 
             return CriteriaExceptionMapperUtil.convertToPublicFuture(
                     session.executeAsync(tx, statement, ser.getArguments())
-                            .thenApply(resultSet -> {
-                                ResultSetMetadata metadata = resultSet.metadata();
-
-                                Column[] cols = ArrayUtils.concat(schema.keyColumns().columns(), schema.valueColumns().columns());
-                                List<Integer> idxMapping = indexMapping(cols, metadata);
-
-                                return new QueryCriteriaAsyncCursor<>(resultSet, (row) -> new SqlRowProjection(row, idxMapping),
-                                        session::close);
-                            })
+                            .thenApply(resultSet -> new QueryCriteriaAsyncCursor<>(resultSet, null, session::close))
             );
         });
     }

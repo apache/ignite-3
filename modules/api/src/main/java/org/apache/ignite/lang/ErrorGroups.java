@@ -20,6 +20,7 @@ package org.apache.ignite.lang;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.util.Locale;
+import org.apache.ignite.error.code.annotations.ErrorCodeGroup;
 
 /**
  * Defines error groups and its errors.
@@ -112,6 +113,7 @@ public class ErrorGroups {
     }
 
     /** Common error group. */
+    @ErrorCodeGroup
     public static class Common {
         /** Common error group. */
         public static final ErrorGroup COMMON_ERR_GROUP = registerGroup("CMN", (short) 1);
@@ -139,6 +141,7 @@ public class ErrorGroups {
     }
 
     /** Tables error group. */
+    @ErrorCodeGroup
     public static class Table {
         /** Table error group. */
         public static final ErrorGroup TABLE_ERR_GROUP = registerGroup("TBL", (short) 2);
@@ -166,6 +169,7 @@ public class ErrorGroups {
     }
 
     /** Client error group. */
+    @ErrorCodeGroup
     public static class Client {
         /** Client error group. */
         public static final ErrorGroup CLIENT_ERR_GROUP = registerGroup("CLIENT", (short) 3);
@@ -202,6 +206,7 @@ public class ErrorGroups {
     }
 
     /** SQL error group. */
+    @ErrorCodeGroup
     public static class Sql {
         /** SQL error group. */
         public static final ErrorGroup SQL_ERR_GROUP = registerGroup("SQL", (short) 4);
@@ -272,6 +277,7 @@ public class ErrorGroups {
     }
 
     /** Meta storage error group. */
+    @ErrorCodeGroup
     public static class MetaStorage {
         /** Meta storage error group. */
         public static final ErrorGroup META_STORAGE_ERR_GROUP = registerGroup("META", (short) 5);
@@ -293,6 +299,7 @@ public class ErrorGroups {
     }
 
     /** Index error group. */
+    @ErrorCodeGroup
     public static class Index {
         /** Index error group. */
         public static final ErrorGroup INDEX_ERR_GROUP = registerGroup("IDX", (short) 6);
@@ -308,6 +315,7 @@ public class ErrorGroups {
     }
 
     /** Transactions error group. */
+    @ErrorCodeGroup
     public static class Transactions {
         /** Transactions error group. */
         public static final ErrorGroup TX_ERR_GROUP = registerGroup("TX", (short) 7);
@@ -353,6 +361,7 @@ public class ErrorGroups {
     }
 
     /** Replicator error group. */
+    @ErrorCodeGroup
     public static class Replicator {
         /** Replicator error group. */
         public static final ErrorGroup REPLICATOR_ERR_GROUP = registerGroup("REP", (short) 8);
@@ -386,6 +395,7 @@ public class ErrorGroups {
     }
 
     /** Storage error group. */
+    @ErrorCodeGroup
     public static class Storage {
         /** Storage error group. */
         public static final ErrorGroup STORAGE_ERR_GROUP = registerGroup("STORAGE", (short) 9);
@@ -404,6 +414,7 @@ public class ErrorGroups {
     }
 
     /** Distribution zones error group. */
+    @ErrorCodeGroup
     public static class DistributionZones {
         /** Distribution zones group. */
         public static final ErrorGroup DISTRIBUTION_ZONES_ERR_GROUP = registerGroup("DISTRZONES", (short) 10);
@@ -425,6 +436,7 @@ public class ErrorGroups {
     }
 
     /** Network error group. */
+    @ErrorCodeGroup
     public static class Network {
         /** Network error group. */
         public static final ErrorGroup NETWORK_ERR_GROUP = registerGroup("NETWORK", (short) 11);
@@ -434,9 +446,13 @@ public class ErrorGroups {
 
         /** Port is in use. */
         public static final int PORT_IN_USE_ERR = NETWORK_ERR_GROUP.registerErrorCode((short) 2);
+
+        /** Recipient node has left the physical topology. */
+        public static final int RECIPIENT_LEFT_ERR = NETWORK_ERR_GROUP.registerErrorCode((short) 5);
     }
 
     /** Node configuration error group. */
+    @ErrorCodeGroup
     public static class NodeConfiguration {
         /** Node configuration error group. */
         public static final ErrorGroup NODE_CONFIGURATION_ERR_GROUP = registerGroup("NODECFG", (short) 12);
@@ -455,6 +471,7 @@ public class ErrorGroups {
     }
 
     /** Code deployment error group. */
+    @ErrorCodeGroup
     public static class CodeDeployment {
         /** Code deployment error group. */
         public static final ErrorGroup CODE_DEPLOYMENT_ERR_GROUP = registerGroup("CODEDEPLOY", (short) 13);
@@ -475,6 +492,7 @@ public class ErrorGroups {
     /**
      * Garbage collector error group.
      */
+    @ErrorCodeGroup
     public static class GarbageCollector {
         /** Garbage collector error group. */
         public static final ErrorGroup GC_ERR_GROUP = registerGroup("GC", (short) 14);
@@ -486,6 +504,7 @@ public class ErrorGroups {
     /**
      * Authentication error group.
      */
+    @ErrorCodeGroup
     public static class Authentication {
         /** Authentication error group. */
         public static final ErrorGroup AUTHENTICATION_ERR_GROUP = registerGroup("AUTHENTICATION", (short) 15);
@@ -503,6 +522,7 @@ public class ErrorGroups {
     /**
      * Compute error group.
      */
+    @ErrorCodeGroup
     public static class Compute {
         /** Compute error group. */
         public static final ErrorGroup COMPUTE_ERR_GROUP = registerGroup("COMPUTE", (short) 16);
@@ -521,9 +541,22 @@ public class ErrorGroups {
 
         /** Compute job state transfer error. */
         public static final int COMPUTE_JOB_STATE_TRANSITION_ERR = COMPUTE_ERR_GROUP.registerErrorCode((short) 5);
+
+        /** Compute job cancel failed error. */
+        public static final int CANCELLING_ERR = COMPUTE_ERR_GROUP.registerErrorCode((short) 6);
+
+        /** Compute job result not found error. */
+        public static final int RESULT_NOT_FOUND_ERR = COMPUTE_ERR_GROUP.registerErrorCode((short) 7);
+
+        /** Compute job status can not be retrieved. */
+        public static final int FAIL_TO_GET_JOB_STATUS_ERR = COMPUTE_ERR_GROUP.registerErrorCode((short) 8);
+
+        /** Compute job failed. */
+        public static final int COMPUTE_JOB_FAILED_ERR = COMPUTE_ERR_GROUP.registerErrorCode((short) 9);
     }
 
     /** Catalog error group. */
+    @ErrorCodeGroup
     public static class Catalog {
         /** Catalog error group. */
         public static final ErrorGroup CATALOG_ERR_GROUP = registerGroup("CATALOG", (short) 17);
@@ -533,6 +566,7 @@ public class ErrorGroups {
     }
 
     /** Placement driver error group. */
+    @ErrorCodeGroup
     public static class PlacementDriver {
         /** Placement driver error group. */
         public static final ErrorGroup PLACEMENT_DRIVER_ERR_GROUP = registerGroup("PLACEMENTDRIVER", (short) 18);

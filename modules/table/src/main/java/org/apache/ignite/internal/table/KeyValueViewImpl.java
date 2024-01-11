@@ -19,6 +19,7 @@ package org.apache.ignite.internal.table;
 
 import static org.apache.ignite.internal.marshaller.Marshaller.createMarshaller;
 import static org.apache.ignite.internal.schema.marshaller.MarshallerUtil.toMarshallerColumns;
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -50,7 +51,6 @@ import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.AsyncCursor;
-import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.NullableValue;
 import org.apache.ignite.lang.UnexpectedNullValueException;
@@ -741,7 +741,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
                                         (V) valMarsh.readObject(new TupleReader(new SqlRowProjection(row, valIndexMapping)), null)
                                 );
                             } catch (org.apache.ignite.internal.marshaller.MarshallerException e) {
-                                throw new IgniteException(Sql.RUNTIME_ERR, "Failed to map SQL result set: " + e.getMessage(), e);
+                                throw new IgniteException(INTERNAL_ERR, "Failed to map query results: " + e.getMessage(), e);
                             }
                         };
 

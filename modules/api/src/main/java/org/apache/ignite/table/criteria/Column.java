@@ -17,12 +17,14 @@
 
 package org.apache.ignite.table.criteria;
 
+import static org.apache.ignite.lang.util.IgniteNameUtils.parseSimpleName;
+
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Represents a column reference for criteria query.
  */
-public class Column implements Criteria {
+public final class Column implements Criteria {
     private final String name;
 
     /**
@@ -31,7 +33,7 @@ public class Column implements Criteria {
      * @param name A column name.
      */
     Column(String name) {
-        this.name = name.toUpperCase();
+        this.name = parseSimpleName(name);
     }
 
     /**

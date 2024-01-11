@@ -40,6 +40,7 @@ import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.Cursor;
+import org.apache.ignite.lang.util.IgniteNameUtils;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.table.criteria.Criteria;
@@ -148,7 +149,7 @@ abstract class AbstractTableView<R> implements CriteriaQuerySource<R> {
     }
 
     /**
-     * Get index mapping.
+     * Get index mapping from result set to schema.
      *
      * @param columns Columns to map.
      * @param metadata Metadata for query results.
@@ -159,6 +160,7 @@ abstract class AbstractTableView<R> implements CriteriaQuerySource<R> {
 
         return Arrays.stream(columns)
                 .map(Column::name)
+                .map(IgniteNameUtils::quoteIfNeeded)
                 .map((columnName) -> {
                     var rowIdx = metadata.indexOf(columnName);
 
