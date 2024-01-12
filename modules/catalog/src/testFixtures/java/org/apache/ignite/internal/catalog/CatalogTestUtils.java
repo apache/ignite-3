@@ -47,8 +47,6 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
-import org.apache.ignite.internal.vault.VaultManager;
-import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.sql.ColumnType;
 
@@ -65,16 +63,13 @@ public class CatalogTestUtils {
      * @param clock Hybrid clock.
      */
     public static CatalogManager createTestCatalogManager(String nodeName, HybridClock clock) {
-        var vault = new VaultManager(new InMemoryVaultService());
-
-        StandaloneMetaStorageManager metastore = StandaloneMetaStorageManager.create(vault, new SimpleInMemoryKeyValueStorage(nodeName));
+        StandaloneMetaStorageManager metastore = StandaloneMetaStorageManager.create(new SimpleInMemoryKeyValueStorage(nodeName));
 
         var clockWaiter = new ClockWaiter(nodeName, clock);
 
         return new CatalogManagerImpl(new UpdateLogImpl(metastore), clockWaiter) {
             @Override
             public CompletableFuture<Void> start() {
-                vault.start();
                 metastore.start();
                 clockWaiter.start();
 
@@ -91,7 +86,6 @@ public class CatalogTestUtils {
 
                 clockWaiter.beforeNodeStop();
                 metastore.beforeNodeStop();
-                vault.beforeNodeStop();
             }
 
             @Override
@@ -100,7 +94,6 @@ public class CatalogTestUtils {
 
                 clockWaiter.stop();
                 metastore.stop();
-                vault.stop();
             }
         };
     }

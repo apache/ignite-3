@@ -65,7 +65,6 @@ import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterService;
 import org.jetbrains.annotations.Nullable;
@@ -85,9 +84,6 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
     private static final IgniteLogger LOG = Loggers.forClass(MetaStorageManagerImpl.class);
 
     private final ClusterService clusterService;
-
-    /** Vault manager in order to commit processed watches with corresponding applied revision. */
-    private final VaultManager vaultMgr;
 
     /** Raft manager that is used for metastorage raft group handling. */
     private final RaftManager raftMgr;
@@ -133,7 +129,6 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
     /**
      * The constructor.
      *
-     * @param vaultMgr Vault manager.
      * @param clusterService Cluster network service.
      * @param cmgMgr Cluster management service Manager.
      * @param logicalTopologyService Logical topology service.
@@ -142,7 +137,6 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
      * @param clock A hybrid logical clock.
      */
     public MetaStorageManagerImpl(
-            VaultManager vaultMgr,
             ClusterService clusterService,
             ClusterManagementGroupManager cmgMgr,
             LogicalTopologyService logicalTopologyService,
@@ -151,7 +145,6 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
             HybridClock clock,
             TopologyAwareRaftGroupServiceFactory topologyAwareRaftGroupServiceFactory
     ) {
-        this.vaultMgr = vaultMgr;
         this.clusterService = clusterService;
         this.raftMgr = raftMgr;
         this.cmgMgr = cmgMgr;
@@ -166,7 +159,6 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
      */
     @TestOnly
     public MetaStorageManagerImpl(
-            VaultManager vaultMgr,
             ClusterService clusterService,
             ClusterManagementGroupManager cmgMgr,
             LogicalTopologyService logicalTopologyService,
@@ -176,7 +168,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
             TopologyAwareRaftGroupServiceFactory topologyAwareRaftGroupServiceFactory,
             MetaStorageConfiguration configuration
     ) {
-        this(vaultMgr, clusterService, cmgMgr, logicalTopologyService, raftMgr, storage, clock, topologyAwareRaftGroupServiceFactory);
+        this(clusterService, cmgMgr, logicalTopologyService, raftMgr, storage, clock, topologyAwareRaftGroupServiceFactory);
 
         configure(configuration);
     }
