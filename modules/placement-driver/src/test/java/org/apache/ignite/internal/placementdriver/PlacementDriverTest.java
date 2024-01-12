@@ -64,7 +64,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-/** Tests to verify {@link PlacementDriver} implemented by {@link LeaseTracker}. */
+/** Tests to verify {@link LeaseTracker} implemented by {@link PlacementDriver}. */
 public class PlacementDriverTest extends BaseIgniteAbstractTest {
     private static final HybridTimestamp AWAIT_TIME_10_000 = new HybridTimestamp(10_000, 0);
 
