@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.metastorage.server;
 
-import static java.util.Collections.emptySet;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
@@ -174,7 +173,7 @@ public class WatchProcessor implements ManuallyCloseable {
                                 CompletableFuture<Void> notifyUpdateRevisionFuture = notifyUpdateRevisionListeners(newRevision);
 
                                 CompletableFuture<Void> notificationFuture = allOf(notifyWatchesFuture, notifyUpdateRevisionFuture)
-                                        .thenComposeAsync(
+                                        .thenAcceptAsync(
                                                 unused -> invokeOnRevisionCallback(newRevision, time),
                                                 watchExecutor
                                         );
@@ -288,23 +287,15 @@ public class WatchProcessor implements ManuallyCloseable {
         }, watchExecutor);
     }
 
-    private CompletableFuture<Void> invokeOnRevisionCallback(long revision, HybridTimestamp time) {
+    private void invokeOnRevisionCallback(long revision, HybridTimestamp time) {
         try {
-            // We consciously put empty set here. Revision applied callback doesn't need any data.
-            var event = new WatchEvent(emptySet(), revision, time);
-
             revisionCallback.onSafeTimeAdvanced(time);
 
-            return revisionCallback.onRevisionApplied(event)
-                    .whenComplete((ignored, e) -> {
-                        if (e != null) {
-                            LOG.error("Error occurred when notifying watches", e);
-                        }
-                    });
+            revisionCallback.onRevisionApplied(revision);
         } catch (Throwable e) {
             LOG.error("Error occurred when notifying watches", e);
 
-            return failedFuture(e);
+            throw e;
         }
     }
 

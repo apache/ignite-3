@@ -41,7 +41,6 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.RevisionUpdateListener;
-import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
@@ -105,6 +104,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
     /** Prevents double stopping of the component. */
     private final AtomicBoolean isStopped = new AtomicBoolean();
 
+    /** {@link AtomicLong} to simplify testing, primitive fields won't allow using {@code Mockito#spy(metastorage)}. */
     private final AtomicLong appliedRevision = new AtomicLong(0L);
 
     /**
@@ -424,7 +424,6 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
         try {
             return recoveryFinishedPublicFuture
                     .thenAccept(revision -> inBusyLock(busyLock, () -> {
-                        // Meta Storage contract states that all updated entries under a particular revision must be stored in the Vault.
                         storage.startWatches(revision + 1, new OnRevisionAppliedCallback() {
                             @Override
                             public void onSafeTimeAdvanced(HybridTimestamp newSafeTime) {
@@ -432,8 +431,8 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
                             }
 
                             @Override
-                            public CompletableFuture<Void> onRevisionApplied(WatchEvent watchEvent) {
-                                return MetaStorageManagerImpl.this.onRevisionApplied(watchEvent);
+                            public void onRevisionApplied(long revision) {
+                                MetaStorageManagerImpl.this.onRevisionApplied(revision);
                             }
                         });
                     }))
@@ -830,7 +829,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
     /**
      * Saves processed Meta Storage revision to the {@link #appliedRevision}.
      */
-    private CompletableFuture<Void> onRevisionApplied(WatchEvent watchEvent) {
+    private CompletableFuture<Void> onRevisionApplied(long revision) {
         if (!busyLock.enterBusy()) {
             LOG.info("Skipping applying MetaStorage revision because the node is stopping");
 
@@ -838,7 +837,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
         }
 
         try {
-            appliedRevision.set(watchEvent.revision());
+            appliedRevision.set(revision);
 
             return nullCompletedFuture();
         } finally {

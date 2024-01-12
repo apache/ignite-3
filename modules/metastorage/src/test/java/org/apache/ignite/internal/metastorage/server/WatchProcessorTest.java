@@ -18,14 +18,12 @@
 package org.apache.ignite.internal.metastorage.server;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static java.util.Collections.emptyList;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.equalTo;
-import static org.hamcrest.Matchers.is;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -46,7 +44,6 @@ import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
 
 /**
@@ -59,8 +56,6 @@ public class WatchProcessorTest extends BaseIgniteAbstractTest {
 
     @BeforeEach
     void setUp() {
-        when(revisionCallback.onRevisionApplied(any())).thenReturn(nullCompletedFuture());
-
         watchProcessor.setRevisionCallback(revisionCallback);
     }
 
@@ -93,14 +88,7 @@ public class WatchProcessorTest extends BaseIgniteAbstractTest {
         verify(listener1).onUpdate(new WatchEvent(entryEvent1));
         verify(listener2).onUpdate(new WatchEvent(entryEvent2));
 
-        var watchEventCaptor = ArgumentCaptor.forClass(WatchEvent.class);
-
-        verify(revisionCallback).onRevisionApplied(watchEventCaptor.capture());
-
-        WatchEvent event = watchEventCaptor.getValue();
-
-        assertThat(event.entryEvents(), is(equalTo(emptyList())));
-        assertThat(event.revision(), is(1L));
+        verify(revisionCallback).onRevisionApplied(1L);
     }
 
     /**
@@ -123,12 +111,11 @@ public class WatchProcessorTest extends BaseIgniteAbstractTest {
 
         assertThat(notificationFuture, willCompleteSuccessfully());
 
-        var updateEvent = new WatchEvent(new EntryEvent(oldEntry(entry1), entry1));
-        var revisionEvent = new WatchEvent(emptyList(), 1, HybridTimestamp.MAX_VALUE);
+        var event = new WatchEvent(new EntryEvent(oldEntry(entry1), entry1));
 
-        verify(listener1).onUpdate(updateEvent);
+        verify(listener1).onUpdate(event);
 
-        verify(revisionCallback).onRevisionApplied(revisionEvent);
+        verify(revisionCallback).onRevisionApplied(1L);
 
         ts = new HybridTimestamp(2, 3);
 
@@ -136,12 +123,11 @@ public class WatchProcessorTest extends BaseIgniteAbstractTest {
 
         assertThat(notificationFuture, willCompleteSuccessfully());
 
-        updateEvent = new WatchEvent(new EntryEvent(oldEntry(entry2), entry2));
-        revisionEvent = new WatchEvent(emptyList(), 2, HybridTimestamp.MAX_VALUE);
+        event = new WatchEvent(new EntryEvent(oldEntry(entry2), entry2));
 
-        verify(listener2).onUpdate(updateEvent);
+        verify(listener2).onUpdate(event);
 
-        verify(revisionCallback).onRevisionApplied(revisionEvent);
+        verify(revisionCallback).onRevisionApplied(2L);
     }
 
     /**
@@ -169,7 +155,7 @@ public class WatchProcessorTest extends BaseIgniteAbstractTest {
         verify(listener2).onUpdate(new WatchEvent(new EntryEvent(oldEntry(entry2), entry2)));
         verify(listener2).onError(any(IllegalStateException.class));
 
-        verify(revisionCallback, never()).onRevisionApplied(any());
+        verify(revisionCallback, never()).onRevisionApplied(anyLong());
     }
 
     /**
