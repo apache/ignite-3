@@ -36,11 +36,6 @@ public class TransactionAlreadyFinishedException extends TransactionException {
         this.transactionResult = transactionResult;
     }
 
-    public TransactionAlreadyFinishedException(Throwable cause, TransactionResult transactionResult) {
-        super(TX_UNEXPECTED_STATE_ERR, cause);
-        this.transactionResult = transactionResult;
-    }
-
     public TransactionResult transactionResult() {
         return transactionResult;
     }

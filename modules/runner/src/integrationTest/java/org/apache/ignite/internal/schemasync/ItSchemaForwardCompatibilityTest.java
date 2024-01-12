@@ -22,18 +22,14 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
-import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import org.apache.ignite.internal.Cluster;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.table.TableViewInternal;
-import org.apache.ignite.internal.table.distributed.replicator.IncompatibleSchemaAbortException;
 import org.apache.ignite.internal.tx.InternalTransaction;
-import org.apache.ignite.internal.tx.TransactionAlreadyFinishedException;
 import org.apache.ignite.internal.tx.TxState;
-import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.ErrorGroups.Transactions;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
@@ -117,19 +113,6 @@ class ItSchemaForwardCompatibilityTest extends ClusterPerTestIntegrationTest {
         );
 
         assertThat(ex.code(), is(Transactions.TX_UNEXPECTED_STATE_ERR));
-
-        // Exceptions are wrapped into TransactionException.
-        // The underlying one is TransactionAlreadyFinishedException that wraps
-        // an IncompatibleSchemaAbortException.
-        Throwable cause = ExceptionUtils.unwrapCause(ex.getCause());
-
-        assertInstanceOf(TransactionAlreadyFinishedException.class, cause);
-
-        Throwable isae = cause.getCause();
-
-        assertInstanceOf(IncompatibleSchemaAbortException.class, isae);
-
-        assertThat(((IncompatibleSchemaAbortException) isae).code(), is(Transactions.TX_COMMIT_ERR));
 
         assertThat(tx.state(), is(TxState.ABORTED));
     }

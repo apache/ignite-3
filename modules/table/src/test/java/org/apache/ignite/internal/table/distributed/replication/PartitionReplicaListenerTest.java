@@ -40,7 +40,6 @@ import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -145,7 +144,6 @@ import org.apache.ignite.internal.table.distributed.replication.request.ReadOnly
 import org.apache.ignite.internal.table.distributed.replication.request.ReadOnlyMultiRowPkReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadOnlySingleRowPkReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteReplicaRequest;
-import org.apache.ignite.internal.table.distributed.replicator.IncompatibleSchemaAbortException;
 import org.apache.ignite.internal.table.distributed.replicator.IncompatibleSchemaException;
 import org.apache.ignite.internal.table.distributed.replicator.InternalSchemaVersionMismatchException;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
@@ -1628,12 +1626,8 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
         TransactionAlreadyFinishedException ex = assertWillThrowFast(future,
                 TransactionAlreadyFinishedException.class);
-        Throwable cause = ex.getCause();
-        assertInstanceOf(IncompatibleSchemaAbortException.class, cause);
 
-        IncompatibleSchemaAbortException isae = (IncompatibleSchemaAbortException) cause;
-        assertThat(isae.code(), is(Transactions.TX_COMMIT_ERR));
-        assertThat(isae.getMessage(), containsString("Commit failed because schema 1 is not forward-compatible with 2"));
+        assertThat(ex.getMessage(), containsString("Commit failed because schema 1 is not forward-compatible with 2"));
 
         assertThat(committed.get(), is(false));
     }
@@ -2330,13 +2324,8 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         );
 
         TransactionAlreadyFinishedException ex = assertWillThrowFast(future, TransactionAlreadyFinishedException.class);
-        Throwable cause = ex.getCause();
-        assertInstanceOf(IncompatibleSchemaAbortException.class, cause);
 
-        IncompatibleSchemaAbortException isae = (IncompatibleSchemaAbortException) cause;
-
-        assertThat(isae.code(), is(Transactions.TX_COMMIT_ERR));
-        assertThat(isae.getMessage(), is("Commit failed because a table was already dropped [tableId=" + tableToBeDroppedId + "]"));
+        assertThat(ex.getMessage(), is("Commit failed because a table was already dropped [tableId=" + tableToBeDroppedId + "]"));
 
         assertThat("The transaction must have been aborted", committed.get(), is(false));
     }
