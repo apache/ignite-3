@@ -17,10 +17,10 @@
 
 package org.apache.ignite.internal.sql.engine.util;
 
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.Matchers.containsString;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -250,12 +250,25 @@ public class QueryCheckerTest extends BaseIgniteAbstractTest {
                 )
                 .check();
 
-        // Query with result checker cannot be verified without actual query execution.
-        assertThrows(AssertionError.class,
+        // Test that validates the results cannot be executed correctly without actually executing the query.
+        assertThrows(
+                AssertionError.class,
                 () -> assertQueryMeta("SELECT * FROM t1")
                         .columnTypes(Integer.class, Integer.class)
                         .returns(1, 1)
-                        .check());
+                        .returns(2, 2)
+                        .check(),
+                "Expected that the query will only be prepared, but not executed"
+        );
+
+        // Test that only checks metadata should not execute the query.
+        assertThrows(
+                AssertionError.class,
+                () -> assertQuery("SELECT * FROM t1")
+                        .columnTypes(Integer.class, Integer.class)
+                        .check(),
+                "Expected that the query will be executed"
+        );
     }
 
     private static QueryChecker assertQuery(String qry) {
@@ -282,18 +295,18 @@ public class QueryCheckerTest extends BaseIgniteAbstractTest {
 
     private static class TestQueryProcessor implements QueryProcessor {
         private final TestNode node;
-        private final boolean checkMetadataOnly;
+        private final boolean prepareOnly;
 
-        TestQueryProcessor(TestNode node, boolean checkMetadataOnly) {
+        TestQueryProcessor(TestNode node, boolean prepareOnly) {
             this.node = node;
-            this.checkMetadataOnly = checkMetadataOnly;
+            this.prepareOnly = prepareOnly;
         }
 
         @Override
         public CompletableFuture<QueryMetadata> prepareSingleAsync(SqlProperties properties,
                 @Nullable InternalTransaction transaction, String qry, Object... params) {
             assert params == null || params.length == 0 : "params are not supported";
-            assert checkMetadataOnly;
+            assert prepareOnly : "Expected that the query will be executed";
 
             QueryPlan plan = node.prepare(qry);
 
@@ -309,7 +322,7 @@ public class QueryCheckerTest extends BaseIgniteAbstractTest {
                 Object... params
         ) {
             assert params == null || params.length == 0 : "params are not supported";
-            assert !checkMetadataOnly;
+            assert !prepareOnly : "Expected that the query will only be prepared, but not executed";
 
             QueryPlan plan = node.prepare(qry);
             AsyncCursor<InternalSqlRow> dataCursor = node.executePlan(plan);
