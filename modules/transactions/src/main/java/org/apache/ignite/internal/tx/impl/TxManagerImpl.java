@@ -24,7 +24,6 @@ import static org.apache.ignite.internal.tx.TxState.ABORTED;
 import static org.apache.ignite.internal.tx.TxState.COMMITTED;
 import static org.apache.ignite.internal.tx.TxState.FINISHING;
 import static org.apache.ignite.internal.tx.TxState.PENDING;
-import static org.apache.ignite.internal.tx.TxState.checkTransitionCorrectness;
 import static org.apache.ignite.internal.tx.TxState.isFinalState;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
@@ -86,8 +85,10 @@ import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.network.ClusterService;
+import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.NetworkMessageHandler;
+import org.apache.ignite.network.TopologyService;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -146,11 +147,14 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     /** Busy lock to stop synchronously. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
-    /** Cluster service. */
-    private final ClusterService clusterService;
-
     /** Detector of transactions that lost the coordinator. */
     private final OrphanDetector orphanDetector;
+
+    /** Topology service. */
+    private final TopologyService topologyService;
+
+    /** Cluster service. */
+    private final MessagingService messagingService;
 
     /** Local node network identity. This id is available only after the network has started. */
     private String localNodeId;
@@ -196,9 +200,10 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         this.lockManager = lockManager;
         this.clock = clock;
         this.transactionIdGenerator = transactionIdGenerator;
-        this.clusterService = clusterService;
         this.placementDriver = placementDriver;
         this.idleSafeTimePropagationPeriodMsSupplier = idleSafeTimePropagationPeriodMsSupplier;
+        this.topologyService = clusterService.topologyService();
+        this.messagingService = clusterService.messagingService();
 
         placementDriverHelper = new PlacementDriverHelper(placementDriver, clock);
 
@@ -212,14 +217,14 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                 new LinkedBlockingQueue<>(),
                 new NamedThreadFactory("tx-async-cleanup", LOG));
 
-        orphanDetector = new OrphanDetector(clusterService.topologyService(), replicaService, placementDriver, lockManager, clock);
+        orphanDetector = new OrphanDetector(topologyService, replicaService, placementDriverHelper, lockManager);
 
-        txMessageSender = new TxMessageSender(clusterService.messagingService(), replicaService, clock);
+        txMessageSender = new TxMessageSender(messagingService, replicaService, clock);
 
         WriteIntentSwitchProcessor writeIntentSwitchProcessor =
-                new WriteIntentSwitchProcessor(placementDriverHelper, txMessageSender, clusterService);
+                new WriteIntentSwitchProcessor(placementDriverHelper, txMessageSender, topologyService);
 
-        txCleanupRequestHandler = new TxCleanupRequestHandler(clusterService, lockManager, clock, writeIntentSwitchProcessor);
+        txCleanupRequestHandler = new TxCleanupRequestHandler(messagingService, lockManager, clock, writeIntentSwitchProcessor);
 
         txCleanupRequestSender = new TxCleanupRequestSender(txMessageSender, placementDriverHelper, writeIntentSwitchProcessor);
     }
@@ -293,23 +298,13 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     }
 
     @Override
-    public TxStateMeta stateMeta(UUID txId) {
+    public @Nullable TxStateMeta stateMeta(UUID txId) {
         return inBusyLock(busyLock, () -> txStateVolatileStorage.state(txId));
     }
 
     @Override
     public @Nullable <T extends TxStateMeta> T updateTxMeta(UUID txId, Function<TxStateMeta, TxStateMeta> updater) {
-        return txStateVolatileStorage.updateMeta(txId, oldMeta -> {
-            TxStateMeta newMeta = updater.apply(oldMeta);
-
-            if (newMeta == null) {
-                return null;
-            }
-
-            TxState oldState = oldMeta == null ? null : oldMeta.txState();
-
-            return checkTransitionCorrectness(oldState, newMeta.txState()) ? newMeta : oldMeta;
-        });
+        return txStateVolatileStorage.updateMeta(txId, updater);
     }
 
     @Override
@@ -590,8 +585,9 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
     @Override
     public CompletableFuture<Void> start() {
-        localNodeId = clusterService.topologyService().localMember().id();
-        clusterService.messagingService().addMessageHandler(ReplicaMessageGroup.class, this);
+        localNodeId = topologyService.localMember().id();
+
+        messagingService.addMessageHandler(ReplicaMessageGroup.class, this);
 
         txStateVolatileStorage.start();
 
