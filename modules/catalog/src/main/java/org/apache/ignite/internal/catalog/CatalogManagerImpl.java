@@ -133,7 +133,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     }
 
     @Override
-    public void start() {
+    public CompletableFuture<Void> start() {
         int objectIdGen = 0;
 
         // TODO: IGNITE-19082 Move default schema objects initialization to cluster init procedure.
@@ -166,6 +166,8 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
         updateLog.registerUpdateHandler(new OnUpdateHandlerImpl());
 
         updateLog.start();
+
+        return nullCompletedFuture();
     }
 
     @Override

@@ -50,8 +50,9 @@ public class FakeTxManager implements TxManager {
     }
 
     @Override
-    public void start() {
+    public CompletableFuture<Void> start() {
         // No-op.
+        return nullCompletedFuture();
     }
 
     @Override

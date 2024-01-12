@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.index;
 
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAllManually;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 
@@ -70,7 +71,7 @@ public class IndexBuildingManager implements IgniteComponent {
     }
 
     @Override
-    public void start() {
+    public CompletableFuture<Void> start() {
         inBusyLock(busyLock, () -> {
             CompletableFuture<Long> recoveryFinishedFuture = metaStorageManager.recoveryFinishedFuture();
 
@@ -80,6 +81,8 @@ public class IndexBuildingManager implements IgniteComponent {
 
             indexAvailabilityController.recover(recoveryRevision);
         });
+
+        return nullCompletedFuture();
     }
 
     @Override
