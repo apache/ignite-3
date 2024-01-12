@@ -44,7 +44,6 @@ import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -266,7 +265,6 @@ class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20864")
     void colocatedExecutionWorkerShutdown() throws Exception {
         // Given table.
         InteractiveJobs.initChannels(allNodeNames());
@@ -291,11 +289,9 @@ class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest {
         // And it is running on leader node.
         String firstWorkerNodeName = InteractiveJobs.globalJob().currentWorkerName();
         assertThat(firstWorkerNodeName, equalTo(leader.name()));
-        // And leader node is NOT an entry node, it is remote.
-        assertThat(entryNode.name(), not(equalTo(firstWorkerNodeName)));
 
         // When stop worker node.
-        stopNode(nodeByName(firstWorkerNodeName));
+        stopNode(leader);
 
         // Then the job is restarted on another node.
         InteractiveJobs.globalJob().assertAlive();
@@ -304,8 +300,15 @@ class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest {
         // And it is running on another node.
         String failoverNodeName = InteractiveJobs.globalJob().currentWorkerName();
         assertThat(failoverNodeName, in(allNodeNames()));
-        // But.
+        // And this node is the partition leader for K=1.
+        leader = table.leaderAssignment(table.partition(Tuple.create(1).set("K", 1)));
+        assertThat(failoverNodeName, equalTo(leader.name()));
+        // But this is not the same node as before.
         assertThat(failoverNodeName, not(equalTo(firstWorkerNodeName)));
+    }
+
+    private void stopNode(ClusterNode clusterNode) {
+        stopNode(clusterNode.name());
     }
 
     private void stopNode(IgniteImpl ignite) {

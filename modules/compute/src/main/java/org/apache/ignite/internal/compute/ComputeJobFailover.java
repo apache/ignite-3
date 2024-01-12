@@ -18,9 +18,7 @@
 package org.apache.ignite.internal.compute;
 
 import java.util.List;
-import java.util.NoSuchElementException;
-import java.util.Set;
-import java.util.concurrent.ConcurrentLinkedDeque;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import org.apache.ignite.compute.DeploymentUnit;
@@ -30,7 +28,6 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.lang.ErrorGroups.Compute;
 import org.apache.ignite.network.ClusterNode;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * This is a helper class for {@link ComputeComponent} to handle job failures. You can think about this class as a "retryable compute job
@@ -57,13 +54,12 @@ class ComputeJobFailover<T> {
     private final NodeLeftEventsSource nodeLeftEventsSource;
 
     /**
-     * Set of worker candidates in case {@link #runningWorkerNode} has left the cluster.
      */
-    private final ConcurrentLinkedDeque<ClusterNode> failoverCandidates;
+    private final NextWorkerSelector nextWorkerSelector;
 
     /**
      * The node where the job is being executed at a given moment. If node leaves the cluster, then the job is restarted on one of the
-     * {@link #failoverCandidates} and the reference is CASed to the new node.
+     * worker node returned by {@link #nextWorkerSelector} and the reference is CASed to the new node.
      */
     private final AtomicReference<ClusterNode> runningWorkerNode;
 
@@ -78,7 +74,7 @@ class ComputeJobFailover<T> {
      * @param computeComponent compute component.
      * @param nodeLeftEventsSource node left events source, used as dynamic topology service (allows to remove handlers).
      * @param workerNode the node to execute the job on.
-     * @param failoverCandidates the set of nodes where the job can be restarted if the worker node leaves the cluster.
+     *
      * @param units deployment units.
      * @param jobClassName the name of the job class.
      * @param args the arguments of the job.
@@ -87,7 +83,7 @@ class ComputeJobFailover<T> {
             ComputeComponent computeComponent,
             NodeLeftEventsSource nodeLeftEventsSource,
             ClusterNode workerNode,
-            Set<ClusterNode> failoverCandidates,
+            NextWorkerSelector nextWorkerSelector,
             List<DeploymentUnit> units,
             String jobClassName,
             Object... args
@@ -95,7 +91,7 @@ class ComputeJobFailover<T> {
         this.computeComponent = computeComponent;
         this.nodeLeftEventsSource = nodeLeftEventsSource;
         this.runningWorkerNode = new AtomicReference<>(workerNode);
-        this.failoverCandidates = new ConcurrentLinkedDeque<>(failoverCandidates);
+        this.nextWorkerSelector = nextWorkerSelector;
         this.jobContext = new RemoteExecutionContext<>(units, jobClassName, args);
     }
 
@@ -126,8 +122,8 @@ class ComputeJobFailover<T> {
                 return;
             }
 
-            ClusterNode nextWorkerCandidate = takeCandidate();
-            if (nextWorkerCandidate == null) {
+            Optional<ClusterNode> nextWorkerCandidate = nextWorkerSelector.next();
+            if (nextWorkerCandidate.isEmpty()) {
                 LOG.warn("No more worker nodes to restart the job. Failing the job {}.", jobContext.jobClassName());
 
                 FailSafeJobExecution<?> failSafeJobExecution = jobContext.failSafeJobExecution();
@@ -142,18 +138,9 @@ class ComputeJobFailover<T> {
                     leftNode, jobContext.jobClassName(), nextWorkerCandidate
             );
 
-            runningWorkerNode.set(nextWorkerCandidate);
+            runningWorkerNode.set(nextWorkerCandidate.get());
             JobExecution<T> jobExecution = launchJobOn(runningWorkerNode);
             jobContext.updateJobExecution(jobExecution);
-        }
-
-        @Nullable
-        private ClusterNode takeCandidate() {
-            try {
-                return failoverCandidates.pop();
-            } catch (NoSuchElementException ex) {
-                return null;
-            }
         }
     }
 }
