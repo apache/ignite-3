@@ -58,7 +58,7 @@ public class TransactionIds {
      * @return Transaction ID corresponding to the provided values.
      */
     public static UUID transactionId(long beginTimestamp, int nodeId, TxPriority priority) {
-        return new UUID(beginTimestamp, combine(nodeId, encodePriority(priority)));
+        return new UUID(beginTimestamp, combine(nodeId, priority));
     }
 
     /**
@@ -76,22 +76,14 @@ public class TransactionIds {
     }
 
     public static TxPriority priority(UUID txId) {
-        long flag = txId.getLeastSignificantBits() & 1;
-        return decodePriority(flag == 1);
+        int ordinal = (int) (txId.getLeastSignificantBits() & 1);
+        return TxPriority.values()[ordinal];
     }
 
-    private static long combine(int nodeId, boolean priority) {
-        int priorityAsInt = priority ? 1 : 0;
+    private static long combine(int nodeId, TxPriority priority) {
+        int priorityAsInt = priority.ordinal();
 
         // Shift the int 32 bits and combine with the boolean
         return ((long) nodeId << 32) | priorityAsInt;
-    }
-
-    private static boolean encodePriority(TxPriority priority) {
-        return priority == TxPriority.NORMAL;
-    }
-
-    private static TxPriority decodePriority(boolean priority) {
-        return priority ? TxPriority.NORMAL : TxPriority.LOW;
     }
 }
