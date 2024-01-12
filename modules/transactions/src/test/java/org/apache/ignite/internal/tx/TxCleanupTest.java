@@ -91,7 +91,9 @@ public class TxCleanupTest extends IgniteAbstractTest {
     private PlacementDriver placementDriver;
 
     private TransactionIdGenerator idGenerator;
+
     private WriteIntentSwitchProcessor writeIntentSwitchProcessor;
+
     private TxMessageSender txMessageSender;
 
     /** Init test callback. */
