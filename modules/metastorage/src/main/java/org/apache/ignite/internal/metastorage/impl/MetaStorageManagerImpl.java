@@ -29,6 +29,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -104,6 +105,8 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
     /** Prevents double stopping of the component. */
     private final AtomicBoolean isStopped = new AtomicBoolean();
 
+    private final AtomicLong appliedRevision = new AtomicLong(0L);
+
     /**
      * Future which completes when MetaStorage manager finished local recovery. The value of the future is the revision which must be used
      * for state recovery by other components.
@@ -111,7 +114,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
     private final CompletableFuture<Long> recoveryFinishedFuture = new CompletableFuture<>();
 
     private final CompletableFuture<Long> recoveryFinishedPublicFuture
-            = recoveryFinishedFuture.whenComplete((revision, e) -> appliedRevision = revision);
+            = recoveryFinishedFuture.whenComplete((revision, e) -> appliedRevision.set(revision));
 
     /**
      * Future that gets completed after {@link #deployWatches} method has been called.
@@ -121,8 +124,6 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
     private final ClusterTimeImpl clusterTime;
 
     private final TopologyAwareRaftGroupServiceFactory topologyAwareRaftGroupServiceFactory;
-
-    private volatile long appliedRevision = 0;
 
     private volatile MetaStorageConfiguration metaStorageConfiguration;
 
@@ -391,7 +392,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
 
     @Override
     public long appliedRevision() {
-        return appliedRevision;
+        return appliedRevision.get();
     }
 
     @Override
@@ -827,7 +828,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
     }
 
     /**
-     * Saves processed Meta Storage revision and corresponding entries to the Vault.
+     * Saves processed Meta Storage revision to the {@link #appliedRevision}.
      */
     private CompletableFuture<Void> onRevisionApplied(WatchEvent watchEvent) {
         if (!busyLock.enterBusy()) {
@@ -837,7 +838,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
         }
 
         try {
-            appliedRevision = watchEvent.revision();
+            appliedRevision.set(watchEvent.revision());
 
             return nullCompletedFuture();
         } finally {
