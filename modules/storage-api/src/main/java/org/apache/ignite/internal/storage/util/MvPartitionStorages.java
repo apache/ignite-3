@@ -143,9 +143,9 @@ public class MvPartitionStorages<T extends MvPartitionStorage> {
      * @throws StorageRebalanceException If the storage is in the process of rebalancing.
      */
     public CompletableFuture<Void> destroy(int partitionId, Function<T, CompletableFuture<Void>> destroyStorageFunction) {
-        DestroyStorageOperation destroyOp = (DestroyStorageOperation) operationByPartitionId.compute(partitionId, (partId, operation) -> {
-            checkStorageExists(partitionId);
+        checkPartitionId(partitionId);
 
+        DestroyStorageOperation destroyOp = (DestroyStorageOperation) operationByPartitionId.compute(partitionId, (partId, operation) -> {
             if (operation != null) {
                 throwExceptionDependingOnOperation(operation, partitionId);
             }
@@ -154,7 +154,11 @@ public class MvPartitionStorages<T extends MvPartitionStorage> {
         });
 
         return nullCompletedFuture()
-                .thenCompose(unused -> destroyStorageFunction.apply(storageByPartitionId.getAndSet(partitionId, null)))
+                .thenCompose(unused -> {
+                    T storage = storageByPartitionId.getAndSet(partitionId, null);
+
+                    return storage == null ? nullCompletedFuture() : destroyStorageFunction.apply(storage);
+                })
                 .whenComplete((unused, throwable) -> {
                     operationByPartitionId.compute(partitionId, (partId, operation) -> {
                         assert operation instanceof DestroyStorageOperation : createStorageInfo(partitionId) + ", op=" + operation;
@@ -181,9 +185,9 @@ public class MvPartitionStorages<T extends MvPartitionStorage> {
      * @throws StorageRebalanceException If the storage is in the process of rebalancing.
      */
     public CompletableFuture<Void> clear(int partitionId, Function<T, CompletableFuture<Void>> clearStorageFunction) {
-        operationByPartitionId.compute(partitionId, (partId, operation) -> {
-            checkStorageExists(partitionId);
+        checkPartitionId(partitionId);
 
+        operationByPartitionId.compute(partitionId, (partId, operation) -> {
             if (operation != null) {
                 throwExceptionDependingOnOperation(operation, partitionId);
             }
@@ -192,7 +196,11 @@ public class MvPartitionStorages<T extends MvPartitionStorage> {
         });
 
         return nullCompletedFuture()
-                .thenCompose(unused -> clearStorageFunction.apply(get(partitionId)))
+                .thenCompose(unused -> {
+                    T storage = storageByPartitionId.get(partitionId);
+
+                    return storage == null ? nullCompletedFuture() : clearStorageFunction.apply(storage);
+                })
                 .whenComplete((unused, throwable) ->
                         operationByPartitionId.compute(partitionId, (partId, operation) -> {
                             assert operation instanceof CleanupStorageOperation : createStorageInfo(partitionId) + ", op=" + operation;
@@ -369,19 +377,6 @@ public class MvPartitionStorages<T extends MvPartitionStorage> {
                     partitionId,
                     partitions
             ));
-        }
-    }
-
-    /**
-     * Checks if the storage exists.
-     *
-     * @param partitionId Partition ID.
-     * @throws IllegalArgumentException If partition ID is out of configured bounds.
-     * @throws StorageException If the storage does not exist.
-     */
-    private void checkStorageExists(int partitionId) {
-        if (get(partitionId) == null) {
-            throw new StorageException(createStorageDoesNotExistErrorMessage(partitionId));
         }
     }
 

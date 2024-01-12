@@ -55,7 +55,7 @@ public class MvPartitionStoragesTest extends BaseIgniteAbstractTest {
 
     @BeforeEach
     void setUp() {
-        mvPartitionStorages = new MvPartitionStorages(0, PARTITIONS);
+        mvPartitionStorages = new MvPartitionStorages<>(0, PARTITIONS);
     }
 
     @Test
@@ -206,9 +206,6 @@ public class MvPartitionStoragesTest extends BaseIgniteAbstractTest {
 
         assertThat(startDestroyMvStorageFuture, willCompleteSuccessfully());
 
-        assertThrowsWithCause(() -> destroyMvStorage(0), StorageException.class, "Storage does not exist");
-        assertThrowsWithCause(() -> clearMvStorage(0), StorageException.class, "Storage does not exist");
-
         assertThrowsWithCause(() -> startRebalanceMvStorage(0), StorageRebalanceException.class, "Storage does not exist");
         assertThrowsWithCause(() -> abortRebalanceMvStorage(0), StorageRebalanceException.class, "Storage does not exist");
         assertThrowsWithCause(() -> finishRebalanceMvStorage(0), StorageRebalanceException.class, "Storage does not exist");
@@ -226,8 +223,6 @@ public class MvPartitionStoragesTest extends BaseIgniteAbstractTest {
     void testDestroyError() {
         assertThrows(IllegalArgumentException.class, () -> destroyMvStorage(getPartitionIdOutOfConfig()));
 
-        assertThrowsWithCause(() -> destroyMvStorage(0), StorageException.class, "Storage does not exist");
-
         assertThat(createMvStorage(0), willCompleteSuccessfully());
 
         // What if there is an error during the operation?
@@ -238,8 +233,18 @@ public class MvPartitionStoragesTest extends BaseIgniteAbstractTest {
         );
 
         assertNull(getMvStorage(0));
+    }
 
-        assertThrowsWithCause(() -> destroyMvStorage(0), StorageException.class, "Storage does not exist");
+    @Test
+    void testDestroyIdempotence() {
+        assertThat(destroyMvStorage(0), willCompleteSuccessfully());
+
+        assertThat(createMvStorage(0), willCompleteSuccessfully());
+
+        assertThat(destroyMvStorage(0), willCompleteSuccessfully());
+        assertThat(destroyMvStorage(0), willCompleteSuccessfully());
+
+        assertNull(getMvStorage(0));
     }
 
     @Test
@@ -287,8 +292,6 @@ public class MvPartitionStoragesTest extends BaseIgniteAbstractTest {
     void testClearError() {
         assertThrows(IllegalArgumentException.class, () -> clearMvStorage(getPartitionIdOutOfConfig()));
 
-        assertThrowsWithCause(() -> clearMvStorage(0), StorageException.class, "Storage does not exist");
-
         assertThat(createMvStorage(0), willCompleteSuccessfully());
 
         // What if there is an error during the operation?
@@ -299,6 +302,16 @@ public class MvPartitionStoragesTest extends BaseIgniteAbstractTest {
         );
 
         assertNotNull(getMvStorage(0));
+    }
+
+    @Test
+    void testClearIdempotence() {
+        assertThat(clearMvStorage(0), willCompleteSuccessfully());
+
+        assertThat(createMvStorage(0), willCompleteSuccessfully());
+
+        assertThat(clearMvStorage(0), willCompleteSuccessfully());
+        assertThat(clearMvStorage(0), willCompleteSuccessfully());
     }
 
     @Test
@@ -563,8 +576,6 @@ public class MvPartitionStoragesTest extends BaseIgniteAbstractTest {
 
         // What happens if we try to perform operations on storages?
         assertThrowsWithCause(() -> createMvStorage(6), StorageException.class, "Storage is in the process of closing");
-        assertThrowsWithCause(() -> destroyMvStorage(0), StorageException.class, "Storage does not exist");
-        assertThrowsWithCause(() -> clearMvStorage(0), StorageException.class, "Storage does not exist");
         assertThrowsWithCause(() -> startRebalanceMvStorage(0), StorageException.class, "Storage does not exist");
         assertThrowsWithCause(() -> abortRebalanceMvStorage(0), StorageException.class, "Storage does not exist");
         assertThrowsWithCause(() -> finishRebalanceMvStorage(0), StorageException.class, "Storage does not exist");
