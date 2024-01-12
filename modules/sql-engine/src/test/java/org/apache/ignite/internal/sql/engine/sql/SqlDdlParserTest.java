@@ -24,6 +24,8 @@ import static org.hamcrest.CoreMatchers.instanceOf;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.nullValue;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
 import java.util.List;
@@ -31,6 +33,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
+import org.apache.calcite.schema.ColumnStrategy;
 import org.apache.calcite.sql.SqlBasicCall;
 import org.apache.calcite.sql.SqlIdentifier;
 import org.apache.calcite.sql.SqlKind;
@@ -650,6 +653,51 @@ public class SqlDdlParserTest extends AbstractDdlParserTest {
         return (IgniteSqlCreateTable) node;
     }
 
+    @Test
+    public void alterTableAddColumn() {
+        SqlNode sqlNode = parse("ALTER TABLE t ADD COLUMN c INT");
+
+        IgniteSqlAlterTableAddColumn addColumn = assertInstanceOf(IgniteSqlAlterTableAddColumn.class, sqlNode);
+        SqlColumnDeclaration declaration = (SqlColumnDeclaration) addColumn.columns().get(0);
+
+        assertThat(addColumn.name.names, is(List.of("T")));
+
+        expectColumnBasic(declaration, "C", ColumnStrategy.NULLABLE, "INTEGER", true);
+        assertThat(declaration.expression, is(nullValue()));
+
+        expectUnparsed(addColumn, "ALTER TABLE \"T\" ADD COLUMN \"C\" INTEGER");
+    }
+
+    @Test
+    public void alterTableAddColumnNull() {
+        SqlNode sqlNode = parse("ALTER TABLE t ADD COLUMN c INT NULL");
+
+        IgniteSqlAlterTableAddColumn addColumn = assertInstanceOf(IgniteSqlAlterTableAddColumn.class, sqlNode);
+        SqlColumnDeclaration column = (SqlColumnDeclaration) addColumn.columns().get(0);
+
+        assertThat(addColumn.name.names, is(List.of("T")));
+
+        expectColumnBasic(column, "C", ColumnStrategy.NULLABLE, "INTEGER", true);
+        assertThat(column.expression, is(nullValue()));
+
+        expectUnparsed(addColumn, "ALTER TABLE \"T\" ADD COLUMN \"C\" INTEGER");
+    }
+
+    @Test
+    public void alterTableAddColumnNotNull() {
+        SqlNode sqlNode = parse("ALTER TABLE t ADD COLUMN c INT NOT NULL");
+
+        IgniteSqlAlterTableAddColumn addColumn = assertInstanceOf(IgniteSqlAlterTableAddColumn.class, sqlNode);
+        SqlColumnDeclaration column = (SqlColumnDeclaration) addColumn.columns().get(0);
+
+        assertThat(addColumn.name.names, is(List.of("T")));
+
+        expectColumnBasic(column, "C", ColumnStrategy.NOT_NULLABLE, "INTEGER", false);
+        assertThat(column.expression, is(nullValue()));
+
+        expectUnparsed(addColumn, "ALTER TABLE \"T\" ADD COLUMN \"C\" INTEGER NOT NULL");
+    }
+
     /**
      * Matcher to verify name in the column declaration.
      *
@@ -665,6 +713,17 @@ public class SqlDdlParserTest extends AbstractDdlParserTest {
                         && ((SqlColumnDeclaration) item).name.names.get(0).equals(name);
             }
         };
+    }
+
+    /** Checks basic column properties such as name, type name and type's nullability. */
+    private static void expectColumnBasic(SqlColumnDeclaration declaration,
+            String columnName, ColumnStrategy columnStrategy,
+            String typeName, Boolean nullable) {
+
+        assertThat(List.of(columnName), is(declaration.name.names));
+        assertThat(columnStrategy, is(declaration.strategy));
+        assertThat(List.of(typeName), is(declaration.dataType.getTypeName().names));
+        assertThat(nullable, is(declaration.dataType.getNullable()));
     }
 
     private void assertThatOptionPresent(List<SqlNode> optionList, String option, Object expVal) {

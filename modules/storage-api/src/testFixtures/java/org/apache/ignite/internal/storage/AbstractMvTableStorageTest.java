@@ -19,7 +19,6 @@ package org.apache.ignite.internal.storage;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.internal.catalog.CatalogManagerImpl.INITIAL_CAUSALITY_TOKEN;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation.ASC_NULLS_LAST;
 import static org.apache.ignite.internal.schema.BinaryRowMatcher.equalToRow;
 import static org.apache.ignite.internal.storage.MvPartitionStorage.REBALANCE_IN_PROGRESS;
@@ -775,7 +774,6 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
                 hashIndexId,
                 TABLE_NAME,
                 zoneId,
-                1,
                 List.of(
                         CatalogUtils.fromParams(ColumnParams.builder().name("INTKEY").type(INT32).build()),
                         CatalogUtils.fromParams(ColumnParams.builder().name("STRKEY").length(100).type(STRING).build()),
@@ -783,9 +781,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
                         CatalogUtils.fromParams(ColumnParams.builder().name("STRVAL").length(100).type(STRING).build())
                 ),
                 List.of("INTKEY"),
-                null,
-                INITIAL_CAUSALITY_TOKEN,
-                INITIAL_CAUSALITY_TOKEN
+                null
         );
 
         CatalogSortedIndexDescriptor sortedIndex = new CatalogSortedIndexDescriptor(
