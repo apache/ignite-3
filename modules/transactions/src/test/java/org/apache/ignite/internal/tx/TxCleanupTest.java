@@ -74,8 +74,6 @@ public class TxCleanupTest extends IgniteAbstractTest {
     private static final ClusterNode REMOTE_NODE =
             new ClusterNodeImpl("remote_id", "remote", new NetworkAddress("127.1.1.1", 2024), null);
 
-    private TxCleanupRequestSender cleanupRequestSender;
-
     @Mock(answer = RETURNS_DEEP_STUBS)
     private MessagingService messagingService;
 
@@ -85,10 +83,12 @@ public class TxCleanupTest extends IgniteAbstractTest {
     @Mock(answer = RETURNS_DEEP_STUBS)
     private ReplicaService replicaService;
 
-    private final HybridClock clock = spy(new HybridClockImpl());
-
     @Mock
     private PlacementDriver placementDriver;
+
+    private final HybridClock clock = new HybridClockImpl();
+
+    private TxCleanupRequestSender cleanupRequestSender;
 
     private TransactionIdGenerator idGenerator;
 
