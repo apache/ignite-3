@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.runner.app;
 
+import static java.util.Collections.emptySet;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
@@ -34,7 +35,6 @@ import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFu
 import static org.apache.ignite.utils.ClusterServiceTestUtils.defaultSerializationRegistry;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -1389,10 +1389,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
             createWatchListener(
                     nodes.get(i).metaStorageManager(),
                     STABLE_ASSIGNMENTS_PREFIX,
-                    e -> {
-                        System.out.println("qqq rev=" + e.revision());
-                        stableAssignmentsChangeCounters.get(fi).incrementAndGet();
-                    }
+                    e -> stableAssignmentsChangeCounters.get(fi).incrementAndGet()
             );
 
             createWatchListener(
@@ -1525,6 +1522,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         int tableId = tableId(nodeUs, tableName);
 
+        byte[] assignmentsKey = stablePartAssignmentsKey(new TablePartitionId(tableId, 0)).bytes();
+
         removeStableAssignments(usIdx, tableId, 0);
         removeStableAssignments(ruIdx, tableId, 0);
         removeStableAssignments(jpIdx, tableId, 0);
@@ -1590,7 +1589,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         // Clear fake data.
         metaStorageMockDataByNode.clear();
 
-        byte[] assignmentsKey = stablePartAssignmentsKey(new TablePartitionId(tableId, 0)).bytes();
         var expectedAssignments = getAssignmentsFromMetaStorage(nodeEu.metaStorageManager(), assignmentsKey);
 
         for (PartialNode partialNode : partialNodes) {
@@ -1607,15 +1605,11 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
     }
 
     private Set<Assignment> getAssignmentsFromMetaStorage(MetaStorageManager metaStorageManager, byte[] assignmentsKey) {
-        var future = metaStorageManager.get(new ByteArray(assignmentsKey));
+        var e = metaStorageManager.getLocally(new ByteArray(assignmentsKey), metaStorageManager.appliedRevision());
 
-        var e = future.join();
-
-        assertNotNull(e);
-
-        assertFalse(e.empty() || e.tombstone());
-
-        return ByteUtils.fromBytes(e.value());
+        return e == null || e.tombstone() || e.empty()
+            ? emptySet()
+            : ByteUtils.fromBytes(e.value());
     }
 
     private <T extends IgniteComponent> @Nullable T component(List<IgniteComponent> components, Class<T> cls) {
