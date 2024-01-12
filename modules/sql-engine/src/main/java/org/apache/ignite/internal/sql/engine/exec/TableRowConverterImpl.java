@@ -20,10 +20,13 @@ package org.apache.ignite.internal.sql.engine.exec;
 import java.util.BitSet;
 import org.apache.ignite.internal.lang.InternalTuple;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.BinaryRowEx;
+import org.apache.ignite.internal.schema.BinaryRowImpl;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
+import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.util.FieldDeserializingProjectedTuple;
@@ -40,7 +43,22 @@ public class TableRowConverterImpl implements TableRowConverter {
 
     private final BinaryTupleSchema binaryTupleSchema;
 
-    private final int[] mapping;
+    /**
+     * Mapping of required columns to their indexes in physical schema.
+     */
+    private final int[] requiredColumnsMapping;
+
+    /**
+     * Mapping of all columns to their indexes in physical schema.
+     */
+    private final int[] fullMapping;
+
+    /**
+     * Mapping of key column indexes to its ordinals in the ordered list.
+     * It is used during a delete operation to assemble key-only binary row from
+     * "truncated" relational node row containing only primary key columns.
+     */
+    private final int[] keyMapping;
 
     /** Constructor. */
     TableRowConverterImpl(
@@ -56,15 +74,41 @@ public class TableRowConverterImpl implements TableRowConverter {
 
         int size = requiredColumns == null ? descriptor.columnsCount() : requiredColumns.cardinality();
 
-        mapping = new int[size];
+        requiredColumnsMapping = new int[size];
+        fullMapping = new int[descriptor.columnsCount()];
+        keyMapping = new int[schemaDescriptor.keyColumns().length()];
 
-        int currentIdx = 0;
-        for (ColumnDescriptor column : descriptor) {
-            if (requiredColumns != null && !requiredColumns.get(column.logicalIndex())) {
-                continue;
+        for (int i = 0, j = 0, k = 0; i < descriptor.columnsCount(); i++) {
+            ColumnDescriptor column = descriptor.columnDescriptor(i);
+            int schemaIndex = schemaDescriptor.column(column.name()).schemaIndex();
+
+            fullMapping[schemaIndex] = i;
+
+            if (column.key()) {
+                keyMapping[j++] = schemaIndex;
             }
 
-            mapping[currentIdx++] = schemaDescriptor.column(column.name()).schemaIndex();
+            if (requiredColumns == null || requiredColumns.get(column.logicalIndex())) {
+                requiredColumnsMapping[k++] = schemaIndex;
+            }
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public <RowT> BinaryRowEx toBinaryRow(ExecutionContext<RowT> ectx, RowT row, boolean key) {
+        BinaryTuple binaryTuple = ectx.rowHandler().toBinaryTuple(row);
+
+        if (!key) {
+            FormatAwareProjectedTuple tuple = new FormatAwareProjectedTuple(binaryTuple, fullMapping);
+            BinaryRowImpl binaryRow = new BinaryRowImpl(schemaDescriptor.version(), tuple.byteBuffer());
+
+            return Row.wrapBinaryRow(schemaDescriptor, binaryRow);
+        } else {
+            FormatAwareProjectedTuple tuple = new FormatAwareProjectedTuple(binaryTuple, keyMapping);
+            BinaryRowImpl binaryRow = new BinaryRowImpl(schemaDescriptor.version(), tuple.byteBuffer());
+
+            return Row.wrapKeyOnlyBinaryRow(schemaDescriptor, binaryRow);
         }
     }
 
@@ -81,7 +125,7 @@ public class TableRowConverterImpl implements TableRowConverter {
 
             tuple = new FormatAwareProjectedTuple(
                     tableTuple,
-                    mapping
+                    requiredColumnsMapping
             );
         } else {
             InternalTuple tableTuple = schemaRegistry.resolve(tableRow, schemaDescriptor);
@@ -89,7 +133,7 @@ public class TableRowConverterImpl implements TableRowConverter {
             tuple = new FieldDeserializingProjectedTuple(
                     binaryTupleSchema,
                     tableTuple,
-                    mapping
+                    requiredColumnsMapping
             );
         }
 
