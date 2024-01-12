@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.metastorage.server;
 
+import static java.util.Collections.emptySet;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
@@ -25,7 +26,6 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.OptionalLong;
 import java.util.concurrent.CompletableFuture;
@@ -37,6 +37,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.Entry;
@@ -105,7 +106,8 @@ public class WatchProcessor implements ManuallyCloseable {
     public WatchProcessor(String nodeName, EntryReader entryReader) {
         this.entryReader = entryReader;
 
-        this.watchExecutor = Executors.newFixedThreadPool(4, NamedThreadFactory.create(nodeName, "metastorage-watch-executor", LOG));
+        this.watchExecutor = Executors.newSingleThreadScheduledExecutor(
+                NamedThreadFactory.create(nodeName, "metastorage-watch-executor", LOG));
     }
 
     /** Adds a watch. */
@@ -173,7 +175,7 @@ public class WatchProcessor implements ManuallyCloseable {
 
                                 CompletableFuture<Void> notificationFuture = allOf(notifyWatchesFuture, notifyUpdateRevisionFuture)
                                         .thenComposeAsync(
-                                                unused -> invokeOnRevisionCallback(watchAndEvents, newRevision, time),
+                                                unused -> invokeOnRevisionCallback(newRevision, time),
                                                 watchExecutor
                                         );
 
@@ -210,8 +212,10 @@ public class WatchProcessor implements ManuallyCloseable {
                                     e = e.getCause();
                                 }
 
-                                // TODO: IGNITE-14693 Implement Meta storage exception handling
-                                LOG.error("Error occurred when processing a watch event", e);
+                                if (!(e instanceof NodeStoppingException)) {
+                                    // TODO: IGNITE-14693 Implement Meta storage exception handling
+                                    LOG.error("Error occurred when processing a watch event", e);
+                                }
 
                                 watchAndEvents.watch.onError(e);
                             }
@@ -284,16 +288,10 @@ public class WatchProcessor implements ManuallyCloseable {
         }, watchExecutor);
     }
 
-    private CompletableFuture<Void> invokeOnRevisionCallback(List<WatchAndEvents> watchAndEventsList, long revision, HybridTimestamp time) {
+    private CompletableFuture<Void> invokeOnRevisionCallback(long revision, HybridTimestamp time) {
         try {
-            // Only notify about entries that have been accepted by at least one Watch.
-            var acceptedEntries = new HashSet<EntryEvent>();
-
-            for (WatchAndEvents watchAndEvents : watchAndEventsList) {
-                acceptedEntries.addAll(watchAndEvents.events);
-            }
-
-            var event = new WatchEvent(acceptedEntries, revision, time);
+            // We consciously put empty set here. Revision applied callback doesn't need any data.
+            var event = new WatchEvent(emptySet(), revision, time);
 
             revisionCallback.onSafeTimeAdvanced(time);
 
