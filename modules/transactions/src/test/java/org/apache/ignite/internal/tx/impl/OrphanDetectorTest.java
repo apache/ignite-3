@@ -84,16 +84,14 @@ public class OrphanDetectorTest extends BaseIgniteAbstractTest {
     @Mock
     private PlacementDriver placementDriver;
 
-    private HeapLockManager lockManager = new HeapLockManager();
+    private final HeapLockManager lockManager = new HeapLockManager();
 
     private final HybridClock clock = spy(new HybridClockImpl());
 
     @InjectConfiguration
     private TransactionConfiguration txConfiguration;
 
-    private OrphanDetector orphanDetector;
-
-    VolatileTxStateMetaStorage txStateMetaStorage;
+    private VolatileTxStateMetaStorage txStateMetaStorage;
 
     private TransactionIdGenerator idGenerator;
 
@@ -103,7 +101,7 @@ public class OrphanDetectorTest extends BaseIgniteAbstractTest {
 
         PlacementDriverHelper placementDriverHelper = new PlacementDriverHelper(placementDriver, clock);
 
-        orphanDetector = new OrphanDetector(topologyService, replicaService, placementDriverHelper, lockManager);
+        OrphanDetector orphanDetector = new OrphanDetector(topologyService, replicaService, placementDriverHelper, lockManager);
 
         txStateMetaStorage = new VolatileTxStateMetaStorage();
 
