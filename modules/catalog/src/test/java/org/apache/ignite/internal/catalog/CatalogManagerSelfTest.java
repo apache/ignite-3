@@ -204,11 +204,16 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
     @Test
     public void testNoInteractionsAfterStop() throws Exception {
-        Mockito.reset(updateLog);
+        clearInvocations(updateLog);
+
+        CompletableFuture<Void> readyFuture = manager.catalogReadyFuture(1);
+        assertFalse(readyFuture.isDone());
 
         manager.stop();
 
         verify(updateLog).stop();
+
+        assertTrue(readyFuture.isDone());
 
         manager.execute(catalog -> null);
         manager.execute(List.of(catalog -> null));

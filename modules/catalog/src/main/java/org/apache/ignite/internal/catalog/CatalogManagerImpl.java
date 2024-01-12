@@ -23,7 +23,6 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.fromParams;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
-import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -177,6 +176,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     @Override
     public void stop() throws Exception {
         busyLock.block();
+        versionTracker.close();
         updateLog.stop();
     }
 
@@ -328,10 +328,8 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     }
 
     private void registerCatalog(Catalog newCatalog) {
-        inBusyLock(busyLock, () -> {
-            catalogByVer.put(newCatalog.version(), newCatalog);
-            catalogByTs.put(newCatalog.time(), newCatalog);
-        });
+        catalogByVer.put(newCatalog.version(), newCatalog);
+        catalogByTs.put(newCatalog.time(), newCatalog);
     }
 
     private CompletableFuture<Void> saveUpdateAndWaitForActivation(UpdateProducer updateProducer) {
