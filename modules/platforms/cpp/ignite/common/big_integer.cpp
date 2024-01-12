@@ -614,7 +614,7 @@ uint32_t big_integer::get_mag_int(int32_t n) const {
 void big_integer::divide(const big_integer &divisor, big_integer &res, big_integer *rem) const {
     // Can't divide by zero.
     if (divisor.mag.empty())
-        throw ignite_error(status_code::GENERIC, "Division by zero.");
+        throw ignite_error(error::code::GENERIC, "Division by zero.");
 
     int32_t compRes = compare(divisor, true);
     auto resSign = int8_t(sign * divisor.sign);

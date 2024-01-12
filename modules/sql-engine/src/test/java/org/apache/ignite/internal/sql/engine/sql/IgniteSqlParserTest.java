@@ -146,7 +146,7 @@ public class IgniteSqlParserTest {
     public void testInvalidDecimalLiteral() {
         assertThrowsSqlException(
                 Sql.STMT_PARSE_ERR,
-                "Failed to parse query: Invalid decimal literal. At line 1, column 16",
+                "Literal '2a' can not be parsed to type 'DECIMAL'",
                 () -> IgniteSqlParser.parse("SELECT decimal '2a'", StatementParseResult.MODE));
     }
 

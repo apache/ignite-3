@@ -17,8 +17,11 @@
 
 package org.apache.ignite.internal.app;
 
+import static java.util.concurrent.CompletableFuture.allOf;
+
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -47,6 +50,8 @@ class LifecycleManager implements StateProvider {
      */
     private final List<IgniteComponent> startedComponents = new ArrayList<>();
 
+    private final List<CompletableFuture<Void>> allComponentsStartFuture = new ArrayList<>();
+
     LifecycleManager(String nodeName) {
         this.nodeName = nodeName;
     }
@@ -71,7 +76,7 @@ class LifecycleManager implements StateProvider {
         synchronized (this) {
             startedComponents.add(component);
 
-            component.start();
+            allComponentsStartFuture.add(component.start());
         }
     }
 
@@ -103,6 +108,21 @@ class LifecycleManager implements StateProvider {
         } else if (currentStatus != State.STARTING) {
             throw new IllegalStateException("Unexpected node status: " + currentStatus);
         }
+    }
+
+    /**
+     * Represents future that will be completed when all components start futures will be completed.
+     * Note that it is designed that this method is called only once.
+     *
+     * @return Future that will be completed when all components start futures will be completed.
+     */
+    synchronized CompletableFuture<Void> allComponentsStartFuture() {
+        return allOf(allComponentsStartFuture.toArray(CompletableFuture[]::new))
+                .whenComplete((v, e) -> {
+                    synchronized (this) {
+                        allComponentsStartFuture.clear();
+                    }
+                });
     }
 
     /**

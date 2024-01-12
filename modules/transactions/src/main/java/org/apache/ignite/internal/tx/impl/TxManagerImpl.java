@@ -578,7 +578,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     }
 
     @Override
-    public void start() {
+    public CompletableFuture<Void> start() {
         localNodeId = topologyService.localMember().id();
 
         messagingService.addMessageHandler(ReplicaMessageGroup.class, this);
@@ -588,6 +588,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         orphanDetector.start(txStateVolatileStorage, txConfig.abandonedCheckTs());
 
         txCleanupRequestHandler.start();
+
+        return nullCompletedFuture();
     }
 
     @Override
