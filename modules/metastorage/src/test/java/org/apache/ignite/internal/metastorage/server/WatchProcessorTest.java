@@ -18,11 +18,12 @@
 package org.apache.ignite.internal.metastorage.server;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Collections.emptyList;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.containsInAnyOrder;
+import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.inOrder;
@@ -98,7 +99,7 @@ public class WatchProcessorTest extends BaseIgniteAbstractTest {
 
         WatchEvent event = watchEventCaptor.getValue();
 
-        assertThat(event.entryEvents(), containsInAnyOrder(entryEvent1, entryEvent2));
+        assertThat(event.entryEvents(), is(equalTo(emptyList())));
         assertThat(event.revision(), is(1L));
     }
 
@@ -122,11 +123,12 @@ public class WatchProcessorTest extends BaseIgniteAbstractTest {
 
         assertThat(notificationFuture, willCompleteSuccessfully());
 
-        var event = new WatchEvent(new EntryEvent(oldEntry(entry1), entry1));
+        var updateEvent = new WatchEvent(new EntryEvent(oldEntry(entry1), entry1));
+        var revisionEvent = new WatchEvent(emptyList(), 1, HybridTimestamp.MAX_VALUE);
 
-        verify(listener1).onUpdate(event);
+        verify(listener1).onUpdate(updateEvent);
 
-        verify(revisionCallback).onRevisionApplied(event);
+        verify(revisionCallback).onRevisionApplied(revisionEvent);
 
         ts = new HybridTimestamp(2, 3);
 
@@ -134,11 +136,12 @@ public class WatchProcessorTest extends BaseIgniteAbstractTest {
 
         assertThat(notificationFuture, willCompleteSuccessfully());
 
-        event = new WatchEvent(new EntryEvent(oldEntry(entry2), entry2));
+        updateEvent = new WatchEvent(new EntryEvent(oldEntry(entry2), entry2));
+        revisionEvent = new WatchEvent(emptyList(), 2, HybridTimestamp.MAX_VALUE);
 
-        verify(listener2).onUpdate(event);
+        verify(listener2).onUpdate(updateEvent);
 
-        verify(revisionCallback).onRevisionApplied(event);
+        verify(revisionCallback).onRevisionApplied(revisionEvent);
     }
 
     /**
