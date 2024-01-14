@@ -46,8 +46,6 @@ import static org.apache.ignite.internal.utils.RebalanceUtil.pendingPartAssignme
 import static org.apache.ignite.internal.utils.RebalanceUtil.stablePartAssignmentsKey;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
-import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -75,6 +73,7 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.IntSupplier;
 import java.util.function.LongFunction;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -89,6 +88,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CreateTableEventParameters;
 import org.apache.ignite.internal.catalog.events.DropTableEventParameters;
+import org.apache.ignite.internal.catalog.events.RenameTableEventParameters;
 import org.apache.ignite.internal.causality.CompletionListener;
 import org.apache.ignite.internal.causality.IncrementalVersionedValue;
 import org.apache.ignite.internal.close.ManuallyCloseable;
@@ -131,7 +131,6 @@ import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
-import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
@@ -169,6 +168,7 @@ import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.TxMessageSender;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
+import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbSharedStorage;
 import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbTableStorage;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.CompletableFutures;
@@ -185,6 +185,7 @@ import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.TopologyService;
 import org.apache.ignite.raft.jraft.storage.impl.VolatileRaftMetaStorage;
+import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.Table;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -198,10 +199,10 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     private static final IgniteLogger LOG = Loggers.forClass(TableManager.class);
 
     /** Name of a transaction state directory. */
-    private static final String TX_STATE_DIR = "tx-state-";
+    private static final String TX_STATE_DIR = "tx-state";
 
     /** Transaction storage flush delay. */
-    private static final int TX_STATE_STORAGE_FLUSH_DELAY = 1000;
+    private static final int TX_STATE_STORAGE_FLUSH_DELAY = 100;
     private static final IntSupplier TX_STATE_STORAGE_FLUSH_DELAY_SUPPLIER = () -> TX_STATE_STORAGE_FLUSH_DELAY;
 
     private final ClusterService clusterService;
@@ -285,6 +286,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     /** Transaction state storage pool. */
     private final ExecutorService txStateStoragePool;
 
+    private final TxStateRocksDbSharedStorage sharedTxStateStorage;
+
     /** Scan request executor. */
     private final ExecutorService scanRequestExecutor;
 
@@ -309,9 +312,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     private final SchemaSyncService schemaSyncService;
 
     private final CatalogService catalogService;
-
-    /** Partitions storage path. */
-    private final Path storagePath;
 
     /** Incoming RAFT snapshots executor. */
     private final ExecutorService incomingSnapshotsExecutor;
@@ -338,6 +338,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
     /** Placement driver. */
     private final PlacementDriver placementDriver;
+
+    /** A supplier function that returns {@link IgniteSql}. */
+    private final Supplier<IgniteSql> sql;
 
     private final SchemaVersions schemaVersions;
 
@@ -367,6 +370,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      * @param raftGroupServiceFactory Factory that is used for creation of raft group services for replication groups.
      * @param vaultManager Vault manager.
      * @param placementDriver Placement driver.
+     * @param sql A supplier function that returns {@link IgniteSql}.
      */
     public TableManager(
             String nodeName,
@@ -392,7 +396,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             SchemaSyncService schemaSyncService,
             CatalogService catalogService,
             HybridTimestampTracker observableTimestampTracker,
-            PlacementDriver placementDriver
+            PlacementDriver placementDriver,
+            Supplier<IgniteSql> sql
     ) {
         this.clusterService = clusterService;
         this.raftMgr = raftMgr;
@@ -401,7 +406,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         this.replicaSvc = replicaSvc;
         this.txManager = txManager;
         this.dataStorageMgr = dataStorageMgr;
-        this.storagePath = storagePath;
         this.metaStorageMgr = metaStorageMgr;
         this.schemaManager = schemaManager;
         this.volatileLogStorageFactoryCreator = volatileLogStorageFactoryCreator;
@@ -414,6 +418,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         this.catalogService = catalogService;
         this.observableTimestampTracker = observableTimestampTracker;
         this.placementDriver = placementDriver;
+        this.sql = sql;
 
         TopologyService topologyService = clusterService.topologyService();
 
@@ -487,10 +492,17 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         );
 
         startVv = new IncrementalVersionedValue<>(registry);
+
+        sharedTxStateStorage = new TxStateRocksDbSharedStorage(
+                storagePath.resolve(TX_STATE_DIR),
+                txStateStorageScheduledPool,
+                txStateStoragePool,
+                TX_STATE_STORAGE_FLUSH_DELAY_SUPPLIER
+        );
     }
 
     @Override
-    public void start() {
+    public CompletableFuture<Void> start() {
         inBusyLock(busyLock, () -> {
             mvGc.start();
 
@@ -524,8 +536,20 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 return onTableDelete(((DropTableEventParameters) parameters)).thenApply(unused -> false);
             });
 
+            catalogService.listen(CatalogEvent.TABLE_ALTER, (parameters, exception) -> {
+                assert exception == null : parameters;
+
+                if (parameters instanceof RenameTableEventParameters) {
+                    return onTableRename((RenameTableEventParameters) parameters).thenApply(unused -> false);
+                } else {
+                    return falseCompletedFuture();
+                }
+            });
+
             partitionReplicatorNodeRecovery.start();
         });
+
+        return nullCompletedFuture();
     }
 
     private void processAssignmentsOnRecovery(long recoveryRevision) {
@@ -570,7 +594,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                         return assignmentsEventHandler.apply(entry, revision);
                     })
                     .toArray(CompletableFuture[]::new);
-
 
             return allOf(futures)
                     // Simply log any errors, we don't want to block watch processing.
@@ -628,6 +651,24 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
             return nullCompletedFuture();
         });
+    }
+
+    private CompletableFuture<?> onTableRename(RenameTableEventParameters parameters) {
+        return inBusyLockAsync(busyLock, () -> tablesByIdVv.update(
+                parameters.causalityToken(),
+                (tablesById, e) -> {
+                    if (e != null) {
+                        return failedFuture(e);
+                    }
+
+                    TableImpl table = tablesById.get(parameters.tableId());
+
+                    // TODO: revisit this approach, see https://issues.apache.org/jira/browse/IGNITE-21235.
+                    table.name(parameters.newTableName());
+
+                    return completedFuture(tablesById);
+                })
+        );
     }
 
     /**
@@ -978,7 +1019,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 () -> shutdownAndAwaitTermination(txStateStoragePool, 10, TimeUnit.SECONDS),
                 () -> shutdownAndAwaitTermination(txStateStorageScheduledPool, 10, TimeUnit.SECONDS),
                 () -> shutdownAndAwaitTermination(scanRequestExecutor, 10, TimeUnit.SECONDS),
-                () -> shutdownAndAwaitTermination(incomingSnapshotsExecutor, 10, TimeUnit.SECONDS)
+                () -> shutdownAndAwaitTermination(incomingSnapshotsExecutor, 10, TimeUnit.SECONDS),
+                sharedTxStateStorage
         );
     }
 
@@ -1116,7 +1158,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 partitions, clusterService.topologyService(), txManager, tableStorage,
                 txStateStorage, replicaSvc, clock, observableTimestampTracker, placementDriver);
 
-        var table = new TableImpl(internalTable, lockMgr, schemaVersions);
+        var table = new TableImpl(internalTable, lockMgr, schemaVersions, sql.get());
 
         // TODO: IGNITE-18595 We need to do something different to wait for indexes before full rebalancing
         table.addIndexesToWait(collectTableIndexIds(tableId, catalogVersion, onNodeRecovery));
@@ -1221,21 +1263,10 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     protected TxStateTableStorage createTxStateTableStorage(CatalogTableDescriptor tableDescriptor, CatalogZoneDescriptor zoneDescriptor) {
         int tableId = tableDescriptor.id();
 
-        Path path = storagePath.resolve(TX_STATE_DIR + tableId);
-
-        try {
-            Files.createDirectories(path);
-        } catch (IOException e) {
-            throw new StorageException("Failed to create transaction state storage directory for table: " + tableId, e);
-        }
-
         TxStateTableStorage txStateTableStorage = new TxStateRocksDbTableStorage(
                 tableId,
                 zoneDescriptor.partitions(),
-                path,
-                txStateStorageScheduledPool,
-                txStateStoragePool,
-                TX_STATE_STORAGE_FLUSH_DELAY_SUPPLIER
+                sharedTxStateStorage
         );
 
         txStateTableStorage.start();
@@ -1908,7 +1939,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      * @param partitionId Partition ID.
      * @return PartitionStorages.
      */
-    private PartitionStorages getPartitionStorages(TableImpl table, int partitionId) {
+    private static PartitionStorages getPartitionStorages(TableImpl table, int partitionId) {
         InternalTable internalTable = table.internalTable();
 
         MvPartitionStorage mvPartition = internalTable.storage().getMvPartition(partitionId);
@@ -1938,9 +1969,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                             return allOf(
                                     internalTable.storage().clearPartition(partitionId),
                                     txStateStorage.clear()
-                            ).thenApply(unused -> new PartitionStorages(mvPartitionStorage, txStateStorage));
+                            );
                         } else {
-                            return completedFuture(new PartitionStorages(mvPartitionStorage, txStateStorage));
+                            return nullCompletedFuture();
                         }
                     }, ioExecutor);
         }).toArray(CompletableFuture[]::new);
@@ -2202,6 +2233,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     }
 
     private void startTables(long recoveryRevision) {
+        sharedTxStateStorage.start();
+
         int catalogVersion = catalogService.latestCatalogVersion();
 
         List<CompletableFuture<?>> startTableFutures = new ArrayList<>();

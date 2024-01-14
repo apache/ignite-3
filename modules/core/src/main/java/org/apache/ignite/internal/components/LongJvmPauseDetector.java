@@ -19,9 +19,11 @@ package org.apache.ignite.internal.components;
 
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.getBoolean;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.getInteger;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.Map;
 import java.util.TreeMap;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -90,11 +92,11 @@ public class LongJvmPauseDetector implements IgniteComponent {
 
     /** {@inheritDoc} */
     @Override
-    public void start() {
+    public CompletableFuture<Void> start() {
         if (DISABLED) {
             log.debug("JVM Pause Detector is disabled");
 
-            return;
+            return nullCompletedFuture();
         }
 
         final Thread worker = new Thread(NamedThreadFactory.threadPrefix(nodeName, "jvm-pause-detector-worker")) {
@@ -151,13 +153,15 @@ public class LongJvmPauseDetector implements IgniteComponent {
         if (!workerRef.compareAndSet(null, worker)) {
             log.debug("{} already started", LongJvmPauseDetector.class.getSimpleName());
 
-            return;
+            return nullCompletedFuture();
         }
 
         worker.setDaemon(true);
         worker.start();
 
         log.debug("{} was successfully started", LongJvmPauseDetector.class.getSimpleName());
+
+        return nullCompletedFuture();
     }
 
     /** {@inheritDoc} */

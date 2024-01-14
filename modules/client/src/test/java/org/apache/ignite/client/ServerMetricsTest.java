@@ -137,7 +137,7 @@ public class ServerMetricsTest extends AbstractClientTest {
         assertFalse(testServer.metrics().enabled());
         assertEquals(0, testServer.metrics().requestsProcessed());
 
-        client.compute().executeAsync(getClusterNodes("s1"), List.of(), "job").join();
+        client.compute().executeAsync(getClusterNodes("s1"), List.of(), "job").resultAsync().join();
 
         assertEquals(0, testServer.metrics().requestsProcessed());
         assertFalse(testServer.metrics().enabled());

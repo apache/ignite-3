@@ -107,6 +107,8 @@ dependencies {
     testFixturesImplementation libs.mockito.core
     testFixturesImplementation libs.mockito.junit
     testFixturesImplementation libs.hamcrest.core
+    testFixturesImplementation libs.junit5.params
+
 
     integrationTestImplementation project(':ignite-replicator')
     integrationTestImplementation project(':ignite-raft-api')
@@ -121,9 +123,11 @@ dependencies {
     integrationTestImplementation project(':ignite-runner')
     integrationTestImplementation project(':ignite-index')
     integrationTestImplementation project(':ignite-rest')
+    integrationTestImplementation project(':ignite-client')
     integrationTestImplementation project(':ignite-client-handler')
     integrationTestImplementation project(':ignite-page-memory')
     integrationTestImplementation project(':ignite-storage-page-memory')
+    integrationTestImplementation project(':ignite-sql-engine')
     integrationTestImplementation(testFixtures(project))
     integrationTestImplementation(testFixtures(project(':ignite-api')))
     integrationTestImplementation(testFixtures(project(':ignite-core')))

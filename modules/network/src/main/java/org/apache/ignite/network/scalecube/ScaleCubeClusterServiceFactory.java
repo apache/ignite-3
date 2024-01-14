@@ -18,6 +18,8 @@
 package org.apache.ignite.network.scalecube;
 
 import static io.scalecube.cluster.membership.MembershipEvent.createAdded;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import io.scalecube.cluster.ClusterConfig;
 import io.scalecube.cluster.ClusterImpl;
@@ -83,9 +85,18 @@ public class ScaleCubeClusterServiceFactory {
             MessageSerializationRegistry serializationRegistry,
             StaleIds staleIds
     ) {
-        var messageFactory = new NetworkMessagesFactory();
-
         var topologyService = new ScaleCubeTopologyService();
+
+        // Adding this handler as the first handler to make sure that StaleIds is at least up-to-date as any
+        // other component that watches topology events.
+        topologyService.addEventHandler(new TopologyEventHandler() {
+            @Override
+            public void onDisappeared(ClusterNode member) {
+                staleIds.markAsStale(member.id());
+            }
+        });
+
+        var messageFactory = new NetworkMessagesFactory();
 
         UserObjectSerializationContext userObjectSerialization = createUserObjectSerializationContext();
 
@@ -93,6 +104,7 @@ public class ScaleCubeClusterServiceFactory {
                 consistentId,
                 messageFactory,
                 topologyService,
+                staleIds,
                 userObjectSerialization.descriptorRegistry(),
                 userObjectSerialization.marshaller()
         );
@@ -105,16 +117,15 @@ public class ScaleCubeClusterServiceFactory {
 
             private volatile CompletableFuture<Void> shutdownFuture;
 
-            /** {@inheritDoc} */
             @Override
-            public void start() {
+            public CompletableFuture<Void> start() {
                 var serializationService = new SerializationService(serializationRegistry, userObjectSerialization);
 
                 UUID launchId = UUID.randomUUID();
 
                 NetworkView configView = networkConfiguration.value();
 
-                connectionMgr = new ConnectionManager(
+                ConnectionManager connectionMgr = new ConnectionManager(
                         configView,
                         serializationService,
                         launchId,
@@ -122,8 +133,16 @@ public class ScaleCubeClusterServiceFactory {
                         nettyBootstrapFactory,
                         staleIds
                 );
+                this.connectionMgr = connectionMgr;
 
                 connectionMgr.start();
+
+                topologyService.addEventHandler(new TopologyEventHandler() {
+                    @Override
+                    public void onDisappeared(ClusterNode member) {
+                        connectionMgr.handleNodeLeft(member.id());
+                    }
+                });
 
                 var transport = new ScaleCubeDirectMarshallerTransport(
                         connectionMgr.localAddress(),
@@ -133,9 +152,8 @@ public class ScaleCubeClusterServiceFactory {
                 );
 
                 NodeFinder finder = NodeFinderFactory.createNodeFinder(configView.nodeFinder());
-                cluster = new ClusterImpl(clusterConfig(configView.membership()))
+                ClusterImpl cluster = new ClusterImpl(clusterConfig(configView.membership()))
                         .handler(cl -> new ClusterMessageHandler() {
-                            /** {@inheritDoc} */
                             @Override
                             public void onMembershipEvent(MembershipEvent event) {
                                 topologyService.onMembershipEvent(event);
@@ -149,65 +167,64 @@ public class ScaleCubeClusterServiceFactory {
                         .transport(opts -> opts.transportFactory(transportConfig -> transport))
                         .membership(opts -> opts.seedMembers(parseAddresses(finder.findNodes())));
 
-                shutdownFuture = cluster.onShutdown().toFuture();
+                this.shutdownFuture = cluster.onShutdown().toFuture();
 
                 // resolve cyclic dependencies
                 topologyService.setCluster(cluster);
                 messagingService.setConnectionManager(connectionMgr);
-
-                topologyService.addEventHandler(new TopologyEventHandler() {
-                    @Override
-                    public void onDisappeared(ClusterNode member) {
-                        staleIds.markAsStale(member.id());
-                    }
-                });
 
                 cluster.startAwait();
 
                 // emit an artificial event as if the local member has joined the topology (ScaleCube doesn't do that)
                 var localMembershipEvent = createAdded(cluster.member(), null, System.currentTimeMillis());
                 topologyService.onMembershipEvent(localMembershipEvent);
+
+                this.cluster = cluster;
+
+                return nullCompletedFuture();
             }
 
-            /** {@inheritDoc} */
             @Override
             public void stop() {
-                // local member will be null, if cluster has not been started
-                if (cluster == null || cluster.member() == null) {
-                    return;
+                ConnectionManager localConnectionMgr = connectionMgr;
+
+                if (localConnectionMgr != null) {
+                    localConnectionMgr.initiateStopping();
                 }
 
-                connectionMgr.initiateStopping();
+                // Local member will be null, if cluster has not been started.
+                if (cluster != null && cluster.member() != null) {
+                    cluster.shutdown();
 
-                cluster.shutdown();
+                    try {
+                        shutdownFuture.get(10, TimeUnit.SECONDS);
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
 
-                try {
-                    shutdownFuture.get(10, TimeUnit.SECONDS);
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
+                        throw new IgniteInternalException("Interrupted while waiting for the ClusterService to stop", e);
+                    } catch (ExecutionException e) {
+                        throw new IgniteInternalException("Unable to stop the ClusterService", e.getCause());
+                    } catch (TimeoutException e) {
+                        // Failed to leave gracefully.
+                        LOG.warn("Failed to wait for ScaleCube cluster shutdown [reason={}]", e, e.getMessage());
+                    }
 
-                    throw new IgniteInternalException("Interrupted while waiting for the ClusterService to stop", e);
-                } catch (ExecutionException e) {
-                    throw new IgniteInternalException("Unable to stop the ClusterService", e.getCause());
-                } catch (TimeoutException e) {
-                    // Failed to leave gracefully
-                    LOG.warn("Failed to wait for ScaleCube cluster shutdown [reason={}]", e, e.getMessage());
                 }
 
-                connectionMgr.stop();
+                if (localConnectionMgr != null) {
+                    localConnectionMgr.stop();
+                }
 
                 // Messaging service checks connection manager's status before sending a message, so connection manager should be
                 // stopped before messaging service
                 messagingService.stop();
             }
 
-            /** {@inheritDoc} */
             @Override
             public void beforeNodeStop() {
                 stop();
             }
 
-            /** {@inheritDoc} */
             @Override
             public boolean isStopped() {
                 return shutdownFuture.isDone();

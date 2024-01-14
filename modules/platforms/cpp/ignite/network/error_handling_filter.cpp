@@ -55,10 +55,10 @@ void error_handling_filter::close_connection_on_exception(uint64_t id, const std
     } catch (std::exception &err) {
         std::string msg("Standard library exception is thrown: ");
         msg += err.what();
-        ignite_error err0(status_code::GENERIC, msg);
+        ignite_error err0(error::code::GENERIC, msg);
         data_filter_adapter::close(id, std::move(err0));
     } catch (...) {
-        ignite_error err0(status_code::UNKNOWN, "Unknown error is encountered when processing network event");
+        ignite_error err0(error::code::INTERNAL, "Unknown error is encountered when processing network event");
         data_filter_adapter::close(id, std::move(err0));
     }
 }

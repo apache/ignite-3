@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.table.distributed.schema;
 
-import static org.apache.ignite.internal.catalog.CatalogManagerImpl.INITIAL_CAUSALITY_TOKEN;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureCompletedMatcher.completedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
@@ -35,6 +34,7 @@ import static org.mockito.Mockito.when;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.catalog.CatalogManagerImpl;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
@@ -113,9 +113,15 @@ class CatalogValidationSchemasSourceTest extends BaseIgniteAbstractTest {
                 new CatalogTableColumnDescriptor("v1", ColumnType.INT32, false, 0, 0, 0, null)
         );
 
-        return new CatalogTableDescriptor(
-                tableId, -1, -1, "test", 0, tableVersion, columns, List.of("k1"), null, INITIAL_CAUSALITY_TOKEN, INITIAL_CAUSALITY_TOKEN
+        CatalogTableDescriptor descriptor = new CatalogTableDescriptor(
+                tableId, -1, -1, "test", 0, columns, List.of("k1"), null
         );
+
+        for (int ver = CatalogTableDescriptor.INITIAL_TABLE_VERSION + 1; ver <= tableVersion; ver++) {
+            descriptor = descriptor.newDescriptor("test", ver, columns, CatalogManagerImpl.INITIAL_CAUSALITY_TOKEN);
+        }
+
+        return descriptor;
     }
 
     @Test

@@ -108,7 +108,7 @@ import org.apache.ignite.internal.metrics.configuration.MetricConfiguration;
 import org.apache.ignite.internal.metrics.sources.JvmMetricSource;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.network.configuration.NetworkConfigurationSchema;
-import org.apache.ignite.internal.network.recovery.VaultStateIds;
+import org.apache.ignite.internal.network.recovery.VaultStaleIds;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.PlacementDriverManager;
 import org.apache.ignite.internal.raft.Loza;
@@ -380,7 +380,7 @@ public class IgniteImpl implements Ignite {
                 networkConfiguration,
                 nettyBootstrapFactory,
                 serializationRegistry,
-                new VaultStateIds(vaultMgr)
+                new VaultStaleIds(vaultMgr)
         );
 
         clock = new HybridClockImpl();
@@ -610,7 +610,8 @@ public class IgniteImpl implements Ignite {
                 schemaSyncService,
                 catalogManager,
                 observableTimestampTracker,
-                placementDriverMgr.placementDriver()
+                placementDriverMgr.placementDriver(),
+                this::sql
         );
 
         indexManager = new IndexManager(schemaManager, distributedTblMgr, catalogManager, metaStorageMgr, registry);
@@ -815,7 +816,7 @@ public class IgniteImpl implements Ignite {
 
             return cmgMgr.joinFuture()
                     //Disable REST component during initialization.
-                    .thenAcceptAsync(unused -> restComponent.disable())
+                    .thenAcceptAsync(unused -> restComponent.disable(), startupExecutor)
                     .thenComposeAsync(unused -> {
                         LOG.info("Join complete, starting MetaStorage");
 
@@ -866,7 +867,7 @@ public class IgniteImpl implements Ignite {
                     .thenComposeAsync(v -> {
                         LOG.info("Components started, performing recovery");
 
-                        return recoverComponentsStateOnStart(startupExecutor);
+                        return recoverComponentsStateOnStart(startupExecutor, lifecycleManager.allComponentsStartFuture());
                     }, startupExecutor)
                     .thenComposeAsync(v -> clusterCfgMgr.configurationRegistry().onDefaultsPersisted(), startupExecutor)
                     // Signal that local recovery is complete and the node is ready to join the cluster.
@@ -1097,11 +1098,11 @@ public class IgniteImpl implements Ignite {
      * Recovers components state on start by invoking configuration listeners ({@link #notifyConfigurationListeners()} and deploying watches
      * after that.
      */
-    private CompletableFuture<?> recoverComponentsStateOnStart(ExecutorService startupExecutor) {
+    private CompletableFuture<?> recoverComponentsStateOnStart(ExecutorService startupExecutor, CompletableFuture<Void> startFuture) {
         CompletableFuture<Void> startupConfigurationUpdate = notifyConfigurationListeners();
         CompletableFuture<Void> startupRevisionUpdate = metaStorageMgr.notifyRevisionUpdateListenerOnStart();
 
-        return CompletableFuture.allOf(startupConfigurationUpdate, startupRevisionUpdate)
+        return CompletableFuture.allOf(startupConfigurationUpdate, startupRevisionUpdate, startFuture)
                 .thenComposeAsync(t -> {
                     // Deploy all registered watches because all components are ready and have registered their listeners.
                     return metaStorageMgr.deployWatches();

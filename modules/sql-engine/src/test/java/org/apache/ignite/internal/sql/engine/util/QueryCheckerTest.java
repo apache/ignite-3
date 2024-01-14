@@ -315,8 +315,9 @@ public class QueryCheckerTest extends BaseIgniteAbstractTest {
         }
 
         @Override
-        public void start() {
+        public CompletableFuture<Void> start() {
             // NO-OP
+            return nullCompletedFuture();
         }
 
         @Override

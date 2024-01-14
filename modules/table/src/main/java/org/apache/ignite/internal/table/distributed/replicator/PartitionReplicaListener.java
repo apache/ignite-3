@@ -79,7 +79,6 @@ import org.apache.ignite.internal.lang.SafeTimeReorderException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
-import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.service.RaftCommandRunner;
@@ -344,13 +343,17 @@ public class PartitionReplicaListener implements ReplicaListener {
         cursors = new ConcurrentSkipListMap<>(IgniteUuid.globalOrderComparator());
 
         schemaCompatValidator = new SchemaCompatibilityValidator(validationSchemasSource, catalogService, schemaSyncService);
-
-        placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, this::onPrimaryElected);
-        placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, this::onPrimaryExpired);
     }
 
-    private CompletableFuture<Boolean> onPrimaryElected(PrimaryReplicaEventParameters evt, @Nullable Throwable exception) {
-        if (!localNode.name().equals(evt.leaseholder()) || !replicationGroupId.equals(evt.groupId())) {
+    @Override
+    public CompletableFuture<Boolean> onPrimaryElected(PrimaryReplicaEventParameters evt, @Nullable Throwable exception) {
+        assert replicationGroupId.equals(evt.groupId()) : format(
+                "The replication group listener does not match the event [grp={}, eventGrp={}]",
+                replicationGroupId,
+                evt.groupId()
+        );
+
+        if (!localNode.id().equals(evt.leaseholderId())) {
             return falseCompletedFuture();
         }
 
@@ -428,8 +431,15 @@ public class PartitionReplicaListener implements ReplicaListener {
         });
     }
 
-    private CompletableFuture<Boolean> onPrimaryExpired(PrimaryReplicaEventParameters evt, @Nullable Throwable exception) {
-        if (!localNode.name().equals(evt.leaseholder()) || !replicationGroupId.equals(evt.groupId())) {
+    @Override
+    public CompletableFuture<Boolean> onPrimaryExpired(PrimaryReplicaEventParameters evt, @Nullable Throwable exception) {
+        assert replicationGroupId.equals(evt.groupId()) : format(
+                "The replication group listener does not match the event [grp={}, eventGrp={}]",
+                replicationGroupId,
+                evt.groupId()
+        );
+
+        if (!localNode.id().equals(evt.leaseholderId())) {
             return falseCompletedFuture();
         }
 
@@ -523,7 +533,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                     .whenComplete((v, ex) -> runCleanupOnNode(txId, senderId));
         }
 
-        LOG.info("Orphan transaction has to be aborted [tx={}].", txId);
+        LOG.info("Orphan transaction has to be aborted [tx={}, meta={}].", txId, txMeta);
 
         return triggerTxRecovery(txId, senderId);
     }
@@ -1559,7 +1569,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                                     txId,
                                     txCoordinatorId
                             ).thenApply(txResult -> {
-                                throwIfSchemaValidationOnCommitFailed(validationResult);
+                                throwIfSchemaValidationOnCommitFailed(validationResult, txResult);
                                 return txResult;
                             }));
         } else {
@@ -1568,18 +1578,22 @@ public class PartitionReplicaListener implements ReplicaListener {
         }
     }
 
-    private static void throwIfSchemaValidationOnCommitFailed(CompatValidationResult validationResult) {
+    private static void throwIfSchemaValidationOnCommitFailed(CompatValidationResult validationResult, TransactionResult txResult) {
         if (!validationResult.isSuccessful()) {
             if (validationResult.isTableDropped()) {
                 // TODO: IGNITE-20966 - improve error message.
-                throw new IncompatibleSchemaAbortException(
-                        format("Commit failed because a table was already dropped [tableId={}]", validationResult.failedTableId())
+                throw new TransactionAlreadyFinishedException(
+                        format("Commit failed because a table was already dropped [tableId={}]", validationResult.failedTableId()),
+                        txResult
                 );
             } else {
                 // TODO: IGNITE-20966 - improve error message.
-                throw new IncompatibleSchemaAbortException("Commit failed because schema "
-                        + validationResult.fromSchemaVersion() + " is not forward-compatible with "
-                        + validationResult.toSchemaVersion() + " for table " + validationResult.failedTableId());
+                throw new TransactionAlreadyFinishedException(
+                        "Commit failed because schema "
+                                + validationResult.fromSchemaVersion() + " is not forward-compatible with "
+                                + validationResult.toSchemaVersion() + " for table " + validationResult.failedTableId(),
+                        txResult
+                );
             }
         }
     }
@@ -1600,16 +1614,6 @@ public class PartitionReplicaListener implements ReplicaListener {
         boolean transactionAlreadyFinished = txMeta != null && isFinalState(txMeta.txState());
 
         if (transactionAlreadyFinished) {
-            // Check locksReleased flag. If it is already set, do nothing and return a successful result.
-            // Even if the outcome is different (the transaction was aborted, but we want to commit it),
-            // we return 'success' to be in alignment with common transaction handling.
-            if (txMeta.locksReleased()) {
-                return completedFuture(new TransactionResult(txMeta.txState(), txMeta.commitTimestamp()));
-            }
-
-            // The transaction is finished, but the locks are not released.
-            // If we got here, it means we are retrying the finish request.
-            // Let's make sure the desired state is valid.
             // - The Coordinator calls use same tx state over retries, both abort and commit are possible.
             // - Server side recovery may only change tx state to aborted.
             // - The Coordinator itself should prevent user calls with different proposed state to the one,
@@ -1643,6 +1647,12 @@ public class PartitionReplicaListener implements ReplicaListener {
                         new TransactionResult(txMeta.txState(), txMeta.commitTimestamp())
                 );
             }
+            // Check locksReleased flag. If it is already set, do nothing and return a successful result.
+            // Even if the outcome is different (the transaction was aborted, but we want to commit it),
+            // we return 'success' to be in alignment with common transaction handling.
+            if (txMeta.locksReleased()) {
+                return completedFuture(new TransactionResult(txMeta.txState(), txMeta.commitTimestamp()));
+            }
         }
 
         return finishTransaction(enlistedPartitions, txId, commit, commitTimestamp, txCoordinatorId)
@@ -1670,7 +1680,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             @Nullable HybridTimestamp commitTimestamp,
             String txCoordinatorId
     ) {
-        assert !commit || (commitTimestamp != null);
+        assert !(commit && commitTimestamp == null) : "Cannot commit without the timestamp.";
 
         HybridTimestamp tsForCatalogVersion = commit ? commitTimestamp : hybridClock.now();
 

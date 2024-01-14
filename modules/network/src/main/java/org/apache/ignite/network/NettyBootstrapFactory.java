@@ -17,12 +17,15 @@
 
 package org.apache.ignite.network;
 
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+
 import io.netty.bootstrap.Bootstrap;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.ChannelOption;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.network.configuration.InboundView;
@@ -131,10 +134,12 @@ public class NettyBootstrapFactory implements IgniteComponent {
 
     /** {@inheritDoc} */
     @Override
-    public void start() {
+    public CompletableFuture<Void> start() {
         bossGroup = NamedNioEventLoopGroup.create(eventLoopGroupNamePrefix + "-srv-accept");
         workerGroup = NamedNioEventLoopGroup.create(eventLoopGroupNamePrefix + "-srv-worker");
         clientWorkerGroup = NamedNioEventLoopGroup.create(eventLoopGroupNamePrefix + "-client");
+
+        return nullCompletedFuture();
     }
 
     /**

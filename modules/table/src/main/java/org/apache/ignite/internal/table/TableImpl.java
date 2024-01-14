@@ -48,6 +48,7 @@ import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.lang.ErrorGroups;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
@@ -65,6 +66,9 @@ public class TableImpl implements TableViewInternal {
 
     private final SchemaVersions schemaVersions;
 
+    /** Ignite SQL facade. */
+    private final IgniteSql sql;
+
     /** Schema registry. Should be set either in constructor or via {@link #schemaView(SchemaRegistry)} before start of using the table. */
     private volatile SchemaRegistry schemaReg;
 
@@ -80,11 +84,13 @@ public class TableImpl implements TableViewInternal {
      * @param tbl The table.
      * @param lockManager Lock manager.
      * @param schemaVersions Schema versions access.
+     * @param sql Ignite SQL facade.
      */
-    public TableImpl(InternalTable tbl, LockManager lockManager, SchemaVersions schemaVersions) {
+    public TableImpl(InternalTable tbl, LockManager lockManager, SchemaVersions schemaVersions, IgniteSql sql) {
         this.tbl = tbl;
         this.lockManager = lockManager;
         this.schemaVersions = schemaVersions;
+        this.sql = sql;
     }
 
     /**
@@ -94,10 +100,11 @@ public class TableImpl implements TableViewInternal {
      * @param schemaReg Table schema registry.
      * @param lockManager Lock manager.
      * @param schemaVersions Schema versions access.
+     * @param sql Ignite SQL facade.
      */
     @TestOnly
-    public TableImpl(InternalTable tbl, SchemaRegistry schemaReg, LockManager lockManager, SchemaVersions schemaVersions) {
-        this(tbl, lockManager, schemaVersions);
+    public TableImpl(InternalTable tbl, SchemaRegistry schemaReg, LockManager lockManager, SchemaVersions schemaVersions, IgniteSql sql) {
+        this(tbl, lockManager, schemaVersions, sql);
 
         this.schemaReg = schemaReg;
     }
@@ -126,6 +133,11 @@ public class TableImpl implements TableViewInternal {
         return tbl.name();
     }
 
+    // TODO: revisit this approach, see https://issues.apache.org/jira/browse/IGNITE-21235.
+    public void name(String newName) {
+        tbl.name(newName);
+    }
+
     @Override
     public SchemaRegistry schemaView() {
         return schemaReg;
@@ -142,22 +154,22 @@ public class TableImpl implements TableViewInternal {
 
     @Override
     public <R> RecordView<R> recordView(Mapper<R> recMapper) {
-        return new RecordViewImpl<>(tbl, schemaReg, schemaVersions, recMapper);
+        return new RecordViewImpl<>(tbl, schemaReg, schemaVersions, recMapper, sql);
     }
 
     @Override
     public RecordView<Tuple> recordView() {
-        return new RecordBinaryViewImpl(tbl, schemaReg, schemaVersions);
+        return new RecordBinaryViewImpl(tbl, schemaReg, schemaVersions, sql);
     }
 
     @Override
     public <K, V> KeyValueView<K, V> keyValueView(Mapper<K> keyMapper, Mapper<V> valMapper) {
-        return new KeyValueViewImpl<>(tbl, schemaReg, schemaVersions, keyMapper, valMapper);
+        return new KeyValueViewImpl<>(tbl, schemaReg, schemaVersions, sql, keyMapper, valMapper);
     }
 
     @Override
     public KeyValueView<Tuple, Tuple> keyValueView() {
-        return new KeyValueBinaryViewImpl(tbl, schemaReg, schemaVersions);
+        return new KeyValueBinaryViewImpl(tbl, schemaReg, schemaVersions, sql);
     }
 
     @Override

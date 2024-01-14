@@ -17,6 +17,7 @@
 
 package org.apache.ignite.client;
 
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.mockito.Mockito.mock;
 
 import io.netty.bootstrap.ServerBootstrap;
@@ -150,7 +151,7 @@ public class TestClientHandlerModule implements IgniteComponent {
 
     /** {@inheritDoc} */
     @Override
-    public void start() {
+    public CompletableFuture<Void> start() {
         if (channel != null) {
             throw new IgniteException("ClientHandlerModule is already started.");
         }
@@ -160,6 +161,8 @@ public class TestClientHandlerModule implements IgniteComponent {
         } catch (InterruptedException e) {
             throw new IgniteException(e);
         }
+
+        return nullCompletedFuture();
     }
 
     /** {@inheritDoc} */
@@ -221,7 +224,11 @@ public class TestClientHandlerModule implements IgniteComponent {
                                         catalogService,
                                         connectionIdGen.incrementAndGet(),
                                         new ClientPrimaryReplicaTracker(
-                                                placementDriver, catalogService, clock, new AlwaysSyncedSchemaSyncService())
+                                                placementDriver,
+                                                catalogService,
+                                                clock,
+                                                new AlwaysSyncedSchemaSyncService()
+                                        )
                                 )
                         );
                     }
