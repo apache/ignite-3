@@ -66,8 +66,6 @@ import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.internal.vault.VaultManager;
-import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NetworkMessageHandler;
@@ -221,7 +219,6 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
 
         for (int i = 0; i < placementDriverNodeNames.size(); i++) {
             String nodeName = placementDriverNodeNames.get(i);
-            var vaultManager = new VaultManager(new InMemoryVaultService());
             var clusterService = services.get(nodeName);
 
             ClusterManagementGroupManager cmgManager = mock(ClusterManagementGroupManager.class);
@@ -254,7 +251,6 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
             var storage = new SimpleInMemoryKeyValueStorage(nodeName);
 
             var metaStorageManager = new MetaStorageManagerImpl(
-                    vaultManager,
                     clusterService,
                     cmgManager,
                     logicalTopologyService,
@@ -281,7 +277,7 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
                     nodeClock
             );
 
-            res.add(new Node(nodeName, vaultManager, clusterService, raftManager, metaStorageManager, placementDriverManager));
+            res.add(new Node(nodeName, clusterService, raftManager, metaStorageManager, placementDriverManager));
         }
 
         assertThat(allOf(res.stream().map(Node::startAsync).toArray(CompletableFuture[]::new)), willCompleteSuccessfully());

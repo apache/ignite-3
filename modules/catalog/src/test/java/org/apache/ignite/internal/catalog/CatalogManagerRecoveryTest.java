@@ -41,8 +41,6 @@ import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.internal.vault.VaultManager;
-import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -57,15 +55,13 @@ public class CatalogManagerRecoveryTest extends BaseIgniteAbstractTest {
 
     private final HybridClock clock = new HybridClockImpl();
 
-    private final VaultManager vaultManager = new VaultManager(new InMemoryVaultService());
-
     private MetaStorageManager metaStorageManager;
 
     private CatalogManager catalogManager;
 
     @AfterEach
     void tearDown() throws Exception {
-        IgniteUtils.stopAll(catalogManager, metaStorageManager, vaultManager);
+        IgniteUtils.stopAll(catalogManager, metaStorageManager);
     }
 
     @Test
@@ -113,7 +109,7 @@ public class CatalogManagerRecoveryTest extends BaseIgniteAbstractTest {
     private void createComponents() {
         KeyValueStorage keyValueStorage = new TestRocksDbKeyValueStorage(NODE_NAME, workDir);
 
-        metaStorageManager = StandaloneMetaStorageManager.create(vaultManager, keyValueStorage);
+        metaStorageManager = StandaloneMetaStorageManager.create(keyValueStorage);
 
         catalogManager = CatalogTestUtils.createTestCatalogManager(NODE_NAME, clock, metaStorageManager);
     }
