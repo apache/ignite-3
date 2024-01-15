@@ -43,7 +43,6 @@ import org.apache.ignite.internal.client.PayloadInputChannel;
 import org.apache.ignite.internal.client.PayloadOutputChannel;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.proto.TuplePart;
-import org.apache.ignite.internal.client.sql.ClientSessionBuilder;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.marshaller.ClientMarshallerReader;
 import org.apache.ignite.internal.marshaller.ClientMarshallerWriter;
@@ -51,20 +50,14 @@ import org.apache.ignite.internal.marshaller.Marshaller;
 import org.apache.ignite.internal.marshaller.MarshallerException;
 import org.apache.ignite.internal.marshaller.TupleReader;
 import org.apache.ignite.internal.streamer.StreamerBatchSender;
-import org.apache.ignite.internal.table.criteria.QueryCriteriaAsyncCursor;
 import org.apache.ignite.internal.table.criteria.SqlRowProjection;
-import org.apache.ignite.internal.table.criteria.SqlSerializer;
-import org.apache.ignite.lang.AsyncCursor;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.NullableValue;
 import org.apache.ignite.lang.UnexpectedNullValueException;
 import org.apache.ignite.sql.ResultSetMetadata;
-import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.KeyValueView;
-import org.apache.ignite.table.criteria.Criteria;
-import org.apache.ignite.table.criteria.CriteriaQueryOptions;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
@@ -556,41 +549,23 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<AsyncCursor<Entry<K, V>>> queryAsync(
-            @Nullable Transaction tx,
-            @Nullable Criteria criteria,
-            CriteriaQueryOptions opts
-    ) {
-        return tbl.getLatestSchema()
-                .thenCompose((schema) -> {
-                    SqlSerializer ser = createSqlSerializer(tbl.name(), schema.columns(), criteria);
-                    Session session = new ClientSessionBuilder(tbl.channel()).build();
+    protected @Nullable Function<SqlRow, Entry<K, V>> queryMapper(ResultSetMetadata meta, ClientSchema schema) {
+        List<Integer> keyMapping = indexMapping(schema.columns(), 0, schema.keyColumnCount(), meta);
+        List<Integer> valMapping = indexMapping(schema.columns(), schema.keyColumnCount(), schema.columns().length, meta);
 
-                    return session.executeAsync(tx, ser.toString(), ser.getArguments())
-                            .thenApply(resultSet -> {
-                                ResultSetMetadata metadata = resultSet.metadata();
+        Marshaller keyMarsh = schema.getMarshaller(keySer.mapper(), TuplePart.KEY, true);
+        Marshaller valMarsh = schema.getMarshaller(valSer.mapper(), TuplePart.VAL, true);
 
-                                List<Integer> keyMapping = indexMapping(schema.columns(), 0, schema.keyColumnCount(), metadata);
-                                List<Integer> valMapping = indexMapping(schema.columns(), schema.keyColumnCount(), schema.columns().length,
-                                        metadata);
-
-                                Marshaller keyMarsh = schema.getMarshaller(keySer.mapper(), TuplePart.KEY, true);
-                                Marshaller valMarsh = schema.getMarshaller(valSer.mapper(), TuplePart.VAL, true);
-
-                                Function<SqlRow, Entry<K, V>> mapper = (row) -> {
-                                    try {
-                                        return new IgniteBiTuple<>(
-                                                (K) keyMarsh.readObject(new TupleReader(new SqlRowProjection(row, keyMapping)), null),
-                                                (V) valMarsh.readObject(new TupleReader(new SqlRowProjection(row, valMapping)), null)
-                                        );
-                                    } catch (MarshallerException e) {
-                                        throw new IgniteException(INTERNAL_ERR, "Failed to map query results: " + e.getMessage(), e);
-                                    }
-                                };
-
-                                return new QueryCriteriaAsyncCursor<>(resultSet, mapper, session::close);
-                            });
-                });
+        return (row) -> {
+            try {
+                return new IgniteBiTuple<>(
+                        (K) keyMarsh.readObject(new TupleReader(new SqlRowProjection(row, keyMapping)), null),
+                        (V) valMarsh.readObject(new TupleReader(new SqlRowProjection(row, valMapping)), null)
+                );
+            } catch (MarshallerException e) {
+                throw new IgniteException(INTERNAL_ERR, "Failed to map query results: " + e.getMessage(), e);
+            }
+        };
     }
 
     private static <T> T throwIfNull(T obj) {

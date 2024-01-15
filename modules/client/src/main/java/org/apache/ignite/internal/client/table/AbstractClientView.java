@@ -25,13 +25,20 @@ import static org.apache.ignite.lang.util.IgniteNameUtils.parseSimpleName;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
+import org.apache.ignite.internal.client.sql.ClientSessionBuilder;
 import org.apache.ignite.internal.table.criteria.CursorAdapter;
+import org.apache.ignite.internal.table.criteria.QueryCriteriaAsyncCursor;
 import org.apache.ignite.internal.table.criteria.SqlSerializer;
+import org.apache.ignite.lang.AsyncCursor;
 import org.apache.ignite.lang.Cursor;
-import org.apache.ignite.lang.ErrorGroups.Sql;
+import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.util.IgniteNameUtils;
 import org.apache.ignite.sql.ResultSetMetadata;
+import org.apache.ignite.sql.Session;
+import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.table.criteria.Criteria;
 import org.apache.ignite.table.criteria.CriteriaQueryOptions;
 import org.apache.ignite.table.criteria.CriteriaQuerySource;
@@ -65,16 +72,12 @@ abstract class AbstractClientView<T> implements CriteriaQuerySource<T> {
      * @param endExclusive Index immediately past the last index to cover.
      * @return Index mapping.
      */
-    static List<Integer> indexMapping(
+    protected static List<Integer> indexMapping(
             ClientColumn[] columns,
             int startInclusive,
             int endExclusive,
-            @Nullable ResultSetMetadata metadata
+            ResultSetMetadata metadata
     ) {
-        if (metadata == null) {
-            throw new IgniteException(Sql.RUNTIME_ERR, "Metadata can't be null.");
-        }
-
         return Arrays.stream(columns, startInclusive, endExclusive)
                 .map(ClientColumn::name)
                 .map(IgniteNameUtils::quoteIfNeeded)
@@ -82,7 +85,7 @@ abstract class AbstractClientView<T> implements CriteriaQuerySource<T> {
                     int rowIdx = metadata.indexOf(columnName);
 
                     if (rowIdx == -1) {
-                        throw new IgniteException(Sql.RUNTIME_ERR, "Missing required column in query results: " + columnName);
+                        throw new IgniteException(Common.INTERNAL_ERR, "Missing required column in query results: " + columnName);
                     }
 
                     return rowIdx;
@@ -110,9 +113,45 @@ abstract class AbstractClientView<T> implements CriteriaQuerySource<T> {
                 .build();
     }
 
+    /**
+     * Create conversion function for objects contained by result set to criteria query objects.
+     *
+     * @param meta Result set columns' metadata.
+     * @param schema Schema.
+     * @return Conversion function (if {@code null} conversions isn't required).
+     */
+    protected @Nullable Function<SqlRow, T> queryMapper(ResultSetMetadata meta, ClientSchema schema) {
+        return null;
+    }
+
     /** {@inheritDoc} */
     @Override
     public Cursor<T> query(@Nullable Transaction tx, @Nullable Criteria criteria, @Nullable CriteriaQueryOptions opts) {
         return new CursorAdapter<>(sync(queryAsync(tx, criteria, opts)));
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<AsyncCursor<T>> queryAsync(
+            @Nullable Transaction tx,
+            @Nullable Criteria criteria,
+            CriteriaQueryOptions opts
+    ) {
+        return tbl.getLatestSchema()
+                .thenCompose((schema) -> {
+                    SqlSerializer ser = createSqlSerializer(tbl.name(), schema.columns(), criteria);
+                    Session session = new ClientSessionBuilder(tbl.channel()).build();
+
+                    return session.executeAsync(tx, ser.toString(), ser.getArguments())
+                            .thenApply(resultSet -> {
+                                ResultSetMetadata meta = resultSet.metadata();
+
+                                if (meta == null) {
+                                    throw new IgniteException(Common.INTERNAL_ERR, "Metadata can't be null.");
+                                }
+
+                                return new QueryCriteriaAsyncCursor<>(resultSet, queryMapper(meta, schema), session::close);
+                            });
+                });
     }
 }

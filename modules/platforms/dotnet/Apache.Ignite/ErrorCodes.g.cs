@@ -390,6 +390,9 @@ namespace Apache.Ignite
 
             /// <summary> PortInUse error. </summary>
             public const int PortInUse = (GroupCode << 16) | (2 & 0xFFFF);
+
+            /// <summary> RecipientLeft error. </summary>
+            public const int RecipientLeft = (GroupCode << 16) | (5 & 0xFFFF);
         }
 
         /// <summary> NodeConfiguration errors. </summary>
@@ -497,6 +500,12 @@ namespace Apache.Ignite
 
             /// <summary> ResultNotFound error. </summary>
             public const int ResultNotFound = (GroupCode << 16) | (7 & 0xFFFF);
+
+            /// <summary> FailToGetJobStatus error. </summary>
+            public const int FailToGetJobStatus = (GroupCode << 16) | (8 & 0xFFFF);
+
+            /// <summary> ComputeJobFailed error. </summary>
+            public const int ComputeJobFailed = (GroupCode << 16) | (9 & 0xFFFF);
         }
 
         /// <summary> Catalog errors. </summary>
