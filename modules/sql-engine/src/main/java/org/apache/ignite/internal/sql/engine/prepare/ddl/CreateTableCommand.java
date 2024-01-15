@@ -103,10 +103,17 @@ public class CreateTableCommand extends AbstractTableDdlCommand {
         this.zone = zoneName;
     }
 
+    /**
+     * Get storage profile.
+     */
+    @Nullable
     public String storageProfile() {
         return storageProfile;
     }
 
+    /**
+     * Set storage profile.
+     */
     public void storageProfile(String storageProfile) {
         this.storageProfile = storageProfile;
     }

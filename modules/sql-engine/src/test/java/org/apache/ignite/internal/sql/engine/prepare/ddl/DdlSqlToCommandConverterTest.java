@@ -19,7 +19,6 @@ package org.apache.ignite.internal.sql.engine.prepare.ddl;
 
 import static org.apache.ignite.internal.sql.engine.prepare.ddl.DdlSqlToCommandConverter.checkDuplicates;
 import static org.apache.ignite.internal.sql.engine.prepare.ddl.DdlSqlToCommandConverter.collectDataStorageNames;
-import static org.apache.ignite.internal.sql.engine.prepare.ddl.TableOptionEnum.STORAGE_PROFILE;
 import static org.apache.ignite.internal.util.Constants.DUMMY_STORAGE_PROFILE;
 import static org.hamcrest.CoreMatchers.instanceOf;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -191,7 +190,7 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
 
     @Test
     public void tableWithoutStorageProfileShouldThrowError() throws SqlParseException {
-        var node = parse("CREATE TABLE t (val int)");
+        var node = parse("CREATE TABLE t (val int) with storage_profile=''");
 
         assertThat(node, instanceOf(SqlDdl.class));
 
@@ -200,9 +199,9 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
                 () -> converter.convert((SqlDdl) node, createContext())
         );
 
-        assertThat(ex.getMessage(), containsString(STORAGE_PROFILE + " option cannot be null"));
+        assertThat(ex.getMessage(), containsString("String cannot be empty"));
 
-        var newNode = parse("CREATE TABLE t (val int) WITH PRIMARY_ZONE='ZONE'");
+        var newNode = parse("CREATE TABLE t (val int) WITH PRIMARY_ZONE='ZONE', storage_profile=''");
 
         assertThat(node, instanceOf(SqlDdl.class));
 
@@ -211,7 +210,7 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
                 () -> converter.convert((SqlDdl) newNode, createContext())
         );
 
-        assertThat(ex.getMessage(), containsString(STORAGE_PROFILE + " option cannot be null"));
+        assertThat(ex.getMessage(), containsString("String cannot be empty"));
     }
 
     private static Matcher<ColumnDefinition> columnThat(String description, Function<ColumnDefinition, Boolean> checker) {

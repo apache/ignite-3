@@ -62,7 +62,7 @@ public class CreateTableCommand extends AbstractTableCommand {
 
     private final String zoneName;
 
-    private final String storageProfile;
+    private String storageProfile;
 
     /**
      * Constructs the object.
@@ -104,6 +104,10 @@ public class CreateTableCommand extends AbstractTableCommand {
         ensureNoTableIndexOrSysViewExistsWithGivenName(schema, tableName);
 
         CatalogZoneDescriptor zone = zoneOrThrow(catalog, zoneName);
+
+        if (storageProfile == null) {
+            storageProfile = zone.storageProfiles().defaultProfile().storageProfile();
+        }
 
         ensureZoneContainsTablesStorageProfile(zone, storageProfile);
 

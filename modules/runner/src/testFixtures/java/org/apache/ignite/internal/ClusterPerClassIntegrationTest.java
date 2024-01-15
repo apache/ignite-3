@@ -171,9 +171,8 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
         ));
 
         sql(format(
-                "CREATE TABLE IF NOT EXISTS {} (id INT PRIMARY KEY, name VARCHAR, salary DOUBLE) WITH PRIMARY_ZONE='{}', "
-                        + "STORAGE_PROFILE='{}'",
-                tableName, zoneName, DUMMY_STORAGE_PROFILE
+                "CREATE TABLE IF NOT EXISTS {} (id INT PRIMARY KEY, name VARCHAR, salary DOUBLE) WITH PRIMARY_ZONE='{}'",
+                tableName, zoneName
         ));
 
         return CLUSTER.node(0).tables().table(tableName);

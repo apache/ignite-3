@@ -148,7 +148,7 @@ public class DdlSqlToCommandConverter {
 
         this.tableOptionInfos = new EnumMap<>(Map.of(
                 PRIMARY_ZONE, new DdlOptionInfo<>(String.class, null, CreateTableCommand::zone),
-                STORAGE_PROFILE, new DdlOptionInfo<>(String.class, null, CreateTableCommand::storageProfile)
+                STORAGE_PROFILE, new DdlOptionInfo<>(String.class, this::checkEmptyString, CreateTableCommand::storageProfile)
         ));
 
         this.dataStorageOptionInfos = dataStorageFields.entrySet()
@@ -285,10 +285,6 @@ public class DdlSqlToCommandConverter {
 
                 updateCommandOption("Table", optionKey, (SqlLiteral) option.value(), tblOptionInfo, ctx.query(), createTblCmd);
             }
-        }
-
-        if (createTblCmd.storageProfile() == null) {
-            throw new SqlException(STMT_VALIDATION_ERR, STORAGE_PROFILE + " option cannot be null");
         }
 
         List<SqlKeyConstraint> pkConstraints = createTblNode.columnList().getList().stream()

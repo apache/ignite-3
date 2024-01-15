@@ -555,8 +555,8 @@ public class DistributionZonesUtil {
     }
 
     /**
-     * Filters {@code dataNodes} according to the provided {@code filter}.
-     * Nodes' attributes are taken from {@code nodesAttributes} map.
+     * Filters {@code dataNodes} according to the provided filter and storage profiles from {@code zoneDescriptor}.
+     * Nodes' attributes and storage profiles are taken from {@code nodesAttributes} map.
      *
      * @param dataNodes Data nodes.
      * @param zoneDescriptor Zone descriptor.
