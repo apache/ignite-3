@@ -43,10 +43,13 @@ import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.TableNotFoundException;
+import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Compute tests.
@@ -175,8 +178,9 @@ public class ClientComputeTest extends BaseIgniteAbstractTest {
         }
     }
 
-    @Test
-    void testExecuteColocatedUpdatesTableCacheOnTableDrop() throws Exception {
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void testExecuteColocatedUpdatesTableCacheOnTableDrop(boolean forceLoadAssignment) throws Exception {
         String tableName = "drop-me";
 
         initServers(reqId -> false);
@@ -188,9 +192,15 @@ public class ClientComputeTest extends BaseIgniteAbstractTest {
             String res1 = client.compute()
                     .<String>executeColocatedAsync(tableName, key, List.of(), "job").resultAsync().join();
 
+            Table tbl = client.tables().table(tableName);
+
             // Drop table and create a new one with a different ID.
             ((FakeIgniteTables) ignite.tables()).dropTable(tableName);
             ((FakeIgniteTables) ignite.tables()).createTable(tableName);
+
+            if (forceLoadAssignment) {
+                IgniteTestUtils.setFieldValue(tbl, "partitionAssignment", null);
+            }
 
             String res2 = client.compute()
                     .<Long, String>executeColocatedAsync(tableName, 1L, Mapper.of(Long.class), List.of(), "job").resultAsync().join();
