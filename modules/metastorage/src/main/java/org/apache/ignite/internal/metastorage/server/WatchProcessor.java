@@ -182,8 +182,6 @@ public class WatchProcessor implements ManuallyCloseable {
 
                                     if (e != null) {
                                         LOG.error("Error occurred when notifying watches", e);
-
-                                        throw new CompletionException(e);
                                     }
                                 });
 

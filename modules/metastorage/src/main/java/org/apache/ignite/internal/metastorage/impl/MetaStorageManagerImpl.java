@@ -826,20 +826,8 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
     /**
      * Saves processed Meta Storage revision to the {@link #appliedRevision}.
      */
-    private CompletableFuture<Void> onRevisionApplied(long revision) {
-        if (!busyLock.enterBusy()) {
-            LOG.info("Skipping applying MetaStorage revision because the node is stopping");
-
-            return nullCompletedFuture();
-        }
-
-        try {
-            appliedRevision = revision;
-
-            return nullCompletedFuture();
-        } finally {
-            busyLock.leaveBusy();
-        }
+    private void onRevisionApplied(long revision) {
+        appliedRevision = revision;
     }
 
     @Override
