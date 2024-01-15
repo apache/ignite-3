@@ -79,7 +79,7 @@ class ItRaftStorageVolatilityTest extends ClusterPerTestIntegrationTest {
 
         executeSql("CREATE TABLE " + TABLE_NAME
                 + " (k int, v int, CONSTRAINT PK PRIMARY KEY (k)) WITH PRIMARY_ZONE='ZONE_"
-                + TABLE_NAME.toUpperCase() + "'");
+                + TABLE_NAME.toUpperCase() + "', STORAGE_PROFILE='" + DUMMY_STORAGE_PROFILE + "'");
     }
 
     /**
@@ -167,7 +167,7 @@ class ItRaftStorageVolatilityTest extends ClusterPerTestIntegrationTest {
 
         executeSql("CREATE TABLE " + TABLE_NAME
                 + " (k int, v int, CONSTRAINT PK PRIMARY KEY (k)) WITH PRIMARY_ZONE='ZONE_"
-                + TABLE_NAME.toUpperCase() + "'");
+                + TABLE_NAME.toUpperCase() + "', STORAGE_PROFILE='" + DUMMY_STORAGE_PROFILE + "'");
     }
 
     @Test
@@ -244,7 +244,11 @@ class ItRaftStorageVolatilityTest extends ClusterPerTestIntegrationTest {
                     null,
                     "create zone zone1 engine aimem with partitions=1, replicas=1, storage_profiles = '" + DUMMY_STORAGE_PROFILE + "'"
             );
-            session.execute(null, "create table " + tableName + " (id int primary key, name varchar) with primary_zone='ZONE1'");
+            session.execute(
+                    null,
+                    "create table " + tableName + " (id int primary key, name varchar) with primary_zone='ZONE1', storage_profile='"
+                            + DUMMY_STORAGE_PROFILE + "'"
+            );
         });
     }
 }

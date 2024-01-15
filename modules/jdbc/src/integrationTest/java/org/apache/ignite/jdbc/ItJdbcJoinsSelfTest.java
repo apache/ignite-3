@@ -17,6 +17,7 @@
 
 package org.apache.ignite.jdbc;
 
+import static org.apache.ignite.internal.util.Constants.DUMMY_STORAGE_PROFILE;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.sql.ResultSet;
@@ -43,13 +44,19 @@ public class ItJdbcJoinsSelfTest extends AbstractJdbcSelfTest {
     @Test
     public void testJoin() throws Exception {
         stmt.executeUpdate("CREATE TABLE PUBLIC.PERSON"
-                + " (ID INT, NAME VARCHAR(64), AGE INT, CITY_ID DOUBLE, PRIMARY KEY (NAME));");
+                + " (ID INT, NAME VARCHAR(64), AGE INT, CITY_ID DOUBLE, PRIMARY KEY (NAME)) WITH STORAGE_PROFILE ='"
+                + DUMMY_STORAGE_PROFILE + "';");
+
         stmt.executeUpdate("CREATE TABLE PUBLIC.MEDICAL_INFO"
-                + " (ID INT, NAME VARCHAR(64), AGE INT, BLOOD_GROUP VARCHAR(64), PRIMARY KEY (ID));");
+                + " (ID INT, NAME VARCHAR(64), AGE INT, BLOOD_GROUP VARCHAR(64), PRIMARY KEY (ID)) WITH STORAGE_PROFILE ='"
+                + DUMMY_STORAGE_PROFILE + "';");
+
         stmt.executeUpdate("CREATE TABLE PUBLIC.BLOOD_GROUP_INFO_PJ"
-                + " (ID INT, BLOOD_GROUP VARCHAR(64), UNIVERSAL_DONOR VARCHAR(64), PRIMARY KEY (ID));");
+                + " (ID INT, BLOOD_GROUP VARCHAR(64), UNIVERSAL_DONOR VARCHAR(64), PRIMARY KEY (ID)) WITH STORAGE_PROFILE ='"
+                + DUMMY_STORAGE_PROFILE + "';");
         stmt.executeUpdate("CREATE TABLE PUBLIC.BLOOD_GROUP_INFO_P"
-                + " (ID INT, BLOOD_GROUP VARCHAR(64), UNIVERSAL_DONOR VARCHAR(64), PRIMARY KEY (BLOOD_GROUP));");
+                + " (ID INT, BLOOD_GROUP VARCHAR(64), UNIVERSAL_DONOR VARCHAR(64), PRIMARY KEY (BLOOD_GROUP)) WITH STORAGE_PROFILE ='"
+                + DUMMY_STORAGE_PROFILE + "';");
 
         populateData();
 

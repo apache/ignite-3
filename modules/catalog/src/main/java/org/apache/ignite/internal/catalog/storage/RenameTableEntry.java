@@ -60,7 +60,8 @@ public class RenameTableEntry implements UpdateEntry, Fireable {
                 newTableName,
                 tableDescriptor.tableVersion() + 1,
                 tableDescriptor.columns(),
-                causalityToken
+                causalityToken,
+                tableDescriptor.storageProfile()
         );
 
         CatalogSchemaDescriptor newSchemaDescriptor = replaceTableDescriptor(schemaDescriptor, newTableDescriptor, causalityToken);

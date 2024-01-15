@@ -95,7 +95,8 @@ public class AlterColumnEntry implements UpdateEntry, Fireable {
                                                 table.columns().stream()
                                                         .map(source -> source.name().equals(column.name()) ? column : source)
                                                         .collect(toList()),
-                                                causalityToken) : table
+                                                causalityToken,
+                                                table.storageProfile()) : table
                                 )
                                 .toArray(CatalogTableDescriptor[]::new),
                         schema.indexes(),

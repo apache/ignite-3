@@ -275,7 +275,7 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
                 + (DEFAULT_STORAGE_ENGINE.equals(storageEngine) ? "" : " engine " + storageEngine)
                 + " with partitions=1, replicas=3, storage_profiles='" + DUMMY_STORAGE_PROFILE + "';";
         String sql = "create table test (key int primary key, val varchar(20))"
-                + " with primary_zone='TEST_ZONE'";
+                + " with primary_zone='TEST_ZONE', storage_profile='" + DUMMY_STORAGE_PROFILE + "'";
 
         cluster.doInSession(0, session -> {
             executeUpdate(zoneSql, session);

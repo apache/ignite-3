@@ -19,6 +19,7 @@ package org.apache.ignite.jdbc;
 
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.internal.util.Constants.DUMMY_STORAGE_PROFILE;
 import static org.apache.ignite.jdbc.util.JdbcTestUtils.assertThrowsSqlException;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -51,7 +52,7 @@ public class ItJdbcMultiStatementSelfTest extends AbstractJdbcSelfTest {
                 + "DROP TABLE IF EXISTS ONE;"
                 + "DROP TABLE IF EXISTS TWO;");
 
-        execute("CREATE TABLE TEST_TX (ID INT PRIMARY KEY, AGE INT, NAME VARCHAR) ");
+        execute("CREATE TABLE TEST_TX (ID INT PRIMARY KEY, AGE INT, NAME VARCHAR) WITH STORAGE_PROFILE ='" + DUMMY_STORAGE_PROFILE + "'");
 
         execute("INSERT INTO TEST_TX VALUES "
                 + "(1, 17, 'James'), "
@@ -269,7 +270,9 @@ public class ItJdbcMultiStatementSelfTest extends AbstractJdbcSelfTest {
         assertFalse(stmt.getMoreResults());
         assertEquals(0, stmt.getUpdateCount());
 
-        res = stmt.execute("CREATE TABLE TEST_TX (ID INT PRIMARY KEY, AGE INT, NAME VARCHAR) ");
+        res = stmt.execute("CREATE TABLE TEST_TX (ID INT PRIMARY KEY, AGE INT, NAME VARCHAR) WITH STORAGE_PROFILE ='"
+                + DUMMY_STORAGE_PROFILE + "'");
+
         assertFalse(res);
         assertEquals(0, stmt.getUpdateCount());
         assertFalse(stmt.getMoreResults());
@@ -515,7 +518,9 @@ public class ItJdbcMultiStatementSelfTest extends AbstractJdbcSelfTest {
         stmt.execute("DROP TABLE IF EXISTS TEST_TX; DROP TABLE IF EXISTS PUBLIC.TRANSACTIONS;");
         assertEquals(0, stmt.getUpdateCount());
 
-        stmt.execute("CREATE TABLE TEST_TX (ID INT PRIMARY KEY, AGE INT, NAME VARCHAR) ");
+        stmt.execute("CREATE TABLE TEST_TX (ID INT PRIMARY KEY, AGE INT, NAME VARCHAR) WITH STORAGE_PROFILE ='"
+                + DUMMY_STORAGE_PROFILE + "'");
+
         assertEquals(0, stmt.getUpdateCount());
     }
 

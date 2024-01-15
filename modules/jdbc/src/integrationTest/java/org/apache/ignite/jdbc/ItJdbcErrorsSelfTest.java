@@ -20,6 +20,7 @@ package org.apache.ignite.jdbc;
 import static org.apache.ignite.internal.jdbc.proto.SqlStateCode.CLIENT_CONNECTION_FAILED;
 import static org.apache.ignite.internal.jdbc.proto.SqlStateCode.INVALID_TRANSACTION_LEVEL;
 import static org.apache.ignite.internal.jdbc.proto.SqlStateCode.UNSUPPORTED_OPERATION;
+import static org.apache.ignite.internal.util.Constants.DUMMY_STORAGE_PROFILE;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -65,7 +66,8 @@ public class ItJdbcErrorsSelfTest extends ItJdbcErrorsAbstractSelfTest {
             stmt.executeUpdate(
                     "CREATE TABLE CITIES ("
                             + "ID   INT PRIMARY KEY,"
-                            + "NAME VARCHAR)"
+                            + "NAME VARCHAR) "
+                            + "WITH STORAGE_PROFILE = '" + DUMMY_STORAGE_PROFILE + "'"
             );
 
             JdbcTestUtils.assertThrowsSqlException("Failed to parse query", () -> stmt.executeUpdate("non sql stuff"));
@@ -78,12 +80,14 @@ public class ItJdbcErrorsSelfTest extends ItJdbcErrorsAbstractSelfTest {
                             + "    CITY_ID    INT,"
                             + "    FIRST_NAME VARCHAR,"
                             + "    LAST_NAME  VARCHAR,"
-                            + "    BALANCE    DOUBLE)"
+                            + "    BALANCE    DOUBLE) "
+                            + " WITH STORAGE_PROFILE = '" + DUMMY_STORAGE_PROFILE + "'"
             );
 
             JdbcTestUtils.assertThrowsSqlException(
                     "Table with name 'PUBLIC.ACCOUNTS' already exists",
-                    () -> stmt.executeUpdate("CREATE TABLE ACCOUNTS (ACCOUNT_ID INT PRIMARY KEY)")
+                    () -> stmt.executeUpdate("CREATE TABLE ACCOUNTS (ACCOUNT_ID INT PRIMARY KEY) WITH STORAGE_PROFILE = '"
+                            + DUMMY_STORAGE_PROFILE + "'")
 
             );
         }
@@ -116,7 +120,7 @@ public class ItJdbcErrorsSelfTest extends ItJdbcErrorsAbstractSelfTest {
     @Test
     public void testBatchUpdateException() throws SQLException {
 
-        stmt.executeUpdate("CREATE TABLE test2 (id int primary key, val varchar)");
+        stmt.executeUpdate("CREATE TABLE test2 (id int primary key, val varchar) WITH STORAGE_PROFILE='" + DUMMY_STORAGE_PROFILE + "'");
 
         stmt.addBatch("insert into test2 (id, val) values (1, 'val1')");
         stmt.addBatch("insert into test2 (id, val) values (2, 'val2')");

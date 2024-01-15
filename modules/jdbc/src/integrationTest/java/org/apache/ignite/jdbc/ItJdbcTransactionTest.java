@@ -17,6 +17,7 @@
 
 package org.apache.ignite.jdbc;
 
+import static org.apache.ignite.internal.util.Constants.DUMMY_STORAGE_PROFILE;
 import static org.apache.ignite.jdbc.util.JdbcTestUtils.assertThrowsSqlException;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -46,7 +47,9 @@ public class ItJdbcTransactionTest extends AbstractJdbcSelfTest {
     @BeforeAll
     public static void beforeClass() throws Exception {
         try (Statement statement = conn.createStatement()) {
-            statement.executeUpdate("create table TEST(ID int primary key, NAME varchar(20));");
+            statement.executeUpdate(
+                    "create table TEST(ID int primary key, NAME varchar(20)) WITH STORAGE_PROFILE = '" + DUMMY_STORAGE_PROFILE + "';"
+            );
         }
     }
 

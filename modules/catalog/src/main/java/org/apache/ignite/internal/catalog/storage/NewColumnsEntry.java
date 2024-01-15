@@ -90,7 +90,8 @@ public class NewColumnsEntry implements UpdateEntry, Fireable {
                                         table.name(),
                                         table.tableVersion() + 1,
                                         CollectionUtils.concat(table.columns(), descriptors),
-                                        causalityToken) : table
+                                        causalityToken,
+                                        table.storageProfile()) : table
                                 )
                                 .toArray(CatalogTableDescriptor[]::new),
                         schema.indexes(),

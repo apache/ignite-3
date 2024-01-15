@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine;
 
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsSubPlan;
+import static org.apache.ignite.internal.util.Constants.DUMMY_STORAGE_PROFILE;
 
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.junit.jupiter.api.AfterEach;
@@ -35,7 +36,7 @@ public class ItCorrelatesTest extends BaseSqlIntegrationTest {
     /** Checks correlates are assigned before access. */
     @Test
     public void testCorrelatesAssignedBeforeAccess() {
-        sql("create table test_tbl(k INTEGER primary key, v INTEGER)");
+        sql("create table test_tbl(k INTEGER primary key, v INTEGER) with storage_profile='" + DUMMY_STORAGE_PROFILE + "'");
 
         //TODO: IGNITE-16323 When the issue is not fixed the invocation required for update metadata.
         CLUSTER.aliveNode().tables().tables();

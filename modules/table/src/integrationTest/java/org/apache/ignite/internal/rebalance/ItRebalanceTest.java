@@ -178,7 +178,7 @@ public class ItRebalanceTest extends IgniteIntegrationTest {
                 + "data_nodes_auto_adjust_scale_down=0"
                 + "storage_profiles='" + DUMMY_STORAGE_PROFILE + "'";
         String sql2 = "create table test (id int primary key, value varchar(20))"
-                + " with primary_zone='TEST_ZONE'";
+                + " with primary_zone='TEST_ZONE', storage_profile='" + DUMMY_STORAGE_PROFILE + "'";
 
         cluster.doInSession(0, session -> {
             executeUpdate(sql1, session);

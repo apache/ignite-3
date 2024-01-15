@@ -17,6 +17,7 @@
 
 package org.apache.ignite.jdbc;
 
+import static org.apache.ignite.internal.util.Constants.DUMMY_STORAGE_PROFILE;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -80,7 +81,7 @@ public class ItJdbcResultSetSelfTest extends AbstractJdbcSelfTest {
                     + "tsval TIMESTAMP,"
                     + "urlval BINARY,"
                     + "uuidVal UUID"
-                    + ")"
+                    + ") WITH STORAGE_PROFILE='" + DUMMY_STORAGE_PROFILE + "'"
             );
 
             stmt.executeUpdate("INSERT INTO test ("

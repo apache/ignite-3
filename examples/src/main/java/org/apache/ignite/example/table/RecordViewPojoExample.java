@@ -71,7 +71,8 @@ public class RecordViewPojoExample {
                             + "accountNumber INT PRIMARY KEY,"
                             + "firstName     VARCHAR,"
                             + "lastName      VARCHAR,"
-                            + "balance       DOUBLE)"
+                            + "balance       DOUBLE) "
+                            + " WITH STORAGE_PROFILE = 'dummy'"
             );
         }
 

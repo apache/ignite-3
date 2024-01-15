@@ -19,6 +19,7 @@ package org.apache.ignite.internal.streamer;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
+import static org.apache.ignite.internal.util.Constants.DUMMY_STORAGE_PROFILE;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -217,7 +218,8 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
         Session ses = ignite().sql().createSession();
 
         String tableName = "testSchemaUpdateWhileStreaming";
-        ses.execute(null, "CREATE TABLE " + tableName + "(ID INT NOT NULL PRIMARY KEY)");
+        ses.execute(null, "CREATE TABLE " + tableName + "(ID INT NOT NULL PRIMARY KEY) WITH STORAGE_PROFILE='"
+                + DUMMY_STORAGE_PROFILE + "'");
         RecordView<Tuple> view = ignite().tables().table(tableName).recordView();
 
         CompletableFuture<Void> streamerFut;

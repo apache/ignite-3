@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.prepare.ddl;
 
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.sql.engine.prepare.ddl.ZoneOptionEnum.STORAGE_PROFILES;
 import static org.hamcrest.CoreMatchers.instanceOf;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -106,6 +107,31 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
 
         node = parse("CREATE ZONE test with storage_profiles='' ");
         expectOptionValidationError((SqlDdl) node, "STORAGE_PROFILES");
+    }
+
+    @Test
+    public void testCreateZoneWithoutStorageProfileOptionShouldThrowError() throws SqlParseException {
+        SqlNode node =  parse("CREATE ZONE test");
+
+        assertThat(node, instanceOf(SqlDdl.class));
+
+        var ex = assertThrows(
+                IgniteException.class,
+                () -> converter.convert((SqlDdl) node, createContext())
+        );
+
+        assertThat(ex.getMessage(), containsString(STORAGE_PROFILES + " option cannot be null"));
+
+        SqlNode newNode =  parse("CREATE ZONE test with replicas=1");
+
+        assertThat(newNode, instanceOf(SqlDdl.class));
+
+        ex = assertThrows(
+                IgniteException.class,
+                () -> converter.convert((SqlDdl) newNode, createContext())
+        );
+
+        assertThat(ex.getMessage(), containsString(STORAGE_PROFILES + " option cannot be null"));
     }
 
     @Test

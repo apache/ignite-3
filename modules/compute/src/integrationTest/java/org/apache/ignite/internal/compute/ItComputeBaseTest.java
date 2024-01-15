@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.compute.utils.ComputeTestUtils.assertPu
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.JobStatusMatcher.jobStatusWithState;
+import static org.apache.ignite.internal.util.Constants.DUMMY_STORAGE_PROFILE;
 import static org.apache.ignite.lang.ErrorGroups.Common.COMMON_ERR_GROUP;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -280,7 +281,7 @@ public abstract class ItComputeBaseTest extends ClusterPerTestIntegrationTest {
     }
 
     private void createTestTableWithOneRow() {
-        executeSql("CREATE TABLE test (k int, v int, CONSTRAINT PK PRIMARY KEY (k))");
+        executeSql("CREATE TABLE test (k int, v int, CONSTRAINT PK PRIMARY KEY (k)) WITH STORAGE_PROFILE='" + DUMMY_STORAGE_PROFILE + "'");
         executeSql("INSERT INTO test(k, v) VALUES (1, 101)");
     }
 

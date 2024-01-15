@@ -17,6 +17,7 @@
 
 package org.apache.ignite.jdbc;
 
+import static org.apache.ignite.internal.util.Constants.DUMMY_STORAGE_PROFILE;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
@@ -52,9 +53,10 @@ public class ItJdbcComplexDmlDdlSelfTest extends AbstractJdbcSelfTest {
     public void testCreateSelectDrop() throws Exception {
         sql(new UpdateChecker(0),
                 "CREATE TABLE person_t (ID int, NAME varchar, AGE int, COMPANY varchar, CITY varchar, "
-                        + "primary key (ID, NAME, CITY))");
+                        + "primary key (ID, NAME, CITY)) WITH STORAGE_PROFILE='" + DUMMY_STORAGE_PROFILE + "'");
 
-        sql(new UpdateChecker(0), "CREATE TABLE city_t (name varchar, population int, primary key (name))");
+        sql(new UpdateChecker(0), "CREATE TABLE city_t (name varchar, population int, primary key (name)) "
+                + "WITH STORAGE_PROFILE='" + DUMMY_STORAGE_PROFILE + "'");
 
         sql(new UpdateChecker(3),
                 "INSERT INTO city_t (name, population) values(?, ?), (?, ?), (?, ?)",

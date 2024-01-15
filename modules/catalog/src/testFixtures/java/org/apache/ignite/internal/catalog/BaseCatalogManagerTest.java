@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.catalog.CatalogTestUtils.columnParams;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.columnParamsBuilder;
 import static org.apache.ignite.internal.catalog.commands.DefaultValue.constant;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.Constants.DUMMY_STORAGE_PROFILE;
 import static org.apache.ignite.sql.ColumnType.DECIMAL;
 import static org.apache.ignite.sql.ColumnType.INT32;
 import static org.apache.ignite.sql.ColumnType.STRING;
@@ -175,13 +176,17 @@ public abstract class BaseCatalogManagerTest extends BaseIgniteAbstractTest {
                 .build();
     }
 
-    protected static CreateTableCommandBuilder createTableCommandBuilder(String tableName,
+    protected static CreateTableCommandBuilder createTableCommandBuilder(
+            String tableName,
             List<ColumnParams> columns,
-            List<String> primaryKeys, @Nullable List<String> colocationColumns) {
+            List<String> primaryKeys,
+            @Nullable List<String> colocationColumns
+    ) {
 
         return CreateTableCommand.builder()
                 .schemaName(DEFAULT_SCHEMA_NAME)
                 .zone(DEFAULT_ZONE_NAME)
+                .storageProfile(DUMMY_STORAGE_PROFILE)
                 .tableName(tableName)
                 .columns(columns)
                 .primaryKeyColumns(primaryKeys)

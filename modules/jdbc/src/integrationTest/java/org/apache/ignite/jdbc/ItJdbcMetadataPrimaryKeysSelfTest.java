@@ -17,6 +17,7 @@
 
 package org.apache.ignite.jdbc;
 
+import static org.apache.ignite.internal.util.Constants.DUMMY_STORAGE_PROFILE;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.sql.DatabaseMetaData;
@@ -47,7 +48,9 @@ public class ItJdbcMetadataPrimaryKeysSelfTest extends AbstractJdbcSelfTest {
      */
     @Test
     public void testSingleKey() throws Exception {
-        executeUpdate("CREATE TABLE PUBLIC.TEST (ID INT PRIMARY KEY, NAME VARCHAR);");
+        executeUpdate("CREATE TABLE PUBLIC.TEST (ID INT PRIMARY KEY, NAME VARCHAR) WITH STORAGE_PROFILE ='"
+                + DUMMY_STORAGE_PROFILE + "';");
+
 
         checkPkFields("TEST", "ID");
     }
@@ -61,7 +64,7 @@ public class ItJdbcMetadataPrimaryKeysSelfTest extends AbstractJdbcSelfTest {
                 + "ID INT, "
                 + "SEC_ID INT, "
                 + "NAME VARCHAR, "
-                + "PRIMARY KEY (ID, SEC_ID));");
+                + "PRIMARY KEY (ID, SEC_ID)) WITH STORAGE_PROFILE ='" + DUMMY_STORAGE_PROFILE + "';");
 
         checkPkFields("TEST", "ID", "SEC_ID");
     }

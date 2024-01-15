@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine.framework;
 
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.convertSqlRows;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
+import static org.apache.ignite.internal.util.Constants.DUMMY_STORAGE_PROFILE;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -164,7 +165,7 @@ public class TestClusterTest extends BaseIgniteAbstractTest {
         var gatewayNode = cluster.node("N1");
 
         gatewayNode.initSchema(
-                "CREATE TABLE t2 (id INT PRIMARY KEY, val VARCHAR(64))"
+                "CREATE TABLE t2 (id INT PRIMARY KEY, val VARCHAR(64)) WITH STORAGE_PROFILE='" + DUMMY_STORAGE_PROFILE + "'"
         );
 
         QueryPlan plan = gatewayNode.prepare("SELECT * FROM t2");

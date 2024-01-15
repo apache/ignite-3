@@ -23,8 +23,12 @@ import static org.apache.ignite.lang.ErrorGroups.Catalog.VALIDATION_ERR;
 import com.jayway.jsonpath.InvalidPathException;
 import com.jayway.jsonpath.JsonPath;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 import org.apache.ignite.internal.catalog.commands.StorageProfileParams;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogStorageProfileDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.util.StringUtils;
 import org.jetbrains.annotations.Nullable;
 
@@ -139,6 +143,27 @@ public class CatalogParamsValidationUtils {
 
         if (schema.systemView(name) != null) {
             throw new CatalogValidationException(format("System view with name '{}.{}' already exists", schema.name(), name));
+        }
+    }
+
+    /**
+     * Validates that table's zone contains table's storage profile.
+     *
+     * @throws CatalogValidationException If zone does not contain table's storage profile.
+     */
+    public static void ensureZoneContainsTablesStorageProfile(CatalogZoneDescriptor zone, String tableStorageProfile) {
+        Set<String> zonesStorageProfile = zone.storageProfiles().profiles()
+                .stream().map(CatalogStorageProfileDescriptor::storageProfile)
+                .collect(Collectors.toSet());
+
+        if (!zonesStorageProfile.contains(tableStorageProfile)) {
+            throw new CatalogValidationException(
+                    format(
+                            "Zone with name '{}' does not contain table's storage profile [storageProfile='{}']",
+                            zone.name(),
+                            tableStorageProfile
+                    )
+            );
         }
     }
 }

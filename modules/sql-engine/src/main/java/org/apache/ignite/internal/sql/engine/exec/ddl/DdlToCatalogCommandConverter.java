@@ -73,6 +73,7 @@ class DdlToCatalogCommandConverter {
                 .colocationColumns(cmd.colocationColumns())
 
                 .zone(cmd.zone())
+                .storageProfile(cmd.storageProfile())
 
                 .build();
     }
@@ -88,6 +89,10 @@ class DdlToCatalogCommandConverter {
         // TODO: IGNITE-19719 We need to define the default engine differently and the parameters should depend on the engine
         String engine = Objects.requireNonNullElse(cmd.dataStorage(), DEFAULT_STORAGE_ENGINE);
         String dataRegion = (String) cmd.dataStorageOptions().getOrDefault("dataRegion", DEFAULT_DATA_REGION);
+
+        if (cmd.storageProfiles() == null) {
+            throw new IllegalArgumentException("Storage profile cannot be null");
+        }
 
         return org.apache.ignite.internal.catalog.commands.CreateZoneCommand.builder()
                 .zoneName(cmd.zoneName())

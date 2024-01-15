@@ -19,6 +19,8 @@ package org.apache.ignite.internal.sql.engine.prepare.ddl;
 
 import static org.apache.ignite.internal.sql.engine.prepare.ddl.DdlSqlToCommandConverter.checkDuplicates;
 import static org.apache.ignite.internal.sql.engine.prepare.ddl.DdlSqlToCommandConverter.collectDataStorageNames;
+import static org.apache.ignite.internal.sql.engine.prepare.ddl.TableOptionEnum.STORAGE_PROFILE;
+import static org.apache.ignite.internal.util.Constants.DUMMY_STORAGE_PROFILE;
 import static org.hamcrest.CoreMatchers.instanceOf;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.allOf;
@@ -98,7 +100,7 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
 
     @Test
     public void tableWithoutPkShouldThrowErrorWhenSysPropDefault() throws SqlParseException {
-        var node = parse("CREATE TABLE t (val int)");
+        var node = parse("CREATE TABLE t (val int) WITH STORAGE_PROFILE='" + DUMMY_STORAGE_PROFILE + "'");
 
         assertThat(node, instanceOf(SqlDdl.class));
 
@@ -113,7 +115,7 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
     @Test
     @WithSystemProperty(key = "IMPLICIT_PK_ENABLED", value = "false")
     public void tableWithoutPkShouldThrowErrorWhenSysPropDisabled() throws SqlParseException {
-        var node = parse("CREATE TABLE t (val int)");
+        var node = parse("CREATE TABLE t (val int) WITH STORAGE_PROFILE='" + DUMMY_STORAGE_PROFILE + "'");
 
         assertThat(node, instanceOf(SqlDdl.class));
 
@@ -128,7 +130,7 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
     @Test
     @WithSystemProperty(key = "IMPLICIT_PK_ENABLED", value = "true")
     public void tableWithoutPkShouldInjectImplicitPkWhenSysPropEnabled() throws SqlParseException {
-        var node = parse("CREATE TABLE t (val int)");
+        var node = parse("CREATE TABLE t (val int) WITH STORAGE_PROFILE='" + DUMMY_STORAGE_PROFILE + "'");
 
         assertThat(node, instanceOf(SqlDdl.class));
 
@@ -160,7 +162,8 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
 
     @Test
     public void tableWithAutogenPkColumn() throws SqlParseException {
-        var node = parse("CREATE TABLE t (id varchar default gen_random_uuid primary key, val int)");
+        var node = parse("CREATE TABLE t (id varchar default gen_random_uuid primary key, val int) WITH STORAGE_PROFILE='"
+                + DUMMY_STORAGE_PROFILE + "'");
 
         assertThat(node, instanceOf(SqlDdl.class));
 
@@ -184,6 +187,31 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
                         )
                 )
         );
+    }
+
+    @Test
+    public void tableWithoutStorageProfileShouldThrowError() throws SqlParseException {
+        var node = parse("CREATE TABLE t (val int)");
+
+        assertThat(node, instanceOf(SqlDdl.class));
+
+        var ex = assertThrows(
+                IgniteException.class,
+                () -> converter.convert((SqlDdl) node, createContext())
+        );
+
+        assertThat(ex.getMessage(), containsString(STORAGE_PROFILE + " option cannot be null"));
+
+        var newNode = parse("CREATE TABLE t (val int) WITH PRIMARY_ZONE='ZONE'");
+
+        assertThat(node, instanceOf(SqlDdl.class));
+
+        ex = assertThrows(
+                IgniteException.class,
+                () -> converter.convert((SqlDdl) newNode, createContext())
+        );
+
+        assertThat(ex.getMessage(), containsString(STORAGE_PROFILE + " option cannot be null"));
     }
 
     private static Matcher<ColumnDefinition> columnThat(String description, Function<ColumnDefinition, Boolean> checker) {

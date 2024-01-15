@@ -26,6 +26,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
@@ -126,6 +127,17 @@ abstract class AbstractCommandValidationTest extends BaseIgniteAbstractTest {
         return CreateZoneCommand.builder()
                 .zoneName(zoneName)
                 .storageProfilesParams(List.of(StorageProfileParams.builder().storageProfile(DUMMY_STORAGE_PROFILE).build()))
+                .build();
+    }
+
+    static CatalogCommand createZoneCommand(String zoneName, List<String> storageProfiles) {
+        List<StorageProfileParams> params = storageProfiles.stream()
+                .map(p -> StorageProfileParams.builder().storageProfile(p).build())
+                .collect(Collectors.toList());
+
+        return CreateZoneCommand.builder()
+                .zoneName(zoneName)
+                .storageProfilesParams(params)
                 .build();
     }
 
