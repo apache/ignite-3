@@ -355,7 +355,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
     }
 
     @Override
-    public void start() {
+    public CompletableFuture<Void> start() {
         storage.start();
 
         appliedRevision = readRevisionFromVault();
@@ -383,6 +383,8 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
                         metaStorageSvcFut.complete(service);
                     }
                 });
+
+        return nullCompletedFuture();
     }
 
     private long readRevisionFromVault() {

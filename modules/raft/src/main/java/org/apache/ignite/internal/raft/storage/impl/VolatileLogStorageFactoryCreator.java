@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.raft.storage.impl;
 
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.rocksdb.RocksDB.DEFAULT_COLUMN_FAMILY;
 
 import java.io.IOException;
@@ -25,6 +26,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import org.apache.ignite.internal.lang.IgniteInternalException;
@@ -86,7 +88,7 @@ public class VolatileLogStorageFactoryCreator implements LogStorageFactoryCreato
     }
 
     @Override
-    public void start() {
+    public CompletableFuture<Void> start() {
         try {
             Files.createDirectories(spillOutPath);
         } catch (IOException e) {
@@ -120,6 +122,8 @@ public class VolatileLogStorageFactoryCreator implements LogStorageFactoryCreato
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
+
+        return nullCompletedFuture();
     }
 
     private void wipeOutDb() {

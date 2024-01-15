@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.app;
 
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -48,8 +51,9 @@ public class ThreadPoolsManager implements IgniteComponent {
     }
 
     @Override
-    public void start() {
+    public CompletableFuture<Void> start() {
         // No-op.
+        return nullCompletedFuture();
     }
 
     @Override

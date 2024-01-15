@@ -19,6 +19,7 @@ package org.apache.ignite.internal.cluster.management.raft;
 
 import static java.util.stream.Collectors.collectingAndThen;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.startsWith;
 
 import java.io.ObjectInputStream;
@@ -53,8 +54,10 @@ public class TestClusterStateStorage implements ClusterStateStorage {
     private volatile boolean isStarted = false;
 
     @Override
-    public void start() {
+    public CompletableFuture<Void> start() {
         isStarted = true;
+
+        return nullCompletedFuture();
     }
 
     @Override

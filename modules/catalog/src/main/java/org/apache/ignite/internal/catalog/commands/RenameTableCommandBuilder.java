@@ -15,17 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed.replicator;
+package org.apache.ignite.internal.catalog.commands;
 
-import org.apache.ignite.lang.ErrorGroups.Transactions;
-import org.apache.ignite.tx.TransactionException;
-
-/**
- * Thrown when, during an attempt to commit a transaction, it turns out that the transaction cannot be committed
- * because an incompatible schema change has happened.
- */
-public class IncompatibleSchemaAbortException extends TransactionException {
-    public IncompatibleSchemaAbortException(String message) {
-        super(Transactions.TX_COMMIT_ERR, message);
-    }
+/** Builder for {@link RenameTableCommand}s. */
+public interface RenameTableCommandBuilder extends AbstractTableCommandBuilder<RenameTableCommandBuilder> {
+    /**
+     * Sets the new name of the target table.
+     *
+     * <p>The new name must not be {@code null}, empty or blank. It is also required that a table with the same name does not already exist
+     * in the schema that the target table belongs to.
+     *
+     * @param newTableName New name of the target table.
+     * @return this instance (for chaining).
+     */
+    RenameTableCommandBuilder newTableName(String newTableName);
 }

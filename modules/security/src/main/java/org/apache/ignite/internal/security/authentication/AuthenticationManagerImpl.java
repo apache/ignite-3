@@ -121,7 +121,7 @@ public class AuthenticationManagerImpl
     }
 
     @Override
-    public void start() {
+    public CompletableFuture<Void> start() {
         securityConfiguration.listen(securityConfigurationListener);
         securityConfiguration.enabled().listen(securityEnabledDisabledEventFactory);
         securityConfiguration.authentication().providers().listenElements(providerEventFactory);
@@ -130,6 +130,8 @@ public class AuthenticationManagerImpl
         BasicAuthenticationProviderConfiguration basicAuthenticationProviderConfiguration = (BasicAuthenticationProviderConfiguration)
                 securityConfiguration.authentication().providers().get(basicAuthenticationProviderName);
         basicAuthenticationProviderConfiguration.users().listenElements(userEventFactory);
+
+        return nullCompletedFuture();
     }
 
     @Override
