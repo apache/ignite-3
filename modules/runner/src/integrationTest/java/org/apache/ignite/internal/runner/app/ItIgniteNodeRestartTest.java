@@ -61,7 +61,9 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.BiFunction;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.function.IntFunction;
 import java.util.function.LongFunction;
 import java.util.function.LongSupplier;
@@ -102,6 +104,7 @@ import org.apache.ignite.internal.configuration.validation.TestConfigurationVali
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.IgniteInternalException;
@@ -112,8 +115,10 @@ import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
+import org.apache.ignite.internal.metastorage.dsl.StatementResult;
 import org.apache.ignite.internal.metastorage.impl.EntryImpl;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
+import org.apache.ignite.internal.metastorage.server.If;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
 import org.apache.ignite.internal.metrics.MetricManager;
@@ -219,11 +224,11 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
     @Nullable
     private BeforeComponentStartClosure beforeComponentStart = null;
 
-    private Map<Integer, Map<String, Entry>> metaStorageMockDataByNode = new ConcurrentHashMap<>();
+    private Map<Integer, BiFunction<If, HybridTimestamp, StatementResult>> metaStorageInvokeInterceptorByNode = new ConcurrentHashMap<>();
 
     @BeforeEach
     public void beforeTest() {
-        metaStorageMockDataByNode.clear();
+        metaStorageInvokeInterceptorByNode.clear();
         partialNodes.clear();
     }
 
@@ -326,33 +331,19 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 raftGroupEventsClientListener
         );
 
-        Map<String, Entry> metaStorageMockData = metaStorageMockDataByNode.computeIfAbsent(idx, k -> new HashMap<>());
+        BiFunction<If, HybridTimestamp, StatementResult> metaStorageInvokeInterceptor = metaStorageInvokeInterceptorByNode.get(idx);
 
-        var metaStorage = new RocksDbKeyValueStorage(name, dir.resolve("metastorage")) {
+        var metaStorage = new RocksDbKeyValueStorage(name, dir.resolve("metastorage")) {.
             @Override
-            public Entry get(byte[] key, long revUpperBound) {
-                var e = metaStorageMockData.get(new String(key, StandardCharsets.UTF_8));
-
-                return e != null ? e : super.get(key, revUpperBound);
-            }
-
-            @Override
-            public Collection<Entry> getAll(List<byte[]> keys) {
-                Collection<Entry> storageResults = super.getAll(keys);
-
-                List<Entry> results = new ArrayList<>();
-
-                for (var r : storageResults) {
-                    var e = metaStorageMockData.get(new String(r.key(), StandardCharsets.UTF_8));
-
-                    if (e == null) {
-                        results.add(r);
-                    } else {
-                        results.add(e);
+            public StatementResult invoke(If iif, HybridTimestamp opTs) {
+                if (metaStorageInvokeInterceptor != null) {
+                    var res = metaStorageInvokeInterceptor.apply(iif, opTs);
+                    if (res != null) {
+                        return res;
                     }
                 }
 
-                return results;
+                return super.invoke(iif, opTs);
             }
         };
 
@@ -1476,6 +1467,31 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         );
     }
 
+    @Test
+    public void tableRecoveryOnMultipleRestartingNodesTest2Nodes() {
+        int euIdx = 0;
+        int usIdx = 1;
+
+        IgniteImpl nodeEu = startNode(euIdx, configurationString(euIdx, "{ region.attribute = \"EU\" }"));
+        IgniteImpl nodeUs = startNode(usIdx, configurationString(usIdx, "{ region.attribute = \"US\" }"));
+
+        try (Session session = nodeUs.sql().createSession()) {
+            session.execute(null, String.format("CREATE ZONE IF NOT EXISTS %s WITH REPLICAS=%d, PARTITIONS=%d, "
+                    + "DATA_NODES_FILTER='%s'", zoneName, 3, 1, startFilter));
+
+            nodeEuInhibitor.startInhibit();
+
+            session.execute(null, "CREATE TABLE " + tableName
+                    + "(id INT PRIMARY KEY, name VARCHAR) WITH PRIMARY_ZONE='" + zoneName + "';");
+        }
+
+        int tableId = tableId(nodeUs, tableName);
+
+        byte[] assignmentsKey = stablePartAssignmentsKey(new TablePartitionId(tableId, 0)).bytes();
+
+
+    }
+
     /**
      * This test starts 4 nodes with different region attributes: EU, US, RU, JP. After that, the zone is created with a filter
      * leaving only 2 regions as available for data nodes for this zone, and a table in this zone. After the table creation, the zone
@@ -1587,7 +1603,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         assertThat(nodeUsStartFut, willCompleteSuccessfully());
 
         // Clear fake data.
-        metaStorageMockDataByNode.clear();
+        //metaStorageMockDataByNode.clear();
 
         var expectedAssignments = getAssignmentsFromMetaStorage(nodeEu.metaStorageManager(), assignmentsKey);
 
@@ -1625,12 +1641,12 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
      * @param partId Partition id.
      */
     private void removeStableAssignments(int partialNodeIdx, int tableId, int partId) {
-        Map<String, Entry> metaStorageMockData = metaStorageMockDataByNode.computeIfAbsent(partialNodeIdx, k -> new HashMap<>());
+        /*Map<String, Entry> metaStorageMockData = metaStorageMockDataByNode.computeIfAbsent(partialNodeIdx, k -> new HashMap<>());
 
         metaStorageMockData.put(
                 new String(stablePartAssignmentsKey(new TablePartitionId(tableId, partId)).bytes(), StandardCharsets.UTF_8),
                 new EntryImpl(null, null, 0, 0)
-        );
+        );*/
     }
 
     private int tableId(Ignite node, String tableName) {
