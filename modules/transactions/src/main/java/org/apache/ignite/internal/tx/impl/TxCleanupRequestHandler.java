@@ -31,7 +31,7 @@ import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.message.TxCleanupMessage;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
-import org.apache.ignite.network.ClusterService;
+import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.network.NetworkMessage;
 import org.jetbrains.annotations.Nullable;
 
@@ -42,8 +42,8 @@ public class TxCleanupRequestHandler {
     /** Tx messages factory. */
     private static final TxMessagesFactory FACTORY = new TxMessagesFactory();
 
-    /** Cluster service. */
-    private final ClusterService clusterService;
+    /** Messaging service. */
+    private final MessagingService messagingService;
 
     /** Lock manager. */
     private final LockManager lockManager;
@@ -57,18 +57,18 @@ public class TxCleanupRequestHandler {
     /**
      * The constructor.
      *
-     * @param clusterService Cluster service.
+     * @param messagingService Messaging service.
      * @param lockManager Lock manager.
      * @param clock A hybrid logical clock.
      * @param writeIntentSwitchProcessor A cleanup processor.
      */
     public TxCleanupRequestHandler(
-            ClusterService clusterService,
+            MessagingService messagingService,
             LockManager lockManager,
             HybridClock clock,
             WriteIntentSwitchProcessor writeIntentSwitchProcessor
     ) {
-        this.clusterService = clusterService;
+        this.messagingService = messagingService;
         this.lockManager = lockManager;
         this.hybridClock = clock;
         this.writeIntentSwitchProcessor = writeIntentSwitchProcessor;
@@ -78,7 +78,7 @@ public class TxCleanupRequestHandler {
      * Starts the processor.
      */
     public void start() {
-        clusterService.messagingService().addMessageHandler(TxMessageGroup.class, (msg, sender, correlationId) -> {
+        messagingService.addMessageHandler(TxMessageGroup.class, (msg, sender, correlationId) -> {
             if (msg instanceof TxCleanupMessage) {
                 processTxCleanup((TxCleanupMessage) msg, sender, correlationId);
             }
@@ -133,7 +133,7 @@ public class TxCleanupRequestHandler {
                         });
                     }
 
-                    clusterService.messagingService().respond(senderId, msg, correlationId);
+                    messagingService.respond(senderId, msg, correlationId);
                 });
     }
 

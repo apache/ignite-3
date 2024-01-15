@@ -106,8 +106,8 @@ public class ClusterServiceFactory {
 
             /** {@inheritDoc} */
             @Override
-            public void start() {
-
+            public CompletableFuture<Void> start() {
+                return nullCompletedFuture();
             }
         };
     }

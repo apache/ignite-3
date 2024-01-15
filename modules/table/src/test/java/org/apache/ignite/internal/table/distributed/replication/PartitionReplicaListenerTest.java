@@ -145,7 +145,6 @@ import org.apache.ignite.internal.table.distributed.replication.request.ReadOnly
 import org.apache.ignite.internal.table.distributed.replication.request.ReadOnlyMultiRowPkReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadOnlySingleRowPkReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteReplicaRequest;
-import org.apache.ignite.internal.table.distributed.replicator.IncompatibleSchemaAbortException;
 import org.apache.ignite.internal.table.distributed.replicator.IncompatibleSchemaException;
 import org.apache.ignite.internal.table.distributed.replicator.InternalSchemaVersionMismatchException;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
@@ -160,6 +159,7 @@ import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.tx.LockManager;
+import org.apache.ignite.internal.tx.TransactionAlreadyFinishedException;
 import org.apache.ignite.internal.tx.TransactionIds;
 import org.apache.ignite.internal.tx.TransactionMeta;
 import org.apache.ignite.internal.tx.TransactionResult;
@@ -1625,9 +1625,9 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
         CompletableFuture<?> future = beginAndCommitTx();
 
-        IncompatibleSchemaAbortException ex = assertWillThrowFast(future,
-                IncompatibleSchemaAbortException.class);
-        assertThat(ex.code(), is(Transactions.TX_COMMIT_ERR));
+        TransactionAlreadyFinishedException ex = assertWillThrowFast(future,
+                TransactionAlreadyFinishedException.class);
+
         assertThat(ex.getMessage(), containsString("Commit failed because schema 1 is not forward-compatible with 2"));
 
         assertThat(committed.get(), is(false));
@@ -2324,8 +2324,8 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 localNode.id()
         );
 
-        IncompatibleSchemaAbortException ex = assertWillThrowFast(future, IncompatibleSchemaAbortException.class);
-        assertThat(ex.code(), is(Transactions.TX_COMMIT_ERR));
+        TransactionAlreadyFinishedException ex = assertWillThrowFast(future, TransactionAlreadyFinishedException.class);
+
         assertThat(ex.getMessage(), is("Commit failed because a table was already dropped [tableId=" + tableToBeDroppedId + "]"));
 
         assertThat("The transaction must have been aborted", committed.get(), is(false));

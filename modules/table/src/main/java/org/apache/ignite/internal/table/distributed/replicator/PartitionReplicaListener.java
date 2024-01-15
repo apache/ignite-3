@@ -535,7 +535,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                     .whenComplete((v, ex) -> runCleanupOnNode(txId, senderId));
         }
 
-        LOG.info("Orphan transaction has to be aborted [tx={}].", txId);
+        LOG.info("Orphan transaction has to be aborted [tx={}, meta={}].", txId, txMeta);
 
         return triggerTxRecovery(txId, senderId);
     }
@@ -1573,7 +1573,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                                     txId,
                                     txCoordinatorId
                             ).thenApply(txResult -> {
-                                throwIfSchemaValidationOnCommitFailed(validationResult);
+                                throwIfSchemaValidationOnCommitFailed(validationResult, txResult);
                                 return txResult;
                             }));
         } else {
@@ -1582,18 +1582,22 @@ public class PartitionReplicaListener implements ReplicaListener {
         }
     }
 
-    private static void throwIfSchemaValidationOnCommitFailed(CompatValidationResult validationResult) {
+    private static void throwIfSchemaValidationOnCommitFailed(CompatValidationResult validationResult, TransactionResult txResult) {
         if (!validationResult.isSuccessful()) {
             if (validationResult.isTableDropped()) {
                 // TODO: IGNITE-20966 - improve error message.
-                throw new IncompatibleSchemaAbortException(
-                        format("Commit failed because a table was already dropped [tableId={}]", validationResult.failedTableId())
+                throw new TransactionAlreadyFinishedException(
+                        format("Commit failed because a table was already dropped [tableId={}]", validationResult.failedTableId()),
+                        txResult
                 );
             } else {
                 // TODO: IGNITE-20966 - improve error message.
-                throw new IncompatibleSchemaAbortException("Commit failed because schema "
-                        + validationResult.fromSchemaVersion() + " is not forward-compatible with "
-                        + validationResult.toSchemaVersion() + " for table " + validationResult.failedTableId());
+                throw new TransactionAlreadyFinishedException(
+                        "Commit failed because schema "
+                                + validationResult.fromSchemaVersion() + " is not forward-compatible with "
+                                + validationResult.toSchemaVersion() + " for table " + validationResult.failedTableId(),
+                        txResult
+                );
             }
         }
     }
@@ -1680,7 +1684,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             @Nullable HybridTimestamp commitTimestamp,
             String txCoordinatorId
     ) {
-        assert !commit || (commitTimestamp != null);
+        assert !(commit && commitTimestamp == null) : "Cannot commit without the timestamp.";
 
         HybridTimestamp tsForCatalogVersion = commit ? commitTimestamp : hybridClock.now();
 
