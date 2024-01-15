@@ -2529,7 +2529,10 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     private void cleanup(UUID txId) {
         HybridTimestamp commitTs = clock.now();
 
-        txManager.updateTxMeta(txId, old -> new TxStateMeta(COMMITTED, UUID.randomUUID().toString(), commitPartitionId, commitTs, false, 1));
+        txManager.updateTxMeta(
+                txId,
+                old -> new TxStateMeta(COMMITTED, UUID.randomUUID().toString(), commitPartitionId, commitTs, false, 1)
+        );
 
         partitionReplicaListener.invoke(
                 TX_MESSAGES_FACTORY.writeIntentSwitchReplicaRequest()
