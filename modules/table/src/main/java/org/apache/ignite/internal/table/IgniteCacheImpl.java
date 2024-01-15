@@ -36,12 +36,11 @@ import javax.cache.integration.CompletionListener;
 import javax.cache.processor.EntryProcessor;
 import javax.cache.processor.EntryProcessorException;
 import javax.cache.processor.EntryProcessorResult;
-import org.apache.ignite.cache.Cache;
+import org.apache.ignite.cache.IgniteCache;
 import org.apache.ignite.cache.CacheTransaction;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshaller;
-import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
@@ -57,7 +56,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Key-value view implementation.
  */
-public class CacheImpl<K, V> extends AbstractTableView implements Cache<K, V> {
+public class IgniteCacheImpl<K, V> extends AbstractTableView implements IgniteCache<K, V> {
     private static final byte[] TOMBSTONE = new byte[0];
 
     public static final String KEY_COL = "KEY";
@@ -74,7 +73,7 @@ public class CacheImpl<K, V> extends AbstractTableView implements Cache<K, V> {
 
     private final TupleMarshaller marshaller;
 
-    public CacheImpl(
+    public IgniteCacheImpl(
             InternalTable tbl,
             SchemaVersions schemaVersions,
             SchemaRegistry schemaReg,
@@ -84,7 +83,7 @@ public class CacheImpl<K, V> extends AbstractTableView implements Cache<K, V> {
             @Nullable TypeConverter<K, byte[]> keyConverter,
             @Nullable TypeConverter<V, byte[]> valueConverter
     ) {
-        super(tbl, schemaVersions, schemaReg);
+        super(tbl, schemaVersions, schemaReg, null);
 
         this.txManager = txManager; // TODO get from internal table.
         this.loader = loader;
@@ -134,8 +133,10 @@ public class CacheImpl<K, V> extends AbstractTableView implements Cache<K, V> {
             Tuple valTup = tbl.getForCache(keyRow, tx0).thenApply(row -> unmarshalValue(row, marshaller.schemaVersion())).join();
 
             if (valTup == null) {
+                V val = null;
+
                 if (loader != null) {
-                    V val = loader.load(key);
+                    val = loader.load(key);
                     if (val == null) {
                         // TODO need ttl for tombstones even if no ttl configured by user
                         valTup = Tuple.create().set(VAL_COL, TOMBSTONE).set(TTL_COL, 0L);
@@ -148,7 +149,7 @@ public class CacheImpl<K, V> extends AbstractTableView implements Cache<K, V> {
                     tbl.putForCache(row, tx0).join();
                 }
 
-                return null;
+                return val;
             }
 
             // TODO use readResolve for tombstone.

@@ -296,6 +296,24 @@ public class StorageUpdateHandler {
     }
 
     /**
+     * Forget all data belonging to external tx.
+     *
+     * @param txId Tx id.
+     */
+    public void forgetExternalTx(UUID txId) {
+        Set<RowId> pendingRowIds = pendingRows.removePendingRowIds(txId);
+
+        if (!pendingRowIds.isEmpty()) {
+            storage.runConsistently(locker -> {
+                pendingRowIds.forEach(locker::lock);
+                pendingRowIds.forEach(storage::forget);
+
+                return null;
+            });
+        }
+    }
+
+    /**
      * Switches write intents created by the transaction to regular values if the transaction is committed
      * or removes them if the transaction is aborted.
      *

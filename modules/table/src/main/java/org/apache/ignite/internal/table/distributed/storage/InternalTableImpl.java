@@ -973,7 +973,11 @@ public class InternalTableImpl implements InternalTable {
         return result;
     }
 
-    private TablePartitionIdMessage serializeTablePartitionId(TablePartitionId id) {
+    private TablePartitionIdMessage serializeTablePartitionId(@Nullable TablePartitionId id) {
+        if (id == null) {
+            return null;
+        }
+
         return tableMessagesFactory.tablePartitionIdMessage()
                 .partitionId(id.partitionId())
                 .tableId(id.tableId())
@@ -1788,7 +1792,11 @@ public class InternalTableImpl implements InternalTable {
      */
     protected CompletableFuture<IgniteBiTuple<ClusterNode, Long>> enlist(int partId, InternalTransaction tx) {
         TablePartitionId tablePartitionId = new TablePartitionId(tableId, partId);
-        tx.assignCommitPartition(tablePartitionId);
+
+        // Commit partition is assigned to a first enlisted table partition.
+        if (!tx.external()) {
+            tx.assignCommitPartition(tablePartitionId);
+        }
 
         HybridTimestamp now = clock.now();
 

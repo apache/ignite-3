@@ -266,6 +266,13 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
     }
 
     @Override
+    public void forget(RowId rowId) throws StorageException {
+        checkStorageClosed();
+
+        map.remove(rowId); // Drop version chain.
+    }
+
+    @Override
     public synchronized void addWriteCommitted(
             RowId rowId,
             @Nullable BinaryRow row,

@@ -19,7 +19,7 @@ package org.apache.ignite.internal.table;
 
 import javax.cache.integration.CacheLoader;
 import javax.cache.integration.CacheWriter;
-import org.apache.ignite.cache.Cache;
+import org.apache.ignite.cache.IgniteCache;
 import org.apache.ignite.internal.schema.ColumnsExtractor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
@@ -31,7 +31,6 @@ import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.table.mapper.TypeConverter;
-import org.apache.ignite.tx.IgniteTransactions;
 import org.jetbrains.annotations.Nullable;
 
 /** Internal table view interface. */
@@ -147,7 +146,7 @@ public interface TableViewInternal extends Table {
      * @param <V> Value type.
      * @return The instance.
      */
-    <K, V> Cache<K, V> cacheView(
+    <K, V> IgniteCache<K, V> cacheView(
             TxManager txManager,
             @Nullable CacheLoader<K, V> loader,
             @Nullable CacheWriter<K, V> writer,

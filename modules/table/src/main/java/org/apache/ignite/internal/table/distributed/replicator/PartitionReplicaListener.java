@@ -496,7 +496,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 txManager.updateTxMeta(req.transactionId(), old -> new TxStateMeta(
                         PENDING,
                         senderId,
-                        req.commitPartitionId().asTablePartitionId(),
+                        req.commitPartitionId() == null ? null : req.commitPartitionId().asTablePartitionId(),
                         null
                 ));
             }
@@ -2690,7 +2690,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             int catalogVersion
     ) {
         return applyUpdateCommand(
-                request.commitPartitionId().asTablePartitionId(),
+                request.commitPartitionId() == null ? TablePartitionId.EMPTY : request.commitPartitionId().asTablePartitionId(),
                 rowUuid,
                 row,
                 lastCommitTimestamp,
@@ -2863,9 +2863,6 @@ public class PartitionReplicaListener implements ReplicaListener {
     private CompletableFuture<ReplicaResult> processSingleEntryAction(ReadWriteSingleRowReplicaRequest request, String txCoordinatorId) {
         UUID txId = request.transactionId();
         BinaryRow searchRow = request.binaryRow();
-        TablePartitionId commitPartitionId = request.commitPartitionId().asTablePartitionId();
-
-        assert commitPartitionId != null : "Commit partition is null [type=" + request.requestType() + ']';
 
         switch (request.requestType()) {
             case RW_DELETE_EXACT: {
@@ -3062,10 +3059,10 @@ public class PartitionReplicaListener implements ReplicaListener {
     private CompletableFuture<ReplicaResult> processSingleEntryAction(ReadWriteSingleRowPkReplicaRequest request, String txCoordinatorId) {
         UUID txId = request.transactionId();
         BinaryTuple primaryKey = resolvePk(request.primaryKey());
-        TablePartitionId commitPartitionId = request.commitPartitionId().asTablePartitionId();
+        TablePartitionId commitPartitionId = request.commitPartitionId() == null ? null : request.commitPartitionId().asTablePartitionId();
 
-        assert commitPartitionId != null || request.requestType() == RequestType.RW_GET :
-                "Commit partition is null [type=" + request.requestType() + ']';
+//        assert commitPartitionId != null || request.requestType() == RequestType.RW_GET :
+//                "Commit partition is null [type=" + request.requestType() + ']';
 
         switch (request.requestType()) {
             case RW_GET: {
@@ -3090,7 +3087,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                             .thenCompose(catalogVersion -> awaitCleanup(rowId, catalogVersion))
                             .thenCompose(
                                     catalogVersion -> applyUpdateCommand(
-                                            request.commitPartitionId().asTablePartitionId(),
+                                            commitPartitionId,
                                             rowId.uuid(),
                                             null,
                                             lastCommitTime,
@@ -3114,7 +3111,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                             .thenCompose(catalogVersion -> awaitCleanup(rowId, catalogVersion))
                             .thenCompose(
                                     catalogVersion -> applyUpdateCommand(
-                                            request.commitPartitionId().asTablePartitionId(),
+                                            commitPartitionId,
                                             rowId.uuid(),
                                             null,
                                             lastCommitTime,
@@ -3580,6 +3577,12 @@ public class PartitionReplicaListener implements ReplicaListener {
      */
     private CompletableFuture<Boolean> resolveWriteIntentReadability(ReadResult writeIntent, @Nullable HybridTimestamp timestamp) {
         UUID txId = writeIntent.transactionId();
+
+        // External commit path.
+        if (writeIntent.commitTableId() == 0) {
+            inBusyLock(busyLock, () -> storageUpdateHandler.forgetExternalTx(txId));
+            return falseCompletedFuture();
+        }
 
         return transactionStateResolver.resolveTxState(
                         txId,

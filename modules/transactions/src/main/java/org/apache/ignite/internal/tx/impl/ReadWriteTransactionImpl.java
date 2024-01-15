@@ -220,4 +220,9 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl impl
     public Map<Object, Object> dirtyCache() {
         return dirtyCache;
     }
+
+    @Override
+    public boolean external() {
+        return externalCommit != null;
+    }
 }

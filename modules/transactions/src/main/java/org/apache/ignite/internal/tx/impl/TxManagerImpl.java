@@ -212,8 +212,6 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                 new LinkedBlockingQueue<>(),
                 new NamedThreadFactory("tx-async-cleanup", LOG));
 
-        orphanDetector = new OrphanDetector(clusterService.topologyService(), replicaService, placementDriver, lockManager, clock);
-
         txMessageSender = new TxMessageSender(clusterService.messagingService(), replicaService, clock);
 
         WriteIntentSwitchProcessor writeIntentSwitchProcessor =
@@ -222,6 +220,9 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         txCleanupRequestHandler = new TxCleanupRequestHandler(clusterService, lockManager, clock, writeIntentSwitchProcessor);
 
         txCleanupRequestSender = new TxCleanupRequestSender(txMessageSender, placementDriverHelper, writeIntentSwitchProcessor);
+
+        orphanDetector = new OrphanDetector(clusterService.topologyService(), replicaService, placementDriver, lockManager, clock,
+                txCleanupRequestSender);
     }
 
     @Override

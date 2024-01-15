@@ -41,8 +41,6 @@ public class TxStateMeta implements TransactionMeta {
 
     private final HybridTimestamp commitTimestamp;
 
-    private boolean external; // TODO external commit flag.
-
     /**
      * Constructor.
      *

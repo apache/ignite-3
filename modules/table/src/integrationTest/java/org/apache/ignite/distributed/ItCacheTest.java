@@ -24,23 +24,32 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import javax.cache.Cache.Entry;
 import javax.cache.integration.CacheLoader;
 import javax.cache.integration.CacheLoaderException;
 import javax.cache.integration.CacheWriter;
 import javax.cache.integration.CacheWriterException;
-import org.apache.ignite.cache.Cache;
+import org.apache.ignite.cache.IgniteCache;
 import org.apache.ignite.cache.CacheTransaction;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
+import org.apache.ignite.internal.replicator.ReplicaService;
+import org.apache.ignite.internal.schema.Column;
+import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.table.TableViewInternal;
+import org.apache.ignite.internal.table.distributed.replication.request.ReadOnlySingleRowPkReplicaRequestBuilder;
+import org.apache.ignite.internal.table.distributed.replication.request.ReadOnlySingleRowPkReplicaRequestImpl;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
+import org.apache.ignite.internal.tx.message.TxCleanupMessage;
+import org.apache.ignite.internal.type.NativeTypes;
+import org.apache.ignite.network.DefaultMessagingService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -76,6 +85,15 @@ public class ItCacheTest extends IgniteAbstractTest {
 
     private final HybridTimestampTracker timestampTracker = new HybridTimestampTracker();
 
+    private static SchemaDescriptor SCHEMA_DESC = new SchemaDescriptor(
+            1,
+            new Column[]{new Column("key".toUpperCase(), NativeTypes.BYTES, false)},
+            new Column[]{
+                    new Column("ttl".toUpperCase(), NativeTypes.INT64, false),
+                    new Column("value".toUpperCase(), NativeTypes.BYTES, false)
+            }
+    );
+
     /**
      * The constructor.
      *
@@ -99,7 +117,7 @@ public class ItCacheTest extends IgniteAbstractTest {
         );
         txTestCluster.prepareCluster();
 
-        testTable = txTestCluster.startCache(CACHE_NAME, CACHE_TABLE_ID);
+        testTable = txTestCluster.startTable(CACHE_NAME, CACHE_TABLE_ID, SCHEMA_DESC);
 
         log.info("Caches have been started");
     }
@@ -114,7 +132,7 @@ public class ItCacheTest extends IgniteAbstractTest {
      */
     @Test
     public void testBasic() {
-        try (Cache<Integer, Integer> view = testTable.cacheView(txTestCluster.clientTxManager, null, null, null, null)) {
+        try (IgniteCache<Integer, Integer> view = testTable.cacheView(txTestCluster.clientTxManager, null, null, null, null)) {
             view.put(1, 1);
 
             assertEquals(1, view.get(1));
@@ -138,7 +156,7 @@ public class ItCacheTest extends IgniteAbstractTest {
      */
     @Test
     public void testExplicitTxn() {
-        try (Cache<Integer, Integer> view = testTable.cacheView(txTestCluster.clientTxManager, null, null, null, null)) {
+        try (IgniteCache<Integer, Integer> view = testTable.cacheView(txTestCluster.clientTxManager, null, null, null, null)) {
             CacheTransaction tx = view.beginTransaction();
 
             view.put(tx, 1, 1);
@@ -172,7 +190,7 @@ public class ItCacheTest extends IgniteAbstractTest {
 
         TestCacheLoader loader = new TestCacheLoader(testStore);
         TestCacheWriter writer = new TestCacheWriter(testStore);
-        try (Cache<Integer, Integer> view = testTable.cacheView(
+        try (IgniteCache<Integer, Integer> view = testTable.cacheView(
                 txTestCluster.clientTxManager,
                 loader,
                 writer,
@@ -203,12 +221,12 @@ public class ItCacheTest extends IgniteAbstractTest {
      * Test basic cache operations.
      */
     @Test
-    public void testReadWriteThroughExplicitTTxn() {
+    public void testReadWriteThroughExplicitTxn() {
         Map<Integer, Integer> testStore = new HashMap<>();
 
         TestCacheLoader loader = new TestCacheLoader(testStore);
         TestCacheWriter writer = new TestCacheWriter(testStore);
-        try (Cache<Integer, Integer> view = testTable.cacheView(
+        try (IgniteCache<Integer, Integer> view = testTable.cacheView(
                 txTestCluster.clientTxManager,
                 loader,
                 writer,
@@ -239,6 +257,179 @@ public class ItCacheTest extends IgniteAbstractTest {
 
             assertNull(view.get(1));
             validate(testStore, loader, writer, 0, 2, 0, 1);
+        }
+    }
+
+    @Test
+    public void testRecovery() throws Exception {
+        try (IgniteCache<Integer, Integer> view = testTable.cacheView(
+                txTestCluster.clientTxManager,
+                null,
+                null,
+                null,
+                null)
+        ) {
+            view.put(1, 0);
+
+            CacheTransaction tx = view.beginTransaction();
+
+            view.put(tx, 1, 1);
+            assertEquals(1, view.get(tx, 1));
+        }
+
+        txTestCluster.stopClient(); // Invalidate txn coordinator.
+        TableViewInternal client2 = txTestCluster.newTableClient(CACHE_NAME, CACHE_TABLE_ID, SCHEMA_DESC);
+
+        try (IgniteCache<Integer, Integer> view = client2.cacheView(
+                txTestCluster.clientTxManager,
+                null,
+                null,
+                null,
+                null)
+        ) {
+            CacheTransaction tx = view.beginTransaction();
+
+            assertEquals(0, view.get(tx, 1));
+        }
+    }
+
+    @Test
+    public void testRecoveryExternal() throws Exception {
+        Map<Integer, Integer> testStore = new HashMap<>();
+
+        TestCacheLoader loader = new TestCacheLoader(testStore);
+        TestCacheWriter writer = new TestCacheWriter(testStore);
+
+        try (IgniteCache<Integer, Integer> view = testTable.cacheView(
+                txTestCluster.clientTxManager,
+                loader,
+                writer,
+                null,
+                null)
+        ) {
+            view.put(1, 0);
+            assertEquals(0, view.get(1));
+            assertEquals(0, testStore.get(1));
+
+            CacheTransaction tx = view.beginTransaction();
+
+            view.put(tx, 1, 1);
+            assertEquals(1, view.get(tx, 1));
+        }
+
+        txTestCluster.stopClient(); // Invalidate txn coordinator.
+        TableViewInternal client2 = txTestCluster.newTableClient(CACHE_NAME, CACHE_TABLE_ID, SCHEMA_DESC);
+
+        try (IgniteCache<Integer, Integer> view = client2.cacheView(
+                txTestCluster.clientTxManager,
+                null,
+                null,
+                null,
+                null)
+        ) {
+            CacheTransaction tx = view.beginTransaction();
+
+            assertEquals(testStore.get(1), view.get(tx, 1));
+        }
+    }
+
+    @Test
+    public void testRecoveryExternal2() throws Exception {
+        Map<Integer, Integer> testStore = new HashMap<>();
+        testStore.put(1, 0);
+
+        TestCacheLoader loader = new TestCacheLoader(testStore);
+        TestCacheWriter writer = new TestCacheWriter(testStore);
+
+        try (IgniteCache<Integer, Integer> view = testTable.cacheView(
+                txTestCluster.clientTxManager,
+                loader,
+                writer,
+                null,
+                null)
+        ) {
+            assertEquals(0, view.get(1));
+            assertEquals(0, testStore.get(1));
+
+            CacheTransaction tx = view.beginTransaction();
+
+            view.put(tx, 1, 1);
+            assertEquals(1, view.get(tx, 1));
+        }
+
+        txTestCluster.stopClient(); // Invalidate txn coordinator.
+        TableViewInternal client2 = txTestCluster.newTableClient(CACHE_NAME, CACHE_TABLE_ID, SCHEMA_DESC);
+
+        try (IgniteCache<Integer, Integer> view = client2.cacheView(
+                txTestCluster.clientTxManager,
+                null,
+                null,
+                null,
+                null)
+        ) {
+            CacheTransaction tx = view.beginTransaction();
+
+            assertEquals(testStore.get(1), view.get(tx, 1));
+        }
+    }
+
+    @Test
+    public void testRecoveryExternalFailAfterExternalCommit() throws Exception {
+        Map<Integer, Integer> testStore = new HashMap<>();
+        testStore.put(1, 0);
+
+        TestCacheLoader loader = new TestCacheLoader(testStore);
+        TestCacheWriter writer = new TestCacheWriter(testStore);
+
+        try (IgniteCache<Integer, Integer> view = testTable.cacheView(
+                txTestCluster.clientTxManager,
+                loader,
+                writer,
+                null,
+                null)
+        ) {
+            assertEquals(0, view.get(1));
+            assertEquals(0, testStore.get(1));
+
+            CacheTransaction tx = view.beginTransaction();
+
+            view.put(tx, 1, 1);
+            assertEquals(1, view.get(tx, 1));
+
+            // Block cleanup
+            DefaultMessagingService messagingService = (DefaultMessagingService) txTestCluster.client.messagingService();
+            messagingService.dropMessages((s, networkMessage) -> {
+                if (networkMessage instanceof TxCleanupMessage) {
+                    logger().info("Dropping cleanup request: {}", networkMessage);
+
+                    // Throttle durable cleanup.
+                    try {
+                        Thread.sleep(1000);
+                    } catch (InterruptedException e) {
+                        // Ignored.
+                    }
+
+                    return true;
+                }
+                return false;
+            });
+
+            tx.commitAsync();
+        }
+
+        txTestCluster.stopClient(); // Invalidate txn coordinator.
+        TableViewInternal client2 = txTestCluster.newTableClient(CACHE_NAME, CACHE_TABLE_ID, SCHEMA_DESC);
+
+        try (IgniteCache<Integer, Integer> view = client2.cacheView(
+                txTestCluster.clientTxManager,
+                loader,
+                writer,
+                null,
+                null)
+        ) {
+            CacheTransaction tx = view.beginTransaction();
+
+            assertEquals(testStore.get(1), view.get(tx, 1));
         }
     }
 

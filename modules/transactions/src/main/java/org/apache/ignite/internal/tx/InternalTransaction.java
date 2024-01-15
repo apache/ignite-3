@@ -112,4 +112,8 @@ public interface InternalTransaction extends Transaction {
     default Map<Object, Object> dirtyCache() {
         return null;
     }
+
+    default boolean external() {
+        return false;
+    }
 }

@@ -29,7 +29,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
 import javax.cache.integration.CacheLoader;
 import javax.cache.integration.CacheWriter;
-import org.apache.ignite.cache.Cache;
+import org.apache.ignite.cache.IgniteCache;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.marshaller.MarshallerException;
 import org.apache.ignite.internal.schema.BinaryRowEx;
@@ -58,7 +58,6 @@ import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.table.mapper.TypeConverter;
-import org.apache.ignite.tx.IgniteTransactions;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -315,14 +314,14 @@ public class TableImpl implements TableViewInternal {
     }
 
     @Override
-    public <K, V> Cache<K, V> cacheView(
+    public <K, V> IgniteCache<K, V> cacheView(
             TxManager txManager,
             @Nullable CacheLoader<K, V> loader,
             @Nullable CacheWriter<K, V> writer,
             @Nullable TypeConverter<K, byte[]> keyConverter,
             @Nullable TypeConverter<V, byte[]> valueConverter
     ) {
-        return new CacheImpl<>(tbl, schemaVersions, schemaReg, txManager, loader, writer, keyConverter, valueConverter);
+        return new IgniteCacheImpl<>(tbl, schemaVersions, schemaReg, txManager, loader, writer, keyConverter, valueConverter);
     }
 
     private void awaitIndexes() {

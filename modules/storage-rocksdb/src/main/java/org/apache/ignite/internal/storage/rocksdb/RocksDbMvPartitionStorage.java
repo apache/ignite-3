@@ -548,6 +548,11 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     }
 
     @Override
+    public void forget(RowId rowId) throws StorageException {
+
+    }
+
+    @Override
     public void addWriteCommitted(RowId rowId, @Nullable BinaryRow row, HybridTimestamp commitTimestamp) throws StorageException {
         busy(() -> {
             WriteBatchWithIndex writeBatch = PartitionDataHelper.requireWriteBatch();
