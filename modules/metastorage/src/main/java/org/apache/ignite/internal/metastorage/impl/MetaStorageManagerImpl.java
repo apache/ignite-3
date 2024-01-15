@@ -29,7 +29,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -104,17 +103,11 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
     /** Prevents double stopping of the component. */
     private final AtomicBoolean isStopped = new AtomicBoolean();
 
-    /** {@link AtomicLong} to simplify testing, primitive fields won't allow using {@code Mockito#spy(metastorage)}. */
-    private final AtomicLong appliedRevision = new AtomicLong(0L);
-
     /**
      * Future which completes when MetaStorage manager finished local recovery. The value of the future is the revision which must be used
      * for state recovery by other components.
      */
     private final CompletableFuture<Long> recoveryFinishedFuture = new CompletableFuture<>();
-
-    private final CompletableFuture<Long> recoveryFinishedPublicFuture
-            = recoveryFinishedFuture.whenComplete((revision, e) -> appliedRevision.set(revision));
 
     /**
      * Future that gets completed after {@link #deployWatches} method has been called.
@@ -124,6 +117,8 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
     private final ClusterTimeImpl clusterTime;
 
     private final TopologyAwareRaftGroupServiceFactory topologyAwareRaftGroupServiceFactory;
+
+    private volatile long appliedRevision = 0;
 
     private volatile MetaStorageConfiguration metaStorageConfiguration;
 
@@ -215,6 +210,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
 
                 storage.setRecoveryRevisionListener(null);
 
+                appliedRevision = targetRevision;
                 if (recoveryFinishedFuture.complete(targetRevision)) {
                     LOG.info("Finished MetaStorage recovery");
                 }
@@ -236,7 +232,8 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
             if (storageRevision >= targetRevision) {
                 storage.setRecoveryRevisionListener(null);
 
-                if (recoveryFinishedFuture.complete(storageRevision)) {
+                appliedRevision = targetRevision;
+                if (recoveryFinishedFuture.complete(targetRevision)) {
                     LOG.info("Finished MetaStorage recovery");
                 }
             }
@@ -392,7 +389,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
 
     @Override
     public long appliedRevision() {
-        return appliedRevision.get();
+        return appliedRevision;
     }
 
     @Override
@@ -422,7 +419,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
         }
 
         try {
-            return recoveryFinishedPublicFuture
+            return recoveryFinishedFuture
                     .thenAccept(revision -> inBusyLock(busyLock, () -> {
                         storage.startWatches(revision + 1, new OnRevisionAppliedCallback() {
                             @Override
@@ -837,7 +834,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
         }
 
         try {
-            appliedRevision.set(revision);
+            appliedRevision = revision;
 
             return nullCompletedFuture();
         } finally {
@@ -852,7 +849,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
 
     @Override
     public CompletableFuture<Long> recoveryFinishedFuture() {
-        return recoveryFinishedPublicFuture;
+        return recoveryFinishedFuture;
     }
 
     @TestOnly
@@ -898,6 +895,6 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
 
     /** Explicitly notifies revision update listeners. */
     public CompletableFuture<Void> notifyRevisionUpdateListenerOnStart() {
-        return recoveryFinishedPublicFuture.thenCompose(storage::notifyRevisionUpdateListenerOnStart);
+        return recoveryFinishedFuture.thenCompose(storage::notifyRevisionUpdateListenerOnStart);
     }
 }

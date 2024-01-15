@@ -105,8 +105,7 @@ public class WatchProcessor implements ManuallyCloseable {
     public WatchProcessor(String nodeName, EntryReader entryReader) {
         this.entryReader = entryReader;
 
-        this.watchExecutor = Executors.newSingleThreadScheduledExecutor(
-                NamedThreadFactory.create(nodeName, "metastorage-watch-executor", LOG));
+        this.watchExecutor = Executors.newFixedThreadPool(4, NamedThreadFactory.create(nodeName, "metastorage-watch-executor", LOG));
     }
 
     /** Adds a watch. */
@@ -173,12 +172,20 @@ public class WatchProcessor implements ManuallyCloseable {
                                 CompletableFuture<Void> notifyUpdateRevisionFuture = notifyUpdateRevisionListeners(newRevision);
 
                                 CompletableFuture<Void> notificationFuture = allOf(notifyWatchesFuture, notifyUpdateRevisionFuture)
-                                        .thenAcceptAsync(
-                                                unused -> invokeOnRevisionCallback(newRevision, time),
+                                        .thenRunAsync(
+                                                () -> invokeOnRevisionCallback(newRevision, time),
                                                 watchExecutor
                                         );
 
-                                notificationFuture.whenComplete((unused, e) -> maybeLogLongProcessing(updatedEntries, startTimeNanos));
+                                notificationFuture.whenComplete((unused, e) -> {
+                                    maybeLogLongProcessing(updatedEntries, startTimeNanos);
+
+                                    if (e != null) {
+                                        LOG.error("Error occurred when notifying watches", e);
+
+                                        throw new CompletionException(e);
+                                    }
+                                });
 
                                 return notificationFuture;
                             }, watchExecutor);
@@ -288,15 +295,9 @@ public class WatchProcessor implements ManuallyCloseable {
     }
 
     private void invokeOnRevisionCallback(long revision, HybridTimestamp time) {
-        try {
-            revisionCallback.onSafeTimeAdvanced(time);
+        revisionCallback.onSafeTimeAdvanced(time);
 
-            revisionCallback.onRevisionApplied(revision);
-        } catch (Throwable e) {
-            LOG.error("Error occurred when notifying watches", e);
-
-            throw e;
-        }
+        revisionCallback.onRevisionApplied(revision);
     }
 
     /**
