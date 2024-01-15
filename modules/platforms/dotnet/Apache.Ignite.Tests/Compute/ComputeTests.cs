@@ -302,7 +302,7 @@ namespace Apache.Ignite.Tests.Compute
         }
 
         [Test]
-        public async Task TestExecuteColocatedUpdatesTableCacheOnTableDrop()
+        public async Task TestExecuteColocatedUpdatesTableCacheOnTableDrop([Values(false, true)] bool forceLoadAssignment)
         {
             // Create table and use it in ExecuteColocated.
             var nodes = await GetNodeAsync(0);
@@ -312,13 +312,18 @@ namespace Apache.Ignite.Tests.Compute
             {
                 var keyTuple = new IgniteTuple { [KeyCol] = 1L };
                 var resNodeName = await Client.Compute.ExecuteColocatedAsync<string>(tableName, keyTuple, Units, NodeNameJob);
+                var table = await Client.Tables.GetTableAsync(tableName);
 
                 // Drop table and create a new one with a different ID, then execute a computation again.
                 // This should update the cached table and complete the computation successfully.
                 await Client.Compute.ExecuteAsync<string>(nodes, Units, DropTableJob, tableName);
                 await Client.Compute.ExecuteAsync<string>(nodes, Units, CreateTableJob, tableName);
 
-                // TODO: LoadPartitionAssignmentAsync fails with "Table not found"
+                if (forceLoadAssignment)
+                {
+                    table!.SetFieldValue("_partitionAssignment", null);
+                }
+
                 var resNodeName2 = await Client.Compute.ExecuteColocatedAsync<string>(tableName, keyTuple, Units, NodeNameJob);
 
                 Assert.AreEqual(resNodeName, resNodeName2);
