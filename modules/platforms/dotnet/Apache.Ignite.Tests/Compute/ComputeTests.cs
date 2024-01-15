@@ -318,6 +318,7 @@ namespace Apache.Ignite.Tests.Compute
                 await Client.Compute.ExecuteAsync<string>(nodes, Units, DropTableJob, tableName);
                 await Client.Compute.ExecuteAsync<string>(nodes, Units, CreateTableJob, tableName);
 
+                // TODO: LoadPartitionAssignmentAsync fails with "Table not found"
                 var resNodeName2 = await Client.Compute.ExecuteColocatedAsync<string>(tableName, keyTuple, Units, NodeNameJob);
 
                 Assert.AreEqual(resNodeName, resNodeName2);
