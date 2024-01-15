@@ -21,6 +21,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Supplier;
 import org.apache.calcite.sql.SqlNode;
+import org.apache.calcite.sql.SqlWriterConfig;
+import org.apache.calcite.sql.dialect.AnsiSqlDialect;
+import org.apache.calcite.sql.pretty.SqlPrettyWriter;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.cache.Cache;
@@ -30,6 +33,14 @@ import org.apache.ignite.internal.sql.engine.util.cache.CacheFactory;
  * An implementation of {@link ParserService} that, apart of parsing, introduces cache of parsed results.
  */
 public class ParserServiceImpl implements ParserService {
+
+    private static final SqlWriterConfig NORMALIZED_SQL_WRITER_CONFIG = SqlPrettyWriter.config()
+            // Uses the same config as SqlNode::toString
+            .withDialect(AnsiSqlDialect.DEFAULT)
+            .withAlwaysUseParentheses(false)
+            .withSelectListItemsOnSeparateLines(false)
+            .withUpdateSetListNewline(false)
+            .withIndentation(0);
 
     private final Cache<String, ParsedResult> queryToParsedResultCache;
 
@@ -57,12 +68,16 @@ public class ParserServiceImpl implements ParserService {
 
         SqlQueryType queryType = Commons.getQueryType(parsedTree);
 
-        assert queryType != null : parsedTree.toString();
+        SqlPrettyWriter w = new SqlPrettyWriter(NORMALIZED_SQL_WRITER_CONFIG);
+        parsedTree.unparse(w, 0, 0);
+        String normalizedQuery = w.toString();
+
+        assert queryType != null : normalizedQuery;
 
         ParsedResult result = new ParsedResultImpl(
                 queryType,
                 query,
-                parsedTree.toString(),
+                normalizedQuery,
                 parsedStatement.dynamicParamsCount(),
                 () -> IgniteSqlParser.parse(query, StatementParseResult.MODE).statement()
         );

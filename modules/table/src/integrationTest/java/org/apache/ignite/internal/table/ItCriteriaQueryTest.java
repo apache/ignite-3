@@ -59,12 +59,10 @@ import java.util.stream.StreamSupport;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
-import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.AsyncCursor;
 import org.apache.ignite.lang.Cursor;
 import org.apache.ignite.lang.ErrorGroups.Criteria;
-import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
@@ -152,8 +150,8 @@ public class ItCriteriaQueryTest extends ClusterPerClassIntegrationTest {
     @ParameterizedTest
     @MethodSource
     public <T> void testRecordViewQuery(CriteriaQuerySource<T> view, Function<T, Tuple> mapper) {
-        IgniteTestUtils.assertThrows(
-                IgniteException.class,
+        assertThrows(
+                CriteriaException.class,
                 () -> view.query(null, columnValue("id", equalTo("2"))),
                 "Dynamic parameter requires adding explicit type cast"
         );

@@ -20,6 +20,7 @@ package org.apache.ignite.internal.tx.test;
 import java.util.UUID;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.tx.TxPriority;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 
 /**
@@ -36,11 +37,21 @@ public class TestTransactionIds {
     public static final TransactionIdGenerator TRANSACTION_ID_GENERATOR = new TransactionIdGenerator(SOLE_NODE_ID);
 
     /**
-     * Generates new transaction ID using the global clock and hard-coded node ID.
+     * Generates new transaction ID with {@link TxPriority#NORMAL} priority using the global clock and hard-coded node ID.
      *
      * @return New transaction ID.
      */
     public static UUID newTransactionId() {
-        return TRANSACTION_ID_GENERATOR.transactionIdFor(GLOBAL_CLOCK.now());
+        return newTransactionId(TxPriority.NORMAL);
+    }
+
+    /**
+     * Generates new transaction ID with the specified priority using the global clock and hard-coded node ID.
+     *
+     * @param priority Transaction priority.
+     * @return New transaction ID.
+     */
+    public static UUID newTransactionId(TxPriority priority) {
+        return TRANSACTION_ID_GENERATOR.transactionIdFor(GLOBAL_CLOCK.now(), priority);
     }
 }

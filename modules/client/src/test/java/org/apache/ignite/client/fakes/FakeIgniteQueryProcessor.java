@@ -17,6 +17,8 @@
 
 package org.apache.ignite.client.fakes;
 
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
@@ -60,8 +62,8 @@ public class FakeIgniteQueryProcessor implements QueryProcessor {
     }
 
     @Override
-    public void start() {
-
+    public CompletableFuture<Void> start() {
+        return nullCompletedFuture();
     }
 
     @Override

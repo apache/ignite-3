@@ -92,8 +92,10 @@ public class MetricManager implements IgniteComponent {
     }
 
     /** {@inheritDoc} */
-    @Override public void start() {
+    @Override public CompletableFuture<Void> start() {
         start(loadExporters());
+
+        return nullCompletedFuture();
     }
 
     /**

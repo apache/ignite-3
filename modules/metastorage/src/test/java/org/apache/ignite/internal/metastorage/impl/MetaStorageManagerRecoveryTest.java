@@ -19,6 +19,7 @@ package org.apache.ignite.internal.metastorage.impl;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -138,7 +139,8 @@ public class MetaStorageManagerRecoveryTest extends BaseIgniteAbstractTest {
             }
 
             @Override
-            public void start() {
+            public CompletableFuture<Void> start() {
+                return nullCompletedFuture();
             }
         };
     }

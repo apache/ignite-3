@@ -19,7 +19,6 @@ package org.apache.ignite.internal.error.code.generators;
 
 import com.google.common.base.CaseFormat;
 import java.io.IOException;
-import java.nio.file.Path;
 import java.util.List;
 import javax.annotation.processing.ProcessingEnvironment;
 import org.apache.ignite.internal.error.code.processor.ErrorCodeGroupDescriptor;
@@ -30,7 +29,7 @@ import org.apache.ignite.internal.error.code.processor.ErrorCodeGroupDescriptor;
 public class CsharpGenerator extends GenericGenerator {
     private static final String SuffixToChop = "Err";
 
-    public CsharpGenerator(ProcessingEnvironment processingEnvironment, Path outFilePath) {
+    public CsharpGenerator(ProcessingEnvironment processingEnvironment, String outFilePath) {
         super(processingEnvironment, outFilePath);
     }
 

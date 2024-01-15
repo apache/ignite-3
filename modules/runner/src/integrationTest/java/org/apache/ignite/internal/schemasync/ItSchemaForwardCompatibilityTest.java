@@ -112,7 +112,7 @@ class ItSchemaForwardCompatibilityTest extends ClusterPerTestIntegrationTest {
                 ))
         );
 
-        assertThat(ex.code(), is(Transactions.TX_COMMIT_ERR));
+        assertThat(ex.code(), is(Transactions.TX_UNEXPECTED_STATE_ERR));
 
         assertThat(tx.state(), is(TxState.ABORTED));
     }

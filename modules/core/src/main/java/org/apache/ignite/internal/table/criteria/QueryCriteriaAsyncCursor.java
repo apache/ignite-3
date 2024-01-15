@@ -42,8 +42,8 @@ public class QueryCriteriaAsyncCursor<T, R> implements AsyncCursor<T> {
      * Constructor.
      *
      * @param ars Asynchronous result set.
-     * @param mapper Mapper.
-     * @param closeRun Callback to be invoked after result is closed.
+     * @param mapper Conversion function for objects contained by result set (if {@code null}, conversion isn't required).
+     * @param closeRun Callback to be invoked after result set is closed.
      */
     public QueryCriteriaAsyncCursor(AsyncResultSet<R> ars, @Nullable Function<R, T> mapper, Runnable closeRun) {
         this.ars = ars;
@@ -77,7 +77,7 @@ public class QueryCriteriaAsyncCursor<T, R> implements AsyncCursor<T> {
         return CriteriaExceptionMapperUtil.convertToPublicFuture(ars.fetchNextPage()
                 .thenApply((rs) -> {
                     if (!hasMorePages()) {
-                        closeRun.run();
+                        closeAsync();
                     }
 
                     return new QueryCriteriaAsyncCursor<>(rs, mapper, closeRun);

@@ -25,6 +25,7 @@ import static org.apache.ignite.internal.deployunit.DeploymentStatus.REMOVING;
 import static org.apache.ignite.internal.deployunit.DeploymentStatus.UPLOADING;
 import static org.apache.ignite.internal.deployunit.UnitContent.toDeploymentUnit;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
 
 import java.nio.file.Path;
@@ -395,13 +396,15 @@ public class DeploymentManagerImpl implements IgniteDeployment {
     }
 
     @Override
-    public void start() {
+    public CompletableFuture<Void> start() {
         deployer.initUnitsFolder(workDir.resolve(configuration.deploymentLocation().value()));
         deploymentUnitStore.registerNodeStatusListener(nodeStatusWatchListener);
         deploymentUnitStore.registerClusterStatusListener(clusterStatusWatchListener);
         messaging.subscribe();
         failover.registerTopologyChangeCallback(nodeStatusCallback, clusterEventCallback);
         undeployer.start(UNDEPLOYER_DELAY.getSeconds(), TimeUnit.SECONDS);
+
+        return nullCompletedFuture();
     }
 
     @Override

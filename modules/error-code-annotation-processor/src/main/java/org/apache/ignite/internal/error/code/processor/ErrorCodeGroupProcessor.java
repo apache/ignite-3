@@ -27,7 +27,6 @@ import com.sun.source.tree.TypeCastTree;
 import com.sun.source.tree.VariableTree;
 import com.sun.source.util.TreePathScanner;
 import com.sun.source.util.Trees;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
@@ -109,8 +108,8 @@ public class ErrorCodeGroupProcessor extends AbstractProcessor {
         }
 
         List<AbstractCodeGenerator> generators = List.of(
-            new CppGenerator(processingEnv, Path.of("cpp/ignite/common/error_codes.h")),
-            new CsharpGenerator(processingEnv, Path.of("dotnet/Apache.Ignite/ErrorCodes.g.cs"))
+            new CppGenerator(processingEnv, "cpp/ignite/common/error_codes.h"),
+            new CsharpGenerator(processingEnv, "dotnet/Apache.Ignite/ErrorCodes.g.cs")
         );
 
         for (var generator : generators) {

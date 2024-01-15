@@ -136,7 +136,7 @@ public class InternalTableImpl implements InternalTable {
     private final int partitions;
 
     /** Table name. */
-    private final String tableName;
+    private volatile String tableName;
 
     /** Table identifier. */
     private final int tableId;
@@ -242,6 +242,11 @@ public class InternalTableImpl implements InternalTable {
     @Override
     public String name() {
         return tableName;
+    }
+
+    @Override
+    public void name(String newName) {
+        this.tableName = newName;
     }
 
     /**

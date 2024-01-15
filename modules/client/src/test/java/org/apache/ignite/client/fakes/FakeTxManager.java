@@ -33,6 +33,7 @@ import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.TxPriority;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.network.ClusterNode;
@@ -50,8 +51,9 @@ public class FakeTxManager implements TxManager {
     }
 
     @Override
-    public void start() {
+    public CompletableFuture<Void> start() {
         // No-op.
+        return nullCompletedFuture();
     }
 
     @Override
@@ -65,7 +67,12 @@ public class FakeTxManager implements TxManager {
     }
 
     @Override
-    public InternalTransaction begin(HybridTimestampTracker tracker, boolean readOnly) {
+    public InternalTransaction begin(HybridTimestampTracker timestampTracker, boolean readOnly) {
+        return begin(timestampTracker, readOnly, TxPriority.NORMAL);
+    }
+
+    @Override
+    public InternalTransaction begin(HybridTimestampTracker tracker, boolean readOnly, TxPriority priority) {
         return new InternalTransaction() {
             private final UUID id = UUID.randomUUID();
 

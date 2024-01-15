@@ -17,8 +17,11 @@
 
 package org.apache.ignite.internal.sql.api;
 
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+
 import java.util.HashMap;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executors;
@@ -107,7 +110,7 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
     }
 
     @Override
-    public void start() {
+    public CompletableFuture<Void> start() {
         executor.scheduleWithFixedDelay(
                 () -> {
                     for (SessionImpl session : sessions.values()) {
@@ -120,6 +123,8 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
                 SESSION_EXPIRE_CHECK_PERIOD,
                 TimeUnit.MILLISECONDS
         );
+
+        return nullCompletedFuture();
     }
 
     @Override
