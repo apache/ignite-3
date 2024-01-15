@@ -312,7 +312,6 @@ namespace Apache.Ignite.Tests.Compute
             {
                 var keyTuple = new IgniteTuple { [KeyCol] = 1L };
                 var resNodeName = await Client.Compute.ExecuteColocatedAsync<string>(tableName, keyTuple, Units, NodeNameJob);
-                var table = await Client.Tables.GetTableAsync(tableName);
 
                 // Drop table and create a new one with a different ID, then execute a computation again.
                 // This should update the cached table and complete the computation successfully.
@@ -321,8 +320,8 @@ namespace Apache.Ignite.Tests.Compute
 
                 if (forceLoadAssignment)
                 {
-                    // TODO: Compute has it's own table cache which should be updated on table drop.
-                    table!.SetFieldValue("_partitionAssignment", null);
+                    var table = Client.Compute.GetFieldValue<IDictionary>("_tableCache")[tableName]!;
+                    table.SetFieldValue("_partitionAssignment", null);
                 }
 
                 var resNodeName2 = await Client.Compute.ExecuteColocatedAsync<string>(tableName, keyTuple, Units, NodeNameJob);
