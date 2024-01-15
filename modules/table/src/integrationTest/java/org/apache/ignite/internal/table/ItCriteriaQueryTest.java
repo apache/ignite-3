@@ -255,6 +255,12 @@ public class ItCriteriaQueryTest extends ClusterPerClassIntegrationTest {
     @ParameterizedTest
     @MethodSource
     public <T> void testKeyValueView(CriteriaQuerySource<T> view, Function<T, Entry<Tuple, Tuple>> mapper) {
+        assertThrows(
+                CriteriaException.class,
+                () -> view.query(null, columnValue("id", equalTo("2"))),
+                "Dynamic parameter requires adding explicit type cast"
+        );
+
         Matcher<Tuple> personKey0 = tupleValue("id", is(0));
         Matcher<Tuple> person0 = allOf(tupleValue("name", Matchers.nullValue()), tupleValue("salary", is(0.0d)),
                 tupleValue("hash", is("hash0".getBytes())));
