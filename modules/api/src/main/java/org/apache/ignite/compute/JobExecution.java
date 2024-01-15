@@ -59,7 +59,7 @@ public interface JobExecution<R> {
     CompletableFuture<Void> cancelAsync();
 
     /**
-     * Changes job priority.
+     * Changes job priority. After priority change job will be the last in the queue of jobs with the same priority.
      *
      * @param newPriority new priority.
      * @return The future which will be completed when change priority request is processed.

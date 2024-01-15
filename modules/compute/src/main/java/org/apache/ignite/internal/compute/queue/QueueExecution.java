@@ -50,7 +50,7 @@ public interface QueueExecution<R> {
     void cancel();
 
     /**
-     * Change job priority.
+     * Change job priority. After priority change entry will be the last in the queue of entries with the same priority.
      *
      * @param newPriority new priority.
      */
