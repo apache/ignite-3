@@ -148,7 +148,7 @@ public class OrphanDetectorTest extends BaseIgniteAbstractTest {
 
         UUID concurrentTxId = idGenerator.transactionIdFor(clock.now());
 
-        TxStateMeta committedState = new TxStateMeta(TxState.COMMITTED, LOCAL_NODE.id(), tpId, clock.now());
+        TxStateMeta committedState = new TxStateMeta(TxState.COMMITTED, LOCAL_NODE.id(), tpId, clock.now(), null, null);
 
         txStateMetaStorage.updateMeta(orphanTxId, stateMeta -> committedState);
 
@@ -178,7 +178,7 @@ public class OrphanDetectorTest extends BaseIgniteAbstractTest {
 
         UUID concurrentTxId = idGenerator.transactionIdFor(clock.now());
 
-        TxStateMeta abortedState = new TxStateMeta(TxState.ABORTED, LOCAL_NODE.id(), tpId, null);
+        TxStateMeta abortedState = new TxStateMeta(TxState.ABORTED, LOCAL_NODE.id(), tpId, null, null, null);
 
         txStateMetaStorage.updateMeta(orphanTxId, stateMeta -> abortedState);
 
@@ -205,7 +205,7 @@ public class OrphanDetectorTest extends BaseIgniteAbstractTest {
 
         UUID concurrentTxId = idGenerator.transactionIdFor(clock.now());
 
-        TxStateMeta finishingState = new TxStateMeta(TxState.FINISHING, LOCAL_NODE.id(), tpId, null);
+        TxStateMeta finishingState = new TxStateMeta(TxState.FINISHING, LOCAL_NODE.id(), tpId, null, null, null);
 
         txStateMetaStorage.updateMeta(orphanTxId, stateMeta -> finishingState);
 
@@ -235,7 +235,7 @@ public class OrphanDetectorTest extends BaseIgniteAbstractTest {
 
         UUID concurrentTxId = idGenerator.transactionIdFor(clock.now());
 
-        TxStateMeta pendingState = new TxStateMeta(TxState.PENDING, LOCAL_NODE.id(), tpId, null);
+        TxStateMeta pendingState = new TxStateMeta(TxState.PENDING, LOCAL_NODE.id(), tpId, null, null, null);
 
         txStateMetaStorage.updateMeta(orphanTxId, stateMeta -> pendingState);
 
@@ -267,7 +267,7 @@ public class OrphanDetectorTest extends BaseIgniteAbstractTest {
 
         UUID concurrentTxId = idGenerator.transactionIdFor(clock.now());
 
-        TxStateMeta pendingState = new TxStateMeta(TxState.PENDING, LOCAL_NODE.id(), tpId, null);
+        TxStateMeta pendingState = new TxStateMeta(TxState.PENDING, LOCAL_NODE.id(), tpId, null, null, null);
 
         txStateMetaStorage.updateMeta(orphanTxId, stateMeta -> pendingState);
 

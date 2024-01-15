@@ -18,12 +18,11 @@
 package org.apache.ignite.internal.tx.impl;
 
 import org.apache.ignite.internal.catalog.CatalogService;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.message.RwTransactionsFinishedRequest;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
-import org.apache.ignite.network.ClusterService;
+import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.NetworkMessageHandler;
 import org.jetbrains.annotations.Nullable;
@@ -34,18 +33,17 @@ class RwTxFinishedHandler {
 
     private final CatalogService catalogService;
 
-    private final ClusterService clusterService;
-
+    private final MessagingService messagingService;
     private final VolatileTxCounter rwTxCounterByCatalogVersion = new VolatileTxCounter();
 
-    RwTxFinishedHandler(CatalogService catalogService, ClusterService clusterService) {
+    RwTxFinishedHandler(CatalogService catalogService, MessagingService messagingService) {
         this.catalogService = catalogService;
-        this.clusterService = clusterService;
+        this.messagingService = messagingService;
     }
 
     /** Starts the handler. */
     void start() {
-        clusterService.messagingService().addMessageHandler(TxMessageGroup.class, this::onReceiveTxNetworkMessage);
+        messagingService.addMessageHandler(TxMessageGroup.class, this::onReceiveTxNetworkMessage);
     }
 
     /** Stops the handler. */
@@ -93,7 +91,7 @@ class RwTxFinishedHandler {
 
         boolean finished = isRwTransactionsFinished(targetCatalogVersion);
 
-        clusterService.messagingService().respond(
+        messagingService.respond(
                 senderConsistentId,
                 FACTORY.rwTransactionsFinishedResponse().finished(finished).build(),
                 correlationId

@@ -235,7 +235,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
         txCleanupRequestSender = new TxCleanupRequestSender(txMessageSender, placementDriverHelper, writeIntentSwitchProcessor);
 
-        rwTxFinishedHandler = new RwTxFinishedHandler(catalogService, clusterService);
+        rwTxFinishedHandler = new RwTxFinishedHandler(catalogService, messagingService);
     }
 
     @Override

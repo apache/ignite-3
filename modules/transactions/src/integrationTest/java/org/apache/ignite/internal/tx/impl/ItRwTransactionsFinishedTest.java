@@ -258,7 +258,7 @@ public class ItRwTransactionsFinishedTest extends ClusterPerClassIntegrationTest
     private static boolean isRwTransactionsFinishedFromNetwork(int catalogVersion) {
         CompletableFuture<NetworkMessage> invokeFuture = node().clusterService().messagingService().invoke(
                 node().node(),
-                FACTORY.rwTransactionsFinishedRequest().targetSchemaVersion(catalogVersion).build(),
+                FACTORY.rwTransactionsFinishedRequest().targetCatalogVersion(catalogVersion).build(),
                 1_000
         );
 
