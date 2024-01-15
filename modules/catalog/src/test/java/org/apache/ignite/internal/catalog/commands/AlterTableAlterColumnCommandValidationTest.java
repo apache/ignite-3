@@ -20,6 +20,7 @@ package org.apache.ignite.internal.catalog.commands;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.initializeColumnWithDefaults;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
+import static org.apache.ignite.internal.util.Constants.DUMMY_STORAGE_PROFILE;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -476,6 +477,7 @@ public class AlterTableAlterColumnCommandValidationTest extends AbstractCommandV
                                 .build())
                 )
                 .primaryKeyColumns(List.of("ID"))
+                .storageProfile(DUMMY_STORAGE_PROFILE)
         );
 
         AlterTableAlterColumnCommandBuilder builder = AlterTableAlterColumnCommand.builder();

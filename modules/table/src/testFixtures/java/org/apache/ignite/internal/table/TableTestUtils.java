@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.table;
 
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.Constants.DUMMY_STORAGE_PROFILE;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
@@ -62,6 +63,7 @@ public class TableTestUtils {
                 .tableName(tableName)
                 .columns(columns)
                 .primaryKeyColumns(pkColumns)
+                .storageProfile(DUMMY_STORAGE_PROFILE)
                 .build();
 
         assertThat(catalogManager.execute(command), willCompleteSuccessfully());

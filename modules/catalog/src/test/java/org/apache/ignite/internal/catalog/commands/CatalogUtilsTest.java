@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.catalog.CatalogTestUtils.index;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.collectIndexes;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.pkIndexName;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.Constants.DUMMY_STORAGE_PROFILE;
 import static org.apache.ignite.sql.ColumnType.INT32;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.hasItems;
@@ -270,6 +271,7 @@ public class CatalogUtilsTest extends BaseIgniteAbstractTest {
                 .columns(List.of(ColumnParams.builder().name(COLUMN_NAME).type(INT32).build()))
                 .primaryKeyColumns(List.of(COLUMN_NAME))
                 .colocationColumns(List.of(COLUMN_NAME))
+                .storageProfile(DUMMY_STORAGE_PROFILE)
                 .build();
 
         assertThat(catalogManager.execute(catalogCommand), willCompleteSuccessfully());

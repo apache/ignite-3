@@ -20,6 +20,7 @@ package org.apache.ignite.internal.runner.app;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
+import static org.apache.ignite.internal.util.Constants.DUMMY_STORAGE_PROFILE;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.fail;
 
@@ -153,7 +154,8 @@ abstract class AbstractSchemaChangeTest extends IgniteIntegrationTest {
     protected static void createTable(List<Ignite> nodes) {
         try (Session session = nodes.get(0).sql().createSession()) {
             session.execute(null, "CREATE TABLE tbl1(key BIGINT PRIMARY KEY, valint INT, valblob BINARY,"
-                    + "valdecimal DECIMAL, valbigint BIGINT, valstr VARCHAR NOT NULL DEFAULT 'default')");
+                    + "valdecimal DECIMAL, valbigint BIGINT, valstr VARCHAR NOT NULL DEFAULT 'default') WITH STORAGE_PROFILE='"
+                    + DUMMY_STORAGE_PROFILE + "'");
         }
     }
 

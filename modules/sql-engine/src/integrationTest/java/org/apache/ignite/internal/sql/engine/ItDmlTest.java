@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine;
 
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
+import static org.apache.ignite.internal.util.Constants.DUMMY_STORAGE_PROFILE;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
@@ -115,7 +116,7 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
 
     @Test
     public void batchWithConflictShouldBeRejectedEntirely() {
-        sql("CREATE TABLE test (id int primary key, val int)");
+        sql("CREATE TABLE test (id int primary key, val int) WITH STORAGE_PROFILE='" + DUMMY_STORAGE_PROFILE + "'");
 
         sql("INSERT INTO test values (1, 1)");
 

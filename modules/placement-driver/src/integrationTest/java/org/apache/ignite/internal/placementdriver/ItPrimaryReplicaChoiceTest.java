@@ -61,7 +61,8 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
         super.setup(testInfo);
 
         String zoneSql = "create zone test_zone with partitions=1, replicas=3, storage_profiles='" + DUMMY_STORAGE_PROFILE + "'";
-        String sql = "create table " + TABLE_NAME + " (key int primary key, val varchar(20)) with primary_zone='TEST_ZONE'";
+        String sql = "create table " + TABLE_NAME + " (key int primary key, val varchar(20)) with primary_zone='TEST_ZONE',"
+                + " storage_profile='" + DUMMY_STORAGE_PROFILE + "'";
 
         cluster.doInSession(0, session -> {
             executeUpdate(zoneSql, session);

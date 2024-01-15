@@ -25,6 +25,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThr
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowWithCauseOrSuppressed;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.Constants.DUMMY_STORAGE_PROFILE;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -426,7 +427,8 @@ public class ItTablesApiTest extends IgniteAbstractTest {
      * @param tableName Table name.
      */
     protected static Table createTable(Ignite node, String tableName) {
-        sql(node, String.format("CREATE TABLE %s (key BIGINT PRIMARY KEY, valInt INT, valStr VARCHAR)", tableName));
+        sql(node, String.format("CREATE TABLE %s (key BIGINT PRIMARY KEY, valInt INT, valStr VARCHAR) WITH STORAGE_PROFILE='"
+                + DUMMY_STORAGE_PROFILE + "'", tableName));
 
         return node.tables().table(tableName);
     }
@@ -438,7 +440,8 @@ public class ItTablesApiTest extends IgniteAbstractTest {
      * @param tableName Table name.
      */
     private static Table createTableIfNotExists(Ignite node, String tableName) {
-        sql(node, String.format("CREATE TABLE IF NOT EXISTS %s (key BIGINT PRIMARY KEY, valInt INT, valStr VARCHAR)", tableName));
+        sql(node, String.format("CREATE TABLE IF NOT EXISTS %s (key BIGINT PRIMARY KEY, valInt INT, valStr VARCHAR) WITH STORAGE_PROFILE='"
+                + DUMMY_STORAGE_PROFILE + "'", tableName));
 
         return node.tables().table(tableName);
     }

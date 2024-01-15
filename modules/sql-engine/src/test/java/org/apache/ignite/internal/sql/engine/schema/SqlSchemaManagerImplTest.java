@@ -20,6 +20,7 @@ package org.apache.ignite.internal.sql.engine.schema;
 import static org.apache.ignite.internal.sql.engine.util.TypeUtils.columnType2NativeType;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
+import static org.apache.ignite.internal.util.Constants.DUMMY_STORAGE_PROFILE;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.notNullValue;
@@ -700,6 +701,7 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
                 ))
                 .primaryKeyColumns(List.of("ID"))
                 .zone("Default")
+                .storageProfile(DUMMY_STORAGE_PROFILE)
                 .build();
     }
 

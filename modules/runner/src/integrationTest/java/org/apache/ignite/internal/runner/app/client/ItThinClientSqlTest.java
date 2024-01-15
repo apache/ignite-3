@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.runner.app.client;
 
+import static org.apache.ignite.internal.util.Constants.DUMMY_STORAGE_PROFILE;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -108,7 +109,8 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
         Session ses = client().sql().createSession();
 
         // Create table.
-        ses.execute(null, "CREATE TABLE testExecuteDdlDml(ID INT NOT NULL PRIMARY KEY, VAL VARCHAR)");
+        ses.execute(null, "CREATE TABLE testExecuteDdlDml(ID INT NOT NULL PRIMARY KEY, VAL VARCHAR) WITH STORAGE_PROFILE='"
+                + DUMMY_STORAGE_PROFILE + "'");
 
         // Async
         Transaction tx = client().transactions().begin();
@@ -174,7 +176,8 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
 
         // Create table.
         AsyncResultSet createRes = session
-                .executeAsync(null, "CREATE TABLE testExecuteAsyncDdlDml(ID INT PRIMARY KEY, VAL VARCHAR)")
+                .executeAsync(null, "CREATE TABLE testExecuteAsyncDdlDml(ID INT PRIMARY KEY, VAL VARCHAR) "
+                        + "WITH STORAGE_PROFILE='" + DUMMY_STORAGE_PROFILE + "'")
                 .join();
 
         assertFalse(createRes.hasRowSet());
@@ -245,7 +248,8 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
         // Create table.
         ResultSet createRes = session.execute(
                 null,
-                "CREATE TABLE testExecuteDdlDml(ID INT NOT NULL PRIMARY KEY, VAL VARCHAR)");
+                "CREATE TABLE testExecuteDdlDml(ID INT NOT NULL PRIMARY KEY, VAL VARCHAR) WITH STORAGE_PROFILE='"
+                        + DUMMY_STORAGE_PROFILE + "'");
 
         assertFalse(createRes.hasRowSet());
         assertNull(createRes.metadata());
@@ -323,7 +327,9 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
     void testFetchNextPage() {
         Session session = client().sql().createSession();
 
-        session.executeAsync(null, "CREATE TABLE testFetchNextPage(ID INT PRIMARY KEY, VAL INT)").join();
+        session.executeAsync(null, "CREATE TABLE testFetchNextPage(ID INT PRIMARY KEY, VAL INT) WITH STORAGE_PROFILE='"
+                + DUMMY_STORAGE_PROFILE + "'")
+                .join();
 
         for (int i = 0; i < 10; i++) {
             session.executeAsync(null, "INSERT INTO testFetchNextPage VALUES (?, ?)", i, i).join();
@@ -365,7 +371,9 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
     void testTransactionRollbackRevertsSqlUpdate() {
         Session session = client().sql().createSession();
 
-        session.executeAsync(null, "CREATE TABLE testTx(ID INT PRIMARY KEY, VAL INT)").join();
+        session.executeAsync(null, "CREATE TABLE testTx(ID INT PRIMARY KEY, VAL INT) WITH STORAGE_PROFILE='"
+                + DUMMY_STORAGE_PROFILE + "'")
+                .join();
 
         session.executeAsync(null, "INSERT INTO testTx VALUES (1, 1)").join();
 
@@ -444,7 +452,8 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
                 + "VAL_TIME TIME, "
                 + "VAL_TIMESTAMP TIMESTAMP, "
                 + "VAL_UUID UUID, "
-                + "VAL_BYTES BINARY)";
+                + "VAL_BYTES BINARY) WITH STORAGE_PROFILE='"
+                + DUMMY_STORAGE_PROFILE + "'";
 
         session.execute(null, createTable);
 

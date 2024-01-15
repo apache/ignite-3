@@ -19,6 +19,7 @@ package org.apache.ignite.internal.catalog;
 
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
+import static org.apache.ignite.internal.util.Constants.DUMMY_STORAGE_PROFILE;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.hasSize;
@@ -58,7 +59,8 @@ class CatalogTestUtilsTest extends BaseIgniteAbstractTest {
                         ColumnParams.builder().name("C1").type(ColumnType.INT32).build(),
                         ColumnParams.builder().name("C2").type(ColumnType.INT32).build()
                 ))
-                .primaryKeyColumns(List.of("C1"));
+                .primaryKeyColumns(List.of("C1"))
+                .storageProfile(DUMMY_STORAGE_PROFILE);
 
         await(manager.execute(
                 createTableTemplate.tableName("T1").build()
