@@ -221,14 +221,14 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
         BinaryTuple idxKey = new BinaryTuple(1, new BinaryTupleBuilder(1).appendString("preload val").build());
 
         // Start cursors in the RW transaction.
-        scanSingleEntryAndLeaseCursorOpen(tbl, rwTx, null, null);
-        scanSingleEntryAndLeaseCursorOpen(tbl, rwTx, hashIdxId, idxKey);
-        scanSingleEntryAndLeaseCursorOpen(tbl, rwTx, sortedIdxId, null);
+        scanSingleEntryAndLeaveCursorOpen(tbl, rwTx, null, null);
+        scanSingleEntryAndLeaveCursorOpen(tbl, rwTx, hashIdxId, idxKey);
+        scanSingleEntryAndLeaveCursorOpen(tbl, rwTx, sortedIdxId, null);
 
         // Start cursors in the RO transaction.
-        scanSingleEntryAndLeaseCursorOpen(tbl, roTx, null, null);
-        scanSingleEntryAndLeaseCursorOpen(tbl, roTx, hashIdxId, idxKey);
-        scanSingleEntryAndLeaseCursorOpen(tbl, roTx, sortedIdxId, null);
+        scanSingleEntryAndLeaveCursorOpen(tbl, roTx, null, null);
+        scanSingleEntryAndLeaveCursorOpen(tbl, roTx, hashIdxId, idxKey);
+        scanSingleEntryAndLeaveCursorOpen(tbl, roTx, sortedIdxId, null);
 
         var partitionStorage = (TestMvPartitionStorage) ((TableViewInternal) ignite.tables().table(TABLE_NAME))
                 .internalTable().storage().getMvPartition(PART_ID);
@@ -256,7 +256,7 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
      * @param idxId Index id.
      * @throws Exception If failed.
      */
-    private void scanSingleEntryAndLeaseCursorOpen(TableViewInternal tbl, InternalTransaction tx, Integer idxId, BinaryTuple exactKey)
+    private void scanSingleEntryAndLeaveCursorOpen(TableViewInternal tbl, InternalTransaction tx, Integer idxId, BinaryTuple exactKey)
             throws Exception {
         Publisher<BinaryRow> publisher;
 
