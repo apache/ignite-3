@@ -79,7 +79,7 @@ public class TestNode implements LifecycleAware {
 
     private final List<LifecycleAware> services = new ArrayList<>();
     volatile boolean exceptionRaised;
-    IgniteSpinBusyLock holdLock;
+    private final IgniteSpinBusyLock holdLock;
 
     /**
      * Constructs the object.
