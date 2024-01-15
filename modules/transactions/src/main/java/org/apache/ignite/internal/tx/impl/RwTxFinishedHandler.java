@@ -119,7 +119,7 @@ class RwTxFinishedHandler {
 
         try {
             if (catalogVersion > catalogService.activeCatalogVersion(clock.nowLong())) {
-                // Requested catalog version has not yet registered locally.
+                // Requested catalog version has not yet registered or activated locally.
                 return false;
             }
 

@@ -21,7 +21,7 @@ import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.Transferable;
 
 /**
- * Response to check that the requested catalog version has been reached and all RW transactions started on versions before it have
+ * Response to check that the requested catalog version has been activated and all RW transactions started on versions before it have
  * completed.
  */
 @Transferable(TxMessageGroup.RW_TRANSACTIONS_FINISHED_RESPONSE)
