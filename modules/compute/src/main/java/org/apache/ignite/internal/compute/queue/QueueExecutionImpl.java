@@ -25,10 +25,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.Function;
 import org.apache.ignite.compute.ComputeException;
-import org.apache.ignite.compute.JobState;
 import org.apache.ignite.compute.JobStatus;
 import org.apache.ignite.internal.compute.state.ComputeStateMachine;
 import org.apache.ignite.internal.compute.state.IllegalJobStateTransition;
@@ -48,13 +46,16 @@ class QueueExecutionImpl<R> implements QueueExecution<R> {
     private final UUID jobId;
     private final Callable<R> job;
     private final AtomicInteger priority;
-    private final Lock changePriorityLock = new ReentrantLock();
     private final ThreadPoolExecutor executor;
     private final ComputeStateMachine stateMachine;
 
     private final CompletableFuture<R> result = new CompletableFuture<>();
 
     private final AtomicReference<QueueEntry<R>> queueEntry = new AtomicReference<>();
+
+    private final Function<QueueEntry<?>, Boolean> removeQueueEntry;
+
+    private final AtomicInteger retries = new AtomicInteger();
 
     /**
      * Constructor.
@@ -64,19 +65,23 @@ class QueueExecutionImpl<R> implements QueueExecution<R> {
      * @param priority Job priority.
      * @param executor Executor on which the queue entry is running.
      * @param stateMachine State machine.
+     * @param removeQueueEntry function to remove queue entry from the execution queue. In order to change priority of the job
+     *                          we need to remove {@link QueueEntry} from workQueue of Executor.
      */
     QueueExecutionImpl(
             UUID jobId,
             Callable<R> job,
             int priority,
             ThreadPoolExecutor executor,
-            ComputeStateMachine stateMachine
+            ComputeStateMachine stateMachine,
+            Function<QueueEntry<?>, Boolean> removeQueueEntry
     ) {
         this.jobId = jobId;
         this.job = job;
         this.priority = new AtomicInteger(priority);
         this.executor = executor;
         this.stateMachine = stateMachine;
+        this.removeQueueEntry = removeQueueEntry;
     }
 
     @Override
@@ -91,7 +96,6 @@ class QueueExecutionImpl<R> implements QueueExecution<R> {
 
     @Override
     public void cancel() {
-        changePriorityLock.lock();
         try {
             stateMachine.cancelingJob(jobId);
 
@@ -103,8 +107,6 @@ class QueueExecutionImpl<R> implements QueueExecution<R> {
         } catch (IllegalJobStateTransition e) {
             LOG.info("Cannot cancel the job", e);
             throw new CancellingException(jobId);
-        } finally {
-            changePriorityLock.unlock();
         }
     }
 
@@ -113,27 +115,11 @@ class QueueExecutionImpl<R> implements QueueExecution<R> {
         if (newPriority == priority.get()) {
             return;
         }
-        if (changePriorityLock.tryLock()
-                && stateMachine.currentStatus(jobId) != null
-                && stateMachine.currentStatus(jobId).state() == JobState.QUEUED) {
-            try {
-                QueueEntry<R> queueEntry = this.queueEntry.get();
-                // remove job from queue
-                if (queueEntry != null) {
-                    executor.remove(queueEntry);
-                    queueEntry.interrupt();
-                }
-                // new priority will be used on queue entry run.
-                this.priority.set(newPriority);
-                this.queueEntry.get().setPriority(newPriority);
-                try {
-                    executor.execute(this.queueEntry.get());
-                } catch (QueueOverflowException e) {
-                    result.completeExceptionally(new ComputeException(QUEUE_OVERFLOW_ERR, e));
-                }
-            } finally {
-                changePriorityLock.unlock();
-            }
+        QueueEntry<R> queueEntry = this.queueEntry.get();
+        if (removeQueueEntry.apply(queueEntry)) {
+            this.priority.set(newPriority);
+            this.queueEntry.set(null);
+            run();
         } else {
             throw new ComputeException(Compute.CHANGE_JOB_PRIORITY_JOB_EXECUTING_ERR, "Can not change job priority,"
                     + " job already processing. job id " + jobId);
@@ -146,33 +132,32 @@ class QueueExecutionImpl<R> implements QueueExecution<R> {
      * @param numRetries Number of times to retry failed execution.
      */
     void run(int numRetries) {
-        QueueEntry<R> queueEntry;
-        changePriorityLock.lock();
+        retries.set(numRetries);
+        run();
+    }
+
+    private void run() {
+        QueueEntry<R> queueEntry = new QueueEntry<>(() -> {
+            stateMachine.executeJob(jobId);
+            return job.call();
+        }, priority.get());
+
+        // Ignoring previous value since it can't be running because we are calling run
+        // either after the construction or after the failure.
+        this.queueEntry.set(queueEntry);
+
         try {
-            queueEntry = new QueueEntry<>(() -> {
-                stateMachine.executeJob(jobId);
-                return job.call();
-            }, priority.get());
-
-            // Ignoring previous value since it can't be running because we are calling run
-            // either after the construction or after the failure.
-            this.queueEntry.set(queueEntry);
-
-            try {
-                executor.execute(queueEntry);
-            } catch (QueueOverflowException e) {
-                result.completeExceptionally(new ComputeException(QUEUE_OVERFLOW_ERR, e));
-                return;
-            }
-        } finally {
-            changePriorityLock.unlock();
+            executor.execute(queueEntry);
+        } catch (QueueOverflowException e) {
+            result.completeExceptionally(new ComputeException(QUEUE_OVERFLOW_ERR, e));
+            return;
         }
 
         queueEntry.toFuture().whenComplete((r, throwable) -> {
             if (throwable != null) {
-                if (numRetries > 0) {
+                if (retries.decrementAndGet() > 0) {
                     stateMachine.queueJob(jobId);
-                    run(numRetries - 1);
+                    run();
                 } else {
                     if (queueEntry.isInterrupted()) {
                         stateMachine.cancelJob(jobId);

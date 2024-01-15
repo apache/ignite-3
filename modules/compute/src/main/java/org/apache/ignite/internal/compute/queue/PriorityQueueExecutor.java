@@ -19,6 +19,7 @@ package org.apache.ignite.internal.compute.queue;
 
 import java.util.Objects;
 import java.util.UUID;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -39,6 +40,8 @@ public class PriorityQueueExecutor {
 
     private final ComputeStateMachine stateMachine;
 
+    private final BlockingQueue<Runnable> workQueue;
+
     /**
      * Constructor.
      *
@@ -52,12 +55,13 @@ public class PriorityQueueExecutor {
     ) {
         this.configuration = configuration;
         this.stateMachine = stateMachine;
+        workQueue = new BoundedPriorityBlockingQueue<>(() -> configuration.queueMaxSize().value());
         executor = new ThreadPoolExecutor(
                 configuration.threadPoolSize().value(),
                 configuration.threadPoolSize().value(),
                 THREAD_KEEP_ALIVE_SECONDS,
                 TimeUnit.SECONDS,
-                new BoundedPriorityBlockingQueue<>(() -> configuration.queueMaxSize().value()),
+                workQueue,
                 threadFactory
         );
     }
@@ -75,7 +79,7 @@ public class PriorityQueueExecutor {
         Objects.requireNonNull(job);
 
         UUID jobId = stateMachine.initJob();
-        QueueExecutionImpl<R> execution = new QueueExecutionImpl<>(jobId, job, priority, executor, stateMachine);
+        QueueExecutionImpl<R> execution = new QueueExecutionImpl<>(jobId, job, priority, executor, stateMachine, workQueue::remove);
         execution.run(maxRetries);
         return execution;
     }
