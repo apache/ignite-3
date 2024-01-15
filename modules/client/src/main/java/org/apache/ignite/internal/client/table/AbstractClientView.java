@@ -146,9 +146,7 @@ abstract class AbstractClientView<T> implements CriteriaQuerySource<T> {
                             .thenApply(resultSet -> {
                                 ResultSetMetadata meta = resultSet.metadata();
 
-                                if (meta == null) {
-                                    throw new IgniteException(Common.INTERNAL_ERR, "Metadata can't be null.");
-                                }
+                                assert meta != null : "Metadata can't be null.";
 
                                 return new QueryCriteriaAsyncCursor<>(resultSet, queryMapper(meta, schema), session::close);
                             });

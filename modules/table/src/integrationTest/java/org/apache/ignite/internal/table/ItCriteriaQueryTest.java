@@ -22,6 +22,7 @@ import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.matchers.TupleMatcher.tupleValue;
 import static org.apache.ignite.lang.util.IgniteNameUtils.quote;
@@ -149,7 +150,7 @@ public class ItCriteriaQueryTest extends ClusterPerClassIntegrationTest {
     @ParameterizedTest
     @MethodSource
     public <T> void testRecordViewQuery(CriteriaQuerySource<T> view, Function<T, Tuple> mapper) {
-        IgniteTestUtils.assertThrows(
+        assertThrows(
                 IgniteException.class,
                 () -> view.query(null, columnValue("id", equalTo("2"))),
                 "Dynamic parameter requires adding explicit type cast"
@@ -254,6 +255,12 @@ public class ItCriteriaQueryTest extends ClusterPerClassIntegrationTest {
     @ParameterizedTest
     @MethodSource
     public <T> void testKeyValueView(CriteriaQuerySource<T> view, Function<T, Entry<Tuple, Tuple>> mapper) {
+        assertThrows(
+                IgniteException.class,
+                () -> view.query(null, columnValue("id", equalTo("2"))),
+                "Dynamic parameter requires adding explicit type cast"
+        );
+
         Matcher<Tuple> personKey0 = tupleValue("id", is(0));
         Matcher<Tuple> person0 = allOf(tupleValue("name", Matchers.nullValue()), tupleValue("salary", is(0.0d)),
                 tupleValue("hash", is("hash0".getBytes())));
