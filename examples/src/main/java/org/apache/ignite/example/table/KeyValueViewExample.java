@@ -72,8 +72,7 @@ public class KeyValueViewExample {
                             + "accountNumber INT PRIMARY KEY,"
                             + "firstName     VARCHAR,"
                             + "lastName      VARCHAR,"
-                            + "balance       DOUBLE) "
-                            + " WITH STORAGE_PROFILE = 'dummy'"
+                            + "balance       DOUBLE)"
             );
         }
 

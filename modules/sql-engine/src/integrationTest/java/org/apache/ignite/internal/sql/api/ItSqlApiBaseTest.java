@@ -23,7 +23,6 @@ import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsTa
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.asStream;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
-import static org.apache.ignite.internal.util.Constants.DUMMY_STORAGE_PROFILE;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -91,8 +90,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
         Session ses = sql.createSession();
 
         // CREATE TABLE
-        checkDdl(true, ses, "CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT) WITH STORAGE_PROFILE='"
-                + DUMMY_STORAGE_PROFILE + "'");
+        checkDdl(true, ses, "CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
         checkSqlError(
                 Sql.STMT_VALIDATION_ERR,
                 "Table with name 'PUBLIC.TEST' already exists",
@@ -103,10 +101,9 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
                 Sql.STMT_VALIDATION_ERR,
                 "Column with name 'VAL' specified more than once",
                 ses,
-                "CREATE TABLE TEST1(ID INT PRIMARY KEY, VAL INT, VAL INT) WITH STORAGE_PROFILE='" + DUMMY_STORAGE_PROFILE + "'"
+                "CREATE TABLE TEST1(ID INT PRIMARY KEY, VAL INT, VAL INT)"
         );
-        checkDdl(false, ses, "CREATE TABLE IF NOT EXISTS TEST(ID INT PRIMARY KEY, VAL VARCHAR) WITH STORAGE_PROFILE='"
-                + DUMMY_STORAGE_PROFILE + "'");
+        checkDdl(false, ses, "CREATE TABLE IF NOT EXISTS TEST(ID INT PRIMARY KEY, VAL VARCHAR)");
 
         // ADD COLUMN
         checkDdl(true, ses, "ALTER TABLE TEST ADD COLUMN VAL1 VARCHAR");
@@ -210,7 +207,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
     public void implicitTransactionsStates() {
         IgniteSql sql = igniteSql();
 
-        sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT) WITH STORAGE_PROFILE='" + DUMMY_STORAGE_PROFILE + "'");
+        sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
 
         Session ses = sql.createSession();
 

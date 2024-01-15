@@ -75,7 +75,7 @@ public class SqlJdbcExample {
                 stmt.executeUpdate(
                         "CREATE TABLE CITIES ("
                                 + "ID   INT PRIMARY KEY,"
-                                + "NAME VARCHAR) WITH STORAGE_PROFILE = 'dummy'"
+                                + "NAME VARCHAR)"
                 );
 
                 stmt.executeUpdate(
@@ -84,8 +84,7 @@ public class SqlJdbcExample {
                                 + "    CITY_ID    INT,"
                                 + "    FIRST_NAME VARCHAR,"
                                 + "    LAST_NAME  VARCHAR,"
-                                + "    BALANCE    DOUBLE) "
-                                + " WITH STORAGE_PROFILE = 'dummy'"
+                                + "    BALANCE    DOUBLE)"
                 );
             }
 

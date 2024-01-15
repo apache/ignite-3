@@ -79,12 +79,7 @@ class ItSqlCommandTest extends CliSqlCommandTestBase {
     @Test
     @DisplayName("Should display readable error when wrong option is given on CREATE TABLE")
     void incorrectEngineOnCreate() {
-        execute(
-                "sql",
-                "create table mytable1(i int, j int, primary key (i)) with notexist='nusuch', storage_profile='test'",
-                "--jdbc-url",
-                JDBC_URL
-        );
+        execute("sql", "create table mytable1(i int, j int, primary key (i)) with notexist='nusuch'", "--jdbc-url", JDBC_URL);
 
         assertAll(
                 () -> assertExitCodeIs(1),
@@ -120,7 +115,7 @@ class ItSqlCommandTest extends CliSqlCommandTestBase {
     @Test
     @DisplayName("Should display readable error when create table without PK")
     void createTableWithoutPk() {
-        execute("sql", "create table mytable(i int) with storage_profile='test'", "--jdbc-url", JDBC_URL);
+        execute("sql", "create table mytable(i int)", "--jdbc-url", JDBC_URL);
 
         assertAll(
                 () -> assertExitCodeIs(1),

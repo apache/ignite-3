@@ -17,7 +17,6 @@
 
 package org.apache.ignite.jdbc;
 
-import static org.apache.ignite.internal.util.Constants.DUMMY_STORAGE_PROFILE;
 import static org.apache.ignite.jdbc.util.JdbcTestUtils.assertThrowsSqlException;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -52,9 +51,7 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
     @BeforeAll
     public static void beforeClass() throws Exception {
         try (Statement statement = conn.createStatement()) {
-            statement.executeUpdate(
-                    "create table TEST(ID int primary key, NAME varchar(20)) WITH STORAGE_PROFILE = '" + DUMMY_STORAGE_PROFILE + "';"
-            );
+            statement.executeUpdate("create table TEST(ID int primary key, NAME varchar(20));");
         }
     }
 
@@ -387,9 +384,7 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
 
         int stmtCnt = 10;
 
-        StringBuilder sql = new StringBuilder("drop table if exists test; "
-                + "create table test(ID int primary key, NAME varchar(20)) with storage_profile='" + DUMMY_STORAGE_PROFILE + "';"
-        );
+        StringBuilder sql = new StringBuilder("drop table if exists test; create table test(ID int primary key, NAME varchar(20)); ");
 
         for (int i = 0; i < stmtCnt; ++i) {
             sql.append("insert into test (ID, NAME) values (" + i + ", 'name_" + i + "'); ");
@@ -421,9 +416,7 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
     public void testExecuteQueryMultipleMixed() throws Exception {
         int stmtCnt = 10;
 
-        StringBuilder sql = new StringBuilder("drop table if exists test; "
-                + "create table test(ID int primary key, NAME varchar(20)) with storage_profile='" + DUMMY_STORAGE_PROFILE + "';"
-        );
+        StringBuilder sql = new StringBuilder("drop table if exists test; create table test(ID int primary key, NAME varchar(20)); ");
 
         for (int i = 0; i < stmtCnt; ++i) {
             if (i % 2 == 0) {
@@ -492,8 +485,7 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
     public void testExecuteUpdateOnDdl() throws SQLException {
         String tableName = ("\"test_" + UUID.randomUUID() + "\"");
 
-        stmt.executeUpdate("CREATE TABLE " + tableName + "(id INT PRIMARY KEY, val VARCHAR) WITH STORAGE_PROFILE='"
-                + DUMMY_STORAGE_PROFILE + "'");
+        stmt.executeUpdate("CREATE TABLE " + tableName + "(id INT PRIMARY KEY, val VARCHAR)");
 
         ResultSet rs = stmt.executeQuery("SELECT COUNT(*) FROM " + tableName);
 
@@ -811,8 +803,7 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
     public void testOpenCursorsWithDdl() throws Exception {
         int initial = openResources();
 
-        stmt.execute("CREATE TABLE T1(ID INT PRIMARY KEY, AGE INT, NAME VARCHAR) WITH STORAGE_PROFILE='"
-                + DUMMY_STORAGE_PROFILE + "'");
+        stmt.execute("CREATE TABLE T1(ID INT PRIMARY KEY, AGE INT, NAME VARCHAR)");
         stmt.getResultSet();
         stmt.execute("SELECT 3;");
         stmt.execute("DROP TABLE T1");

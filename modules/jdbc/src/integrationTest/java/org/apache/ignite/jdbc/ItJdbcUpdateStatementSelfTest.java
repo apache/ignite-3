@@ -17,7 +17,6 @@
 
 package org.apache.ignite.jdbc;
 
-import static org.apache.ignite.internal.util.Constants.DUMMY_STORAGE_PROFILE;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
@@ -53,7 +52,7 @@ public class ItJdbcUpdateStatementSelfTest extends AbstractJdbcSelfTest {
                 + "    field9   varchar(100),\n"
                 + "    field10  varchar(100),\n"
                 + "    PRIMARY KEY(ycsb_key1, ycsb_key2)\n"
-                + ") WITH STORAGE_PROFILE = '" + DUMMY_STORAGE_PROFILE + "';";
+                + ");";
 
         final String q2 = "INSERT INTO usertable values(1, 'key', 'a1','a2','a3','a4','a5','a6','a7','a8','a9','a10');";
 
@@ -105,8 +104,7 @@ public class ItJdbcUpdateStatementSelfTest extends AbstractJdbcSelfTest {
 
     private void testExecute(Consumer<String> updateFunction) throws SQLException {
         final String createSql = "CREATE TABLE public.person(id INTEGER PRIMARY KEY, sid VARCHAR,"
-                + " firstname VARCHAR NOT NULL, lastname VARCHAR NOT NULL, age INTEGER NOT NULL) "
-                + " WITH STORAGE_PROFILE = '" + DUMMY_STORAGE_PROFILE + "'";
+                + " firstname VARCHAR NOT NULL, lastname VARCHAR NOT NULL, age INTEGER NOT NULL)";
 
         final String insertSql = "INSERT INTO public.person(sid, id, firstname, lastname, age) VALUES "
                 + "('p1', 1, 'John', 'White', 25), "

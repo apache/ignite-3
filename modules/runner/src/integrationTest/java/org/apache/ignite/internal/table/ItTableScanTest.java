@@ -810,8 +810,7 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
         sql("CREATE ZONE IF NOT EXISTS ZONE1 WITH REPLICAS=1, PARTITIONS=1, STORAGE_PROFILES='" + DUMMY_STORAGE_PROFILE + "'");
 
         sql("CREATE TABLE IF NOT EXISTS " + TABLE_NAME
-                + " (key INTEGER PRIMARY KEY, valInt INTEGER NOT NULL, valStr VARCHAR NOT NULL) WITH PRIMARY_ZONE='ZONE1', "
-                + "STORAGE_PROFILE='" + DUMMY_STORAGE_PROFILE + "';");
+                + " (key INTEGER PRIMARY KEY, valInt INTEGER NOT NULL, valStr VARCHAR NOT NULL) WITH PRIMARY_ZONE='ZONE1';");
 
         sql("CREATE INDEX IF NOT EXISTS " + SORTED_IDX + " ON " + TABLE_NAME + " USING TREE (valInt)");
 

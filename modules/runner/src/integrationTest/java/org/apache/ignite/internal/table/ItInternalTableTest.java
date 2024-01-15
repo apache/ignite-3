@@ -611,7 +611,7 @@ public class ItInternalTableTest extends BaseIgniteAbstractTest {
             session.execute(null,
                     String.format(
                             "create table \"%s\" (key bigint primary key, valInt int, valStr varchar default 'default') "
-                                    + "with primary_zone='%s', storage_profile='" + DUMMY_STORAGE_PROFILE + "'",
+                                    + "with primary_zone='%s'",
                             tableName, zoneName
                     )
             );

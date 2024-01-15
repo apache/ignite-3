@@ -17,7 +17,6 @@
 
 package org.apache.ignite.jdbc;
 
-import static org.apache.ignite.internal.util.Constants.DUMMY_STORAGE_PROFILE;
 import static org.hamcrest.CoreMatchers.anyOf;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -41,11 +40,10 @@ public class ItJdbcComplexQuerySelfTest extends AbstractJdbcSelfTest {
         try (Statement s = conn.createStatement()) {
             s.executeUpdate("DROP TABLE IF EXISTS public.person");
             s.executeUpdate("CREATE TABLE public.person (id INTEGER PRIMARY KEY, orgid INTEGER, "
-                    + "name VARCHAR NOT NULL, age INTEGER NOT NULL) WITH STORAGE_PROFILE='" + DUMMY_STORAGE_PROFILE + "'");
+                    + "name VARCHAR NOT NULL, age INTEGER NOT NULL)");
 
             s.executeUpdate("DROP TABLE IF EXISTS public.org");
-            s.executeUpdate("CREATE TABLE public.org (id INTEGER PRIMARY KEY, name VARCHAR NOT NULL) WITH STORAGE_PROFILE='"
-                    + DUMMY_STORAGE_PROFILE + "'");
+            s.executeUpdate("CREATE TABLE public.org (id INTEGER PRIMARY KEY, name VARCHAR NOT NULL)");
 
             s.executeUpdate("INSERT INTO public.person(orgid, id, name, age) VALUES "
                     + "(1, 1, 'John White', 25), "

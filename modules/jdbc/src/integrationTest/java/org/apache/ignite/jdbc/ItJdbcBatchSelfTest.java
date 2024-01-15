@@ -17,7 +17,6 @@
 
 package org.apache.ignite.jdbc;
 
-import static org.apache.ignite.internal.util.Constants.DUMMY_STORAGE_PROFILE;
 import static org.apache.ignite.jdbc.util.JdbcTestUtils.assertThrowsSqlException;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
@@ -52,8 +51,7 @@ import org.junit.jupiter.api.Test;
  */
 public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
     /** SQL CREATE TABLE query. */
-    private static final String SQL_CREATE = "CREATE TABLE Person(id INT PRIMARY KEY, firstName VARCHAR, lastName VARCHAR, age INT) "
-            + "WITH STORAGE_PROFILE='" + DUMMY_STORAGE_PROFILE + "'";
+    private static final String SQL_CREATE = "CREATE TABLE Person(id INT PRIMARY KEY, firstName VARCHAR, lastName VARCHAR, age INT)";
 
     /** SQL INSERT query. */
     private static final String SQL_PREPARED = "INSERT INTO Person(id, firstName, lastName, age) VALUES "
@@ -273,8 +271,7 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
         final int batchSize = 5;
 
         try (Statement statement = conn.createStatement()) {
-            statement.executeUpdate("CREATE TABLE Src(id INT PRIMARY KEY, firstName VARCHAR, lastName VARCHAR, age INT) "
-                    + "WITH STORAGE_PROFILE='" + DUMMY_STORAGE_PROFILE + "'");
+            statement.executeUpdate("CREATE TABLE Src(id INT PRIMARY KEY, firstName VARCHAR, lastName VARCHAR, age INT)");
         }
 
         try {
@@ -406,7 +403,7 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
                 + "tt_date date, "
                 + "tt_time time, "
                 + "tt_timestamp timestamp, "
-                + "PRIMARY KEY (tt_id)) WITH STORAGE_PROFILE='" + DUMMY_STORAGE_PROFILE + "';");
+                + "PRIMARY KEY (tt_id));");
 
         PreparedStatement prepStmt = conn.prepareStatement(
                 "INSERT INTO timetypes(tt_id, tt_date, tt_time, tt_timestamp)"

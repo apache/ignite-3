@@ -80,7 +80,7 @@ abstract class AbstractCommandValidationTest extends BaseIgniteAbstractTest {
 
         tableDef.accept(builder);
 
-        return catalog(builder.storageProfile(DUMMY_STORAGE_PROFILE).build());
+        return catalog(builder.build());
     }
 
     static Catalog catalogWithZone(String name) {

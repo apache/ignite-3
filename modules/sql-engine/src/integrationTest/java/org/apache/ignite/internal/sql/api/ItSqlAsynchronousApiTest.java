@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.sql.api;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
-import static org.apache.ignite.internal.util.Constants.DUMMY_STORAGE_PROFILE;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
@@ -50,7 +49,7 @@ import org.junit.jupiter.api.Test;
 public class ItSqlAsynchronousApiTest extends ItSqlApiBaseTest {
     @Test
     public void pageSequence() {
-        sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT) WITH STORAGE_PROFILE='" + DUMMY_STORAGE_PROFILE + "'");
+        sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
 
         IgniteSql sql = igniteSql();
         Session ses = sql.sessionBuilder().defaultPageSize(1).build();

@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.cli;
 
-import static org.apache.ignite.internal.util.Constants.DUMMY_STORAGE_PROFILE;
-
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
 import java.io.PrintWriter;
 import java.io.Writer;
@@ -65,7 +63,7 @@ public abstract class CliIntegrationTestBase extends IntegrationTestBase {
 
 
     protected static void createAndPopulateTable() {
-        sql("CREATE TABLE person ( id INT PRIMARY KEY, name VARCHAR, salary DOUBLE) WITH STORAGE_PROFILE='" + DUMMY_STORAGE_PROFILE + "'");
+        sql("CREATE TABLE person ( id INT PRIMARY KEY, name VARCHAR, salary DOUBLE)");
 
         int idx = 0;
 

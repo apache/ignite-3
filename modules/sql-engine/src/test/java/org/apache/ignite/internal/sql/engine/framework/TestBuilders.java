@@ -21,7 +21,6 @@ import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.exec.ExecutionServiceImplTest.PLANNING_TIMEOUT;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
-import static org.apache.ignite.internal.util.Constants.DUMMY_STORAGE_PROFILE;
 import static org.mockito.Mockito.mock;
 
 import java.util.ArrayList;
@@ -867,7 +866,6 @@ public class TestBuilders {
                             .tableName(name)
                             .columns(columns)
                             .primaryKeyColumns(keyColumns)
-                            .storageProfile(DUMMY_STORAGE_PROFILE)
                             .build()
             );
 

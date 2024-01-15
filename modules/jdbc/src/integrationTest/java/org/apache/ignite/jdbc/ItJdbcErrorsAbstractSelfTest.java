@@ -23,7 +23,6 @@ import static org.apache.ignite.internal.jdbc.proto.SqlStateCode.INVALID_CURSOR_
 import static org.apache.ignite.internal.jdbc.proto.SqlStateCode.NULL_VALUE;
 import static org.apache.ignite.internal.jdbc.proto.SqlStateCode.PARSING_EXCEPTION;
 import static org.apache.ignite.internal.jdbc.proto.SqlStateCode.UNSUPPORTED_OPERATION;
-import static org.apache.ignite.internal.util.Constants.DUMMY_STORAGE_PROFILE;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.fail;
 
@@ -84,7 +83,7 @@ public abstract class ItJdbcErrorsAbstractSelfTest extends AbstractJdbcSelfTest 
     @Test
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-15247")
     public void testDmlErrors() throws SQLException {
-        stmt.execute("CREATE TABLE INTEGER(KEY INT PRIMARY KEY, VAL INT) WITH STORAGE_PROFILE ='" + DUMMY_STORAGE_PROFILE + "'");
+        stmt.execute("CREATE TABLE INTEGER(KEY INT PRIMARY KEY, VAL INT)");
 
         try {
             checkErrorState("INSERT INTO INTEGER(key, val) values(1, null)", NULL_VALUE,
@@ -105,7 +104,7 @@ public abstract class ItJdbcErrorsAbstractSelfTest extends AbstractJdbcSelfTest 
     @Test
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-15247")
     public void testUnsupportedSql() throws SQLException {
-        stmt.execute("CREATE TABLE INTEGER(KEY INT PRIMARY KEY, VAL INT) WITH STORAGE_PROFILE ='" + DUMMY_STORAGE_PROFILE + "'");
+        stmt.execute("CREATE TABLE INTEGER(KEY INT PRIMARY KEY, VAL INT)");
 
         try {
             checkErrorState("ALTER TABLE INTEGER MODIFY COLUMN KEY CHAR", UNSUPPORTED_OPERATION,
@@ -384,8 +383,7 @@ public abstract class ItJdbcErrorsAbstractSelfTest extends AbstractJdbcSelfTest 
     @Test
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-15247")
     public void testNotNullViolation() throws SQLException {
-        stmt.execute("CREATE TABLE public.nulltest(id INT PRIMARY KEY, name CHAR NOT NULL) WITH STORAGE_PROFILE ='"
-                + DUMMY_STORAGE_PROFILE + "'");
+        stmt.execute("CREATE TABLE public.nulltest(id INT PRIMARY KEY, name CHAR NOT NULL)");
 
         try {
             checkErrorState(() -> stmt.execute("INSERT INTO public.nulltest(id, name) VALUES (1, NULLIF('a', 'a'))"),
@@ -413,8 +411,7 @@ public abstract class ItJdbcErrorsAbstractSelfTest extends AbstractJdbcSelfTest 
     @Test
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-15247")
     public void testSelectWrongColumnName() throws SQLException {
-        stmt.execute("CREATE TABLE public.test(id INT PRIMARY KEY, name CHAR NOT NULL) WITH STORAGE_PROFILE ='"
-                + DUMMY_STORAGE_PROFILE + "'");
+        stmt.execute("CREATE TABLE public.test(id INT PRIMARY KEY, name CHAR NOT NULL)");
 
         try {
             checkSqlErrorMessage("select wrong from public.test", PARSING_EXCEPTION,
@@ -497,10 +494,8 @@ public abstract class ItJdbcErrorsAbstractSelfTest extends AbstractJdbcSelfTest 
     @Test
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-15247")
     public void testDdlWrongTable() {
-        checkSqlErrorMessage("create table test (id int primary key, val varchar) with storage_profile='" + DUMMY_STORAGE_PROFILE + "'",
-                PARSING_EXCEPTION,
-                "Table already exists: TEST"
-        );
+        checkSqlErrorMessage("create table test (id int primary key, val varchar)", PARSING_EXCEPTION,
+                "Table already exists: TEST");
 
         checkSqlErrorMessage("drop table wrong", PARSING_EXCEPTION,
                 "Table doesn't exist: WRONG");
@@ -527,19 +522,16 @@ public abstract class ItJdbcErrorsAbstractSelfTest extends AbstractJdbcSelfTest 
         checkSqlErrorMessage("create index idx1 on test (wrong)", PARSING_EXCEPTION,
                 "Column doesn't exist: WRONG");
 
-        checkSqlErrorMessage("create table test(id integer primary key, AgE integer, AGe integer) with storage_profile='"
-                        + DUMMY_STORAGE_PROFILE + "'",
+        checkSqlErrorMessage("create table test(id integer primary key, AgE integer, AGe integer)",
                 PARSING_EXCEPTION,
                 "Duplicate column name: AGE");
 
         checkSqlErrorMessage(
-                "create table test(\"id\" integer primary key, \"age\" integer, \"age\" integer) with storage_profile='"
-                        + DUMMY_STORAGE_PROFILE + "'",
+                "create table test(\"id\" integer primary key, \"age\" integer, \"age\" integer)",
                 PARSING_EXCEPTION,
                 "Duplicate column name: age");
 
-        checkSqlErrorMessage("create table test(id integer primary key, age integer, age varchar) with storage_profile='"
-                        + DUMMY_STORAGE_PROFILE + "'",
+        checkSqlErrorMessage("create table test(id integer primary key, age integer, age varchar)",
                 PARSING_EXCEPTION,
                 "Duplicate column name: AGE");
     }
@@ -550,8 +542,7 @@ public abstract class ItJdbcErrorsAbstractSelfTest extends AbstractJdbcSelfTest 
     @Test
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-15247")
     public void testDdlWrongSyntax() {
-        checkSqlErrorMessage("create table test2 (id int wrong key, val varchar) with storage_profile='" + DUMMY_STORAGE_PROFILE + "'",
-                PARSING_EXCEPTION,
+        checkSqlErrorMessage("create table test2 (id int wrong key, val varchar)", PARSING_EXCEPTION,
                 "Failed to parse query. Syntax error in SQL statement \"CREATE TABLE TEST2 (ID INT WRONG[*]");
 
         checkSqlErrorMessage("drop table test on", PARSING_EXCEPTION,
@@ -615,8 +606,7 @@ public abstract class ItJdbcErrorsAbstractSelfTest extends AbstractJdbcSelfTest 
             stmt.executeUpdate("DROP TABLE IF EXISTS wrong");
             stmt.executeUpdate("DROP TABLE IF EXISTS test");
 
-            stmt.executeUpdate("CREATE TABLE test (id INT PRIMARY KEY, val VARCHAR) with storage_profile='"
-                            + DUMMY_STORAGE_PROFILE + "'");
+            stmt.executeUpdate("CREATE TABLE test (id INT PRIMARY KEY, val VARCHAR)");
 
             stmt.executeUpdate("INSERT INTO test (id, val) VALUES (1, 'val1')");
             stmt.executeUpdate("INSERT INTO test (id, val) VALUES (2, 'val2')");

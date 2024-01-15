@@ -17,8 +17,6 @@
 
 package org.apache.ignite.jdbc;
 
-import static org.apache.ignite.internal.util.Constants.DUMMY_STORAGE_PROFILE;
-
 import java.sql.Statement;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -30,8 +28,7 @@ import org.junit.jupiter.api.BeforeEach;
 public abstract class ItJdbcAbstractStatementSelfTest extends AbstractJdbcSelfTest {
     /** SQL query to create a table. */
     private static final String CREATE_TABLE_SQL = "CREATE TABLE public.person(id INTEGER PRIMARY KEY, sid VARCHAR,"
-            + " firstname VARCHAR NOT NULL, lastname VARCHAR NOT NULL, age INTEGER NOT NULL) WITH STORAGE_PROFILE = '"
-            + DUMMY_STORAGE_PROFILE + "'";
+            + " firstname VARCHAR NOT NULL, lastname VARCHAR NOT NULL, age INTEGER NOT NULL)";
 
     /** SQL query to populate table. */
     private static final String ITEMS_SQL = "INSERT INTO public.person(sid, id, firstname, lastname, age) VALUES "

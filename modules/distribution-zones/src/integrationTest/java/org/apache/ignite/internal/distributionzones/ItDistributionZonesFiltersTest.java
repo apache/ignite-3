@@ -26,7 +26,6 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCo
 import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
-import static org.apache.ignite.internal.util.Constants.DUMMY_STORAGE_PROFILE;
 import static org.apache.ignite.internal.utils.RebalanceUtil.pendingPartAssignmentsKey;
 import static org.apache.ignite.internal.utils.RebalanceUtil.stablePartAssignmentsKey;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -476,8 +475,8 @@ public class ItDistributionZonesFiltersTest extends ClusterPerTestIntegrationTes
 
     private static String createTableSql() {
         return String.format(
-                "CREATE TABLE %s(%s INT PRIMARY KEY, %s VARCHAR) WITH PRIMARY_ZONE='%s', STORAGE_PROFILE='%s'",
-                TABLE_NAME, COLUMN_KEY, COLUMN_VAL, ZONE_NAME, DUMMY_STORAGE_PROFILE
+                "CREATE TABLE %s(%s INT PRIMARY KEY, %s VARCHAR) WITH PRIMARY_ZONE='%s'",
+                TABLE_NAME, COLUMN_KEY, COLUMN_VAL, ZONE_NAME
         );
     }
 

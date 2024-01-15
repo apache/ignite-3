@@ -191,8 +191,8 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
         ));
 
         sql(IgniteStringFormatter.format(
-                "CREATE TABLE {} (i0 INTEGER PRIMARY KEY, i1 INTEGER) WITH PRIMARY_ZONE='{}', STORAGE_PROFILE='{}'",
-                TABLE_NAME, ZONE_NAME, DUMMY_STORAGE_PROFILE
+                "CREATE TABLE {} (i0 INTEGER PRIMARY KEY, i1 INTEGER) WITH PRIMARY_ZONE='{}'",
+                TABLE_NAME, ZONE_NAME
         ));
 
         sql(IgniteStringFormatter.format(

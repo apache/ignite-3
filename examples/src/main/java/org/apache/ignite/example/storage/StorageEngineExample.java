@@ -77,8 +77,7 @@ class StorageEngineExample {
                                 + "FIRST_NAME VARCHAR, "
                                 + "LAST_NAME  VARCHAR, "
                                 + "BALANCE    DOUBLE) "
-                                + "WITH PRIMARY_ZONE = 'ACCOUNTS_ZONE', "
-                                + "STORAGE_PROFILE = 'dummy' "
+                                + "WITH PRIMARY_ZONE = 'ACCOUNTS_ZONE'"
                 );
             }
 

@@ -119,8 +119,7 @@ public abstract class ItAbstractThinClientTest extends BaseIgniteAbstractTest {
         try (Session session = startedNodes.get(0).sql().createSession()) {
             session.execute(null, "CREATE ZONE TEST_ZONE WITH REPLICAS=1, PARTITIONS=10, STORAGE_PROFILES='" + DUMMY_STORAGE_PROFILE + "'");
             session.execute(null, "CREATE TABLE " + TABLE_NAME + "("
-                    + COLUMN_KEY + " INT PRIMARY KEY, " + COLUMN_VAL + " VARCHAR) WITH PRIMARY_ZONE='TEST_ZONE', STORAGE_PROFILE='"
-                    + DUMMY_STORAGE_PROFILE + "'");
+                    + COLUMN_KEY + " INT PRIMARY KEY, " + COLUMN_VAL + " VARCHAR) WITH PRIMARY_ZONE='TEST_ZONE'");
         }
 
         client = IgniteClient.builder().addresses(getClientAddresses().toArray(new String[0])).build();

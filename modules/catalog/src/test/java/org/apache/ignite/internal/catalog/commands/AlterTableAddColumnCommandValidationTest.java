@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.catalog.commands;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
-import static org.apache.ignite.internal.util.Constants.DUMMY_STORAGE_PROFILE;
 import static org.apache.ignite.sql.ColumnType.INT32;
 
 import java.util.List;
@@ -152,7 +151,6 @@ public class AlterTableAddColumnCommandValidationTest extends AbstractCommandVal
                 .tableName(tableName)
                 .columns(List.of(columnParams))
                 .primaryKeyColumns(List.of(columnName))
-                .storageProfile(DUMMY_STORAGE_PROFILE)
         );
 
         AlterTableAddColumnCommandBuilder builder = AlterTableAddColumnCommand.builder()
