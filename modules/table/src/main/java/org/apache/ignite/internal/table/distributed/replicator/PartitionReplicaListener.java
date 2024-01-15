@@ -498,7 +498,8 @@ public class PartitionReplicaListener implements ReplicaListener {
                         senderId,
                         req.commitPartitionId().asTablePartitionId(),
                         null,
-                        old == null ? null : old.readOnly()
+                        old == null ? null : old.readOnly(),
+                        old == null ? null : old.catalogVersion()
                 ));
             }
         }
@@ -732,7 +733,8 @@ public class PartitionReplicaListener implements ReplicaListener {
                     senderId,
                     req.commitPartitionId().asTablePartitionId(),
                     null,
-                    old == null ? null : old.readOnly()
+                    old == null ? null : old.readOnly(),
+                    old == null ? null : old.catalogVersion()
             ));
 
             // Implicit RW scan can be committed locally on a last batch or error.
@@ -3780,7 +3782,8 @@ public class PartitionReplicaListener implements ReplicaListener {
                         old.txCoordinatorId(),
                         old.commitPartitionId(),
                         txState == COMMITTED ? commitTimestamp : null,
-                        old.readOnly()
+                        old.readOnly(),
+                        old.catalogVersion()
                 ));
     }
 

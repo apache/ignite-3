@@ -40,13 +40,16 @@ public class TxStateMetaAbandoned extends TxStateMeta {
      * @param commitPartitionId Commit partition replication group id.
      * @param readOnly {@code true} for a read-only transaction, {@code false} for a read-write transaction and {@code null} if unknown,
      *      for example, if there is no previous meta.
+     * @param catalogVersion Catalog version of transaction at its beginning timestamp. {@code null} if unknown, for example, if there is
+     *      no previous meta.
      */
     TxStateMetaAbandoned(
             String txCoordinatorId,
             TablePartitionId commitPartitionId,
-            @Nullable Boolean readOnly
+            @Nullable Boolean readOnly,
+            @Nullable Integer catalogVersion
     ) {
-        super(ABANDONED, txCoordinatorId, commitPartitionId, null, readOnly);
+        super(ABANDONED, txCoordinatorId, commitPartitionId, null, readOnly, catalogVersion);
 
         this.lastAbandonedMarkerTs = FastTimestamps.coarseCurrentTimeMillis();
     }

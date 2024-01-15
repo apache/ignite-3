@@ -121,7 +121,8 @@ class ReadOnlyTransactionImpl extends IgniteAbstractTransactionImpl {
                                 old.txCoordinatorId(),
                                 old.commitPartitionId(),
                                 old.commitTimestamp(),
-                                old.readOnly()
+                                true,
+                                old.catalogVersion()
                         )
                 ));
     }

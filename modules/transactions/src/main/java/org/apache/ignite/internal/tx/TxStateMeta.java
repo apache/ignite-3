@@ -42,10 +42,13 @@ public class TxStateMeta implements TransactionMeta {
     private final HybridTimestamp commitTimestamp;
 
     /**
-     * {@code True} for a read-only transaction, {@code false} for a read-write transaction and {@code null} if unknown, for example, if
+     * {@code True} for a read-only transaction, {@code false} for a read-write transaction. {@code null} if unknown, for example, if
      * there is no previous meta.
      */
     private final @Nullable Boolean readOnly;
+
+    /** Catalog version of transaction at its beginning timestamp. {@code null} if unknown, for example, if there is no previous meta. */
+    private final @Nullable Integer catalogVersion;
 
     /**
      * Constructor.
@@ -56,31 +59,35 @@ public class TxStateMeta implements TransactionMeta {
      * @param commitTimestamp Commit timestamp.
      * @param readOnly {@code true} for a read-only transaction, {@code false} for a read-write transaction and {@code null} if unknown,
      *      for example, if there is no previous meta.
+     * @param catalogVersion Catalog version of transaction at its beginning timestamp. {@code null} if unknown, for example, if there is
+     *      no previous meta.
      */
     public TxStateMeta(
             TxState txState,
             @Nullable String txCoordinatorId,
             @Nullable TablePartitionId commitPartitionId,
             @Nullable HybridTimestamp commitTimestamp,
-            @Nullable Boolean readOnly
+            @Nullable Boolean readOnly,
+            @Nullable Integer catalogVersion
     ) {
         this.txState = txState;
         this.txCoordinatorId = txCoordinatorId;
         this.commitPartitionId = commitPartitionId;
         this.commitTimestamp = commitTimestamp;
         this.readOnly = readOnly;
+        this.catalogVersion = catalogVersion;
     }
 
     /** Creates a transaction state for the same transaction, but this one is marked abandoned. */
     public TxStateMetaAbandoned abandoned() {
         assert checkTransitionCorrectness(txState, ABANDONED) : "Transaction state is incorrect [txState=" + txState + "].";
 
-        return new TxStateMetaAbandoned(txCoordinatorId, commitPartitionId, readOnly);
+        return new TxStateMetaAbandoned(txCoordinatorId, commitPartitionId, readOnly, catalogVersion);
     }
 
     /** Creates a transaction state for the same transaction, but this one is marked finishing. */
     public TxStateMetaFinishing finishing() {
-        return new TxStateMetaFinishing(txCoordinatorId, commitPartitionId, readOnly);
+        return new TxStateMetaFinishing(txCoordinatorId, commitPartitionId, readOnly, catalogVersion);
     }
 
     @Override
@@ -107,6 +114,14 @@ public class TxStateMeta implements TransactionMeta {
      */
     public @Nullable Boolean readOnly() {
         return readOnly;
+    }
+
+    /**
+     * Returns catalog version of transaction at its beginning timestamp. {@code null} if unknown, for example, if there is no previous
+     * meta.
+     */
+    public @Nullable Integer catalogVersion() {
+        return catalogVersion;
     }
 
     @Override
@@ -139,12 +154,16 @@ public class TxStateMeta implements TransactionMeta {
             return false;
         }
 
+        if (catalogVersion != null ? !catalogVersion.equals(that.catalogVersion) : that.catalogVersion != null) {
+            return false;
+        }
+
         return true;
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(txState, txCoordinatorId, commitPartitionId, commitTimestamp, readOnly);
+        return Objects.hash(txState, txCoordinatorId, commitPartitionId, commitTimestamp, readOnly, catalogVersion);
     }
 
     @Override

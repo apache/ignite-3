@@ -101,7 +101,7 @@ class ReadWriteTransactionImplTest extends BaseIgniteAbstractTest {
 
         Mockito.when(txManager.stateMeta(any())).thenAnswer(invocation -> {
             if (finishedTxs.contains(invocation.getArgument(0))) {
-                return new TxStateMeta(txState, "crd-id", TX_COMMIT_PART, null, false);
+                return new TxStateMeta(txState, "crd-id", TX_COMMIT_PART, null, false, 1);
             }
 
             return null;

@@ -632,7 +632,8 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
                 txCoordinatorId,
                 old == null ? null : old.commitPartitionId(),
                 full ? commitTimestamp : null,
-                old == null ? null : old.readOnly()
+                old == null ? null : old.readOnly(),
+                old == null ? null : old.catalogVersion()
         ));
     }
 
@@ -642,7 +643,8 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
                 txCoordinatorId,
                 old == null ? null : old.commitPartitionId(),
                 commit ? commitTimestamp : null,
-                old == null ? null : old.readOnly()
+                old == null ? null : old.readOnly(),
+                old == null ? null : old.catalogVersion()
         ));
     }
 }

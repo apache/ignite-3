@@ -2009,7 +2009,8 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
                     "restarted",
                     old.commitPartitionId(),
                     old.commitTimestamp(),
-                    old.readOnly()
+                    old.readOnly(),
+                    old.catalogVersion()
             ));
         }
 

@@ -20,7 +20,10 @@ package org.apache.ignite.internal.tx.message;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.Transferable;
 
-/** Request to check that the requested catalog version has been reached and all RW transactions prior to it have completed. */
+/**
+ * Response to check that the requested catalog version has been reached and all RW transactions started on versions before it have
+ * completed.
+ */
 @Transferable(TxMessageGroup.RW_TRANSACTIONS_FINISHED_RESPONSE)
 public interface RwTransactionsFinishedResponse extends NetworkMessage {
     /** Returns the result of the check. */
