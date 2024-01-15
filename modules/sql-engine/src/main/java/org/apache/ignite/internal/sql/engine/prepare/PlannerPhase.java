@@ -94,6 +94,7 @@ public enum PlannerPhase {
             CoreRules.FILTER_AGGREGATE_TRANSPOSE,
             CoreRules.FILTER_SET_OP_TRANSPOSE,
             CoreRules.JOIN_CONDITION_PUSH,
+            CoreRules.FILTER_CORRELATE,
             CoreRules.FILTER_INTO_JOIN,
             CoreRules.FILTER_PROJECT_TRANSPOSE
     ) {
@@ -112,7 +113,8 @@ public enum PlannerPhase {
             CoreRules.JOIN_PUSH_EXPRESSIONS,
             CoreRules.PROJECT_MERGE,
             CoreRules.PROJECT_REMOVE,
-            CoreRules.PROJECT_FILTER_TRANSPOSE
+            CoreRules.PROJECT_FILTER_TRANSPOSE,
+            CoreRules.PROJECT_CORRELATE_TRANSPOSE
     ) {
         /** {@inheritDoc} */
         @Override
