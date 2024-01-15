@@ -321,6 +321,7 @@ namespace Apache.Ignite.Tests.Compute
 
                 if (forceLoadAssignment)
                 {
+                    // TODO: Compute has it's own table cache which should be updated on table drop.
                     table!.SetFieldValue("_partitionAssignment", null);
                 }
 
