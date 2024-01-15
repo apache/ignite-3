@@ -155,7 +155,7 @@ class QueueExecutionImpl<R> implements QueueExecution<R> {
 
         queueEntry.toFuture().whenComplete((r, throwable) -> {
             if (throwable != null) {
-                if (retries.decrementAndGet() > 0) {
+                if (retries.decrementAndGet() >= 0) {
                     stateMachine.queueJob(jobId);
                     run();
                 } else {
