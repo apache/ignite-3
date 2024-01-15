@@ -107,6 +107,7 @@ public class TxCleanupRequestHandler {
                         ));
             }
         }
+
         // First trigger the cleanup to properly release the locks if we know all affected partitions on this node.
         // If the partition collection is empty (likely to be the recovery case)- just run 'release locks'.
         allOf(writeIntentSwitches.values().toArray(new CompletableFuture<?>[0]))

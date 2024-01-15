@@ -588,6 +588,11 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         });
     }
 
+    @Override
+    public void forget(RowId rowId) throws StorageException {
+
+    }
+
     void removeRowVersion(RowVersion rowVersion) {
         try {
             rowVersionFreeList.removeDataRowByLink(rowVersion.link());

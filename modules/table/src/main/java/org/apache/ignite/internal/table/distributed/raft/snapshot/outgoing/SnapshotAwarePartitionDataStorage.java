@@ -150,6 +150,11 @@ public class SnapshotAwarePartitionDataStorage implements PartitionDataStorage {
     }
 
     @Override
+    public void forget(RowId rowId) {
+        partitionStorage.forget(rowId);
+    }
+
+    @Override
     public Cursor<ReadResult> scanVersions(RowId rowId) throws StorageException {
         return partitionStorage.scanVersions(rowId);
     }

@@ -53,6 +53,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.function.LongSupplier;
 import java.util.function.Supplier;
+import org.apache.ignite.cache.CacheTransaction;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
@@ -217,9 +218,9 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                 new LinkedBlockingQueue<>(),
                 new NamedThreadFactory("tx-async-cleanup", LOG));
 
-        orphanDetector = new OrphanDetector(topologyService, replicaService, placementDriverHelper, lockManager);
+        orphanDetector = new OrphanDetector(clusterService.topologyService(), replicaService, placementDriverHelper, lockManager, clock);
 
-        txMessageSender = new TxMessageSender(messagingService, replicaService, clock);
+        txMessageSender = new TxMessageSender(clusterService.messagingService(), replicaService, clock);
 
         WriteIntentSwitchProcessor writeIntentSwitchProcessor =
                 new WriteIntentSwitchProcessor(placementDriverHelper, txMessageSender, topologyService);
@@ -227,6 +228,9 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         txCleanupRequestHandler = new TxCleanupRequestHandler(messagingService, lockManager, clock, writeIntentSwitchProcessor);
 
         txCleanupRequestSender = new TxCleanupRequestSender(txMessageSender, placementDriverHelper, writeIntentSwitchProcessor);
+
+        orphanDetector = new OrphanDetector(clusterService.topologyService(), replicaService, placementDriver, lockManager, clock,
+                txCleanupRequestSender);
     }
 
     @Override
@@ -246,7 +250,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         updateTxMeta(txId, old -> new TxStateMeta(PENDING, localNodeId, null, null));
 
         if (!readOnly) {
-            return new ReadWriteTransactionImpl(this, timestampTracker, txId);
+            return new ReadWriteTransactionImpl(this, timestampTracker, txId, null);
         }
 
         HybridTimestamp observableTimestamp = timestampTracker.get();
@@ -283,6 +287,18 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         }
 
         return new ReadOnlyTransactionImpl(this, timestampTracker, txId, readTimestamp);
+    }
+
+    @Override
+    public CacheTransaction beginForCache(
+            HybridTimestampTracker timestampTracker,
+            Function<InternalTransaction, CompletableFuture<Void>> externalCommit
+    ) {
+        HybridTimestamp beginTimestamp = clock.now();
+        UUID txId = transactionIdGenerator.transactionIdFor(beginTimestamp);
+        updateTxMeta(txId, old -> new TxStateMeta(PENDING, localNodeId, null, null));
+
+        return new ReadWriteTransactionImpl(this, timestampTracker, txId, externalCommit);
     }
 
     /**
@@ -329,12 +345,12 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     @Override
     public CompletableFuture<Void> finish(
             HybridTimestampTracker observableTimestampTracker,
-            TablePartitionId commitPartition,
+            @Nullable TablePartitionId commitPartition,
             boolean commit,
             Map<TablePartitionId, Long> enlistedGroups,
             UUID txId
     ) {
-        LOG.debug("Finish [commit={}, txId={}, groups={}].", commit, txId, enlistedGroups);
+        LOG.debug("Finish [commit={}, txId={}, groups={}, commitPartId={}].", commit, txId, enlistedGroups, commitPartition);
 
         assert enlistedGroups != null;
 
@@ -386,7 +402,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             return tuple0;
         });
 
-        // Wait for commit acks first, then proceed with the finish request.
+        // Wait for write acks first, then proceed with the finish request.
         return tuple.performFinish(commit, ignored ->
                 prepareFinish(
                         observableTimestampTracker,
@@ -411,7 +427,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
     private CompletableFuture<Void> prepareFinish(
             HybridTimestampTracker observableTimestampTracker,
-            TablePartitionId commitPartition,
+            @Nullable TablePartitionId commitPartition,
             boolean commit,
             Map<TablePartitionId, Long> enlistedGroups,
             UUID txId,
@@ -427,6 +443,17 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         return verificationFuture.handle(
                         (unused, throwable) -> {
                             boolean verifiedCommit = throwable == null && commit;
+
+                            // A tx will be externally committed, need only cleanup.
+                            if (commitPartition == null) {
+                                return cleanupOnly(
+                                        observableTimestampTracker,
+                                        commitTimestamp,
+                                        new HashSet<>(enlistedGroups.keySet()),
+                                        commit,
+                                        txId,
+                                        txFinishFuture);
+                            }
 
                             Collection<ReplicationGroupId> replicationGroupIds = new HashSet<>(enlistedGroups.keySet());
 
@@ -445,6 +472,34 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     }
 
     /**
+     * Cleanup tx state.
+     */
+    private CompletableFuture<Void> cleanupOnly(
+            HybridTimestampTracker observableTimestampTracker,
+            HybridTimestamp commitTimestamp,
+            Collection<TablePartitionId> replicationGroupIds,
+            boolean commit,
+            UUID txId,
+            CompletableFuture<TransactionMeta> txFinishFuture
+    ) {
+        TxStateMeta finalTxStateMeta = updateTxMeta(txId, old -> new TxStateMeta(
+                commit ? COMMITTED : ABORTED,
+                old.txCoordinatorId(),
+                null,
+                commitTimestamp
+        ));
+
+        txFinishFuture.complete(finalTxStateMeta);
+
+        if (commit) {
+            observableTimestampTracker.update(commitTimestamp);
+        }
+
+        // TBD must retry until all enlisted partitions are cleaned up.
+        return cleanup(replicationGroupIds, commit, commitTimestamp, txId);
+    }
+
+    /**
      * Durable finish request.
      */
     private CompletableFuture<Void> durableFinish(
@@ -456,9 +511,11 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             HybridTimestamp commitTimestamp,
             CompletableFuture<TransactionMeta> txFinishFuture
     ) {
+        assert commitPartition != null;
+
         return inBusyLockAsync(busyLock, () -> placementDriverHelper.awaitPrimaryReplicaWithExceptionHandling(commitPartition)
                 .thenCompose(meta ->
-                        makeFinishRequest(
+                        sendFinishRequest(
                                 observableTimestampTracker,
                                 commitPartition,
                                 meta.getLeaseholder(),
@@ -516,7 +573,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                 .thenCompose(Function.identity()));
     }
 
-    private CompletableFuture<Void> makeFinishRequest(
+    private CompletableFuture<Void> sendFinishRequest(
             HybridTimestampTracker observableTimestampTracker,
             TablePartitionId commitPartition,
             String primaryConsistentId,

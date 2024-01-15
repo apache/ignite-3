@@ -197,6 +197,8 @@ public interface MvPartitionStorage extends ManuallyCloseable {
      */
     void commitWrite(RowId rowId, HybridTimestamp timestamp) throws StorageException;
 
+    void forget(RowId rowId) throws StorageException;
+
     /**
      * Creates a committed version.
      * In details:

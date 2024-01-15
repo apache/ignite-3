@@ -15,29 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed.replication.request;
+package org.apache.ignite.cache;
 
-import java.util.UUID;
-import org.apache.ignite.internal.replicator.message.ReplicaRequest;
-import org.apache.ignite.internal.table.distributed.command.TablePartitionIdMessage;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Transaction request that can contain full transaction (transaction that contains full set of keys).
+ *
  */
-public interface CommittableTxRequest extends ReplicaRequest {
-    UUID transactionId();
+public interface IgniteCache<K, V> extends javax.cache.Cache<K, V> {
+    @Nullable V get(CacheTransaction tx, K key);
 
-    /**
-     * Return {@code true} if this is a full transaction.
-     */
-    boolean full();
+    void put(CacheTransaction tx, K key, V value);
 
-    /**
-     * Gets a commit partition id. Can be null if it is externally committed transaction.
-     *
-     * @return Table partition id.
-     */
-    @Nullable
-    TablePartitionIdMessage commitPartitionId();
+    boolean remove(CacheTransaction tx, K key);
+
+    CacheTransaction beginTransaction();
 }

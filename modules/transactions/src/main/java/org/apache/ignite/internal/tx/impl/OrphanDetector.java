@@ -29,7 +29,7 @@ import static org.apache.ignite.lang.ErrorGroups.Transactions.ACQUIRE_LOCK_ERR;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.configuration.ConfigurationValue;
-import org.apache.ignite.internal.event.EventListener;
+import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.replicator.ReplicaService;
@@ -72,8 +72,11 @@ public class OrphanDetector {
     /** Lock manager. */
     private final LockManager lockManager;
 
-    /** Lock conflict events listener. */
-    private final EventListener<LockEventParameters> lockConflictListener = this::lockConflictListener;
+    /** Hybrid clock. */
+    private final HybridClock clock;
+
+    /** Cleanup helper. */
+    private final TxCleanupRequestSender requestSender;
 
     /**
      * The time interval in milliseconds in which the orphan resolution sends the recovery message again, in case the transaction is still
@@ -91,17 +94,23 @@ public class OrphanDetector {
      * @param replicaService Replica service.
      * @param placementDriverHelper Placement driver helper.
      * @param lockManager Lock manager.
+     * @param clock Clock.
+     * @param requestSender Cleanup helper.
      */
     public OrphanDetector(
             TopologyService topologyService,
             ReplicaService replicaService,
             PlacementDriverHelper placementDriverHelper,
-            LockManager lockManager
+            LockManager lockManager,
+            HybridClock clock,
+            TxCleanupRequestSender requestSender
     ) {
         this.topologyService = topologyService;
         this.replicaService = replicaService;
         this.placementDriverHelper = placementDriverHelper;
         this.lockManager = lockManager;
+        this.clock = clock;
+        this.requestSender = requestSender;
     }
 
     /**
@@ -120,7 +129,7 @@ public class OrphanDetector {
             return nullCompletedFuture();
         });
 
-        lockManager.listen(LockEvent.LOCK_CONFLICT, lockConflictListener);
+        lockManager.listen(LockEvent.LOCK_CONFLICT, this::lockConflictListener);
     }
 
     /**
@@ -129,7 +138,7 @@ public class OrphanDetector {
     public void stop() {
         busyLock.block();
 
-        lockManager.removeListener(LockEvent.LOCK_CONFLICT, lockConflictListener);
+        lockManager.removeListener(LockEvent.LOCK_CONFLICT, this::lockConflictListener);
     }
 
     /**
@@ -169,7 +178,12 @@ public class OrphanDetector {
                     txState.txCoordinatorId()
             );
 
-            sendTxRecoveryMessage(txState.commitPartitionId(), txId);
+            if (txState.commitPartitionId() == null) {
+                // For external commit just remove locks. Write intent will be resolved lazily.
+                requestSender.cleanup(topologyService.localMember().name(), txId);
+            } else {
+                sentTxRecoveryMessage(txState.commitPartitionId(), txId);
+            }
         }
 
         // TODO: https://issues.apache.org/jira/browse/IGNITE-21153

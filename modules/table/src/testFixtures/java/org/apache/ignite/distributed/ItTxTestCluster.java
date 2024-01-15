@@ -22,6 +22,7 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.replicator.ReplicaManager.DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.CollectionUtils.first;
 import static org.apache.ignite.internal.util.CompletableFutures.emptySetCompletedFuture;
@@ -175,7 +176,7 @@ public class ItTxTestCluster {
 
     private static final RaftMessagesFactory FACTORY = new RaftMessagesFactory();
 
-    private ClusterService client;
+    protected ClusterService client;
 
     private HybridClock clientClock;
 
@@ -436,7 +437,7 @@ public class ItTxTestCluster {
      * @param tableName Table name.
      * @param tableId Table id.
      * @param schemaDescriptor Schema descriptor.
-     * @return Groups map.
+     * @return Started instance.
      */
     public TableViewInternal startTable(String tableName, int tableId, SchemaDescriptor schemaDescriptor) throws Exception {
         CatalogService catalogService = mock(CatalogService.class);
@@ -658,6 +659,87 @@ public class ItTxTestCluster {
         );
     }
 
+    /**
+     * Starts a table.
+     *
+     * @param tableName Table name.
+     * @param tableId Table id.
+     * @param schemaDescriptor Schema descriptor.
+     * @return Started instance.
+     */
+    public TableViewInternal newTableClient(String tableName, int tableId, SchemaDescriptor schemaDescriptor) throws Exception {
+        startClient();
+
+        initializeClientTxComponents();
+
+        CatalogService catalogService = mock(CatalogService.class);
+
+        CatalogTableDescriptor tableDescriptor = mock(CatalogTableDescriptor.class);
+        when(tableDescriptor.tableVersion()).thenReturn(SCHEMA_VERSION);
+
+        lenient().when(catalogService.table(anyInt(), anyLong())).thenReturn(tableDescriptor);
+
+        List<Set<Assignment>> calculatedAssignments = AffinityUtils.calculateAssignments(
+                cluster.stream().map(node -> node.topologyService().localMember().name()).collect(toList()),
+                1,
+                replicas
+        );
+
+        List<Set<String>> assignments = calculatedAssignments.stream()
+                .map(a -> a.stream().map(Assignment::consistentId).collect(toSet()))
+                .collect(toList());
+
+        List<TablePartitionId> grpIds = IntStream.range(0, assignments.size())
+                .mapToObj(i -> new TablePartitionId(tableId, i))
+                .collect(toList());
+
+        Int2ObjectOpenHashMap<RaftGroupService> clients = new Int2ObjectOpenHashMap<>();
+
+        List<CompletableFuture<Void>> partitionReadyFutures = new ArrayList<>();
+
+        ThreadLocalPartitionCommandsMarshaller commandsMarshaller =
+                new ThreadLocalPartitionCommandsMarshaller(cluster.get(0).serializationRegistry());
+
+        for (int p = 0; p < assignments.size(); p++) {
+            Set<String> partAssignments = assignments.get(p);
+
+            TablePartitionId grpId = grpIds.get(p);
+
+            PeersAndLearners membersConf = PeersAndLearners.fromConsistentIds(partAssignments);
+
+            RaftGroupService service = RaftGroupServiceImpl
+                    .start(grpId, client, FACTORY, raftConfig, membersConf, true, executor, commandsMarshaller)
+                    .get(5, TimeUnit.SECONDS);
+
+            clients.put(p, service);
+        }
+
+        allOf(partitionReadyFutures.toArray(new CompletableFuture[0])).join();
+
+        raftClients.computeIfAbsent(tableName, t -> new ArrayList<>()).addAll(clients.values());
+
+        return new TableImpl(
+                new InternalTableImpl(
+                        tableName,
+                        tableId,
+                        clients,
+                        1,
+                        nodeResolver,
+                        clientTxManager,
+                        mock(MvTableStorage.class),
+                        mock(TxStateTableStorage.class),
+                        clientReplicaSvc,
+                        clientClock,
+                        timestampTracker,
+                        placementDriver
+                ),
+                new DummySchemaManagerImpl(schemaDescriptor),
+                clientTxManager.lockManager(),
+                new ConstantSchemaVersions(SCHEMA_VERSION),
+                mock(IgniteSql.class)
+        );
+    }
+
     protected PartitionReplicaListener newReplicaListener(
             MvPartitionStorage mvDataStorage,
             RaftGroupService raftClient,
@@ -705,7 +787,7 @@ public class ItTxTestCluster {
         );
     }
 
-    private LogicalTopologyService logicalTopologyService(ClusterService clusterService) {
+    private static LogicalTopologyService logicalTopologyService(ClusterService clusterService) {
         return new LogicalTopologyService() {
             @Override
             public void addEventListener(LogicalTopologyEventListener listener) {
@@ -853,6 +935,28 @@ public class ItTxTestCluster {
         ));
 
         LOG.info("The client has been started");
+    }
+
+    public void stopClient() throws Exception {
+        assertTrue(startClient);
+
+        client.stop();
+
+        for (ClusterService node : cluster) {
+            assertTrue(waitForCondition(() -> node.topologyService().allMembers().size() == nodes, 1000));
+        }
+
+        if (clientTxManager != null) {
+            clientTxManager.stop();
+        }
+
+        for (Map.Entry<String, List<RaftGroupService>> e : raftClients.entrySet()) {
+            for (RaftGroupService svc : e.getValue()) {
+                svc.shutdown();
+            }
+        }
+
+        LOG.info("The client has been stopped");
     }
 
     private void initializeClientTxComponents() {

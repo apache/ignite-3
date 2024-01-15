@@ -477,7 +477,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
         try {
             return marsh.marshal(key);
         } catch (MarshallerException e) {
-            throw new IgniteException(e);
+            throw new org.apache.ignite.lang.MarshallerException(e);
         }
     }
 

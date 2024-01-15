@@ -480,4 +480,19 @@ public class FakeInternalTable implements InternalTable {
     public @Nullable PendingComparableValuesTracker<Long, Void> getPartitionStorageIndexTracker(int partitionId) {
         return null;
     }
+
+    @Override
+    public CompletableFuture<BinaryRow> getForCache(BinaryRowEx keyRow, @Nullable InternalTransaction tx) {
+        return null;
+    }
+
+    @Override
+    public CompletableFuture<Void> putForCache(BinaryRowEx row, @Nullable InternalTransaction tx) {
+        return null;
+    }
+
+    @Override
+    public CompletableFuture<Boolean> removeForCache(BinaryRowEx keyRow, InternalTransaction tx) {
+        return null;
+    }
 }

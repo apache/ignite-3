@@ -17,12 +17,14 @@
 
 package org.apache.ignite.internal.tx;
 
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 
@@ -63,9 +65,9 @@ public interface InternalTransaction extends Transaction {
     /**
      * Gets a partition id that stores the transaction state.
      *
-     * @return Partition id.
+     * @return Partition id or null if externally committed.
      */
-    TablePartitionId commitPartition();
+    @Nullable TablePartitionId commitPartition();
 
     /**
      * Enlists a partition group into a transaction.
@@ -100,5 +102,18 @@ public interface InternalTransaction extends Transaction {
      */
     default CompletableFuture<Void> finish(boolean commit, HybridTimestamp executionTimestamp) {
         return commit ? commitAsync() : rollbackAsync();
+    }
+
+    /**
+     * The map of entries required external synchronization in case of enabled cache write through.
+     *
+     * @return The map.
+     */
+    default Map<Object, Object> dirtyCache() {
+        return null;
+    }
+
+    default boolean external() {
+        return false;
     }
 }

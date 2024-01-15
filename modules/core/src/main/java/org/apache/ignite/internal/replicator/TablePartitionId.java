@@ -22,6 +22,7 @@ package org.apache.ignite.internal.replicator;
  * The class is used to identify a table replication group.
  */
 public class TablePartitionId implements ReplicationGroupId {
+    public static final TablePartitionId EMPTY = new TablePartitionId(0, 0);
 
     /** Table id. */
     private final int tableId;

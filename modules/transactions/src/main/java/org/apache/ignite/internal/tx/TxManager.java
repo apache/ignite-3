@@ -23,6 +23,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import org.apache.ignite.cache.CacheTransaction;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.manager.IgniteComponent;
@@ -58,6 +59,11 @@ public interface TxManager extends IgniteComponent {
      *         available in the tables.
      */
     InternalTransaction begin(HybridTimestampTracker timestampTracker, boolean readOnly);
+
+    CacheTransaction beginForCache(
+            HybridTimestampTracker timestampTracker,
+            @Nullable Function<InternalTransaction, CompletableFuture<Void>> externalCommit
+    );
 
     /**
      * Starts either read-write or read-only transaction, depending on {@code readOnly} parameter value.
@@ -134,14 +140,14 @@ public interface TxManager extends IgniteComponent {
      * @param timestampTracker Observable timestamp tracker is used to track a timestamp for either read-write or read-only
      *         transaction execution. The tracker is also used to determine the read timestamp for read-only transactions. Each client
      *         should pass its own tracker to provide linearizability between read-write and read-only transactions started by this client.
-     * @param commitPartition Partition to store a transaction state.
+     * @param commitPartition Partition to store a transaction state. Null to skip commit partition step - txn will be committed externally.
      * @param commit {@code true} if a commit requested.
      * @param enlistedGroups Enlisted partition groups with consistency token.
      * @param txId Transaction id.
      */
     CompletableFuture<Void> finish(
             HybridTimestampTracker timestampTracker,
-            TablePartitionId commitPartition,
+            @Nullable TablePartitionId commitPartition,
             boolean commit,
             Map<TablePartitionId, Long> enlistedGroups,
             UUID txId

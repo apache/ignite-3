@@ -80,7 +80,7 @@ class ReadWriteTransactionImplTest extends BaseIgniteAbstractTest {
 
         UUID txId = TestTransactionIds.TRANSACTION_ID_GENERATOR.transactionIdFor(beginTs);
 
-        var tx = new ReadWriteTransactionImpl(txManager, new HybridTimestampTracker(), txId);
+        var tx = new ReadWriteTransactionImpl(txManager, new HybridTimestampTracker(), txId, null);
 
         assertThat(tx.startTimestamp(), is(beginTs));
     }
@@ -111,7 +111,7 @@ class ReadWriteTransactionImplTest extends BaseIgniteAbstractTest {
 
         UUID txId = TestTransactionIds.TRANSACTION_ID_GENERATOR.transactionIdFor(beginTs);
 
-        var tx = new ReadWriteTransactionImpl(txManager, new HybridTimestampTracker(), txId);
+        var tx = new ReadWriteTransactionImpl(txManager, new HybridTimestampTracker(), txId, null);
 
         tx.assignCommitPartition(TX_COMMIT_PART);
 

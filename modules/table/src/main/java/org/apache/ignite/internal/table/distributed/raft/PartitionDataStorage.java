@@ -168,6 +168,8 @@ public interface PartitionDataStorage extends ManuallyCloseable {
      */
     void commitWrite(RowId rowId, HybridTimestamp timestamp) throws StorageException;
 
+    void forget(RowId rowId);
+
     /**
      * Scans all versions of a single row.
      *

@@ -56,9 +56,9 @@ public interface Transaction {
     CompletableFuture<Void> rollbackAsync();
 
     /**
-     * Returns {code true} if given transaction is a read-only, {@code false} otherwise.
+     * Returns {@code true} if given transaction is a read-only, {@code false} otherwise.
      *
-     * @return {code true} if given transaction is a read-only, {@code false} otherwise.
+     * @return {@code true} if given transaction is a read-only, {@code false} otherwise.
      */
     boolean isReadOnly();
 }

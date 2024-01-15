@@ -769,6 +769,27 @@ public class InternalTableImpl implements InternalTable {
     }
 
     @Override
+    public CompletableFuture<BinaryRow> getForCache(BinaryRowEx keyRow, InternalTransaction tx) {
+        return enlistInTx(
+                keyRow,
+                tx,
+                (txo, groupId, term) -> tableMessagesFactory.readWriteSingleRowPkReplicaRequest()
+                        .groupId(groupId)
+                        .schemaVersion(keyRow.schemaVersion())
+                        .primaryKey(keyRow.tupleSlice())
+                        .commitPartitionId(serializeTablePartitionId(txo.commitPartition()))
+                        .transactionId(txo.id())
+                        .enlistmentConsistencyToken(term)
+                        .requestType(RW_GET)
+                        .timestampLong(clock.nowLong())
+                        .full(tx == null)
+                        .build(),
+                (res, req) -> false,
+                true
+        );
+    }
+
+    @Override
     public CompletableFuture<BinaryRow> get(
             BinaryRowEx keyRow,
             HybridTimestamp readTimestamp,
@@ -935,7 +956,11 @@ public class InternalTableImpl implements InternalTable {
         return result;
     }
 
-    private TablePartitionIdMessage serializeTablePartitionId(TablePartitionId id) {
+    private TablePartitionIdMessage serializeTablePartitionId(@Nullable TablePartitionId id) {
+        if (id == null) {
+            return null;
+        }
+
         return tableMessagesFactory.tablePartitionIdMessage()
                 .partitionId(id.partitionId())
                 .tableId(id.tableId())
@@ -961,6 +986,27 @@ public class InternalTableImpl implements InternalTable {
                         .build(),
                 (res, req) -> false,
                 false
+        );
+    }
+
+    @Override
+    public CompletableFuture<Void> putForCache(BinaryRowEx row, @Nullable InternalTransaction tx) {
+        return enlistInTx(
+                row,
+                tx,
+                (txo, groupId, term) -> tableMessagesFactory.readWriteSingleRowReplicaRequest()
+                        .groupId(groupId)
+                        .commitPartitionId(serializeTablePartitionId(txo.commitPartition()))
+                        .schemaVersion(row.schemaVersion())
+                        .binaryTuple(row.tupleSlice())
+                        .transactionId(txo.id())
+                        .enlistmentConsistencyToken(term)
+                        .requestType(RequestType.RW_UPSERT)
+                        .timestampLong(clock.nowLong())
+                        .full(tx == null)
+                        .build(),
+                (res, req) -> false,
+                true
         );
     }
 
@@ -1175,6 +1221,27 @@ public class InternalTableImpl implements InternalTable {
                         .build(),
                 (res, req) -> !res,
                 false
+        );
+    }
+
+    @Override
+    public CompletableFuture<Boolean> removeForCache(BinaryRowEx keyRow, InternalTransaction tx) {
+        return enlistInTx(
+                keyRow,
+                tx,
+                (txo, groupId, term) -> tableMessagesFactory.readWriteSingleRowPkReplicaRequest()
+                        .groupId(groupId)
+                        .commitPartitionId(serializeTablePartitionId(txo.commitPartition()))
+                        .schemaVersion(keyRow.schemaVersion())
+                        .primaryKey(keyRow.tupleSlice())
+                        .transactionId(txo.id())
+                        .enlistmentConsistencyToken(term)
+                        .requestType(RequestType.RW_DELETE)
+                        .timestampLong(clock.nowLong())
+                        .full(tx == null)
+                        .build(),
+                (res, req) -> !res,
+                true
         );
     }
 
@@ -1707,7 +1774,11 @@ public class InternalTableImpl implements InternalTable {
      */
     protected CompletableFuture<IgniteBiTuple<ClusterNode, Long>> enlist(int partId, InternalTransaction tx) {
         TablePartitionId tablePartitionId = new TablePartitionId(tableId, partId);
-        tx.assignCommitPartition(tablePartitionId);
+
+        // Commit partition is assigned to a first enlisted table partition.
+        if (!tx.external()) {
+            tx.assignCommitPartition(tablePartitionId);
+        }
 
         HybridTimestamp now = clock.now();
 
