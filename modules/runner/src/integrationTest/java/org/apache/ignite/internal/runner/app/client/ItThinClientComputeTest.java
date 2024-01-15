@@ -19,12 +19,16 @@ package org.apache.ignite.internal.runner.app.client;
 
 import static org.apache.ignite.compute.JobState.COMPLETED;
 import static org.apache.ignite.compute.JobState.FAILED;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.will;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.JobStatusMatcher.jobStatusWithState;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Compute.CANCELLING_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Table.COLUMN_ALREADY_EXISTS_ERR;
+import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.oneOf;
@@ -56,10 +60,12 @@ import java.util.stream.Collectors;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.client.IgniteClient.Builder;
 import org.apache.ignite.client.IgniteClientConnectionException;
+import org.apache.ignite.compute.ComputeException;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobExecutionContext;
+import org.apache.ignite.compute.JobState;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Tuple;
@@ -111,6 +117,42 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
         assertThat(execution1.statusAsync(), willBe(jobStatusWithState(COMPLETED)));
         assertThat(execution2.statusAsync(), willBe(jobStatusWithState(COMPLETED)));
+    }
+
+    @Test
+    void testCancellingCompletedJobPropagatesException() {
+        JobExecution<String> execution = client().compute().executeAsync(Set.of(node(0)), List.of(), NodeNameJob.class.getName());
+
+        assertThat(execution.resultAsync(), willBe("itcct_n_3344"));
+
+        assertThat(execution.statusAsync(), willBe(jobStatusWithState(COMPLETED)));
+
+        UUID jobId = execution.idAsync().join();
+
+        Throwable ex = assertThrowsWithCause(
+                () -> execution.cancelAsync().join(),
+                ComputeException.class,
+                "Cancelling job " + jobId + " failed."
+        );
+        IgniteException cause = (IgniteException) ex.getCause();
+
+        assertEquals(CANCELLING_ERR, cause.code());
+    }
+
+    @Test
+    void testCancelOnSpecificNodeAsync() {
+        int sleepMs = 1_000_000;
+        JobExecution<String> execution1 = client().compute().executeAsync(Set.of(node(0)), List.of(), SleepJob.class.getName(), sleepMs);
+        JobExecution<String> execution2 = client().compute().executeAsync(Set.of(node(1)), List.of(), SleepJob.class.getName(), sleepMs);
+
+        await().until(execution1::statusAsync, willBe(jobStatusWithState(JobState.EXECUTING)));
+        await().until(execution2::statusAsync, willBe(jobStatusWithState(JobState.EXECUTING)));
+
+        assertThat(execution1.cancelAsync(), willCompleteSuccessfully());
+        assertThat(execution2.cancelAsync(), willCompleteSuccessfully());
+
+        await().until(execution1::statusAsync, willBe(jobStatusWithState(JobState.CANCELED)));
+        await().until(execution2::statusAsync, willBe(jobStatusWithState(JobState.CANCELED)));
     }
 
     @Test
@@ -168,6 +210,31 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
         assertThat(execution1.statusAsync(), willBe(jobStatusWithState(COMPLETED)));
         assertThat(execution2.statusAsync(), willBe(jobStatusWithState(COMPLETED)));
+    }
+
+    @Test
+    void testCancelBroadcastAllNodes() {
+        int sleepMs = 1_000_000;
+        Map<ClusterNode, JobExecution<String>> futuresPerNode = client().compute().broadcastAsync(
+                new HashSet<>(sortedNodes()),
+                List.of(),
+                SleepJob.class.getName(),
+                sleepMs
+        );
+
+        assertEquals(2, futuresPerNode.size());
+
+        JobExecution<String> execution1 = futuresPerNode.get(node(0));
+        JobExecution<String> execution2 = futuresPerNode.get(node(1));
+
+        await().until(execution1::statusAsync, willBe(jobStatusWithState(JobState.EXECUTING)));
+        await().until(execution2::statusAsync, willBe(jobStatusWithState(JobState.EXECUTING)));
+
+        assertThat(execution1.cancelAsync(), willCompleteSuccessfully());
+        assertThat(execution2.cancelAsync(), willCompleteSuccessfully());
+
+        await().until(execution1::statusAsync, willBe(jobStatusWithState(JobState.CANCELED)));
+        await().until(execution2::statusAsync, willBe(jobStatusWithState(JobState.CANCELED)));
     }
 
     @Test

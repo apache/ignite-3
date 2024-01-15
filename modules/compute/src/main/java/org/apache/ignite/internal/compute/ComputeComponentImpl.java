@@ -21,6 +21,7 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.compute.ClassLoaderExceptionsMapper.mapClassLoaderExceptions;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Compute.RESULT_NOT_FOUND_ERR;
 
 import java.util.List;
 import java.util.Map;
@@ -44,9 +45,9 @@ import org.apache.ignite.internal.future.InFlightFutures;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
-import org.apache.ignite.lang.ErrorGroups.Compute;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.MessagingService;
+import org.apache.ignite.network.TopologyService;
 
 /**
  * Implementation of {@link ComputeComponent}.
@@ -75,13 +76,14 @@ public class ComputeComponentImpl implements ComputeComponent {
      */
     public ComputeComponentImpl(
             MessagingService messagingService,
+            TopologyService topologyService,
             JobContextManager jobContextManager,
             ComputeExecutor executor,
             ComputeConfiguration computeCfg
     ) {
         this.jobContextManager = jobContextManager;
         this.executor = executor;
-        messaging = new ComputeMessaging(this, messagingService);
+        messaging = new ComputeMessaging(this, messagingService, topologyService);
         cleaner = new Cleaner<>(computeCfg);
     }
 
@@ -132,39 +134,33 @@ public class ComputeComponentImpl implements ComputeComponent {
         }
     }
 
-    /**
-     * Returns job's execution result.
-     *
-     * @param jobId Job id.
-     * @return Job's execution result future.
-     */
+    @Override
     public CompletableFuture<?> resultAsync(UUID jobId) {
         JobExecution<?> execution = executions.get(jobId);
         if (execution != null) {
             return execution.resultAsync();
         }
-        return failedFuture(new ComputeException(Compute.RESULT_NOT_FOUND_ERR, "Job result not found for the job id " + jobId));
+        return failedFuture(new ComputeException(RESULT_NOT_FOUND_ERR, "Job result not found for the job id " + jobId));
     }
 
-    /**
-     * Returns the current status of the job. The job status may be deleted and thus return {@code null} if the time for retaining job
-     * status has been exceeded.
-     *
-     * @param jobId Job id.
-     * @return The current status of the job, or {@code null} if the job status no longer exists due to exceeding the retention time limit.
-     */
-    public CompletableFuture<JobStatus> statusAsync(UUID jobId) {
+    @Override
+    public CompletableFuture<JobStatus> broadcastStatusAsync(UUID jobId) {
+        return messaging.broadcastStatusAsync(jobId);
+    }
+
+    @Override
+    public CompletableFuture<JobStatus> localStatusAsync(UUID jobId) {
         JobExecution<?> execution = executions.get(jobId);
         return execution != null ? execution.statusAsync() : nullCompletedFuture();
     }
 
-    /**
-     * Cancels the job.
-     *
-     * @param jobId Job id.
-     * @return The future which will be completed when cancel request is processed.
-     */
-    public CompletableFuture<Void> cancelAsync(UUID jobId) {
+    @Override
+    public CompletableFuture<Void> broadcastCancelAsync(UUID jobId) {
+        return messaging.broadcastCancelAsync(jobId);
+    }
+
+    @Override
+    public CompletableFuture<Void> localCancelAsync(UUID jobId) {
         JobExecution<?> execution = executions.get(jobId);
         return execution != null ? execution.cancelAsync() : failedFuture(new CancellingException(jobId));
     }

@@ -20,6 +20,7 @@ package org.apache.ignite.client.handler.requests.compute;
 import java.time.Instant;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.compute.JobStatus;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
@@ -43,17 +44,25 @@ public class ClientComputeGetStatusRequest {
             IgniteComputeInternal compute
     ) {
         UUID jobId = in.unpackUuid();
-        return compute.statusAsync(jobId).thenAccept(jobStatus -> {
-            if (jobStatus == null) {
-                out.packNil();
-            } else {
-                out.packUuid(jobStatus.id());
-                out.packString(jobStatus.state().name());
-                packInstant(out, jobStatus.createTime());
-                packInstant(out, jobStatus.startTime());
-                packInstant(out, jobStatus.finishTime());
-            }
-        });
+        return compute.statusAsync(jobId).thenAccept(jobStatus -> packJobStatus(out, jobStatus));
+    }
+
+    /**
+     * Writes a {@link JobStatus}.
+     *
+     * @param out Packer.
+     * @param jobStatus Job status.
+     */
+    static void packJobStatus(ClientMessagePacker out, @Nullable JobStatus jobStatus) {
+        if (jobStatus == null) {
+            out.packNil();
+        } else {
+            out.packUuid(jobStatus.id());
+            out.packString(jobStatus.state().name());
+            packInstant(out, jobStatus.createTime());
+            packInstant(out, jobStatus.startTime());
+            packInstant(out, jobStatus.finishTime());
+        }
     }
 
     private static void packInstant(ClientMessagePacker out, @Nullable Instant instant) {

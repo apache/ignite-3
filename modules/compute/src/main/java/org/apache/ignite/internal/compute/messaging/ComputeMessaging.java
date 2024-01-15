@@ -17,21 +17,25 @@
 
 package org.apache.ignite.internal.compute.messaging;
 
+import static java.util.concurrent.CompletableFuture.allOf;
 import static org.apache.ignite.internal.compute.ComputeUtils.cancelFromJobCancelResponse;
 import static org.apache.ignite.internal.compute.ComputeUtils.jobIdFromExecuteResponse;
 import static org.apache.ignite.internal.compute.ComputeUtils.resultFromJobResultResponse;
 import static org.apache.ignite.internal.compute.ComputeUtils.statusFromJobStatusResponse;
 import static org.apache.ignite.internal.compute.ComputeUtils.toDeploymentUnit;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Compute.FAIL_TO_GET_JOB_STATUS_ERR;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
+import org.apache.ignite.compute.ComputeException;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobStatus;
-import org.apache.ignite.internal.compute.ComputeComponentImpl;
+import org.apache.ignite.internal.compute.ComputeComponent;
 import org.apache.ignite.internal.compute.ComputeMessageTypes;
 import org.apache.ignite.internal.compute.ComputeMessagesFactory;
 import org.apache.ignite.internal.compute.ComputeUtils;
@@ -45,12 +49,14 @@ import org.apache.ignite.internal.compute.message.JobResultRequest;
 import org.apache.ignite.internal.compute.message.JobResultResponse;
 import org.apache.ignite.internal.compute.message.JobStatusRequest;
 import org.apache.ignite.internal.compute.message.JobStatusResponse;
+import org.apache.ignite.internal.compute.queue.CancellingException;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.network.TopologyService;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -61,15 +67,25 @@ public class ComputeMessaging {
 
     private final ComputeMessagesFactory messagesFactory = new ComputeMessagesFactory();
 
-    private final ComputeComponentImpl computeComponent;
+    private final ComputeComponent computeComponent;
 
     private final MessagingService messagingService;
 
+    private final TopologyService topologyService;
+
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
-    public ComputeMessaging(ComputeComponentImpl computeComponent, MessagingService messagingService) {
+    /**
+     * Constructor.
+     *
+     * @param computeComponent Compute component.
+     * @param messagingService Messaging service.
+     * @param topologyService Topology service.
+     */
+    public ComputeMessaging(ComputeComponent computeComponent, MessagingService messagingService, TopologyService topologyService) {
         this.computeComponent = computeComponent;
         this.messagingService = messagingService;
+        this.topologyService = topologyService;
     }
 
     /**
@@ -255,7 +271,7 @@ public class ComputeMessaging {
             String senderConsistentId,
             long correlationId
     ) {
-        computeComponent.statusAsync(request.jobId())
+        computeComponent.localStatusAsync(request.jobId())
                 .whenComplete((status, throwable) -> sendJobStatusResponse(status, throwable, senderConsistentId, correlationId));
     }
 
@@ -290,7 +306,7 @@ public class ComputeMessaging {
     }
 
     private void processJobCancelRequest(JobCancelRequest request, String senderConsistentId, long correlationId) {
-        computeComponent.cancelAsync(request.jobId())
+        computeComponent.localCancelAsync(request.jobId())
                 .whenComplete((result, err) -> sendJobCancelResponse(err, senderConsistentId, correlationId));
     }
 
@@ -304,5 +320,53 @@ public class ComputeMessaging {
                 .build();
 
         messagingService.respond(senderConsistentId, jobCancelResponse, correlationId);
+    }
+
+    /**
+     * Broadcasts job status request to all nodes in the cluster.
+     *
+     * @param jobId Job id.
+     * @return The current status of the job, or {@code null} if the job status no longer exists due to exceeding the retention time limit.
+     */
+    public CompletableFuture<JobStatus> broadcastStatusAsync(UUID jobId) {
+        CompletableFuture<JobStatus> result = new CompletableFuture<>();
+        CompletableFuture<?>[] futures = topologyService.allMembers().stream()
+                .map(node -> remoteStatusAsync(node, jobId).thenAccept(jobStatus -> {
+                    if (jobStatus != null) {
+                        result.complete(jobStatus);
+                    }
+                }))
+                .toArray(CompletableFuture[]::new);
+        allOf(futures).whenComplete((unused, throwable) -> {
+            if (Arrays.stream(futures).allMatch(CompletableFuture::isCompletedExceptionally)) {
+                result.completeExceptionally(new ComputeException(FAIL_TO_GET_JOB_STATUS_ERR, "Compute job status can't be retrieved."));
+            } else {
+                // If the result future was already completed with non-null status, this is no-op
+                result.complete(null);
+            }
+        });
+        return result;
+    }
+
+    /**
+     * Broadcasts job cancel request to all nodes in the cluster.
+     *
+     * @param jobId Job id.
+     * @return The future which will be completed when cancel request is processed.
+     */
+    public CompletableFuture<Void> broadcastCancelAsync(UUID jobId) {
+        CompletableFuture<Void> result = new CompletableFuture<>();
+        CompletableFuture<?>[] futures = topologyService.allMembers().stream()
+                .map(node -> remoteCancelAsync(node, jobId).thenAccept(result::complete))
+                .toArray(CompletableFuture[]::new);
+        allOf(futures).whenComplete((unused, throwable) -> {
+            if (Arrays.stream(futures).allMatch(CompletableFuture::isCompletedExceptionally)) {
+                result.completeExceptionally(new CancellingException(jobId));
+            } else {
+                // If the result future was already completed with cancel result, this is no-op
+                result.complete(null);
+            }
+        });
+        return result;
     }
 }

@@ -17,9 +17,13 @@
 
 package org.apache.ignite.internal.client.compute;
 
+import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.lang.ErrorGroups.Compute.CANCELLING_ERR;
+
 import java.time.Instant;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.compute.ComputeException;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobState;
 import org.apache.ignite.compute.JobStatus;
@@ -36,33 +40,27 @@ import org.jetbrains.annotations.Nullable;
 class ClientJobExecution<R> implements JobExecution<R> {
     private final ReliableChannel ch;
 
-    private final CompletableFuture<JobIdCoordinatorId> jobIdCoordinatorId;
+    private final CompletableFuture<UUID> jobIdFuture;
 
     private final CompletableFuture<R> resultAsync;
 
+    private final CompletableFuture<JobStatus> statusFuture = new CompletableFuture<>();
+
     public ClientJobExecution(ReliableChannel ch, CompletableFuture<PayloadInputChannel> reqFuture) {
         this.ch = ch;
-        jobIdCoordinatorId = reqFuture
-                .thenApply(r -> new JobIdCoordinatorId(r.in().unpackUuid(), r.in().unpackString()));
+
+        jobIdFuture = reqFuture.thenApply(r -> r.in().unpackUuid());
 
         resultAsync = reqFuture
                 .thenCompose(PayloadInputChannel::notificationFuture)
                 .thenApply(r -> {
                     // Notifications require explicit input close.
                     try (r) {
-                        return (R) r.in().unpackObjectFromBinaryTuple();
+                        R result = (R) r.in().unpackObjectFromBinaryTuple();
+                        statusFuture.complete(unpackJobStatus(r));
+                        return result;
                     }
                 });
-    }
-
-    private static class JobIdCoordinatorId {
-        JobIdCoordinatorId(UUID jobId, String coordinatorId) {
-            this.jobId = jobId;
-            this.coordinatorId = coordinatorId;
-        }
-
-        UUID jobId;
-        String coordinatorId;
     }
 
     @Override
@@ -72,31 +70,41 @@ class ClientJobExecution<R> implements JobExecution<R> {
 
     @Override
     public CompletableFuture<JobStatus> statusAsync() {
-        return jobIdCoordinatorId.thenCompose(this::getJobStatus);
+        if (statusFuture.isDone()) {
+            return statusFuture;
+        }
+        return jobIdFuture.thenCompose(this::getJobStatus);
     }
 
     @Override
     public CompletableFuture<Void> cancelAsync() {
-        return jobIdCoordinatorId.thenCompose(this::cancelJob);
+        if (statusFuture.isDone()) {
+            return failedFuture(new ComputeException(CANCELLING_ERR, "Cancelling job " + statusFuture.join().id() + " failed."));
+        }
+        return jobIdFuture.thenCompose(this::cancelJob);
     }
 
-    private CompletableFuture<JobStatus> getJobStatus(JobIdCoordinatorId jobIdCoordinatorId) {
+    private CompletableFuture<JobStatus> getJobStatus(UUID jobId) {
+        // Send the request to any node, the request will be broadcast since client doesn't know which particular node is running the job
+        // especially in case of colocated execution.
         return ch.serviceAsync(
                 ClientOp.COMPUTE_GET_STATUS,
-                w -> w.out().packUuid(jobIdCoordinatorId.jobId),
+                w -> w.out().packUuid(jobId),
                 ClientJobExecution::unpackJobStatus,
-                jobIdCoordinatorId.coordinatorId,
+                null,
                 null,
                 false
         );
     }
 
-    private CompletableFuture<Void> cancelJob(JobIdCoordinatorId jobIdCoordinatorId) {
+    private CompletableFuture<Void> cancelJob(UUID jobId) {
+        // Send the request to any node, the request will be broadcast since client doesn't know which particular node is running the job
+        // especially in case of colocated execution.
         return ch.serviceAsync(
                 ClientOp.COMPUTE_CANCEL,
-                w -> w.out().packUuid(jobIdCoordinatorId.jobId),
+                w -> w.out().packUuid(jobId),
                 null,
-                jobIdCoordinatorId.coordinatorId,
+                null,
                 null,
                 false
         );

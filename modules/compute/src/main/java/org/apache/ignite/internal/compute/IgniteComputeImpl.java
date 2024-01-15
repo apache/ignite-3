@@ -56,7 +56,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
 
     private final IgniteTablesInternal tables;
 
-    private final ComputeComponentImpl computeComponent;
+    private final ComputeComponent computeComponent;
 
     private final ThreadLocalRandom random = ThreadLocalRandom.current();
 
@@ -65,7 +65,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
     /**
      * Create new instance.
      */
-    public IgniteComputeImpl(TopologyService topologyService, IgniteTablesInternal tables, ComputeComponentImpl computeComponent) {
+    public IgniteComputeImpl(TopologyService topologyService, IgniteTablesInternal tables, ComputeComponent computeComponent) {
         this.topologyService = topologyService;
         this.tables = tables;
         this.computeComponent = computeComponent;
@@ -276,11 +276,11 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
 
     @Override
     public CompletableFuture<JobStatus> statusAsync(UUID jobId) {
-        return computeComponent.statusAsync(jobId);
+        return computeComponent.broadcastStatusAsync(jobId);
     }
 
     @Override
     public CompletableFuture<Void> cancelAsync(UUID jobId) {
-        return computeComponent.cancelAsync(jobId);
+        return computeComponent.broadcastCancelAsync(jobId);
     }
 }

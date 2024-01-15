@@ -17,6 +17,8 @@
 
 package org.apache.ignite.client.handler.requests.compute;
 
+import static org.apache.ignite.client.handler.requests.compute.ClientComputeGetStatusRequest.packJobStatus;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -65,13 +67,17 @@ public class ClientComputeExecuteRequest {
         Object[] args = unpackArgs(in);
 
         JobExecution<Object> execution = compute.executeAsync(Set.of(node), deploymentUnits, jobClassName, args);
-        execution.resultAsync()
-                .whenComplete((res, err) -> notificationSender.sendNotification(w -> w.packObjectAsBinaryTuple(res), err));
-        return execution.idAsync().thenAccept(jobId -> {
-            out.packUuid(jobId);
-            String coordinatorId = cluster.topologyService().localMember().name();
-            out.packString(coordinatorId);
-        });
+        sendResultAndStatus(execution, notificationSender);
+        return execution.idAsync().thenAccept(out::packUuid);
+    }
+
+    static void sendResultAndStatus(JobExecution<Object> execution, NotificationSender notificationSender) {
+        execution.resultAsync().whenComplete((val, err) ->
+                execution.statusAsync().whenComplete((status, errStatus) ->
+                        notificationSender.sendNotification(w -> {
+                            w.packObjectAsBinaryTuple(val);
+                            packJobStatus(w, status);
+                        }, err)));
     }
 
     /**

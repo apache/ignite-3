@@ -18,8 +18,11 @@
 package org.apache.ignite.internal.compute;
 
 import java.util.List;
+import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.JobExecution;
+import org.apache.ignite.compute.JobStatus;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.network.ClusterNode;
 
@@ -98,4 +101,46 @@ public interface ComputeComponent extends IgniteComponent {
     ) {
         return executeRemotely(ExecutionOptions.DEFAULT, remoteNode, units, jobClassName, args);
     }
+
+    /**
+     * Returns job's execution result.
+     *
+     * @param jobId Job id.
+     * @return Job's execution result future.
+     */
+    CompletableFuture<?> resultAsync(UUID jobId);
+
+    /**
+     * Retrieves the current status of the job on any node in the cluster. The job status may be deleted and thus return {@code null} if the
+     * time for retaining job status has been exceeded.
+     *
+     * @param jobId Job id.
+     * @return The current status of the job, or {@code null} if the job status no longer exists due to exceeding the retention time limit.
+     */
+    CompletableFuture<JobStatus> broadcastStatusAsync(UUID jobId);
+
+    /**
+     * Retrieves the current status of the job from local node. The job status may be deleted and thus return {@code null} if the time for
+     * retaining job status has been exceeded.
+     *
+     * @param jobId Job id.
+     * @return The current status of the job, or {@code null} if the job status no longer exists due to exceeding the retention time limit.
+     */
+    CompletableFuture<JobStatus> localStatusAsync(UUID jobId);
+
+    /**
+     * Cancels the job running on any node in the cluster.
+     *
+     * @param jobId Job id.
+     * @return The future which will be completed when cancel request is processed.
+     */
+    CompletableFuture<Void> broadcastCancelAsync(UUID jobId);
+
+    /**
+     * Cancels the locally running job.
+     *
+     * @param jobId Job id.
+     * @return The future which will be completed when cancel request is processed.
+     */
+    CompletableFuture<Void> localCancelAsync(UUID jobId);
 }

@@ -64,6 +64,7 @@ import org.apache.ignite.internal.cluster.management.topology.LogicalTopologySer
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.component.RestAddressReporter;
 import org.apache.ignite.internal.components.LongJvmPauseDetector;
+import org.apache.ignite.internal.compute.ComputeComponent;
 import org.apache.ignite.internal.compute.ComputeComponentImpl;
 import org.apache.ignite.internal.compute.IgniteComputeImpl;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
@@ -232,7 +233,7 @@ public class IgniteImpl implements Ignite {
     /** Cluster service (cluster network manager). */
     private final ClusterService clusterSvc;
 
-    private final ComputeComponentImpl computeComponent;
+    private final ComputeComponent computeComponent;
 
     /** Netty bootstrap factory. */
     private final NettyBootstrapFactory nettyBootstrapFactory;
@@ -661,6 +662,7 @@ public class IgniteImpl implements Ignite {
         InMemoryComputeStateMachine stateMachine = new InMemoryComputeStateMachine(computeCfg);
         computeComponent = new ComputeComponentImpl(
                 clusterSvc.messagingService(),
+                clusterSvc.topologyService(),
                 new JobContextManager(deploymentManagerImpl, deploymentManagerImpl.deploymentUnitAccessor(), new JobClassLoaderFactory()),
                 new ComputeExecutorImpl(this, stateMachine, computeCfg),
                 computeCfg

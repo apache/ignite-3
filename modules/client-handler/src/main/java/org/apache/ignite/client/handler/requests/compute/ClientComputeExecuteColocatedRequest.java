@@ -17,6 +17,7 @@
 
 package org.apache.ignite.client.handler.requests.compute;
 
+import static org.apache.ignite.client.handler.requests.compute.ClientComputeExecuteRequest.sendResultAndStatus;
 import static org.apache.ignite.client.handler.requests.compute.ClientComputeExecuteRequest.unpackArgs;
 import static org.apache.ignite.client.handler.requests.compute.ClientComputeExecuteRequest.unpackDeploymentUnits;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTableAsync;
@@ -63,14 +64,8 @@ public class ClientComputeExecuteColocatedRequest {
                 out.packInt(table.schemaView().lastKnownSchemaVersion());
 
                 JobExecution<Object> execution = compute.executeColocatedAsync(table.name(), keyTuple, deploymentUnits, jobClassName, args);
-                execution
-                        .resultAsync()
-                        .whenComplete((val, err) -> notificationSender.sendNotification(w -> w.packObjectAsBinaryTuple(val), err));
-                return execution.idAsync().thenAccept(jobId -> {
-                    out.packUuid(jobId);
-                    String coordinatorId = cluster.topologyService().localMember().name();
-                    out.packString(coordinatorId);
-                });
+                sendResultAndStatus(execution, notificationSender);
+                return execution.idAsync().thenAccept(out::packUuid);
             });
         });
     }

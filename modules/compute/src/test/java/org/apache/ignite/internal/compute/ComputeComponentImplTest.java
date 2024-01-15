@@ -103,6 +103,7 @@ import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.NetworkMessageHandler;
+import org.apache.ignite.network.TopologyService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -125,6 +126,9 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
 
     @Mock
     private MessagingService messagingService;
+
+    @Mock
+    private TopologyService topologyService;
 
     @InjectConfiguration
     private ComputeConfiguration computeConfiguration;
@@ -188,7 +192,13 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
 
         computeExecutor = new ComputeExecutorImpl(ignite, new InMemoryComputeStateMachine(computeConfiguration), computeConfiguration);
 
-        computeComponent = new ComputeComponentImpl(messagingService, jobContextManager, computeExecutor, computeConfiguration);
+        computeComponent = new ComputeComponentImpl(
+                messagingService,
+                topologyService,
+                jobContextManager,
+                computeExecutor,
+                computeConfiguration
+        );
 
         computeComponent.start();
     }
@@ -625,9 +635,11 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
 
         computeComponent = new ComputeComponentImpl(
                 messagingService,
+                topologyService,
                 jobContextManager,
                 computeExecutor,
-                computeConfiguration);
+                computeConfiguration
+        );
         computeComponent.start();
 
         // take the only executor thread

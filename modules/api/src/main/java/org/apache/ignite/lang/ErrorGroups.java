@@ -548,7 +548,7 @@ public class ErrorGroups {
         /** Compute job result not found error. */
         public static final int RESULT_NOT_FOUND_ERR = COMPUTE_ERR_GROUP.registerErrorCode((short) 7);
 
-        /** Compute job status can not be retrieved. */
+        /** Compute job status can't be retrieved. */
         public static final int FAIL_TO_GET_JOB_STATUS_ERR = COMPUTE_ERR_GROUP.registerErrorCode((short) 8);
 
         /** Compute job failed. */
