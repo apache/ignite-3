@@ -17,7 +17,11 @@
 
 package org.apache.ignite.internal.tx.impl;
 
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.apache.ignite.internal.catalog.CatalogService;
+import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.message.RwTransactionsFinishedRequest;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
@@ -34,11 +38,17 @@ class RwTxFinishedHandler {
     private final CatalogService catalogService;
 
     private final MessagingService messagingService;
+
+    private final HybridClock clock;
+
     private final VolatileTxCounter rwTxCounterByCatalogVersion = new VolatileTxCounter();
 
-    RwTxFinishedHandler(CatalogService catalogService, MessagingService messagingService) {
+    private final ReadWriteLock checkFinishedReadWriteLock = new ReentrantReadWriteLock();
+
+    RwTxFinishedHandler(CatalogService catalogService, MessagingService messagingService, HybridClock clock) {
         this.catalogService = catalogService;
         this.messagingService = messagingService;
+        this.clock = clock;
     }
 
     /** Starts the handler. */
@@ -52,7 +62,7 @@ class RwTxFinishedHandler {
     }
 
     /**
-     * Increments the read-write transaction counter.
+     * Increments the RW transaction counter.
      *
      * @param catalogVersion Read-write transaction catalog version.
      */
@@ -61,7 +71,7 @@ class RwTxFinishedHandler {
     }
 
     /**
-     * Decrements the read-write transaction counter.
+     * Decrements the RW transaction counter.
      *
      * @param txStateMeta Read-write transaction meta.
      */
@@ -105,11 +115,28 @@ class RwTxFinishedHandler {
      * @param catalogVersion Catalog version to check.
      */
     boolean isRwTransactionsFinished(int catalogVersion) {
-        if (catalogVersion > catalogService.latestCatalogVersion()) {
-            // Requested catalog version has not yet registered locally.
-            return false;
-        }
+        checkFinishedReadWriteLock.writeLock().lock();
 
-        return !rwTxCounterByCatalogVersion.isExistsTxBefore(catalogVersion);
+        try {
+            if (catalogVersion > catalogService.activeCatalogVersion(clock.nowLong())) {
+                // Requested catalog version has not yet registered locally.
+                return false;
+            }
+
+            return !rwTxCounterByCatalogVersion.isExistsTxBefore(catalogVersion);
+        } finally {
+            checkFinishedReadWriteLock.writeLock().unlock();
+        }
+    }
+
+    /** Returns the beginning timestamp for new RW transactions. */
+    HybridTimestamp newBeginTimestamp() {
+        checkFinishedReadWriteLock.readLock().lock();
+
+        try {
+            return clock.now();
+        } finally {
+            checkFinishedReadWriteLock.readLock().unlock();
+        }
     }
 }

@@ -235,7 +235,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
         txCleanupRequestSender = new TxCleanupRequestSender(txMessageSender, placementDriverHelper, writeIntentSwitchProcessor);
 
-        rwTxFinishedHandler = new RwTxFinishedHandler(catalogService, messagingService);
+        rwTxFinishedHandler = new RwTxFinishedHandler(catalogService, messagingService, clock);
     }
 
     @Override
@@ -250,7 +250,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
     @Override
     public InternalTransaction begin(HybridTimestampTracker timestampTracker, boolean readOnly, TxPriority priority) {
-        HybridTimestamp beginTimestamp = clock.now();
+        HybridTimestamp beginTimestamp = newBeginTimestamp(readOnly);
         UUID txId = transactionIdGenerator.transactionIdFor(beginTimestamp, priority);
         int txCatalogVersion = txCatalogVersion(beginTimestamp);
         updateTxMeta(txId, old -> new TxStateMeta(PENDING, localNodeId, null, null, readOnly, txCatalogVersion));
@@ -915,5 +915,14 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     /** See {@link RwTxFinishedHandler#isRwTransactionsFinished(int)}. */
     boolean isRwTransactionsFinished(int catalogVersion) {
         return rwTxFinishedHandler.isRwTransactionsFinished(catalogVersion);
+    }
+
+    /**
+     * Returns the new beginning timestamp of the transaction.
+     *
+     * @param readOnly {@code true} if the transaction is read-only, otherwise read-write.
+     */
+    private HybridTimestamp newBeginTimestamp(boolean readOnly) {
+        return readOnly ? clock.now() : rwTxFinishedHandler.newBeginTimestamp();
     }
 }
