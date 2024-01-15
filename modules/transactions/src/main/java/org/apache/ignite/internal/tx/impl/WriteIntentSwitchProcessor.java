@@ -25,7 +25,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.util.CompletableFutures;
-import org.apache.ignite.network.ClusterService;
+import org.apache.ignite.network.TopologyService;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -42,24 +42,24 @@ public class WriteIntentSwitchProcessor {
 
     private final TxMessageSender txMessageSender;
 
-    /** Cluster service. */
-    private final ClusterService clusterService;
+    /** Topology service. */
+    private final TopologyService topologyService;
 
     /**
      * The constructor.
      *
      * @param placementDriverHelper Placement driver helper.
      * @param txMessageSender Transaction message creator.
-     * @param clusterService Cluster service.
+     * @param topologyService Topology service.
      */
     public WriteIntentSwitchProcessor(
             PlacementDriverHelper placementDriverHelper,
             TxMessageSender txMessageSender,
-            ClusterService clusterService
+            TopologyService topologyService
     ) {
         this.placementDriverHelper = placementDriverHelper;
         this.txMessageSender = txMessageSender;
-        this.clusterService = clusterService;
+        this.topologyService = topologyService;
     }
 
     /**
@@ -71,7 +71,7 @@ public class WriteIntentSwitchProcessor {
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp
     ) {
-        String localNodeName = clusterService.topologyService().localMember().name();
+        String localNodeName = topologyService.localMember().name();
 
         return txMessageSender.switchWriteIntents(localNodeName, tablePartitionId, txId, commit, commitTimestamp);
     }

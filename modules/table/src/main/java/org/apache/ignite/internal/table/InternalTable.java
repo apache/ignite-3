@@ -69,6 +69,14 @@ public interface InternalTable extends ManuallyCloseable {
     String name();
 
     /**
+     * Sets the name of the table.
+     *
+     * @param newName New name.
+     */
+    // TODO: revisit this approach, see https://issues.apache.org/jira/browse/IGNITE-21235.
+    void name(String newName);
+
+    /**
      * Extracts an identifier of a partition from a given row.
      *
      * @param row A row to extract partition from.

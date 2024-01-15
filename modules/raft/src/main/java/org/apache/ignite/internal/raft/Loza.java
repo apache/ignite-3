@@ -174,14 +174,14 @@ public class Loza implements RaftManager {
 
     /** {@inheritDoc} */
     @Override
-    public void start() {
+    public CompletableFuture<Void> start() {
         RaftView raftConfig = raftConfiguration.value();
 
         opts.setRpcInstallSnapshotTimeout(raftConfig.rpcInstallSnapshotTimeout());
 
         opts.getRaftOptions().setSync(raftConfig.fsync());
 
-        raftServer.start();
+        return raftServer.start();
     }
 
     /** {@inheritDoc} */

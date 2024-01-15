@@ -106,6 +106,11 @@ public class FakeInternalTable implements InternalTable {
     }
 
     @Override
+    public void name(String newName) {
+        throw new UnsupportedOperationException("Should not be called");
+    }
+
+    @Override
     public int partitionId(BinaryRowEx row) {
         return 0;
     }

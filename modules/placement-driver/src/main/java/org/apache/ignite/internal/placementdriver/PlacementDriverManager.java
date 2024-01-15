@@ -134,7 +134,7 @@ public class PlacementDriverManager implements IgniteComponent {
     }
 
     @Override
-    public void start() {
+    public CompletableFuture<Void> start() {
         inBusyLock(busyLock, () -> {
             placementDriverNodesNamesProvider.get()
                     .thenCompose(placementDriverNodes -> {
@@ -169,6 +169,8 @@ public class PlacementDriverManager implements IgniteComponent {
 
             recoverInternalComponentsBusy();
         });
+
+        return nullCompletedFuture();
     }
 
     @Override

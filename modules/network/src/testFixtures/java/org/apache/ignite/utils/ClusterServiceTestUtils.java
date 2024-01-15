@@ -20,9 +20,11 @@ package org.apache.ignite.utils;
 import static java.util.stream.Collectors.toUnmodifiableList;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.IntStream;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
@@ -154,7 +156,7 @@ public class ClusterServiceTestUtils {
             }
 
             @Override
-            public void start() {
+            public CompletableFuture<Void> start() {
                 nodeConfigurationMgr.start();
 
                 NetworkConfiguration configuration = nodeConfigurationMgr.configurationRegistry()
@@ -174,6 +176,8 @@ public class ClusterServiceTestUtils {
                 bootstrapFactory.start();
 
                 clusterSvc.start();
+
+                return nullCompletedFuture();
             }
 
             @Override
