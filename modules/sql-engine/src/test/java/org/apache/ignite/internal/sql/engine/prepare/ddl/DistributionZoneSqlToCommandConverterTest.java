@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine.prepare.ddl;
 
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.prepare.ddl.ZoneOptionEnum.STORAGE_PROFILES;
+import static org.apache.ignite.internal.util.Constants.DUMMY_STORAGE_PROFILE;
 import static org.hamcrest.CoreMatchers.instanceOf;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -57,7 +58,7 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
 
     @Test
     public void testCreateZone() throws SqlParseException {
-        SqlNode node = parse("CREATE ZONE test");
+        SqlNode node = parse("CREATE ZONE test WITH STORAGE_PROFILES='" + DUMMY_STORAGE_PROFILE + "'");
 
         assertThat(node, instanceOf(SqlDdl.class));
 
