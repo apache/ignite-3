@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.error.code.generators;
 
 import java.io.IOException;
-import java.nio.file.Path;
 import java.util.List;
 import java.util.stream.Collectors;
 import javax.annotation.processing.ProcessingEnvironment;
@@ -31,7 +30,7 @@ import org.apache.ignite.internal.error.code.processor.ErrorCodeGroupProcessorEx
 public class CppGenerator extends GenericGenerator {
     private static final String SuffixToChop = "_ERR";
 
-    public CppGenerator(ProcessingEnvironment processingEnvironment, Path outFilePath) {
+    public CppGenerator(ProcessingEnvironment processingEnvironment, String outFilePath) {
         super(processingEnvironment, outFilePath);
     }
 

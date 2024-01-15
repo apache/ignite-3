@@ -19,7 +19,6 @@ package org.apache.ignite.internal.error.code.generators;
 
 import java.io.BufferedWriter;
 import java.io.IOException;
-import java.nio.file.Path;
 import java.util.List;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.tools.FileObject;
@@ -32,7 +31,7 @@ import org.apache.ignite.internal.error.code.processor.ErrorCodeGroupProcessorEx
  */
 public abstract class GenericGenerator implements AbstractCodeGenerator {
     final ProcessingEnvironment processingEnvironment;
-    final Path outFilePath;
+    final String outFilePath;
     BufferedWriter writer;
     static final int groupShift = 16;
 
@@ -45,7 +44,7 @@ public abstract class GenericGenerator implements AbstractCodeGenerator {
         line("");
     }
 
-    GenericGenerator(ProcessingEnvironment processingEnvironment, Path outFilePath) {
+    GenericGenerator(ProcessingEnvironment processingEnvironment, String outFilePath) {
         this.processingEnvironment = processingEnvironment;
         this.outFilePath = outFilePath;
     }
@@ -79,7 +78,7 @@ public abstract class GenericGenerator implements AbstractCodeGenerator {
         try {
             FileObject resource = processingEnvironment.getFiler().createResource(StandardLocation.NATIVE_HEADER_OUTPUT,
                     "",
-                    outFilePath.toString());
+                    outFilePath);
 
             writer = new BufferedWriter(resource.openWriter());
             generateLicense();
