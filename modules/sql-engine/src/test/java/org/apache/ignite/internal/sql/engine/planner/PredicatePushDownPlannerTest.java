@@ -47,9 +47,9 @@ public class PredicatePushDownPlannerTest extends AbstractPlannerTest {
                 + "          WHERE ot.c1 = it.c1"
                 + "            AND it.c2 > it.c3)";
 
-        assertPlan(sql, schema, isInstanceOf(Join.class)
+        assertPlan(sql, schema, hasChildThat(isInstanceOf(Join.class)
                 .and(input(0, isInstanceOf(ProjectableFilterableTableScan.class)
-                        .and(scan -> scan.condition().toString().contains(">($t1, 10)"))))
+                        .and(scan -> scan.condition().toString().contains(">($t1, 10)")))))
         );
     }
 
