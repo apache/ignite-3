@@ -27,6 +27,7 @@ import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.metastorage.dsl.Statements.iif;
 import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
 import static org.apache.ignite.internal.util.ByteUtils.intToBytes;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -79,7 +80,7 @@ public class UpdateLogImpl implements UpdateLog {
     }
 
     @Override
-    public void start() {
+    public CompletableFuture<Void> start() {
         if (!busyLock.enterBusy()) {
             throw new IgniteException(Common.NODE_STOPPING_ERR, new NodeStoppingException());
         }
@@ -103,6 +104,8 @@ public class UpdateLogImpl implements UpdateLog {
         } finally {
             busyLock.leaveBusy();
         }
+
+        return nullCompletedFuture();
     }
 
     @Override

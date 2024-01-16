@@ -50,8 +50,6 @@ import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValue
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
-import org.apache.ignite.internal.vault.VaultManager;
-import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -63,8 +61,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @ExtendWith(WorkDirectoryExtension.class)
 public class DeploymentUnitStoreImplTest extends BaseIgniteAbstractTest {
     private static final String LOCAL_NODE = "localNode";
-
-    private final VaultManager vaultManager = new VaultManager(new InMemoryVaultService());
 
     private final List<UnitNodeStatus> nodeHistory = Collections.synchronizedList(new ArrayList<>());
 
@@ -97,19 +93,17 @@ public class DeploymentUnitStoreImplTest extends BaseIgniteAbstractTest {
         clusterHistory.clear();
         KeyValueStorage storage = new RocksDbKeyValueStorage("test", workDir);
 
-        MetaStorageManager metaStorageManager = StandaloneMetaStorageManager.create(vaultManager, storage);
+        MetaStorageManager metaStorageManager = StandaloneMetaStorageManager.create(storage);
         metastore = new DeploymentUnitStoreImpl(metaStorageManager);
         NodeStatusWatchListener nodeListener = new NodeStatusWatchListener(metastore, LOCAL_NODE, nodeEventCallback);
         metastore.registerNodeStatusListener(nodeListener);
         ClusterStatusWatchListener clusterListener = new ClusterStatusWatchListener(clusterEventCallback);
         metastore.registerClusterStatusListener(clusterListener);
 
-        vaultManager.start();
         metaStorageManager.start();
 
         toStop = () -> {
             nodeListener.stop();
-            vaultManager.stop();
             try {
                 metaStorageManager.stop();
             } catch (Exception e) {

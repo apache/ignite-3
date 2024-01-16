@@ -93,8 +93,6 @@ import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.internal.vault.VaultManager;
-import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
 import org.apache.ignite.sql.IgniteSql;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -117,8 +115,6 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
     private TableManager mockTableManager;
 
     private SchemaManager mockSchemaManager;
-
-    private VaultManager vaultManager;
 
     private MetaStorageManagerImpl metaStorageManager;
 
@@ -149,7 +145,7 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
 
     @AfterEach
     void tearDown() throws Exception {
-        IgniteUtils.stopAll(vaultManager, metaStorageManager, catalogManager, indexManager);
+        IgniteUtils.stopAll(metaStorageManager, catalogManager, indexManager);
     }
 
     @Test
@@ -322,7 +318,7 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
 
         clearInvocations(tableViewInternal);
 
-        IgniteUtils.stopAll(indexManager, catalogManager, metaStorageManager, vaultManager);
+        IgniteUtils.stopAll(indexManager, catalogManager, metaStorageManager);
 
         createAndStartComponents();
 
@@ -376,9 +372,7 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
     }
 
     private void createAndStartComponents() {
-        vaultManager = new VaultManager(new InMemoryVaultService());
-
-        metaStorageManager = StandaloneMetaStorageManager.create(vaultManager, new TestRocksDbKeyValueStorage(NODE_NAME, workDir));
+        metaStorageManager = StandaloneMetaStorageManager.create(new TestRocksDbKeyValueStorage(NODE_NAME, workDir));
 
         catalogManager = CatalogTestUtils.createTestCatalogManager(NODE_NAME, clock, metaStorageManager);
 
@@ -390,7 +384,7 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
                 (LongFunction<CompletableFuture<?>> function) -> metaStorageManager.registerRevisionUpdateListener(function::apply)
         );
 
-        List.of(vaultManager, metaStorageManager, catalogManager, indexManager).forEach(IgniteComponent::start);
+        List.of(metaStorageManager, catalogManager, indexManager).forEach(IgniteComponent::start);
 
         assertThat(metaStorageManager.recoveryFinishedFuture(), willCompleteSuccessfully());
         assertThat(metaStorageManager.notifyRevisionUpdateListenerOnStart(), willCompleteSuccessfully());

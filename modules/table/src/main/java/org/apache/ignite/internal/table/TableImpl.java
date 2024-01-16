@@ -133,6 +133,11 @@ public class TableImpl implements TableViewInternal {
         return tbl.name();
     }
 
+    // TODO: revisit this approach, see https://issues.apache.org/jira/browse/IGNITE-21235.
+    public void name(String newName) {
+        tbl.name(newName);
+    }
+
     @Override
     public SchemaRegistry schemaView() {
         return schemaReg;

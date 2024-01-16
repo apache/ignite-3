@@ -21,6 +21,7 @@ import static org.apache.ignite.lang.ErrorGroups.Table.TABLE_NOT_FOUND_ERR;
 import static org.apache.ignite.lang.util.IgniteNameUtils.canonicalName;
 
 import java.util.UUID;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Exception is thrown when a specified table cannot be found.
@@ -44,7 +45,7 @@ public class TableNotFoundException extends IgniteException {
      * @param message Detailed message.
      * @param cause Optional nested exception (can be {@code null}).
      */
-    public TableNotFoundException(UUID traceId, int code, String message, Throwable cause) {
+    public TableNotFoundException(UUID traceId, int code, String message, @Nullable Throwable cause) {
         super(traceId, code, message, cause);
     }
 }

@@ -44,6 +44,10 @@ public abstract class AbstractLockingTest {
         return TestTransactionIds.newTransactionId();
     }
 
+    protected UUID beginTx(TxPriority priority) {
+        return TestTransactionIds.newTransactionId(priority);
+    }
+
     protected LockKey key(Object key) {
         ByteBuffer b = ByteBuffer.allocate(Integer.BYTES);
         b.putInt(key.hashCode());

@@ -19,6 +19,7 @@ package org.apache.ignite.internal.metastorage.impl;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -43,8 +44,6 @@ import org.apache.ignite.internal.raft.RaftManager;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.internal.vault.VaultManager;
-import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.network.NodeMetadata;
@@ -70,7 +69,6 @@ public class MetaStorageManagerRecoveryTest extends BaseIgniteAbstractTest {
     private HybridClock clock;
 
     private void createMetaStorage(long remoteRevision) throws Exception {
-        VaultManager vault = new VaultManager(new InMemoryVaultService());
         ClusterService clusterService = clusterService();
         ClusterManagementGroupManager cmgManager = clusterManagementManager();
         LogicalTopologyService topologyService = mock(LogicalTopologyService.class);
@@ -80,7 +78,6 @@ public class MetaStorageManagerRecoveryTest extends BaseIgniteAbstractTest {
         kvs = spy(new SimpleInMemoryKeyValueStorage(NODE_NAME));
 
         metaStorageManager = new MetaStorageManagerImpl(
-                vault,
                 clusterService,
                 cmgManager,
                 topologyService,
@@ -138,7 +135,8 @@ public class MetaStorageManagerRecoveryTest extends BaseIgniteAbstractTest {
             }
 
             @Override
-            public void start() {
+            public CompletableFuture<Void> start() {
+                return nullCompletedFuture();
             }
         };
     }

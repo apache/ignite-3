@@ -51,12 +51,14 @@ import org.apache.ignite.internal.catalog.storage.VersionedUpdate;
 import org.apache.ignite.internal.event.AbstractEventProducer;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.systemview.api.SystemView;
 import org.apache.ignite.internal.systemview.api.SystemViewProvider;
 import org.apache.ignite.internal.systemview.api.SystemViews;
 import org.apache.ignite.internal.type.NativeTypes;
+import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.util.SubscriptionUtils;
 import org.apache.ignite.lang.ErrorGroups.Common;
@@ -103,6 +105,9 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
 
     private final LongSupplier partitionIdleSafeTimePropagationPeriodMsSupplier;
 
+    /** Busy lock to stop synchronously. */
+    private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
+
     /**
      * Constructor.
      */
@@ -133,7 +138,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     }
 
     @Override
-    public void start() {
+    public CompletableFuture<Void> start() {
         int objectIdGen = 0;
 
         // TODO: IGNITE-19082 Move default schema objects initialization to cluster init procedure.
@@ -166,10 +171,14 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
         updateLog.registerUpdateHandler(new OnUpdateHandlerImpl());
 
         updateLog.start();
+
+        return nullCompletedFuture();
     }
 
     @Override
     public void stop() throws Exception {
+        busyLock.block();
+        versionTracker.close();
         updateLog.stop();
     }
 
@@ -353,39 +362,47 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
      * @return Future that completes with the new Catalog version (if update was saved successfully) or an exception, otherwise.
      */
     private CompletableFuture<Integer> saveUpdate(UpdateProducer updateProducer, int attemptNo) {
-        if (attemptNo >= MAX_RETRY_COUNT) {
-            return failedFuture(new IgniteInternalException(Common.INTERNAL_ERR, "Max retry limit exceeded: " + attemptNo));
+        if (!busyLock.enterBusy()) {
+            return failedFuture(new NodeStoppingException());
         }
 
-        Catalog catalog = catalogByVer.lastEntry().getValue();
-
-        List<UpdateEntry> updates;
         try {
-            updates = updateProducer.get(catalog);
-        } catch (Exception ex) {
-            return failedFuture(ex);
+            if (attemptNo >= MAX_RETRY_COUNT) {
+                return failedFuture(new IgniteInternalException(Common.INTERNAL_ERR, "Max retry limit exceeded: " + attemptNo));
+            }
+
+            Catalog catalog = catalogByVer.lastEntry().getValue();
+
+            List<UpdateEntry> updates;
+            try {
+                updates = updateProducer.get(catalog);
+            } catch (Exception ex) {
+                return failedFuture(ex);
+            }
+
+            if (updates.isEmpty()) {
+                return completedFuture(catalog.version());
+            }
+
+            int newVersion = catalog.version() + 1;
+
+            // It is quite important to preserve such behavior: we wait here for versionTracker to be updated. It is updated when all events
+            // that were triggered by this change will be completed. That means that any Catalog update will be completed only
+            // after all reactions to that event will be completed through the catalog event notifications mechanism.
+            // This is important for the distribution zones recovery purposes:
+            // we guarantee recovery for a zones' catalog actions only if that actions were completed.
+            return updateLog.append(new VersionedUpdate(newVersion, delayDurationMsSupplier.getAsLong(), updates))
+                    .thenCompose(result -> versionTracker.waitFor(newVersion).thenApply(none -> result))
+                    .thenCompose(result -> {
+                        if (result) {
+                            return completedFuture(newVersion);
+                        }
+
+                        return saveUpdate(updateProducer, attemptNo + 1);
+                    });
+        } finally {
+            busyLock.leaveBusy();
         }
-
-        if (updates.isEmpty()) {
-            return completedFuture(catalog.version());
-        }
-
-        int newVersion = catalog.version() + 1;
-
-        // It is quite important to preserve such behavior: we wait here for versionTracker to be updated. It is updated when all events
-        // that were triggered by this change will be completed. That means that any Catalog update will be completed only
-        // after all reactions to that event will be completed through the catalog event notifications mechanism.
-        // This is important for the distribution zones recovery purposes:
-        // we guarantee recovery for a zones' catalog actions only if that actions were completed.
-        return updateLog.append(new VersionedUpdate(newVersion, delayDurationMsSupplier.getAsLong(), updates))
-                .thenCompose(result -> versionTracker.waitFor(newVersion).thenApply(none -> result))
-                .thenCompose(result -> {
-                    if (result) {
-                        return completedFuture(newVersion);
-                    }
-
-                    return saveUpdate(updateProducer, attemptNo + 1);
-                });
     }
 
     @Override

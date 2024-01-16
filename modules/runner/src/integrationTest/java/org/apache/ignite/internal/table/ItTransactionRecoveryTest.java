@@ -350,7 +350,8 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
 
         UUID orphanTxId = startTransactionAndStopNode(txCrdNode);
 
-        AtomicInteger msgCount = new AtomicInteger();
+        AtomicInteger stateMsgCount = new AtomicInteger();
+        AtomicInteger recoveryMsgCount = new AtomicInteger();
 
         IgniteImpl roCoordNode = node(0);
 
@@ -360,11 +361,15 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
 
         commitPartNode.dropMessages((nodeName, msg) -> {
             if (msg instanceof TxStateCommitPartitionRequest) {
-                msgCount.incrementAndGet();
+                stateMsgCount.incrementAndGet();
 
                 assertEquals(TxState.ABANDONED, txVolatileState(commitPartNode, orphanTxId));
 
                 txMsgCaptureFut.complete(((TxStateCommitPartitionRequest) msg).txId());
+            }
+
+            if (msg instanceof TxRecoveryMessage) {
+                recoveryMsgCount.incrementAndGet();
             }
 
             return false;
@@ -374,19 +379,15 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
 
         RecordView view = roCoordNode.tables().table(TABLE_NAME).recordView();
 
-        try {
-            view.getAsync(recoveryTxReadOnly, Tuple.create().set("key", 42));
-        } catch (Exception e) {
-            assertEquals(Transactions.ACQUIRE_LOCK_ERR, extractCodeFrom(e));
-
-            log.info("Expected lock conflict.", e);
-        }
+        view.getAsync(recoveryTxReadOnly, Tuple.create().set("key", 42));
 
         assertThat(txMsgCaptureFut, willCompleteSuccessfully());
 
         runConflictingTransaction(commitPartNode, commitPartNode.transactions().begin());
 
-        assertEquals(1, msgCount.get());
+        assertEquals(1, stateMsgCount.get());
+
+        assertEquals(0, recoveryMsgCount.get());
 
         assertTrue(waitForCondition(() -> txStoredState(commitPartNode, orphanTxId) == TxState.ABORTED, 10_000));
     }
@@ -541,8 +542,6 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
 
         assertTrue(waitForCondition(() -> txStoredState(commitPartNode, orphanTx.id()) == TxState.ABORTED, 10_000));
 
-        assertTrue(waitForCondition(() -> txStoredMeta(commitPartNode, orphanTx.id()).locksReleased(), 10_000));
-
         CompletableFuture<NetworkMessage> commitRequest =
                 messaging(commitPartNode).invoke(targetName.get(), finishRequestCaptureFut.join(), 3000);
 
@@ -557,7 +556,6 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
         assertInstanceOf(TransactionAlreadyFinishedException.class, ExceptionUtils.unwrapCause(errorResponse.throwable()));
 
         assertEquals(TxState.ABORTED, txStoredState(commitPartNode, orphanTx.id()));
-
     }
 
     @Test
@@ -635,10 +633,6 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
         assertTrue(waitForCondition(() -> txStoredState(commitPartNode, orphanTxId) == TxState.ABORTED, 10_000));
         assertTrue(waitForCondition(() -> txStoredState(commitPartNode, rwTx1Id) == TxState.ABORTED, 10_000));
 
-        assertTrue(waitForCondition(() -> txStoredMeta(commitPartNode, orphanTxId).locksReleased(), 10_000));
-        assertTrue(waitForCondition(() -> txStoredMeta(commitPartNode, rwTx1Id).locksReleased(), 10_000));
-        assertTrue(waitForCondition(() -> txStoredMeta(commitPartNode, rwTx2Id).locksReleased(), 10_000));
-
         Transaction rwTx3 = newCoordNode.transactions().begin();
 
         log.info("Start RW tx {}", ((InternalTransaction) rwTx3).id());
@@ -682,7 +676,6 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
         UUID rwTx1Id = ((InternalTransaction) rwTx1).id();
 
         assertTrue(waitForCondition(() -> txStoredState(commitPartNode, rwTx1Id) == TxState.COMMITTED, 10_000));
-        assertTrue(waitForCondition(() -> txStoredMeta(commitPartNode, rwTx1Id).locksReleased(), 10_000));
 
         IgniteImpl txCrdNode2 = node(0);
 

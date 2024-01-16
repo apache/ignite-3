@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing;
 
 import static java.util.Collections.unmodifiableList;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -85,12 +86,14 @@ public class OutgoingSnapshotsManager implements PartitionsSnapshots, IgniteComp
     }
 
     @Override
-    public void start() {
+    public CompletableFuture<Void> start() {
         executor = new ThreadPoolExecutor(0, 4, 0L, TimeUnit.MILLISECONDS,
                 new LinkedBlockingQueue<>(), new NamedThreadFactory("outgoing-snapshots", LOG)
         );
 
         messagingService.addMessageHandler(TableMessageGroup.class, this::handleMessage);
+
+        return nullCompletedFuture();
     }
 
     @Override

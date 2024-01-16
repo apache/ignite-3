@@ -15,14 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed.command;
+package org.apache.ignite.internal.catalog.commands;
 
-import org.apache.ignite.internal.table.distributed.TableMessageGroup.Commands;
-import org.apache.ignite.network.annotations.Transferable;
-
-/**
- * Command that is used to replicate the locks released update for tx state storage.
- */
-@Transferable(Commands.MARK_LOCKS_RELEASED)
-public interface MarkLocksReleasedCommand extends PartitionCommand {
+/** Builder for {@link RenameTableCommand}s. */
+public interface RenameTableCommandBuilder extends AbstractTableCommandBuilder<RenameTableCommandBuilder> {
+    /**
+     * Sets the new name of the target table.
+     *
+     * <p>The new name must not be {@code null}, empty or blank. It is also required that a table with the same name does not already exist
+     * in the schema that the target table belongs to.
+     *
+     * @param newTableName New name of the target table.
+     * @return this instance (for chaining).
+     */
+    RenameTableCommandBuilder newTableName(String newTableName);
 }

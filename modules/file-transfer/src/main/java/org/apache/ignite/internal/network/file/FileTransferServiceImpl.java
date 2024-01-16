@@ -218,7 +218,7 @@ public class FileTransferServiceImpl implements FileTransferService {
     }
 
     @Override
-    public void start() {
+    public CompletableFuture<Void> start() {
         topologyService.addEventHandler(new TopologyEventHandler() {
             @Override
             public void onDisappeared(ClusterNode member) {
@@ -240,6 +240,8 @@ public class FileTransferServiceImpl implements FileTransferService {
                         LOG.error("Unexpected message received: {}", message);
                     }
                 });
+
+        return nullCompletedFuture();
     }
 
     @Override

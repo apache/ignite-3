@@ -44,7 +44,6 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.Collection;
-import java.util.Comparator;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
@@ -136,7 +135,7 @@ public class InternalTableImpl implements InternalTable {
     private final int partitions;
 
     /** Table name. */
-    private final String tableName;
+    private volatile String tableName;
 
     /** Table identifier. */
     private final int tableId;
@@ -242,6 +241,11 @@ public class InternalTableImpl implements InternalTable {
     @Override
     public String name() {
         return tableName;
+    }
+
+    @Override
+    public void name(String newName) {
+        this.tableName = newName;
     }
 
     /**
@@ -1492,19 +1496,6 @@ public class InternalTableImpl implements InternalTable {
         }
 
         return rowBatchByPartitionId;
-    }
-
-    /** {@inheritDoc} */
-    // TODO: https://issues.apache.org/jira/browse/IGNITE-20933 The method should be removed
-    @Override
-    public List<String> assignments() {
-        awaitLeaderInitialization();
-
-        return raftGroupServiceByPartitionId.int2ObjectEntrySet().stream()
-                .sorted(Comparator.comparingInt(Int2ObjectOpenHashMap.Entry::getIntKey))
-                .map(Map.Entry::getValue)
-                .map(service -> service.leader().consistentId())
-                .collect(Collectors.toList());
     }
 
     @Override
