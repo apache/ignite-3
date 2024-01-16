@@ -169,7 +169,7 @@ public interface IgniteCompute {
      * @return CompletableFuture Job result.
      * @throws ComputeException If there is any problem executing the job.
      */
-     <K, R> JobExecution<R> executeColocatedAsync(
+    <K, R> JobExecution<R> executeColocatedAsync(
             String tableName,
             K key,
             Mapper<K> keyMapper, JobExecutionOptions options,
@@ -247,7 +247,7 @@ public interface IgniteCompute {
             String jobClassName,
             Object... args) {
         return executeColocated(tableName, key, JobExecutionOptions.DEFAULT, units, jobClassName, args);
-    };
+    }
 
     /**
      * Executes a job of the given class on the node where the given key is located. The node is a leader
