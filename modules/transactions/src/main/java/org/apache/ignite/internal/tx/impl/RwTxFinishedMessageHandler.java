@@ -17,8 +17,13 @@
 
 package org.apache.ignite.internal.tx.impl;
 
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.function.Supplier;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.message.RwTransactionsFinishedRequest;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
@@ -28,8 +33,15 @@ import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.NetworkMessageHandler;
 import org.jetbrains.annotations.Nullable;
 
-/** Auxiliary {@link RwTransactionsFinishedRequest} handler to encapsulate the logic associated with this handling. */
-class RwTxFinishedHandler {
+/**
+ * An auxiliary class whose main purpose is to process {@link RwTransactionsFinishedRequest}.
+ *
+ * <p>Ensures consistency between incrementing/decrementing RW transaction counters and checking that transactions have completed to the
+ * requested version. What is meant is, let’s say the requested catalog version is {@code 12} and it is active locally, then if the check
+ * says all RW transactions up to this version are completed, then new RW transactions with versions lower than the requested one are
+ * guaranteed not to appear.</p>
+ */
+class RwTxFinishedMessageHandler {
     private static final TxMessagesFactory FACTORY = new TxMessagesFactory();
 
     private final CatalogService catalogService;
@@ -40,24 +52,40 @@ class RwTxFinishedHandler {
 
     private final VolatileTxCounter rwTxCounterByCatalogVersion = new VolatileTxCounter();
 
-    RwTxFinishedHandler(CatalogService catalogService, MessagingService messagingService, HybridClock clock) {
+    /**
+     * Lock to prevent races between incrementing/decrementing transaction counters and checking whether transactions exist before the
+     * requested catalog version.
+     */
+    private final ReadWriteLock readWriteLockForFinishedCheck = new ReentrantReadWriteLock();
+
+    RwTxFinishedMessageHandler(CatalogService catalogService, MessagingService messagingService, HybridClock clock) {
         this.catalogService = catalogService;
         this.messagingService = messagingService;
         this.clock = clock;
     }
 
-    /** Closes the handler. */
-    void close() {
+    /** Starts the handler. */
+    void start() {
+        messagingService.addMessageHandler(TxMessageGroup.class, this::onReceiveTxNetworkMessage);
+    }
+
+    /** Stops the handler. */
+    void stop() {
         rwTxCounterByCatalogVersion.clear();
     }
 
     /**
-     * Increments the RW transaction counter.
-     *
-     * @param catalogVersion Read-write transaction catalog version.
+     * Creates a beginning timestamp of RW transaction and increments the RW transaction counter by active catalog version on the created
+     * timestamp.
      */
-    void incrementRwTxCounter(int catalogVersion) {
-        rwTxCounterByCatalogVersion.incrementTxCount(catalogVersion);
+    HybridTimestamp createBeginTsWithIncrementRwTxCounter() {
+        return inLock(readWriteLockForFinishedCheck.readLock(), () -> {
+            HybridTimestamp beginTs = clock.now();
+
+            rwTxCounterByCatalogVersion.incrementTxCount(catalogService.activeCatalogVersion(beginTs.longValue()));
+
+            return beginTs;
+        });
     }
 
     /**
@@ -71,7 +99,11 @@ class RwTxFinishedHandler {
 
             assert catalogVersion != null : txStateMeta;
 
-            rwTxCounterByCatalogVersion.decrementTxCount(catalogVersion);
+            inLock(readWriteLockForFinishedCheck.readLock(), () -> {
+                rwTxCounterByCatalogVersion.decrementTxCount(catalogVersion);
+
+                return null;
+            });
         }
     }
 
@@ -80,7 +112,7 @@ class RwTxFinishedHandler {
      *
      * @see NetworkMessageHandler#onReceived(NetworkMessage, String, Long)
      */
-    void onReceiveTxNetworkMessage(NetworkMessage message, String senderConsistentId, @Nullable Long correlationId) {
+    private void onReceiveTxNetworkMessage(NetworkMessage message, String senderConsistentId, @Nullable Long correlationId) {
         if (!(message instanceof RwTransactionsFinishedRequest)) {
             return;
         }
@@ -99,17 +131,29 @@ class RwTxFinishedHandler {
     }
 
     /**
-     * Returns {@code true} iff the requested catalog version is registered locally and all RW transactions before it have completed,
-     * otherwise {@code false}.
+     * Returns {@code true} iff the requested catalog version is active locally and all RW transactions before it are completed, otherwise
+     * {@code false}.
      *
      * @param catalogVersion Catalog version to check.
      */
-    boolean isRwTransactionsFinished(int catalogVersion) {
-        if (catalogVersion > catalogService.activeCatalogVersion(clock.nowLong())) {
-            // Requested catalog version has not yet registered or activated locally.
-            return false;
-        }
+    private boolean isRwTransactionsFinished(int catalogVersion) {
+        return inLock(readWriteLockForFinishedCheck.writeLock(), () -> {
+            if (catalogVersion > catalogService.activeCatalogVersion(clock.nowLong())) {
+                // Requested catalog version has not yet registered or activated locally.
+                return false;
+            }
 
-        return !rwTxCounterByCatalogVersion.isExistsTxBefore(catalogVersion);
+            return !rwTxCounterByCatalogVersion.isExistsTxBefore(catalogVersion);
+        });
+    }
+
+    private static <T> T inLock(Lock lock, Supplier<T> supplier) {
+        lock.lock();
+
+        try {
+            return supplier.get();
+        } finally {
+            lock.unlock();
+        }
     }
 }

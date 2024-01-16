@@ -49,8 +49,8 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
-/** For testing {@link TxManagerImpl#isRwTransactionsFinished(int)}. */
-public class ItRwTransactionsFinishedTest extends ClusterPerClassIntegrationTest {
+/** For testing {@link RwTxFinishedMessageHandler}. */
+public class ItRwTxFinishedMessageHandlerTest extends ClusterPerClassIntegrationTest {
     private static final TxMessagesFactory FACTORY = new TxMessagesFactory();
 
     private static final String TABLE_NAME = "TEST_TABLE";
@@ -92,16 +92,16 @@ public class ItRwTransactionsFinishedTest extends ClusterPerClassIntegrationTest
         TxManagerImpl txManager = txManagerImpl();
         int latestCatalogVersion = latestCatalogVersion();
 
-        assertTrue(txManager.isRwTransactionsFinished(latestCatalogVersion - 1));
-        assertTrue(txManager.isRwTransactionsFinished(latestCatalogVersion));
+        assertTrue(isRwTransactionsFinishedFromNetwork(latestCatalogVersion - 1));
+        assertTrue(isRwTransactionsFinishedFromNetwork(latestCatalogVersion));
 
-        assertFalse(txManager.isRwTransactionsFinished(latestCatalogVersion + 1));
+        assertFalse(isRwTransactionsFinishedFromNetwork(latestCatalogVersion + 1));
 
         fakeUpdateCatalog();
         int newLatestCatalogVersion = latestCatalogVersion();
 
-        assertTrue(txManager.isRwTransactionsFinished(latestCatalogVersion));
-        assertTrue(txManager.isRwTransactionsFinished(newLatestCatalogVersion));
+        assertTrue(isRwTransactionsFinishedFromNetwork(latestCatalogVersion));
+        assertTrue(isRwTransactionsFinishedFromNetwork(newLatestCatalogVersion));
     }
 
     @ParameterizedTest(name = "readOnly = {0}, commit = {1}")
@@ -111,17 +111,17 @@ public class ItRwTransactionsFinishedTest extends ClusterPerClassIntegrationTest
         int oldLatestCatalogVersion = latestCatalogVersion();
 
         runInTx(readOnly, commit, tx -> {
-            assertTrue(txManager.isRwTransactionsFinished(oldLatestCatalogVersion));
-            assertFalse(txManager.isRwTransactionsFinished(oldLatestCatalogVersion + 1));
+            assertTrue(isRwTransactionsFinishedFromNetwork(oldLatestCatalogVersion));
+            assertFalse(isRwTransactionsFinishedFromNetwork(oldLatestCatalogVersion + 1));
 
             fakeUpdateCatalog();
 
-            assertTrue(txManager.isRwTransactionsFinished(oldLatestCatalogVersion));
-            assertEquals(readOnly, txManager.isRwTransactionsFinished(latestCatalogVersion()));
+            assertTrue(isRwTransactionsFinishedFromNetwork(oldLatestCatalogVersion));
+            assertEquals(readOnly, isRwTransactionsFinishedFromNetwork(latestCatalogVersion()));
         });
 
-        assertTrue(txManager.isRwTransactionsFinished(oldLatestCatalogVersion));
-        assertTrue(txManager.isRwTransactionsFinished(latestCatalogVersion()));
+        assertTrue(isRwTransactionsFinishedFromNetwork(oldLatestCatalogVersion));
+        assertTrue(isRwTransactionsFinishedFromNetwork(latestCatalogVersion()));
     }
 
     @ParameterizedTest(name = "readOnly = {0}, commit = {1}")
@@ -139,17 +139,17 @@ public class ItRwTransactionsFinishedTest extends ClusterPerClassIntegrationTest
                 insertPeople(tx, TABLE_NAME, new Person(1, "1", 1.0));
             }
 
-            assertTrue(txManager.isRwTransactionsFinished(oldLatestCatalogVersion));
-            assertFalse(txManager.isRwTransactionsFinished(oldLatestCatalogVersion + 1));
+            assertTrue(isRwTransactionsFinishedFromNetwork(oldLatestCatalogVersion));
+            assertFalse(isRwTransactionsFinishedFromNetwork(oldLatestCatalogVersion + 1));
 
             fakeUpdateCatalog();
 
-            assertTrue(txManager.isRwTransactionsFinished(oldLatestCatalogVersion));
-            assertEquals(readOnly, txManager.isRwTransactionsFinished(latestCatalogVersion()));
+            assertTrue(isRwTransactionsFinishedFromNetwork(oldLatestCatalogVersion));
+            assertEquals(readOnly, isRwTransactionsFinishedFromNetwork(latestCatalogVersion()));
         });
 
-        assertTrue(txManager.isRwTransactionsFinished(oldLatestCatalogVersion));
-        assertTrue(txManager.isRwTransactionsFinished(latestCatalogVersion()));
+        assertTrue(isRwTransactionsFinishedFromNetwork(oldLatestCatalogVersion));
+        assertTrue(isRwTransactionsFinishedFromNetwork(latestCatalogVersion()));
     }
 
     @ParameterizedTest(name = "commit = {0}")
@@ -171,21 +171,6 @@ public class ItRwTransactionsFinishedTest extends ClusterPerClassIntegrationTest
                 id++;
             } while (differences(beforeInserts, partitionSizes()) < 2);
 
-            fakeUpdateCatalog();
-
-            assertTrue(txManager.isRwTransactionsFinished(oldLatestCatalogVersion));
-            assertFalse(txManager.isRwTransactionsFinished(latestCatalogVersion()));
-        });
-
-        assertTrue(txManager.isRwTransactionsFinished(oldLatestCatalogVersion));
-        assertTrue(txManager.isRwTransactionsFinished(latestCatalogVersion()));
-    }
-
-    @Test
-    void testRwTransactionsFinishedMessages() {
-        int oldLatestCatalogVersion = latestCatalogVersion();
-
-        runInTx(false, true, tx -> {
             fakeUpdateCatalog();
 
             assertTrue(isRwTransactionsFinishedFromNetwork(oldLatestCatalogVersion));

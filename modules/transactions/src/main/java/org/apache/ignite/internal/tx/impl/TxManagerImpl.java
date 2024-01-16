@@ -50,8 +50,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.concurrent.locks.ReadWriteLock;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Function;
 import java.util.function.LongSupplier;
 import java.util.function.Supplier;
@@ -85,7 +83,6 @@ import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.TxStateMetaFinishing;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.message.RwTransactionsFinishedRequest;
-import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -177,13 +174,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     private final CatalogService catalogService;
 
     /** {@link RwTransactionsFinishedRequest} handler. */
-    private final RwTxFinishedHandler rwTxFinishedHandler;
-
-    /**
-     * Lock for {@link #rwTxFinishedHandlerLock} to avoid races between incrementing/decrementing counters and handling
-     * {@link RwTransactionsFinishedRequest}.
-     */
-    private final ReadWriteLock rwTxFinishedHandlerLock = new ReentrantReadWriteLock();
+    private final RwTxFinishedMessageHandler rwTxFinishedMessageHandler;
 
     /**
      * The constructor.
@@ -244,7 +235,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
         txCleanupRequestSender = new TxCleanupRequestSender(txMessageSender, placementDriverHelper, writeIntentSwitchProcessor);
 
-        rwTxFinishedHandler = new RwTxFinishedHandler(catalogService, messagingService, clock);
+        rwTxFinishedMessageHandler = new RwTxFinishedMessageHandler(catalogService, messagingService, clock);
     }
 
     @Override
@@ -259,9 +250,9 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
     @Override
     public InternalTransaction begin(HybridTimestampTracker timestampTracker, boolean readOnly, TxPriority priority) {
-        HybridTimestamp beginTimestamp = newBeginTimestamp(readOnly);
+        HybridTimestamp beginTimestamp = readOnly ? clock.now() : rwTxFinishedMessageHandler.createBeginTsWithIncrementRwTxCounter();
         UUID txId = transactionIdGenerator.transactionIdFor(beginTimestamp, priority);
-        int txCatalogVersion = txCatalogVersion(beginTimestamp);
+        int txCatalogVersion = catalogService.activeCatalogVersion(beginTimestamp.longValue());
         updateTxMeta(txId, old -> new TxStateMeta(PENDING, localNodeId, null, null, readOnly, txCatalogVersion));
 
         if (!readOnly) {
@@ -381,7 +372,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                     )
             );
 
-            decrementRwTxCount(txStateMeta);
+            rwTxFinishedMessageHandler.decrementRwTxCount(txStateMeta);
 
             return nullCompletedFuture();
         }
@@ -438,7 +429,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                         txId,
                         finishingStateMeta.txFinishFuture()
                 )
-        ).thenAccept(unused -> decrementRwTxCount(finishingStateMeta));
+        ).thenAccept(unused -> rwTxFinishedMessageHandler.decrementRwTxCount(finishingStateMeta));
     }
 
     private static CompletableFuture<Void> checkTxOutcome(boolean commit, UUID txId, TransactionMeta stateMeta) {
@@ -636,21 +627,13 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
         messagingService.addMessageHandler(ReplicaMessageGroup.class, this);
 
-        messagingService.addMessageHandler(TxMessageGroup.class, (message, senderConsistentId, correlationId) -> {
-            rwTxFinishedHandlerLock.writeLock().lock();
-
-            try {
-                rwTxFinishedHandler.onReceiveTxNetworkMessage(message, senderConsistentId, correlationId);
-            } finally {
-                rwTxFinishedHandlerLock.writeLock().unlock();
-            }
-        });
-
         txStateVolatileStorage.start();
 
         orphanDetector.start(txStateVolatileStorage, txConfig.abandonedCheckTs());
 
         txCleanupRequestHandler.start();
+
+        rwTxFinishedMessageHandler.start();
 
         return nullCompletedFuture();
     }
@@ -671,7 +654,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
         txCleanupRequestHandler.stop();
 
-        rwTxFinishedHandler.close();
+        rwTxFinishedMessageHandler.stop();
 
         shutdownAndAwaitTermination(cleanupExecutor, 10, TimeUnit.SECONDS);
     }
@@ -916,42 +899,5 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
             return false;
         }
-    }
-
-    private void decrementRwTxCount(TxStateMeta txStateMeta) {
-        rwTxFinishedHandlerLock.readLock().lock();
-
-        try {
-            rwTxFinishedHandler.decrementRwTxCount(txStateMeta);
-        } finally {
-            rwTxFinishedHandlerLock.readLock().unlock();
-        }
-    }
-
-    private HybridTimestamp newBeginTimestamp(boolean readOnly) {
-        if (readOnly) {
-            return clock.now();
-        }
-
-        rwTxFinishedHandlerLock.readLock().lock();
-
-        try {
-            HybridTimestamp beginTs = clock.now();
-
-            rwTxFinishedHandler.incrementRwTxCounter(txCatalogVersion(beginTs));
-
-            return beginTs;
-        } finally {
-            rwTxFinishedHandlerLock.readLock().unlock();
-        }
-    }
-
-    private int txCatalogVersion(HybridTimestamp beginTs) {
-        return catalogService.activeCatalogVersion(beginTs.longValue());
-    }
-
-    /** See {@link RwTxFinishedHandler#isRwTransactionsFinished(int)}. */
-    boolean isRwTransactionsFinished(int catalogVersion) {
-        return rwTxFinishedHandler.isRwTransactionsFinished(catalogVersion);
     }
 }
