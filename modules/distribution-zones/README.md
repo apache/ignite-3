@@ -20,3 +20,10 @@ a zone. After timeout, new data nodes of a zone are propagated to the meta stora
 If a new intent is appeared at the moment, when old intent has not been started yet, 
 then old intent will be canceled and replaced with a new one.
 
+## Access to the list of zones
+To check the existing list of zones in the cluster, use zones' system view
+
+```sql
+SELECT * FROM SYSTEM.ZONES
+```
+
