@@ -67,7 +67,9 @@ public class ComputeComponentImpl implements ComputeComponent {
 
     private final ComputeMessaging messaging;
 
-    private final Cleaner<JobExecution<?>> cleaner;
+    private final ComputeConfiguration computeConfiguration;
+
+    private final Cleaner<JobExecution<?>> cleaner = new Cleaner<>();
 
     private final Map<UUID, JobExecution<?>> executions = new ConcurrentHashMap<>();
 
@@ -79,12 +81,12 @@ public class ComputeComponentImpl implements ComputeComponent {
             TopologyService topologyService,
             JobContextManager jobContextManager,
             ComputeExecutor executor,
-            ComputeConfiguration computeCfg
+            ComputeConfiguration computeConfiguration
     ) {
         this.jobContextManager = jobContextManager;
         this.executor = executor;
+        this.computeConfiguration = computeConfiguration;
         messaging = new ComputeMessaging(this, messagingService, topologyService);
-        cleaner = new Cleaner<>(computeCfg);
     }
 
     /** {@inheritDoc} */
@@ -200,7 +202,7 @@ public class ComputeComponentImpl implements ComputeComponent {
     public CompletableFuture<Void> start() {
         executor.start();
         messaging.start();
-        cleaner.start(executions::remove);
+        cleaner.start(executions::remove, computeConfiguration.statesLifetimeMillis().value());
 
         return nullCompletedFuture();
     }

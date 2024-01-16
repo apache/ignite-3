@@ -374,6 +374,41 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         assertThat(pojoExecution.statusAsync(), willBe(jobStatusWithState(COMPLETED)));
     }
 
+    @ParameterizedTest
+    @CsvSource({"1,3344", "2,3345", "3,3345", "10,3344"})
+    void testCancelColocated(int key, int port) {
+        var table = TABLE_NAME;
+        var keyTuple = Tuple.create().set(COLUMN_KEY, key);
+        var keyPojo = new TestPojo(key);
+
+        int sleepMs = 1_000_000;
+        JobExecution<String> tupleExecution = client().compute().executeColocatedAsync(
+                table,
+                keyTuple,
+                List.of(),
+                SleepJob.class.getName(),
+                sleepMs
+        );
+
+        JobExecution<String> pojoExecution = client().compute().executeColocatedAsync(
+                table,
+                keyPojo,
+                Mapper.of(TestPojo.class),
+                List.of(),
+                SleepJob.class.getName(),
+                sleepMs
+        );
+
+        await().until(tupleExecution::statusAsync, willBe(jobStatusWithState(JobState.EXECUTING)));
+        await().until(pojoExecution::statusAsync, willBe(jobStatusWithState(JobState.EXECUTING)));
+
+        assertThat(tupleExecution.cancelAsync(), willCompleteSuccessfully());
+        assertThat(pojoExecution.cancelAsync(), willCompleteSuccessfully());
+
+        await().until(tupleExecution::statusAsync, willBe(jobStatusWithState(JobState.CANCELED)));
+        await().until(pojoExecution::statusAsync, willBe(jobStatusWithState(JobState.CANCELED)));
+    }
+
     @Test
     void testExecuteOnUnknownUnitWithLatestVersionThrows() {
         CompletionException ex = assertThrows(

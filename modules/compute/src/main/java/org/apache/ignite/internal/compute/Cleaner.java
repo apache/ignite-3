@@ -28,7 +28,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
-import org.apache.ignite.internal.compute.configuration.ComputeConfiguration;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
@@ -38,10 +37,8 @@ import org.apache.ignite.internal.thread.NamedThreadFactory;
  *
  * @param <T> Type of entry.
  */
-class Cleaner<T> {
+public class Cleaner<T> {
     private static final IgniteLogger LOG = Loggers.forClass(Cleaner.class);
-
-    private final ComputeConfiguration computeCfg;
 
     private ExecutorService cleaner;
 
@@ -49,19 +46,15 @@ class Cleaner<T> {
 
     private final Set<UUID> waitToRemove = ConcurrentHashMap.newKeySet();
 
-    Cleaner(ComputeConfiguration computeCfg) {
-        this.computeCfg = computeCfg;
-    }
-
     /**
      * Starts the cleaner.
      *
      * @param clean Function to clean the entry.
+     * @param ttl Time after which the clean function will be called for the scheduled to remove entry.
      */
-    void start(Consumer<UUID> clean) {
-        long ttl = computeCfg.statesLifetimeMillis().value();
+    public void start(Consumer<UUID> clean, long ttl) {
         ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor(
-                new NamedThreadFactory("ComputeCleaner-pool", LOG)
+                new NamedThreadFactory("Cleaner-pool", LOG)
         );
         executor.scheduleAtFixedRate(() -> {
             toRemove.forEach(clean);
@@ -77,16 +70,16 @@ class Cleaner<T> {
     /**
      * Stops the cleaner.
      */
-    void stop() {
+    public void stop() {
         shutdownAndAwaitTermination(cleaner, 1000, TimeUnit.MILLISECONDS);
     }
 
     /**
-     * Schedule entry to remove.
+     * Schedules entry to remove.
      *
      * @param entryId Entry id.
      */
-    void scheduleRemove(UUID entryId) {
+    public void scheduleRemove(UUID entryId) {
         waitToRemove.add(entryId);
     }
 }

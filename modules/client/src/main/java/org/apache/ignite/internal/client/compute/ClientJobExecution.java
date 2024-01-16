@@ -46,7 +46,7 @@ class ClientJobExecution<R> implements JobExecution<R> {
 
     private final CompletableFuture<JobStatus> statusFuture = new CompletableFuture<>();
 
-    public ClientJobExecution(ReliableChannel ch, CompletableFuture<PayloadInputChannel> reqFuture) {
+    ClientJobExecution(ReliableChannel ch, CompletableFuture<PayloadInputChannel> reqFuture) {
         this.ch = ch;
 
         jobIdFuture = reqFuture.thenApply(r -> r.in().unpackUuid());
