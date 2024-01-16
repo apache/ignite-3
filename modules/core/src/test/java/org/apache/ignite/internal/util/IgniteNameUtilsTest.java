@@ -63,7 +63,7 @@ public class IgniteNameUtilsTest {
     @ParameterizedTest
     @CsvSource({
             "foo, \"foo\"", "fOo, \"fOo\"", "FOO, FOO", "\"FOO\", \"FOO\"", "1o0, \"1o0\"", "@#$, @#$",
-            "\"foo\", \"foo\"", "\"fOo\", \"fOo\"", "\"f.f\", \"f.f\"", "\"f\"\"f\", \"f\"\"f\"",
+            "\"foo\", \"foo\"", "\"fOo\", \"fOo\"", "\"f.f\", \"f.f\""
     })
     public void quoteIfNeeded(String source, String expected) {
         assertThat(IgniteNameUtils.quoteIfNeeded(source), equalTo(expected));

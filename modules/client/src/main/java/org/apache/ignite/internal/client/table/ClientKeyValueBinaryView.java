@@ -465,7 +465,7 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
 
     /** {@inheritDoc} */
     @Override
-    protected @Nullable Function<SqlRow, Entry<Tuple, Tuple>> queryMapper(ResultSetMetadata meta, ClientSchema schema) {
+    protected Function<SqlRow, Entry<Tuple, Tuple>> queryMapper(ResultSetMetadata meta, ClientSchema schema) {
         String[] keyCols = columnNames(schema.columns(), 0, schema.keyColumnCount());
         String[] valCols = columnNames(schema.columns(), schema.keyColumnCount(), schema.columns().length);
 

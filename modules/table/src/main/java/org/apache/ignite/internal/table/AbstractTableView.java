@@ -20,12 +20,13 @@ package org.apache.ignite.internal.table;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.function.Function.identity;
 import static org.apache.ignite.internal.lang.IgniteExceptionMapperUtil.convertToPublicFuture;
-import static org.apache.ignite.internal.util.CompletableFutures.doWithCallbackOnFailure;
 import static org.apache.ignite.internal.util.ExceptionUtils.isOrCausedBy;
 import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
+import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Function;
 import org.apache.ignite.internal.lang.IgniteExceptionMapperUtil;
@@ -204,17 +205,19 @@ abstract class AbstractTableView<R> implements CriteriaQuerySource<R> {
             Statement statement = sql.statementBuilder().query(ser.toString()).pageSize(opts0.pageSize()).build();
             Session session = sql.createSession();
 
-            return doWithCallbackOnFailure(
-                    () -> session.executeAsync(tx, statement, ser.getArguments())
-                            .thenApply(resultSet -> {
-                                ResultSetMetadata meta = resultSet.metadata();
+            return session.executeAsync(tx, statement, ser.getArguments())
+                    .<AsyncCursor<R>>thenApply(resultSet -> {
+                        ResultSetMetadata meta = resultSet.metadata();
 
-                                assert meta != null : "Metadata can't be null.";
+                        assert meta != null : "Metadata can't be null.";
 
-                                return new QueryCriteriaAsyncCursor<>(resultSet, queryMapper(meta, schema), session::closeAsync);
-                            }),
-                    session::closeAsync
-            );
+                        return new QueryCriteriaAsyncCursor<>(resultSet, queryMapper(meta, schema), session::closeAsync);
+                    })
+                    .exceptionally(th -> {
+                        session.closeAsync();
+
+                        throw new CompletionException(unwrapCause(th));
+                    });
         });
     }
 

@@ -383,7 +383,7 @@ public class ClientRecordView<R> extends AbstractClientView<R> implements Record
 
     /** {@inheritDoc} */
     @Override
-    protected @Nullable Function<SqlRow, R> queryMapper(ResultSetMetadata meta, ClientSchema schema) {
+    protected Function<SqlRow, R> queryMapper(ResultSetMetadata meta, ClientSchema schema) {
         String[] cols = columnNames(schema.columns(), 0, schema.columns().length);
         Marshaller marsh = schema.getMarshaller(ser.mapper(), TuplePart.KEY_AND_VAL, true);
 

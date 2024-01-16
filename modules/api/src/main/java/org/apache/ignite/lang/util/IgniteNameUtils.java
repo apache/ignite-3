@@ -79,13 +79,9 @@ public final class IgniteNameUtils {
      * @return Quoted object name.
      */
     public static String quoteIfNeeded(String name) {
-        if (name == null || name.isEmpty() || name.charAt(0) == '"') {
-            return name;
-        }
-
         String simpleName = parseSimpleName(name);
 
-        return simpleName.equals(name) || simpleName.equals(quote(name)) ? name : quote(name);
+        return name.equals(simpleName) || name.equals(quote(simpleName)) ? name : quote(name);
     }
 
     /**

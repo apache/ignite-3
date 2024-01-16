@@ -542,7 +542,7 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
 
     /** {@inheritDoc} */
     @Override
-    protected @Nullable Function<SqlRow, R> queryMapper(ResultSetMetadata meta, SchemaDescriptor schema) {
+    protected Function<SqlRow, R> queryMapper(ResultSetMetadata meta, SchemaDescriptor schema) {
         Column[] cols = ArrayUtils.concat(schema.keyColumns().columns(), schema.valueColumns().columns());
         Marshaller marsh = createMarshaller(toMarshallerColumns(cols), mapper, false, true);
 

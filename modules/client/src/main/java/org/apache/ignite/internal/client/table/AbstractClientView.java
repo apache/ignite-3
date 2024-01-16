@@ -19,12 +19,13 @@ package org.apache.ignite.internal.client.table;
 
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.client.ClientUtils.sync;
-import static org.apache.ignite.internal.util.CompletableFutures.doWithCallbackOnFailure;
+import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.lang.util.IgniteNameUtils.parseSimpleName;
 
 import java.util.Arrays;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.function.Function;
 import org.apache.ignite.internal.client.sql.ClientSessionBuilder;
 import org.apache.ignite.internal.client.sql.ClientStatementBuilder;
@@ -134,17 +135,19 @@ abstract class AbstractClientView<T> implements CriteriaQuerySource<T> {
                     Statement statement = new ClientStatementBuilder().query(ser.toString()).pageSize(opts0.pageSize()).build();
                     Session session = new ClientSessionBuilder(tbl.channel()).build();
 
-                    return doWithCallbackOnFailure(
-                            () -> session.executeAsync(tx, statement, ser.getArguments())
-                                    .thenApply(resultSet -> {
-                                        ResultSetMetadata meta = resultSet.metadata();
+                    return session.executeAsync(tx, statement, ser.getArguments())
+                            .<AsyncCursor<T>>thenApply(resultSet -> {
+                                ResultSetMetadata meta = resultSet.metadata();
 
-                                        assert meta != null : "Metadata can't be null.";
+                                assert meta != null : "Metadata can't be null.";
 
-                                        return new QueryCriteriaAsyncCursor<>(resultSet, queryMapper(meta, schema), session::closeAsync);
-                                    }),
-                            session::closeAsync
-                    );
+                                return new QueryCriteriaAsyncCursor<>(resultSet, queryMapper(meta, schema), session::closeAsync);
+                            })
+                            .exceptionally(th -> {
+                                session.closeAsync();
+
+                                throw new CompletionException(unwrapCause(th));
+                            });
                 });
     }
 }
