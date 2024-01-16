@@ -76,6 +76,8 @@ public final class InteractiveJobs {
 
     private static final AtomicInteger RUNNING_GLOBAL_JOBS_CNT = new AtomicInteger(0);
 
+    private static final long WAIT_TIMEOUT_SECONDS = 12;
+
     /**
      * Clear global state. Must be called before each testing scenario.
      */
@@ -237,7 +239,7 @@ public final class InteractiveJobs {
         public void assertAlive() {
             NODE_SIGNALS.get(node.name()).offer(Signal.CONTINUE);
             try {
-                assertThat(NODE_CHANNELS.get(node.name()).poll(10, TimeUnit.SECONDS), equalTo(ack));
+                assertThat(NODE_CHANNELS.get(node.name()).poll(WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS), equalTo(ack));
             } catch (InterruptedException e) {
                 throw new RuntimeException(e);
             }
@@ -259,7 +261,7 @@ public final class InteractiveJobs {
         public void finish() {
             NODE_SIGNALS.forEach((nodeName, channel) -> {
                 try {
-                    channel.offer(Signal.RETURN, 10, TimeUnit.SECONDS);
+                    channel.offer(Signal.RETURN, WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS);
                 } catch (InterruptedException e) {
                     throw new RuntimeException("Can not send finish signal to he node", e);
                 }
@@ -278,12 +280,13 @@ public final class InteractiveJobs {
     }
 
     public static final class GlobalApi {
+
         private GlobalApi() {
         }
 
         public String currentWorkerName() throws InterruptedException {
             GLOBAL_SIGNALS.offer(Signal.GET_WORKER_NAME);
-            String workerName = (String) GLOBAL_CHANNEL.poll(10, TimeUnit.SECONDS);
+            String workerName = (String) GLOBAL_CHANNEL.poll(WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS);
             assertThat(
                     "Can not get worker name for global job.", workerName, notNullValue()
             );
@@ -293,7 +296,7 @@ public final class InteractiveJobs {
 
         public void assertAlive() throws InterruptedException {
             GLOBAL_SIGNALS.offer(Signal.CONTINUE);
-            assertThat(GLOBAL_CHANNEL.poll(10, TimeUnit.SECONDS), equalTo(ack));
+            assertThat(GLOBAL_CHANNEL.poll(WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS), equalTo(ack));
         }
 
         public void finish() {

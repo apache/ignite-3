@@ -122,9 +122,10 @@ class ComputeJobFailover<T> {
                 return;
             }
 
+            LOG.warn("%%%% Node left cluter: " + leftNode.name() + " try to find new primary replica");
             Optional<ClusterNode> nextWorkerCandidate = nextWorkerSelector.next();
             if (nextWorkerCandidate.isEmpty()) {
-                LOG.warn("No more worker nodes to restart the job. Failing the job {}.", jobContext.jobClassName());
+                LOG.warn("%%%% No more worker nodes to restart the job. Failing the job {}.", jobContext.jobClassName());
 
                 FailSafeJobExecution<?> failSafeJobExecution = jobContext.failSafeJobExecution();
                 failSafeJobExecution.completeExceptionally(
@@ -134,7 +135,7 @@ class ComputeJobFailover<T> {
             }
 
             LOG.warn(
-                    "Worker node {} has left the cluster. Restarting the job {} on node {}.",
+                    "%%%% Worker node {} has left the cluster. Restarting the job {} on node {}.",
                     leftNode, jobContext.jobClassName(), nextWorkerCandidate
             );
 

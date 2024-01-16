@@ -32,6 +32,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
@@ -40,6 +41,8 @@ import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.compute.utils.InteractiveJobs;
 import org.apache.ignite.internal.compute.utils.TestingJobExecution;
+import org.apache.ignite.internal.placementdriver.ReplicaMeta;
+import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Tuple;
@@ -266,15 +269,18 @@ class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest {
 
     @Test
     void colocatedExecutionWorkerShutdown() throws Exception {
-        // Given table.
         InteractiveJobs.initChannels(allNodeNames());
-        createTestTableWithOneRow();
+
+        // Given table with replicas == 3 and partitions == 1.
+        createReplicatedTestTableWithOneRow();
         TableImpl table = (TableImpl) node(0).tables().table("test");
         // And partition leader for K=1.
-        ClusterNode leader = table.leaderAssignment(table.partition(Tuple.create(1).set("K", 1)));
+        ClusterNode primaryReplica = getPrimaryReplica(table);
 
-        // When start colocated job on node that is not leader.
-        IgniteImpl entryNode = anyNodeExcept(leader);
+        System.out.println("%%%% TEST OUTPUT: Primary replica 1: "+ primaryReplica.name());
+
+        // When start colocated job on node that is not primary replica.
+        IgniteImpl entryNode = anyNodeExcept(primaryReplica);
         TestingJobExecution<Object> execution = new TestingJobExecution<>(entryNode.compute().executeColocatedAsync(
                 "test",
                 Tuple.create(1).set("K", 1),
@@ -286,25 +292,37 @@ class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest {
         InteractiveJobs.globalJob().assertAlive();
         execution.assertExecuting();
 
-        // And it is running on leader node.
+        // And it is running on primary replica node.
         String firstWorkerNodeName = InteractiveJobs.globalJob().currentWorkerName();
-        assertThat(firstWorkerNodeName, equalTo(leader.name()));
+        assertThat(firstWorkerNodeName, equalTo(primaryReplica.name()));
 
         // When stop worker node.
-        stopNode(leader);
+        stopNode(primaryReplica);
 
         // Then the job is restarted on another node.
-        InteractiveJobs.globalJob().assertAlive();
+        InteractiveJobs.globalJob().assertAlive(); // ASSERTION ERROR
         execution.assertExecuting();
 
         // And it is running on another node.
         String failoverNodeName = InteractiveJobs.globalJob().currentWorkerName();
         assertThat(failoverNodeName, in(allNodeNames()));
-        // And this node is the partition leader for K=1.
-        leader = table.leaderAssignment(table.partition(Tuple.create(1).set("K", 1)));
-        assertThat(failoverNodeName, equalTo(leader.name()));
+        // And this node is the primary replica for K=1.
+        assertThat(failoverNodeName, equalTo(primaryReplica.name()));
         // But this is not the same node as before.
         assertThat(failoverNodeName, not(equalTo(firstWorkerNodeName)));
+    }
+
+    private ClusterNode getPrimaryReplica(TableImpl table) { // todo: refactor
+        ReplicaMeta replicaMeta = null;
+        try {
+            var clock = cluster.node(0).clock();
+            replicaMeta = cluster.node(0).placementDriver().getPrimaryReplica(new TablePartitionId(
+                    table.tableId(), table.partition(Tuple.create(1).set("K", 1))), clock.now()).get();
+        } catch (InterruptedException | ExecutionException e) {
+            throw new RuntimeException(e);
+        }
+        ClusterNode primaryReplica = nodeByName(replicaMeta.getLeaseholder()).node();
+        return primaryReplica;
     }
 
     private void stopNode(ClusterNode clusterNode) {
@@ -340,8 +358,11 @@ class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest {
         );
     }
 
-    private void createTestTableWithOneRow() {
-        executeSql("CREATE TABLE test (k int, v int, CONSTRAINT PK PRIMARY KEY (k))");
+    private void createReplicatedTestTableWithOneRow() {
+        // Number of replicas == number of nodes and number of partitions == 0. This gives us the majority on primary replica stop.
+        // After the primary replica is stopped we still be able to select new primary replica selected.
+        executeSql("CREATE ZONE TEST_ZONE WITH REPLICAS=3, PARTITIONS=1");
+        executeSql("CREATE TABLE test (k int, v int, CONSTRAINT PK PRIMARY KEY (k)) WITH PRIMARY_ZONE='TEST_ZONE'");
         executeSql("INSERT INTO test(k, v) VALUES (1, 101)");
     }
 

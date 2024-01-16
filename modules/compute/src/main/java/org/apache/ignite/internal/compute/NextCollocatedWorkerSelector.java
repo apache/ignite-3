@@ -20,7 +20,7 @@ package org.apache.ignite.internal.compute;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -36,6 +36,7 @@ import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.TopologyService;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 public class NextCollocatedWorkerSelector<K> implements NextWorkerSelector {
@@ -47,6 +48,8 @@ public class NextCollocatedWorkerSelector<K> implements NextWorkerSelector {
     private final PlacementDriver placementDriver;
     private final TopologyService topologyService;
     private final String tableName;
+    private final HybridClock clock;
+
     @Nullable
     private final K key;
     @Nullable
@@ -54,17 +57,26 @@ public class NextCollocatedWorkerSelector<K> implements NextWorkerSelector {
 
     private final Tuple tuple;
 
+    private final TableViewInternal table;
+
     NextCollocatedWorkerSelector(IgniteTablesInternal tables, String tableName, Tuple tuple, PlacementDriver placementDriver,
-            TopologyService topologyService) {
-        this(tables, placementDriver, topologyService, tableName, null, null, tuple);
+            TopologyService topologyService, HybridClock clock) {
+        this(tables, placementDriver, topologyService, tableName, clock, null, null, tuple);
     }
 
-    NextCollocatedWorkerSelector(IgniteTablesInternal tables, PlacementDriver placementDriver, TopologyService topologyService, String tableName, @Nullable K key,
+    NextCollocatedWorkerSelector(IgniteTablesInternal tables, PlacementDriver placementDriver, TopologyService topologyService, String tableName,
+            HybridClock clock, @Nullable K key,
             @Nullable Mapper<K> keyMapper, Tuple tuple) {
         this.tables = tables;
         this.placementDriver = placementDriver;
         this.topologyService = topologyService;
         this.tableName = tableName;
+        try {
+            this.table = requiredTable(tableName).get();
+        } catch (InterruptedException | ExecutionException e) {
+            throw new RuntimeException(e);
+        }
+        this.clock = clock;
         this.key = key;
         this.keyMapper = keyMapper;
         this.tuple = tuple;
@@ -72,20 +84,35 @@ public class NextCollocatedWorkerSelector<K> implements NextWorkerSelector {
 
     @Override
     public Optional<ClusterNode> next() {
+        var cl = clock.now();
         try {
-            ReplicaMeta replicaMeta = requiredTable(tableName).thenApply(table -> {
-                TablePartitionId tablePartitionId;
-                if (key == null) {
-                    tablePartitionId = new TablePartitionId(table.tableId(), table.partition(key, keyMapper));
-                } else {
-                    tablePartitionId = new TablePartitionId(table.tableId(), table.partition(tuple));
-                }
-                return placementDriver.getPrimaryReplica(tablePartitionId, HybridTimestamp.hybridTimestamp(0));
-            }).get().get();
-            return Optional.of(topologyService.getById(replicaMeta.getLeaseholderId()));
+            TablePartitionId tablePartitionId = tablePartitionId();
+            ReplicaMeta replicaMeta = placementDriver.getPrimaryReplica(tablePartitionId, cl).get();
+            LOG.warn("%%%% GOT primary replica 1: " + replicaMeta, " timestamp: " + cl);
+            Thread.sleep(10000);
+            cl = clock.now();
+            replicaMeta = placementDriver.getPrimaryReplica(tablePartitionId, cl).get();
+            LOG.warn("%%%% GOT primary replica 2: " + replicaMeta + " timestamp: " + cl);
+            if (replicaMeta != null && replicaMeta.getLeaseholder() != null) {
+                return Optional.of(topologyService.getById(replicaMeta.getLeaseholderId()));
+            } else {
+                return Optional.empty();
+            }
         } catch (InterruptedException | ExecutionException e) {
-            LOG.warn("Failed to get primary replica for table " + tableName, e);
+            LOG.warn("%%%%% Failed to get primary replica for table " + tableName, e);
         }
+        return Optional.empty();
+    }
+
+    @NotNull
+    private TablePartitionId tablePartitionId() {
+        TablePartitionId tablePartitionId;
+        if (key != null) {
+            tablePartitionId = new TablePartitionId(table.tableId(), table.partition(key, keyMapper));
+        } else {
+            tablePartitionId = new TablePartitionId(table.tableId(), table.partition(tuple));
+        }
+        return tablePartitionId;
     }
 
     private CompletableFuture<TableViewInternal> requiredTable(String tableName) {
