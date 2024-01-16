@@ -54,7 +54,7 @@ public class DropZoneCommand extends AbstractZoneCommand {
     @SuppressWarnings("MethodOverridesInaccessibleMethodOfSuper")
     private void validate() {
         if (zoneName.equals(DEFAULT_ZONE_NAME)) {
-            throw new DistributionZoneCantBeDroppedValidationException( "Default distribution zone can't be dropped");
+            throw new DistributionZoneCantBeDroppedValidationException("Default distribution zone can't be dropped");
         }
     }
 
