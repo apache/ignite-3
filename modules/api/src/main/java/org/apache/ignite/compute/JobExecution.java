@@ -64,5 +64,5 @@ public interface JobExecution<R> {
      * @param newPriority new priority.
      * @return The future which will be completed when change priority request is processed.
      */
-    CompletableFuture<Void> changePriority(int newPriority);
+    CompletableFuture<Void> changePriorityAsync(int newPriority);
 }
