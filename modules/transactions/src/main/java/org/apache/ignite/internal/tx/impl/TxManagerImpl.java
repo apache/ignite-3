@@ -239,8 +239,6 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         txCleanupRequestHandler = new TxCleanupRequestHandler(messagingService, lockManager, clock, writeIntentSwitchProcessor);
 
         txCleanupRequestSender = new TxCleanupRequestSender(txMessageSender, placementDriverHelper, writeIntentSwitchProcessor);
-
-        placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, primaryReplicaEventListener);
     }
 
     private CompletableFuture<Boolean> primaryReplicaEventListener(PrimaryReplicaEventParameters eventParameters, Throwable err) {
@@ -453,6 +451,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
                 if (replicaMeta == null || !e.getValue().equals(replicaMeta.getStartTime().longValue())) {
                     txContext.setRollbackCause(new PrimaryReplicaExpiredException(e.getKey(), e.getValue(), null, replicaMeta));
+
+                    break;
                 }
             }
         }
@@ -673,6 +673,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         orphanDetector.start(txStateVolatileStorage, txConfig.abandonedCheckTs());
 
         txCleanupRequestHandler.start();
+
+        placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, primaryReplicaEventListener);
 
         return nullCompletedFuture();
     }

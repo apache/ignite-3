@@ -662,7 +662,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
 
         CompletableFuture<Void> commitFut = rwTx1.commitAsync();
 
-        commitMsgSentFut.join();
+        assertThat(commitMsgSentFut, willCompleteSuccessfully());
 
         cancelLease(commitPartNode, tblReplicationGrp);
 
