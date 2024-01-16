@@ -15,14 +15,27 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed.command;
-
-import org.apache.ignite.internal.table.distributed.TableMessageGroup.Commands;
-import org.apache.ignite.network.annotations.Transferable;
+package org.apache.ignite.internal.pagememory.persistence;
 
 /**
- * Command that is used to replicate the locks released update for tx state storage.
+ * Checkpoint urgency status enum.
  */
-@Transferable(Commands.MARK_LOCKS_RELEASED)
-public interface MarkLocksReleasedCommand extends PartitionCommand {
+public enum CheckpointUrgency {
+    /**
+     * Signifies that there's enough free space in page memory to allow taking checkpoint read locks, and there's no need to trigger
+     * checkpoint.
+     */
+    NOT_REQUIRED,
+
+    /**
+     * Signifies that there's still enough free space in page memory to allow taking checkpoint read locks, but it's more limited and we're
+     * at the point where we should schedule a checkpoint.
+     */
+    SHOULD_TRIGGER,
+
+    /**
+     * Signifies that there might not be enough free space in page memory to allow taking checkpoint read locks, and we should wait until
+     * scheduled checkpoint is started and collection of dirty pages is empty once again.
+     */
+    MUST_TRIGGER
 }

@@ -59,8 +59,6 @@ import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.internal.vault.VaultManager;
-import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.TopologyService;
@@ -79,8 +77,6 @@ public class IndexAvailabilityControllerRestorerTest extends BaseIgniteAbstractT
 
     private final ClusterService clusterService = mock(ClusterService.class);
 
-    private final VaultManager vaultManager = new VaultManager(new InMemoryVaultService());
-
     private KeyValueStorage keyValueStorage;
 
     private MetaStorageManagerImpl metaStorageManager;
@@ -93,11 +89,11 @@ public class IndexAvailabilityControllerRestorerTest extends BaseIgniteAbstractT
     void setUp() throws Exception {
         keyValueStorage = new TestRocksDbKeyValueStorage(NODE_NAME, workDir);
 
-        metaStorageManager = StandaloneMetaStorageManager.create(vaultManager, keyValueStorage);
+        metaStorageManager = StandaloneMetaStorageManager.create(keyValueStorage);
 
         catalogManager = CatalogTestUtils.createTestCatalogManager(NODE_NAME, clock, metaStorageManager);
 
-        Stream.of(vaultManager, metaStorageManager, catalogManager).forEach(IgniteComponent::start);
+        Stream.of(metaStorageManager, catalogManager).forEach(IgniteComponent::start);
 
         deployWatches();
 
@@ -109,8 +105,7 @@ public class IndexAvailabilityControllerRestorerTest extends BaseIgniteAbstractT
         IgniteUtils.closeAll(
                 controller == null ? null : controller::close,
                 catalogManager == null ? null : catalogManager::stop,
-                metaStorageManager == null ? null : metaStorageManager::stop,
-                vaultManager::stop
+                metaStorageManager == null ? null : metaStorageManager::stop
         );
     }
 
@@ -196,7 +191,7 @@ public class IndexAvailabilityControllerRestorerTest extends BaseIgniteAbstractT
 
         keyValueStorage = new TestRocksDbKeyValueStorage(NODE_NAME, workDir);
 
-        metaStorageManager = StandaloneMetaStorageManager.create(vaultManager, keyValueStorage);
+        metaStorageManager = StandaloneMetaStorageManager.create(keyValueStorage);
 
         catalogManager = spy(CatalogTestUtils.createTestCatalogManager(NODE_NAME, clock, metaStorageManager));
 

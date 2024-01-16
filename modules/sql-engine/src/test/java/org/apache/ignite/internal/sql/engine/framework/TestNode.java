@@ -75,8 +75,11 @@ public class TestNode implements LifecycleAware {
     private final PrepareService prepareService;
     private final ExecutionService executionService;
     private final ParserService parserService;
+    private final MessageService messageService;
 
     private final List<LifecycleAware> services = new ArrayList<>();
+    volatile boolean exceptionRaised;
+    private final IgniteSpinBusyLock holdLock;
 
     /**
      * Constructs the object.
@@ -106,10 +109,15 @@ public class TestNode implements LifecycleAware {
         RowHandler<Object[]> rowHandler = ArrayRowHandler.INSTANCE;
 
         MailboxRegistry mailboxRegistry = registerService(new MailboxRegistryImpl());
-        QueryTaskExecutor taskExecutor = registerService(new QueryTaskExecutorImpl(nodeName));
+        QueryTaskExecutorImpl queryExec = new QueryTaskExecutorImpl(nodeName);
+        queryExec.exceptionHandler((t, e) -> exceptionRaised = true);
 
-        MessageService messageService = registerService(new MessageServiceImpl(
-                nodeName, messagingService, taskExecutor, new IgniteSpinBusyLock()
+        QueryTaskExecutor taskExecutor = registerService(queryExec);
+
+        holdLock = new IgniteSpinBusyLock();
+
+        messageService = registerService(new MessageServiceImpl(
+                nodeName, messagingService, taskExecutor, holdLock
         ));
         ExchangeService exchangeService = registerService(new ExchangeServiceImpl(
                 mailboxRegistry, messageService
@@ -144,6 +152,8 @@ public class TestNode implements LifecycleAware {
     /** {@inheritDoc} */
     @Override
     public void stop() throws Exception {
+        holdLock.block();
+
         List<AutoCloseable> closeables = services.stream()
                 .map(service -> ((AutoCloseable) service::stop))
                 .collect(Collectors.toList());
@@ -155,6 +165,14 @@ public class TestNode implements LifecycleAware {
     /** Returns the name of the current node. */
     public String name() {
         return nodeName;
+    }
+
+    MessageService messageService() {
+        return messageService;
+    }
+
+    IgniteSpinBusyLock holdLock() {
+        return holdLock;
     }
 
     /**

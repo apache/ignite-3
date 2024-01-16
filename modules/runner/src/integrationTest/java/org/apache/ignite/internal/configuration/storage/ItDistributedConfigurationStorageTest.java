@@ -158,7 +158,6 @@ public class ItDistributedConfigurationStorageTest extends BaseIgniteAbstractTes
             );
 
             metaStorageManager = new MetaStorageManagerImpl(
-                    vaultManager,
                     clusterService,
                     cmgManager,
                     logicalTopologyService,
