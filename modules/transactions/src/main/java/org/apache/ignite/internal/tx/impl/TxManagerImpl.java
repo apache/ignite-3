@@ -253,15 +253,17 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             for (Map.Entry<UUID, TxContext> ctxEntry : txCtxMap.entrySet()) {
                 TxContext txContext = ctxEntry.getValue();
 
-                Long enlistmentConsistencyToken = txContext.enlistedGroups.get(groupId);
+                if (txContext.isTxFinishing()) {
+                    Long enlistmentConsistencyToken = txContext.enlistedGroups.get(groupId);
 
-                if (txContext.isTxFinishing() && enlistmentConsistencyToken != null) {
-                    txContext.setRollbackCause(new PrimaryReplicaExpiredException(
-                            groupId,
-                            enlistmentConsistencyToken,
-                            null,
-                            null
-                    ));
+                    if (enlistmentConsistencyToken != null) {
+                        txContext.setRollbackCause(new PrimaryReplicaExpiredException(
+                                groupId,
+                                enlistmentConsistencyToken,
+                                null,
+                                null
+                        ));
+                    }
                 }
             }
 
