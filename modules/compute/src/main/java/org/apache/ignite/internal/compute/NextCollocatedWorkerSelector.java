@@ -88,7 +88,7 @@ public class NextCollocatedWorkerSelector<K> implements NextWorkerSelector {
         try {
             TablePartitionId tablePartitionId = tablePartitionId();
             ReplicaMeta replicaMeta = placementDriver.getPrimaryReplica(tablePartitionId, cl).get();
-            LOG.warn("%%%% GOT primary replica 1: " + replicaMeta, " timestamp: " + cl);
+            LOG.warn("%%%% GOT primary replica 1: " + replicaMeta + " timestamp: " + cl);
             Thread.sleep(10000);
             cl = clock.now();
             replicaMeta = placementDriver.getPrimaryReplica(tablePartitionId, cl).get();
