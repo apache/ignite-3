@@ -27,6 +27,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
@@ -47,6 +48,7 @@ import org.apache.ignite.internal.placementdriver.message.StopLeaseProlongationM
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.message.ErrorTimestampAwareReplicaResponse;
+import org.apache.ignite.internal.replicator.message.TimestampAwareReplicaResponse;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteSingleRowReplicaRequest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
@@ -724,6 +726,58 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
         commitPartNode.stop();
 
         assertThat(commitFut, willCompleteSuccessfully());
+    }
+
+    @Test
+    public void testPrimaryFailureWhileInflightInProgressAfterFirstResponse() throws Exception {
+        TableImpl tbl = (TableImpl) node(0).tables().table(TABLE_NAME);
+
+        var tblReplicationGrp = new TablePartitionId(tbl.tableId(), 0);
+
+        String leaseholder = waitAndGetLeaseholder(node(0), tblReplicationGrp);
+
+        IgniteImpl commitPartNode = commitPartitionPrimaryNode(leaseholder);
+
+        log.info("Transaction commit partition is determined [node={}].", commitPartNode.name());
+
+        IgniteImpl txCrdNode = nonPrimaryNode(leaseholder);
+
+        log.info("Transaction coordinator node is determined [node={}].", txCrdNode.name());
+
+        CompletableFuture<?> firstResponseSent = new CompletableFuture<>();
+
+        commitPartNode.dropMessages((nodeName, msg) -> {
+            if (msg instanceof TimestampAwareReplicaResponse) {
+                TimestampAwareReplicaResponse response = (TimestampAwareReplicaResponse) msg;
+
+                if (response.result() == null) {
+                    firstResponseSent.complete(null);
+                }
+
+                // This means this is the second response that finishes an in-flight future.
+                if (response.result() instanceof UUID) {
+                    return true;
+                }
+            }
+
+            return false;
+        });
+
+        Transaction rwTx1 = createRwTransaction(txCrdNode);
+
+        CompletableFuture<Void> commitFut = rwTx1.commitAsync();
+
+        assertThat(firstResponseSent, willCompleteSuccessfully());
+
+        cancelLease(commitPartNode, tblReplicationGrp);
+
+        assertThat(commitFut, willThrow(TransactionException.class, 30, SECONDS));
+
+        RecordView<Tuple> view = txCrdNode.tables().table(TABLE_NAME).recordView();
+
+        var rec = view.get(null, Tuple.create().set("key", 42));
+
+        assertNull(rec);
     }
 
     private DefaultMessagingService messaging(IgniteImpl node) {
