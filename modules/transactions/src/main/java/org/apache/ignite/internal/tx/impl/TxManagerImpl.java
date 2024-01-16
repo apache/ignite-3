@@ -452,7 +452,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                 ReplicaMeta replicaMeta = placementDriver.currentLease(e.getKey());
 
                 if (replicaMeta == null || !e.getValue().equals(replicaMeta.getStartTime().longValue())) {
-                    txContext.setRollbackCause(new PrimaryReplicaExpiredException(e.getKey(), e.getValue(), null, null));
+                    txContext.setRollbackCause(new PrimaryReplicaExpiredException(e.getKey(), e.getValue(), null, replicaMeta));
                 }
             }
         }
