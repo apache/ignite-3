@@ -89,7 +89,7 @@ public class TestPlacementDriver extends AbstractEventProducer<PrimaryReplicaEve
 
     @Override
     public ReplicaMeta currentLease(ReplicationGroupId groupId) {
-        return null;
+        return getReplicaMetaFuture().join();
     }
 
     @Override

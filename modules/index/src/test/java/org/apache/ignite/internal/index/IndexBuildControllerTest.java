@@ -301,7 +301,7 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
 
         @Override
         public ReplicaMeta currentLease(ReplicationGroupId groupId) {
-            return null;
+            return primaryReplicaMetaFutureById.get(groupId).join();
         }
 
         CompletableFuture<Void> setPrimaryReplicaMeta(
