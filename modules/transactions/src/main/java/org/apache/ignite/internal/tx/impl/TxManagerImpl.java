@@ -31,6 +31,7 @@ import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_COMMIT_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_PRIMARY_REPLICA_EXPIRED_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_READ_ONLY_TOO_OLD_ERR;
 
 import java.io.IOException;
@@ -418,13 +419,14 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             }
         }
 
-        TxContext txContext = lockTxForNewUpdates(txId, enlistedGroups);
+        TxContext txContext = lockTxForNewUpdates(txId, enlistedGroups, commitIntent);
 
         // Wait for commit acks first, then proceed with the finish request.
         return txContext.performFinish(commitIntent, commit ->
                 prepareFinish(
                         observableTimestampTracker,
                         commitPartition,
+                        commitIntent,
                         commit,
                         enlistedGroups,
                         txId,
@@ -432,7 +434,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                 ));
     }
 
-    private TxContext lockTxForNewUpdates(UUID txId, Map<TablePartitionId, Long> enlistedGroups) {
+    private TxContext lockTxForNewUpdates(UUID txId, Map<TablePartitionId, Long> enlistedGroups, boolean commitIntent) {
         TxContext txContext = txCtxMap.compute(txId, (uuid, tuple0) -> {
             if (tuple0 == null) {
                 tuple0 = new TxContext(); // No writes enlisted.
@@ -445,11 +447,13 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             return tuple0;
         });
 
-        for (Map.Entry<TablePartitionId, Long> e : enlistedGroups.entrySet()) {
-            ReplicaMeta replicaMeta = placementDriver.currentLease(e.getKey());
+        if (commitIntent) {
+            for (Map.Entry<TablePartitionId, Long> e : enlistedGroups.entrySet()) {
+                ReplicaMeta replicaMeta = placementDriver.currentLease(e.getKey());
 
-            if (replicaMeta == null || !e.getValue().equals(replicaMeta.getStartTime().longValue())) {
-                txContext.setRollbackCause(new PrimaryReplicaExpiredException(e.getKey(), e.getValue(), null, null));
+                if (replicaMeta == null || !e.getValue().equals(replicaMeta.getStartTime().longValue())) {
+                    txContext.setRollbackCause(new PrimaryReplicaExpiredException(e.getKey(), e.getValue(), null, null));
+                }
             }
         }
 
@@ -470,6 +474,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     private CompletableFuture<Void> prepareFinish(
             HybridTimestampTracker observableTimestampTracker,
             TablePartitionId commitPartition,
+            boolean commitIntent,
             boolean commit,
             Map<TablePartitionId, Long> enlistedGroups,
             UUID txId,
@@ -499,11 +504,18 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                         })
                 .thenCompose(Function.identity())
                 .thenCompose(r -> {
-                    // Throw the exception for the client if the transaction was not able to be committed.
-                    TxContext txContext = txCtxMap.get(txId);
+                    if (commit != commitIntent) {
+                        // Throw the exception for the client if the transaction was not able to be committed.
+                        TxContext txContext = txCtxMap.get(txId);
+                        Exception rollbackCause = txContext.rollbackCause;
 
-                    if (txContext.rollbackCause != null) {
-                        throw new TransactionException(TX_COMMIT_ERR, "Failed to commit the transaction.", txContext.rollbackCause);
+                        if (rollbackCause != null) {
+                            int errorCode = rollbackCause instanceof PrimaryReplicaExpiredException
+                                    ? TX_PRIMARY_REPLICA_EXPIRED_ERR
+                                    : TX_COMMIT_ERR;
+
+                            throw new TransactionException(errorCode, "Failed to commit the transaction.", rollbackCause);
+                        }
                     }
 
                     // Verification future is added in order to share the proper verification exception with the client.
