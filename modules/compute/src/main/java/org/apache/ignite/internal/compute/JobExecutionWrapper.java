@@ -51,7 +51,7 @@ class JobExecutionWrapper<R> implements JobExecution<R> {
     }
 
     @Override
-    public CompletableFuture<Void> changePriority(int newPriority) {
-        return convertToPublicFuture(delegate.changePriority(newPriority));
+    public CompletableFuture<Void> changePriorityAsync(int newPriority) {
+        return convertToPublicFuture(delegate.changePriorityAsync(newPriority));
     }
 }

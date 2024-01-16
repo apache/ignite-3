@@ -214,7 +214,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
         assertThat(execution.resultAsync(), willBe("jobResponse"));
         assertThat(execution.statusAsync(), willBe(jobStatusWithState(COMPLETED)));
         assertThat(execution.cancelAsync(), willThrow(CancellingException.class));
-        assertThat(execution.changePriority(1), willThrow(ComputeException.class));
+        assertThat(execution.changePriorityAsync(1), willThrow(ComputeException.class));
 
         assertThatNoRequestsWereSent();
     }
@@ -297,7 +297,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
 
         JobExecution<String> execution = computeComponent.executeRemotely(remoteNode, List.of(), LongJob.class.getName());
 
-        assertThat(execution.changePriority(1), willCompleteSuccessfully());
+        assertThat(execution.changePriorityAsync(1), willCompleteSuccessfully());
 
         assertThatJobChangePriorityRequestWasSent(jobId);
     }

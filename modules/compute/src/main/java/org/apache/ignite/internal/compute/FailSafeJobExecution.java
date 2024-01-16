@@ -160,8 +160,8 @@ class FailSafeJobExecution<T> implements JobExecution<T> {
     }
 
     @Override
-    public CompletableFuture<Void> changePriority(int newPriority) {
-        return runningJobExecution.get().changePriority(newPriority);
+    public CompletableFuture<Void> changePriorityAsync(int newPriority) {
+        return runningJobExecution.get().changePriorityAsync(newPriority);
     }
 
     /**

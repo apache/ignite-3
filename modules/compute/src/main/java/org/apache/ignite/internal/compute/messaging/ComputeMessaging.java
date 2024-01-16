@@ -352,7 +352,7 @@ public class ComputeMessaging {
         UUID jobId = request.jobId();
         JobExecution<Object> execution = executions.get(jobId);
         if (execution != null) {
-            execution.changePriority(request.priority())
+            execution.changePriorityAsync(request.priority())
                     .whenComplete((result, err) -> sendJobChangePriorityResponse(err, senderConsistentId, correlationId));
         } else {
             ComputeException ex = new ComputeException(Compute.CHANGE_JOB_PRIORITY_NO_JOB_ERR, "Can not change job priority,"

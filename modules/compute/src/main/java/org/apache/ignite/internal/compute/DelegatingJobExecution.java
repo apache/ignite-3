@@ -50,7 +50,7 @@ class DelegatingJobExecution<R> implements JobExecution<R> {
     }
 
     @Override
-    public CompletableFuture<Void> changePriority(int newPriority) {
+    public CompletableFuture<Void> changePriorityAsync(int newPriority) {
         return delegate.thenAccept(jobExecutionInternal -> jobExecutionInternal.changePriority(newPriority));
     }
 }

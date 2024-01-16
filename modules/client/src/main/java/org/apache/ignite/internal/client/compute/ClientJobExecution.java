@@ -52,7 +52,7 @@ class ClientJobExecution<R> implements JobExecution<R> {
     }
 
     @Override
-    public CompletableFuture<Void> changePriority(int newPriority) {
+    public CompletableFuture<Void> changePriorityAsync(int newPriority) {
         // TODO https://issues.apache.org/jira/browse/IGNITE-21148
         return nullCompletedFuture();
     }

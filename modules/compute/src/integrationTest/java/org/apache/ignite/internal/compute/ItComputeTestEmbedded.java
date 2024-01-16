@@ -157,7 +157,7 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
         JobExecution<String> execution = entryNode.compute().executeAsync(Set.of(entryNode.node()), units(), LongJob.class.getName());
         await().until(execution::statusAsync, willBe(jobStatusWithState(JobState.EXECUTING)));
 
-        assertThat(execution.changePriority(2), willThrow(ComputeException.class));
+        assertThat(execution.changePriorityAsync(2), willThrow(ComputeException.class));
     }
 
     @Test
@@ -167,7 +167,7 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
         JobExecution<String> execution = entryNode.compute().executeAsync(Set.of(node(1).node()), units(), LongJob.class.getName());
         await().until(execution::statusAsync, willBe(jobStatusWithState(JobState.EXECUTING)));
 
-        assertThat(execution.changePriority(2), willThrow(ComputeException.class));
+        assertThat(execution.changePriorityAsync(2), willThrow(ComputeException.class));
     }
 
     @Test
@@ -175,33 +175,35 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
         IgniteImpl entryNode = node(0);
 
         // Start 1 task in executor with 1 thread
-        JobExecution<String> execution = entryNode.compute().executeAsync(Set.of(entryNode.node()), units(), WaitLatchJob.class.getName());
-        await().until(execution::statusAsync, willBe(jobStatusWithState(JobState.EXECUTING)));
+        JobExecution<String> execution1 = entryNode.compute().executeAsync(Set.of(entryNode.node()), units(), WaitLatchJob.class.getName());
+        await().until(execution1::statusAsync, willBe(jobStatusWithState(JobState.EXECUTING)));
 
         // Start one more long lasting task
-        JobExecution<String> execution1 = entryNode.compute().executeAsync(Set.of(entryNode.node()), units(), LongJob.class.getName());
-        await().until(execution1::statusAsync, willBe(jobStatusWithState(JobState.QUEUED)));
-
-        // Start third task
-        JobExecution<String> execution2 = entryNode.compute().executeAsync(Set.of(entryNode.node()), units(), WaitLatchJob.class.getName());
+        JobExecution<String> execution2 = entryNode.compute().executeAsync(Set.of(entryNode.node()), units(), LongJob.class.getName());
         await().until(execution2::statusAsync, willBe(jobStatusWithState(JobState.QUEUED)));
 
+        // Start third task
+        JobExecution<String> execution3 = entryNode.compute().executeAsync(Set.of(entryNode.node()), units(), WaitLatchJob.class.getName());
+        await().until(execution3::statusAsync, willBe(jobStatusWithState(JobState.QUEUED)));
+
         // Task 1 and 2 are not competed, in queue state
-        assertThat(execution1.resultAsync().isDone(), is(false));
         assertThat(execution2.resultAsync().isDone(), is(false));
+        assertThat(execution3.resultAsync().isDone(), is(false));
 
         // Change priority of task 3, so it should be executed before task 2
-        assertThat(execution2.changePriority(2), willCompleteSuccessfully());
+        assertThat(execution3.changePriorityAsync(2), willCompleteSuccessfully());
 
         // Run 1 and 3 task
         WaitLatchJob.latch.countDown();
 
-        assertThat(execution.resultAsync(), willCompleteSuccessfully());
-        assertThat(execution2.resultAsync(), willCompleteSuccessfully());
+        // Tasks 1 and 3 completed successfully
+        assertThat(execution1.resultAsync(), willCompleteSuccessfully());
+        assertThat(execution3.resultAsync(), willCompleteSuccessfully());
+        assertThat(execution1.resultAsync().isDone(), is(true));
+        assertThat(execution3.resultAsync().isDone(), is(true));
 
-        assertThat(execution.resultAsync().isDone(), is(true));
-        assertThat(execution1.resultAsync().isDone(), is(false));
-        assertThat(execution2.resultAsync().isDone(), is(true));
+        // Task 2 is not completed
+        assertThat(execution2.resultAsync().isDone(), is(false));
     }
 
     private static class ConcatJob implements ComputeJob<String> {
