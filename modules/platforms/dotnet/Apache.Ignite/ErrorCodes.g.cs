@@ -361,7 +361,7 @@ namespace Apache.Ignite
             public const String GroupName = "DISTRZONES";
 
             /// <summary> ZoneNotFound error. </summary>
-            public const int ZoneNotFound = (GroupCode << 16) | (2 & 0xFFFF);
+            public const int ZoneNotFound = (GroupCode << 16) | (1 & 0xFFFF);
         }
 
         /// <summary> Network errors. </summary>
