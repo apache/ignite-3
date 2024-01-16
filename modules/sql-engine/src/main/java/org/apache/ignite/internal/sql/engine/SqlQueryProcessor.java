@@ -91,9 +91,9 @@ import org.apache.ignite.internal.sql.engine.exec.mapping.ExecutionTargetFactory
 import org.apache.ignite.internal.sql.engine.exec.mapping.ExecutionTargetProvider;
 import org.apache.ignite.internal.sql.engine.exec.mapping.MappingServiceImpl;
 import org.apache.ignite.internal.sql.engine.message.MessageServiceImpl;
-import org.apache.ignite.internal.sql.engine.prepare.ParameterMetadata;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareService;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareServiceImpl;
+import org.apache.ignite.internal.sql.engine.prepare.QueryMetadata;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
 import org.apache.ignite.internal.sql.engine.property.SqlProperties;
 import org.apache.ignite.internal.sql.engine.property.SqlPropertiesHelper;
@@ -428,7 +428,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<ParameterMetadata> prepareSingleAsync(SqlProperties properties,
+    public CompletableFuture<QueryMetadata> prepareSingleAsync(SqlProperties properties,
             @Nullable InternalTransaction transaction,
             String qry, Object... params) {
 
@@ -489,7 +489,7 @@ public class SqlQueryProcessor implements QueryProcessor {
         return service;
     }
 
-    private CompletableFuture<ParameterMetadata> prepareSingleAsync0(
+    private CompletableFuture<QueryMetadata> prepareSingleAsync0(
             SqlProperties properties,
             @Nullable InternalTransaction explicitTransaction,
             String sql,
@@ -500,9 +500,9 @@ public class SqlQueryProcessor implements QueryProcessor {
 
         QueryCancel queryCancel = new QueryCancel();
 
-        CompletableFuture<ParameterMetadata> start = new CompletableFuture<>();
+        CompletableFuture<QueryMetadata> start = new CompletableFuture<>();
 
-        CompletableFuture<ParameterMetadata> stage = start.thenCompose(ignored -> {
+        CompletableFuture<QueryMetadata> stage = start.thenCompose(ignored -> {
             ParsedResult result = parserService.parse(sql);
 
             validateParsedStatement(properties0, result);
@@ -511,7 +511,7 @@ public class SqlQueryProcessor implements QueryProcessor {
             HybridTimestamp timestamp = explicitTransaction != null ? explicitTransaction.startTimestamp() : clock.now();
 
             return prepareParsedStatement(schemaName, result, timestamp, queryCancel, params)
-                    .thenApply(QueryPlan::parameterMetadata);
+                    .thenApply(plan -> new QueryMetadata(plan.metadata(), plan.parameterMetadata()));
         });
 
         // TODO IGNITE-20078 Improve (or remove) CancellationException handling.
