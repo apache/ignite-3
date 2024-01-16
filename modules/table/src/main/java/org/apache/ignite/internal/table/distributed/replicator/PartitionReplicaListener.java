@@ -118,7 +118,6 @@ import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
 import org.apache.ignite.internal.table.distributed.command.BuildIndexCommand;
 import org.apache.ignite.internal.table.distributed.command.FinishTxCommandBuilder;
-import org.apache.ignite.internal.table.distributed.command.MarkLocksReleasedCommand;
 import org.apache.ignite.internal.table.distributed.command.TablePartitionIdMessage;
 import org.apache.ignite.internal.table.distributed.command.TimedBinaryRowMessage;
 import org.apache.ignite.internal.table.distributed.command.TimedBinaryRowMessageBuilder;
@@ -345,55 +344,6 @@ public class PartitionReplicaListener implements ReplicaListener {
         schemaCompatValidator = new SchemaCompatibilityValidator(validationSchemasSource, catalogService, schemaSyncService);
     }
 
-    @Override
-    public CompletableFuture<Boolean> onPrimaryElected(PrimaryReplicaEventParameters evt, @Nullable Throwable exception) {
-        assert replicationGroupId.equals(evt.groupId()) : format(
-                "The replication group listener does not match the event [grp={}, eventGrp={}]",
-                replicationGroupId,
-                evt.groupId()
-        );
-
-        if (!localNode.id().equals(evt.leaseholderId())) {
-            return falseCompletedFuture();
-        }
-
-        List<CompletableFuture<?>> cleanupFutures = new ArrayList<>();
-
-        Cursor<IgniteBiTuple<UUID, TxMeta>> txs;
-
-        try {
-            txs = txStateStorage.scan();
-        } catch (IgniteInternalException e) {
-            return falseCompletedFuture();
-        }
-
-        for (IgniteBiTuple<UUID, TxMeta> tx : txs) {
-            UUID txId = tx.getKey();
-            TxMeta txMeta = tx.getValue();
-
-            assert !txMeta.enlistedPartitions().isEmpty();
-
-            if (isFinalState(txMeta.txState()) && !txMeta.locksReleased()) {
-                CompletableFuture<?> cleanupFuture = txManager.executeCleanupAsync(() -> durableCleanup(txId, txMeta));
-
-                cleanupFutures.add(cleanupFuture);
-            }
-        }
-
-        allOf(cleanupFutures.toArray(new CompletableFuture<?>[0]))
-                .whenComplete((v, e) -> {
-                    if (e != null) {
-                        LOG.error("Failure occurred while triggering cleanup on commit partition primary replica election "
-                                + "[commitPartition={}]", e, replicationGroupId);
-                    }
-                });
-
-        // The future returned by this event handler can't wait for all cleanups because it's not necessary and it can block
-        // meta storage notification thread for a while, preventing it from delivering further updates (including leases) and therefore
-        // causing deadlock on primary replica waiting.
-        return falseCompletedFuture();
-    }
-
     private CompletableFuture<?> durableCleanup(UUID txId, TxMeta txMeta) {
         Collection<TablePartitionId> enlistedPartitions = txMeta.enlistedPartitions();
 
@@ -403,9 +353,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         return txManager.cleanup(enlistedPartitions, commit, commitTimestamp, txId)
                 .handle((v, e) -> {
-                    if (e == null) {
-                        return txManager.executeCleanupAsync(() -> markLocksReleased(txId));
-                    } else {
+                    if (e != null) {
                         LOG.warn("Failed to execute cleanup on commit partition primary replica switch [txId={}, commitPartition={}]",
                                 e, txId, replicationGroupId);
 
@@ -414,21 +362,11 @@ public class PartitionReplicaListener implements ReplicaListener {
                         } else {
                             return txManager.executeCleanupAsync(() -> durableCleanup(txId, txMeta));
                         }
+                    } else {
+                        return nullCompletedFuture();
                     }
                 })
                 .thenCompose(f -> f);
-    }
-
-    private void markLocksReleased(UUID txId) {
-        reliableCatalogVersionFor(hybridClock.now()).thenAccept(catalogVersion -> {
-            MarkLocksReleasedCommand cmd = MSG_FACTORY.markLocksReleasedCommand()
-                    .txId(txId)
-                    .safeTimeLong(hybridClock.nowLong())
-                    .requiredCatalogVersion(catalogVersion)
-                    .build();
-
-            raftClient.run(cmd);
-        });
     }
 
     @Override
@@ -548,8 +486,8 @@ public class PartitionReplicaListener implements ReplicaListener {
     }
 
     private CompletableFuture<Void> recoverFinishedTx(UUID txId, TxMeta txMeta) {
-        if (txMeta.locksReleased() || txMeta.enlistedPartitions().isEmpty()) {
-            // Nothing to do if the locks have been released already or there are no enlistedPartitions available.
+        if (txMeta.enlistedPartitions().isEmpty()) {
+            // Nothing to do if there are no enlistedPartitions available.
             return nullCompletedFuture();
         }
 
@@ -1656,18 +1594,13 @@ public class PartitionReplicaListener implements ReplicaListener {
                         new TransactionResult(txMeta.txState(), txMeta.commitTimestamp())
                 );
             }
-            // Check locksReleased flag. If it is already set, do nothing and return a successful result.
-            // Even if the outcome is different (the transaction was aborted, but we want to commit it),
-            // we return 'success' to be in alignment with common transaction handling.
-            if (txMeta.locksReleased()) {
-                return completedFuture(new TransactionResult(txMeta.txState(), txMeta.commitTimestamp()));
-            }
+
+            return completedFuture(new TransactionResult(txMeta.txState(), txMeta.commitTimestamp()));
         }
 
         return finishTransaction(enlistedPartitions, txId, commit, commitTimestamp, txCoordinatorId)
                 .thenCompose(txResult ->
                         txManager.cleanup(enlistedPartitions, commit, commitTimestamp, txId)
-                                .thenRun(() -> markLocksReleased(txId))
                                 .thenApply(v -> txResult)
                 );
     }
