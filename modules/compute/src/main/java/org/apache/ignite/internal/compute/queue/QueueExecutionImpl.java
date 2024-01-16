@@ -53,7 +53,7 @@ class QueueExecutionImpl<R> implements QueueExecution<R> {
 
     private final AtomicReference<QueueEntry<R>> queueEntry = new AtomicReference<>();
 
-    private final Function<QueueEntry<?>, Boolean> removeQueueEntry;
+    private final Function<QueueEntry<R>, Boolean> removeQueueEntry;
 
     private final AtomicInteger retries = new AtomicInteger();
 
@@ -74,7 +74,7 @@ class QueueExecutionImpl<R> implements QueueExecution<R> {
             int priority,
             ThreadPoolExecutor executor,
             ComputeStateMachine stateMachine,
-            Function<QueueEntry<?>, Boolean> removeQueueEntry
+            Function<QueueEntry<R>, Boolean> removeQueueEntry
     ) {
         this.jobId = jobId;
         this.job = job;
