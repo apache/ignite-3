@@ -25,7 +25,10 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
 
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInfo;
 
 /**
  * End-to-end tests to verify zones system view.
@@ -34,6 +37,14 @@ public class ItZonesSystemViewTest extends BaseSqlIntegrationTest {
     private static final String ZONE_NAME = "TEST_ZONE";
 
     private static final String ALTER_ZONE_NAME = "NEW_TEST_ZONE";
+
+    @Override
+    @BeforeAll
+    protected void beforeAll(TestInfo testInfo) {
+        super.beforeAll(testInfo);
+
+        IgniteTestUtils.await(systemViewManager().completeRegistration());
+    }
 
     @Test
     public void systemViewDefaultZone() {
