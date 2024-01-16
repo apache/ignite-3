@@ -36,7 +36,7 @@ import org.junit.jupiter.params.provider.MethodSource;
  */
 @SuppressWarnings("ThrowableNotThrown")
 public class DropZoneCommandValidationTest extends AbstractCommandValidationTest {
-    private final String ZONE_NAME = "zone1";
+    private static final String ZONE_NAME = "zone1";
 
     @ParameterizedTest(name = "[{index}] ''{argumentsWithNames}''")
     @MethodSource("nullAndBlankStrings")
