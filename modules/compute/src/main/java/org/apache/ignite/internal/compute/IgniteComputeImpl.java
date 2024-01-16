@@ -42,6 +42,8 @@ import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobStatus;
+import org.apache.ignite.compute.JobExecutionOptions;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -106,7 +108,9 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
 
     /** {@inheritDoc} */
     @Override
-    public <R> JobExecution<R> executeAsync(Set<ClusterNode> nodes, List<DeploymentUnit> units, String jobClassName, Object... args) {
+    public <R> JobExecution<R> executeAsync(JobExecutionOptions options, Set<ClusterNode> nodes, List<DeploymentUnit> units,
+            String jobClassName, Object... args) {
+        Objects.requireNonNull(options);
         Objects.requireNonNull(nodes);
         Objects.requireNonNull(units);
         Objects.requireNonNull(jobClassName);
@@ -126,6 +130,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
                         selector,
                         units,
                         jobClassName,
+                        options,
                         args
                 ));
     }
@@ -136,10 +141,11 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
             Set<ClusterNode> nodes,
             List<DeploymentUnit> units,
             String jobClassName,
+            JobExecutionOptions options,
             Object... args
     ) {
         try {
-            return this.<R>executeAsync(nodes, units, jobClassName, args).resultAsync().join();
+            return this.<R>executeAsync(units, jobClassName, executionOptions, args).resultAsync().join();
         } catch (CompletionException e) {
             throw ExceptionUtils.sneakyThrow(ExceptionUtils.copyExceptionWithCause(e));
         }
@@ -161,15 +167,19 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
             NextWorkerSelector nextWorkerSelector,
             List<DeploymentUnit> units,
             String jobClassName,
+            JobExecutionOptions options,
             Object[] args
     ) {
+        ExecutionOptions executionOptions = ExecutionOptions.from(options);
         if (isLocal(targetNode)) {
-            return computeComponent.executeLocally(units, jobClassName, args);
+            return computeComponent.executeLocally(units, jobClassName, executionOptions, args);
         } else {
             return new ComputeJobFailover<R>(
                     computeComponent, logicalTopologyService, topologyService,
                     targetNode, nextWorkerSelector, failoverExecutor, units,
-                    jobClassName, args
+                    computeComponent, nodeLeftEventsSource,
+                    targetNode, failoverCandidates, units,
+                    jobClassName, executionOptions, args
             ).failSafeExecute();
         }
     }
@@ -202,20 +212,23 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
             Tuple tuple,
             List<DeploymentUnit> units,
             String jobClassName,
+            JobExecutionOptions jobExecutionOptions,
             Object... args
     ) {
         Objects.requireNonNull(tableName);
         Objects.requireNonNull(tuple);
         Objects.requireNonNull(units);
         Objects.requireNonNull(jobClassName);
+        Objects.requireNonNull(jobExecutionOptions);
 
+        ExecutionOptions executionOptions = ExecutionOptions.from(jobExecutionOptions);
         return new JobExecutionFutureWrapper<>(
                 requiredTable(tableName)
                         .thenCompose(table -> primaryReplicaForPartitionByTupleKey(table, tuple)
                                 .thenApply(primaryNode -> executeOnOneNodeWithFailover(
                                         primaryNode,
                                         new NextColocatedWorkerSelector<>(placementDriver, topologyService, clock, table, tuple),
-                                        units, jobClassName, args
+                                        units, jobClassName, executionOptions, args
                                 )))
         );
     }
@@ -228,6 +241,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
             Mapper<K> keyMapper,
             List<DeploymentUnit> units,
             String jobClassName,
+            JobExecutionOptions jobExecutionOptions,
             Object... args
     ) {
         Objects.requireNonNull(tableName);
@@ -235,6 +249,9 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
         Objects.requireNonNull(keyMapper);
         Objects.requireNonNull(units);
         Objects.requireNonNull(jobClassName);
+        Objects.requireNonNull(jobExecutionOptions);
+
+        ExecutionOptions executionOptions = ExecutionOptions.from(jobExecutionOptions);
 
         return new JobExecutionFutureWrapper<>(
                 requiredTable(tableName)
@@ -242,7 +259,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
                                 .thenApply(primaryNode -> executeOnOneNodeWithFailover(
                                         primaryNode,
                                         new NextColocatedWorkerSelector<>(placementDriver, topologyService, clock, table, key, keyMapper),
-                                        units, jobClassName, args
+                                        units, jobClassName, executionOptions, args
                                 )))
         );
     }
@@ -254,10 +271,11 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
             Tuple key,
             List<DeploymentUnit> units,
             String jobClassName,
+            JobExecutionOptions jobExecutionOptions,
             Object... args
     ) {
         try {
-            return this.<R>executeColocatedAsync(tableName, key, units, jobClassName, args).resultAsync().join();
+            return this.<R>executeColocatedAsync(tableName, key, units, jobClassName, jobExecutionOptions, args).resultAsync().join();
         } catch (CompletionException e) {
             throw ExceptionUtils.sneakyThrow(ExceptionUtils.copyExceptionWithCause(e));
         }
@@ -271,10 +289,12 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
             Mapper<K> keyMapper,
             List<DeploymentUnit> units,
             String jobClassName,
+            JobExecutionOptions jobExecutionOptions,
             Object... args
     ) {
         try {
-            return this.<K, R>executeColocatedAsync(tableName, key, keyMapper, units, jobClassName, args).resultAsync().join();
+            return this.<K, R>executeColocatedAsync(tableName, key, keyMapper, units, jobClassName, jobExecutionOptions, args).resultAsync()
+                    .join();
         } catch (CompletionException e) {
             throw ExceptionUtils.sneakyThrow(ExceptionUtils.copyExceptionWithCause(e));
         }
@@ -323,18 +343,20 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
             Set<ClusterNode> nodes,
             List<DeploymentUnit> units,
             String jobClassName,
+            JobExecutionOptions jobExecutionOptions,
             Object... args
     ) {
         Objects.requireNonNull(nodes);
         Objects.requireNonNull(units);
         Objects.requireNonNull(jobClassName);
+        Objects.requireNonNull(jobExecutionOptions);
 
         return nodes.stream()
                 .collect(toUnmodifiableMap(identity(),
                         // No failover nodes for broadcast. We use failover here in order to complete futures with exceptions
                         // if worker node has left the cluster.
                         node -> new JobExecutionWrapper<>(executeOnOneNodeWithFailover(node,
-                                CompletableFutures::nullCompletedFuture, units, jobClassName, args))));
+                                CompletableFutures::nullCompletedFuture, units, jobClassName, jobExecutionOptions, args))));
     }
 
     @Override

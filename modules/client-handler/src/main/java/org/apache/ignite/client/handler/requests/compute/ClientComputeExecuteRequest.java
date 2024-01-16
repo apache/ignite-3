@@ -26,6 +26,7 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.NotificationSender;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.IgniteCompute;
+import org.apache.ignite.compute.JobExecutionOptions;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
@@ -62,11 +63,12 @@ public class ClientComputeExecuteRequest {
             throw new IgniteException("Specified node is not present in the cluster: " + nodeName);
         }
 
+        JobExecutionOptions options = JobExecutionOptions.builder().priority(in.unpackInt()).maxRetries(in.unpackInt()).build();
         List<DeploymentUnit> deploymentUnits = unpackDeploymentUnits(in);
         String jobClassName = in.unpackString();
         Object[] args = unpackArgs(in);
 
-        JobExecution<Object> execution = compute.executeAsync(Set.of(node), deploymentUnits, jobClassName, args);
+        JobExecution<Object> execution = compute.executeAsync(Set.of(node), deploymentUnits, jobClassName, options, args);
         sendResultAndStatus(execution, notificationSender);
         return execution.idAsync().thenAccept(out::packUuid);
     }

@@ -105,6 +105,7 @@ class ComputeJobFailover<T> {
             Executor executor,
             List<DeploymentUnit> units,
             String jobClassName,
+            ExecutionOptions executionOptions,
             Object... args
     ) {
         this.computeComponent = computeComponent;
@@ -112,7 +113,7 @@ class ComputeJobFailover<T> {
         this.logicalTopologyService = logicalTopologyService;
         this.topologyService = topologyService;
         this.nextWorkerSelector = nextWorkerSelector;
-        this.jobContext = new RemoteExecutionContext<>(units, jobClassName, args);
+        this.jobContext = new RemoteExecutionContext<>(units, jobClassName, executionOptions, args);
         this.executor = executor;
     }
 
@@ -137,7 +138,7 @@ class ComputeJobFailover<T> {
             return computeComponent.executeLocally(jobContext.units(), jobContext.jobClassName(), jobContext.args());
         } else {
             return computeComponent.executeRemotely(
-                    runningWorkerNode, jobContext.units(), jobContext.jobClassName(), jobContext.args()
+                    runningWorkerNode, jobContext.units(), jobContext.jobClassName(), jobContext.executionOptions(), jobContext.args()
             );
         }
     }

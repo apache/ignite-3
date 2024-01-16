@@ -218,7 +218,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
 
     @Test
     void executesLocally() {
-        JobExecution<String> execution = computeComponent.executeLocally(List.of(), SimpleJob.class.getName(), "a", 42);
+        JobExecution<String> execution = computeComponent.executeLocally(DEFAULT, List.of(), SimpleJob.class.getName(), "a", 42);
 
         assertThat(execution.resultAsync(), willBe("jobResponse"));
         assertThat(execution.statusAsync(), willBe(jobStatusWithState(COMPLETED)));
@@ -230,7 +230,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
 
     @Test
     void getsStatusAndCancelsLocally() {
-        JobExecution<String> execution = computeComponent.executeLocally(List.of(), LongJob.class.getName());
+        JobExecution<String> execution = computeComponent.executeLocally(DEFAULT, List.of(), LongJob.class.getName());
 
         await().until(execution::statusAsync, willBe(jobStatusWithState(EXECUTING)));
 
@@ -265,7 +265,8 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
         respondWithJobStatusResponseWhenJobStatusRequestIsSent(jobId, COMPLETED);
         respondWithJobCancelResponseWhenJobCancelRequestIsSent(jobId, false);
 
-        JobExecution<String> execution = computeComponent.executeRemotely(remoteNode, List.of(), SimpleJob.class.getName(), "a", 42);
+        JobExecution<String> execution = computeComponent.executeRemotely(DEFAULT, remoteNode, List.of(), SimpleJob.class.getName(), "a",
+                42);
         assertThat(execution.resultAsync(), willBe("remoteResponse"));
 
         // Verify that second invocation of resultAsync will not result in the network communication (i.e. the result is cached locally)
@@ -288,7 +289,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
         respondWithJobStatusResponseWhenJobStatusRequestIsSent(jobId, EXECUTING);
         respondWithJobCancelResponseWhenJobCancelRequestIsSent(jobId, true);
 
-        JobExecution<String> execution = computeComponent.executeRemotely(remoteNode, List.of(), LongJob.class.getName());
+        JobExecution<String> execution = computeComponent.executeRemotely(DEFAULT, remoteNode, List.of(), LongJob.class.getName());
 
         assertThat(execution.statusAsync(), willBe(jobStatusWithState(EXECUTING)));
         assertThat(execution.resultAsync(), willBe("remoteResponse"));
@@ -788,7 +789,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
     }
 
     private CompletableFuture<String> executeLocally(List<DeploymentUnit> units, String jobClassName, Object... args) {
-        return computeComponent.<String>executeLocally(units, jobClassName, args).resultAsync();
+        return computeComponent.<String>executeLocally(DEFAULT, units, jobClassName, args).resultAsync();
     }
 
     private CompletableFuture<String> executeRemotely(
@@ -797,7 +798,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
             String jobClassName,
             Object... args
     ) {
-        return computeComponent.<String>executeRemotely(remoteNode, units, jobClassName, args).resultAsync();
+        return computeComponent.<String>executeRemotely(DEFAULT, remoteNode, units, jobClassName, args).resultAsync();
     }
 
     private static class SimpleJob implements ComputeJob<String> {

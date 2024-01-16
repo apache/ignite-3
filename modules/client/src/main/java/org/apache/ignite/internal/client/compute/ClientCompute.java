@@ -36,6 +36,7 @@ import java.util.function.Supplier;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.compute.JobExecution;
+import org.apache.ignite.compute.JobExecutionOptions;
 import org.apache.ignite.internal.client.ClientUtils;
 import org.apache.ignite.internal.client.PayloadInputChannel;
 import org.apache.ignite.internal.client.PayloadOutputChannel;
@@ -84,7 +85,9 @@ public class ClientCompute implements IgniteCompute {
 
     /** {@inheritDoc} */
     @Override
-    public <R> JobExecution<R> executeAsync(Set<ClusterNode> nodes, List<DeploymentUnit> units, String jobClassName, Object... args) {
+    public <R> JobExecution<R> executeAsync(JobExecutionOptions options, Set<ClusterNode> nodes, List<DeploymentUnit> units,
+            String jobClassName, Object... args) {
+        Objects.requireNonNull(options);
         Objects.requireNonNull(nodes);
         Objects.requireNonNull(units);
         Objects.requireNonNull(jobClassName);
@@ -95,19 +98,20 @@ public class ClientCompute implements IgniteCompute {
 
         ClusterNode node = randomNode(nodes);
 
-        return new ClientJobExecution<>(ch, executeOnOneNode(node, units, jobClassName, args));
+        return new ClientJobExecution<>(ch, executeOnOneNode(options, node, units, jobClassName, args));
     }
 
     /** {@inheritDoc} */
     @Override
     public <R> R execute(
+            JobExecutionOptions options,
             Set<ClusterNode> nodes,
             List<DeploymentUnit> units,
             String jobClassName,
             Object... args
     ) {
         try {
-            return this.<R>executeAsync(nodes, units, jobClassName, args).resultAsync().join();
+            return this.<R>executeAsync(options, nodes, units, jobClassName, args).resultAsync().join();
         } catch (CompletionException e) {
             throw ExceptionUtils.sneakyThrow(ClientUtils.ensurePublicException(e));
         }
@@ -118,16 +122,18 @@ public class ClientCompute implements IgniteCompute {
     public <R> JobExecution<R> executeColocatedAsync(
             String tableName,
             Tuple key,
+            JobExecutionOptions options,
             List<DeploymentUnit> units,
             String jobClassName,
             Object... args
     ) {
         Objects.requireNonNull(tableName);
         Objects.requireNonNull(key);
+        Objects.requireNonNull(options);
         Objects.requireNonNull(units);
         Objects.requireNonNull(jobClassName);
 
-        return new ClientJobExecution<>(ch, doExecuteColocatedAsync(tableName, key, units, jobClassName, args));
+        return new ClientJobExecution<>(ch, doExecuteColocatedAsync(tableName, key, units, jobClassName, options, args));
     }
 
     /** {@inheritDoc} */
@@ -136,6 +142,7 @@ public class ClientCompute implements IgniteCompute {
             String tableName,
             K key,
             Mapper<K> keyMapper,
+            JobExecutionOptions options,
             List<DeploymentUnit> units,
             String jobClassName,
             Object... args
@@ -143,15 +150,17 @@ public class ClientCompute implements IgniteCompute {
         Objects.requireNonNull(tableName);
         Objects.requireNonNull(key);
         Objects.requireNonNull(keyMapper);
+        Objects.requireNonNull(options);
         Objects.requireNonNull(units);
         Objects.requireNonNull(jobClassName);
 
-        return new ClientJobExecution<>(ch, doExecuteColocatedAsync(tableName, key, keyMapper, units, jobClassName, args));
+        return new ClientJobExecution<>(ch, doExecuteColocatedAsync(tableName, key, keyMapper, units, jobClassName, options, args));
     }
 
     private CompletableFuture<PayloadInputChannel> doExecuteColocatedAsync(
             String tableName,
             Tuple key,
+            JobExecutionOptions options,
             List<DeploymentUnit> units,
             String jobClassName,
             Object... args
@@ -162,7 +171,7 @@ public class ClientCompute implements IgniteCompute {
                         tableName,
                         res,
                         err,
-                        () -> doExecuteColocatedAsync(tableName, key, units, jobClassName, args)
+                        () -> doExecuteColocatedAsync(tableName, key, units, jobClassName, options, args)
                 ))
                 .thenCompose(Function.identity());
     }
@@ -171,6 +180,7 @@ public class ClientCompute implements IgniteCompute {
             String tableName,
             K key,
             Mapper<K> keyMapper,
+            JobExecutionOptions options,
             List<DeploymentUnit> units,
             String jobClassName,
             Object... args
@@ -181,7 +191,7 @@ public class ClientCompute implements IgniteCompute {
                         tableName,
                         res,
                         err,
-                        () -> doExecuteColocatedAsync(tableName, key, keyMapper, units, jobClassName, args)
+                        () -> doExecuteColocatedAsync(tableName, key, keyMapper, units, jobClassName, options, args)
                 ))
                 .thenCompose(Function.identity());
     }
@@ -191,12 +201,13 @@ public class ClientCompute implements IgniteCompute {
     public <R> R executeColocated(
             String tableName,
             Tuple key,
+            JobExecutionOptions options,
             List<DeploymentUnit> units,
             String jobClassName,
             Object... args
     ) {
         try {
-            return this.<R>executeColocatedAsync(tableName, key, units, jobClassName, args).resultAsync().join();
+            return this.<R>executeColocatedAsync(tableName, key, options, units, jobClassName, args).resultAsync().join();
         } catch (CompletionException e) {
             throw ExceptionUtils.sneakyThrow(ClientUtils.ensurePublicException(e));
         }
@@ -208,12 +219,13 @@ public class ClientCompute implements IgniteCompute {
             String tableName,
             K key,
             Mapper<K> keyMapper,
+            JobExecutionOptions options,
             List<DeploymentUnit> units,
             String jobClassName,
             Object... args
     ) {
         try {
-            return this.<K, R>executeColocatedAsync(tableName, key, keyMapper, units, jobClassName, args).resultAsync().join();
+            return this.<K, R>executeColocatedAsync(tableName, key, keyMapper, options, units, jobClassName, args).resultAsync().join();
         } catch (CompletionException e) {
             throw ExceptionUtils.sneakyThrow(ClientUtils.ensurePublicException(e));
         }
@@ -222,11 +234,13 @@ public class ClientCompute implements IgniteCompute {
     /** {@inheritDoc} */
     @Override
     public <R> Map<ClusterNode, JobExecution<R>> broadcastAsync(
+            JobExecutionOptions options,
             Set<ClusterNode> nodes,
             List<DeploymentUnit> units,
             String jobClassName,
             Object... args
     ) {
+        Objects.requireNonNull(options);
         Objects.requireNonNull(nodes);
         Objects.requireNonNull(units);
         Objects.requireNonNull(jobClassName);
@@ -234,7 +248,7 @@ public class ClientCompute implements IgniteCompute {
         Map<ClusterNode, JobExecution<R>> map = new HashMap<>(nodes.size());
 
         for (ClusterNode node : nodes) {
-            ClientJobExecution<R> execution = new ClientJobExecution<>(ch, executeOnOneNode(node, units, jobClassName, args));
+            ClientJobExecution<R> execution = new ClientJobExecution<>(ch, executeOnOneNode(node, units, jobClassName, options, args));
             if (map.put(node, execution) != null) {
                 throw new IllegalStateException("Node can't be specified more than once: " + node);
             }
@@ -247,6 +261,7 @@ public class ClientCompute implements IgniteCompute {
             ClusterNode node,
             List<DeploymentUnit> units,
             String jobClassName,
+            JobExecutionOptions options,
             Object[] args
     ) {
         return ch.serviceAsync(
@@ -258,7 +273,7 @@ public class ClientCompute implements IgniteCompute {
                         w.out().packString(node.name());
                     }
 
-                    packJob(w.out(), units, jobClassName, args);
+                    packJob(w.out(), units, jobClassName, options, args);
                 },
                 ch -> ch,
                 node.name(),
@@ -287,6 +302,7 @@ public class ClientCompute implements IgniteCompute {
             Mapper<K> keyMapper,
             List<DeploymentUnit> units,
             String jobClassName,
+            JobExecutionOptions options,
             Object[] args) {
         return executeColocatedInternal(
                 t,
@@ -294,6 +310,7 @@ public class ClientCompute implements IgniteCompute {
                 ClientTupleSerializer.getPartitionAwarenessProvider(null, keyMapper, key),
                 units,
                 jobClassName,
+                options,
                 args);
     }
 
@@ -302,6 +319,7 @@ public class ClientCompute implements IgniteCompute {
             Tuple key,
             List<DeploymentUnit> units,
             String jobClassName,
+            JobExecutionOptions options,
             Object[] args) {
         return executeColocatedInternal(
                 t,
@@ -309,6 +327,7 @@ public class ClientCompute implements IgniteCompute {
                 ClientTupleSerializer.getPartitionAwarenessProvider(null, key),
                 units,
                 jobClassName,
+                options,
                 args);
     }
 
@@ -318,6 +337,7 @@ public class ClientCompute implements IgniteCompute {
             PartitionAwarenessProvider partitionAwarenessProvider,
             List<DeploymentUnit> units,
             String jobClassName,
+            JobExecutionOptions options,
             Object[] args) {
         return t.doSchemaOutOpAsync(
                 ClientOp.COMPUTE_EXECUTE_COLOCATED,
@@ -329,7 +349,7 @@ public class ClientCompute implements IgniteCompute {
 
                     keyWriter.accept(outputChannel, schema);
 
-                    packJob(w, units, jobClassName, args);
+                    packJob(w, units, jobClassName, options, args);
                 },
                 ch -> ch,
                 partitionAwarenessProvider,
@@ -384,7 +404,7 @@ public class ClientCompute implements IgniteCompute {
         return completedFuture(res);
     }
 
-    private static void packJob(ClientMessagePacker w, List<DeploymentUnit> units, String jobClassName, Object[] args) {
+    private static void packJob(ClientMessagePacker w, List<DeploymentUnit> units, String jobClassName, JobExecutionOptions options, Object[] args) {
         w.packInt(units.size());
         for (DeploymentUnit unit : units) {
             w.packString(unit.name());
@@ -392,6 +412,8 @@ public class ClientCompute implements IgniteCompute {
         }
 
         w.packString(jobClassName);
+        w.packInt(jobExecutionOptions.priority());
+        w.packInt(jobExecutionOptions.maxRetries());
         w.packObjectArrayAsBinaryTuple(args);
     }
 }

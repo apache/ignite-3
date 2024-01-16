@@ -19,6 +19,7 @@ package org.apache.ignite.internal.compute;
 
 import static java.util.Collections.singleton;
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.compute.ExecutionOptions.DEFAULT;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
@@ -36,6 +37,7 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.JobExecution;
+import org.apache.ignite.compute.JobExecutionOptions;
 import org.apache.ignite.compute.JobStatus;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -106,7 +108,7 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
                 willBe("jobResponse")
         );
 
-        verify(computeComponent).executeLocally(testDeploymentUnits, JOB_CLASS_NAME, "a", 42);
+        verify(computeComponent).executeLocally(DEFAULT, testDeploymentUnits, JOB_CLASS_NAME, "a", 42);
     }
 
     @Test
@@ -114,11 +116,12 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
         respondWhenExecutingSimpleJobRemotely();
 
         assertThat(
-                compute.<String>executeAsync(singleton(remoteNode), testDeploymentUnits, JOB_CLASS_NAME, "a", 42).resultAsync(),
+                compute.<String>executeAsync(JobExecutionOptions.DEFAULT, singleton(remoteNode), testDeploymentUnits, JOB_CLASS_NAME, "a",
+                        42).resultAsync(),
                 willBe("remoteResponse")
         );
 
-        verify(computeComponent).executeRemotely(remoteNode, testDeploymentUnits, JOB_CLASS_NAME, "a", 42);
+        verify(computeComponent).executeRemotely(DEFAULT, remoteNode, testDeploymentUnits, JOB_CLASS_NAME, "a", 42);
     }
 
     @Test
@@ -166,12 +169,12 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
     }
 
     private void respondWhenExecutingSimpleJobLocally() {
-        when(computeComponent.executeLocally(testDeploymentUnits, JOB_CLASS_NAME, "a", 42))
+        when(computeComponent.executeLocally(DEFAULT, testDeploymentUnits, JOB_CLASS_NAME, "a", 42))
                 .thenReturn(completedExecution("jobResponse"));
     }
 
     private void respondWhenExecutingSimpleJobRemotely() {
-        when(computeComponent.executeRemotely(remoteNode, testDeploymentUnits, JOB_CLASS_NAME, "a", 42))
+        when(computeComponent.executeRemotely(DEFAULT, remoteNode, testDeploymentUnits, JOB_CLASS_NAME, "a", 42))
                 .thenReturn(completedExecution("remoteResponse"));
     }
 
