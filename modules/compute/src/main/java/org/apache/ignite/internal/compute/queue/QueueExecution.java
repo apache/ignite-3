@@ -23,7 +23,7 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * Provides information about the task executing on the {@link PriorityQueueExecutor}, allows cancelling the task,
- * change the job priority.
+ * changing the job priority.
  *
  * @param <R> Job result type.
  */
