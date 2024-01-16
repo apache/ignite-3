@@ -177,6 +177,16 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
         assertEquals(ColumnType.NULL.toString(), meta.getColumnTypeName(1));
         assertEquals(ColumnType.NULL.toString(), meta.getColumnTypeName(2));
         assertEquals(ColumnType.NULL.toString(), meta.getColumnTypeName(3));
+
+        stmt.executeUpdate("DELETE FROM TEST");
+        stmt.executeUpdate("insert into TEST (ID, NAME) values (1, null)");
+
+        rs = stmt.executeQuery("SELECT LOWER(NAME) FROM TEST");
+        rs.next();
+        assertNull(rs.getObject(1));
+
+        meta = rs.getMetaData();
+        assertEquals("VARCHAR", meta.getColumnTypeName(1));
     }
 
     @Test
