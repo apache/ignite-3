@@ -174,7 +174,7 @@ public abstract class ClusterPerTestIntegrationTest extends IgniteIntegrationTes
      *
      * @param name Name of the node in the cluster.
      */
-    protected final void stopNode(String name) {
+    protected void stopNode(String name) {
         cluster.stopNode(name);
     }
 
