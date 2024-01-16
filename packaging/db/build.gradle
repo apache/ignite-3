@@ -50,7 +50,7 @@ configurations {
 }
 
 configurations {
-    dbArtifacts
+    defaultsGenerator.extendsFrom(dbArtifacts)
 }
 
 dependencies {
