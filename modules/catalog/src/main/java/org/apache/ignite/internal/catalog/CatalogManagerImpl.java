@@ -409,7 +409,8 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     public List<SystemView<?>> systemViews() {
         return List.of(
                 createSystemViewsView(),
-                createSystemViewColumnsView()
+                createSystemViewColumnsView(),
+                createSystemViewZonesView()
         );
     }
 
@@ -554,6 +555,19 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
                 .addColumn("SCALE", NativeTypes.INT32, entry -> entry.descriptor.scale())
                 .addColumn("LENGTH", NativeTypes.INT32, entry -> entry.descriptor.length())
                 .dataProvider(viewDataPublisher)
+                .build();
+    }
+
+    private SystemView<?> createSystemViewZonesView() {
+        return SystemViews.<CatalogZoneDescriptor>clusterViewBuilder()
+                .name("ZONES")
+                .addColumn("NAME", NativeTypes.STRING, CatalogZoneDescriptor::name)
+                .addColumn("PARTITIONS", NativeTypes.INT32, CatalogZoneDescriptor::partitions)
+                .addColumn("REPLICAS", NativeTypes.INT32, CatalogZoneDescriptor::replicas)
+                .addColumn("DATA_NODES_AUTO_ADJUST_SCALE_UP", NativeTypes.INT32, CatalogZoneDescriptor::dataNodesAutoAdjustScaleUp)
+                .addColumn("DATA_NODES_AUTO_ADJUST_SCALE_DOWN", NativeTypes.INT32, CatalogZoneDescriptor::dataNodesAutoAdjustScaleDown)
+                .addColumn("DATA_NODES_FILTER", NativeTypes.STRING, CatalogZoneDescriptor::filter)
+                .dataProvider(SubscriptionUtils.fromIterable(() -> catalog(latestCatalogVersion()).zones().iterator()))
                 .build();
     }
 

@@ -101,7 +101,7 @@ public class ItDistributionZonesFilterTest extends ClusterPerTestIntegrationTest
      */
     @Test
     void testFilteredDataNodesPropagatedToStable() throws Exception {
-        String filter = "'$[?(@.region == \"US\" && @.storage == \"SSD\")]'";
+        String filter = "$[?(@.region == \"US\" && @.storage == \"SSD\")]";
 
         // This node do not pass the filter
         @Language("JSON") String firstNodeAttributes = "{region:{attribute:\"EU\"},storage:{attribute:\"SSD\"}}";
@@ -169,7 +169,7 @@ public class ItDistributionZonesFilterTest extends ClusterPerTestIntegrationTest
      */
     @Test
     void testAlteringFiltersPropagatedDataNodesToStableImmediately() throws Exception {
-        String filter = "'$[?(@.region == \"US\" && @.storage == \"SSD\")]'";
+        String filter = "$[?(@.region == \"US\" && @.storage == \"SSD\")]";
 
         IgniteImpl node0 = node(0);
 
@@ -226,7 +226,7 @@ public class ItDistributionZonesFilterTest extends ClusterPerTestIntegrationTest
      */
     @Test
     void testEmptyDataNodesDoNotPropagatedToStableAfterAlteringFilter() throws Exception {
-        String filter = "'$[?(@.region == \"US\" && @.storage == \"SSD\")]'";
+        String filter = "$[?(@.region == \"US\" && @.storage == \"SSD\")]";
 
         IgniteImpl node0 = node(0);
 
@@ -265,7 +265,7 @@ public class ItDistributionZonesFilterTest extends ClusterPerTestIntegrationTest
         waitDataNodeAndListenersAreHandled(metaStorageManager, 1, zoneId);
 
         // There is no node that match the filter
-        String newFilter = "'$[?(@.region == \"FOO\" && @.storage == \"BAR\")]'";
+        String newFilter = "$[?(@.region == \"FOO\" && @.storage == \"BAR\")]";
 
         session.execute(null, alterZoneSql(newFilter));
 
@@ -289,7 +289,7 @@ public class ItDistributionZonesFilterTest extends ClusterPerTestIntegrationTest
      */
     @Test
     void testFilteredEmptyDataNodesDoNotTriggerRebalance() throws Exception {
-        String filter = "'$[?(@.region == \"EU\" && @.storage == \"HDD\")]'";
+        String filter = "$[?(@.region == \"EU\" && @.storage == \"HDD\")]";
 
         // This node do not pass the filter.
         IgniteImpl node0 = node(0);
@@ -335,7 +335,7 @@ public class ItDistributionZonesFilterTest extends ClusterPerTestIntegrationTest
 
     @Test
     void testFilteredEmptyDataNodesDoNotTriggerRebalanceOnReplicaUpdate() throws Exception {
-        String filter = "'$[?(@.region == \"EU\" && @.storage == \"HDD\")]'";
+        String filter = "$[?(@.region == \"EU\" && @.storage == \"HDD\")]";
 
         // This node do not pass the filter.
         IgniteImpl node0 = node(0);
@@ -441,7 +441,7 @@ public class ItDistributionZonesFilterTest extends ClusterPerTestIntegrationTest
         String sqlFormat = "CREATE ZONE \"%s\" WITH "
                 + "\"REPLICAS\" = %s, "
                 + "\"PARTITIONS\" = %s, "
-                + "\"DATA_NODES_FILTER\" = %s, "
+                + "\"DATA_NODES_FILTER\" = '%s', "
                 + "\"DATA_NODES_AUTO_ADJUST_SCALE_UP\" = %s, "
                 + "\"DATA_NODES_AUTO_ADJUST_SCALE_DOWN\" = %s";
 
@@ -449,7 +449,7 @@ public class ItDistributionZonesFilterTest extends ClusterPerTestIntegrationTest
     }
 
     private static String alterZoneSql(String filter) {
-        return String.format("ALTER ZONE \"%s\" SET \"DATA_NODES_FILTER\" = %s", ZONE_NAME, filter);
+        return String.format("ALTER ZONE \"%s\" SET \"DATA_NODES_FILTER\" = '%s'", ZONE_NAME, filter);
     }
 
     private static String alterZoneSql(int replicas) {
