@@ -30,6 +30,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
@@ -139,11 +140,15 @@ public class ItDurableFinishTest extends ClusterPerTestIntegrationTest {
 
         AtomicBoolean dropMessage = new AtomicBoolean(true);
 
+        CountDownLatch commitStartedLatch = new CountDownLatch(1);
+
         // Make sure the finish message is prepared, i.e. the outcome, commit timestamp, primary node, etc. have been set,
         // and then temporarily block the messaging to simulate network issues.
         coordinatorMessaging.dropMessages((s, networkMessage) -> {
             if (networkMessage instanceof TxFinishReplicaRequest && dropMessage.get()) {
                 logger().info("Dropping: {}.", networkMessage);
+
+                commitStartedLatch.countDown();
 
                 return true;
             }
@@ -156,6 +161,8 @@ public class ItDurableFinishTest extends ClusterPerTestIntegrationTest {
         // will run in the current thread.
         CompletableFuture.runAsync(() -> {
             try {
+                commitStartedLatch.await();
+
                 logger().info("Start transferring primary.");
 
                 NodeUtils.transferPrimary(tbl, null, this::node);
