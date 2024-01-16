@@ -68,7 +68,7 @@ public class DropZoneCommand extends AbstractZoneCommand {
                 .findAny()
                 .ifPresent(t -> {
                     throw new DistributionZoneCantBeDroppedValidationException("Distribution zone is assigned to the table [zoneName={}, "
-                            + ", tableName={}]", zone.name(), t.name());
+                            + "tableName={}]", zone.name(), t.name());
                 });
 
         return List.of(new DropZoneEntry(zone.id()));

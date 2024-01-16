@@ -360,20 +360,8 @@ namespace Apache.Ignite
             /// <summary> DistributionZones group name. </summary>
             public const String GroupName = "DISTRZONES";
 
-            /// <summary> ZoneAlreadyExists error. </summary>
-            public const int ZoneAlreadyExists = (GroupCode << 16) | (1 & 0xFFFF);
-
             /// <summary> ZoneNotFound error. </summary>
             public const int ZoneNotFound = (GroupCode << 16) | (2 & 0xFFFF);
-
-            /// <summary> ZoneRename error. </summary>
-            public const int ZoneRename = (GroupCode << 16) | (3 & 0xFFFF);
-
-            /// <summary> ZoneDrop error. </summary>
-            public const int ZoneDrop = (GroupCode << 16) | (4 & 0xFFFF);
-
-            /// <summary> ZoneDefinition error. </summary>
-            public const int ZoneDefinition = (GroupCode << 16) | (5 & 0xFFFF);
         }
 
         /// <summary> Network errors. </summary>
