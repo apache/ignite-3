@@ -655,8 +655,6 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
 
                     return false;
                 }
-            } else if (msg instanceof ReadWriteSingleRowReplicaRequest) {
-                return true;
             }
 
             return false;
