@@ -27,7 +27,7 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
-import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.BooleanSupplier;
 import java.util.function.Function;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -72,7 +72,7 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
     /** Used to detect that a peer uses a stale ID. */
     private final StaleIdDetector staleIdDetector;
 
-    private final AtomicBoolean stopping;
+    private final BooleanSupplier stopping;
 
     /** Connection id. */
     private final short connectionId;
@@ -121,7 +121,7 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
             RecoveryDescriptorProvider recoveryDescriptorProvider,
             StaleIdDetector staleIdDetector,
             ChannelCreationListener channelCreationListener,
-            AtomicBoolean stopping
+            BooleanSupplier stopping
     ) {
         this.launchId = launchId;
         this.consistentId = consistentId;
@@ -165,14 +165,14 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
     /** {@inheritDoc} */
     @Override
     public void onMessage(NetworkMessage message) {
-        if (message instanceof HandshakeStartMessage) {
-            onHandshakeStartMessage((HandshakeStartMessage) message);
+        if (message instanceof HandshakeRejectedMessage) {
+            onHandshakeRejectedMessage((HandshakeRejectedMessage) message);
 
             return;
         }
 
-        if (message instanceof HandshakeRejectedMessage) {
-            onHandshakeRejectedMessage((HandshakeRejectedMessage) message);
+        if (message instanceof HandshakeStartMessage) {
+            onHandshakeStartMessage((HandshakeStartMessage) message);
 
             return;
         }
@@ -185,9 +185,7 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
 
             recoveryDescriptor.acknowledge(receivedCount);
 
-            int cnt = recoveryDescriptor.unacknowledgedCount();
-
-            if (cnt == 0) {
+            if (recoveryDescriptor.unacknowledgedCount() == 0) {
                 finishHandshake();
 
                 return;
@@ -204,30 +202,25 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
             return;
         }
 
-        int cnt = recoveryDescriptor.unacknowledgedCount();
+        // If we are here it means that we acquired the descriptor, we already handled a HandshakeFinishMessage and now we are
+        // getting unacked messages from another side and acks for our unacked messages that we sent there (if any).
 
-        if (cnt == 0) {
+        assert recoveryDescriptor.holderChannel() == channel;
+
+        if (recoveryDescriptor.unacknowledgedCount() == 0) {
             finishHandshake();
         }
 
         ctx.fireChannelRead(message);
     }
 
-    private void onHandshakeStartMessage(HandshakeStartMessage message) {
-        if (staleIdDetector.isIdStale(message.launchId().toString())) {
-            handleStaleServerId(message);
-
+    private void onHandshakeStartMessage(HandshakeStartMessage handshakeStartMessage) {
+        if (possiblyRejectHandshakeStart(handshakeStartMessage)) {
             return;
         }
 
-        if (stopping.get()) {
-            handleRefusalToEstablishConnectionDueToStopping(message);
-
-            return;
-        }
-
-        this.remoteLaunchId = message.launchId();
-        this.remoteConsistentId = message.consistentId();
+        this.remoteLaunchId = handshakeStartMessage.launchId();
+        this.remoteConsistentId = handshakeStartMessage.consistentId();
 
         RecoveryDescriptor descriptor = recoveryDescriptorProvider.getRecoveryDescriptor(
                 remoteConsistentId,
@@ -235,8 +228,8 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
                 connectionId
         );
 
-        while (!descriptor.acquire(ctx, localHandshakeCompleteFuture)) {
-            // Don't use the tie-braking logic as this handshake attempt is late: the competitor has already acquired
+        while (!descriptor.tryAcquire(ctx, localHandshakeCompleteFuture)) {
+            // Don't use the tie-breaking logic as this handshake attempt is late: the competitor has already acquired
             // recovery descriptors on both sides, so this handshake attempt must fail regardless of the Tie Breaker's opinion.
             if (LOG.isDebugEnabled()) {
                 LOG.debug("Failed to acquire recovery descriptor during handshake, it is held by: {}.", descriptor.holderDescription());
@@ -254,9 +247,34 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
             return;
         }
 
+        // Now that we hold the descriptor, let's check again if the other side has left the topology or we are already stopping.
+        // This allows to avoid a race between MessagingService/ConnectionManager handling node leave/local node stop and
+        // a concurrent handshake. If one of these happened, we are releasing the descriptor to allow the common machinery
+        // to acquire it and clean it up.
+        if (possiblyRejectHandshakeStart(handshakeStartMessage)) {
+            descriptor.release(ctx);
+            return;
+        }
+
         this.recoveryDescriptor = descriptor;
 
         handshake(this.recoveryDescriptor);
+    }
+
+    private boolean possiblyRejectHandshakeStart(HandshakeStartMessage message) {
+        if (staleIdDetector.isIdStale(message.launchId().toString())) {
+            handleStaleServerId(message);
+
+            return true;
+        }
+
+        if (stopping.getAsBoolean()) {
+            handleRefusalToEstablishConnectionDueToStopping(message);
+
+            return true;
+        }
+
+        return false;
     }
 
     private void completeMasterFutureWithCompetitorHandshakeFuture(DescriptorAcquiry competitorAcquiry) {
@@ -294,7 +312,7 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
     }
 
     private void onHandshakeRejectedMessage(HandshakeRejectedMessage msg) {
-        boolean ignorable = stopping.get() || !msg.reason().critical();
+        boolean ignorable = stopping.getAsBoolean() || !msg.reason().critical();
 
         if (ignorable) {
             LOG.debug("Handshake rejected by server: {}", msg.message());
@@ -323,6 +341,7 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
 
         DescriptorAcquiry myAcquiry = descriptor.holder();
         assert myAcquiry != null;
+        assert myAcquiry.channel() != null;
         assert myAcquiry.channel() == ctx.channel() : "Expected the descriptor to be held by current channel " + ctx.channel()
                 + ", but it's held by another channel " + myAcquiry.channel();
 

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.client.handler;
 
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import io.netty.bootstrap.ServerBootstrap;
@@ -198,7 +199,7 @@ public class ClientHandlerModule implements IgniteComponent {
 
     /** {@inheritDoc} */
     @Override
-    public void start() {
+    public CompletableFuture<Void> start() {
         if (channel != null) {
             throw new IgniteInternalException(INTERNAL_ERR, "ClientHandlerModule is already started.");
         }
@@ -217,6 +218,8 @@ public class ClientHandlerModule implements IgniteComponent {
         } catch (InterruptedException e) {
             throw new IgniteInternalException(INTERNAL_ERR, e);
         }
+
+        return nullCompletedFuture();
     }
 
     /** {@inheritDoc} */

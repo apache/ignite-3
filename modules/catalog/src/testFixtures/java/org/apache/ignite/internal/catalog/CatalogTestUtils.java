@@ -17,9 +17,11 @@
 
 package org.apache.ignite.internal.catalog;
 
+import static java.util.concurrent.CompletableFuture.allOf;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
@@ -45,8 +47,6 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
-import org.apache.ignite.internal.vault.VaultManager;
-import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.sql.ColumnType;
 
@@ -63,22 +63,21 @@ public class CatalogTestUtils {
      * @param clock Hybrid clock.
      */
     public static CatalogManager createTestCatalogManager(String nodeName, HybridClock clock) {
-        var vault = new VaultManager(new InMemoryVaultService());
-
-        StandaloneMetaStorageManager metastore = StandaloneMetaStorageManager.create(vault, new SimpleInMemoryKeyValueStorage(nodeName));
+        StandaloneMetaStorageManager metastore = StandaloneMetaStorageManager.create(new SimpleInMemoryKeyValueStorage(nodeName));
 
         var clockWaiter = new ClockWaiter(nodeName, clock);
 
         return new CatalogManagerImpl(new UpdateLogImpl(metastore), clockWaiter) {
             @Override
-            public void start() {
-                vault.start();
+            public CompletableFuture<Void> start() {
                 metastore.start();
                 clockWaiter.start();
 
                 super.start();
 
                 assertThat(metastore.deployWatches(), willCompleteSuccessfully());
+
+                return nullCompletedFuture();
             }
 
             @Override
@@ -87,7 +86,6 @@ public class CatalogTestUtils {
 
                 clockWaiter.beforeNodeStop();
                 metastore.beforeNodeStop();
-                vault.beforeNodeStop();
             }
 
             @Override
@@ -96,7 +94,6 @@ public class CatalogTestUtils {
 
                 clockWaiter.stop();
                 metastore.stop();
-                vault.stop();
             }
         };
     }
@@ -115,10 +112,12 @@ public class CatalogTestUtils {
 
         return new CatalogManagerImpl(new UpdateLogImpl(metastore), clockWaiter) {
             @Override
-            public void start() {
+            public CompletableFuture<Void> start() {
                 clockWaiter.start();
 
                 super.start();
+
+                return nullCompletedFuture();
             }
 
             @Override
@@ -155,10 +154,10 @@ public class CatalogTestUtils {
 
         return new CatalogManagerImpl(new TestUpdateLog(clock), clockWaiter) {
             @Override
-            public void start() {
-                clockWaiter.start();
+            public CompletableFuture<Void> start() {
+                CompletableFuture<Void> fut = clockWaiter.start();
 
-                super.start();
+                return allOf(fut, super.start());
             }
 
             @Override
@@ -299,13 +298,15 @@ public class CatalogTestUtils {
         }
 
         @Override
-        public void start() throws IgniteInternalException {
+        public CompletableFuture<Void> start() throws IgniteInternalException {
             if (onUpdateHandler == null) {
                 throw new IgniteInternalException(
                         Common.INTERNAL_ERR,
                         "Handler must be registered prior to component start"
                 );
             }
+
+            return nullCompletedFuture();
         }
 
         @Override

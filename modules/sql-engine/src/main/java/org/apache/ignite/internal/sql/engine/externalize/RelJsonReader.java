@@ -25,6 +25,7 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.util.AbstractList;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -45,6 +46,7 @@ import org.apache.calcite.rel.core.AggregateCall;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rex.RexLiteral;
 import org.apache.calcite.rex.RexNode;
+import org.apache.calcite.runtime.SqlFunctions;
 import org.apache.calcite.sql.SqlAggFunction;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.calcite.util.Pair;
@@ -246,6 +248,15 @@ public class RelJsonReader {
         @Override
         public float getFloat(String tag) {
             return ((Number) jsonRel.get(tag)).floatValue();
+        }
+
+        @Override
+        public BigDecimal getBigDecimal(String tag) {
+            return SqlFunctions.toBigDecimal(getNonNull(tag));
+        }
+
+        private Object getNonNull(String tag) {
+            return requireNonNull(get(tag), () -> "no entry for tag " + tag);
         }
 
         /** {@inheritDoc} */

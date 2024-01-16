@@ -60,8 +60,6 @@ import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.internal.vault.VaultManager;
-import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
 import org.apache.ignite.network.ClusterNode;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -75,9 +73,7 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
 
     private int partitions;
 
-    private final VaultManager vaultManager = new VaultManager(new InMemoryVaultService());
-
-    private final MetaStorageManagerImpl metaStorageManager = StandaloneMetaStorageManager.create(vaultManager);
+    private final MetaStorageManagerImpl metaStorageManager = StandaloneMetaStorageManager.create();
 
     private final CatalogManager catalogManager = CatalogTestUtils.createTestCatalogManager(NODE_NAME, clock, metaStorageManager);
 
@@ -95,7 +91,7 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
 
     @BeforeEach
     void setUp() {
-        Stream.of(vaultManager, metaStorageManager, catalogManager).forEach(IgniteComponent::start);
+        Stream.of(metaStorageManager, catalogManager).forEach(IgniteComponent::start);
 
         assertThat(metaStorageManager.deployWatches(), willCompleteSuccessfully());
 
@@ -116,8 +112,7 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
                 indexAvailabilityController::close,
                 indexBuilder::close,
                 catalogManager::stop,
-                metaStorageManager::stop,
-                vaultManager::stop
+                metaStorageManager::stop
         );
     }
 

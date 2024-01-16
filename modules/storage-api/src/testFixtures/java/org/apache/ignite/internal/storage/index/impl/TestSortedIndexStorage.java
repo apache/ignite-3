@@ -139,6 +139,8 @@ public class TestSortedIndexStorage extends AbstractTestIndexStorage implements 
             }
         }
 
+        pendingCursors.incrementAndGet();
+
         return new ScanCursor(navigableSet);
     }
 
@@ -181,7 +183,7 @@ public class TestSortedIndexStorage extends AbstractTestIndexStorage implements 
 
         @Override
         public void close() {
-            // No-op.
+            pendingCursors.decrementAndGet();
         }
 
         @Override

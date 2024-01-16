@@ -41,9 +41,6 @@ public class BinaryRowConverter implements ColumnsExtractor {
     private final BinaryTupleSchema srcSchema;
     private final BinaryTupleSchema dstSchema;
 
-    /** Placeholder for NULL values in search bounds. */
-    public static final Object NULL_BOUND = new Object();
-
     /**
      * Constructor.
      *
@@ -108,7 +105,7 @@ public class BinaryRowConverter implements ColumnsExtractor {
      * @return Binary tuple builder.
      */
     public static BinaryTupleBuilder appendValue(BinaryTupleBuilder builder, Element element, @Nullable Object value) {
-        if (value == null || value == NULL_BOUND) {
+        if (value == null) {
             if (!element.nullable()) {
                 throw new BinaryTupleFormatException("NULL value for non-nullable column in binary tuple builder.");
             }

@@ -50,7 +50,6 @@ import java.util.List;
 import java.util.Set;
 import org.apache.calcite.linq4j.Ord;
 import org.apache.calcite.plan.RelOptCluster;
-import org.apache.calcite.plan.RelOptPredicateList;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.RelCollation;
 import org.apache.calcite.rel.RelFieldCollation;
@@ -69,7 +68,6 @@ import org.apache.calcite.rex.RexLiteral;
 import org.apache.calcite.rex.RexLocalRef;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.rex.RexShuttle;
-import org.apache.calcite.rex.RexSimplify;
 import org.apache.calcite.rex.RexSlot;
 import org.apache.calcite.rex.RexUnknownAs;
 import org.apache.calcite.rex.RexUtil;
@@ -94,7 +92,6 @@ import org.apache.ignite.internal.sql.engine.prepare.bounds.RangeBounds;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.SearchBounds;
 import org.apache.ignite.internal.sql.engine.sql.fun.IgniteSqlOperatorTable;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -146,36 +143,6 @@ public class RexUtils {
      */
     public static RexExecutor executor(RelOptCluster cluster) {
         return Util.first(cluster.getPlanner().getExecutor(), RexUtil.EXECUTOR);
-    }
-
-    /**
-     * Simplifier.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     */
-    public static RexSimplify simplifier(RelOptCluster cluster) {
-        return new RexSimplify(builder(cluster), RelOptPredicateList.EMPTY, executor(cluster));
-    }
-
-    /**
-     * MakeCase.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     */
-    public static RexNode makeCase(RexBuilder builder, RexNode... operands) {
-        if (IgniteUtils.assertionsEnabled()) {
-            // each odd operand except last one has to return a boolean type
-            for (int i = 0; i < operands.length; i += 2) {
-                if (operands[i].getType().getSqlTypeName() != SqlTypeName.BOOLEAN && i < operands.length - 1) {
-                    throw new AssertionError("Unexpected operand type. [operands=" + Arrays.toString(operands) + "]");
-                }
-            }
-        }
-
-        return builder.makeCall(SqlStdOperatorTable.CASE, operands);
-    }
-
-    /** Returns whether a list of expressions projects the incoming fields. */
-    public static boolean isIdentity(List<? extends RexNode> projects, RelDataType inputRowType) {
-        return isIdentity(projects, inputRowType, false);
     }
 
     /** Returns whether a list of expressions projects the incoming fields. */
@@ -437,7 +404,7 @@ public class RexUtils {
     ) {
         RexBuilder builder = builder(cluster);
 
-        RexNode nullBound = builder.makeCall(IgniteSqlOperatorTable.NULL_BOUND);
+        RexNode nullValue = builder.makeNullLiteral(fldType);
 
         RexNode upperCond = null;
         RexNode lowerCond = null;
@@ -456,12 +423,12 @@ public class RexUtils {
 
             SqlOperator op = pred.getOperator();
 
-            if (op.kind == EQUALS) {
+            if (op.kind == EQUALS || op.kind == IS_NOT_DISTINCT_FROM) {
+                assert val != null;
+
                 return new ExactBounds(pred, val);
-            } else if (op.kind == IS_NOT_DISTINCT_FROM) {
-                return new ExactBounds(pred, builder.makeCall(SqlStdOperatorTable.COALESCE, val, nullBound));
             } else if (op.kind == IS_NULL) {
-                return new ExactBounds(pred, nullBound);
+                return new ExactBounds(pred, nullValue);
             } else if (op.kind == SEARCH) {
                 Sarg<?> sarg = ((RexLiteral) pred.operands.get(1)).getValueAs(Sarg.class);
 
@@ -477,7 +444,7 @@ public class RexUtils {
                         boolean ascDir = !fc.getDirection().isDescending();
                         RangeBounds rangeBounds = (RangeBounds) bounds.get(0);
                         if (rangeBounds.lowerBound() != null) {
-                            if (lowerBound != null && lowerBound != nullBound) {
+                            if (lowerBound != null && lowerBound != nullValue) {
                                 lowerBound = leastOrGreatest(builder, !ascDir, lowerBound, rangeBounds.lowerBound());
                                 lowerInclude |= rangeBounds.lowerInclude();
                             } else {
@@ -488,7 +455,7 @@ public class RexUtils {
                         }
 
                         if (rangeBounds.upperBound() != null) {
-                            if (upperBound != null && upperBound != nullBound) {
+                            if (upperBound != null && upperBound != nullValue) {
                                 upperBound = leastOrGreatest(builder, ascDir, upperBound, rangeBounds.upperBound());
                                 upperInclude |= rangeBounds.upperInclude();
                             } else {
@@ -522,7 +489,7 @@ public class RexUtils {
                 case GREATER_THAN:
                 case GREATER_THAN_OR_EQUAL:
                     if (lowerBoundBelow) {
-                        if (lowerBound == null || lowerBound == nullBound) {
+                        if (lowerBound == null || lowerBound == nullValue) {
                             lowerCond = pred;
                             lowerBound = val;
                             lowerInclude = includeBound;
@@ -532,7 +499,7 @@ public class RexUtils {
                             lowerCond = lessOrGreater(builder, lessCondition, lowerInclude, ref, lowerBound);
                         }
                     } else {
-                        if (upperBound == null || upperBound == nullBound) {
+                        if (upperBound == null || upperBound == nullValue) {
                             upperCond = pred;
                             upperBound = val;
                             upperInclude = includeBound;
@@ -547,11 +514,11 @@ public class RexUtils {
                 case IS_NOT_NULL:
                     if (fc.nullDirection == RelFieldCollation.NullDirection.FIRST && lowerBound == null) {
                         lowerCond = pred;
-                        lowerBound = nullBound;
+                        lowerBound = nullValue;
                         lowerInclude = false;
                     } else if (fc.nullDirection == RelFieldCollation.NullDirection.LAST && upperBound == null) {
                         upperCond = pred;
-                        upperBound = nullBound;
+                        upperBound = nullValue;
                         upperInclude = false;
                     }
                     break;
@@ -566,9 +533,13 @@ public class RexUtils {
         }
 
         // Found upper bound, lower bound or both.
-        RexNode cond = lowerCond == null ? upperCond :
-                upperCond == null ? lowerCond :
-                        upperCond == lowerCond ? lowerCond : builder.makeCall(SqlStdOperatorTable.AND, lowerCond, upperCond);
+        RexNode cond = lowerCond == null
+                ? upperCond
+                : upperCond == null
+                        ? lowerCond
+                        : upperCond == lowerCond
+                                ? lowerCond
+                                : builder.makeCall(SqlStdOperatorTable.AND, lowerCond, upperCond);
 
         return new RangeBounds(cond, lowerBound, upperBound, lowerInclude, upperInclude);
     }

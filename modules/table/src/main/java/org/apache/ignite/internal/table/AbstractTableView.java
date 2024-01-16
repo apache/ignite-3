@@ -22,16 +22,19 @@ import static java.util.function.Function.identity;
 import static org.apache.ignite.internal.lang.IgniteExceptionMapperUtil.convertToPublicFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
 
+import java.util.Collection;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import org.apache.ignite.internal.lang.IgniteExceptionMapperUtil;
 import org.apache.ignite.internal.schema.SchemaRegistry;
+import org.apache.ignite.internal.table.criteria.SqlSerializer;
 import org.apache.ignite.internal.table.distributed.replicator.InternalSchemaVersionMismatchException;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.sql.IgniteSql;
+import org.apache.ignite.table.criteria.Criteria;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 
@@ -135,6 +138,22 @@ abstract class AbstractTableView {
 
     private static boolean isOrCausedBy(Class<? extends Exception> exceptionClass, @Nullable Throwable ex) {
         return ex != null && (exceptionClass.isInstance(ex) || isOrCausedBy(exceptionClass, ex.getCause()));
+    }
+
+    /**
+     * Construct SQL query and arguments for prepare statement.
+     *
+     * @param tableName Table name.
+     * @param columnNames Column names.
+     * @param criteria The predicate to filter entries or {@code null} to return all entries from the underlying table.
+     * @return SQL query and it's arguments.
+     */
+    static SqlSerializer createSqlSerializer(String tableName, Collection<String> columnNames, @Nullable Criteria criteria) {
+        return new SqlSerializer.Builder()
+                .tableName(tableName)
+                .columns(columnNames)
+                .where(criteria)
+                .build();
     }
 
     /**

@@ -624,7 +624,7 @@ public class RecoveryHandshakeTest {
                 provider,
                 staleIdDetector,
                 channel -> {},
-                new AtomicBoolean(false)
+                () -> false
         );
     }
 
@@ -646,7 +646,7 @@ public class RecoveryHandshakeTest {
                 provider,
                 staleIdDetector,
                 channel -> {},
-                new AtomicBoolean(false)
+                () -> false
         );
     }
 

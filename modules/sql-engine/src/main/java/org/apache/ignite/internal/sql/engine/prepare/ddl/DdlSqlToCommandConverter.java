@@ -390,7 +390,8 @@ public class DdlSqlToCommandConverter {
 
             assert col.name.isSimple();
 
-            RelDataType relType = ctx.planner().convert(col.dataType, true);
+            Boolean nullable = col.dataType.getNullable();
+            RelDataType relType = ctx.planner().convert(col.dataType, nullable != null ? nullable : true);
             DefaultValueDefinition dflt = convertDefault(col.expression, relType);
 
             String name = col.name.getSimple();

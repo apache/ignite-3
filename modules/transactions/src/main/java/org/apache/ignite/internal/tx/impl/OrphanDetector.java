@@ -18,8 +18,8 @@
 package org.apache.ignite.internal.tx.impl;
 
 import static java.util.concurrent.CompletableFuture.failedFuture;
-import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.tx.TxState.ABANDONED;
+import static org.apache.ignite.internal.tx.TxState.FINISHING;
 import static org.apache.ignite.internal.tx.TxState.isFinalState;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -30,12 +30,10 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.configuration.ConfigurationValue;
 import org.apache.ignite.internal.event.EventListener;
-import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.replicator.ReplicaService;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.TxStateMetaAbandoned;
@@ -59,8 +57,6 @@ public class OrphanDetector {
     /** Tx messages factory. */
     private static final TxMessagesFactory FACTORY = new TxMessagesFactory();
 
-    private static final long AWAIT_PRIMARY_REPLICA_TIMEOUT_SEC = 10;
-
     /** Busy lock to stop synchronously. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
@@ -71,16 +67,13 @@ public class OrphanDetector {
     private final ReplicaService replicaService;
 
     /** Placement driver. */
-    private final PlacementDriver placementDriver;
+    private final PlacementDriverHelper placementDriverHelper;
 
     /** Lock manager. */
     private final LockManager lockManager;
 
     /** Lock conflict events listener. */
     private final EventListener<LockEventParameters> lockConflictListener = this::lockConflictListener;
-
-    /** Hybrid clock. */
-    private final HybridClock clock;
 
     /**
      * The time interval in milliseconds in which the orphan resolution sends the recovery message again, in case the transaction is still
@@ -96,22 +89,19 @@ public class OrphanDetector {
      *
      * @param topologyService Topology service.
      * @param replicaService Replica service.
-     * @param placementDriver Placement driver.
+     * @param placementDriverHelper Placement driver helper.
      * @param lockManager Lock manager.
-     * @param clock Clock.
      */
     public OrphanDetector(
             TopologyService topologyService,
             ReplicaService replicaService,
-            PlacementDriver placementDriver,
-            LockManager lockManager,
-            HybridClock clock
+            PlacementDriverHelper placementDriverHelper,
+            LockManager lockManager
     ) {
         this.topologyService = topologyService;
         this.replicaService = replicaService;
-        this.placementDriver = placementDriver;
+        this.placementDriverHelper = placementDriverHelper;
         this.lockManager = lockManager;
-        this.clock = clock;
     }
 
     /**
@@ -179,7 +169,7 @@ public class OrphanDetector {
                     txState.txCoordinatorId()
             );
 
-            sentTxRecoveryMessage(txState.commitPartitionId(), txId);
+            sendTxRecoveryMessage(txState.commitPartitionId(), txId);
         }
 
         // TODO: https://issues.apache.org/jira/browse/IGNITE-21153
@@ -193,37 +183,33 @@ public class OrphanDetector {
      * @param cmpPartGrp Replication group of commit partition.
      * @param txId Transaction id.
      */
-    private void sentTxRecoveryMessage(ReplicationGroupId cmpPartGrp, UUID txId) {
-        placementDriver.awaitPrimaryReplica(
-                cmpPartGrp,
-                clock.now(),
-                AWAIT_PRIMARY_REPLICA_TIMEOUT_SEC,
-                SECONDS
-        ).thenCompose(replicaMeta -> {
-            ClusterNode commitPartPrimaryNode = topologyService.getByConsistentId(replicaMeta.getLeaseholder());
+    private void sendTxRecoveryMessage(TablePartitionId cmpPartGrp, UUID txId) {
+        placementDriverHelper.awaitPrimaryReplicaWithExceptionHandling(cmpPartGrp)
+                .thenCompose(replicaMeta -> {
+                    ClusterNode commitPartPrimaryNode = topologyService.getByConsistentId(replicaMeta.getLeaseholder());
 
-            if (commitPartPrimaryNode == null) {
-                LOG.warn(
-                        "The primary replica of the commit partition is not available [commitPartGrp={}, tx={}]",
-                        cmpPartGrp,
-                        txId
-                );
+                    if (commitPartPrimaryNode == null) {
+                        LOG.warn(
+                                "The primary replica of the commit partition is not available [commitPartGrp={}, tx={}]",
+                                cmpPartGrp,
+                                txId
+                        );
 
-                return nullCompletedFuture();
-            }
+                        return nullCompletedFuture();
+                    }
 
-            return replicaService.invoke(commitPartPrimaryNode, FACTORY.txRecoveryMessage()
-                    .groupId(cmpPartGrp)
-                    .enlistmentConsistencyToken(replicaMeta.getStartTime().longValue())
-                    .txId(txId)
-                    .build());
-        }).exceptionally(throwable -> {
-            if (throwable != null) {
-                LOG.warn("A recovery message for the transaction was handled with the error [tx={}].", throwable, txId);
-            }
+                    return replicaService.invoke(commitPartPrimaryNode, FACTORY.txRecoveryMessage()
+                            .groupId(cmpPartGrp)
+                            .enlistmentConsistencyToken(replicaMeta.getStartTime().longValue())
+                            .txId(txId)
+                            .build());
+                }).exceptionally(throwable -> {
+                    if (throwable != null) {
+                        LOG.warn("A recovery message for the transaction was handled with the error [tx={}].", throwable, txId);
+                    }
 
-            return null;
-        });
+                    return null;
+                });
     }
 
     /**
@@ -270,6 +256,7 @@ public class OrphanDetector {
     private boolean isRecoveryNeeded(TxStateMeta txState) {
         return txState != null
                 && !isFinalState(txState.txState())
+                && txState.txState() != FINISHING
                 && !isTxAbandonedRecently(txState);
     }
 

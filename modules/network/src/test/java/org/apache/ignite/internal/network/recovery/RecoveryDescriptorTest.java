@@ -17,14 +17,17 @@
 
 package org.apache.ignite.internal.network.recovery;
 
+import static java.util.Collections.emptyList;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureCompletedMatcher.completedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.mock;
 
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandlerContext;
@@ -32,6 +35,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import org.apache.ignite.internal.network.netty.NettySender;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.network.OutNetworkObject;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -63,7 +68,7 @@ class RecoveryDescriptorTest extends BaseIgniteAbstractTest {
 
     @Test
     void acquiresNonAcquiredDescriptor() {
-        assertTrue(descriptor.acquire(context1, handshakeCompleteFuture1));
+        assertTrue(descriptor.tryAcquire(context1, handshakeCompleteFuture1));
     }
 
     @Test
@@ -73,7 +78,7 @@ class RecoveryDescriptorTest extends BaseIgniteAbstractTest {
 
     @Test
     void acquiryInformationIsAvailabeAfterAcquiring() {
-        descriptor.acquire(context1, handshakeCompleteFuture1);
+        descriptor.tryAcquire(context1, handshakeCompleteFuture1);
 
         DescriptorAcquiry acquiry = descriptor.holder();
         assertThat(acquiry, is(notNullValue()));
@@ -83,19 +88,19 @@ class RecoveryDescriptorTest extends BaseIgniteAbstractTest {
 
     @Test
     void cannotAcquireAcquiredDescriptor() {
-        descriptor.acquire(context1, handshakeCompleteFuture1);
+        descriptor.tryAcquire(context1, handshakeCompleteFuture1);
 
-        assertFalse(descriptor.acquire(context2, handshakeCompleteFuture2));
+        assertFalse(descriptor.tryAcquire(context2, handshakeCompleteFuture2));
         assertThat(descriptor.holder().channel(), is(channel1));
     }
 
     @Test
     void releaseMakesDescriptorAvailable() {
-        descriptor.acquire(context1, handshakeCompleteFuture1);
+        descriptor.tryAcquire(context1, handshakeCompleteFuture1);
 
         descriptor.release(context1);
 
-        assertTrue(descriptor.acquire(context1, handshakeCompleteFuture1));
+        assertTrue(descriptor.tryAcquire(context1, handshakeCompleteFuture1));
         DescriptorAcquiry acquiry = descriptor.holder();
         assertThat(acquiry, is(notNullValue()));
         assertThat(acquiry.channel(), is(channel1));
@@ -103,7 +108,7 @@ class RecoveryDescriptorTest extends BaseIgniteAbstractTest {
 
     @Test
     void releaseRemovesAcquiryInformation() {
-        descriptor.acquire(context1, handshakeCompleteFuture1);
+        descriptor.tryAcquire(context1, handshakeCompleteFuture1);
 
         descriptor.release(context1);
 
@@ -112,7 +117,7 @@ class RecoveryDescriptorTest extends BaseIgniteAbstractTest {
 
     @Test
     void releaseWithAnotherContextHasNoEffect() {
-        descriptor.acquire(context1, handshakeCompleteFuture1);
+        descriptor.tryAcquire(context1, handshakeCompleteFuture1);
 
         descriptor.release(context2);
 
@@ -121,7 +126,7 @@ class RecoveryDescriptorTest extends BaseIgniteAbstractTest {
         assertThat(acquiry.channel(), is(channel1));
         assertThat(acquiry.clinchResolved().toCompletableFuture().isDone(), is(false));
 
-        assertFalse(descriptor.acquire(context2, handshakeCompleteFuture2));
+        assertFalse(descriptor.tryAcquire(context2, handshakeCompleteFuture2));
 
         acquiry = descriptor.holder();
         assertThat(acquiry, is(notNullValue()));
@@ -131,11 +136,33 @@ class RecoveryDescriptorTest extends BaseIgniteAbstractTest {
 
     @Test
     void releaseCompletesClinchReleasedStage() {
-        descriptor.acquire(context1, handshakeCompleteFuture1);
+        descriptor.tryAcquire(context1, handshakeCompleteFuture1);
         CompletionStage<Void> clinchResolved = descriptor.holder().clinchResolved();
 
         descriptor.release(context1);
 
         assertThat(clinchResolved.toCompletableFuture(), is(completedFuture()));
+    }
+
+    @Test
+    void completesOutObjectFutureOnAcknowledge() {
+        OutNetworkObject outObj = new OutNetworkObject(mock(NetworkMessage.class), emptyList(), true);
+        descriptor.add(outObj);
+
+        descriptor.acknowledge(1);
+
+        assertThat(outObj.acknowledgedFuture(), is(completedFuture()));
+    }
+
+    @Test
+    void onlyCompletesFuturesOfAcknowledgedOutObjects() {
+        OutNetworkObject outObj1 = new OutNetworkObject(mock(NetworkMessage.class), emptyList(), true);
+        OutNetworkObject outObj2 = new OutNetworkObject(mock(NetworkMessage.class), emptyList(), true);
+        descriptor.add(outObj1);
+        descriptor.add(outObj2);
+
+        descriptor.acknowledge(1);
+
+        assertThat(outObj2.acknowledgedFuture(), is(not(completedFuture())));
     }
 }

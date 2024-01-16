@@ -94,8 +94,10 @@ public class ConfigurationRegistry implements IgniteComponent {
 
     /** {@inheritDoc} */
     @Override
-    public void start() {
+    public CompletableFuture<Void> start() {
         changer.start();
+
+        return nullCompletedFuture();
     }
 
     /** {@inheritDoc} */

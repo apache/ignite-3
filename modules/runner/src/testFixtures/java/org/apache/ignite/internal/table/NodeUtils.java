@@ -19,11 +19,13 @@ package org.apache.ignite.internal.table;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.FastTimestamps.coarseCurrentTimeMillis;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.IntFunction;
 import org.apache.ignite.internal.app.IgniteImpl;
@@ -109,6 +111,8 @@ public class NodeUtils {
 
         AtomicReference<String> newLeaseholder = new AtomicReference<>();
 
+        AtomicLong lastInsertAttempt = new AtomicLong();
+
         assertTrue(IgniteTestUtils.waitForCondition(() -> {
             CompletableFuture<ReplicaMeta> newPrimaryReplicaFut = nodes.apply(0).placementDriver().awaitPrimaryReplica(
                     tblReplicationGrp,
@@ -126,7 +130,11 @@ public class NodeUtils {
             } else {
                 // Insert is needed to notify the placement driver about a leader for the group was changed.
                 try {
-                    tbl.recordView().upsert(null, Tuple.create().set("key", 1).set("val", "val 1"));
+                    long lastTs = lastInsertAttempt.get();
+
+                    if (coarseCurrentTimeMillis() - lastTs > 1_000 && lastInsertAttempt.compareAndSet(lastTs, coarseCurrentTimeMillis())) {
+                        tbl.recordView().upsert(null, Tuple.create().set("key", 1).set("val", "val 1"));
+                    }
                 } catch (Exception e) {
                     LOG.error("Failed to perform insert", e);
                 }

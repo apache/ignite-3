@@ -19,6 +19,7 @@ package org.apache.ignite.internal.systemview;
 
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.systemview.utils.SystemViewUtils.tupleSchemaForView;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 
 import java.util.ArrayList;
@@ -98,7 +99,7 @@ public class SystemViewManagerImpl implements SystemViewManager, NodeAttributesP
     }
 
     @Override
-    public void start() {
+    public CompletableFuture<Void> start() {
         inBusyLock(busyLock, () -> {
             if (!startGuard.compareAndSet(false, true)) {
                 throw new IllegalStateException("System view manager cannot be started twice");
@@ -128,6 +129,8 @@ public class SystemViewManagerImpl implements SystemViewManager, NodeAttributesP
 
             nodeAttributes.put(NODE_ATTRIBUTES_KEY, String.join(NODE_ATTRIBUTES_LIST_SEPARATOR, views.keySet()));
         });
+
+        return nullCompletedFuture();
     }
 
     @Override
