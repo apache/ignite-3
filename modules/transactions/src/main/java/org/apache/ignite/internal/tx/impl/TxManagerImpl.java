@@ -50,6 +50,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Function;
 import java.util.function.LongSupplier;
 import java.util.function.Supplier;
@@ -83,6 +85,7 @@ import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.TxStateMetaFinishing;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.message.RwTransactionsFinishedRequest;
+import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -177,6 +180,12 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     private final RwTxFinishedHandler rwTxFinishedHandler;
 
     /**
+     * Lock for {@link #rwTxFinishedHandlerLock} to avoid races between incrementing/decrementing counters and handling
+     * {@link RwTransactionsFinishedRequest}.
+     */
+    private final ReadWriteLock rwTxFinishedHandlerLock = new ReentrantReadWriteLock();
+
+    /**
      * The constructor.
      *
      * @param nodeName Node name.
@@ -256,8 +265,6 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         updateTxMeta(txId, old -> new TxStateMeta(PENDING, localNodeId, null, null, readOnly, txCatalogVersion));
 
         if (!readOnly) {
-            rwTxFinishedHandler.incrementRwTxCounter(txCatalogVersion);
-
             return new ReadWriteTransactionImpl(this, timestampTracker, txId);
         }
 
@@ -374,7 +381,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                     )
             );
 
-            rwTxFinishedHandler.decrementRwTxCount(txStateMeta);
+            decrementRwTxCount(txStateMeta);
 
             return nullCompletedFuture();
         }
@@ -431,7 +438,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                         txId,
                         finishingStateMeta.txFinishFuture()
                 )
-        ).thenAccept(unused -> rwTxFinishedHandler.decrementRwTxCount(finishingStateMeta));
+        ).thenAccept(unused -> decrementRwTxCount(finishingStateMeta));
     }
 
     private static CompletableFuture<Void> checkTxOutcome(boolean commit, UUID txId, TransactionMeta stateMeta) {
@@ -629,13 +636,21 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
         messagingService.addMessageHandler(ReplicaMessageGroup.class, this);
 
+        messagingService.addMessageHandler(TxMessageGroup.class, (message, senderConsistentId, correlationId) -> {
+            rwTxFinishedHandlerLock.writeLock().lock();
+
+            try {
+                rwTxFinishedHandler.onReceiveTxNetworkMessage(message, senderConsistentId, correlationId);
+            } finally {
+                rwTxFinishedHandlerLock.writeLock().unlock();
+            }
+        });
+
         txStateVolatileStorage.start();
 
         orphanDetector.start(txStateVolatileStorage, txConfig.abandonedCheckTs());
 
         txCleanupRequestHandler.start();
-
-        rwTxFinishedHandler.start();
 
         return nullCompletedFuture();
     }
@@ -656,7 +671,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
         txCleanupRequestHandler.stop();
 
-        rwTxFinishedHandler.stop();
+        rwTxFinishedHandler.close();
 
         shutdownAndAwaitTermination(cleanupExecutor, 10, TimeUnit.SECONDS);
     }
@@ -903,11 +918,34 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         }
     }
 
-    /**
-     * Returns the transaction catalog version.
-     *
-     * @param beginTs Transaction begin timestamp.
-     */
+    private void decrementRwTxCount(TxStateMeta txStateMeta) {
+        rwTxFinishedHandlerLock.readLock().lock();
+
+        try {
+            rwTxFinishedHandler.decrementRwTxCount(txStateMeta);
+        } finally {
+            rwTxFinishedHandlerLock.readLock().unlock();
+        }
+    }
+
+    private HybridTimestamp newBeginTimestamp(boolean readOnly) {
+        if (readOnly) {
+            return clock.now();
+        }
+
+        rwTxFinishedHandlerLock.readLock().lock();
+
+        try {
+            HybridTimestamp beginTs = clock.now();
+
+            rwTxFinishedHandler.incrementRwTxCounter(txCatalogVersion(beginTs));
+
+            return beginTs;
+        } finally {
+            rwTxFinishedHandlerLock.readLock().unlock();
+        }
+    }
+
     private int txCatalogVersion(HybridTimestamp beginTs) {
         return catalogService.activeCatalogVersion(beginTs.longValue());
     }
@@ -915,14 +953,5 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     /** See {@link RwTxFinishedHandler#isRwTransactionsFinished(int)}. */
     boolean isRwTransactionsFinished(int catalogVersion) {
         return rwTxFinishedHandler.isRwTransactionsFinished(catalogVersion);
-    }
-
-    /**
-     * Returns the new beginning timestamp of the transaction.
-     *
-     * @param readOnly {@code true} if the transaction is read-only, otherwise read-write.
-     */
-    private HybridTimestamp newBeginTimestamp(boolean readOnly) {
-        return readOnly ? clock.now() : rwTxFinishedHandler.newBeginTimestamp();
     }
 }

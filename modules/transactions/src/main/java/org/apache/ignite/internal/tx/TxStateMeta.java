@@ -47,7 +47,10 @@ public class TxStateMeta implements TransactionMeta {
      */
     private final @Nullable Boolean readOnly;
 
-    /** Catalog version of transaction at its beginning timestamp. {@code null} if unknown, for example, if there is no previous meta. */
+    /**
+     * An approximate catalog version of transaction at its beginning timestamp. {@code null} if unknown, for example, if there is no
+     * previous meta.
+     */
     private final @Nullable Integer catalogVersion;
 
     /**
@@ -59,8 +62,8 @@ public class TxStateMeta implements TransactionMeta {
      * @param commitTimestamp Commit timestamp.
      * @param readOnly {@code true} for a read-only transaction, {@code false} for a read-write transaction and {@code null} if unknown,
      *      for example, if there is no previous meta.
-     * @param catalogVersion Catalog version of transaction at its beginning timestamp. {@code null} if unknown, for example, if there is
-     *      no previous meta.
+     * @param catalogVersion An approximate catalog version of transaction at its beginning timestamp. {@code null} if unknown, for example,
+     *      if there is no previous meta.
      */
     public TxStateMeta(
             TxState txState,
@@ -117,8 +120,8 @@ public class TxStateMeta implements TransactionMeta {
     }
 
     /**
-     * Returns catalog version of transaction at its beginning timestamp. {@code null} if unknown, for example, if there is no previous
-     * meta.
+     * Returns an approximate catalog version of transaction at its beginning timestamp. {@code null} if unknown, for example, if there is
+     * no previous meta.
      */
     public @Nullable Integer catalogVersion() {
         return catalogVersion;

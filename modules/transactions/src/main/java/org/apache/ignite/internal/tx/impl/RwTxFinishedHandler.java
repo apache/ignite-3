@@ -17,11 +17,8 @@
 
 package org.apache.ignite.internal.tx.impl;
 
-import java.util.concurrent.locks.ReadWriteLock;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.hlc.HybridClock;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.message.RwTransactionsFinishedRequest;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
@@ -43,21 +40,14 @@ class RwTxFinishedHandler {
 
     private final VolatileTxCounter rwTxCounterByCatalogVersion = new VolatileTxCounter();
 
-    private final ReadWriteLock checkFinishedReadWriteLock = new ReentrantReadWriteLock();
-
     RwTxFinishedHandler(CatalogService catalogService, MessagingService messagingService, HybridClock clock) {
         this.catalogService = catalogService;
         this.messagingService = messagingService;
         this.clock = clock;
     }
 
-    /** Starts the handler. */
-    void start() {
-        messagingService.addMessageHandler(TxMessageGroup.class, this::onReceiveTxNetworkMessage);
-    }
-
-    /** Stops the handler. */
-    void stop() {
+    /** Closes the handler. */
+    void close() {
         rwTxCounterByCatalogVersion.clear();
     }
 
@@ -86,11 +76,11 @@ class RwTxFinishedHandler {
     }
 
     /**
-     * Handles messages of {@link TxMessageGroup}.
+     * Handles {@link RwTransactionsFinishedRequest} of {@link TxMessageGroup}.
      *
      * @see NetworkMessageHandler#onReceived(NetworkMessage, String, Long)
      */
-    private void onReceiveTxNetworkMessage(NetworkMessage message, String senderConsistentId, @Nullable Long correlationId) {
+    void onReceiveTxNetworkMessage(NetworkMessage message, String senderConsistentId, @Nullable Long correlationId) {
         if (!(message instanceof RwTransactionsFinishedRequest)) {
             return;
         }
@@ -115,28 +105,11 @@ class RwTxFinishedHandler {
      * @param catalogVersion Catalog version to check.
      */
     boolean isRwTransactionsFinished(int catalogVersion) {
-        checkFinishedReadWriteLock.writeLock().lock();
-
-        try {
-            if (catalogVersion > catalogService.activeCatalogVersion(clock.nowLong())) {
-                // Requested catalog version has not yet registered or activated locally.
-                return false;
-            }
-
-            return !rwTxCounterByCatalogVersion.isExistsTxBefore(catalogVersion);
-        } finally {
-            checkFinishedReadWriteLock.writeLock().unlock();
+        if (catalogVersion > catalogService.activeCatalogVersion(clock.nowLong())) {
+            // Requested catalog version has not yet registered or activated locally.
+            return false;
         }
-    }
 
-    /** Returns the beginning timestamp for new RW transactions. */
-    HybridTimestamp newBeginTimestamp() {
-        checkFinishedReadWriteLock.readLock().lock();
-
-        try {
-            return clock.now();
-        } finally {
-            checkFinishedReadWriteLock.readLock().unlock();
-        }
+        return !rwTxCounterByCatalogVersion.isExistsTxBefore(catalogVersion);
     }
 }
