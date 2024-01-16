@@ -21,6 +21,7 @@ import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
@@ -67,8 +68,10 @@ import org.apache.ignite.internal.tx.LockException;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.LockMode;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.TxPriority;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
+import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.tx.impl.ReadWriteTransactionImpl;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.CollectionUtils;
@@ -85,6 +88,8 @@ import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
@@ -2089,6 +2094,65 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         for (Tuple tuple : accountRecordsView.getAll(null, keys.stream().map(k -> makeKey(k)).collect(toList()))) {
             assertEquals(200., tuple.doubleValue("balance"));
         }
+    }
+
+    @Test
+    public void testYoungerTransactionWithHigherPriorityWaitsForOlderTransactionCommit() {
+        IgniteTransactionsImpl igniteTransactionsImpl = (IgniteTransactionsImpl) igniteTransactions;
+
+        KeyValueView<Long, String> keyValueView = customers.keyValueView(Long.class, String.class);
+
+        // Init data.
+        keyValueView.put(null, 1L, "init");
+
+        // Start low priority transaction.
+        Transaction oldLowTx = igniteTransactionsImpl.beginWithPriority(false, TxPriority.LOW);
+
+        // Update data.
+        keyValueView.put(oldLowTx, 1L, "low");
+
+        // Start normal priority transaction.
+        Transaction youngNormalTx = igniteTransactionsImpl.beginWithPriority(false, TxPriority.NORMAL);
+
+        // Try to update the same key with normal priority.
+        CompletableFuture<String> objectCompletableFuture = CompletableFuture.supplyAsync(
+                () -> keyValueView.getAndPut(youngNormalTx, 1L, "normal")
+        );
+
+        // Commit low priority transaction.
+        oldLowTx.commit();
+
+        // Wait for normal priority transaction to update the key.
+        assertThat(objectCompletableFuture, willBe("low"));
+
+        // Commit normal priority transaction.
+        youngNormalTx.commit();
+
+        // Check that normal priority transaction has updated the key.
+        assertEquals("normal", keyValueView.get(null, 1L));
+    }
+
+    @ParameterizedTest
+    @EnumSource(TxPriority.class)
+    public void testYoungerTransactionThrowsExceptionIfKeyLockedByOlderTransactionWithSamePriority(TxPriority priority) {
+        IgniteTransactionsImpl igniteTransactionsImpl = (IgniteTransactionsImpl) igniteTransactions;
+
+        KeyValueView<Long, String> keyValueView = customers.keyValueView(Long.class, String.class);
+
+        // Init data.
+        keyValueView.put(null, 1L, "init");
+
+        // Start the first transaction.
+        Transaction oldNormalTx = igniteTransactionsImpl.beginWithPriority(false, priority);
+
+        // Update data with the first transaction.
+        keyValueView.put(oldNormalTx, 1L, "low");
+
+        // Start the second transaction with the same priority.
+        Transaction youngNormalTx = igniteTransactionsImpl.beginWithPriority(false, priority);
+
+        // Try to update the same key with the second normal priority transaction.
+        assertThrows(TransactionException.class, () -> keyValueView.put(youngNormalTx, 1L, "normal"));
     }
 
     /**

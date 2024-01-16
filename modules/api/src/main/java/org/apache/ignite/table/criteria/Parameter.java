@@ -15,17 +15,39 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed.replicator;
+package org.apache.ignite.table.criteria;
 
-import org.apache.ignite.lang.ErrorGroups.Transactions;
-import org.apache.ignite.tx.TransactionException;
+import org.jetbrains.annotations.Nullable;
 
 /**
- * Thrown when, during an attempt to commit a transaction, it turns out that the transaction cannot be committed
- * because an incompatible schema change has happened.
+ * Represents a parameter for criteria query.
+ *
+ * @param <T> Parameter type.
  */
-public class IncompatibleSchemaAbortException extends TransactionException {
-    public IncompatibleSchemaAbortException(String message) {
-        super(Transactions.TX_COMMIT_ERR, message);
+public final class Parameter<T> implements Criteria {
+    private final T value;
+
+    /**
+     * Constructor.
+     *
+     * @param value Parameter value.
+     */
+    Parameter(T value) {
+        this.value = value;
+    }
+
+    /**
+     * Gets parameter value.
+     *
+     * @return A value.
+     */
+    public T getValue() {
+        return value;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public <C> void accept(CriteriaVisitor<C> v, @Nullable C context) {
+        v.visit(this, context);
     }
 }

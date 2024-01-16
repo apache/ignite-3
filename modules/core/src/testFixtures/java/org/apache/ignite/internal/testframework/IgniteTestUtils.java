@@ -95,7 +95,7 @@ public final class IgniteTestUtils {
      * @param val       New field value.
      * @throws IgniteInternalException In case of error.
      */
-    public static void setFieldValue(Object obj, String fieldName, Object val) throws IgniteInternalException {
+    public static void setFieldValue(Object obj, String fieldName, @Nullable Object val) throws IgniteInternalException {
         assert obj != null;
         assert fieldName != null;
 

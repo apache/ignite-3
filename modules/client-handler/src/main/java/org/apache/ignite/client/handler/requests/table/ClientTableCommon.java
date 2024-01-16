@@ -24,6 +24,7 @@ import static org.apache.ignite.lang.ErrorGroups.Client.TABLE_ID_NOT_FOUND_ERR;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
@@ -47,6 +48,7 @@ import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.internal.type.NumberNativeType;
 import org.apache.ignite.internal.type.TemporalNativeType;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.manager.IgniteTables;
@@ -351,7 +353,7 @@ public class ClientTableCommon {
             return ((IgniteTablesInternal) tables).tableAsync(tableId)
                     .thenApply(t -> {
                         if (t == null) {
-                            throw new IgniteException(TABLE_ID_NOT_FOUND_ERR, "Table does not exist: " + tableId);
+                            throw tableIdNotFoundException(tableId);
                         }
 
                         return t;
@@ -359,6 +361,16 @@ public class ClientTableCommon {
         } catch (NodeStoppingException e) {
             throw new IgniteException(e.traceId(), e.code(), e.getMessage(), e);
         }
+    }
+
+    /**
+     * Returns a new table id not found exception.
+     *
+     * @param tableId Table id.
+     * @return Exception.
+     */
+    public static TableNotFoundException tableIdNotFoundException(Integer tableId) {
+        return new TableNotFoundException(UUID.randomUUID(), TABLE_ID_NOT_FOUND_ERR, "Table does not exist: " + tableId, null);
     }
 
     /**

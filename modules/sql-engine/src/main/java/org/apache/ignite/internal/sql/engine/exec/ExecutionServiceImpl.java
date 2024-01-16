@@ -50,6 +50,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiFunction;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.sql.SqlExplainLevel;
@@ -684,13 +685,6 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                     .schemaVersion(ctx.schemaVersion())
                     .build();
 
-            CompletableFuture<Void> remoteFragmentInitializationCompletionFuture = new CompletableFuture<>();
-
-            remoteFragmentInitCompletion.put(
-                    new RemoteFragmentKey(targetNodeName, desc.fragmentId()),
-                    remoteFragmentInitializationCompletionFuture
-            );
-
             return messageService.send(targetNodeName, request);
         }
 
@@ -850,6 +844,18 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                         }
                     }
 
+                    // then let's register all remote fragment's initialization futures. This need
+                    // to handle race when root fragment initialization failed and the query is cancelled
+                    // while sending is actually still in progress
+                    for (MappedFragment mappedFragment : mappedFragments) {
+                        for (String nodeName : mappedFragment.nodes()) {
+                            remoteFragmentInitCompletion.put(
+                                    new RemoteFragmentKey(nodeName, mappedFragment.fragment().fragmentId()),
+                                    new CompletableFuture<>()
+                            );
+                        }
+                    }
+
                     // now transaction is initialized for sure including assignment
                     // of the commit partition (if there is at least one table in the fragments)
                     TxAttributes attributes = TxAttributes.fromTx(tx);
@@ -961,7 +967,15 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
                 @Override
                 public CompletableFuture<Void> closeAsync() {
-                    return root.thenCompose(none -> DistributedQueryManager.this.close(false));
+                    return root.handle((ignored, ex) -> {
+                        if (ex != null) {
+                            // cancellation should be triggered by listener of exceptional
+                            // completion of `root` future, thus let's just return a result here
+                            return DistributedQueryManager.this.cancelFut;
+                        }
+
+                        return DistributedQueryManager.this.close(false);
+                    }).thenCompose(Function.identity());
                 }
             };
         }

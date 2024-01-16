@@ -254,7 +254,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     /** {@inheritDoc} */
     @Override
-    public synchronized void start() {
+    public synchronized CompletableFuture<Void> start() {
         var nodeName = clusterSrvc.topologyService().localMember().name();
 
         taskExecutor = registerService(new QueryTaskExecutorImpl(nodeName));
@@ -350,6 +350,8 @@ public class SqlQueryProcessor implements QueryProcessor {
         this.executionSrvc = executionSrvc;
 
         services.forEach(LifecycleAware::start);
+
+        return nullCompletedFuture();
     }
 
     // need to be refactored after TODO: https://issues.apache.org/jira/browse/IGNITE-20925

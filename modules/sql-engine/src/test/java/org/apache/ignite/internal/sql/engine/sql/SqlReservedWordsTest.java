@@ -121,6 +121,7 @@ public class SqlReservedWordsTest extends AbstractDdlParserTest {
             "INTO",
             "IS",
             "JOIN",
+            "JSON_SCOPE",
             "LAG",
             "LAST_VALUE",
             "LEAD",
@@ -158,6 +159,8 @@ public class SqlReservedWordsTest extends AbstractDdlParserTest {
             "OUTER", // OUTER JOIN
             "OVER",
             "PARTITION",
+            "PERCENTILE_CONT",
+            "PERCENTILE_DISC",
             "PERCENT_RANK",
             "PERIOD",
             "PERMUTE",

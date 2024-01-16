@@ -24,6 +24,7 @@ import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.subscription.ListAccumulator;
@@ -81,6 +82,46 @@ public class TestFlowUtils {
         });
 
         return resultFuture;
+    }
+
+    /**
+     * Subscribes to a cursor publisher.
+     *
+     * @param scannedRows List of rows, that were scanned.
+     * @param publisher Publisher.
+     * @param scanned A future that will be completed when the scan is finished.
+     * @return Subscription, that can request rows from cluster.
+     */
+    public static <T> Subscription subscribeToPublisher(
+            List<T> scannedRows,
+            Publisher<T> publisher,
+            CompletableFuture<Void> scanned
+    ) {
+        AtomicReference<Subscription> subscriptionRef = new AtomicReference<>();
+
+        publisher.subscribe(new Subscriber<>() {
+            @Override
+            public void onSubscribe(Subscription subscription) {
+                subscriptionRef.set(subscription);
+            }
+
+            @Override
+            public void onNext(T item) {
+                scannedRows.add(item);
+            }
+
+            @Override
+            public void onError(Throwable throwable) {
+                scanned.completeExceptionally(throwable);
+            }
+
+            @Override
+            public void onComplete() {
+                scanned.complete(null);
+            }
+        });
+
+        return subscriptionRef.get();
     }
 
     /**

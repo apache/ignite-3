@@ -23,14 +23,23 @@ import java.util.UUID;
 import org.apache.ignite.internal.tx.DeadlockPreventionPolicy;
 
 /**
- * Deadlock prevention policy that, in case of conflict of transactions tx1 and tx2 on the same key, assuming tx1 is holding the lock,
- * allows tx2 to wait for the lock if tx2 is older than tx1, and aborts tx2 is tx2 is younger than tx1.
+ * Implements a deadlock prevention policy that resolves conflicts between two transactions (tx1 and tx2) contending for the same key. When
+ * tx1 holds a lock and tx2 attempts to acquire it, the policy allows tx2 to wait for the lock if any of the following conditions are
+ * met:
+ * <ul>
+ *     <li>tx2 is older than tx1.</li>
+ *     <li>tx2 is younger than tx1 but has a higher {@link org.apache.ignite.internal.tx.TxPriority}.</li>
+ *     <li>The wait timeout is greater than 0.</li>
+ * </ul>
+ * If none of these conditions are met, tx2 is aborted to prevent deadlock.
  */
 public class WaitDieDeadlockPreventionPolicy implements DeadlockPreventionPolicy {
+    private static final TxIdPriorityComparator TX_ID_PRIORITY_COMPARATOR = new TxIdPriorityComparator();
+
     /** {@inheritDoc} */
     @Override
     public Comparator<UUID> txIdComparator() {
-        return UUID::compareTo;
+        return TX_ID_PRIORITY_COMPARATOR;
     }
 
     /** {@inheritDoc} */

@@ -33,6 +33,7 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteReceiver;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSender;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSystemViewScan;
+import org.apache.ignite.internal.sql.engine.rel.IgniteTableFunctionScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableModify;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTrimExchange;
@@ -192,6 +193,12 @@ public class QuerySplitter extends IgniteRelShuttle {
             curr.tables.add(table);
         }
 
+        return rel.clone(idGenerator.nextId());
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public IgniteRel visit(IgniteTableFunctionScan rel) {
         return rel.clone(idGenerator.nextId());
     }
 

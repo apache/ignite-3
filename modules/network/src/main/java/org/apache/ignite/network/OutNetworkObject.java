@@ -18,6 +18,7 @@
 package org.apache.ignite.network;
 
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.network.message.ClassDescriptorMessage;
 
 /**
@@ -36,6 +37,8 @@ public class OutNetworkObject {
      * to the queue this flag should be set to {@code false}.
      */
     private boolean shouldBeSavedForRecovery;
+
+    private final CompletableFuture<Void> acknowledgedFuture = new CompletableFuture<>();
 
     /**
      * Constructor.
@@ -74,5 +77,17 @@ public class OutNetworkObject {
 
     public List<ClassDescriptorMessage> descriptors() {
         return descriptors;
+    }
+
+    public CompletableFuture<Void> acknowledgedFuture() {
+        return acknowledgedFuture;
+    }
+
+    public void acknowledge() {
+        acknowledgedFuture.complete(null);
+    }
+
+    public void failAcknowledgement(Throwable ex) {
+        acknowledgedFuture.completeExceptionally(ex);
     }
 }

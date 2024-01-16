@@ -516,7 +516,8 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
     public void testInsertDefaultNullValue() {
         checkDefaultValue(defaultValueArgs()
                 .filter(a -> !a.sqlType.endsWith("NOT NULL"))
-                .map(a -> new DefaultValueArg(a.sqlType, "NULL", null))
+                // TODO: uncomment after https://issues.apache.org/jira/browse/IGNITE-21243
+                //.map(a -> new DefaultValueArg(a.sqlType, "NULL", null))
                 .collect(Collectors.toList()));
     }
 

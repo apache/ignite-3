@@ -17,23 +17,17 @@
 
 package org.apache.ignite.internal.metastorage.impl;
 
-import static org.apache.ignite.internal.util.ByteUtils.bytesToLong;
-import static org.apache.ignite.internal.util.ByteUtils.longToBytes;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.cancelOrConsume;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
-import static org.apache.ignite.lang.ErrorGroups.MetaStorage.RESTORING_STORAGE_ERR;
 
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.Flow.Subscriber;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
@@ -46,14 +40,12 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.RevisionUpdateListener;
-import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Iif;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.dsl.StatementResult;
-import org.apache.ignite.internal.metastorage.exceptions.MetaStorageException;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.OnRevisionAppliedCallback;
 import org.apache.ignite.internal.metastorage.server.raft.MetaStorageListener;
@@ -72,8 +64,6 @@ import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.internal.vault.VaultEntry;
-import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterService;
 import org.jetbrains.annotations.Nullable;
@@ -92,15 +82,7 @@ import org.jetbrains.annotations.TestOnly;
 public class MetaStorageManagerImpl implements MetaStorageManager {
     private static final IgniteLogger LOG = Loggers.forClass(MetaStorageManagerImpl.class);
 
-    /**
-     * Special key for the Vault where the applied revision is stored.
-     */
-    private static final ByteArray APPLIED_REV_KEY = new ByteArray("applied_revision");
-
     private final ClusterService clusterService;
-
-    /** Vault manager in order to commit processed watches with corresponding applied revision. */
-    private final VaultManager vaultMgr;
 
     /** Raft manager that is used for metastorage raft group handling. */
     private final RaftManager raftMgr;
@@ -136,14 +118,13 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
 
     private final TopologyAwareRaftGroupServiceFactory topologyAwareRaftGroupServiceFactory;
 
-    private volatile long appliedRevision;
+    private volatile long appliedRevision = 0;
 
     private volatile MetaStorageConfiguration metaStorageConfiguration;
 
     /**
      * The constructor.
      *
-     * @param vaultMgr Vault manager.
      * @param clusterService Cluster network service.
      * @param cmgMgr Cluster management service Manager.
      * @param logicalTopologyService Logical topology service.
@@ -152,7 +133,6 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
      * @param clock A hybrid logical clock.
      */
     public MetaStorageManagerImpl(
-            VaultManager vaultMgr,
             ClusterService clusterService,
             ClusterManagementGroupManager cmgMgr,
             LogicalTopologyService logicalTopologyService,
@@ -161,7 +141,6 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
             HybridClock clock,
             TopologyAwareRaftGroupServiceFactory topologyAwareRaftGroupServiceFactory
     ) {
-        this.vaultMgr = vaultMgr;
         this.clusterService = clusterService;
         this.raftMgr = raftMgr;
         this.cmgMgr = cmgMgr;
@@ -176,7 +155,6 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
      */
     @TestOnly
     public MetaStorageManagerImpl(
-            VaultManager vaultMgr,
             ClusterService clusterService,
             ClusterManagementGroupManager cmgMgr,
             LogicalTopologyService logicalTopologyService,
@@ -186,7 +164,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
             TopologyAwareRaftGroupServiceFactory topologyAwareRaftGroupServiceFactory,
             MetaStorageConfiguration configuration
     ) {
-        this(vaultMgr, clusterService, cmgMgr, logicalTopologyService, raftMgr, storage, clock, topologyAwareRaftGroupServiceFactory);
+        this(clusterService, cmgMgr, logicalTopologyService, raftMgr, storage, clock, topologyAwareRaftGroupServiceFactory);
 
         configure(configuration);
     }
@@ -232,6 +210,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
 
                 storage.setRecoveryRevisionListener(null);
 
+                appliedRevision = targetRevision;
                 if (recoveryFinishedFuture.complete(targetRevision)) {
                     LOG.info("Finished MetaStorage recovery");
                 }
@@ -248,9 +227,12 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
 
         // Storage might be already up-to-date, so check here manually after setting the listener.
         try {
-            if (storage.revision() >= targetRevision) {
+            long storageRevision = storage.revision();
+
+            if (storageRevision >= targetRevision) {
                 storage.setRecoveryRevisionListener(null);
 
+                appliedRevision = targetRevision;
                 if (recoveryFinishedFuture.complete(targetRevision)) {
                     LOG.info("Finished MetaStorage recovery");
                 }
@@ -355,10 +337,8 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
     }
 
     @Override
-    public void start() {
+    public CompletableFuture<Void> start() {
         storage.start();
-
-        appliedRevision = readRevisionFromVault();
 
         cmgMgr.metaStorageNodes()
                 .thenCompose(metaStorageNodes -> {
@@ -383,16 +363,8 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
                         metaStorageSvcFut.complete(service);
                     }
                 });
-    }
 
-    private long readRevisionFromVault() {
-        try {
-            VaultEntry entry = vaultMgr.get(APPLIED_REV_KEY).get(10, TimeUnit.SECONDS);
-
-            return entry == null ? 0L : bytesToLong(entry.value());
-        } catch (InterruptedException | ExecutionException | TimeoutException e) {
-            throw new MetaStorageException(RESTORING_STORAGE_ERR, e);
-        }
+        return nullCompletedFuture();
     }
 
     @Override
@@ -449,7 +421,6 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
         try {
             return recoveryFinishedFuture
                     .thenAccept(revision -> inBusyLock(busyLock, () -> {
-                        // Meta Storage contract states that all updated entries under a particular revision must be stored in the Vault.
                         storage.startWatches(revision + 1, new OnRevisionAppliedCallback() {
                             @Override
                             public void onSafeTimeAdvanced(HybridTimestamp newSafeTime) {
@@ -457,8 +428,8 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
                             }
 
                             @Override
-                            public CompletableFuture<Void> onRevisionApplied(WatchEvent watchEvent) {
-                                return MetaStorageManagerImpl.this.onRevisionApplied(watchEvent);
+                            public void onRevisionApplied(long revision) {
+                                MetaStorageManagerImpl.this.onRevisionApplied(revision);
                             }
                         });
                     }))
@@ -853,22 +824,10 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
     }
 
     /**
-     * Saves processed Meta Storage revision and corresponding entries to the Vault.
+     * Saves processed Meta Storage revision to the {@link #appliedRevision}.
      */
-    private CompletableFuture<Void> onRevisionApplied(WatchEvent watchEvent) {
-        if (!busyLock.enterBusy()) {
-            LOG.info("Skipping applying MetaStorage revision because the node is stopping");
-
-            return nullCompletedFuture();
-        }
-
-        try {
-            CompletableFuture<Void> saveToVaultFuture = vaultMgr.put(APPLIED_REV_KEY, longToBytes(watchEvent.revision()));
-
-            return saveToVaultFuture.thenRun(() -> appliedRevision = watchEvent.revision());
-        } finally {
-            busyLock.leaveBusy();
-        }
+    private void onRevisionApplied(long revision) {
+        appliedRevision = revision;
     }
 
     @Override

@@ -174,7 +174,6 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
             );
 
             this.metaStorageManager = new MetaStorageManagerImpl(
-                    vaultManager,
                     clusterService,
                     cmgManager,
                     logicalTopologyService,

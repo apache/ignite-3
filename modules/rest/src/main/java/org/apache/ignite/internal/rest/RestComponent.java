@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.rest;
 
 import static io.micronaut.context.env.Environment.BARE_METAL;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import io.micronaut.context.ApplicationContext;
 import io.micronaut.http.server.exceptions.ServerStartupException;
@@ -31,6 +32,7 @@ import java.net.UnknownHostException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -99,7 +101,7 @@ public class RestComponent implements IgniteComponent {
 
     /** {@inheritDoc} */
     @Override
-    public void start() {
+    public CompletableFuture<Void> start() {
         RestView restConfigurationView = restConfiguration.value();
         RestSslView sslConfigurationView = restConfigurationView.ssl();
 
@@ -107,7 +109,7 @@ public class RestComponent implements IgniteComponent {
         boolean dualProtocol = restConfiguration.dualProtocol().value();
 
         if (startServer(restConfigurationView.port(), sslConfigurationView.port(), sslEnabled, dualProtocol)) {
-            return;
+            return nullCompletedFuture();
         }
 
         String msg = "Cannot start REST endpoint."

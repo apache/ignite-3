@@ -201,7 +201,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
     }
 
     @Override
-    public void start() {
+    public CompletableFuture<Void> start() {
         synchronized (raftServiceLock) {
             raftService = recoverLocalState();
         }
@@ -224,6 +224,8 @@ public class ClusterManagementGroupManager implements IgniteComponent {
                     }
                 })
         );
+
+        return nullCompletedFuture();
     }
 
     /**

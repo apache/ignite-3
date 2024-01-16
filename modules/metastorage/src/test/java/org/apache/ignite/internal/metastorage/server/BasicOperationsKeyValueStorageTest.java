@@ -35,6 +35,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -2081,8 +2082,8 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
             }
 
             @Override
-            public CompletableFuture<Void> onRevisionApplied(WatchEvent event) {
-                return nullCompletedFuture();
+            public void onRevisionApplied(long revision) {
+                // No-op.
             }
         });
 
@@ -2423,8 +2424,6 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
 
         OnRevisionAppliedCallback mockCallback = mock(OnRevisionAppliedCallback.class);
 
-        when(mockCallback.onRevisionApplied(any())).thenReturn(nullCompletedFuture());
-
         storage.startWatches(1, mockCallback);
 
         putToMs(key, value);
@@ -2435,7 +2434,7 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
 
         verify(mockListener3, timeout(10_000)).onUpdate(any());
 
-        verify(mockCallback, never()).onRevisionApplied(any());
+        verify(mockCallback, never()).onRevisionApplied(anyLong());
     }
 
     @Test
@@ -2627,8 +2626,8 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
             }
 
             @Override
-            public CompletableFuture<Void> onRevisionApplied(WatchEvent event) {
-                return nullCompletedFuture();
+            public void onRevisionApplied(long revision) {
+                // No-op.
             }
         });
 
