@@ -72,7 +72,7 @@ abstract class AbstractClientView<T> implements CriteriaQuerySource<T> {
     protected static String[] columnNames(ClientColumn[] columns, int startInclusive, int endExclusive) {
         int sz = endExclusive - startInclusive;
 
-        String[] columnNames = new String[endExclusive - startInclusive];
+        String[] columnNames = new String[sz];
 
         for (int i = 0; i < sz; i++) {
             columnNames[i] = columns[startInclusive + i].name();
