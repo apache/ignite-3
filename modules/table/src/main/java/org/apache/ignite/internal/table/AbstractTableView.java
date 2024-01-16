@@ -24,7 +24,6 @@ import static org.apache.ignite.internal.util.CompletableFutures.doWithCallbackO
 import static org.apache.ignite.internal.util.ExceptionUtils.isOrCausedBy;
 import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
 
-import java.util.Arrays;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -42,9 +41,6 @@ import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.AsyncCursor;
 import org.apache.ignite.lang.Cursor;
-import org.apache.ignite.lang.ErrorGroups.Common;
-import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.lang.util.IgniteNameUtils;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.Session;
@@ -155,26 +151,19 @@ abstract class AbstractTableView<R> implements CriteriaQuerySource<R> {
     }
 
     /**
-     * Get index mapping from result set to schema.
+     * Map columns to it's names.
      *
-     * @param columns Columns to map.
-     * @param metadata Metadata for query results.
-     * @return Index mapping.
+     * @param columns Target columns.
+     * @return Column names.
      */
-    protected static int[] indexMapping(Column[] columns, ResultSetMetadata metadata) {
-        return Arrays.stream(columns)
-                .map(Column::name)
-                .map(IgniteNameUtils::quoteIfNeeded)
-                .mapToInt((columnName) -> {
-                    int rowIdx = metadata.indexOf(columnName);
+    protected static String[] columnNames(Column[] columns) {
+        String[] columnNames = new String[columns.length];
 
-                    if (rowIdx == -1) {
-                        throw new IgniteException(Common.INTERNAL_ERR, "Missing required column in query results: " + columnName);
-                    }
+        for (int i = 0; i < columns.length; i++) {
+            columnNames[i] = columns[i].name();
+        }
 
-                    return rowIdx;
-                })
-                .toArray();
+        return columnNames;
     }
 
     /**

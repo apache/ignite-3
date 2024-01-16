@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.table.criteria;
 
+import static org.apache.ignite.lang.util.IgniteNameUtils.quoteIfNeeded;
+
 import it.unimi.dsi.fastutil.objects.Object2IntMap;
 import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
 import java.time.Instant;
@@ -25,6 +27,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.BitSet;
 import java.util.UUID;
+import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.Nullable;
@@ -44,16 +47,20 @@ public class SqlRowProjection implements Tuple {
      * Constructor.
      *
      * @param row Row data.
-     * @param rowIndexMapping Index mapping.
+     * @param meta Metadata for query results.
+     * @param cols Target column names.
      */
-    public SqlRowProjection(SqlRow row, int[] rowIndexMapping) {
+    public SqlRowProjection(SqlRow row, ResultSetMetadata meta, String[] cols) {
         this.row = row;
-        this.rowIndexMapping = rowIndexMapping;
 
-        columnsIndices = new Object2IntOpenHashMap<>(rowIndexMapping.length);
+        rowIndexMapping = new int[cols.length];
+        columnsIndices = new Object2IntOpenHashMap<>(cols.length);
 
-        for (int i = 0; i < rowIndexMapping.length; i++) {
-            columnsIndices.put(row.columnName(rowIndexMapping[i]), i);
+        for (int i = 0; i < cols.length; i++) {
+            String quotedColumnName = quoteIfNeeded(cols[i]);
+
+            columnsIndices.put(quotedColumnName, i);
+            rowIndexMapping[i] = meta.indexOf(quotedColumnName);
         }
     }
 
