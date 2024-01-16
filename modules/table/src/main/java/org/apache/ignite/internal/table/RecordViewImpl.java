@@ -548,7 +548,7 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
         Column[] cols = ArrayUtils.concat(schema.keyColumns().columns(), schema.valueColumns().columns());
         Marshaller marsh = createMarshaller(toMarshallerColumns(cols), mapper, false, true);
 
-        List<Integer> idxMapping = indexMapping(cols, meta);
+        int[] idxMapping = indexMapping(cols, meta);
 
         return (row) -> {
             try {

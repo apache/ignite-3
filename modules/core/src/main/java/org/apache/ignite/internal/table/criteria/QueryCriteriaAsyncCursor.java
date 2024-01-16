@@ -22,11 +22,16 @@ import static org.apache.ignite.internal.util.CollectionUtils.mapIterable;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import org.apache.ignite.lang.AsyncCursor;
+import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.async.AsyncResultSet;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Wrapper over {@link AsyncResultSet} for criteria queries.
+ *
+ * @param <R> A type of the objects contained by wrapped result set. This will be either {@link SqlRow} if no explicit mapper is provided
+ *      or a particular type defined by supplied mapper.
+ * @param <T> The type of elements returned by this cursor.
  */
 public class QueryCriteriaAsyncCursor<T, R> implements AsyncCursor<T> {
     private final AsyncResultSet<R> ars;

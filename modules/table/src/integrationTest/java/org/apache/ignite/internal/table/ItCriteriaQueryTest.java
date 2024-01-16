@@ -59,7 +59,6 @@ import java.util.stream.StreamSupport;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
-import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.AsyncCursor;
 import org.apache.ignite.lang.Cursor;

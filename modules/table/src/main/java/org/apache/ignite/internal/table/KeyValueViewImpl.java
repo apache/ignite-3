@@ -704,8 +704,8 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
         Column[] keyCols = schema.keyColumns().columns();
         Column[] valCols = schema.valueColumns().columns();
 
-        List<Integer> keyIndexMapping = indexMapping(keyCols, meta);
-        List<Integer> valIndexMapping = indexMapping(valCols, meta);
+        int[] keyIndexMapping = indexMapping(keyCols, meta);
+        int[] valIndexMapping = indexMapping(valCols, meta);
 
         Marshaller keyMarsh = createMarshaller(toMarshallerColumns(keyCols), keyMapper, false, true);
         Marshaller valMarsh = createMarshaller(toMarshallerColumns(valCols), valueMapper, false, true);

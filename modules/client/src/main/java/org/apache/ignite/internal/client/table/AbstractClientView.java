@@ -17,13 +17,12 @@
 
 package org.apache.ignite.internal.client.table;
 
-import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.client.ClientUtils.sync;
+import static org.apache.ignite.internal.util.CompletableFutures.doWithCallbackOnFailure;
 import static org.apache.ignite.lang.util.IgniteNameUtils.parseSimpleName;
 
 import java.util.Arrays;
-import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
@@ -72,7 +71,7 @@ abstract class AbstractClientView<T> implements CriteriaQuerySource<T> {
      * @param endExclusive Index immediately past the last index to cover.
      * @return Index mapping.
      */
-    protected static List<Integer> indexMapping(
+    protected static int[] indexMapping(
             ClientColumn[] columns,
             int startInclusive,
             int endExclusive,
@@ -81,7 +80,7 @@ abstract class AbstractClientView<T> implements CriteriaQuerySource<T> {
         return Arrays.stream(columns, startInclusive, endExclusive)
                 .map(ClientColumn::name)
                 .map(IgniteNameUtils::quoteIfNeeded)
-                .map((columnName) -> {
+                .mapToInt((columnName) -> {
                     int rowIdx = metadata.indexOf(columnName);
 
                     if (rowIdx == -1) {
@@ -90,7 +89,7 @@ abstract class AbstractClientView<T> implements CriteriaQuerySource<T> {
 
                     return rowIdx;
                 })
-                .collect(toList());
+                .toArray();
     }
 
     /**
@@ -142,14 +141,17 @@ abstract class AbstractClientView<T> implements CriteriaQuerySource<T> {
                     SqlSerializer ser = createSqlSerializer(tbl.name(), schema.columns(), criteria);
                     Session session = new ClientSessionBuilder(tbl.channel()).build();
 
-                    return session.executeAsync(tx, ser.toString(), ser.getArguments())
-                            .thenApply(resultSet -> {
-                                ResultSetMetadata meta = resultSet.metadata();
+                    return doWithCallbackOnFailure(
+                            () -> session.executeAsync(tx, ser.toString(), ser.getArguments())
+                                    .thenApply(resultSet -> {
+                                        ResultSetMetadata meta = resultSet.metadata();
 
-                                assert meta != null : "Metadata can't be null.";
+                                        assert meta != null : "Metadata can't be null.";
 
-                                return new QueryCriteriaAsyncCursor<>(resultSet, queryMapper(meta, schema), session::close);
-                            });
+                                        return new QueryCriteriaAsyncCursor<>(resultSet, queryMapper(meta, schema), session::closeAsync);
+                                    }),
+                            session::closeAsync
+                    );
                 });
     }
 }

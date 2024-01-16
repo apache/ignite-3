@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Supplier;
 
 /** Helper class for working with {@link CompletableFuture}. */
 public class CompletableFutures {
@@ -105,5 +106,27 @@ public class CompletableFutures {
 
                     return result;
                 });
+    }
+
+    /**
+     * Executes the provided function and calls a callback if it fails.
+     *
+     * @param func Function to run.
+     * @param onFailureRun Callback to be invoked after fail.
+     * @param <T> Future result type.
+     * @return A future object representing the result of function call.
+     */
+    public static <T> CompletableFuture<T> doWithCallbackOnFailure(Supplier<CompletableFuture<T>> func, Runnable onFailureRun) {
+        try {
+            return func.get().whenComplete((ignore, ex) -> {
+                if (ex != null) {
+                    onFailureRun.run();
+                }
+            });
+        } catch (Throwable ex) {
+            onFailureRun.run();
+
+            throw ex;
+        }
     }
 }

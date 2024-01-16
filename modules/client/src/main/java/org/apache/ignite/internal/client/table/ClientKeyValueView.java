@@ -29,7 +29,6 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
@@ -550,8 +549,8 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
     /** {@inheritDoc} */
     @Override
     protected @Nullable Function<SqlRow, Entry<K, V>> queryMapper(ResultSetMetadata meta, ClientSchema schema) {
-        List<Integer> keyMapping = indexMapping(schema.columns(), 0, schema.keyColumnCount(), meta);
-        List<Integer> valMapping = indexMapping(schema.columns(), schema.keyColumnCount(), schema.columns().length, meta);
+        int[] keyMapping = indexMapping(schema.columns(), 0, schema.keyColumnCount(), meta);
+        int[] valMapping = indexMapping(schema.columns(), schema.keyColumnCount(), schema.columns().length, meta);
 
         Marshaller keyMarsh = schema.getMarshaller(keySer.mapper(), TuplePart.KEY, true);
         Marshaller valMarsh = schema.getMarshaller(valSer.mapper(), TuplePart.VAL, true);

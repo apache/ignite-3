@@ -19,12 +19,12 @@ package org.apache.ignite.internal.table;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.function.Function.identity;
-import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.lang.IgniteExceptionMapperUtil.convertToPublicFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.doWithCallbackOnFailure;
+import static org.apache.ignite.internal.util.ExceptionUtils.isOrCausedBy;
 import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
 
 import java.util.Arrays;
-import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -161,11 +161,11 @@ abstract class AbstractTableView<R> implements CriteriaQuerySource<R> {
      * @param metadata Metadata for query results.
      * @return Index mapping.
      */
-    protected static List<Integer> indexMapping(Column[] columns, ResultSetMetadata metadata) {
+    protected static int[] indexMapping(Column[] columns, ResultSetMetadata metadata) {
         return Arrays.stream(columns)
                 .map(Column::name)
                 .map(IgniteNameUtils::quoteIfNeeded)
-                .map((columnName) -> {
+                .mapToInt((columnName) -> {
                     int rowIdx = metadata.indexOf(columnName);
 
                     if (rowIdx == -1) {
@@ -174,7 +174,7 @@ abstract class AbstractTableView<R> implements CriteriaQuerySource<R> {
 
                     return rowIdx;
                 })
-                .collect(toList());
+                .toArray();
     }
 
     /**
@@ -199,7 +199,7 @@ abstract class AbstractTableView<R> implements CriteriaQuerySource<R> {
     public CompletableFuture<AsyncCursor<R>> queryAsync(
             @Nullable Transaction tx,
             @Nullable Criteria criteria,
-            CriteriaQueryOptions opts
+            @Nullable CriteriaQueryOptions opts
     ) {
         CriteriaQueryOptions opts0 = opts == null ? CriteriaQueryOptions.DEFAULT : opts;
 
@@ -215,20 +215,20 @@ abstract class AbstractTableView<R> implements CriteriaQuerySource<R> {
             Statement statement = sql.statementBuilder().query(ser.toString()).pageSize(opts0.pageSize()).build();
             Session session = sql.createSession();
 
-            return session.executeAsync(tx, statement, ser.getArguments())
-                    .thenApply(resultSet -> {
-                        ResultSetMetadata meta = resultSet.metadata();
+            return doWithCallbackOnFailure(
+                    () -> session.executeAsync(tx, statement, ser.getArguments())
+                            .thenApply(resultSet -> {
+                                ResultSetMetadata meta = resultSet.metadata();
 
-                        assert meta != null : "Metadata can't be null.";
+                                assert meta != null : "Metadata can't be null.";
 
-                        return new QueryCriteriaAsyncCursor<>(resultSet, queryMapper(meta, schema), session::close);
-                    });
+                                return new QueryCriteriaAsyncCursor<>(resultSet, queryMapper(meta, schema), session::closeAsync);
+                            }),
+                    session::closeAsync
+            );
         });
     }
 
-    private static boolean isOrCausedBy(Class<? extends Exception> exceptionClass, @Nullable Throwable ex) {
-        return ex != null && (exceptionClass.isInstance(ex) || isOrCausedBy(exceptionClass, ex.getCause()));
-    }
 
     /**
      * Action representing some KV operation. When executed, the action is supplied with schema version corresponding

@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.client.table;
 
 import static org.apache.ignite.internal.client.ClientUtils.sync;
+import static org.apache.ignite.internal.util.CompletableFutures.doWithCallbackOnFailure;
 import static org.apache.ignite.internal.util.CompletableFutures.emptyListCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
@@ -399,8 +400,11 @@ public class ClientRecordView<R> extends AbstractClientView<R> implements Record
                     Statement statement = new ClientStatementBuilder().query(ser.toString()).pageSize(opts0.pageSize()).build();
                     Session session = new ClientSessionBuilder(tbl.channel()).build();
 
-                    return session.executeAsync(tx, this.ser.mapper(), statement, ser.getArguments())
-                            .thenApply(resultSet -> new QueryCriteriaAsyncCursor<>(resultSet, null, session::close));
+                    return doWithCallbackOnFailure(
+                            () -> session.executeAsync(tx, this.ser.mapper(), statement, ser.getArguments())
+                                    .thenApply(resultSet -> new QueryCriteriaAsyncCursor<>(resultSet, null, session::closeAsync)),
+                            session::closeAsync
+                    );
                 });
     }
 }
