@@ -122,7 +122,7 @@ class QueueExecutionImpl<R> implements QueueExecution<R> {
             run();
         } else {
             throw new ComputeException(Compute.CHANGE_JOB_PRIORITY_JOB_EXECUTING_ERR, "Can not change job priority,"
-                    + " job already processing. job id " + jobId);
+                    + " job already processing. [job id = " + jobId);
         }
     }
 
