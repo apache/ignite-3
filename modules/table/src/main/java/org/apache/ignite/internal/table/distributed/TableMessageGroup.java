@@ -21,7 +21,6 @@ import static org.apache.ignite.internal.table.distributed.TableMessageGroup.GRO
 
 import org.apache.ignite.internal.table.distributed.command.BuildIndexCommand;
 import org.apache.ignite.internal.table.distributed.command.FinishTxCommand;
-import org.apache.ignite.internal.table.distributed.command.MarkLocksReleasedCommand;
 import org.apache.ignite.internal.table.distributed.command.TablePartitionIdMessage;
 import org.apache.ignite.internal.table.distributed.command.TimedBinaryRowMessage;
 import org.apache.ignite.internal.table.distributed.command.UpdateAllCommand;
@@ -208,7 +207,5 @@ public interface TableMessageGroup {
         /** Message type for {@link TablePartitionIdMessage}. */
         short TABLE_PARTITION_ID = 61;
 
-        /** Message type for {@link MarkLocksReleasedCommand}. */
-        short MARK_LOCKS_RELEASED = 62;
     }
 }

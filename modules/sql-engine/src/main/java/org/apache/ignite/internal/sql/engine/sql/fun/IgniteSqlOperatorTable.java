@@ -63,21 +63,6 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
                     SqlFunctionCategory.SYSTEM);
 
     /**
-     * Replacement for NULL values in search bounds. Required to distinguish searchable NULL values
-     * (for example, 'a IS NULL' condition) and not searchable NULL values (for example, 'a = NULL' condition).
-     *
-     * <p>Note: System function, cannot be used by user.
-     */
-    public static final SqlFunction NULL_BOUND =
-            new SqlFunction(
-                    "$NULL_BOUND",
-                    SqlKind.OTHER_FUNCTION,
-                    ReturnTypes.explicit(SqlTypeName.ANY),
-                    null,
-                    OperandTypes.NILADIC,
-                    SqlFunctionCategory.SYSTEM);
-
-    /**
      * Least of two arguments. Unlike LEAST, which is converted to CASE WHEN THEN END clause, this function
      * is natively implemented.
      *
@@ -454,7 +439,6 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
         register(TYPEOF);
         register(LEAST2);
         register(GREATEST2);
-        register(NULL_BOUND);
         register(RAND_UUID);
         register(GEN_RANDOM_UUID);
     }

@@ -390,8 +390,6 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
         assertEquals(0, recoveryMsgCount.get());
 
         assertTrue(waitForCondition(() -> txStoredState(commitPartNode, orphanTxId) == TxState.ABORTED, 10_000));
-
-        assertTrue(waitForCondition(() -> txStoredMeta(commitPartNode, orphanTxId).locksReleased(), 10_000));
     }
 
     /**
@@ -544,8 +542,6 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
 
         assertTrue(waitForCondition(() -> txStoredState(commitPartNode, orphanTx.id()) == TxState.ABORTED, 10_000));
 
-        assertTrue(waitForCondition(() -> txStoredMeta(commitPartNode, orphanTx.id()).locksReleased(), 10_000));
-
         CompletableFuture<NetworkMessage> commitRequest =
                 messaging(commitPartNode).invoke(targetName.get(), finishRequestCaptureFut.join(), 3000);
 
@@ -637,10 +633,6 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
         assertTrue(waitForCondition(() -> txStoredState(commitPartNode, orphanTxId) == TxState.ABORTED, 10_000));
         assertTrue(waitForCondition(() -> txStoredState(commitPartNode, rwTx1Id) == TxState.ABORTED, 10_000));
 
-        assertTrue(waitForCondition(() -> txStoredMeta(commitPartNode, orphanTxId).locksReleased(), 10_000));
-        assertTrue(waitForCondition(() -> txStoredMeta(commitPartNode, rwTx1Id).locksReleased(), 10_000));
-        assertTrue(waitForCondition(() -> txStoredMeta(commitPartNode, rwTx2Id).locksReleased(), 10_000));
-
         Transaction rwTx3 = newCoordNode.transactions().begin();
 
         log.info("Start RW tx {}", ((InternalTransaction) rwTx3).id());
@@ -684,7 +676,6 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
         UUID rwTx1Id = ((InternalTransaction) rwTx1).id();
 
         assertTrue(waitForCondition(() -> txStoredState(commitPartNode, rwTx1Id) == TxState.COMMITTED, 10_000));
-        assertTrue(waitForCondition(() -> txStoredMeta(commitPartNode, rwTx1Id).locksReleased(), 10_000));
 
         IgniteImpl txCrdNode2 = node(0);
 

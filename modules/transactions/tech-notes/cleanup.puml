@@ -47,5 +47,4 @@ TxCleanupRequestSender -> WISP1: SwitchWriteIntentWithRetry
 WISP1 -> PRL3: send \nwriteIntentSwitchReplicaRequest
 end
 TxCleanupRequestSender --> PartitionReplicaListener
-PartitionReplicaListener -> PartitionReplicaListener : markLocksReleased
 @enduml

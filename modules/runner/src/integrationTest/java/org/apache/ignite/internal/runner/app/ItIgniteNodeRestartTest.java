@@ -301,7 +301,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         );
 
         var metaStorageMgr = new MetaStorageManagerImpl(
-                vault,
                 clusterSvc,
                 cmgManager,
                 logicalTopologyService,
@@ -402,7 +401,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 registry,
                 metaStorageMgr,
                 logicalTopologyService,
-                vault,
                 catalogManager
         );
 

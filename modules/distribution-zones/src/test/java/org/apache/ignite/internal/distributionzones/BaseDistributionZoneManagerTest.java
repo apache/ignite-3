@@ -47,8 +47,6 @@ import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.internal.vault.VaultManager;
-import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -75,8 +73,6 @@ public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstract
 
     protected MetaStorageManager metaStorageManager;
 
-    VaultManager vaultMgr;
-
     private final HybridClock clock = new HybridClockImpl();
 
     protected CatalogManager catalogManager;
@@ -87,13 +83,9 @@ public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstract
     void setUp() throws InterruptedException {
         String nodeName = "test";
 
-        vaultMgr = new VaultManager(new InMemoryVaultService());
-
-        components.add(vaultMgr);
-
         keyValueStorage = spy(new SimpleInMemoryKeyValueStorage(nodeName));
 
-        metaStorageManager = spy(StandaloneMetaStorageManager.create(vaultMgr, keyValueStorage));
+        metaStorageManager = spy(StandaloneMetaStorageManager.create(keyValueStorage));
 
         components.add(metaStorageManager);
 
@@ -118,7 +110,6 @@ public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstract
                 revisionUpdater,
                 metaStorageManager,
                 new LogicalTopologyServiceImpl(topology, cmgManager),
-                vaultMgr,
                 catalogManager
         );
 
