@@ -2,7 +2,7 @@
 This document describes user-level and component-level cluster lifecycles and their mutual interaction.
 
 ## Node lifecycle
-A node maintains its' local state in the local persistent key-value storage named vault. The data stored in the vault is 
+A node maintains its local state in the local persistent key-value storage named vault. The data stored in the vault is 
 semantically divided in the following categories:
  * User-level local configuration properties (such as memory limits, network timeouts, etc). User-level configuration
  properties can be written both at runtime (not all properties will be applied at runtime, however, - some of them will
@@ -203,3 +203,10 @@ Besides local node stopping logic two more actions took place on a cluster as a 
  * Both range and watch cursors will be removed on server side. Given process is linearized with meta storage
   operations by using a meta storage raft.
  * Baseline update and corresponding baseline recalculation with ongoing partition raft groups redeployment.
+
+## Threading
+
+The following global thread pools are defined:
+
+ * `{consistentId}-partition-operations-X` executes operations that are part of transactions (including those that make I/O
+or potentially block on locks). All operations related to the same partition get executed on the same thread in this pool.
