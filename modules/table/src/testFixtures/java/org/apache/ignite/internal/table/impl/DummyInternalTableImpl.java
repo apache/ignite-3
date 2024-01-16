@@ -37,14 +37,12 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
-import javax.naming.OperationNotSupportedException;
 import org.apache.ignite.distributed.TestPartitionDataStorage;
 import org.apache.ignite.internal.TestHybridClock;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
@@ -460,12 +458,6 @@ public class DummyInternalTableImpl extends InternalTableImpl {
     @Override
     public CompletableFuture<BinaryRow> get(BinaryRowEx keyRow, InternalTransaction tx) {
         return super.get(keyRow, tx);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public List<String> assignments() {
-        throw new IgniteInternalException(new OperationNotSupportedException());
     }
 
     /** {@inheritDoc} */

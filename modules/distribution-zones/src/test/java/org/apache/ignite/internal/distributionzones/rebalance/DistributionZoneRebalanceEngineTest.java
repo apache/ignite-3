@@ -34,7 +34,6 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCo
 import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
 import static org.apache.ignite.internal.util.CompletableFutures.emptyMapCompletedFuture;
-import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.sql.ColumnType.STRING;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -94,7 +93,6 @@ import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.MessagingService;
 import org.jetbrains.annotations.Nullable;
@@ -119,8 +117,6 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
     private final MetaStorageManager metaStorageManager = mock(MetaStorageManager.class);
 
     private final DistributionZoneManager distributionZoneManager = mock(DistributionZoneManager.class);
-
-    private final VaultManager vaultManager = mock(VaultManager.class);
 
     private DistributionZoneRebalanceEngine rebalanceEngine;
 
@@ -222,9 +218,6 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
 
         // stable partitions for tables are empty
         when(metaStorageManager.getAll(any())).thenReturn(emptyMapCompletedFuture());
-
-        when(vaultManager.get(any(ByteArray.class))).thenReturn(nullCompletedFuture());
-        when(vaultManager.put(any(ByteArray.class), any(byte[].class))).thenReturn(nullCompletedFuture());
     }
 
     @AfterEach
@@ -380,7 +373,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
                 clock.now()
         );
 
-        MetaStorageManager realMetaStorageManager = StandaloneMetaStorageManager.create(vaultManager, keyValueStorage);
+        MetaStorageManager realMetaStorageManager = StandaloneMetaStorageManager.create(keyValueStorage);
 
         realMetaStorageManager.start();
 
@@ -410,7 +403,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
             );
         }
 
-        MetaStorageManager realMetaStorageManager = StandaloneMetaStorageManager.create(vaultManager, keyValueStorage);
+        MetaStorageManager realMetaStorageManager = StandaloneMetaStorageManager.create(keyValueStorage);
 
         realMetaStorageManager.start();
 

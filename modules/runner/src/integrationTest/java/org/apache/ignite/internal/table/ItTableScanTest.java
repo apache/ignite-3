@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.storage.index.SortedIndexStorage.GREATE
 import static org.apache.ignite.internal.storage.index.SortedIndexStorage.LESS_OR_EQUAL;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runRace;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.internal.testframework.flow.TestFlowUtils.subscribeToPublisher;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.Constants.DUMMY_STORAGE_PROFILE;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -39,10 +40,8 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
-import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.function.IntFunction;
 import java.util.stream.Collectors;
@@ -760,45 +759,6 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
                 .mapToInt(CatalogObjectDescriptor::id)
                 .findFirst()
                 .getAsInt();
-    }
-
-    /**
-     * Subscribes to a cursor publisher.
-     *
-     * @param scannedRows List of rows, that were scanned.
-     * @param publisher Publisher.
-     * @param scanned A future that will be completed when the scan is finished.
-     * @return Subscription, that can request rows from cluster.
-     */
-    private static Subscription subscribeToPublisher(
-            List<BinaryRow> scannedRows,
-            Publisher<BinaryRow> publisher,
-            CompletableFuture<Void> scanned
-    ) {
-        AtomicReference<Subscription> subscriptionRef = new AtomicReference<>();
-
-        publisher.subscribe(new Subscriber<>() {
-            @Override
-            public void onSubscribe(Subscription subscription) {
-                subscriptionRef.set(subscription);
-            }
-
-            @Override
-            public void onNext(BinaryRow item) {
-                scannedRows.add(item);
-            }
-
-            @Override
-            public void onError(Throwable throwable) {
-            }
-
-            @Override
-            public void onComplete() {
-                scanned.complete(null);
-            }
-        });
-
-        return subscriptionRef.get();
     }
 
     /**

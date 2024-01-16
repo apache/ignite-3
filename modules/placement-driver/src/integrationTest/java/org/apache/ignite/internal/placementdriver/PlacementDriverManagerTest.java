@@ -80,8 +80,6 @@ import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.internal.vault.VaultManager;
-import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
@@ -110,8 +108,6 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
     private String anotherNodeName;
 
     private HybridClock nodeClock = new HybridClockImpl();
-
-    private VaultManager vaultManager;
 
     private ClusterService clusterService;
 
@@ -152,8 +148,6 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
     }
 
     private void startPlacementDriverManager() {
-        vaultManager = new VaultManager(new PersistentVaultService(testNodeName(testInfo, PORT), workDir.resolve("vault")));
-
         var nodeFinder = new StaticNodeFinder(Collections.singletonList(new NetworkAddress("localhost", PORT)));
 
         clusterService = ClusterServiceTestUtils.clusterService(testInfo, PORT, nodeFinder);
@@ -192,7 +186,6 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
         var storage = new SimpleInMemoryKeyValueStorage(nodeName);
 
         metaStorageManager = new MetaStorageManagerImpl(
-                vaultManager,
                 clusterService,
                 cmgManager,
                 logicalTopologyService,
@@ -215,7 +208,6 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
                 nodeClock
         );
 
-        vaultManager.start();
         clusterService.start();
         anotherClusterService.start();
         raftManager.start();
@@ -270,8 +262,7 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
                 metaStorageManager,
                 raftManager,
                 clusterService,
-                anotherClusterService,
-                vaultManager
+                anotherClusterService
         );
 
         IgniteUtils.closeAll(Stream.concat(

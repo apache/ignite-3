@@ -213,7 +213,6 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         when(cmgManager.logicalTopology()).thenAnswer(invocation -> completedFuture(logicalTopology.getLogicalTopology()));
 
         metastore = spy(StandaloneMetaStorageManager.create(
-                vault,
                 new TestRocksDbKeyValueStorage(name, workDir.resolve("metastorage"))
         ));
 
@@ -255,7 +254,6 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
                 revisionUpdater,
                 metastore,
                 logicalTopologyService,
-                vault,
                 catalogManager
         );
 

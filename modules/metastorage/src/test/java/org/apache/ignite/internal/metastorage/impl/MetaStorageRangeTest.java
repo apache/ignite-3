@@ -23,7 +23,6 @@ import static org.apache.ignite.internal.testframework.flow.TestFlowUtils.subscr
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.ByteUtils.intToBytes;
-import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
 import static org.mockito.ArgumentMatchers.any;
@@ -39,7 +38,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.IntStream;
-import java.util.stream.Stream;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.metastorage.Entry;
@@ -49,8 +47,6 @@ import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.ByteUtils;
-import org.apache.ignite.internal.vault.VaultManager;
-import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -62,8 +58,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @ExtendWith(WorkDirectoryExtension.class)
 public abstract class MetaStorageRangeTest extends BaseIgniteAbstractTest {
-    private final VaultManager vaultManager = new VaultManager(new InMemoryVaultService());
-
     private KeyValueStorage storage;
 
     private MetaStorageManager metaStorageManager;
@@ -74,16 +68,15 @@ public abstract class MetaStorageRangeTest extends BaseIgniteAbstractTest {
     void setUp(@WorkDirectory Path workDir) {
         storage = spy(getStorage(workDir));
 
-        metaStorageManager = StandaloneMetaStorageManager.create(vaultManager, storage);
+        metaStorageManager = StandaloneMetaStorageManager.create(storage);
 
-        vaultManager.start();
         metaStorageManager.start();
     }
 
     @AfterEach
     void tearDown() throws Exception {
-        closeAll(Stream.of(vaultManager, metaStorageManager).map(c -> c::beforeNodeStop));
-        closeAll(Stream.of(vaultManager, metaStorageManager).map(c -> c::stop));
+        metaStorageManager.beforeNodeStop();
+        metaStorageManager.stop();
     }
 
     @Test
