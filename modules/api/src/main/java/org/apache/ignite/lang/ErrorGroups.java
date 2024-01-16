@@ -419,20 +419,8 @@ public class ErrorGroups {
         /** Distribution zones group. */
         public static final ErrorGroup DISTRIBUTION_ZONES_ERR_GROUP = registerGroup("DISTRZONES", (short) 10);
 
-        /** Distribution zone already exists. */
-        public static final int ZONE_ALREADY_EXISTS_ERR = DISTRIBUTION_ZONES_ERR_GROUP.registerErrorCode((short) 1);
-
         /** Distribution zone is not found. */
         public static final int ZONE_NOT_FOUND_ERR = DISTRIBUTION_ZONES_ERR_GROUP.registerErrorCode((short) 2);
-
-        /** Distribution zone rename error. */
-        public static final int ZONE_RENAME_ERR = DISTRIBUTION_ZONES_ERR_GROUP.registerErrorCode((short) 3);
-
-        /** Distribution zone is a default distribution zone or bound to table. */
-        public static final int ZONE_DROP_ERR = DISTRIBUTION_ZONES_ERR_GROUP.registerErrorCode((short) 4);
-
-        /** Distribution zone definition error. */
-        public static final int ZONE_DEFINITION_ERR = DISTRIBUTION_ZONES_ERR_GROUP.registerErrorCode((short) 5);
     }
 
     /** Network error group. */
