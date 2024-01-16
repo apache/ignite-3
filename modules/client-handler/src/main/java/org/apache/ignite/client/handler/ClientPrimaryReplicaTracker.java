@@ -303,7 +303,6 @@ public class ClientPrimaryReplicaTracker implements EventListener<EventParameter
 
         TablePartitionId tablePartitionId = (TablePartitionId) primaryReplicaEvent.groupId();
 
-        // TODO: IGNITE-21202 Use the leaseholder ID for thin clients as well.
         updatePrimaryReplica(tablePartitionId, primaryReplicaEvent.startTime(), primaryReplicaEvent.leaseholder());
 
         return falseCompletedFuture(); // false: don't remove listener.
