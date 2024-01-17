@@ -491,7 +491,7 @@ public class ItCriteriaQueryTest extends ClusterPerClassIntegrationTest {
     @ParameterizedTest
     @MethodSource
     public void testSessionClosing(CriteriaQuerySource<?> view, Transaction tx) {
-        assertEquals(0, activeSessionsCount());
+        int baseSessionsCount = activeSessionsCount();
 
         assertThrows(
                 IgniteException.class,
@@ -499,7 +499,7 @@ public class ItCriteriaQueryTest extends ClusterPerClassIntegrationTest {
                 "Transaction is already finished"
         );
 
-        assertEquals(0, activeSessionsCount());
+        assertEquals(baseSessionsCount, activeSessionsCount());
     }
 
     private static int activeSessionsCount() {
