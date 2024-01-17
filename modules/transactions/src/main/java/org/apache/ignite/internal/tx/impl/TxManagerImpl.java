@@ -97,7 +97,6 @@ import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.NetworkMessageHandler;
 import org.apache.ignite.network.TopologyService;
-import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -514,7 +513,12 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                                     ? TX_PRIMARY_REPLICA_EXPIRED_ERR
                                     : TX_COMMIT_ERR;
 
-                            throw new TransactionException(errorCode, "Failed to commit the transaction.", rollbackCause);
+                            throw new TransactionAlreadyFinishedException(
+                                    errorCode,
+                                    "Failed to commit the transaction.",
+                                    new TransactionResult(ABORTED, null),
+                                    rollbackCause
+                            );
                         }
                     }
 
