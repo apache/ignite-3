@@ -762,7 +762,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
 
         cancelLease(commitPartNode, tblReplicationGrp);
 
-        assertThat(commitFut, willThrow(TransactionException.class, 30, SECONDS));
+        assertThat(commitFut, willThrow(TransactionAlreadyFinishedException.class, 30, SECONDS));
 
         RecordView<Tuple> view = txCrdNode.tables().table(TABLE_NAME).recordView();
 

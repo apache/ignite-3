@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.tx.impl;
 
 import static java.util.concurrent.CompletableFuture.allOf;
+import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
@@ -30,7 +31,6 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
-import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_COMMIT_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_PRIMARY_REPLICA_EXPIRED_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_READ_ONLY_TOO_OLD_ERR;
 
@@ -255,12 +255,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                     Long enlistmentConsistencyToken = txContext.enlistedGroups.get(groupId);
 
                     if (enlistmentConsistencyToken != null) {
-                        txContext.setRollbackCause(new PrimaryReplicaExpiredException(
-                                groupId,
-                                enlistmentConsistencyToken,
-                                null,
-                                null
-                        ));
+                        txContext.cancelWaitingInflights(groupId, enlistmentConsistencyToken);
                     }
                 }
             }
@@ -432,9 +427,9 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     }
 
     private TxContext lockTxForNewUpdates(UUID txId, Map<TablePartitionId, Long> enlistedGroups, boolean commitIntent) {
-        TxContext txContext = txCtxMap.compute(txId, (uuid, tuple0) -> {
+        return txCtxMap.compute(txId, (uuid, tuple0) -> {
             if (tuple0 == null) {
-                tuple0 = new TxContext(); // No writes enlisted.
+                tuple0 = new TxContext(placementDriver); // No writes enlisted.
             }
 
             assert !tuple0.isTxFinishing() : "Transaction is already finished [id=" + uuid + "].";
@@ -443,20 +438,6 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
             return tuple0;
         });
-
-        if (commitIntent) {
-            for (Map.Entry<TablePartitionId, Long> e : enlistedGroups.entrySet()) {
-                ReplicaMeta replicaMeta = placementDriver.currentLease(e.getKey());
-
-                if (replicaMeta == null || !e.getValue().equals(replicaMeta.getStartTime().longValue())) {
-                    txContext.setRollbackCause(new PrimaryReplicaExpiredException(e.getKey(), e.getValue(), null, replicaMeta));
-
-                    break;
-                }
-            }
-        }
-
-        return txContext;
     }
 
     private static CompletableFuture<Void> checkTxOutcome(boolean commit, UUID txId, TransactionMeta stateMeta) {
@@ -464,7 +445,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             return nullCompletedFuture();
         }
 
-        return CompletableFuture.failedFuture(new TransactionAlreadyFinishedException(
+        return failedFuture(new TransactionAlreadyFinishedException(
                 "Failed to change the outcome of a finished transaction [txId=" + txId + ", txState=" + stateMeta.txState() + "].",
                 new TransactionResult(stateMeta.txState(), stateMeta.commitTimestamp()))
         );
@@ -502,29 +483,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                                     txFinishFuture);
                         })
                 .thenCompose(Function.identity())
-                .thenCompose(r -> {
-                    if (commit != commitIntent) {
-                        // Throw the exception for the client if the transaction was not able to be committed.
-                        TxContext txContext = txCtxMap.get(txId);
-                        Exception rollbackCause = txContext.rollbackCause;
-
-                        if (rollbackCause != null) {
-                            int errorCode = rollbackCause instanceof PrimaryReplicaExpiredException
-                                    ? TX_PRIMARY_REPLICA_EXPIRED_ERR
-                                    : TX_COMMIT_ERR;
-
-                            throw new TransactionAlreadyFinishedException(
-                                    errorCode,
-                                    "Failed to commit the transaction.",
-                                    new TransactionResult(ABORTED, null),
-                                    rollbackCause
-                            );
-                        }
-                    }
-
-                    // Verification future is added in order to share the proper verification exception with the client.
-                    return verificationFuture;
-                });
+                // Verification future is added in order to share the proper verification exception with the client.
+                .thenCompose(r -> verificationFuture);
     }
 
     /**
@@ -770,7 +730,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
         txCtxMap.compute(txId, (uuid, tuple) -> {
             if (tuple == null) {
-                tuple = new TxContext();
+                tuple = new TxContext(placementDriver);
             }
 
             if (tuple.isTxFinishing()) {
@@ -866,27 +826,63 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     private static class TxContext {
         volatile long inflights = 0; // Updated under lock.
         private final CompletableFuture<Void> waitRepFut = new CompletableFuture<>();
+        private final PlacementDriver placementDriver;
         volatile CompletableFuture<Void> finishInProgressFuture = null;
         volatile Map<TablePartitionId, Long> enlistedGroups;
-        volatile Exception rollbackCause;
+
+        private TxContext(PlacementDriver placementDriver) {
+            this.placementDriver = placementDriver;
+        }
 
         CompletableFuture<Void> performFinish(boolean commit, Function<Boolean, CompletableFuture<Void>> finishAction) {
             waitReadyToFinish(commit)
-                    .thenCompose(ignored -> finishAction.apply(commit && rollbackCause == null))
-                    .handle((ignored, err) -> {
-                        if (err == null) {
-                            finishInProgressFuture.complete(null);
-                        } else {
-                            finishInProgressFuture.completeExceptionally(err);
-                        }
-                        return null;
-                    });
+                    .whenComplete((ignoredReadyToFinish, readyException) -> finishAction.apply(commit && readyException == null)
+                            .whenComplete((ignoredFinishActionResult, finishException) ->
+                                    completeFinishInProgressFuture(commit, readyException, finishException))
+                    );
 
             return finishInProgressFuture;
         }
 
+        private void completeFinishInProgressFuture(
+                boolean commit,
+                @Nullable Throwable readyToFinishException,
+                @Nullable Throwable finishException
+        ) {
+            if (readyToFinishException == null) {
+                if (finishException == null) {
+                    finishInProgressFuture.complete(null);
+                } else {
+                    finishInProgressFuture.completeExceptionally(finishException);
+                }
+            } else {
+                if (commit && readyToFinishException instanceof PrimaryReplicaExpiredException) {
+                    finishInProgressFuture.completeExceptionally(new TransactionAlreadyFinishedException(
+                            TX_PRIMARY_REPLICA_EXPIRED_ERR,
+                            "Failed to commit the transaction.",
+                            new TransactionResult(ABORTED, null),
+                            readyToFinishException
+                    ));
+                } else {
+                    finishInProgressFuture.completeExceptionally(readyToFinishException);
+                }
+            }
+        }
+
         private CompletableFuture<Void> waitReadyToFinish(boolean commit) {
-            return commit ? waitNoInflights() : nullCompletedFuture();
+            if (commit) {
+                for (Map.Entry<TablePartitionId, Long> e : enlistedGroups.entrySet()) {
+                    ReplicaMeta replicaMeta = placementDriver.currentLease(e.getKey());
+
+                    if (replicaMeta == null || !e.getValue().equals(replicaMeta.getStartTime().longValue())) {
+                        return failedFuture(new PrimaryReplicaExpiredException(e.getKey(), e.getValue(), null, replicaMeta));
+                    }
+                }
+
+                return waitNoInflights();
+            } else {
+                return nullCompletedFuture();
+            }
         }
 
         private CompletableFuture<Void> waitNoInflights() {
@@ -894,6 +890,10 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                 waitRepFut.complete(null);
             }
             return waitRepFut;
+        }
+
+        private void cancelWaitingInflights(TablePartitionId groupId, Long enlistmentConsistencyToken) {
+            waitRepFut.completeExceptionally(new PrimaryReplicaExpiredException(groupId, enlistmentConsistencyToken, null, null));
         }
 
         void onRemovedInflights() {
@@ -905,11 +905,6 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         void finishTx(Map<TablePartitionId, Long> enlistedGroups) {
             this.enlistedGroups = enlistedGroups;
             finishInProgressFuture = new CompletableFuture<>();
-        }
-
-        void setRollbackCause(Exception rollbackCause) {
-            this.rollbackCause = rollbackCause;
-            waitRepFut.complete(null);
         }
 
         boolean isTxFinishing() {
