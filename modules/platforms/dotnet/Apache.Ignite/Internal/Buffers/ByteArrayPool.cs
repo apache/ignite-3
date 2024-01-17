@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Internal.Buffers
 {
     using System.Buffers;
+    using System.Threading;
 
     /// <summary>
     /// Wrapper for the standard <see cref="ArrayPool{T}.Shared"/> with safety checks in debug mode.
@@ -33,6 +34,13 @@ namespace Apache.Ignite.Internal.Buffers
         /// https://github.com/dotnet/runtime/issues/7532.
         /// </summary>
         private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<byte[], object?> ReturnedArrays = new();
+
+        private static long _rentedArraysCount;
+
+        /// <summary>
+        /// Gets the number of currently rented arrays.
+        /// </summary>
+        public static long CurrentlyRentedArraysCount => Interlocked.Read(ref _rentedArraysCount);
 #endif
 
         /// <summary>
@@ -45,6 +53,7 @@ namespace Apache.Ignite.Internal.Buffers
             var bytes = ArrayPool<byte>.Shared.Rent(minimumLength);
 
 #if DEBUG
+            Interlocked.Increment(ref _rentedArraysCount);
             ReturnedArrays.Remove(bytes);
 #endif
 
@@ -58,6 +67,8 @@ namespace Apache.Ignite.Internal.Buffers
         public static void Return(byte[] array)
         {
 #if DEBUG
+            Interlocked.Decrement(ref _rentedArraysCount);
+
             // Will throw when key exists.
             ReturnedArrays.Add(array, null);
 #endif

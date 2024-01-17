@@ -22,6 +22,7 @@ namespace Apache.Ignite.Tests
     using System.Linq;
     using System.Threading.Tasks;
     using Ignite.Table;
+    using Internal.Buffers;
     using Internal.Proto;
     using Microsoft.Extensions.Logging;
     using NUnit.Framework;
@@ -210,6 +211,10 @@ namespace Apache.Ignite.Tests
                 condition: () => listener.BuffersReturned == listener.BuffersRented,
                 timeoutMs: 1000,
                 messageFactory: () => $"rented = {listener.BuffersRented}, returned = {listener.BuffersReturned}");
+
+#if DEBUG
+            Assert.AreEqual(0, ByteArrayPool.CurrentlyRentedArraysCount);
+#endif
         }
     }
 }
