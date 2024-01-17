@@ -19,7 +19,6 @@ package org.apache.ignite.internal.table;
 
 import static org.apache.ignite.internal.marshaller.Marshaller.createMarshaller;
 import static org.apache.ignite.internal.schema.marshaller.MarshallerUtil.toMarshallerColumns;
-import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -700,12 +699,9 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
 
     /** {@inheritDoc} */
     @Override
-    protected @Nullable Function<SqlRow, Entry<K, V>> queryMapper(ResultSetMetadata meta, SchemaDescriptor schema) {
+    protected Function<SqlRow, Entry<K, V>> queryMapper(ResultSetMetadata meta, SchemaDescriptor schema) {
         Column[] keyCols = schema.keyColumns().columns();
         Column[] valCols = schema.valueColumns().columns();
-
-        List<Integer> keyIndexMapping = indexMapping(keyCols, meta);
-        List<Integer> valIndexMapping = indexMapping(valCols, meta);
 
         Marshaller keyMarsh = createMarshaller(toMarshallerColumns(keyCols), keyMapper, false, true);
         Marshaller valMarsh = createMarshaller(toMarshallerColumns(valCols), valueMapper, false, true);
@@ -713,11 +709,11 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
         return (row) -> {
             try {
                 return new IgniteBiTuple<>(
-                        (K) keyMarsh.readObject(new TupleReader(new SqlRowProjection(row, keyIndexMapping)), null),
-                        (V) valMarsh.readObject(new TupleReader(new SqlRowProjection(row, valIndexMapping)), null)
+                        (K) keyMarsh.readObject(new TupleReader(new SqlRowProjection(row, meta, columnNames(keyCols))), null),
+                        (V) valMarsh.readObject(new TupleReader(new SqlRowProjection(row, meta, columnNames(valCols))), null)
                 );
-            } catch (org.apache.ignite.internal.marshaller.MarshallerException e) {
-                throw new IgniteException(INTERNAL_ERR, "Failed to map query results: " + e.getMessage(), e);
+            } catch (MarshallerException e) {
+                throw new org.apache.ignite.lang.MarshallerException(e);
             }
         };
     }

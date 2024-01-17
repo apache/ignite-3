@@ -17,30 +17,29 @@
 
 package org.apache.ignite.internal.client.table;
 
-import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.client.ClientUtils.sync;
-import static org.apache.ignite.lang.ErrorGroups.Criteria.COLUMN_NOT_FOUND_ERR;
+import static org.apache.ignite.internal.table.criteria.CriteriaExceptionMapperUtil.mapToPublicCriteriaException;
+import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.lang.util.IgniteNameUtils.parseSimpleName;
 
 import java.util.Arrays;
-import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.function.Function;
 import org.apache.ignite.internal.client.sql.ClientSessionBuilder;
-import org.apache.ignite.internal.table.criteria.CriteriaExceptionMapperUtil;
+import org.apache.ignite.internal.client.sql.ClientStatementBuilder;
 import org.apache.ignite.internal.table.criteria.CursorAdapter;
 import org.apache.ignite.internal.table.criteria.QueryCriteriaAsyncCursor;
 import org.apache.ignite.internal.table.criteria.SqlSerializer;
 import org.apache.ignite.lang.AsyncCursor;
 import org.apache.ignite.lang.Cursor;
-import org.apache.ignite.lang.util.IgniteNameUtils;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.SqlRow;
+import org.apache.ignite.sql.Statement;
 import org.apache.ignite.table.criteria.Criteria;
-import org.apache.ignite.table.criteria.CriteriaException;
 import org.apache.ignite.table.criteria.CriteriaQueryOptions;
 import org.apache.ignite.table.criteria.CriteriaQuerySource;
 import org.apache.ignite.tx.Transaction;
@@ -65,33 +64,23 @@ abstract class AbstractClientView<T> implements CriteriaQuerySource<T> {
     }
 
     /**
-     * Get index mapping from result set to schema.
+     * Map columns to it's names.
      *
-     * @param columns Columns to map.
-     * @param metadata Metadata for query results.
+     * @param columns Target columns.
      * @param startInclusive The first index to cover.
      * @param endExclusive Index immediately past the last index to cover.
-     * @return Index mapping.
+     * @return Column names.
      */
-    protected static List<Integer> indexMapping(
-            ClientColumn[] columns,
-            int startInclusive,
-            int endExclusive,
-            ResultSetMetadata metadata
-    ) {
-        return Arrays.stream(columns, startInclusive, endExclusive)
-                .map(ClientColumn::name)
-                .map(IgniteNameUtils::quoteIfNeeded)
-                .map((columnName) -> {
-                    int rowIdx = metadata.indexOf(columnName);
+    protected static String[] columnNames(ClientColumn[] columns, int startInclusive, int endExclusive) {
+        int sz = endExclusive - startInclusive;
 
-                    if (rowIdx == -1) {
-                        throw new CriteriaException(COLUMN_NOT_FOUND_ERR, "Missing required column in query results: " + columnName);
-                    }
+        String[] columnNames = new String[sz];
 
-                    return rowIdx;
-                })
-                .collect(toList());
+        for (int i = 0; i < sz; i++) {
+            columnNames[i] = columns[startInclusive + i].name();
+        }
+
+        return columnNames;
     }
 
     /**
@@ -136,21 +125,30 @@ abstract class AbstractClientView<T> implements CriteriaQuerySource<T> {
     public CompletableFuture<AsyncCursor<T>> queryAsync(
             @Nullable Transaction tx,
             @Nullable Criteria criteria,
-            CriteriaQueryOptions opts
+            @Nullable CriteriaQueryOptions opts
     ) {
+        CriteriaQueryOptions opts0 = opts == null ? CriteriaQueryOptions.DEFAULT : opts;
+
         return tbl.getLatestSchema()
                 .thenCompose((schema) -> {
                     SqlSerializer ser = createSqlSerializer(tbl.name(), schema.columns(), criteria);
+
+                    Statement statement = new ClientStatementBuilder().query(ser.toString()).pageSize(opts0.pageSize()).build();
                     Session session = new ClientSessionBuilder(tbl.channel()).build();
 
-                    return CriteriaExceptionMapperUtil.convertToPublicFuture(session.executeAsync(tx, ser.toString(), ser.getArguments())
-                            .thenApply(resultSet -> {
+                    return session.executeAsync(tx, statement, ser.getArguments())
+                            .<AsyncCursor<T>>thenApply(resultSet -> {
                                 ResultSetMetadata meta = resultSet.metadata();
 
                                 assert meta != null : "Metadata can't be null.";
 
-                                return new QueryCriteriaAsyncCursor<>(resultSet, queryMapper(meta, schema), session::close);
-                            }));
+                                return new QueryCriteriaAsyncCursor<>(resultSet, queryMapper(meta, schema), session::closeAsync);
+                            })
+                            .exceptionally(th -> {
+                                session.closeAsync();
+
+                                throw new CompletionException(mapToPublicCriteriaException(unwrapCause(th)));
+                            });
                 });
     }
 }

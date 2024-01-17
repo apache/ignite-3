@@ -24,7 +24,6 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 
 import java.util.Collection;
 import java.util.Collections;
-import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
@@ -466,13 +465,10 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
 
     /** {@inheritDoc} */
     @Override
-    protected @Nullable Function<SqlRow, Entry<Tuple, Tuple>> queryMapper(ResultSetMetadata meta, ClientSchema schema) {
-        List<Integer> keyMapping = indexMapping(schema.columns(), 0, schema.keyColumnCount(), meta);
-        List<Integer> valMapping = indexMapping(schema.columns(), schema.keyColumnCount(), schema.columns().length, meta);
+    protected Function<SqlRow, Entry<Tuple, Tuple>> queryMapper(ResultSetMetadata meta, ClientSchema schema) {
+        String[] keyCols = columnNames(schema.columns(), 0, schema.keyColumnCount());
+        String[] valCols = columnNames(schema.columns(), schema.keyColumnCount(), schema.columns().length);
 
-        return (row) -> new IgniteBiTuple<>(
-                new SqlRowProjection(row, keyMapping),
-                new SqlRowProjection(row, valMapping)
-        );
+        return (row) -> new IgniteBiTuple<>(new SqlRowProjection(row, meta, keyCols), new SqlRowProjection(row, meta, valCols));
     }
 }

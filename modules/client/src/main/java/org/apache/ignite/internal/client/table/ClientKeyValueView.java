@@ -29,7 +29,6 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
@@ -549,9 +548,9 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
 
     /** {@inheritDoc} */
     @Override
-    protected @Nullable Function<SqlRow, Entry<K, V>> queryMapper(ResultSetMetadata meta, ClientSchema schema) {
-        List<Integer> keyMapping = indexMapping(schema.columns(), 0, schema.keyColumnCount(), meta);
-        List<Integer> valMapping = indexMapping(schema.columns(), schema.keyColumnCount(), schema.columns().length, meta);
+    protected Function<SqlRow, Entry<K, V>> queryMapper(ResultSetMetadata meta, ClientSchema schema) {
+        String[] keyCols = columnNames(schema.columns(), 0, schema.keyColumnCount());
+        String[] valCols = columnNames(schema.columns(), schema.keyColumnCount(), schema.columns().length);
 
         Marshaller keyMarsh = schema.getMarshaller(keySer.mapper(), TuplePart.KEY, true);
         Marshaller valMarsh = schema.getMarshaller(valSer.mapper(), TuplePart.VAL, true);
@@ -559,11 +558,11 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
         return (row) -> {
             try {
                 return new IgniteBiTuple<>(
-                        (K) keyMarsh.readObject(new TupleReader(new SqlRowProjection(row, keyMapping)), null),
-                        (V) valMarsh.readObject(new TupleReader(new SqlRowProjection(row, valMapping)), null)
+                        (K) keyMarsh.readObject(new TupleReader(new SqlRowProjection(row, meta, keyCols)), null),
+                        (V) valMarsh.readObject(new TupleReader(new SqlRowProjection(row, meta, valCols)), null)
                 );
             } catch (MarshallerException e) {
-                throw new IgniteException(INTERNAL_ERR, "Failed to map query results: " + e.getMessage(), e);
+                throw new org.apache.ignite.lang.MarshallerException(e);
             }
         };
     }

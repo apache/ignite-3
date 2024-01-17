@@ -27,6 +27,8 @@ import java.util.Iterator;
 public interface Cursor<T> extends Iterator<T>, AutoCloseable {
     /**
      * Closes this cursor and releases any underlying resources.
+     *
+     * @throws IgniteException If cursor is closed with error.
      */
     @Override
     void close();

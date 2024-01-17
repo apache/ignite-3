@@ -50,7 +50,7 @@ public class CriteriaExceptionMapperUtil {
      * @param origin Exception to be mapped.
      * @return Public exception.
      */
-    static Throwable mapToPublicCriteriaException(Throwable origin) {
+    public static Throwable mapToPublicCriteriaException(Throwable origin) {
         Throwable e = mapToPublicException(origin);
 
         if (e instanceof Error) {
@@ -87,11 +87,11 @@ public class CriteriaExceptionMapperUtil {
      * @param <T> Type os result.
      * @return New CompletableFuture.
      */
-    public static <T> CompletableFuture<T> convertToPublicFuture(CompletableFuture<T> origin) {
+    public static <T> CompletableFuture<T> convertToPublicCriteriaFuture(CompletableFuture<T> origin) {
         return origin
-                .handle((res, e) -> {
-                    if (e != null) {
-                        throw new CompletionException(mapToPublicCriteriaException(unwrapCause(e.getCause())));
+                .handle((res, err) -> {
+                    if (err != null) {
+                        throw new CompletionException(mapToPublicCriteriaException(unwrapCause(err)));
                     }
 
                     return res;

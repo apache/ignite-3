@@ -19,7 +19,6 @@ package org.apache.ignite.internal.table;
 
 import static org.apache.ignite.internal.marshaller.Marshaller.createMarshaller;
 import static org.apache.ignite.internal.schema.marshaller.MarshallerUtil.toMarshallerColumns;
-import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -44,7 +43,6 @@ import org.apache.ignite.internal.table.criteria.SqlRowProjection;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.ArrayUtils;
-import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.MarshallerException;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSetMetadata;
@@ -544,17 +542,15 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
 
     /** {@inheritDoc} */
     @Override
-    protected @Nullable Function<SqlRow, R> queryMapper(ResultSetMetadata meta, SchemaDescriptor schema) {
+    protected Function<SqlRow, R> queryMapper(ResultSetMetadata meta, SchemaDescriptor schema) {
         Column[] cols = ArrayUtils.concat(schema.keyColumns().columns(), schema.valueColumns().columns());
         Marshaller marsh = createMarshaller(toMarshallerColumns(cols), mapper, false, true);
 
-        List<Integer> idxMapping = indexMapping(cols, meta);
-
         return (row) -> {
             try {
-                return (R) marsh.readObject(new TupleReader(new SqlRowProjection(row, idxMapping)), null);
+                return (R) marsh.readObject(new TupleReader(new SqlRowProjection(row, meta, columnNames(cols))), null);
             } catch (org.apache.ignite.internal.marshaller.MarshallerException e) {
-                throw new IgniteException(INTERNAL_ERR, "Failed to map query results: " + e.getMessage(), e);
+                throw new MarshallerException(e);
             }
         };
     }

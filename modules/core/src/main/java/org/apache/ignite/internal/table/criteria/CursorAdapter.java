@@ -17,9 +17,8 @@
 
 package org.apache.ignite.internal.table.criteria;
 
-import static org.apache.ignite.internal.lang.IgniteExceptionMapperUtil.convertToPublicFuture;
+import static org.apache.ignite.internal.util.ExceptionUtils.copyExceptionWithCause;
 import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
-import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 
 import java.util.Iterator;
 import java.util.concurrent.CompletionException;
@@ -53,9 +52,9 @@ public class CursorAdapter<T> implements Cursor<T> {
     @Override
     public void close() {
         try {
-            convertToPublicFuture(ac.closeAsync().toCompletableFuture()).join();
-        } catch (Throwable e) {
-            throw sneakyThrow(unwrapCause(e));
+            ac.closeAsync().toCompletableFuture().join();
+        } catch (CompletionException e) {
+            throw sneakyThrow(copyExceptionWithCause(e));
         }
     }
 
@@ -91,8 +90,8 @@ public class CursorAdapter<T> implements Cursor<T> {
             } else if (nextPageStage != null) {
                 try {
                     curRes = nextPageStage.toCompletableFuture().join();
-                } catch (CompletionException ex) {
-                    throw sneakyThrow(unwrapCause(ex));
+                } catch (CompletionException e) {
+                    throw sneakyThrow(copyExceptionWithCause(e));
                 }
 
                 advance();

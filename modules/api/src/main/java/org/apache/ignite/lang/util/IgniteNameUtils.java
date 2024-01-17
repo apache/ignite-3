@@ -72,13 +72,16 @@ public final class IgniteNameUtils {
     }
 
     /**
-     * Wraps the given name with double quotes if it not in upper case, e.g. "myColumn" -&gt; "\"myColumn\"", "MYCOLUMN" -&gt; "MYCOLUMN"
+     * Wraps the given name with double quotes if it not upper case not-quoted name,
+     *     e.g. "myColumn" -&gt; "\"myColumn\"", "MYCOLUMN" -&gt; "MYCOLUMN"
      *
      * @param name Object name.
      * @return Quoted object name.
      */
     public static String quoteIfNeeded(String name) {
-        return name.chars().allMatch(Character::isUpperCase) ? name : quote(name);
+        String simpleName = parseSimpleName(name);
+
+        return name.equals(simpleName) || name.equals(quote(simpleName)) ? name : quote(name);
     }
 
     /**
