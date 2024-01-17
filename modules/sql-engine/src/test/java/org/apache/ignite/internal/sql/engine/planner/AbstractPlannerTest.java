@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.sql.engine.externalize.RelJsonWriter.to
 import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFIG;
 import static org.apache.ignite.internal.util.CollectionUtils.first;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
+import static org.apache.ignite.internal.util.StringUtils.nullOrBlank;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -1005,13 +1006,35 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
     }
 
     /** Creates a function, which builds sorted index with given column names and with default collation. */
-    protected static UnaryOperator<TableBuilder> addSortIndex(String... columns) {
+    protected static UnaryOperator<TableBuilder> addUniqueSortIndex(String tableName, String... columns) {
         return tableBuilder -> {
             SortedIndexBuilder indexBuilder = tableBuilder.sortedIndex();
-            StringBuilder nameBuilder = new StringBuilder("idx");
+            StringBuilder nameBuilder = new StringBuilder(nullOrBlank(tableName) ? "IDX" : tableName.toUpperCase() + "_IDX");
 
             for (String colName : columns) {
-                indexBuilder.addColumn(colName.toUpperCase(), Collation.ASC_NULLS_LAST);
+                String colNameUpperCase = colName.toUpperCase();
+
+                indexBuilder.addColumn(colNameUpperCase, Collation.ASC_NULLS_LAST);
+                nameBuilder.append('_').append(colNameUpperCase);
+            }
+
+            return indexBuilder.name(nameBuilder.toString()).end();
+        };
+    }
+
+    /** Creates a function, which builds sorted index with given column names and with default collation. */
+    protected static UnaryOperator<TableBuilder> addSortIndex(String... columns) {
+        return addUniqueSortIndex(null, columns);
+    }
+
+    /** Creates a function, which builds hash index with given column names. */
+    protected static UnaryOperator<TableBuilder> addUniqueHashIndex(String tableName, String... columns) {
+        return tableBuilder -> {
+            HashIndexBuilder indexBuilder = tableBuilder.hashIndex();
+            StringBuilder nameBuilder = new StringBuilder(nullOrBlank(tableName) ? "IDX" : tableName.toUpperCase() + "_IDX");
+
+            for (String colName : columns) {
+                indexBuilder.addColumn(colName.toUpperCase());
                 nameBuilder.append('_').append(colName);
             }
 
@@ -1021,17 +1044,7 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
 
     /** Creates a function, which builds hash index with given column names. */
     protected static UnaryOperator<TableBuilder> addHashIndex(String... columns) {
-        return tableBuilder -> {
-            HashIndexBuilder indexBuilder = tableBuilder.hashIndex();
-            StringBuilder nameBuilder = new StringBuilder("idx");
-
-            for (String colName : columns) {
-                indexBuilder.addColumn(colName.toUpperCase());
-                nameBuilder.append('_').append(colName);
-            }
-
-            return indexBuilder.name(nameBuilder.toString()).end();
-        };
+        return addUniqueHashIndex(null, columns);
     }
 
     /** Sets table size. */

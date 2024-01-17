@@ -17,9 +17,16 @@
 
 package org.apache.ignite.internal.sql.engine.rule.logical;
 
+import static org.apache.calcite.util.Util.last;
+import static org.apache.ignite.internal.sql.engine.hint.IgniteHint.FORCE_INDEX;
+import static org.apache.ignite.internal.sql.engine.hint.IgniteHint.NO_INDEX;
+
+import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptRule;
@@ -27,14 +34,20 @@ import org.apache.calcite.plan.RelOptRuleCall;
 import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.plan.RelRule;
 import org.apache.calcite.rel.RelNode;
+import org.apache.calcite.rel.core.TableScan;
+import org.apache.calcite.rel.hint.RelHint;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.util.ImmutableBitSet;
+import org.apache.ignite.internal.lang.IgniteBiTuple;
+import org.apache.ignite.internal.sql.engine.hint.IgniteHint;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.SearchBounds;
+import org.apache.ignite.internal.sql.engine.rel.AbstractIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalTableScan;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
+import org.apache.ignite.internal.sql.engine.util.HintUtils;
 import org.immutables.value.Value;
 
 /**
@@ -71,8 +84,16 @@ public class ExposeIndexRule extends RelRule<ExposeIndexRule.Config> {
                 .filter(idx -> filter(igniteTable, idx.indexName(), idx.searchBounds()))
                 .collect(Collectors.toList());
 
+        IgniteBiTuple<List<IgniteLogicalIndexScan>, Boolean> hintedIndexes = processHints(scan, indexes);
+
+        indexes = hintedIndexes.get1();
+
         if (indexes.isEmpty()) {
             return;
+        }
+
+        if (hintedIndexes.get2()) {
+            cluster.getPlanner().prune(scan);
         }
 
         Map<RelNode, RelNode> equivMap = new HashMap<>(indexes.size());
@@ -81,6 +102,40 @@ public class ExposeIndexRule extends RelRule<ExposeIndexRule.Config> {
         }
 
         call.transformTo(indexes.get(0), equivMap);
+    }
+
+    /**
+     * @return Actual indixes list and prune-table-scan flag if any index is forced to use.
+     */
+    private IgniteBiTuple<List<IgniteLogicalIndexScan>, Boolean> processHints(
+            TableScan scan,
+            List<IgniteLogicalIndexScan> indexes
+    ) {
+        Set<String> tblIdxNames = indexes.stream().map(AbstractIndexScan::indexName).collect(Collectors.toSet());
+        Set<String> idxToSkip = new HashSet<>();
+        Set<String> idxToUse = new HashSet<>();
+
+        for (RelHint hint : HintUtils.hints(scan, NO_INDEX, FORCE_INDEX)) {
+            boolean skip = !hint.hintName.equals(FORCE_INDEX.name());
+
+            Collection<String> hintIdxNames = hint.listOptions.isEmpty() ? tblIdxNames : hint.listOptions;
+
+            for (String hintIdxName : hintIdxNames) {
+                if (!tblIdxNames.contains(hintIdxName)) {
+                    continue;
+                }
+
+                if (skip) {
+                    idxToSkip.add(hintIdxName);
+                } else {
+                    idxToUse.add(hintIdxName);
+                }
+            }
+        }
+
+        return new IgniteBiTuple<>(indexes.stream().filter(idx -> !idxToSkip.contains(idx.indexName())
+                && (idxToUse.isEmpty() || idxToUse.contains(idx.indexName()))).collect(Collectors.toList()),
+                !idxToUse.isEmpty());
     }
 
     /** Filter pre known not applicable variants. Significant shrink search space in some cases. */
