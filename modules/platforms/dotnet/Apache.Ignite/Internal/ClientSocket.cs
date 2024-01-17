@@ -682,7 +682,10 @@ namespace Apache.Ignite.Internal
 
                     // Invoke response handler in another thread to continue the receive loop.
                     // Response buffer should be disposed by the task handler.
-                    ThreadPool.QueueUserWorkItem(r => HandleResponse((PooledBuffer)r!), response);
+                    ThreadPool.QueueUserWorkItem<(ClientSocket Socket, PooledBuffer Buf)>(
+                        callBack: static r => r.Socket.HandleResponse(r.Buf),
+                        state: (this, response),
+                        preferLocal: true);
                 }
             }
             catch (Exception e)
@@ -696,6 +699,7 @@ namespace Apache.Ignite.Internal
 
         private void HandleResponse(PooledBuffer response)
         {
+            // TODO: Buffer is not released in some cases.
             var reader = response.GetReader();
 
             var requestId = reader.ReadInt64();
