@@ -93,12 +93,12 @@ public class WriteIntentSwitchProcessor {
                         Throwable cause = ExceptionUtils.unwrapCause(ex);
 
                         if (TransactionFailureHandler.isRecoverable(cause)) {
-                            LOG.warn("Failed to switch write intents for Tx. The operation will be retried [txId={}].", txId, ex);
+                            LOG.info("Failed to switch write intents for Tx. The operation will be retried [txId={}].", txId, ex);
 
                             return switchWriteIntentsWithRetry(commit, commitTimestamp, txId, partitionId);
                         }
 
-                        LOG.warn("Failed to switch write intents for Tx [txId={}].", txId, ex);
+                        LOG.info("Failed to switch write intents for Tx [txId={}].", txId, ex);
 
                         return CompletableFuture.<Void>failedFuture(ex);
                     }
