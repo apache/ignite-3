@@ -54,7 +54,7 @@ public class DropZoneCommand extends AbstractZoneCommand {
     @SuppressWarnings("MethodOverridesInaccessibleMethodOfSuper")
     private void validate() {
         if (zoneName.equals(DEFAULT_ZONE_NAME)) {
-            throw new DistributionZoneCantBeDroppedValidationException("Default distribution zone can't be dropped");
+            throw new DistributionZoneCantBeDroppedValidationException("Default distribution zone can't be dropped: zoneName={}", zoneName);
         }
     }
 
@@ -67,8 +67,8 @@ public class DropZoneCommand extends AbstractZoneCommand {
                 .filter(t -> t.zoneId() == zone.id())
                 .findAny()
                 .ifPresent(t -> {
-                    throw new DistributionZoneCantBeDroppedValidationException("Distribution zone is assigned to the table [zoneName={}, "
-                            + "tableName={}]", zone.name(), t.name());
+                    throw new DistributionZoneCantBeDroppedValidationException("Distribution zone '{}' is assigned to the table '{}'",
+                            zone.name(), t.name());
                 });
 
         return List.of(new DropZoneEntry(zone.id()));

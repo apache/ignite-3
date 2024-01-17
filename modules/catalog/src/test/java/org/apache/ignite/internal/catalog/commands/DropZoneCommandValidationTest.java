@@ -69,7 +69,7 @@ public class DropZoneCommandValidationTest extends AbstractCommandValidationTest
         assertThrows(
                 DistributionZoneCantBeDroppedValidationException.class,
                 () -> DropZoneCommand.builder().zoneName(ZONE_NAME).build().get(catalog),
-                format("Distribution zone is assigned to the table [zoneName={}, tableName={}]", ZONE_NAME, tableName)
+                format("Distribution zone '{}' is assigned to the table '{}'", ZONE_NAME, tableName)
         );
     }
 
