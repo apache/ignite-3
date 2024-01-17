@@ -208,7 +208,7 @@ namespace Apache.Ignite.Internal.Sql
                     using var writer = ProtoCommon.GetMessageWriter();
                     WriteId(writer.MessageWriter);
 
-                    await _socket.DoOutInOpAsync(ClientOp.SqlCursorClose, writer).ConfigureAwait(false);
+                    using var buffer = await _socket.DoOutInOpAsync(ClientOp.SqlCursorClose, writer).ConfigureAwait(false);
                 }
                 catch (Exception)
                 {

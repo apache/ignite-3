@@ -300,7 +300,7 @@ namespace Apache.Ignite.Tests.Transactions
             // Transactional operations propagate timestamp.
             if (sql)
             {
-                await client.Sql.ExecuteAsync(null, "select 1");
+                await using var resultSet = await client.Sql.ExecuteAsync(null, "select 1");
             }
             else
             {
