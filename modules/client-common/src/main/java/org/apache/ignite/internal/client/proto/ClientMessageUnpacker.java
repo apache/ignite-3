@@ -814,6 +814,11 @@ public class ClientMessageUnpacker implements AutoCloseable {
         }
     }
 
+    /**
+     * Reads a nullable {@link Instant}.
+     *
+     * @return {@link Instant} value or {@code null}.
+     */
     public @Nullable Instant unpackInstantNullable() {
         if (tryUnpackNil()) {
             return null;
@@ -821,6 +826,11 @@ public class ClientMessageUnpacker implements AutoCloseable {
         return unpackInstant();
     }
 
+    /**
+     * Reads an {@link Instant}.
+     *
+     * @return {@link Instant} value.
+     */
     public Instant unpackInstant() {
         long seconds = unpackLong();
         int nanos = unpackInt();
