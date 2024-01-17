@@ -134,13 +134,14 @@ public interface ComputeComponent extends IgniteComponent {
      * @param jobId Job id.
      * @return The future which will be completed when cancel request is processed.
      */
-    CompletableFuture<Void> broadcastCancelAsync(UUID jobId);
+    CompletableFuture<Boolean> broadcastCancelAsync(UUID jobId);
 
     /**
      * Cancels the locally running job.
      *
      * @param jobId Job id.
-     * @return The future which will be completed when cancel request is processed.
+     * @return The future which will be completed with {@code true} when the job is cancelled, {@code false} when the job couldn't be
+     *         cancelled, or {@code null} if there's no job with the specified id.
      */
-    CompletableFuture<Void> localCancelAsync(UUID jobId);
+    CompletableFuture<Boolean> localCancelAsync(UUID jobId);
 }

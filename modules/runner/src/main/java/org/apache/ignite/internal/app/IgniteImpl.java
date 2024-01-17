@@ -659,7 +659,7 @@ public class IgniteImpl implements Ignite {
         deploymentManager = deploymentManagerImpl;
 
         ComputeConfiguration computeCfg = nodeConfigRegistry.getConfiguration(ComputeConfiguration.KEY);
-        InMemoryComputeStateMachine stateMachine = new InMemoryComputeStateMachine(computeCfg);
+        InMemoryComputeStateMachine stateMachine = new InMemoryComputeStateMachine(computeCfg, name);
         computeComponent = new ComputeComponentImpl(
                 clusterSvc.messagingService(),
                 clusterSvc.topologyService(),

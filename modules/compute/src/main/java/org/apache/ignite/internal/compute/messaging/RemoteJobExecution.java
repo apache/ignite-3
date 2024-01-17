@@ -76,7 +76,7 @@ public class RemoteJobExecution<R> implements JobExecution<R> {
     }
 
     @Override
-    public CompletableFuture<Void> cancelAsync() {
+    public CompletableFuture<Boolean> cancelAsync() {
         return inFlightFutures.registerFuture(
                 jobIdFuture.thenCompose(jobId -> messaging.remoteCancelAsync(remoteNode, jobId))
         );

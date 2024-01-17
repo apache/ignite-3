@@ -88,7 +88,7 @@ public class ComputeExecutorImpl implements ComputeExecutor {
         stateMachine.start();
         executorService = new PriorityQueueExecutor(
                 configuration,
-                new NamedThreadFactory(NamedThreadFactory.threadPrefix(ignite.name(), "compute"), LOG),
+                NamedThreadFactory.create(ignite.name(), "compute", LOG),
                 stateMachine
         );
     }

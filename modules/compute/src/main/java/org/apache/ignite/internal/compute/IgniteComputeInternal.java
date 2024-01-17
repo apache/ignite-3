@@ -40,5 +40,5 @@ public interface IgniteComputeInternal extends IgniteCompute {
      * @param jobId Job id.
      * @return The future which will be completed when cancel request is processed.
      */
-    CompletableFuture<Void> cancelAsync(UUID jobId);
+    CompletableFuture<Boolean> cancelAsync(UUID jobId);
 }

@@ -19,14 +19,11 @@ package org.apache.ignite.internal.runner.app.client;
 
 import static org.apache.ignite.compute.JobState.COMPLETED;
 import static org.apache.ignite.compute.JobState.FAILED;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.will;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.JobStatusMatcher.jobStatusWithState;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Compute.CANCELLING_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Table.COLUMN_ALREADY_EXISTS_ERR;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -60,7 +57,6 @@ import java.util.stream.Collectors;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.client.IgniteClient.Builder;
 import org.apache.ignite.client.IgniteClientConnectionException;
-import org.apache.ignite.compute.ComputeException;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.JobExecution;
@@ -120,23 +116,14 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     }
 
     @Test
-    void testCancellingCompletedJobPropagatesException() {
+    void testCancellingCompletedJob() {
         JobExecution<String> execution = client().compute().executeAsync(Set.of(node(0)), List.of(), NodeNameJob.class.getName());
 
         assertThat(execution.resultAsync(), willBe("itcct_n_3344"));
 
         assertThat(execution.statusAsync(), willBe(jobStatusWithState(COMPLETED)));
 
-        UUID jobId = execution.idAsync().join();
-
-        Throwable ex = assertThrowsWithCause(
-                () -> execution.cancelAsync().join(),
-                ComputeException.class,
-                "Cancelling job " + jobId + " failed."
-        );
-        IgniteException cause = (IgniteException) ex.getCause();
-
-        assertEquals(CANCELLING_ERR, cause.code());
+        assertThat(execution.cancelAsync(), willBe(false));
     }
 
     @Test
@@ -148,8 +135,8 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         await().until(execution1::statusAsync, willBe(jobStatusWithState(JobState.EXECUTING)));
         await().until(execution2::statusAsync, willBe(jobStatusWithState(JobState.EXECUTING)));
 
-        assertThat(execution1.cancelAsync(), willCompleteSuccessfully());
-        assertThat(execution2.cancelAsync(), willCompleteSuccessfully());
+        assertThat(execution1.cancelAsync(), willBe(true));
+        assertThat(execution2.cancelAsync(), willBe(true));
 
         await().until(execution1::statusAsync, willBe(jobStatusWithState(JobState.CANCELED)));
         await().until(execution2::statusAsync, willBe(jobStatusWithState(JobState.CANCELED)));
@@ -230,8 +217,8 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         await().until(execution1::statusAsync, willBe(jobStatusWithState(JobState.EXECUTING)));
         await().until(execution2::statusAsync, willBe(jobStatusWithState(JobState.EXECUTING)));
 
-        assertThat(execution1.cancelAsync(), willCompleteSuccessfully());
-        assertThat(execution2.cancelAsync(), willCompleteSuccessfully());
+        assertThat(execution1.cancelAsync(), willBe(true));
+        assertThat(execution2.cancelAsync(), willBe(true));
 
         await().until(execution1::statusAsync, willBe(jobStatusWithState(JobState.CANCELED)));
         await().until(execution2::statusAsync, willBe(jobStatusWithState(JobState.CANCELED)));
@@ -402,8 +389,8 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         await().until(tupleExecution::statusAsync, willBe(jobStatusWithState(JobState.EXECUTING)));
         await().until(pojoExecution::statusAsync, willBe(jobStatusWithState(JobState.EXECUTING)));
 
-        assertThat(tupleExecution.cancelAsync(), willCompleteSuccessfully());
-        assertThat(pojoExecution.cancelAsync(), willCompleteSuccessfully());
+        assertThat(tupleExecution.cancelAsync(), willBe(true));
+        assertThat(pojoExecution.cancelAsync(), willBe(true));
 
         await().until(tupleExecution::statusAsync, willBe(jobStatusWithState(JobState.CANCELED)));
         await().until(pojoExecution::statusAsync, willBe(jobStatusWithState(JobState.CANCELED)));

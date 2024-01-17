@@ -84,7 +84,7 @@ class QueueExecutionImpl<R> implements QueueExecution<R> {
     }
 
     @Override
-    public void cancel() {
+    public boolean cancel() {
         try {
             stateMachine.cancelingJob(jobId);
 
@@ -92,11 +92,12 @@ class QueueExecutionImpl<R> implements QueueExecution<R> {
             if (queueEntry != null) {
                 executor.remove(queueEntry);
                 queueEntry.interrupt();
+                return true;
             }
         } catch (IllegalJobStateTransition e) {
             LOG.info("Cannot cancel the job", e);
-            throw new CancellingException(jobId);
         }
+        return false;
     }
 
     /**

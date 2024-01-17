@@ -23,6 +23,8 @@ import static org.apache.ignite.compute.JobState.COMPLETED;
 import static org.apache.ignite.compute.JobState.EXECUTING;
 import static org.apache.ignite.compute.JobState.FAILED;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
+import static org.apache.ignite.internal.testframework.matchers.JobStatusMatcher.jobStatusWithState;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
@@ -366,12 +368,12 @@ class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest {
         assertThat(remoteWorkerCandidates, hasItem(failoverWorker));
 
         // When cancel job.
-        execution.cancelAsync().get(10, TimeUnit.SECONDS);
+        assertThat(execution.cancelAsync(), willBe(true));
 
         // Then it is cancelled.
         assertThat(execution.resultAsync(), willThrow(IgniteException.class));
         // And.
-        assertThat(statusSync(execution).state(), is(CANCELED));
+        assertThat(execution.statusAsync(), willBe(jobStatusWithState(CANCELED)));
     }
 
     @Test

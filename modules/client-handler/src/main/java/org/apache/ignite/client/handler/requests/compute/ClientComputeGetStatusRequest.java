@@ -17,7 +17,6 @@
 
 package org.apache.ignite.client.handler.requests.compute;
 
-import java.time.Instant;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.compute.JobStatus;
@@ -59,18 +58,9 @@ public class ClientComputeGetStatusRequest {
         } else {
             out.packUuid(jobStatus.id());
             out.packString(jobStatus.state().name());
-            packInstant(out, jobStatus.createTime());
-            packInstant(out, jobStatus.startTime());
-            packInstant(out, jobStatus.finishTime());
-        }
-    }
-
-    private static void packInstant(ClientMessagePacker out, @Nullable Instant instant) {
-        if (instant == null) {
-            out.packNil();
-        } else {
-            out.packLong(instant.getEpochSecond());
-            out.packInt(instant.getNano());
+            out.packInstant(jobStatus.createTime());
+            out.packInstant(jobStatus.startTime());
+            out.packInstant(jobStatus.finishTime());
         }
     }
 }

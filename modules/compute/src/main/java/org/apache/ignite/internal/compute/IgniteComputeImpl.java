@@ -280,7 +280,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
     }
 
     @Override
-    public CompletableFuture<Void> cancelAsync(UUID jobId) {
+    public CompletableFuture<Boolean> cancelAsync(UUID jobId) {
         return computeComponent.broadcastCancelAsync(jobId);
     }
 }

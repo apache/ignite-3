@@ -45,7 +45,7 @@ class DelegatingJobExecution<R> implements JobExecution<R> {
     }
 
     @Override
-    public CompletableFuture<Void> cancelAsync() {
-        return delegate.thenAccept(JobExecutionInternal::cancel);
+    public CompletableFuture<Boolean> cancelAsync() {
+        return delegate.thenApply(JobExecutionInternal::cancel);
     }
 }

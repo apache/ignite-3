@@ -19,6 +19,7 @@ package org.apache.ignite.client.handler.requests.compute;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
 
@@ -30,14 +31,16 @@ public class ClientComputeCancelRequest {
      * Processes the request.
      *
      * @param in Unpacker.
+     * @param out Packer.
      * @param compute Compute.
      * @return Future.
      */
     public static CompletableFuture<Void> process(
             ClientMessageUnpacker in,
+            ClientMessagePacker out,
             IgniteComputeInternal compute
     ) {
         UUID jobId = in.unpackUuid();
-        return compute.cancelAsync(jobId);
+        return compute.cancelAsync(jobId).thenAccept(out::packBoolean);
     }
 }

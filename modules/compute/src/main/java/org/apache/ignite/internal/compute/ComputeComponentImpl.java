@@ -40,7 +40,6 @@ import org.apache.ignite.internal.compute.loader.JobContext;
 import org.apache.ignite.internal.compute.loader.JobContextManager;
 import org.apache.ignite.internal.compute.messaging.ComputeMessaging;
 import org.apache.ignite.internal.compute.messaging.RemoteJobExecution;
-import org.apache.ignite.internal.compute.queue.CancellingException;
 import org.apache.ignite.internal.future.InFlightFutures;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
@@ -61,13 +60,15 @@ public class ComputeComponentImpl implements ComputeComponent {
 
     private final InFlightFutures inFlightFutures = new InFlightFutures();
 
+    private final TopologyService topologyService;
+
     private final JobContextManager jobContextManager;
 
     private final ComputeExecutor executor;
 
-    private final ComputeMessaging messaging;
-
     private final ComputeConfiguration computeConfiguration;
+
+    private final ComputeMessaging messaging;
 
     private final Cleaner<JobExecution<?>> cleaner = new Cleaner<>();
 
@@ -83,6 +84,7 @@ public class ComputeComponentImpl implements ComputeComponent {
             ComputeExecutor executor,
             ComputeConfiguration computeConfiguration
     ) {
+        this.topologyService = topologyService;
         this.jobContextManager = jobContextManager;
         this.executor = executor;
         this.computeConfiguration = computeConfiguration;
@@ -157,14 +159,14 @@ public class ComputeComponentImpl implements ComputeComponent {
     }
 
     @Override
-    public CompletableFuture<Void> broadcastCancelAsync(UUID jobId) {
+    public CompletableFuture<Boolean> broadcastCancelAsync(UUID jobId) {
         return messaging.broadcastCancelAsync(jobId);
     }
 
     @Override
-    public CompletableFuture<Void> localCancelAsync(UUID jobId) {
+    public CompletableFuture<Boolean> localCancelAsync(UUID jobId) {
         JobExecution<?> execution = executions.get(jobId);
-        return execution != null ? execution.cancelAsync() : failedFuture(new CancellingException(jobId));
+        return execution != null ? execution.cancelAsync() : nullCompletedFuture();
     }
 
     private <R> JobExecution<R> start(
@@ -202,7 +204,9 @@ public class ComputeComponentImpl implements ComputeComponent {
     public CompletableFuture<Void> start() {
         executor.start();
         messaging.start();
-        cleaner.start(executions::remove, computeConfiguration.statesLifetimeMillis().value());
+        long ttl = computeConfiguration.statesLifetimeMillis().value();
+        String nodeName = topologyService.localMember().name();
+        cleaner.start(executions::remove, ttl, nodeName);
 
         return nullCompletedFuture();
     }

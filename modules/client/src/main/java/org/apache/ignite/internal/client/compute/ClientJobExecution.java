@@ -17,13 +17,10 @@
 
 package org.apache.ignite.internal.client.compute;
 
-import static java.util.concurrent.CompletableFuture.failedFuture;
-import static org.apache.ignite.lang.ErrorGroups.Compute.CANCELLING_ERR;
+import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 
-import java.time.Instant;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.compute.ComputeException;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobState;
 import org.apache.ignite.compute.JobStatus;
@@ -44,6 +41,7 @@ class ClientJobExecution<R> implements JobExecution<R> {
 
     private final CompletableFuture<R> resultAsync;
 
+    // Local status cache
     private final CompletableFuture<JobStatus> statusFuture = new CompletableFuture<>();
 
     ClientJobExecution(ReliableChannel ch, CompletableFuture<PayloadInputChannel> reqFuture) {
@@ -77,9 +75,9 @@ class ClientJobExecution<R> implements JobExecution<R> {
     }
 
     @Override
-    public CompletableFuture<Void> cancelAsync() {
+    public CompletableFuture<Boolean> cancelAsync() {
         if (statusFuture.isDone()) {
-            return failedFuture(new ComputeException(CANCELLING_ERR, "Cancelling job " + statusFuture.join().id() + " failed."));
+            return falseCompletedFuture();
         }
         return jobIdFuture.thenCompose(this::cancelJob);
     }
@@ -97,13 +95,13 @@ class ClientJobExecution<R> implements JobExecution<R> {
         );
     }
 
-    private CompletableFuture<Void> cancelJob(UUID jobId) {
+    private CompletableFuture<Boolean> cancelJob(UUID jobId) {
         // Send the request to any node, the request will be broadcast since client doesn't know which particular node is running the job
         // especially in case of colocated execution.
         return ch.serviceAsync(
                 ClientOp.COMPUTE_CANCEL,
                 w -> w.out().packUuid(jobId),
-                null,
+                r -> r.in().unpackBoolean(),
                 null,
                 null,
                 false
@@ -118,22 +116,9 @@ class ClientJobExecution<R> implements JobExecution<R> {
         return JobStatus.builder()
                 .id(unpacker.unpackUuid())
                 .state(JobState.valueOf(unpacker.unpackString()))
-                .createTime(unpackInstant(unpacker))
-                .startTime(unpackInstantNullable(unpacker))
-                .finishTime(unpackInstantNullable(unpacker))
+                .createTime(unpacker.unpackInstant())
+                .startTime(unpacker.unpackInstantNullable())
+                .finishTime(unpacker.unpackInstantNullable())
                 .build();
-    }
-
-    private static @Nullable Instant unpackInstantNullable(ClientMessageUnpacker unpacker) {
-        if (unpacker.tryUnpackNil()) {
-            return null;
-        }
-        return unpackInstant(unpacker);
-    }
-
-    private static Instant unpackInstant(ClientMessageUnpacker unpacker) {
-        long seconds = unpacker.unpackLong();
-        int nanos = unpacker.unpackInt();
-        return Instant.ofEpochSecond(seconds, nanos);
     }
 }

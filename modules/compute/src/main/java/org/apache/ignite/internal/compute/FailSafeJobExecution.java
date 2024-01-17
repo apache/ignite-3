@@ -154,7 +154,7 @@ class FailSafeJobExecution<T> implements JobExecution<T> {
     }
 
     @Override
-    public CompletableFuture<Void> cancelAsync() {
+    public CompletableFuture<Boolean> cancelAsync() {
         resultFuture.cancel(false);
         return runningJobExecution.get().cancelAsync();
     }

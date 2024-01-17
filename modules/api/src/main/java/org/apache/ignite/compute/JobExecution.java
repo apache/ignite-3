@@ -56,5 +56,5 @@ public interface JobExecution<R> {
      *
      * @return The future which will be completed when cancel request is processed.
      */
-    CompletableFuture<Void> cancelAsync();
+    CompletableFuture<Boolean> cancelAsync();
 }

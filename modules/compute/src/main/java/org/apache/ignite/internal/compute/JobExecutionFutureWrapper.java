@@ -46,7 +46,7 @@ class JobExecutionFutureWrapper<R> implements JobExecution<R> {
     }
 
     @Override
-    public CompletableFuture<Void> cancelAsync() {
+    public CompletableFuture<Boolean> cancelAsync() {
         return convertToPublicFuture(delegate.thenCompose(JobExecution::cancelAsync));
     }
 }

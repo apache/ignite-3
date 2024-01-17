@@ -21,7 +21,7 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.compute.JobState.COMPLETED;
 import static org.apache.ignite.compute.JobState.EXECUTING;
 import static org.apache.ignite.compute.JobState.FAILED;
-import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
 
 import java.time.Instant;
 import java.util.List;
@@ -201,8 +201,8 @@ public class FakeCompute implements IgniteComputeInternal {
             }
 
             @Override
-            public CompletableFuture<Void> cancelAsync() {
-                return nullCompletedFuture();
+            public CompletableFuture<Boolean> cancelAsync() {
+                return trueCompletedFuture();
             }
         };
     }
@@ -213,7 +213,7 @@ public class FakeCompute implements IgniteComputeInternal {
     }
 
     @Override
-    public CompletableFuture<Void> cancelAsync(UUID jobId) {
-        return nullCompletedFuture();
+    public CompletableFuture<Boolean> cancelAsync(UUID jobId) {
+        return trueCompletedFuture();
     }
 }

@@ -24,12 +24,13 @@ import static org.apache.ignite.internal.compute.ComputeUtils.resultFromJobResul
 import static org.apache.ignite.internal.compute.ComputeUtils.statusFromJobStatusResponse;
 import static org.apache.ignite.internal.compute.ComputeUtils.toDeploymentUnit;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Compute.CANCELLING_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Compute.FAIL_TO_GET_JOB_STATUS_ERR;
 
-import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.ignite.compute.ComputeException;
 import org.apache.ignite.compute.DeploymentUnit;
@@ -49,7 +50,6 @@ import org.apache.ignite.internal.compute.message.JobResultRequest;
 import org.apache.ignite.internal.compute.message.JobResultResponse;
 import org.apache.ignite.internal.compute.message.JobStatusRequest;
 import org.apache.ignite.internal.compute.message.JobStatusResponse;
-import org.apache.ignite.internal.compute.queue.CancellingException;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -126,7 +126,7 @@ public class ComputeMessaging {
         } else if (message instanceof JobStatusRequest) {
             sendJobStatusResponse(null, ex, senderConsistentId, correlationId);
         } else if (message instanceof JobCancelRequest) {
-            sendJobCancelResponse(ex, senderConsistentId, correlationId);
+            sendJobCancelResponse(null, ex, senderConsistentId, correlationId);
         }
     }
 
@@ -296,7 +296,7 @@ public class ComputeMessaging {
      * @param jobId Compute job id.
      * @return Job cancel future (will be completed when cancel request is processed).
      */
-    CompletableFuture<Void> remoteCancelAsync(ClusterNode remoteNode, UUID jobId) {
+    CompletableFuture<Boolean> remoteCancelAsync(ClusterNode remoteNode, UUID jobId) {
         JobCancelRequest jobCancelRequest = messagesFactory.jobCancelRequest()
                 .jobId(jobId)
                 .build();
@@ -307,15 +307,17 @@ public class ComputeMessaging {
 
     private void processJobCancelRequest(JobCancelRequest request, String senderConsistentId, long correlationId) {
         computeComponent.localCancelAsync(request.jobId())
-                .whenComplete((result, err) -> sendJobCancelResponse(err, senderConsistentId, correlationId));
+                .whenComplete((result, err) -> sendJobCancelResponse(result, err, senderConsistentId, correlationId));
     }
 
     private void sendJobCancelResponse(
+            @Nullable Boolean result,
             @Nullable Throwable throwable,
             String senderConsistentId,
             Long correlationId
     ) {
         JobCancelResponse jobCancelResponse = messagesFactory.jobCancelResponse()
+                .result(result)
                 .throwable(throwable)
                 .build();
 
@@ -329,23 +331,13 @@ public class ComputeMessaging {
      * @return The current status of the job, or {@code null} if the job status no longer exists due to exceeding the retention time limit.
      */
     public CompletableFuture<JobStatus> broadcastStatusAsync(UUID jobId) {
-        CompletableFuture<JobStatus> result = new CompletableFuture<>();
-        CompletableFuture<?>[] futures = topologyService.allMembers().stream()
-                .map(node -> remoteStatusAsync(node, jobId).thenAccept(jobStatus -> {
-                    if (jobStatus != null) {
-                        result.complete(jobStatus);
-                    }
-                }))
-                .toArray(CompletableFuture[]::new);
-        allOf(futures).whenComplete((unused, throwable) -> {
-            if (Arrays.stream(futures).allMatch(CompletableFuture::isCompletedExceptionally)) {
-                result.completeExceptionally(new ComputeException(FAIL_TO_GET_JOB_STATUS_ERR, "Compute job status can't be retrieved."));
-            } else {
-                // If the result future was already completed with non-null status, this is no-op
-                result.complete(null);
-            }
-        });
-        return result;
+        return broadcastAsync(
+                node -> remoteStatusAsync(node, jobId),
+                throwable -> new ComputeException(
+                        FAIL_TO_GET_JOB_STATUS_ERR,
+                        "Compute job status can't be retrieved.",
+                        throwable
+                ));
     }
 
     /**
@@ -354,17 +346,47 @@ public class ComputeMessaging {
      * @param jobId Job id.
      * @return The future which will be completed when cancel request is processed.
      */
-    public CompletableFuture<Void> broadcastCancelAsync(UUID jobId) {
-        CompletableFuture<Void> result = new CompletableFuture<>();
+    public CompletableFuture<Boolean> broadcastCancelAsync(UUID jobId) {
+        return broadcastAsync(
+                node -> remoteCancelAsync(node, jobId),
+                throwable -> new ComputeException(
+                        CANCELLING_ERR,
+                        "Cancelling job " + jobId + " failed.",
+                        throwable
+                ));
+    }
+
+    /**
+     * Broadcasts a request to all nodes in the cluster.
+     *
+     * @param request Function which maps a node to the request future.
+     * @param error Function which creates a specific error from the exception thrown from the request.
+     * @return The future which will be completed when request is processed.
+     */
+    private <R> CompletableFuture<R> broadcastAsync(
+            Function<ClusterNode, CompletableFuture<R>> request,
+            Function<Throwable, Throwable> error
+    ) {
+        CompletableFuture<R> result = new CompletableFuture<>();
         CompletableFuture<?>[] futures = topologyService.allMembers().stream()
-                .map(node -> remoteCancelAsync(node, jobId).thenAccept(result::complete))
+                .map(node -> request.apply(node).thenAccept(response -> {
+                    if (response != null) {
+                        result.complete(response);
+                    }
+                }))
                 .toArray(CompletableFuture[]::new);
         allOf(futures).whenComplete((unused, throwable) -> {
-            if (Arrays.stream(futures).allMatch(CompletableFuture::isCompletedExceptionally)) {
-                result.completeExceptionally(new CancellingException(jobId));
-            } else {
-                // If the result future was already completed with cancel result, this is no-op
-                result.complete(null);
+            // If none of the nodes returned non-null status it means that either we couldn't find the status
+            // or the node which had the status thrown an exception. If any of the futures completed exceptionally
+            // but the result is non-null, then ignore the exceptions from other futures.
+            if (!result.isDone()) {
+                // allOf will complete exceptionally if any of the futures failed, so this condition means that we
+                // successfully couldn't find a status.
+                if (throwable == null) {
+                    result.complete(null);
+                    return;
+                }
+                result.completeExceptionally(error.apply(throwable));
             }
         });
         return result;

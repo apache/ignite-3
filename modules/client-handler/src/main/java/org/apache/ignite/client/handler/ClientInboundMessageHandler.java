@@ -731,7 +731,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
                 return ClientComputeGetStatusRequest.process(in, out, compute);
 
             case ClientOp.COMPUTE_CANCEL:
-                return ClientComputeCancelRequest.process(in, compute);
+                return ClientComputeCancelRequest.process(in, out, compute);
 
             case ClientOp.CLUSTER_GET_NODES:
                 return ClientClusterGetNodesRequest.process(out, clusterService);

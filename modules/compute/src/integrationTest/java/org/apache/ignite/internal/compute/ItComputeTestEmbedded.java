@@ -20,7 +20,6 @@ package org.apache.ignite.internal.compute;
 import static java.util.stream.Collectors.joining;
 import static org.apache.ignite.internal.compute.utils.ComputeTestUtils.assertPublicException;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.JobStatusMatcher.jobStatusWithState;
 import static org.apache.ignite.lang.ErrorGroups.Compute.CLASS_INITIALIZATION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Compute.COMPUTE_ERR_GROUP;
@@ -129,7 +128,7 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
 
         await().until(execution::statusAsync, willBe(jobStatusWithState(JobState.EXECUTING)));
 
-        assertThat(execution.cancelAsync(), willCompleteSuccessfully());
+        assertThat(execution.cancelAsync(), willBe(true));
 
         await().until(execution::statusAsync, willBe(jobStatusWithState(JobState.CANCELED)));
     }
@@ -142,7 +141,7 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
 
         await().until(execution::statusAsync, willBe(jobStatusWithState(JobState.EXECUTING)));
 
-        assertThat(execution.cancelAsync(), willCompleteSuccessfully());
+        assertThat(execution.cancelAsync(), willBe(true));
 
         await().until(execution::statusAsync, willBe(jobStatusWithState(JobState.CANCELED)));
     }

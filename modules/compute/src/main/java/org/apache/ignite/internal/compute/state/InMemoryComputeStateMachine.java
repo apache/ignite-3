@@ -44,17 +44,20 @@ public class InMemoryComputeStateMachine implements ComputeStateMachine {
 
     private final ComputeConfiguration configuration;
 
+    private final String nodeName;
+
     private final Cleaner<JobStatus> cleaner = new Cleaner<>();
 
     private final Map<UUID, JobStatus> statuses = new ConcurrentHashMap<>();
 
-    public InMemoryComputeStateMachine(ComputeConfiguration configuration) {
+    public InMemoryComputeStateMachine(ComputeConfiguration configuration, String nodeName) {
         this.configuration = configuration;
+        this.nodeName = nodeName;
     }
 
     @Override
     public void start() {
-        cleaner.start(statuses::remove, configuration.statesLifetimeMillis().value());
+        cleaner.start(statuses::remove, configuration.statesLifetimeMillis().value(), nodeName);
     }
 
     @Override

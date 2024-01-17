@@ -40,6 +40,7 @@ import static org.hamcrest.Matchers.startsWith;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -86,7 +87,6 @@ import org.apache.ignite.internal.compute.message.JobResultRequest;
 import org.apache.ignite.internal.compute.message.JobResultResponse;
 import org.apache.ignite.internal.compute.message.JobStatusRequest;
 import org.apache.ignite.internal.compute.message.JobStatusResponse;
-import org.apache.ignite.internal.compute.queue.CancellingException;
 import org.apache.ignite.internal.compute.state.InMemoryComputeStateMachine;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
@@ -127,7 +127,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
     @Mock
     private MessagingService messagingService;
 
-    @Mock
+    @Mock(answer = RETURNS_DEEP_STUBS)
     private TopologyService topologyService;
 
     @InjectConfiguration
@@ -174,6 +174,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
     @BeforeEach
     void setUp() {
         lenient().when(ignite.name()).thenReturn(INSTANCE_NAME);
+        lenient().when(topologyService.localMember().name()).thenReturn(INSTANCE_NAME);
 
         JobClassLoader classLoader = new JobClassLoader(List.of(), new URL[0], getClass().getClassLoader());
         JobContext jobContext = new JobContext(classLoader, ignored -> {});
@@ -190,7 +191,8 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
                 willCompleteSuccessfully()
         );
 
-        computeExecutor = new ComputeExecutorImpl(ignite, new InMemoryComputeStateMachine(computeConfiguration), computeConfiguration);
+        InMemoryComputeStateMachine stateMachine = new InMemoryComputeStateMachine(computeConfiguration, INSTANCE_NAME);
+        computeExecutor = new ComputeExecutorImpl(ignite, stateMachine, computeConfiguration);
 
         computeComponent = new ComputeComponentImpl(
                 messagingService,
@@ -214,7 +216,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
 
         assertThat(execution.resultAsync(), willBe("jobResponse"));
         assertThat(execution.statusAsync(), willBe(jobStatusWithState(COMPLETED)));
-        assertThat(execution.cancelAsync(), willThrow(CancellingException.class));
+        assertThat(execution.cancelAsync(), willBe(false));
 
         assertThatNoRequestsWereSent();
     }
@@ -225,7 +227,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
 
         await().until(execution::statusAsync, willBe(jobStatusWithState(EXECUTING)));
 
-        assertThat(execution.cancelAsync(), willCompleteSuccessfully());
+        assertThat(execution.cancelAsync(), willBe(true));
 
         await().until(execution::statusAsync, willBe(jobStatusWithState(CANCELED)));
 
@@ -254,7 +256,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
         respondWithExecuteResponseWhenExecuteRequestIsSent(jobId);
         respondWithJobResultResponseWhenJobResultRequestIsSent(jobId);
         respondWithJobStatusResponseWhenJobStatusRequestIsSent(jobId, COMPLETED);
-        respondWithCancellingExceptionhenJobCancelRequestIsSent(jobId);
+        respondWithJobCancelResponseWhenJobCancelRequestIsSent(jobId, false);
 
         JobExecution<String> execution = computeComponent.executeRemotely(remoteNode, List.of(), SimpleJob.class.getName(), "a", 42);
         assertThat(execution.resultAsync(), willBe("remoteResponse"));
@@ -263,10 +265,12 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
         assertThat(execution.resultAsync(), willBe("remoteResponse"));
 
         assertThat(execution.statusAsync(), willBe(jobStatusWithState(COMPLETED)));
-        assertThat(execution.cancelAsync(), willThrow(CancellingException.class));
+        assertThat(execution.cancelAsync(), willBe(false));
 
         assertThatExecuteRequestWasSent(SimpleJob.class.getName(), "a", 42);
         assertThatJobResultRequestWasSent(jobId);
+        assertThatJobStatusRequestWasSent(jobId);
+        assertThatJobCancelRequestWasSent(jobId);
     }
 
     @Test
@@ -275,13 +279,13 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
         respondWithExecuteResponseWhenExecuteRequestIsSent(jobId);
         respondWithJobResultResponseWhenJobResultRequestIsSent(jobId);
         respondWithJobStatusResponseWhenJobStatusRequestIsSent(jobId, EXECUTING);
-        respondWithJobCancelResponseWhenJobCancelRequestIsSent(jobId);
+        respondWithJobCancelResponseWhenJobCancelRequestIsSent(jobId, true);
 
         JobExecution<String> execution = computeComponent.executeRemotely(remoteNode, List.of(), LongJob.class.getName());
 
         assertThat(execution.statusAsync(), willBe(jobStatusWithState(EXECUTING)));
         assertThat(execution.resultAsync(), willBe("remoteResponse"));
-        assertThat(execution.cancelAsync(), willCompleteSuccessfully());
+        assertThat(execution.cancelAsync(), willBe(true));
 
         assertThatExecuteRequestWasSent(LongJob.class.getName());
         assertThatJobResultRequestWasSent(jobId);
@@ -313,16 +317,9 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
                 .thenReturn(completedFuture(jobStatusResponse));
     }
 
-    private void respondWithJobCancelResponseWhenJobCancelRequestIsSent(UUID jobId) {
+    private void respondWithJobCancelResponseWhenJobCancelRequestIsSent(UUID jobId, boolean result) {
         JobCancelResponse jobCancelResponse = new ComputeMessagesFactory().jobCancelResponse()
-                .build();
-        when(messagingService.invoke(any(ClusterNode.class), argThat(msg -> jobCancelRequestWithJobId(msg, jobId)), anyLong()))
-                .thenReturn(completedFuture(jobCancelResponse));
-    }
-
-    private void respondWithCancellingExceptionhenJobCancelRequestIsSent(UUID jobId) {
-        JobCancelResponse jobCancelResponse = new ComputeMessagesFactory().jobCancelResponse()
-                .throwable(new CancellingException(jobId))
+                .result(result)
                 .build();
         when(messagingService.invoke(any(ClusterNode.class), argThat(msg -> jobCancelRequestWithJobId(msg, jobId)), anyLong()))
                 .thenReturn(completedFuture(jobCancelResponse));

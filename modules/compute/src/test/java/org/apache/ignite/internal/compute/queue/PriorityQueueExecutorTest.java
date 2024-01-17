@@ -30,7 +30,6 @@ import static org.apache.ignite.internal.testframework.matchers.JobStatusMatcher
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
@@ -237,7 +236,7 @@ public class PriorityQueueExecutorTest extends BaseIgniteAbstractTest {
 
         JobStatus executingStatus = await().until(execution::status, jobStatusWithState(EXECUTING));
 
-        execution.cancel();
+        assertThat(execution.cancel(), is(true));
 
         await().until(
                 execution::status,
@@ -257,7 +256,7 @@ public class PriorityQueueExecutorTest extends BaseIgniteAbstractTest {
 
         JobStatus executingStatus = await().until(execution::status, jobStatusWithState(EXECUTING));
 
-        execution.cancel();
+        assertThat(execution.cancel(), is(true));
 
         await().until(
                 execution::status,
@@ -273,7 +272,7 @@ public class PriorityQueueExecutorTest extends BaseIgniteAbstractTest {
 
         await().until(execution::status, jobStatusWithState(COMPLETED));
 
-        assertThrows(CancellingException.class, execution::cancel);
+        assertThat(execution.cancel(), is(false));
 
         assertThat(execution.status().state(), is(COMPLETED));
     }
@@ -296,7 +295,7 @@ public class PriorityQueueExecutorTest extends BaseIgniteAbstractTest {
         await().until(execution::status, jobStatusWithState(QUEUED));
 
         // Cancel the task
-        execution.cancel();
+        assertThat(execution.cancel(), is(true));
         assertThat(execution.status(), jobStatusWithState(CANCELED));
 
         // Finish the running task
@@ -370,10 +369,11 @@ public class PriorityQueueExecutorTest extends BaseIgniteAbstractTest {
                 willCompleteSuccessfully()
         );
 
+        String nodeName = "testNode";
         priorityQueueExecutor = new PriorityQueueExecutor(
                 configuration,
-                new NamedThreadFactory(NamedThreadFactory.threadPrefix("testNode", "compute"), LOG),
-                new InMemoryComputeStateMachine(configuration)
+                NamedThreadFactory.create(nodeName, "compute", LOG),
+                new InMemoryComputeStateMachine(configuration, nodeName)
         );
     }
 

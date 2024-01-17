@@ -20,9 +20,10 @@ package org.apache.ignite.internal.compute;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 
 import java.util.HashSet;
+import java.util.Queue;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -44,26 +45,31 @@ public class Cleaner<T> {
 
     private final Set<UUID> toRemove = new HashSet<>();
 
-    private final Set<UUID> waitToRemove = ConcurrentHashMap.newKeySet();
+    private final Queue<UUID> waitToRemove = new ConcurrentLinkedQueue<>();
 
     /**
      * Starts the cleaner.
      *
      * @param clean Function to clean the entry.
      * @param ttl Time after which the clean function will be called for the scheduled to remove entry.
+     * @param nodeName Node name.
      */
-    public void start(Consumer<UUID> clean, long ttl) {
+    public void start(Consumer<UUID> clean, long ttl, String nodeName) {
         ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor(
-                new NamedThreadFactory("Cleaner-pool", LOG)
+                NamedThreadFactory.create(nodeName, "compute-execution-cleanup", true, LOG)
         );
+
         executor.scheduleAtFixedRate(() -> {
             toRemove.forEach(clean);
             toRemove.clear();
 
-            Set<UUID> nextToRemove = Set.of(waitToRemove.toArray(UUID[]::new));
-            waitToRemove.removeAll(nextToRemove);
-            toRemove.addAll(nextToRemove);
+            UUID nextToRemove;
+            //noinspection NestedAssignment
+            while ((nextToRemove = waitToRemove.poll()) != null) {
+                toRemove.add(nextToRemove);
+            }
         }, ttl, ttl, TimeUnit.MILLISECONDS);
+
         cleaner = executor;
     }
 

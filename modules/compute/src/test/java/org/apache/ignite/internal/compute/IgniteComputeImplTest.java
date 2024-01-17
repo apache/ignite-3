@@ -21,6 +21,7 @@ import static java.util.Collections.singleton;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doReturn;
@@ -168,8 +169,8 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
             }
 
             @Override
-            public CompletableFuture<Void> cancelAsync() {
-                return nullCompletedFuture();
+            public CompletableFuture<Boolean> cancelAsync() {
+                return trueCompletedFuture();
             }
         };
     }

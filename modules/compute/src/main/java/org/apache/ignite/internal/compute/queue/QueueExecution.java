@@ -45,6 +45,8 @@ public interface QueueExecution<R> {
 
     /**
      * Cancels the job.
+     *
+     * @return {@code true} if job was successfully cancelled.
      */
-    void cancel();
+    boolean cancel();
 }
