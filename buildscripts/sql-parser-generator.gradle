@@ -47,7 +47,6 @@ task extractParserTemplate(type: Copy) {
         include 'codegen/default_config.fmpp'
     }
     doNotTrackState("test")
-    // ^IDK what to do with "Failed to create MD5 hash for file content" err without this thing
     into("${buildDir}")
 }
 
