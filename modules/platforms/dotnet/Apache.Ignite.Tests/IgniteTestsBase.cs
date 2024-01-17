@@ -23,6 +23,7 @@ namespace Apache.Ignite.Tests
     using System.Threading.Tasks;
     using Ignite.Table;
     using Internal.Buffers;
+    using Internal.Common;
     using Internal.Proto;
     using Microsoft.Extensions.Logging;
     using NUnit.Framework;
@@ -213,7 +214,10 @@ namespace Apache.Ignite.Tests
                 messageFactory: () => $"rented = {listener.BuffersRented}, returned = {listener.BuffersReturned}");
 
 #if DEBUG
-            Assert.AreEqual(0, ByteArrayPool.CurrentlyRentedArraysCount);
+            TestUtils.WaitForCondition(
+                condition: () => ByteArrayPool.CurrentlyRentedArraysCount == 0,
+                timeoutMs: 1000,
+                messageFactory: () => $"Leaked buffers: {ByteArrayPool.RentedArrays.Select(x => x.Value).StringJoin()}");
 #endif
         }
     }
