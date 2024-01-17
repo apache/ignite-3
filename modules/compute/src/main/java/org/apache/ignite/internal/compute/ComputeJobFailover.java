@@ -18,11 +18,15 @@
 package org.apache.ignite.internal.compute;
 
 import java.util.List;
-import java.util.Optional;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Consumer;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.JobExecution;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -35,13 +39,14 @@ import org.apache.ignite.network.ClusterNode;
  * exception is propagated to the caller and this class does not handle it.
  *
  * <p>If you want to execute a job on node1 and use node2 and node3 as failover candidates,
- * then you should create an instance of this class with workerNode = node1, failoverCandidates = [node2, node3] as arguments and
- * call {@link #failSafeExecute()}.
+ * then you should create an instance of this class with workerNode = node1, failoverCandidates = [node2, node3] as arguments and call
+ * {@link #failSafeExecute()}.
  *
  * @param <T> the type of the result of the job.
  */
 class ComputeJobFailover<T> {
     private static final IgniteLogger LOG = Loggers.forClass(ComputeJobFailover.class);
+    private static final Executor executor = Executors.newSingleThreadExecutor();
 
     /**
      * Compute component that is called when the {@link #runningWorkerNode} has left the cluster.
@@ -51,9 +56,10 @@ class ComputeJobFailover<T> {
     /**
      * The failover listens this event source to know when the {@link #runningWorkerNode} has left the cluster.
      */
-    private final NodeLeftEventsSource nodeLeftEventsSource;
+    private final LogicalTopologyService logicalTopologyService;
 
     /**
+     * The sector that returns the next worker node to execute job on.
      */
     private final NextWorkerSelector nextWorkerSelector;
 
@@ -72,16 +78,15 @@ class ComputeJobFailover<T> {
      * Creates a per-job instance.
      *
      * @param computeComponent compute component.
-     * @param nodeLeftEventsSource node left events source, used as dynamic topology service (allows to remove handlers).
+     * @param logicalTopologyService logical topology service.
      * @param workerNode the node to execute the job on.
-     *
      * @param units deployment units.
      * @param jobClassName the name of the job class.
      * @param args the arguments of the job.
      */
     ComputeJobFailover(
             ComputeComponent computeComponent,
-            NodeLeftEventsSource nodeLeftEventsSource,
+            LogicalTopologyService logicalTopologyService,
             ClusterNode workerNode,
             NextWorkerSelector nextWorkerSelector,
             List<DeploymentUnit> units,
@@ -89,8 +94,8 @@ class ComputeJobFailover<T> {
             Object... args
     ) {
         this.computeComponent = computeComponent;
-        this.nodeLeftEventsSource = nodeLeftEventsSource;
         this.runningWorkerNode = new AtomicReference<>(workerNode);
+        this.logicalTopologyService = logicalTopologyService;
         this.nextWorkerSelector = nextWorkerSelector;
         this.jobContext = new RemoteExecutionContext<>(units, jobClassName, args);
     }
@@ -104,9 +109,9 @@ class ComputeJobFailover<T> {
         JobExecution<T> remoteJobExecution = launchJobOn(runningWorkerNode);
         jobContext.initJobExecution(new FailSafeJobExecution<>(remoteJobExecution));
 
-        Consumer<ClusterNode> handler = new OnNodeLeft();
-        nodeLeftEventsSource.addEventHandler(handler);
-        remoteJobExecution.resultAsync().whenComplete((r, e) -> nodeLeftEventsSource.removeEventHandler(handler));
+        LogicalTopologyEventListener nodeLeftEventListener = new OnNodeLeft();
+        logicalTopologyService.addEventListener(nodeLeftEventListener);
+        remoteJobExecution.resultAsync().whenComplete((r, e) -> logicalTopologyService.removeEventListener(nodeLeftEventListener));
 
         return jobContext.failSafeJobExecution();
     }
@@ -115,33 +120,36 @@ class ComputeJobFailover<T> {
         return computeComponent.executeRemotely(runningWorkerNode.get(), jobContext.units(), jobContext.jobClassName(), jobContext.args());
     }
 
-    class OnNodeLeft implements Consumer<ClusterNode> {
+    class OnNodeLeft implements LogicalTopologyEventListener {
         @Override
-        public void accept(ClusterNode leftNode) {
-            if (!runningWorkerNode.get().equals(leftNode)) {
+        public void onNodeLeft(LogicalNode leftNode, LogicalTopologySnapshot newTopology) {
+            if (!runningWorkerNode.get().id().equals(leftNode.id())) {
                 return;
             }
 
-            LOG.warn("%%%% Node left cluter: " + leftNode.name() + " try to find new primary replica");
-            Optional<ClusterNode> nextWorkerCandidate = nextWorkerSelector.next();
-            if (nextWorkerCandidate.isEmpty()) {
-                LOG.warn("%%%% No more worker nodes to restart the job. Failing the job {}.", jobContext.jobClassName());
+            executor.execute(() -> {
+                nextWorkerSelector.next()
+                        .thenAccept(nextWorker -> {
+                            if (nextWorker == null) {
+                                LOG.warn("No more worker nodes to restart the job. Failing the job {}.", jobContext.jobClassName());
 
-                FailSafeJobExecution<?> failSafeJobExecution = jobContext.failSafeJobExecution();
-                failSafeJobExecution.completeExceptionally(
-                        new IgniteInternalException(Compute.COMPUTE_JOB_FAILED_ERR)
-                );
-                return;
-            }
+                                FailSafeJobExecution<?> failSafeJobExecution = jobContext.failSafeJobExecution();
+                                failSafeJobExecution.completeExceptionally(
+                                        new IgniteInternalException(Compute.COMPUTE_JOB_FAILED_ERR)
+                                );
+                                return;
+                            }
 
-            LOG.warn(
-                    "%%%% Worker node {} has left the cluster. Restarting the job {} on node {}.",
-                    leftNode, jobContext.jobClassName(), nextWorkerCandidate
-            );
+                            LOG.warn(
+                                    "Worker node {} has left the cluster. Restarting the job {} on node {}.",
+                                    leftNode, jobContext.jobClassName(), nextWorker
+                            );
 
-            runningWorkerNode.set(nextWorkerCandidate.get());
-            JobExecution<T> jobExecution = launchJobOn(runningWorkerNode);
-            jobContext.updateJobExecution(jobExecution);
+                            runningWorkerNode.set(nextWorker);
+                            JobExecution<T> jobExecution = launchJobOn(runningWorkerNode);
+                            jobContext.updateJobExecution(jobExecution);
+                        });
+            });
         }
     }
 }

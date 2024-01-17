@@ -17,10 +17,17 @@
 
 package org.apache.ignite.internal.compute;
 
-import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.network.ClusterNode;
 
-
+/**
+ * The selector that returns the next worker node to execute job on.
+ */
 public interface NextWorkerSelector {
-    Optional<ClusterNode> next();
+    /**
+     * Requests the next worker node for the job.
+     *
+     * @return {@code CompletableFuture} with the next worker node or with {@code null} if there is no candidates left.
+     */
+    CompletableFuture<ClusterNode> next();
 }

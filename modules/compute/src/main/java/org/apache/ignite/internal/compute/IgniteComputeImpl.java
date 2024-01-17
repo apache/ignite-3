@@ -26,7 +26,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -36,6 +35,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.compute.JobExecution;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
@@ -64,7 +64,7 @@ public class IgniteComputeImpl implements IgniteCompute {
 
     private final ThreadLocalRandom random = ThreadLocalRandom.current();
 
-    private final NodeLeftEventsSource nodeLeftEventsSource;
+    private final LogicalTopologyService logicalTopologyService;
 
     private final PlacementDriver placementDriver;
 
@@ -73,13 +73,14 @@ public class IgniteComputeImpl implements IgniteCompute {
     /**
      * Create new instance.
      */
-    public IgniteComputeImpl(PlacementDriver placementDriver, TopologyService topologyService, IgniteTablesInternal tables, ComputeComponent computeComponent,
+    public IgniteComputeImpl(PlacementDriver placementDriver, TopologyService topologyService,
+            LogicalTopologyService logicalTopologyService, IgniteTablesInternal tables, ComputeComponent computeComponent,
             HybridClock clock) {
         this.placementDriver = placementDriver;
         this.topologyService = topologyService;
         this.tables = tables;
         this.computeComponent = computeComponent;
-        this.nodeLeftEventsSource = new NodeLeftEventsSource(topologyService);
+        this.logicalTopologyService = logicalTopologyService;
         this.clock = clock;
     }
 
@@ -146,7 +147,7 @@ public class IgniteComputeImpl implements IgniteCompute {
             return computeComponent.executeLocally(units, jobClassName, args);
         } else {
             return new ComputeJobFailover<R>(
-                    computeComponent, nodeLeftEventsSource,
+                    computeComponent, logicalTopologyService,
                     targetNode, nextWorkerSelector, units,
                     jobClassName, args
             ).failSafeExecute();
@@ -161,11 +162,11 @@ public class IgniteComputeImpl implements IgniteCompute {
         }
 
         @Override
-        public Optional<ClusterNode> next() {
+        public CompletableFuture<ClusterNode> next() {
             try {
-                return Optional.of(deque.pop());
+                return CompletableFuture.completedFuture(deque.pop());
             } catch (NoSuchElementException ex) {
-                return Optional.empty();
+                return CompletableFuture.completedFuture(null);
             }
         }
     }
@@ -191,22 +192,22 @@ public class IgniteComputeImpl implements IgniteCompute {
     @Override
     public <R> JobExecution<R> executeColocatedAsync(
             String tableName,
-            Tuple key,
+            Tuple tuple,
             List<DeploymentUnit> units,
             String jobClassName,
             Object... args
     ) {
         Objects.requireNonNull(tableName);
-        Objects.requireNonNull(key);
+        Objects.requireNonNull(tuple);
         Objects.requireNonNull(units);
         Objects.requireNonNull(jobClassName);
 
         return new JobExecutionFutureWrapper<>(
                 requiredTable(tableName)
-                        .thenApply(table -> leaderOfTablePartitionByTupleKey(table, key))
+                        .thenApply(table -> leaderOfTablePartitionByTupleKey(table, tuple))
                         .thenApply(primaryNode -> executeOnOneNodeWithFailover(
                                 primaryNode,
-                                new NextCollocatedWorkerSelector<>(tables, tableName, key, placementDriver, topologyService, clock),
+                                new NextCollocatedWorkerSelector<>(tables, placementDriver, topologyService, clock, tableName, tuple),
                                 units, jobClassName, args))
         );
     }
@@ -230,7 +231,7 @@ public class IgniteComputeImpl implements IgniteCompute {
         return new JobExecutionFutureWrapper<>(requiredTable(tableName)
                 .thenApply(table -> leaderOfTablePartitionByMappedKey(table, key, keyMapper))
                 .thenApply(primaryNode -> executeOnOneNodeWithFailover(primaryNode,
-                        new NextCollocatedWorkerSelector<>(tables, placementDriver, topologyService, tableName, clock, key, keyMapper, null),
+                        new NextCollocatedWorkerSelector<>(tables, placementDriver, topologyService, clock, tableName, key, keyMapper),
                         units, jobClassName, args)));
     }
 
@@ -322,6 +323,6 @@ public class IgniteComputeImpl implements IgniteCompute {
                         // No failover nodes for broadcast. We use failover here in order to complete futures with exceptions
                         // if worker node has left the cluster.
                         node -> new JobExecutionWrapper<>(executeOnOneNodeWithFailover(node,
-                                Optional::empty, units, jobClassName, args))));
+                                () -> CompletableFuture.completedFuture(null), units, jobClassName, args))));
     }
 }

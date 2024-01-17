@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.compute.utils;
 
+import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.notNullValue;
@@ -32,6 +33,14 @@ import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.network.ClusterNode;
 
+/**
+ * Tests DSL for interactive jobs. "Interactive" means that you can send messages and get responses to/from running jobs.
+ *
+ * <p>For example, you can start {@link GlobalInteractiveJob} on some node, get the name of worker node for this job,
+ * ask this job to complete successfully or throw exception. Also, this class gives useful assertions for job states.
+ *
+ * @see org.apache.ignite.internal.compute.ItWorkerShutdownTest
+ */
 public final class InteractiveJobs {
     /**
      * ACK for {@link Signal#CONTINUE}. Returned by a job that has received the signal. Used to check that the job is alive.
@@ -74,9 +83,15 @@ public final class InteractiveJobs {
      */
     private static final AtomicInteger RUNNING_INTERACTIVE_JOBS_CNT = new AtomicInteger(0);
 
+    /**
+     * Counts how many times the global job was called. Cleaned up in {@link #clearState}.
+     */
     private static final AtomicInteger RUNNING_GLOBAL_JOBS_CNT = new AtomicInteger(0);
 
-    private static final long WAIT_TIMEOUT_SECONDS = 12;
+    /**
+     * The timeout in seconds that defines how long should we wait for async calls. Almost all methods use this timeout.
+     */
+    private static final long WAIT_TIMEOUT_SECONDS = 15;
 
     /**
      * Clear global state. Must be called before each testing scenario.
@@ -170,7 +185,7 @@ public final class InteractiveJobs {
 
     /**
      * Interactive job that communicates via {@link #NODE_CHANNELS} and {@link #NODE_SIGNALS}. Also, keeps track of how many times it was
-     * executed via {@link #INTERACTIVE_JOB_RUN_TIMES}.
+     * executed via {@link #RUNNING_INTERACTIVE_JOBS_CNT}.
      */
     private static class InteractiveJob implements ComputeJob<String> {
         private static Signal listenSignal(BlockingQueue<Signal> channel) {
@@ -185,7 +200,7 @@ public final class InteractiveJobs {
 
         @Override
         public String execute(JobExecutionContext context, Object... args) {
-            RUNNING_GLOBAL_JOBS_CNT.incrementAndGet();
+            RUNNING_INTERACTIVE_JOBS_CNT.incrementAndGet();
 
             try {
                 String workerNodeName = context.ignite().name();
@@ -211,11 +226,18 @@ public final class InteractiveJobs {
                     }
                 }
             } finally {
-                RUNNING_GLOBAL_JOBS_CNT.decrementAndGet();
+                RUNNING_INTERACTIVE_JOBS_CNT.decrementAndGet();
             }
         }
     }
 
+    /**
+     * Initializes channels that will be used to communicate with {@link InteractiveJob}. Note: {@link GlobalInteractiveJob}
+     * does not require to call this method before communication but if you want to communicate with {@link InteractiveJob}
+     * then you must call this method first.
+     *
+     * @param nodes the list of cluster nodes.
+     */
     public static void initChannels(List<String> nodes) {
         for (String nodeName : nodes) {
             NODE_CHANNELS.put(nodeName, new LinkedBlockingQueue<>());
@@ -224,11 +246,13 @@ public final class InteractiveJobs {
         }
     }
 
-
     public static InteractiveJobApi byNode(ClusterNode clusterNode) {
         return new InteractiveJobApi(clusterNode);
     }
 
+    /**
+     * API for communication with {@link InteractiveJob}.
+     */
     public static final class InteractiveJobApi {
         private final ClusterNode node;
 
@@ -236,6 +260,9 @@ public final class InteractiveJobs {
             this.node = node;
         }
 
+        /**
+         * Checks that {@link InteractiveJob} is alive.
+         */
         public void assertAlive() {
             NODE_SIGNALS.get(node.name()).offer(Signal.CONTINUE);
             try {
@@ -246,19 +273,31 @@ public final class InteractiveJobs {
         }
     }
 
+    /**
+     * API for the interaction with every {@link InteractiveJob} (may run on every cluster node, for example, broadcast).
+     */
     public static AllInteractiveJobsApi all() {
         return new AllInteractiveJobsApi();
     }
 
+    /**
+     * API for the interaction with every {@link InteractiveJob} (may run on every cluster node, for example, broadcast).
+     */
     public static final class AllInteractiveJobsApi {
         private AllInteractiveJobsApi() {
         }
 
-        public void assertEachCalledOnce() {
+        /**
+         * Checks that each instance of {@link InteractiveJob} was called once.
+         */
+        public static void assertEachCalledOnce() {
             INTERACTIVE_JOB_RUN_TIMES.forEach((nodeName, runTimes) -> assertThat(runTimes, equalTo(1)));
         }
 
-        public void finish() {
+        /**
+         * Finishes all {@link InteractiveJob}s.
+         */
+        public static void finish() {
             NODE_SIGNALS.forEach((nodeName, channel) -> {
                 try {
                     channel.offer(Signal.RETURN, WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS);
@@ -267,24 +306,35 @@ public final class InteractiveJobs {
                 }
             });
 
-            assertThat(
-                    "Expect all jobs to be finished",
-                    RUNNING_INTERACTIVE_JOBS_CNT.get(),
-                    equalTo(0)
-            );
+            await().untilAsserted(() -> {
+                assertThat(
+                        "Expect all jobs to be finished",
+                        RUNNING_INTERACTIVE_JOBS_CNT.get(),
+                        equalTo(0)
+                );
+            });
         }
     }
 
+    /**
+     * API for the interaction with {@link GlobalInteractiveJob}.
+     */
     public static GlobalApi globalJob() {
         return new GlobalApi();
     }
 
+    /**
+     * API for the interaction with {@link GlobalInteractiveJob}.
+     */
     public static final class GlobalApi {
 
         private GlobalApi() {
         }
 
-        public String currentWorkerName() throws InterruptedException {
+        /**
+         * Returns the name of the worker node where {@link GlobalInteractiveJob} is running.
+         */
+        public static String currentWorkerName() throws InterruptedException {
             GLOBAL_SIGNALS.offer(Signal.GET_WORKER_NAME);
             String workerName = (String) GLOBAL_CHANNEL.poll(WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS);
             assertThat(
@@ -294,15 +344,24 @@ public final class InteractiveJobs {
             return workerName;
         }
 
-        public void assertAlive() throws InterruptedException {
+        /**
+         * Checks that {@link GlobalInteractiveJob} is alive.
+         */
+        public static void assertAlive() throws InterruptedException {
             GLOBAL_SIGNALS.offer(Signal.CONTINUE);
             assertThat(GLOBAL_CHANNEL.poll(WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS), equalTo(ack));
         }
 
-        public void finish() {
+        /**
+         * Finishes {@link GlobalInteractiveJob}.
+         */
+        public static void finish() {
             GLOBAL_SIGNALS.offer(Signal.RETURN);
         }
 
+        /**
+         * Returns the class name of {@link GlobalInteractiveJob}.
+         */
         public String name() {
             return GlobalInteractiveJob.class.getName();
         }

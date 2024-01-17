@@ -36,14 +36,24 @@ import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobStatus;
 import org.apache.ignite.lang.IgniteException;
 
+/**
+ * Testing instance of {@link JobExecution}. Adds useful assertions on job's state and sync methods.
+ *
+ * @param <R> Job result type.
+ */
 public class TestingJobExecution<R> implements JobExecution<R> {
     private final JobExecution<R> jobExecution;
 
+    /**
+     * Constructor.
+     *
+     * @param jobExecution job execution to wrap.
+     */
     public TestingJobExecution(JobExecution<R> jobExecution) {
         this.jobExecution = jobExecution;
     }
 
-    public JobStatus statusSync() throws InterruptedException, ExecutionException, TimeoutException {
+    private JobStatus statusSync() throws InterruptedException, ExecutionException, TimeoutException {
         return jobExecution.statusAsync().get(10, TimeUnit.SECONDS);
     }
 
@@ -51,7 +61,7 @@ public class TestingJobExecution<R> implements JobExecution<R> {
         return jobExecution.idAsync().get(10, TimeUnit.SECONDS);
     }
 
-    public R resultSync() throws ExecutionException, InterruptedException, TimeoutException {
+    private R resultSync() throws ExecutionException, InterruptedException, TimeoutException {
         return jobExecution.resultAsync().get(10, TimeUnit.SECONDS);
     }
 
@@ -64,7 +74,7 @@ public class TestingJobExecution<R> implements JobExecution<R> {
     }
 
     public long finishTimeMillis() throws ExecutionException, InterruptedException, TimeoutException {
-       return statusSync().finishTime().toEpochMilli();
+        return statusSync().finishTime().toEpochMilli();
     }
 
     public void cancelSync() throws ExecutionException, InterruptedException, TimeoutException {
@@ -86,6 +96,9 @@ public class TestingJobExecution<R> implements JobExecution<R> {
         return jobExecution.cancelAsync();
     }
 
+    /**
+     * Checks that the job execution object has EXECUTING state.
+     */
     public void assertExecuting() {
         await().until(() -> jobExecution.statusAsync().get(10, TimeUnit.SECONDS).state() == EXECUTING);
 
@@ -98,18 +111,31 @@ public class TestingJobExecution<R> implements JobExecution<R> {
         }
     }
 
+    /**
+     * Checks that the job execution object is cancelled.
+     */
     public void assertCancelled() throws ExecutionException, InterruptedException, TimeoutException {
         assertThat(jobExecution.resultAsync(), willThrow(IgniteException.class));
         assertThat(statusSync().state(), is(CANCELED));
     }
 
+    /**
+     * Checks that the job execution object is completed successfully.
+     */
     public void assertCompleted() throws ExecutionException, InterruptedException, TimeoutException {
         assertThat(resultSync(), equalTo("Done"));
         assertThat(statusSync().state(), is(COMPLETED));
     }
 
+    /**
+     * Checks that the job execution object has failed stated.
+     */
     public void assertFailed() {
-        assertThat(jobExecution.resultAsync(), willThrow(IgniteException.class));
-        assertThat(jobExecution.statusAsync(), willThrow(IgniteException.class));
+        await().untilAsserted(() -> {
+            assertThat(jobExecution.resultAsync(), willThrow(IgniteException.class));
+        });
+        await().untilAsserted(() -> {
+            assertThat(jobExecution.statusAsync(), willThrow(IgniteException.class));
+        });
     }
 }

@@ -663,7 +663,14 @@ public class IgniteImpl implements Ignite {
                 new ComputeExecutorImpl(this, stateMachine, computeCfg)
         );
 
-        compute = new IgniteComputeImpl(placementDriverMgr.placementDriver(), clusterSvc.topologyService(), distributedTblMgr, computeComponent, clock);
+        compute = new IgniteComputeImpl(
+                placementDriverMgr.placementDriver(),
+                clusterSvc.topologyService(),
+                logicalTopologyService,
+                distributedTblMgr,
+                computeComponent,
+                clock
+        );
 
         authenticationManager = createAuthenticationManager();
 

@@ -17,11 +17,10 @@
 
 package org.apache.ignite.internal.compute;
 
-import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.hlc.HybridClock;
-import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
@@ -29,29 +28,40 @@ import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.TableViewInternal;
-import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.lang.util.IgniteNameUtils;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.TopologyService;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+/**
+ * Next worker selector that returns primary replica node for next worker. If there is no such node (we lost the majority, for example) the
+ * {@code CompletableFuture.completedFuture(null)} will be returned.
+ *
+ * @param <K> type of the key for the colocated table.
+ */
 public class NextCollocatedWorkerSelector<K> implements NextWorkerSelector {
     private static final IgniteLogger LOG = Loggers.forClass(NextCollocatedWorkerSelector.class);
+
+    private static final int PRIMARY_REPLICA_ASK_CLOCK_ADDITION_MILLIS = 10_000;
+
+    private static final int AWAIT_FOR_PRIMARY_REPLICA_SECONDS = 15;
 
     private static final String DEFAULT_SCHEMA_NAME = "PUBLIC";
 
     private final IgniteTablesInternal tables;
+
     private final PlacementDriver placementDriver;
+
     private final TopologyService topologyService;
-    private final String tableName;
+
     private final HybridClock clock;
 
     @Nullable
     private final K key;
+
     @Nullable
     private final Mapper<K> keyMapper;
 
@@ -59,55 +69,82 @@ public class NextCollocatedWorkerSelector<K> implements NextWorkerSelector {
 
     private final TableViewInternal table;
 
-    NextCollocatedWorkerSelector(IgniteTablesInternal tables, String tableName, Tuple tuple, PlacementDriver placementDriver,
-            TopologyService topologyService, HybridClock clock) {
-        this(tables, placementDriver, topologyService, tableName, clock, null, null, tuple);
+    NextCollocatedWorkerSelector(
+            IgniteTablesInternal tables,
+            PlacementDriver placementDriver,
+            TopologyService topologyService,
+            HybridClock clock,
+            String tableName,
+            @Nullable K key,
+            @Nullable Mapper<K> keyMapper) {
+        this(tables, placementDriver, topologyService, clock, tableName, key, keyMapper, null);
     }
 
-    NextCollocatedWorkerSelector(IgniteTablesInternal tables, PlacementDriver placementDriver, TopologyService topologyService, String tableName,
-            HybridClock clock, @Nullable K key,
-            @Nullable Mapper<K> keyMapper, Tuple tuple) {
+    NextCollocatedWorkerSelector(
+            IgniteTablesInternal tables,
+            PlacementDriver placementDriver,
+            TopologyService topologyService,
+            HybridClock clock,
+            String tableName,
+            Tuple tuple) {
+        this(tables, placementDriver, topologyService, clock, tableName, null, null, tuple);
+    }
+
+    private NextCollocatedWorkerSelector(
+            IgniteTablesInternal tables,
+            PlacementDriver placementDriver,
+            TopologyService topologyService,
+            HybridClock clock,
+            String tableName,
+            @Nullable K key,
+            @Nullable Mapper<K> keyMapper,
+            @Nullable Tuple tuple) {
         this.tables = tables;
         this.placementDriver = placementDriver;
         this.topologyService = topologyService;
-        this.tableName = tableName;
-        try {
-            this.table = requiredTable(tableName).get();
-        } catch (InterruptedException | ExecutionException e) {
-            throw new RuntimeException(e);
-        }
+        this.table = getTableViewInternal(tableName);
         this.clock = clock;
         this.key = key;
         this.keyMapper = keyMapper;
         this.tuple = tuple;
     }
 
-    @Override
-    public Optional<ClusterNode> next() {
-        var cl = clock.now();
+    private TableViewInternal getTableViewInternal(String tableName) {
+        TableViewInternal table;
         try {
-            TablePartitionId tablePartitionId = tablePartitionId();
-            ReplicaMeta replicaMeta = placementDriver.getPrimaryReplica(tablePartitionId, cl).get();
-            LOG.warn("%%%% GOT primary replica 1: " + replicaMeta + " timestamp: " + cl);
-            Thread.sleep(10000);
-            cl = clock.now();
-            replicaMeta = placementDriver.getPrimaryReplica(tablePartitionId, cl).get();
-            LOG.warn("%%%% GOT primary replica 2: " + replicaMeta + " timestamp: " + cl);
-            if (replicaMeta != null && replicaMeta.getLeaseholder() != null) {
-                return Optional.of(topologyService.getById(replicaMeta.getLeaseholderId()));
-            } else {
-                return Optional.empty();
-            }
+            table = requiredTable(tableName).get();
         } catch (InterruptedException | ExecutionException e) {
-            LOG.warn("%%%%% Failed to get primary replica for table " + tableName, e);
+            throw new RuntimeException(e);
         }
-        return Optional.empty();
+        return table;
     }
 
-    @NotNull
+    private CompletableFuture<ClusterNode> tryToFindPrimaryReplica(TablePartitionId tablePartitionId)
+            throws ExecutionException, InterruptedException {
+        return placementDriver.awaitPrimaryReplica(
+                        tablePartitionId,
+                        clock.now().addPhysicalTime(PRIMARY_REPLICA_ASK_CLOCK_ADDITION_MILLIS),
+                        AWAIT_FOR_PRIMARY_REPLICA_SECONDS,
+                        TimeUnit.SECONDS
+                ).thenApply(ReplicaMeta::getLeaseholderId)
+                .thenApply(topologyService::getById);
+    }
+
+    @Override
+    public CompletableFuture<ClusterNode> next() {
+        TablePartitionId tablePartitionId = tablePartitionId();
+        try {
+            return tryToFindPrimaryReplica(tablePartitionId);
+        } catch (InterruptedException | ExecutionException e) {
+            LOG.warn("Failed to resolve new primary replica for partition " + tablePartitionId);
+        }
+
+        return CompletableFuture.completedFuture(null);
+    }
+
     private TablePartitionId tablePartitionId() {
         TablePartitionId tablePartitionId;
-        if (key != null) {
+        if (key != null && keyMapper != null) {
             tablePartitionId = new TablePartitionId(table.tableId(), table.partition(key, keyMapper));
         } else {
             tablePartitionId = new TablePartitionId(table.tableId(), table.partition(tuple));
@@ -125,22 +162,5 @@ public class NextCollocatedWorkerSelector<K> implements NextWorkerSelector {
                     }
                     return table;
                 });
-    }
-
-    private static ClusterNode leaderOfTablePartitionByTupleKey(TableViewInternal table, Tuple key) {
-        return requiredLeaderByPartition(table, table.partition(key));
-    }
-
-    private static <K> ClusterNode leaderOfTablePartitionByMappedKey(TableViewInternal table, K key, Mapper<K> keyMapper) {
-        return requiredLeaderByPartition(table, table.partition(key, keyMapper));
-    }
-
-    private static ClusterNode requiredLeaderByPartition(TableViewInternal table, int partitionIndex) {
-        ClusterNode leaderNode = table.leaderAssignment(partitionIndex);
-        if (leaderNode == null) {
-            throw new IgniteInternalException(Common.INTERNAL_ERR, "Leader not found for partition " + partitionIndex);
-        }
-
-        return leaderNode;
     }
 }
