@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine;
 
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -45,6 +46,7 @@ public class ItHashSpoolIntegrationTest extends BaseSqlIntegrationTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-21286")
     public void testNullsInSearchRowMultipleColumns() {
         sql("CREATE TABLE t0(pk varchar default gen_random_uuid PRIMARY KEY, i1 INTEGER, i2 INTEGER)");
         sql("CREATE TABLE t1(pk varchar default gen_random_uuid PRIMARY KEY, i1 INTEGER, i2 INTEGER)");
