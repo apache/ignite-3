@@ -215,9 +215,9 @@ namespace Apache.Ignite.Tests
 
 #if DEBUG
             TestUtils.WaitForCondition(
-                condition: () => ByteArrayPool.CurrentlyRentedArraysCount == 0,
+                condition: () => ByteArrayPool.CurrentlyRentedArrays.IsEmpty,
                 timeoutMs: 1000,
-                messageFactory: () => $"Leaked buffers: {ByteArrayPool.RentedArrays.Select(x => x.Value).StringJoin()}");
+                messageFactory: () => $"Leaked buffers: {ByteArrayPool.CurrentlyRentedArrays.Select(x => x.Value).StringJoin()}");
 #endif
         }
     }

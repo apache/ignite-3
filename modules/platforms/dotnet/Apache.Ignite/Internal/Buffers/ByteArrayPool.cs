@@ -19,7 +19,7 @@ namespace Apache.Ignite.Internal.Buffers
 {
     using System.Buffers;
     using System.Collections.Concurrent;
-    using System.Threading;
+    using System.Diagnostics;
 
     /// <summary>
     /// Wrapper for the standard <see cref="ArrayPool{T}.Shared"/> with safety checks in debug mode.
@@ -30,7 +30,7 @@ namespace Apache.Ignite.Internal.Buffers
         /// <summary>
         /// Gets the currently rented arrays.
         /// </summary>
-        public static readonly ConcurrentDictionary<byte[], string> RentedArrays = new();
+        public static readonly ConcurrentDictionary<byte[], string> CurrentlyRentedArrays = new();
 
         /// <summary>
         /// Track pooled arrays in debug mode to detect double-return - the most dangerous scenario which can cause application-wide
@@ -40,14 +40,6 @@ namespace Apache.Ignite.Internal.Buffers
         /// https://github.com/dotnet/runtime/issues/7532.
         /// </summary>
         private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<byte[], object?> ReturnedArrays = new();
-
-        private static long _rentedArraysCount;
-
-        /// <summary>
-        /// Gets the number of currently rented arrays.
-        /// </summary>
-        public static long CurrentlyRentedArraysCount => Interlocked.Read(ref _rentedArraysCount);
-
 #endif
 
         /// <summary>
@@ -57,12 +49,10 @@ namespace Apache.Ignite.Internal.Buffers
         /// <returns>An byte array that is at least <paramref name="minimumLength" /> in length.</returns>
         public static byte[] Rent(int minimumLength)
         {
-            var stackTrace = new System.Diagnostics.StackTrace(2, false).ToString();
             var bytes = ArrayPool<byte>.Shared.Rent(minimumLength);
 
 #if DEBUG
-            Interlocked.Increment(ref _rentedArraysCount);
-            RentedArrays.TryAdd(bytes, stackTrace);
+            CurrentlyRentedArrays.TryAdd(bytes, new StackTrace(1, false).ToString());
             ReturnedArrays.Remove(bytes);
 #endif
 
@@ -76,8 +66,7 @@ namespace Apache.Ignite.Internal.Buffers
         public static void Return(byte[] array)
         {
 #if DEBUG
-            Interlocked.Decrement(ref _rentedArraysCount);
-            RentedArrays.TryRemove(array, out _);
+            CurrentlyRentedArrays.TryRemove(array, out _);
 
             // Will throw when key exists.
             ReturnedArrays.Add(array, null);
