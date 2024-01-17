@@ -169,9 +169,9 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
     public void executeQueryWithNullColTypes() throws Exception {
         ResultSet rs = stmt.executeQuery("SELECT LOWER(NULL), UPPER(NULL), SUBSTRING(NULL FROM 1 FOR 2)");
         rs.next();
-        assertNull(rs.getObject(1));
-        assertNull(rs.getObject(2));
-        assertNull(rs.getObject(3));
+        assertNull(rs.getString(1));
+        assertNull(rs.getString(2));
+        assertNull(rs.getString(3));
 
         ResultSetMetaData meta = rs.getMetaData();
         assertEquals(ColumnType.NULL.toString(), meta.getColumnTypeName(1));
