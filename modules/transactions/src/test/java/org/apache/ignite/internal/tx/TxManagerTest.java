@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.tx;
 
-
 import static java.lang.Math.abs;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
@@ -41,14 +40,20 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.clearInvocations;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.LongSupplier;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -57,6 +62,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
+import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.placementdriver.TestReplicaMetaImpl;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
@@ -68,6 +74,7 @@ import org.apache.ignite.internal.tx.impl.PrimaryReplicaExpiredException;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.message.TxFinishReplicaRequest;
+import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
 import org.apache.ignite.internal.tx.test.TestTransactionIds;
 import org.apache.ignite.lang.ErrorGroups.Transactions;
 import org.apache.ignite.network.ClusterNode;
@@ -81,9 +88,13 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
+import org.mockito.Mock.Strictness;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.verification.VerificationMode;
 
 /**
  * Basic tests for a transaction manager.
@@ -92,7 +103,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 public class TxManagerTest extends IgniteAbstractTest {
     private static final ClusterNode LOCAL_NODE = new ClusterNodeImpl("local_id", "local", new NetworkAddress("127.0.0.1", 2004), null);
 
-    /** Timestamp tracker. */
     private HybridTimestampTracker hybridTimestampTracker = new HybridTimestampTracker();
 
     private final LongSupplier idleSafeTimePropagationPeriodMsSupplier = () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS;
@@ -107,13 +117,14 @@ public class TxManagerTest extends IgniteAbstractTest {
 
     private final HybridClock clock = spy(new HybridClockImpl());
 
-    @Mock
+    @Mock(strictness = Strictness.LENIENT)
     private PlacementDriver placementDriver;
 
     @InjectConfiguration
     private TransactionConfiguration txConfiguration;
 
-    /** Init test callback. */
+    private final LocalRwTxCounter localRwTxCounter = spy(new TestLocalRwTxCounter());
+
     @BeforeEach
     public void setup() {
         when(clusterService.topologyService().localMember().address()).thenReturn(LOCAL_NODE.address());
@@ -123,6 +134,7 @@ public class TxManagerTest extends IgniteAbstractTest {
         when(replicaService.invoke(anyString(), any())).thenReturn(nullCompletedFuture());
 
         txManager = new TxManagerImpl(
+                LOCAL_NODE.name(),
                 txConfiguration,
                 clusterService,
                 replicaService,
@@ -130,7 +142,8 @@ public class TxManagerTest extends IgniteAbstractTest {
                 clock,
                 new TransactionIdGenerator(0xdeadbeef),
                 placementDriver,
-                idleSafeTimePropagationPeriodMsSupplier
+                idleSafeTimePropagationPeriodMsSupplier,
+                localRwTxCounter
         );
 
         txManager.start();
@@ -532,6 +545,71 @@ public class TxManagerTest extends IgniteAbstractTest {
         assertRollbackSucceeds();
     }
 
+    @ParameterizedTest(name = "readOnly = {0}")
+    @ValueSource(booleans = {true, false})
+    void testIncrementLocalRwTxCounterOnBeginTransaction(boolean readOnly) {
+        InternalTransaction tx = txManager.begin(hybridTimestampTracker, readOnly);
+
+        VerificationMode verificationMode = readOnly ? never() : times(1);
+
+        verify(localRwTxCounter, verificationMode).inUpdateRwTxCountLock(any());
+        verify(localRwTxCounter, verificationMode).incrementRwTxCount(eq(beginTs(tx)));
+    }
+
+    @ParameterizedTest(name = "readOnly = {0}, commit = {1}")
+    @MethodSource("txTypeAndWayCompleteTx")
+    void testDecrementLocalRwTxCounterOnCompleteTransaction(boolean readOnly, boolean commit) {
+        InternalTransaction tx = txManager.begin(hybridTimestampTracker, readOnly);
+
+        clearInvocations(localRwTxCounter);
+
+        assertThat(commit ? tx.commitAsync() : tx.rollbackAsync(), willSucceedFast());
+
+        VerificationMode verificationMode = readOnly ? never() : times(1);
+
+        verify(localRwTxCounter, verificationMode).inUpdateRwTxCountLock(any());
+        verify(localRwTxCounter, verificationMode).decrementRwTxCount(eq(beginTs(tx)));
+    }
+
+    @ParameterizedTest(name = "commit = {0}")
+    @ValueSource(booleans = {true, false})
+    void testDecrementLocalRwTxCounterOnCompleteTransactionWithEnlistedPartitions(boolean commit) {
+        InternalTransaction rwTx = prepareTransaction();
+
+        clearInvocations(localRwTxCounter);
+
+        CompletableFuture<ReplicaMeta> primaryReplicaFuture = completedFuture(
+                new TestReplicaMetaImpl(LOCAL_NODE, hybridTimestamp(1), HybridTimestamp.MAX_VALUE)
+        );
+
+        when(placementDriver.getPrimaryReplica(any(), any())).thenReturn(primaryReplicaFuture);
+        when(placementDriver.awaitPrimaryReplica(any(), any(), anyLong(), any())).thenReturn(primaryReplicaFuture);
+
+        var txResult = new TransactionResult(commit ? TxState.COMMITTED : TxState.ABORTED, clock.now());
+
+        when(replicaService.invoke(anyString(), any(TxFinishReplicaRequest.class))).thenReturn(completedFuture(txResult));
+
+        assertThat(commit ? rwTx.commitAsync() : rwTx.rollbackAsync(), willSucceedFast());
+
+        verify(localRwTxCounter).inUpdateRwTxCountLock(any());
+        verify(localRwTxCounter).decrementRwTxCount(eq(beginTs(rwTx)));
+    }
+
+    @Test
+    void testCreateBeginTsInsideInUpdateRwTxCount() {
+        doAnswer(invocation -> {
+            clearInvocations(clock);
+
+            Object result = invocation.callRealMethod();
+
+            verify(clock).now();
+
+            return result;
+        }).when(localRwTxCounter).inUpdateRwTxCountLock(any());
+
+        txManager.begin(hybridTimestampTracker, false);
+    }
+
     private InternalTransaction prepareTransaction() {
         InternalTransaction tx = txManager.begin(hybridTimestampTracker);
 
@@ -563,5 +641,18 @@ public class TxManagerTest extends IgniteAbstractTest {
         InternalTransaction abortedTransaction = prepareTransaction();
         abortedTransaction.rollback();
         assertEquals(TxState.ABORTED, txManager.stateMeta(abortedTransaction.id()).txState());
+    }
+
+    private static Stream<Arguments> txTypeAndWayCompleteTx() {
+        return Stream.of(
+                Arguments.of(true, true),  // Read-only, commit.
+                Arguments.of(true, false), // Read-only, rollback.
+                Arguments.of(false, true), // Read-write, commit.
+                Arguments.of(false, false) // Read-write, rollback.
+        );
+    }
+
+    private static HybridTimestamp beginTs(InternalTransaction tx) {
+        return TransactionIds.beginTimestamp(tx.id());
     }
 }

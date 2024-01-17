@@ -130,6 +130,7 @@ import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.internal.tx.storage.state.test.TestTxStateStorage;
+import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
@@ -152,6 +153,8 @@ import org.junit.jupiter.api.TestInfo;
  */
 public class ItTxTestCluster {
     private static final int SCHEMA_VERSION = 1;
+
+    private static final String CLIENT_NODE_NAME = "client";
 
     private final List<NetworkAddress> localAddresses;
 
@@ -415,6 +418,7 @@ public class ItTxTestCluster {
             PlacementDriver placementDriver
     ) {
         return new TxManagerImpl(
+                node.name(),
                 txConfiguration,
                 clusterService,
                 replicaSvc,
@@ -422,7 +426,8 @@ public class ItTxTestCluster {
                 clock,
                 generator,
                 placementDriver,
-                () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS
+                () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS,
+                new TestLocalRwTxCounter()
         );
     }
 
@@ -839,7 +844,7 @@ public class ItTxTestCluster {
     }
 
     private void startClient() throws InterruptedException {
-        client = startNode(testInfo, "client", NODE_PORT_BASE - 1, nodeFinder);
+        client = startNode(testInfo, CLIENT_NODE_NAME, NODE_PORT_BASE - 1, nodeFinder);
 
         assertTrue(waitForTopology(client, nodes + 1, 1000));
 
@@ -857,6 +862,7 @@ public class ItTxTestCluster {
 
     private void initializeClientTxComponents() {
         clientTxManager = new TxManagerImpl(
+                CLIENT_NODE_NAME,
                 txConfiguration,
                 client,
                 clientReplicaSvc,
@@ -864,7 +870,8 @@ public class ItTxTestCluster {
                 clientClock,
                 new TransactionIdGenerator(-1),
                 placementDriver,
-                () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS
+                () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS,
+                new TestLocalRwTxCounter()
         );
 
         clientTxStateResolver = new TransactionStateResolver(

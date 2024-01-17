@@ -90,6 +90,7 @@ import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.storage.state.test.TestTxStateTableStorage;
+import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
@@ -439,6 +440,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
         when(clusterService.topologyService()).thenReturn(topologyService);
 
         var txManager = new TxManagerImpl(
+                LOCAL_NODE.name(),
                 txConfiguration,
                 clusterService,
                 replicaSvc,
@@ -446,7 +448,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 CLOCK,
                 new TransactionIdGenerator(0xdeadbeef),
                 placementDriver,
-                () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS
+                () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS,
+                new TestLocalRwTxCounter()
         );
 
         txManager.start();

@@ -574,6 +574,7 @@ public class IgniteImpl implements Ignite {
 
         // TODO: IGNITE-19344 - use nodeId that is validated on join (and probably generated differently).
         txManager = new TxManagerImpl(
+                name,
                 txConfig,
                 clusterSvc,
                 replicaSvc,
@@ -581,7 +582,9 @@ public class IgniteImpl implements Ignite {
                 clock,
                 new TransactionIdGenerator(() -> clusterSvc.nodeName().hashCode()),
                 placementDriverMgr.placementDriver(),
-                partitionIdleSafeTimePropagationPeriodMsSupplier
+                partitionIdleSafeTimePropagationPeriodMsSupplier,
+                // TODO: IGNITE-21155 заменить на реализацию
+                null
         );
 
         distributedTblMgr = new TableManager(

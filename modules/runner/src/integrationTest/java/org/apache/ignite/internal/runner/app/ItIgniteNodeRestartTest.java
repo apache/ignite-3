@@ -143,6 +143,7 @@ import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
+import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.network.NettyBootstrapFactory;
@@ -352,6 +353,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         );
 
         var txManager = new TxManagerImpl(
+                name,
                 txConfiguration,
                 clusterSvc,
                 replicaService,
@@ -359,7 +361,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 hybridClock,
                 new TransactionIdGenerator(idx),
                 placementDriverManager.placementDriver(),
-                partitionIdleSafeTimePropagationPeriodMsSupplier
+                partitionIdleSafeTimePropagationPeriodMsSupplier,
+                new TestLocalRwTxCounter()
         );
 
         ConfigurationRegistry clusterConfigRegistry = clusterCfgMgr.configurationRegistry();
