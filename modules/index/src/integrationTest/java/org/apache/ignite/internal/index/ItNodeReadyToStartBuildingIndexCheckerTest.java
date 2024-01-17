@@ -1,0 +1,230 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.ignite.internal.index;
+
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_ZONE_NAME;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.greaterThan;
+import static org.hamcrest.Matchers.notNullValue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.util.concurrent.CompletableFuture;
+import java.util.function.Consumer;
+import java.util.stream.IntStream;
+import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
+import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.index.message.IndexMessagesFactory;
+import org.apache.ignite.internal.index.message.IsNodeReadyToStartBuildingIndexResponse;
+import org.apache.ignite.internal.table.InternalTable;
+import org.apache.ignite.internal.table.TableImpl;
+import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.table.Table;
+import org.apache.ignite.tx.Transaction;
+import org.apache.ignite.tx.TransactionOptions;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+
+/** For testing {@link NodeReadyToStartBuildingIndexChecker}. */
+public class ItNodeReadyToStartBuildingIndexCheckerTest extends ClusterPerClassIntegrationTest {
+    private static final IndexMessagesFactory FACTORY = new IndexMessagesFactory();
+
+    private static final String TABLE_NAME = "TEST_TABLE";
+
+    private static String zoneNameForUpdateCatalogVersionOnly = "FAKE_TEST_ZONE";
+
+    @Override
+    protected int initialNodes() {
+        return 1;
+    }
+
+    @BeforeEach
+    void setUp() {
+        if (node() != null) {
+            createTableOnly(TABLE_NAME, DEFAULT_ZONE_NAME);
+            createZoneOnly(zoneNameForUpdateCatalogVersionOnly, 1, 1);
+        }
+    }
+
+    @AfterEach
+    void tearDown() {
+        if (node() != null) {
+            sql("DROP TABLE IF EXISTS " + TABLE_NAME);
+            sql("DROP ZONE IF EXISTS " + zoneNameForUpdateCatalogVersionOnly);
+        }
+    }
+
+    @Test
+    void testNoTransactions() {
+        int latestCatalogVersion = latestCatalogVersion();
+
+        assertTrue(isNodeReadyToStartBuildIndexFromNetwork(latestCatalogVersion - 1));
+        assertTrue(isNodeReadyToStartBuildIndexFromNetwork(latestCatalogVersion));
+
+        assertFalse(isNodeReadyToStartBuildIndexFromNetwork(latestCatalogVersion + 1));
+
+        fakeUpdateCatalog();
+        int newLatestCatalogVersion = latestCatalogVersion();
+
+        assertTrue(isNodeReadyToStartBuildIndexFromNetwork(latestCatalogVersion));
+        assertTrue(isNodeReadyToStartBuildIndexFromNetwork(newLatestCatalogVersion));
+    }
+
+    @ParameterizedTest(name = "commit = {0}")
+    @ValueSource(booleans = {true, false})
+    void testEmptyTransaction(boolean commit) {
+        int oldLatestCatalogVersion = latestCatalogVersion();
+
+        runInTx(commit, tx -> {
+            assertTrue(isNodeReadyToStartBuildIndexFromNetwork(oldLatestCatalogVersion));
+            assertFalse(isNodeReadyToStartBuildIndexFromNetwork(oldLatestCatalogVersion + 1));
+
+            fakeUpdateCatalog();
+
+            assertTrue(isNodeReadyToStartBuildIndexFromNetwork(oldLatestCatalogVersion));
+            assertFalse(isNodeReadyToStartBuildIndexFromNetwork(latestCatalogVersion()));
+        });
+
+        assertTrue(isNodeReadyToStartBuildIndexFromNetwork(oldLatestCatalogVersion));
+        assertTrue(isNodeReadyToStartBuildIndexFromNetwork(latestCatalogVersion()));
+    }
+
+    @ParameterizedTest(name = "commit = {0}")
+    @ValueSource(booleans = {true, false})
+    void testNotEmptyTransaction(boolean commit) {
+        insertPeople(TABLE_NAME, new Person(0, "0", 0.0));
+
+        int oldLatestCatalogVersion = latestCatalogVersion();
+
+        runInTx(commit, tx -> {
+            insertPeople(tx, TABLE_NAME, new Person(1, "1", 1.0));
+
+            assertTrue(isNodeReadyToStartBuildIndexFromNetwork(oldLatestCatalogVersion));
+            assertFalse(isNodeReadyToStartBuildIndexFromNetwork(oldLatestCatalogVersion + 1));
+
+            fakeUpdateCatalog();
+
+            assertTrue(isNodeReadyToStartBuildIndexFromNetwork(oldLatestCatalogVersion));
+            assertFalse(isNodeReadyToStartBuildIndexFromNetwork(latestCatalogVersion()));
+        });
+
+        assertTrue(isNodeReadyToStartBuildIndexFromNetwork(oldLatestCatalogVersion));
+        assertTrue(isNodeReadyToStartBuildIndexFromNetwork(latestCatalogVersion()));
+    }
+
+    @ParameterizedTest(name = "commit = {0}")
+    @ValueSource(booleans = {true, false})
+    void testTransactionInsertIntoMultiplePartitions(boolean commit) {
+        assertThat(tableImpl().internalTable().partitions(), greaterThan(1));
+
+        int oldLatestCatalogVersion = latestCatalogVersion();
+
+        runInTx(commit, tx -> {
+            long[] beforeInserts = partitionSizes();
+
+            int id = 0;
+
+            do {
+                insertPeople(tx, TABLE_NAME, new Person(id, String.valueOf(id), id + 0.0));
+
+                id++;
+            } while (differences(beforeInserts, partitionSizes()) < 2);
+
+            fakeUpdateCatalog();
+
+            assertTrue(isNodeReadyToStartBuildIndexFromNetwork(oldLatestCatalogVersion));
+            assertFalse(isNodeReadyToStartBuildIndexFromNetwork(latestCatalogVersion()));
+        });
+
+        assertTrue(isNodeReadyToStartBuildIndexFromNetwork(oldLatestCatalogVersion));
+        assertTrue(isNodeReadyToStartBuildIndexFromNetwork(latestCatalogVersion()));
+    }
+
+    private static void runInTx(boolean commit, Consumer<Transaction> consumer) {
+        Transaction tx = node().transactions().begin(new TransactionOptions().readOnly(false));
+
+        try {
+            consumer.accept(tx);
+        } finally {
+            assertThat(commit ? tx.commitAsync() : tx.rollbackAsync(), willCompleteSuccessfully());
+        }
+    }
+
+    private static TableImpl tableImpl() {
+        CompletableFuture<Table> tableFuture = node().tables().tableAsync(TABLE_NAME);
+
+        assertThat(tableFuture, willBe(notNullValue()));
+
+        return (TableImpl) tableFuture.join();
+    }
+
+    private static long[] partitionSizes() {
+        InternalTable table = tableImpl().internalTable();
+
+        return IntStream.range(0, table.partitions())
+                .mapToLong(partitionId -> table.storage().getMvPartition(partitionId).rowsCount())
+                .toArray();
+    }
+
+    private static int differences(long[] partitionSizes0, long[] partitionsSizes1) {
+        assertEquals(partitionSizes0.length, partitionsSizes1.length);
+
+        return (int) IntStream.range(0, partitionSizes0.length)
+                .filter(i -> partitionSizes0[i] != partitionsSizes1[i])
+                .count();
+    }
+
+    private static void fakeUpdateCatalog() {
+        int oldLatestCatalogVersion = latestCatalogVersion();
+
+        String oldZoneName = zoneNameForUpdateCatalogVersionOnly;
+        String newZoneName = zoneNameForUpdateCatalogVersionOnly + 0;
+
+        sql(String.format("ALTER ZONE %s RENAME TO %s", oldZoneName, newZoneName));
+
+        zoneNameForUpdateCatalogVersionOnly = newZoneName;
+
+        assertThat(latestCatalogVersion(), greaterThan(oldLatestCatalogVersion));
+    }
+
+    private static int latestCatalogVersion() {
+        return node().catalogManager().latestCatalogVersion();
+    }
+
+    private static IgniteImpl node() {
+        return CLUSTER.node(0);
+    }
+
+    private static boolean isNodeReadyToStartBuildIndexFromNetwork(int catalogVersion) {
+        CompletableFuture<NetworkMessage> invokeFuture = node().clusterService().messagingService().invoke(
+                node().node(),
+                FACTORY.isNodeReadyToStartBuildingIndexRequest().catalogVersion(catalogVersion).build(),
+                1_000
+        );
+
+        assertThat(invokeFuture, willCompleteSuccessfully());
+
+        return ((IsNodeReadyToStartBuildingIndexResponse) invokeFuture.join()).ready();
+    }
+}

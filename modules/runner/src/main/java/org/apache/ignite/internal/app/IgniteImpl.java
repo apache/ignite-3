@@ -95,6 +95,7 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.index.IndexBuildingManager;
 import org.apache.ignite.internal.index.IndexManager;
+import org.apache.ignite.internal.index.NodeReadyToStartBuildingIndexChecker;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -321,6 +322,9 @@ public class IgniteImpl implements Ignite {
 
     /** Index building manager. */
     private final IndexBuildingManager indexBuildingManager;
+
+    /** Checks whether the node is ready to start building the index. */
+    private final NodeReadyToStartBuildingIndexChecker nodeReadyToStartBuildingIndexChecker;
 
     /**
      * The Constructor.
@@ -572,6 +576,12 @@ public class IgniteImpl implements Ignite {
 
         TransactionConfiguration txConfig = clusterConfigRegistry.getConfiguration(TransactionConfiguration.KEY);
 
+        nodeReadyToStartBuildingIndexChecker = new NodeReadyToStartBuildingIndexChecker(
+                catalogManager,
+                clusterSvc.messagingService(),
+                clock
+        );
+
         // TODO: IGNITE-19344 - use nodeId that is validated on join (and probably generated differently).
         txManager = new TxManagerImpl(
                 name,
@@ -583,8 +593,7 @@ public class IgniteImpl implements Ignite {
                 new TransactionIdGenerator(() -> clusterSvc.nodeName().hashCode()),
                 placementDriverMgr.placementDriver(),
                 partitionIdleSafeTimePropagationPeriodMsSupplier,
-                // TODO: IGNITE-21155 заменить на реализацию
-                null
+                nodeReadyToStartBuildingIndexChecker
         );
 
         distributedTblMgr = new TableManager(
@@ -844,6 +853,7 @@ public class IgniteImpl implements Ignite {
                                     distributionZoneManager,
                                     computeComponent,
                                     replicaMgr,
+                                    nodeReadyToStartBuildingIndexChecker,
                                     txManager,
                                     dataStorageMgr,
                                     schemaManager,
@@ -1225,5 +1235,11 @@ public class IgniteImpl implements Ignite {
     @TestOnly
     public ConfigurationRegistry clusterConfigurationRegistry() {
         return clusterCfgMgr.configurationRegistry();
+    }
+
+    /** Returns cluster service (cluster network manager). */
+    @TestOnly
+    public ClusterService clusterService() {
+        return clusterSvc;
     }
 }
