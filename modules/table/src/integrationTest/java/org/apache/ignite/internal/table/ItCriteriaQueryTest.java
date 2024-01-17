@@ -59,6 +59,7 @@ import java.util.stream.StreamSupport;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
+import org.apache.ignite.internal.sql.api.IgniteSqlImpl;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.AsyncCursor;
 import org.apache.ignite.lang.Cursor;
@@ -68,6 +69,7 @@ import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.criteria.CriteriaQuerySource;
 import org.apache.ignite.table.mapper.Mapper;
+import org.apache.ignite.tx.Transaction;
 import org.hamcrest.Matcher;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.AfterAll;
@@ -470,6 +472,38 @@ public class ItCriteriaQueryTest extends ClusterPerClassIntegrationTest {
                     hasEntry(tupleValue("id", is(1)), tupleValue(quote("colUmn"), is("name1")))
             ));
         }
+    }
+
+    private static Stream<Arguments> testSessionClosing() {
+        Table table = CLUSTER.aliveNode().tables().table(TABLE_NAME);
+
+        Transaction tx = CLUSTER.aliveNode().transactions().begin();
+        tx.rollback();
+
+        return Stream.of(
+                Arguments.of(table.recordView(), tx),
+                Arguments.of(table.recordView(TestObject.class), tx),
+                Arguments.of(table.keyValueView(), tx),
+                Arguments.of(table.keyValueView(TestObjectKey.class, TestObject.class), tx)
+        );
+    }
+
+    @ParameterizedTest
+    @MethodSource
+    public void testSessionClosing(CriteriaQuerySource<?> view, Transaction tx) {
+        assertEquals(0, activeSessionsCount());
+
+        assertThrows(
+                IgniteException.class,
+                () -> view.query(tx, columnValue("id", equalTo(2))),
+                "Transaction is already finished"
+        );
+
+        assertEquals(0, activeSessionsCount());
+    }
+
+    private static int activeSessionsCount() {
+        return ((IgniteSqlImpl) CLUSTER.aliveNode().sql()).sessions().size();
     }
 
     private static <T> List<Tuple> mapToTupleList(Cursor<T> cur, Function<T, Tuple> mapper) {
