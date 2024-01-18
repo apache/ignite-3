@@ -33,7 +33,7 @@ import java.util.stream.IntStream;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.index.message.IndexMessagesFactory;
-import org.apache.ignite.internal.index.message.IsNodeReadyToStartBuildingIndexResponse;
+import org.apache.ignite.internal.index.message.IsNodeFinishedRwTransactionsStartedBeforeResponse;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.network.NetworkMessage;
@@ -46,8 +46,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
-/** For testing {@link NodeReadyToStartBuildingIndexChecker}. */
-public class ItNodeReadyToStartBuildingIndexCheckerTest extends ClusterPerClassIntegrationTest {
+/** For testing {@link IndexNodeFinishedRwTransactionsChecker}. */
+public class ItIndexNodeFinishedRwTransactionsCheckerTest extends ClusterPerClassIntegrationTest {
     private static final IndexMessagesFactory FACTORY = new IndexMessagesFactory();
 
     private static final String TABLE_NAME = "TEST_TABLE";
@@ -79,16 +79,16 @@ public class ItNodeReadyToStartBuildingIndexCheckerTest extends ClusterPerClassI
     void testNoTransactions() {
         int latestCatalogVersion = latestCatalogVersion();
 
-        assertTrue(isNodeReadyToStartBuildIndexFromNetwork(latestCatalogVersion - 1));
-        assertTrue(isNodeReadyToStartBuildIndexFromNetwork(latestCatalogVersion));
+        assertTrue(isNodeFinishedRwTransactionsStartedBeforeFromNetwork(latestCatalogVersion - 1));
+        assertTrue(isNodeFinishedRwTransactionsStartedBeforeFromNetwork(latestCatalogVersion));
 
-        assertFalse(isNodeReadyToStartBuildIndexFromNetwork(latestCatalogVersion + 1));
+        assertFalse(isNodeFinishedRwTransactionsStartedBeforeFromNetwork(latestCatalogVersion + 1));
 
         fakeUpdateCatalog();
         int newLatestCatalogVersion = latestCatalogVersion();
 
-        assertTrue(isNodeReadyToStartBuildIndexFromNetwork(latestCatalogVersion));
-        assertTrue(isNodeReadyToStartBuildIndexFromNetwork(newLatestCatalogVersion));
+        assertTrue(isNodeFinishedRwTransactionsStartedBeforeFromNetwork(latestCatalogVersion));
+        assertTrue(isNodeFinishedRwTransactionsStartedBeforeFromNetwork(newLatestCatalogVersion));
     }
 
     @ParameterizedTest(name = "commit = {0}")
@@ -97,17 +97,17 @@ public class ItNodeReadyToStartBuildingIndexCheckerTest extends ClusterPerClassI
         int oldLatestCatalogVersion = latestCatalogVersion();
 
         runInTx(commit, tx -> {
-            assertTrue(isNodeReadyToStartBuildIndexFromNetwork(oldLatestCatalogVersion));
-            assertFalse(isNodeReadyToStartBuildIndexFromNetwork(oldLatestCatalogVersion + 1));
+            assertTrue(isNodeFinishedRwTransactionsStartedBeforeFromNetwork(oldLatestCatalogVersion));
+            assertFalse(isNodeFinishedRwTransactionsStartedBeforeFromNetwork(oldLatestCatalogVersion + 1));
 
             fakeUpdateCatalog();
 
-            assertTrue(isNodeReadyToStartBuildIndexFromNetwork(oldLatestCatalogVersion));
-            assertFalse(isNodeReadyToStartBuildIndexFromNetwork(latestCatalogVersion()));
+            assertTrue(isNodeFinishedRwTransactionsStartedBeforeFromNetwork(oldLatestCatalogVersion));
+            assertFalse(isNodeFinishedRwTransactionsStartedBeforeFromNetwork(latestCatalogVersion()));
         });
 
-        assertTrue(isNodeReadyToStartBuildIndexFromNetwork(oldLatestCatalogVersion));
-        assertTrue(isNodeReadyToStartBuildIndexFromNetwork(latestCatalogVersion()));
+        assertTrue(isNodeFinishedRwTransactionsStartedBeforeFromNetwork(oldLatestCatalogVersion));
+        assertTrue(isNodeFinishedRwTransactionsStartedBeforeFromNetwork(latestCatalogVersion()));
     }
 
     @ParameterizedTest(name = "commit = {0}")
@@ -120,17 +120,17 @@ public class ItNodeReadyToStartBuildingIndexCheckerTest extends ClusterPerClassI
         runInTx(commit, tx -> {
             insertPeople(tx, TABLE_NAME, new Person(1, "1", 1.0));
 
-            assertTrue(isNodeReadyToStartBuildIndexFromNetwork(oldLatestCatalogVersion));
-            assertFalse(isNodeReadyToStartBuildIndexFromNetwork(oldLatestCatalogVersion + 1));
+            assertTrue(isNodeFinishedRwTransactionsStartedBeforeFromNetwork(oldLatestCatalogVersion));
+            assertFalse(isNodeFinishedRwTransactionsStartedBeforeFromNetwork(oldLatestCatalogVersion + 1));
 
             fakeUpdateCatalog();
 
-            assertTrue(isNodeReadyToStartBuildIndexFromNetwork(oldLatestCatalogVersion));
-            assertFalse(isNodeReadyToStartBuildIndexFromNetwork(latestCatalogVersion()));
+            assertTrue(isNodeFinishedRwTransactionsStartedBeforeFromNetwork(oldLatestCatalogVersion));
+            assertFalse(isNodeFinishedRwTransactionsStartedBeforeFromNetwork(latestCatalogVersion()));
         });
 
-        assertTrue(isNodeReadyToStartBuildIndexFromNetwork(oldLatestCatalogVersion));
-        assertTrue(isNodeReadyToStartBuildIndexFromNetwork(latestCatalogVersion()));
+        assertTrue(isNodeFinishedRwTransactionsStartedBeforeFromNetwork(oldLatestCatalogVersion));
+        assertTrue(isNodeFinishedRwTransactionsStartedBeforeFromNetwork(latestCatalogVersion()));
     }
 
     @ParameterizedTest(name = "commit = {0}")
@@ -153,12 +153,12 @@ public class ItNodeReadyToStartBuildingIndexCheckerTest extends ClusterPerClassI
 
             fakeUpdateCatalog();
 
-            assertTrue(isNodeReadyToStartBuildIndexFromNetwork(oldLatestCatalogVersion));
-            assertFalse(isNodeReadyToStartBuildIndexFromNetwork(latestCatalogVersion()));
+            assertTrue(isNodeFinishedRwTransactionsStartedBeforeFromNetwork(oldLatestCatalogVersion));
+            assertFalse(isNodeFinishedRwTransactionsStartedBeforeFromNetwork(latestCatalogVersion()));
         });
 
-        assertTrue(isNodeReadyToStartBuildIndexFromNetwork(oldLatestCatalogVersion));
-        assertTrue(isNodeReadyToStartBuildIndexFromNetwork(latestCatalogVersion()));
+        assertTrue(isNodeFinishedRwTransactionsStartedBeforeFromNetwork(oldLatestCatalogVersion));
+        assertTrue(isNodeFinishedRwTransactionsStartedBeforeFromNetwork(latestCatalogVersion()));
     }
 
     private static void runInTx(boolean commit, Consumer<Transaction> consumer) {
@@ -216,15 +216,15 @@ public class ItNodeReadyToStartBuildingIndexCheckerTest extends ClusterPerClassI
         return CLUSTER.node(0);
     }
 
-    private static boolean isNodeReadyToStartBuildIndexFromNetwork(int catalogVersion) {
+    private static boolean isNodeFinishedRwTransactionsStartedBeforeFromNetwork(int catalogVersion) {
         CompletableFuture<NetworkMessage> invokeFuture = node().clusterService().messagingService().invoke(
                 node().node(),
-                FACTORY.isNodeReadyToStartBuildingIndexRequest().catalogVersion(catalogVersion).build(),
+                FACTORY.isNodeFinishedRwTransactionsStartedBeforeRequest().targetCatalogVersion(catalogVersion).build(),
                 1_000
         );
 
         assertThat(invokeFuture, willCompleteSuccessfully());
 
-        return ((IsNodeReadyToStartBuildingIndexResponse) invokeFuture.join()).ready();
+        return ((IsNodeFinishedRwTransactionsStartedBeforeResponse) invokeFuture.join()).finished();
     }
 }

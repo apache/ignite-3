@@ -34,7 +34,7 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.index.message.IndexMessageGroup;
 import org.apache.ignite.internal.index.message.IndexMessagesFactory;
-import org.apache.ignite.internal.index.message.IsNodeReadyToStartBuildingIndexRequest;
+import org.apache.ignite.internal.index.message.IsNodeFinishedRwTransactionsStartedBeforeRequest;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.tx.LocalRwTxCounter;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -44,9 +44,10 @@ import org.apache.ignite.network.NetworkMessageHandler;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Checks whether the node is ready to start building the index. Main task is to handle the {@link IsNodeReadyToStartBuildingIndexRequest}.
+ * Local node RW transaction completion checker for indexes. Main task is to handle the
+ * {@link IsNodeFinishedRwTransactionsStartedBeforeRequest}.
  */
-public class NodeReadyToStartBuildingIndexChecker implements LocalRwTxCounter, IgniteComponent {
+public class IndexNodeFinishedRwTransactionsChecker implements LocalRwTxCounter, IgniteComponent {
     private static final IndexMessagesFactory FACTORY = new IndexMessagesFactory();
 
     private final ReentrantReadWriteLock readWriteLock = new ReentrantReadWriteLock();
@@ -66,7 +67,7 @@ public class NodeReadyToStartBuildingIndexChecker implements LocalRwTxCounter, I
     private final AtomicBoolean stopGuard = new AtomicBoolean();
 
     /** Constructor. */
-    public NodeReadyToStartBuildingIndexChecker(
+    public IndexNodeFinishedRwTransactionsChecker(
             CatalogService catalogService,
             MessagingService messagingService,
             HybridClock clock
@@ -139,37 +140,37 @@ public class NodeReadyToStartBuildingIndexChecker implements LocalRwTxCounter, I
     }
 
     /**
-     * Handles {@link IsNodeReadyToStartBuildingIndexRequest} of {@link IndexMessageGroup}.
+     * Handles {@link IsNodeFinishedRwTransactionsStartedBeforeRequest} of {@link IndexMessageGroup}.
      *
      * @see NetworkMessageHandler#onReceived(NetworkMessage, String, Long)
      */
     private void onReceiveIndexNetworkMessage(NetworkMessage message, String senderConsistentId, @Nullable Long correlationId) {
         inBusyLock(busyLock, () -> {
-            if (!(message instanceof IsNodeReadyToStartBuildingIndexRequest)) {
+            if (!(message instanceof IsNodeFinishedRwTransactionsStartedBeforeRequest)) {
                 return;
             }
 
             assert correlationId != null : senderConsistentId;
 
-            int indexAppearanceCatalogVersion = ((IsNodeReadyToStartBuildingIndexRequest) message).catalogVersion();
+            int targetCatalogVersion = ((IsNodeFinishedRwTransactionsStartedBeforeRequest) message).targetCatalogVersion();
 
-            boolean ready = isNodeReadyToStartBuildingIndex(indexAppearanceCatalogVersion);
+            boolean finished = isNodeFinishedRwTransactionsStartedBefore(targetCatalogVersion);
 
             messagingService.respond(
                     senderConsistentId,
-                    FACTORY.isNodeReadyToStartBuildingIndexResponse().ready(ready).build(),
+                    FACTORY.isNodeFinishedRwTransactionsStartedBeforeResponse().finished(finished).build(),
                     correlationId
             );
         });
     }
 
     /**
-     * Returns {@code true} iff the catalog version in which the index appeared is active and all read-write transactions up to the
-     * requested catalog version have been completed on the node.
+     * Returns {@code true} iff the requested catalog version is active and all RW transactions up to that version have finished on the
+     * node.
      *
-     * @param catalogVersion Catalog version in which the index of interest appeared.
+     * @param catalogVersion Catalog version of interest.
      */
-    private boolean isNodeReadyToStartBuildingIndex(int catalogVersion) {
+    private boolean isNodeFinishedRwTransactionsStartedBefore(int catalogVersion) {
         readWriteLock.writeLock().lock();
 
         try {

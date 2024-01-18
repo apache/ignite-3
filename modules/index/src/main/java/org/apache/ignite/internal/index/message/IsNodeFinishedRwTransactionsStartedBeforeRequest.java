@@ -20,9 +20,21 @@ package org.apache.ignite.internal.index.message;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.Transferable;
 
-/** Response to {@link IsNodeReadyToStartBuildingIndexRequest}. */
-@Transferable(IndexMessageGroup.IS_NODE_READY_TO_START_BUILDING_INDEX_RESPONSE)
-public interface IsNodeReadyToStartBuildingIndexResponse extends NetworkMessage {
-    /** Returns {@code true} if the node is ready to start building the index of interest. */
-    boolean ready();
+/**
+ * Request to check whether RW transactions have been finished to the requested catalog version on the node.
+ *
+ * <p>Check will return {@code true} under the conditions:</p>
+ * <ul>
+ *     <li>Requested catalog version is active on the node.</li>
+ *     <li>All RW transactions up to the requested catalog version are finished on the node.</li>
+ * </ul>
+ *
+ * <p>Such a check is needed, for example, to start building an index; first, we need to make sure that all RW transactions up to the
+ * catalog version in which the index appeared have been finished on the active nodes of the cluster, and only then can we begin building
+ * the index.</p>
+ */
+@Transferable(IndexMessageGroup.IS_NODE_FINISHED_RW_TRANSACTIONS_STARTED_BEFORE_REQUEST)
+public interface IsNodeFinishedRwTransactionsStartedBeforeRequest extends NetworkMessage {
+    /** Returns the catalog version of interest. */
+    int targetCatalogVersion();
 }

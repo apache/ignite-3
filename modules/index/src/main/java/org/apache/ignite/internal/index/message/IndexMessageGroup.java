@@ -22,9 +22,9 @@ import org.apache.ignite.network.annotations.MessageGroup;
 /** Message types for index module. */
 @MessageGroup(groupType = 12, groupName = "IndexMessages")
 public class IndexMessageGroup {
-    /** Message type for {@link IsNodeReadyToStartBuildingIndexRequest}. */
-    public static final short IS_NODE_READY_TO_START_BUILDING_INDEX_REQUEST = 0;
+    /** Message type for {@link IsNodeFinishedRwTransactionsStartedBeforeRequest}. */
+    public static final short IS_NODE_FINISHED_RW_TRANSACTIONS_STARTED_BEFORE_REQUEST = 0;
 
-    /** Message type for {@link IsNodeReadyToStartBuildingIndexResponse}. */
-    public static final short IS_NODE_READY_TO_START_BUILDING_INDEX_RESPONSE = 1;
+    /** Message type for {@link IsNodeFinishedRwTransactionsStartedBeforeResponse}. */
+    public static final short IS_NODE_FINISHED_RW_TRANSACTIONS_STARTED_BEFORE_RESPONSE = 1;
 }

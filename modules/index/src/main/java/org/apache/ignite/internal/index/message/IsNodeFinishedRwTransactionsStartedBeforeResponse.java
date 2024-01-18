@@ -20,17 +20,9 @@ package org.apache.ignite.internal.index.message;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.Transferable;
 
-/**
- * Request to check whether a node is ready to start building an index.
- *
- * <p>To be able to safely start building an index on a node, the following conditions must be met:</p>
- * <ul>
- *     <li>Catalog version in which the index appeared must be active on the node.</li>
- *     <li>All read-write transactions up to the catalog version in which the index appeared must be completed.</li>
- * </ul>
- */
-@Transferable(IndexMessageGroup.IS_NODE_READY_TO_START_BUILDING_INDEX_REQUEST)
-public interface IsNodeReadyToStartBuildingIndexRequest extends NetworkMessage {
-    /** Returns the catalog version in which the index of interest appeared. */
-    int catalogVersion();
+/** Response to {@link IsNodeFinishedRwTransactionsStartedBeforeRequest}. */
+@Transferable(IndexMessageGroup.IS_NODE_FINISHED_RW_TRANSACTIONS_STARTED_BEFORE_RESPONSE)
+public interface IsNodeFinishedRwTransactionsStartedBeforeResponse extends NetworkMessage {
+    /** Returns the result of the check. */
+    boolean finished();
 }
