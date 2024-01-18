@@ -36,14 +36,17 @@ import org.jetbrains.annotations.Nullable;
  * Manages job executions. Stores them in the TTL-based cache.
  */
 public class ExecutionManager {
-    private final Cleaner<JobExecution<?>> cleaner;
+    private final ComputeConfiguration computeConfiguration;
+
+    private final TopologyService topologyService;
+
+    private final Cleaner<JobExecution<?>> cleaner = new Cleaner<>();
 
     private final Map<UUID, JobExecution<?>> executions = new ConcurrentHashMap<>();
 
     ExecutionManager(ComputeConfiguration computeConfiguration, TopologyService topologyService) {
-        long ttl = computeConfiguration.statesLifetimeMillis().value();
-        String nodeName = topologyService.localMember().name();
-        cleaner = new Cleaner<>(ttl, nodeName);
+        this.computeConfiguration = computeConfiguration;
+        this.topologyService = topologyService;
     }
 
     /**
@@ -61,7 +64,9 @@ public class ExecutionManager {
      * Starts execution manager.
      */
     void start() {
-        cleaner.start(executions::remove);
+        long ttlMillis = computeConfiguration.statesLifetimeMillis().value();
+        String nodeName = topologyService.localMember().name();
+        cleaner.start(executions::remove, ttlMillis, nodeName);
     }
 
     /**

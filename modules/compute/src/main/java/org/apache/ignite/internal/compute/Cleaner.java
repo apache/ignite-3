@@ -24,6 +24,7 @@ import java.util.Queue;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -40,34 +41,25 @@ import org.apache.ignite.internal.thread.NamedThreadFactory;
 public class Cleaner<T> {
     private static final IgniteLogger LOG = Loggers.forClass(Cleaner.class);
 
-    private final long ttl;
-
-    private final ScheduledExecutorService cleaner;
+    private ExecutorService cleaner;
 
     private final Set<UUID> toRemove = new HashSet<>();
 
     private final Queue<UUID> waitToRemove = new ConcurrentLinkedQueue<>();
 
     /**
-     * Constructs the cleaner.
-     *
-     * @param ttl Time after which the clean function will be called for the scheduled to remove entry.
-     * @param nodeName Node name.
-     */
-    public Cleaner(long ttl, String nodeName) {
-        this.ttl = ttl;
-        cleaner = Executors.newSingleThreadScheduledExecutor(
-                NamedThreadFactory.create(nodeName, "compute-execution-cleanup", true, LOG)
-        );
-    }
-
-    /**
      * Starts the cleaner.
      *
      * @param clean Function to clean the entry.
+     * @param ttlMillis Time after which the clean function will be called for the scheduled entry, in milliseconds.
+     * @param nodeName Node name.
      */
-    public void start(Consumer<UUID> clean) {
-        cleaner.scheduleAtFixedRate(() -> {
+    public void start(Consumer<UUID> clean, long ttlMillis, String nodeName) {
+        ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor(
+                NamedThreadFactory.create(nodeName, "compute-execution-cleanup", true, LOG)
+        );
+
+        executor.scheduleAtFixedRate(() -> {
             toRemove.forEach(clean);
             toRemove.clear();
 
@@ -76,7 +68,9 @@ public class Cleaner<T> {
             while ((nextToRemove = waitToRemove.poll()) != null) {
                 toRemove.add(nextToRemove);
             }
-        }, ttl, ttl, TimeUnit.MILLISECONDS);
+        }, ttlMillis, ttlMillis, TimeUnit.MILLISECONDS);
+
+        cleaner = executor;
     }
 
     /**

@@ -42,18 +42,23 @@ import org.apache.ignite.internal.logger.Loggers;
 public class InMemoryComputeStateMachine implements ComputeStateMachine {
     private static final IgniteLogger LOG = Loggers.forClass(InMemoryComputeStateMachine.class);
 
-    private final Cleaner<JobStatus> cleaner;
+    private final ComputeConfiguration configuration;
+
+    private final String nodeName;
+
+    private final Cleaner<JobStatus> cleaner = new Cleaner<>();
 
     private final Map<UUID, JobStatus> statuses = new ConcurrentHashMap<>();
 
     public InMemoryComputeStateMachine(ComputeConfiguration configuration, String nodeName) {
-        long ttl = configuration.statesLifetimeMillis().value();
-        cleaner = new Cleaner<>(ttl, nodeName);
+        this.configuration = configuration;
+        this.nodeName = nodeName;
     }
 
     @Override
     public void start() {
-        cleaner.start(statuses::remove);
+        long ttlMillis = configuration.statesLifetimeMillis().value();
+        cleaner.start(statuses::remove, ttlMillis, nodeName);
     }
 
     @Override
