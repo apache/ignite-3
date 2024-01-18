@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.compute;
 
-import static java.util.stream.Collectors.toList;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.greaterThan;
@@ -26,6 +25,7 @@ import static org.hamcrest.Matchers.in;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.not;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -34,8 +34,6 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
-import org.apache.ignite.Ignite;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
@@ -223,11 +221,12 @@ public class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest {
         });
 
         // When stop one of workers.
+        String stoppedNodeName = node(1).name();
         stopNode(node(1));
 
         // Then two jobs are alive.
         executions.forEach((node, execution) -> {
-            if (node.name().equals(node(1).name())) {
+            if (node.name().equals(stoppedNodeName)) {
                 new TestingJobExecution<>(execution).assertFailed();
             } else {
                 InteractiveJobs.byNode(node).assertAlive();
@@ -340,11 +339,6 @@ public class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest {
         stopNode(ignite.name());
     }
 
-    private void stopNode(String name) {
-        int ind = NODES_NAMES_TO_INDEXES.get(name);
-        node(ind).stop();
-    }
-
     private IgniteImpl anyNodeExcept(ClusterNode except) {
         String candidateName = allNodeNames()
                 .stream()
@@ -359,14 +353,14 @@ public class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest {
         return cluster.runningNodes().filter(node -> node.name().equals(candidateName)).findFirst().orElseThrow();
     }
 
-    private TestingJobExecution<String> executeGlobalInteractiveJob(IgniteImpl entryNode, Set<String> nodes) throws InterruptedException {
+    private TestingJobExecution<String> executeGlobalInteractiveJob(IgniteImpl entryNode, Set<String> nodes) {
         return new TestingJobExecution<>(
                 entryNode.compute().executeAsync(clusterNodesByNames(nodes), List.of(), InteractiveJobs.globalJob().name())
         );
     }
 
     private void createReplicatedTestTableWithOneRow() {
-        // Number of replicas == number of nodes and number of partitions == 0. This gives us the majority on primary replica stop.
+        // Number of replicas == number of nodes and number of partitions == 1. This gives us the majority on primary replica stop.
         // After the primary replica is stopped we still be able to select new primary replica selected.
         executeSql("CREATE ZONE TEST_ZONE WITH REPLICAS=3, PARTITIONS=1");
         executeSql("CREATE TABLE test (k int, v int, CONSTRAINT PK PRIMARY KEY (k)) WITH PRIMARY_ZONE='TEST_ZONE'");
@@ -374,9 +368,6 @@ public class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest {
     }
 
     private List<String> allNodeNames() {
-        return IntStream.range(0, initialNodes())
-                .mapToObj(this::node)
-                .map(Ignite::name)
-                .collect(toList());
+        return new ArrayList<>(NODES_NAMES_TO_INDEXES.keySet());
     }
 }
