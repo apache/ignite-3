@@ -45,6 +45,7 @@ import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.TopologyService;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Implementation of {@link IgniteCompute}.
@@ -275,12 +276,12 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
     }
 
     @Override
-    public CompletableFuture<JobStatus> statusAsync(UUID jobId) {
-        return computeComponent.broadcastStatusAsync(jobId);
+    public CompletableFuture<@Nullable JobStatus> statusAsync(UUID jobId) {
+        return computeComponent.statusAsync(jobId);
     }
 
     @Override
-    public CompletableFuture<Boolean> cancelAsync(UUID jobId) {
-        return computeComponent.broadcastCancelAsync(jobId);
+    public CompletableFuture<@Nullable Boolean> cancelAsync(UUID jobId) {
+        return computeComponent.cancelAsync(jobId);
     }
 }

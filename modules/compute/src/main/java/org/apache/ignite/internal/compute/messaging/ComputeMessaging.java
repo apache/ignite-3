@@ -36,11 +36,12 @@ import org.apache.ignite.compute.ComputeException;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobStatus;
-import org.apache.ignite.internal.compute.ComputeComponent;
 import org.apache.ignite.internal.compute.ComputeMessageTypes;
 import org.apache.ignite.internal.compute.ComputeMessagesFactory;
 import org.apache.ignite.internal.compute.ComputeUtils;
+import org.apache.ignite.internal.compute.ExecutionManager;
 import org.apache.ignite.internal.compute.ExecutionOptions;
+import org.apache.ignite.internal.compute.JobStarter;
 import org.apache.ignite.internal.compute.message.DeploymentUnitMsg;
 import org.apache.ignite.internal.compute.message.ExecuteRequest;
 import org.apache.ignite.internal.compute.message.ExecuteResponse;
@@ -67,7 +68,7 @@ public class ComputeMessaging {
 
     private final ComputeMessagesFactory messagesFactory = new ComputeMessagesFactory();
 
-    private final ComputeComponent computeComponent;
+    private final ExecutionManager executionManager;
 
     private final MessagingService messagingService;
 
@@ -78,12 +79,12 @@ public class ComputeMessaging {
     /**
      * Constructor.
      *
-     * @param computeComponent Compute component.
+     * @param executionManager Execution manager.
      * @param messagingService Messaging service.
      * @param topologyService Topology service.
      */
-    public ComputeMessaging(ComputeComponent computeComponent, MessagingService messagingService, TopologyService topologyService) {
-        this.computeComponent = computeComponent;
+    public ComputeMessaging(ExecutionManager executionManager, MessagingService messagingService, TopologyService topologyService) {
+        this.executionManager = executionManager;
         this.messagingService = messagingService;
         this.topologyService = topologyService;
     }
@@ -91,7 +92,7 @@ public class ComputeMessaging {
     /**
      * Start messaging service.
      */
-    public void start() {
+    public void start(JobStarter starter) {
         messagingService.addMessageHandler(ComputeMessageTypes.class, (message, senderConsistentId, correlationId) -> {
             assert correlationId != null;
 
@@ -106,7 +107,7 @@ public class ComputeMessaging {
             }
 
             try {
-                processRequest(message, senderConsistentId, correlationId);
+                processRequest(message, senderConsistentId, correlationId, starter);
             } finally {
                 busyLock.leaveBusy();
             }
@@ -133,10 +134,11 @@ public class ComputeMessaging {
     private void processRequest(
             NetworkMessage message,
             String senderConsistentId,
-            long correlationId
+            long correlationId,
+            JobStarter starter
     ) {
         if (message instanceof ExecuteRequest) {
-            processExecuteRequest((ExecuteRequest) message, senderConsistentId, correlationId);
+            processExecuteRequest(starter, (ExecuteRequest) message, senderConsistentId, correlationId);
         } else if (message instanceof JobResultRequest) {
             processJobResultRequest((JobResultRequest) message, senderConsistentId, correlationId);
         } else if (message instanceof JobStatusRequest) {
@@ -186,13 +188,14 @@ public class ComputeMessaging {
     }
 
     private void processExecuteRequest(
+            JobStarter starter,
             ExecuteRequest request,
             String senderConsistentId,
             long correlationId
     ) {
         List<DeploymentUnit> units = toDeploymentUnit(request.deploymentUnits());
 
-        JobExecution<Object> execution = computeComponent.executeLocally(
+        JobExecution<Object> execution = starter.start(
                 request.executeOptions(),
                 units,
                 request.jobClassName(),
@@ -232,7 +235,7 @@ public class ComputeMessaging {
             String senderConsistentId,
             long correlationId
     ) {
-        computeComponent.resultAsync(request.jobId())
+        executionManager.resultAsync(request.jobId())
                 .whenComplete((result, err) -> sendJobResultResponse(result, err, senderConsistentId, correlationId));
     }
 
@@ -255,9 +258,9 @@ public class ComputeMessaging {
      *
      * @param remoteNode The job will be executed on this node.
      * @param jobId Compute job id.
-     * @return Job status future.
+     * @return The current status of the job, or {@code null} if there's no job with the specified id.
      */
-    CompletableFuture<JobStatus> remoteStatusAsync(ClusterNode remoteNode, UUID jobId) {
+    CompletableFuture<@Nullable JobStatus> remoteStatusAsync(ClusterNode remoteNode, UUID jobId) {
         JobStatusRequest jobStatusRequest = messagesFactory.jobStatusRequest()
                 .jobId(jobId)
                 .build();
@@ -271,7 +274,7 @@ public class ComputeMessaging {
             String senderConsistentId,
             long correlationId
     ) {
-        computeComponent.localStatusAsync(request.jobId())
+        executionManager.statusAsync(request.jobId())
                 .whenComplete((status, throwable) -> sendJobStatusResponse(status, throwable, senderConsistentId, correlationId));
     }
 
@@ -294,9 +297,10 @@ public class ComputeMessaging {
      *
      * @param remoteNode The job will be canceled on this node.
      * @param jobId Compute job id.
-     * @return Job cancel future (will be completed when cancel request is processed).
+     * @return The future which will be completed with {@code true} when the job is cancelled, {@code false} when the job couldn't be
+     *         cancelled (either it's not yet started, or it's already completed), or {@code null} if there's no job with the specified id.
      */
-    CompletableFuture<Boolean> remoteCancelAsync(ClusterNode remoteNode, UUID jobId) {
+    CompletableFuture<@Nullable Boolean> remoteCancelAsync(ClusterNode remoteNode, UUID jobId) {
         JobCancelRequest jobCancelRequest = messagesFactory.jobCancelRequest()
                 .jobId(jobId)
                 .build();
@@ -306,7 +310,7 @@ public class ComputeMessaging {
     }
 
     private void processJobCancelRequest(JobCancelRequest request, String senderConsistentId, long correlationId) {
-        computeComponent.localCancelAsync(request.jobId())
+        executionManager.cancelAsync(request.jobId())
                 .whenComplete((result, err) -> sendJobCancelResponse(result, err, senderConsistentId, correlationId));
     }
 
@@ -330,12 +334,12 @@ public class ComputeMessaging {
      * @param jobId Job id.
      * @return The current status of the job, or {@code null} if the job status no longer exists due to exceeding the retention time limit.
      */
-    public CompletableFuture<JobStatus> broadcastStatusAsync(UUID jobId) {
+    public CompletableFuture<@Nullable JobStatus> broadcastStatusAsync(UUID jobId) {
         return broadcastAsync(
                 node -> remoteStatusAsync(node, jobId),
                 throwable -> new ComputeException(
                         FAIL_TO_GET_JOB_STATUS_ERR,
-                        "Compute job status can't be retrieved.",
+                        "Failed to retrieve status of the job with ID: " + jobId,
                         throwable
                 ));
     }
@@ -344,14 +348,15 @@ public class ComputeMessaging {
      * Broadcasts job cancel request to all nodes in the cluster.
      *
      * @param jobId Job id.
-     * @return The future which will be completed when cancel request is processed.
+     * @return The future which will be completed with {@code true} when the job is cancelled, {@code false} when the job couldn't be
+     *         cancelled (either it's not yet started, or it's already completed), or {@code null} if there's no job with the specified id.
      */
-    public CompletableFuture<Boolean> broadcastCancelAsync(UUID jobId) {
+    public CompletableFuture<@Nullable Boolean> broadcastCancelAsync(UUID jobId) {
         return broadcastAsync(
                 node -> remoteCancelAsync(node, jobId),
                 throwable -> new ComputeException(
                         CANCELLING_ERR,
-                        "Cancelling job " + jobId + " failed.",
+                        "Failed to cancel job with ID: " + jobId,
                         throwable
                 ));
     }
@@ -363,18 +368,22 @@ public class ComputeMessaging {
      * @param error Function which creates a specific error from the exception thrown from the request.
      * @return The future which will be completed when request is processed.
      */
-    private <R> CompletableFuture<R> broadcastAsync(
-            Function<ClusterNode, CompletableFuture<R>> request,
+    private <R> CompletableFuture<@Nullable R> broadcastAsync(
+            Function<ClusterNode, CompletableFuture<@Nullable R>> request,
             Function<Throwable, Throwable> error
     ) {
-        CompletableFuture<R> result = new CompletableFuture<>();
-        CompletableFuture<?>[] futures = topologyService.allMembers().stream()
-                .map(node -> request.apply(node).thenAccept(response -> {
-                    if (response != null) {
-                        result.complete(response);
-                    }
-                }))
+        CompletableFuture<@Nullable R> result = new CompletableFuture<>();
+
+        CompletableFuture<?>[] futures = topologyService.allMembers()
+                .stream()
+                .map(node -> request.apply(node)
+                        .thenAccept(response -> {
+                            if (response != null) {
+                                result.complete(response);
+                            }
+                        }))
                 .toArray(CompletableFuture[]::new);
+
         allOf(futures).whenComplete((unused, throwable) -> {
             // If none of the nodes returned non-null status it means that either we couldn't find the status
             // or the node which had the status thrown an exception. If any of the futures completed exceptionally

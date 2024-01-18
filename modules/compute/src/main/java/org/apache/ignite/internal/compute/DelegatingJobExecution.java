@@ -21,6 +21,7 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobStatus;
 import org.apache.ignite.internal.compute.executor.JobExecutionInternal;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Delegates {@link JobExecution} to the future of {@link JobExecutionInternal}.
@@ -40,12 +41,12 @@ class DelegatingJobExecution<R> implements JobExecution<R> {
     }
 
     @Override
-    public CompletableFuture<JobStatus> statusAsync() {
+    public CompletableFuture<@Nullable JobStatus> statusAsync() {
         return delegate.thenApply(JobExecutionInternal::status);
     }
 
     @Override
-    public CompletableFuture<Boolean> cancelAsync() {
+    public CompletableFuture<@Nullable Boolean> cancelAsync() {
         return delegate.thenApply(JobExecutionInternal::cancel);
     }
 }

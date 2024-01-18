@@ -21,15 +21,11 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.compute.ClassLoaderExceptionsMapper.mapClassLoaderExceptions;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Compute.RESULT_NOT_FOUND_ERR;
 
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
-import org.apache.ignite.compute.ComputeException;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobStatus;
@@ -47,6 +43,7 @@ import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.network.TopologyService;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Implementation of {@link ComputeComponent}.
@@ -60,19 +57,13 @@ public class ComputeComponentImpl implements ComputeComponent {
 
     private final InFlightFutures inFlightFutures = new InFlightFutures();
 
-    private final TopologyService topologyService;
-
     private final JobContextManager jobContextManager;
 
     private final ComputeExecutor executor;
 
-    private final ComputeConfiguration computeConfiguration;
-
     private final ComputeMessaging messaging;
 
-    private final Cleaner<JobExecution<?>> cleaner = new Cleaner<>();
-
-    private final Map<UUID, JobExecution<?>> executions = new ConcurrentHashMap<>();
+    private final ExecutionManager executionManager;
 
     /**
      * Creates a new instance.
@@ -84,92 +75,15 @@ public class ComputeComponentImpl implements ComputeComponent {
             ComputeExecutor executor,
             ComputeConfiguration computeConfiguration
     ) {
-        this.topologyService = topologyService;
         this.jobContextManager = jobContextManager;
         this.executor = executor;
-        this.computeConfiguration = computeConfiguration;
-        messaging = new ComputeMessaging(this, messagingService, topologyService);
+        executionManager = new ExecutionManager(computeConfiguration, topologyService);
+        messaging = new ComputeMessaging(executionManager, messagingService, topologyService);
     }
 
     /** {@inheritDoc} */
     @Override
     public <R> JobExecution<R> executeLocally(
-            ExecutionOptions options,
-            List<DeploymentUnit> units,
-            String jobClassName,
-            Object... args
-    ) {
-        JobExecution<R> result = start(options, units, jobClassName, args);
-        result.idAsync().thenAccept(jobId -> {
-            executions.put(jobId, result);
-            result.resultAsync().whenComplete((r, throwable) -> cleaner.scheduleRemove(jobId));
-        });
-        return result;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public <R> JobExecution<R> executeRemotely(
-            ExecutionOptions options,
-            ClusterNode remoteNode,
-            List<DeploymentUnit> units,
-            String jobClassName,
-            Object... args
-    ) {
-        if (!busyLock.enterBusy()) {
-            return new DelegatingJobExecution<>(
-                    failedFuture(new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException()))
-            );
-        }
-
-        try {
-            CompletableFuture<UUID> jobIdFuture = messaging.remoteExecuteRequestAsync(options, remoteNode, units, jobClassName, args);
-            CompletableFuture<R> resultFuture = jobIdFuture.thenCompose(jobId -> messaging.<R>remoteJobResultRequestAsync(remoteNode, jobId)
-                    .whenComplete((r, throwable) -> cleaner.scheduleRemove(jobId)));
-
-            inFlightFutures.registerFuture(jobIdFuture);
-            inFlightFutures.registerFuture(resultFuture);
-
-            JobExecution<R> result = new RemoteJobExecution<>(remoteNode, jobIdFuture, resultFuture, inFlightFutures, messaging);
-            jobIdFuture.thenAccept(jobId -> executions.put(jobId, result));
-            return result;
-        } finally {
-            busyLock.leaveBusy();
-        }
-    }
-
-    @Override
-    public CompletableFuture<?> resultAsync(UUID jobId) {
-        JobExecution<?> execution = executions.get(jobId);
-        if (execution != null) {
-            return execution.resultAsync();
-        }
-        return failedFuture(new ComputeException(RESULT_NOT_FOUND_ERR, "Job result not found for the job id " + jobId));
-    }
-
-    @Override
-    public CompletableFuture<JobStatus> broadcastStatusAsync(UUID jobId) {
-        return messaging.broadcastStatusAsync(jobId);
-    }
-
-    @Override
-    public CompletableFuture<JobStatus> localStatusAsync(UUID jobId) {
-        JobExecution<?> execution = executions.get(jobId);
-        return execution != null ? execution.statusAsync() : nullCompletedFuture();
-    }
-
-    @Override
-    public CompletableFuture<Boolean> broadcastCancelAsync(UUID jobId) {
-        return messaging.broadcastCancelAsync(jobId);
-    }
-
-    @Override
-    public CompletableFuture<Boolean> localCancelAsync(UUID jobId) {
-        JobExecution<?> execution = executions.get(jobId);
-        return execution != null ? execution.cancelAsync() : nullCompletedFuture();
-    }
-
-    private <R> JobExecution<R> start(
             ExecutionOptions options,
             List<DeploymentUnit> units,
             String jobClassName,
@@ -193,7 +107,9 @@ public class ComputeComponentImpl implements ComputeComponent {
 
             inFlightFutures.registerFuture(future);
 
-            return new DelegatingJobExecution<>(future);
+            JobExecution<R> result = new DelegatingJobExecution<>(future);
+            result.idAsync().thenAccept(jobId -> executionManager.addExecution(jobId, result));
+            return result;
         } finally {
             busyLock.leaveBusy();
         }
@@ -201,12 +117,50 @@ public class ComputeComponentImpl implements ComputeComponent {
 
     /** {@inheritDoc} */
     @Override
+    public <R> JobExecution<R> executeRemotely(
+            ExecutionOptions options,
+            ClusterNode remoteNode,
+            List<DeploymentUnit> units,
+            String jobClassName,
+            Object... args
+    ) {
+        if (!busyLock.enterBusy()) {
+            return new DelegatingJobExecution<>(
+                    failedFuture(new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException()))
+            );
+        }
+
+        try {
+            CompletableFuture<UUID> jobIdFuture = messaging.remoteExecuteRequestAsync(options, remoteNode, units, jobClassName, args);
+            CompletableFuture<R> resultFuture = jobIdFuture.thenCompose(jobId -> messaging.remoteJobResultRequestAsync(remoteNode, jobId));
+
+            inFlightFutures.registerFuture(jobIdFuture);
+            inFlightFutures.registerFuture(resultFuture);
+
+            JobExecution<R> result = new RemoteJobExecution<>(remoteNode, jobIdFuture, resultFuture, inFlightFutures, messaging);
+            jobIdFuture.thenAccept(jobId -> executionManager.addExecution(jobId, result));
+            return result;
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
+    @Override
+    public CompletableFuture<@Nullable JobStatus> statusAsync(UUID jobId) {
+        return messaging.broadcastStatusAsync(jobId);
+    }
+
+    @Override
+    public CompletableFuture<@Nullable Boolean> cancelAsync(UUID jobId) {
+        return messaging.broadcastCancelAsync(jobId);
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public CompletableFuture<Void> start() {
         executor.start();
-        messaging.start();
-        long ttl = computeConfiguration.statesLifetimeMillis().value();
-        String nodeName = topologyService.localMember().name();
-        cleaner.start(executions::remove, ttl, nodeName);
+        messaging.start(this::executeLocally);
+        executionManager.start();
 
         return nullCompletedFuture();
     }
@@ -221,7 +175,7 @@ public class ComputeComponentImpl implements ComputeComponent {
         busyLock.block();
         inFlightFutures.cancelInFlightFutures();
 
-        cleaner.stop();
+        executionManager.stop();
         messaging.stop();
         executor.stop();
     }

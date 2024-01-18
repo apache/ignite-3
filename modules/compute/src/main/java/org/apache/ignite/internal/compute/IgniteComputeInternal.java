@@ -21,6 +21,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.compute.JobStatus;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Internal compute facade.
@@ -32,7 +33,7 @@ public interface IgniteComputeInternal extends IgniteCompute {
      * @param jobId Job id.
      * @return Job status or {@code null} if there's no status registered for this id.
      */
-    CompletableFuture<JobStatus> statusAsync(UUID jobId);
+    CompletableFuture<@Nullable JobStatus> statusAsync(UUID jobId);
 
     /**
      * Cancels compute job.
@@ -40,5 +41,5 @@ public interface IgniteComputeInternal extends IgniteCompute {
      * @param jobId Job id.
      * @return The future which will be completed when cancel request is processed.
      */
-    CompletableFuture<Boolean> cancelAsync(UUID jobId);
+    CompletableFuture<@Nullable Boolean> cancelAsync(UUID jobId);
 }

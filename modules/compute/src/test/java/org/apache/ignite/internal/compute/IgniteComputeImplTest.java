@@ -44,6 +44,7 @@ import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.TopologyService;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -164,12 +165,12 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
             }
 
             @Override
-            public CompletableFuture<JobStatus> statusAsync() {
+            public CompletableFuture<@Nullable JobStatus> statusAsync() {
                 return nullCompletedFuture();
             }
 
             @Override
-            public CompletableFuture<Boolean> cancelAsync() {
+            public CompletableFuture<@Nullable Boolean> cancelAsync() {
                 return trueCompletedFuture();
             }
         };

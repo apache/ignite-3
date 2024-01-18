@@ -25,6 +25,7 @@ import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobStatus;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.network.ClusterNode;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Compute functionality.
@@ -103,30 +104,13 @@ public interface ComputeComponent extends IgniteComponent {
     }
 
     /**
-     * Returns job's execution result.
-     *
-     * @param jobId Job id.
-     * @return Job's execution result future.
-     */
-    CompletableFuture<?> resultAsync(UUID jobId);
-
-    /**
      * Retrieves the current status of the job on any node in the cluster. The job status may be deleted and thus return {@code null} if the
      * time for retaining job status has been exceeded.
      *
      * @param jobId Job id.
      * @return The current status of the job, or {@code null} if the job status no longer exists due to exceeding the retention time limit.
      */
-    CompletableFuture<JobStatus> broadcastStatusAsync(UUID jobId);
-
-    /**
-     * Retrieves the current status of the job from local node. The job status may be deleted and thus return {@code null} if the time for
-     * retaining job status has been exceeded.
-     *
-     * @param jobId Job id.
-     * @return The current status of the job, or {@code null} if the job status no longer exists due to exceeding the retention time limit.
-     */
-    CompletableFuture<JobStatus> localStatusAsync(UUID jobId);
+    CompletableFuture<@Nullable JobStatus> statusAsync(UUID jobId);
 
     /**
      * Cancels the job running on any node in the cluster.
@@ -134,14 +118,5 @@ public interface ComputeComponent extends IgniteComponent {
      * @param jobId Job id.
      * @return The future which will be completed when cancel request is processed.
      */
-    CompletableFuture<Boolean> broadcastCancelAsync(UUID jobId);
-
-    /**
-     * Cancels the locally running job.
-     *
-     * @param jobId Job id.
-     * @return The future which will be completed with {@code true} when the job is cancelled, {@code false} when the job couldn't be
-     *         cancelled, or {@code null} if there's no job with the specified id.
-     */
-    CompletableFuture<Boolean> localCancelAsync(UUID jobId);
+    CompletableFuture<@Nullable Boolean> cancelAsync(UUID jobId);
 }

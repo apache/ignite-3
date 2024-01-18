@@ -42,7 +42,7 @@ class ClientJobExecution<R> implements JobExecution<R> {
     private final CompletableFuture<R> resultAsync;
 
     // Local status cache
-    private final CompletableFuture<JobStatus> statusFuture = new CompletableFuture<>();
+    private final CompletableFuture<@Nullable JobStatus> statusFuture = new CompletableFuture<>();
 
     ClientJobExecution(ReliableChannel ch, CompletableFuture<PayloadInputChannel> reqFuture) {
         this.ch = ch;
@@ -67,7 +67,7 @@ class ClientJobExecution<R> implements JobExecution<R> {
     }
 
     @Override
-    public CompletableFuture<JobStatus> statusAsync() {
+    public CompletableFuture<@Nullable JobStatus> statusAsync() {
         if (statusFuture.isDone()) {
             return statusFuture;
         }
@@ -75,14 +75,14 @@ class ClientJobExecution<R> implements JobExecution<R> {
     }
 
     @Override
-    public CompletableFuture<Boolean> cancelAsync() {
+    public CompletableFuture<@Nullable Boolean> cancelAsync() {
         if (statusFuture.isDone()) {
             return falseCompletedFuture();
         }
         return jobIdFuture.thenCompose(this::cancelJob);
     }
 
-    private CompletableFuture<JobStatus> getJobStatus(UUID jobId) {
+    private CompletableFuture<@Nullable JobStatus> getJobStatus(UUID jobId) {
         // Send the request to any node, the request will be broadcast since client doesn't know which particular node is running the job
         // especially in case of colocated execution.
         return ch.serviceAsync(
@@ -95,13 +95,13 @@ class ClientJobExecution<R> implements JobExecution<R> {
         );
     }
 
-    private CompletableFuture<Boolean> cancelJob(UUID jobId) {
+    private CompletableFuture<@Nullable Boolean> cancelJob(UUID jobId) {
         // Send the request to any node, the request will be broadcast since client doesn't know which particular node is running the job
         // especially in case of colocated execution.
         return ch.serviceAsync(
                 ClientOp.COMPUTE_CANCEL,
                 w -> w.out().packUuid(jobId),
-                r -> r.in().unpackBoolean(),
+                ClientJobExecution::unpackCancelResult,
                 null,
                 null,
                 false
@@ -120,5 +120,13 @@ class ClientJobExecution<R> implements JobExecution<R> {
                 .startTime(unpacker.unpackInstantNullable())
                 .finishTime(unpacker.unpackInstantNullable())
                 .build();
+    }
+
+    private static @Nullable Boolean unpackCancelResult(PayloadInputChannel payloadInputChannel) {
+        ClientMessageUnpacker unpacker = payloadInputChannel.in();
+        if (unpacker.tryUnpackNil()) {
+            return null;
+        }
+        return unpacker.unpackBoolean();
     }
 }

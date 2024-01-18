@@ -41,6 +41,12 @@ public class ClientComputeCancelRequest {
             IgniteComputeInternal compute
     ) {
         UUID jobId = in.unpackUuid();
-        return compute.cancelAsync(jobId).thenAccept(out::packBoolean);
+        return compute.cancelAsync(jobId).thenAccept(cancelResult -> {
+            if (cancelResult == null) {
+                out.packNil();
+            } else {
+                out.packBoolean(cancelResult);
+            }
+        });
     }
 }

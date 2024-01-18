@@ -46,7 +46,7 @@ public class InMemoryComputeStateMachine implements ComputeStateMachine {
 
     private final String nodeName;
 
-    private final Cleaner<JobStatus> cleaner = new Cleaner<>();
+    private final Cleaner<JobStatus> cleaner = new Cleaner<>(ttl, nodeName);
 
     private final Map<UUID, JobStatus> statuses = new ConcurrentHashMap<>();
 

@@ -24,7 +24,6 @@ import java.util.Queue;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -41,25 +40,34 @@ import org.apache.ignite.internal.thread.NamedThreadFactory;
 public class Cleaner<T> {
     private static final IgniteLogger LOG = Loggers.forClass(Cleaner.class);
 
-    private ExecutorService cleaner;
+    private final long ttl;
+
+    private final ScheduledExecutorService cleaner;
 
     private final Set<UUID> toRemove = new HashSet<>();
 
     private final Queue<UUID> waitToRemove = new ConcurrentLinkedQueue<>();
 
     /**
-     * Starts the cleaner.
+     * Constructs the cleaner.
      *
-     * @param clean Function to clean the entry.
      * @param ttl Time after which the clean function will be called for the scheduled to remove entry.
      * @param nodeName Node name.
      */
-    public void start(Consumer<UUID> clean, long ttl, String nodeName) {
-        ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor(
+    public Cleaner(long ttl, String nodeName) {
+        this.ttl = ttl;
+        cleaner = Executors.newSingleThreadScheduledExecutor(
                 NamedThreadFactory.create(nodeName, "compute-execution-cleanup", true, LOG)
         );
+    }
 
-        executor.scheduleAtFixedRate(() -> {
+    /**
+     * Starts the cleaner.
+     *
+     * @param clean Function to clean the entry.
+     */
+    public void start(Consumer<UUID> clean) {
+        cleaner.scheduleAtFixedRate(() -> {
             toRemove.forEach(clean);
             toRemove.clear();
 
@@ -69,8 +77,6 @@ public class Cleaner<T> {
                 toRemove.add(nextToRemove);
             }
         }, ttl, ttl, TimeUnit.MILLISECONDS);
-
-        cleaner = executor;
     }
 
     /**

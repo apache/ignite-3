@@ -29,6 +29,7 @@ import org.apache.ignite.compute.JobState;
 import org.apache.ignite.compute.JobStatus;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Fail-safe wrapper for the {@link JobExecution} that should be returned to the client. This wrapper holds the original
@@ -137,13 +138,13 @@ class FailSafeJobExecution<T> implements JobExecution<T> {
     }
 
     /**
-     * Returns the transformed status of the running job execution. The transformation is needed because we do not want to change
-     * some fields of the status (e.g. creation time) when the job is restarted.
+     * Returns the transformed status of the running job execution. The transformation is needed because we do not want to change some
+     * fields of the status (e.g. creation time) when the job is restarted.
      *
      * @return the transformed status.
      */
     @Override
-    public CompletableFuture<JobStatus> statusAsync() {
+    public CompletableFuture<@Nullable JobStatus> statusAsync() {
         if (exception.get() != null) {
             return CompletableFuture.failedFuture(exception.get());
         }
@@ -154,7 +155,7 @@ class FailSafeJobExecution<T> implements JobExecution<T> {
     }
 
     @Override
-    public CompletableFuture<Boolean> cancelAsync() {
+    public CompletableFuture<@Nullable Boolean> cancelAsync() {
         resultFuture.cancel(false);
         return runningJobExecution.get().cancelAsync();
     }

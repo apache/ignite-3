@@ -196,24 +196,24 @@ public class FakeCompute implements IgniteComputeInternal {
             }
 
             @Override
-            public CompletableFuture<JobStatus> statusAsync() {
+            public CompletableFuture<@Nullable JobStatus> statusAsync() {
                 return completedFuture(status);
             }
 
             @Override
-            public CompletableFuture<Boolean> cancelAsync() {
+            public CompletableFuture<@Nullable Boolean> cancelAsync() {
                 return trueCompletedFuture();
             }
         };
     }
 
     @Override
-    public CompletableFuture<JobStatus> statusAsync(UUID jobId) {
+    public CompletableFuture<@Nullable JobStatus> statusAsync(UUID jobId) {
         return completedFuture(status);
     }
 
     @Override
-    public CompletableFuture<Boolean> cancelAsync(UUID jobId) {
+    public CompletableFuture<@Nullable Boolean> cancelAsync(UUID jobId) {
         return trueCompletedFuture();
     }
 }

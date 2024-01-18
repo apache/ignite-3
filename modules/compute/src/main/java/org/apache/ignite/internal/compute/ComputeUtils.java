@@ -36,6 +36,7 @@ import org.apache.ignite.internal.compute.message.ExecuteResponse;
 import org.apache.ignite.internal.compute.message.JobCancelResponse;
 import org.apache.ignite.internal.compute.message.JobResultResponse;
 import org.apache.ignite.internal.compute.message.JobStatusResponse;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Utility class for compute.
@@ -145,7 +146,7 @@ public class ComputeUtils {
      * @param jobStatusResponse Job status result message response.
      * @return Completable future with result.
      */
-    public static CompletableFuture<JobStatus> statusFromJobStatusResponse(JobStatusResponse jobStatusResponse) {
+    public static CompletableFuture<@Nullable JobStatus> statusFromJobStatusResponse(JobStatusResponse jobStatusResponse) {
         Throwable throwable = jobStatusResponse.throwable();
         if (throwable != null) {
             return failedFuture(throwable);
@@ -160,7 +161,7 @@ public class ComputeUtils {
      * @param jobCancelResponse Job cancel message response.
      * @return Completable future with result.
      */
-    public static CompletableFuture<Boolean> cancelFromJobCancelResponse(JobCancelResponse jobCancelResponse) {
+    public static CompletableFuture<@Nullable Boolean> cancelFromJobCancelResponse(JobCancelResponse jobCancelResponse) {
         Throwable throwable = jobCancelResponse.throwable();
         if (throwable != null) {
             return failedFuture(throwable);
