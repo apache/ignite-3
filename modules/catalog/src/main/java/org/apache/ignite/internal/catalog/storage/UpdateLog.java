@@ -21,6 +21,7 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.util.CompletableFutures;
 
 /**
  * Distributed log of catalog updates.
@@ -40,6 +41,15 @@ public interface UpdateLog extends IgniteComponent {
      *      new version.
      */
     CompletableFuture<Boolean> append(VersionedUpdate update);
+
+    /**
+     * Saves an snapshot entry and drop updates of previous versions from the log, if supported, otherwise do nothing.
+     *
+     * @param snapshotEntry An entry, which represents a result of merging updates of previous versions.
+     * @return A {@code true} if snapshot has been successfully appended, {@code false} otherwise
+     *      if update with the same version already exists, or snapshots are not unsupported.
+     */
+    CompletableFuture<Boolean> saveSnapshot(SnapshotEntry snapshotEntry);
 
     /**
      * Registers a handler to keep track of appended updates.

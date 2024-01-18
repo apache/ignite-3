@@ -25,15 +25,20 @@ import static org.apache.ignite.internal.metastorage.dsl.Conditions.value;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.metastorage.dsl.Statements.iif;
+import static org.apache.ignite.internal.util.ByteUtils.bytesToInt;
 import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
 import static org.apache.ignite.internal.util.ByteUtils.intToBytes;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.IntStream;
+import java.util.stream.Stream;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
@@ -46,9 +51,12 @@ import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Iif;
+import org.apache.ignite.internal.metastorage.dsl.Operation;
+import org.apache.ignite.internal.metastorage.dsl.Operations;
 import org.apache.ignite.internal.metastorage.dsl.StatementResult;
 import org.apache.ignite.internal.metastorage.dsl.Update;
 import org.apache.ignite.internal.util.ByteUtils;
+import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.IgniteException;
@@ -156,6 +164,47 @@ public class UpdateLogImpl implements UpdateLog {
         }
     }
 
+    @Override
+    public CompletableFuture<Boolean> saveSnapshot(SnapshotEntry snapshotEntry) {
+        if (!busyLock.enterBusy()) {
+            return failedFuture(new IgniteException(Common.NODE_STOPPING_ERR, new NodeStoppingException()));
+        }
+
+        // Note: below, we optimistically get local snapshot version, then prepare list of outdated updates, then atomically replace
+        // old snapshot using relaxed condition (old snapshop version < new snapshot version) and cleaup the log.
+        // If someone bumps snapshot version to a intermediate version in-between, then it means some outdated versions were removed.
+        // So, some remove operations may become be no-op, which is ok and we no need to retry.
+        try {
+            int snapshotVersion = snapshotEntry.version();
+
+            Entry oldSnapshotEntry = metastore.getLocally(CatalogKey.snapshotVersion(), metastore.appliedRevision());
+            int oldSnapshotVersion = oldSnapshotEntry.empty() ? 0 : bytesToInt(Objects.requireNonNull(oldSnapshotEntry.value()));
+
+            if (oldSnapshotVersion >= snapshotVersion) {
+                // Nothing to do.
+                return CompletableFutures.trueCompletedFuture();
+            }
+
+            Condition versionIsRecent = or(
+                    notExists(CatalogKey.snapshotVersion()),
+                    value(CatalogKey.snapshotVersion()).lt(intToBytes(snapshotVersion))
+            );
+            Update saveSnapshotAndDropOutdatedUpdates = ops(Stream.concat(
+                    Stream.of(
+                            put(CatalogKey.snapshotVersion(), intToBytes(snapshotVersion)),
+                            put(CatalogKey.snapshot(), ByteUtils.toBytes(snapshotEntry))
+                    ),
+                    IntStream.range(oldSnapshotVersion, snapshotVersion + 1).mapToObj(ver -> Operations.remove(CatalogKey.update(ver)))
+            ).toArray(Operation[]::new)).yield(true);
+
+            Iif iif = iif(versionIsRecent, saveSnapshotAndDropOutdatedUpdates, ops().yield(false));
+
+            return metastore.invoke(iif).thenApply(StatementResult::getAsBoolean);
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
     private void recoveryStateFromMetastore(OnUpdateHandler handler) {
         CompletableFuture<Long> recoveryFinishedFuture = metastore.recoveryFinishedFuture();
 
@@ -163,8 +212,12 @@ public class UpdateLogImpl implements UpdateLog {
 
         long recoveryRevision = recoveryFinishedFuture.join();
 
-        int ver = 1;
+        int ver = recoverSnapshot(handler, recoveryRevision);
 
+        recoverUpdatesForVersion(handler, recoveryRevision, ver + 1);
+    }
+
+    private void recoverUpdatesForVersion(OnUpdateHandler handler, long recoveryRevision, int ver) {
         // TODO: IGNITE-19790 Read range from metastore
         while (true) {
             ByteArray key = CatalogKey.update(ver++);
@@ -182,6 +235,24 @@ public class UpdateLogImpl implements UpdateLog {
         }
     }
 
+    /**
+     * Recover snapshot and return restored version, or {@code 0} if no snapshot found.
+     */
+    private int recoverSnapshot(OnUpdateHandler handler, long recoveryRevision) {
+        Entry snapshotEntry = metastore.getLocally(CatalogKey.snapshot(), recoveryRevision);
+        if (snapshotEntry.empty()) {
+            return 0;
+        }
+
+        SnapshotEntry update = fromBytes(Objects.requireNonNull(snapshotEntry.value()));
+
+        long revision = snapshotEntry.revision();
+
+        handler.handle(new VersionedUpdate(update.version(), 0, List.of(update)), HybridTimestamp.hybridTimestamp(update.time()), revision);
+
+        return update.version();
+    }
+
     private static class CatalogKey {
         private CatalogKey() {
             throw new AssertionError();
@@ -197,6 +268,14 @@ public class UpdateLogImpl implements UpdateLog {
 
         static ByteArray updatePrefix() {
             return ByteArray.fromString("catalog.update.");
+        }
+
+        public static ByteArray snapshot() {
+            return ByteArray.fromString("catalog.snapshot");
+        }
+
+        public static ByteArray snapshotVersion() {
+            return ByteArray.fromString("catalog.snapshot.version");
         }
     }
 

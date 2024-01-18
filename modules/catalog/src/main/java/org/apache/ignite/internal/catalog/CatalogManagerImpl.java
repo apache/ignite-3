@@ -33,6 +33,7 @@ import java.util.NavigableMap;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.Flow.Publisher;
+import java.util.function.Function;
 import java.util.function.LongSupplier;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
@@ -44,6 +45,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.storage.Fireable;
+import org.apache.ignite.internal.catalog.storage.SnapshotEntry;
 import org.apache.ignite.internal.catalog.storage.UpdateEntry;
 import org.apache.ignite.internal.catalog.storage.UpdateLog;
 import org.apache.ignite.internal.catalog.storage.UpdateLog.OnUpdateHandler;
@@ -58,6 +60,7 @@ import org.apache.ignite.internal.systemview.api.SystemView;
 import org.apache.ignite.internal.systemview.api.SystemViewProvider;
 import org.apache.ignite.internal.systemview.api.SystemViews;
 import org.apache.ignite.internal.type.NativeTypes;
+import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.util.SubscriptionUtils;
@@ -329,13 +332,15 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
         return saveUpdateAndWaitForActivation(new BulkUpdateProducer(List.copyOf(commands)));
     }
 
-    public void compactCatalog(long timestamp) {
+    public CompletableFuture<Void> compactCatalog(long timestamp) {
         Catalog catalog = catalogAt(timestamp);
 
+        // TODO: Should we truncate iif we see a metastorage event for snapshot update?
+        // Otherwise, how to sync metadata and data e.g. on recovery?
         catalogByVer.headMap(catalog.version(), false).clear();
         catalogByTs.headMap(catalog.time(), false).clear();
 
-    //    compactCatalogTo(catalog.version());
+        return updateLog.saveSnapshot(new SnapshotEntry(catalog)).thenAccept(ignore -> {});
     }
 
     private void registerCatalog(Catalog newCatalog) {
