@@ -24,7 +24,6 @@ import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
 import static org.apache.ignite.internal.tx.TxState.COMMITTED;
 import static org.apache.ignite.internal.tx.TxState.PENDING;
-import static org.apache.ignite.internal.tx.TxState.isFinalState;
 import static org.apache.ignite.internal.util.CollectionUtils.last;
 
 import java.io.Serializable;
@@ -62,7 +61,6 @@ import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 import org.apache.ignite.internal.table.distributed.command.BuildIndexCommand;
 import org.apache.ignite.internal.table.distributed.command.FinishTxCommand;
-import org.apache.ignite.internal.table.distributed.command.MarkLocksReleasedCommand;
 import org.apache.ignite.internal.table.distributed.command.TablePartitionIdMessage;
 import org.apache.ignite.internal.table.distributed.command.UpdateAllCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateCommand;
@@ -210,8 +208,6 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
                     handleSafeTimeSyncCommand((SafeTimeSyncCommand) command, commandIndex, commandTerm);
                 } else if (command instanceof BuildIndexCommand) {
                     handleBuildIndexCommand((BuildIndexCommand) command, commandIndex, commandTerm);
-                } else if (command instanceof MarkLocksReleasedCommand) {
-                    handleMarkLocksReleasedCommand((MarkLocksReleasedCommand) command, commandIndex, commandTerm);
                 } else {
                     assert false : "Command was not found [cmd=" + command + ']';
                 }
@@ -537,41 +533,6 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
                     "Finish building the index: [tableId={}, partitionId={}, indexId={}]",
                     storage.tableId(), storage.partitionId(), cmd.indexId()
             );
-        }
-    }
-
-    /**
-     * Handles the {@link MarkLocksReleasedCommand}.
-     *
-     * @param cmd Command.
-     * @param commandIndex Command index.
-     * @param commandTerm Command term.
-     */
-    private void handleMarkLocksReleasedCommand(MarkLocksReleasedCommand cmd, long commandIndex, long commandTerm) {
-        UUID txId = cmd.txId();
-
-        TxMeta txMetaBeforeCas = txStateStorage.get(txId);
-
-        assert txMetaBeforeCas != null && isFinalState(txMetaBeforeCas.txState()) : "Unexpected tx state [txId=" + cmd.txId()
-                + ", state=" + txMetaBeforeCas + "].";
-
-        TxMeta txMetaToSet = new TxMeta(
-                txMetaBeforeCas.txState(),
-                txMetaBeforeCas.enlistedPartitions(),
-                txMetaBeforeCas.commitTimestamp(),
-                true
-        );
-
-        boolean txStateChangeRes = txStateStorage.compareAndSet(
-                txId,
-                txMetaBeforeCas.txState(),
-                txMetaToSet,
-                commandIndex,
-                commandTerm
-        );
-
-        if (!txStateChangeRes) {
-            onTxStateStorageCasFail(txId, txMetaBeforeCas, txMetaToSet);
         }
     }
 

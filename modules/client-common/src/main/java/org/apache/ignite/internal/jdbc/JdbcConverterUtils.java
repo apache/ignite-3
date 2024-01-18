@@ -116,6 +116,9 @@ public class JdbcConverterUtils {
             case PERIOD:
                 return binaryTuple.periodValue(idx);
 
+            case NULL:
+                return null;
+
             default:
                 throw new IllegalArgumentException("Unsupported Column type " + columnType);
         }

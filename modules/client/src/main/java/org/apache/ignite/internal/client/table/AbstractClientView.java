@@ -19,13 +19,25 @@ package org.apache.ignite.internal.client.table;
 
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.client.ClientUtils.sync;
+import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.lang.util.IgniteNameUtils.parseSimpleName;
 
 import java.util.Arrays;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
+import java.util.function.Function;
+import org.apache.ignite.internal.client.sql.ClientSessionBuilder;
+import org.apache.ignite.internal.client.sql.ClientStatementBuilder;
 import org.apache.ignite.internal.table.criteria.CursorAdapter;
+import org.apache.ignite.internal.table.criteria.QueryCriteriaAsyncCursor;
 import org.apache.ignite.internal.table.criteria.SqlSerializer;
+import org.apache.ignite.lang.AsyncCursor;
 import org.apache.ignite.lang.Cursor;
+import org.apache.ignite.sql.ResultSetMetadata;
+import org.apache.ignite.sql.Session;
+import org.apache.ignite.sql.SqlRow;
+import org.apache.ignite.sql.Statement;
 import org.apache.ignite.table.criteria.Criteria;
 import org.apache.ignite.table.criteria.CriteriaQueryOptions;
 import org.apache.ignite.table.criteria.CriteriaQuerySource;
@@ -51,6 +63,26 @@ abstract class AbstractClientView<T> implements CriteriaQuerySource<T> {
     }
 
     /**
+     * Map columns to it's names.
+     *
+     * @param columns Target columns.
+     * @param startInclusive The first index to cover.
+     * @param endExclusive Index immediately past the last index to cover.
+     * @return Column names.
+     */
+    protected static String[] columnNames(ClientColumn[] columns, int startInclusive, int endExclusive) {
+        int sz = endExclusive - startInclusive;
+
+        String[] columnNames = new String[sz];
+
+        for (int i = 0; i < sz; i++) {
+            columnNames[i] = columns[startInclusive + i].name();
+        }
+
+        return columnNames;
+    }
+
+    /**
      * Construct SQL query and arguments for prepare statement.
      *
      * @param tableName Table name.
@@ -70,9 +102,52 @@ abstract class AbstractClientView<T> implements CriteriaQuerySource<T> {
                 .build();
     }
 
+    /**
+     * Create conversion function for objects contained by result set to criteria query objects.
+     *
+     * @param meta Result set columns' metadata.
+     * @param schema Schema.
+     * @return Conversion function (if {@code null} conversions isn't required).
+     */
+    protected @Nullable Function<SqlRow, T> queryMapper(ResultSetMetadata meta, ClientSchema schema) {
+        return null;
+    }
+
     /** {@inheritDoc} */
     @Override
     public Cursor<T> query(@Nullable Transaction tx, @Nullable Criteria criteria, @Nullable CriteriaQueryOptions opts) {
         return new CursorAdapter<>(sync(queryAsync(tx, criteria, opts)));
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<AsyncCursor<T>> queryAsync(
+            @Nullable Transaction tx,
+            @Nullable Criteria criteria,
+            @Nullable CriteriaQueryOptions opts
+    ) {
+        CriteriaQueryOptions opts0 = opts == null ? CriteriaQueryOptions.DEFAULT : opts;
+
+        return tbl.getLatestSchema()
+                .thenCompose((schema) -> {
+                    SqlSerializer ser = createSqlSerializer(tbl.name(), schema.columns(), criteria);
+
+                    Statement statement = new ClientStatementBuilder().query(ser.toString()).pageSize(opts0.pageSize()).build();
+                    Session session = new ClientSessionBuilder(tbl.channel()).build();
+
+                    return session.executeAsync(tx, statement, ser.getArguments())
+                            .<AsyncCursor<T>>thenApply(resultSet -> {
+                                ResultSetMetadata meta = resultSet.metadata();
+
+                                assert meta != null : "Metadata can't be null.";
+
+                                return new QueryCriteriaAsyncCursor<>(resultSet, queryMapper(meta, schema), session::closeAsync);
+                            })
+                            .exceptionally(th -> {
+                                session.closeAsync();
+
+                                throw new CompletionException(unwrapCause(th));
+                            });
+                });
     }
 }
