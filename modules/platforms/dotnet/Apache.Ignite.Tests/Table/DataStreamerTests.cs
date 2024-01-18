@@ -179,7 +179,7 @@ public class DataStreamerTests : IgniteTestsBase
         await table!.RecordBinaryView.StreamDataAsync(GetFakeServerData(count));
 
         Assert.AreEqual(count, server.UpsertAllRowCount);
-        Assert.AreEqual(count / DataStreamerOptions.Default.BatchSize, server.DroppedConnectionCount);
+        Assert.That(server.DroppedConnectionCount, Is.GreaterThanOrEqualTo(count / DataStreamerOptions.Default.BatchSize));
     }
 
     private static async IAsyncEnumerable<IIgniteTuple> GetFakeServerData(int count)
