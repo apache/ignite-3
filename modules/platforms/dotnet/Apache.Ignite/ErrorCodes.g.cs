@@ -47,6 +47,7 @@ namespace Apache.Ignite
             Compute.GroupCode => Compute.GroupName,
             Catalog.GroupCode => Catalog.GroupName,
             PlacementDriver.GroupCode => PlacementDriver.GroupName,
+            Criteria.GroupCode => Criteria.GroupName,
 
             _ => UnknownGroupName
         };
@@ -535,6 +536,22 @@ namespace Apache.Ignite
 
             /// <summary> PrimaryReplicaAwait error. </summary>
             public const int PrimaryReplicaAwait = (GroupCode << 16) | (2 & 0xFFFF);
+        }
+
+        /// <summary> Criteria errors. </summary>
+        public static class Criteria
+        {
+            /// <summary> Criteria group code. </summary>
+            public const short GroupCode = 19;
+
+            /// <summary> Criteria group name. </summary>
+            public const String GroupName = "CRITERIA";
+
+            /// <summary> CursorNoMorePages error. </summary>
+            public const int CursorNoMorePages = (GroupCode << 16) | (1 & 0xFFFF);
+
+            /// <summary> CursorClosed error. </summary>
+            public const int CursorClosed = (GroupCode << 16) | (2 & 0xFFFF);
         }
     }
 }

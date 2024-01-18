@@ -579,6 +579,7 @@ public class ErrorGroups {
     }
 
     /** Criteria error group. */
+    @ErrorCodeGroup
     public static class Criteria {
         /** Criteria error group. */
         public static final ErrorGroup CRITERIA_ERR_GROUP = registerGroup("CRITERIA", (short) 19);
@@ -588,8 +589,5 @@ public class ErrorGroups {
 
         /** Cursor is already closed error. */
         public static final int CURSOR_CLOSED_ERR = CRITERIA_ERR_GROUP.registerErrorCode((short) 2);
-
-        /** Column not found. */
-        public static final int COLUMN_NOT_FOUND_ERR = CRITERIA_ERR_GROUP.registerErrorCode((short) 3);
     }
 }
