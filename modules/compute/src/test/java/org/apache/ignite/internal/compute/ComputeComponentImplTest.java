@@ -65,6 +65,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.compute.ComputeException;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.JobExecution;
@@ -82,6 +83,8 @@ import org.apache.ignite.internal.compute.message.ExecuteRequest;
 import org.apache.ignite.internal.compute.message.ExecuteResponse;
 import org.apache.ignite.internal.compute.message.JobCancelRequest;
 import org.apache.ignite.internal.compute.message.JobCancelResponse;
+import org.apache.ignite.internal.compute.message.JobChangePriorityRequest;
+import org.apache.ignite.internal.compute.message.JobChangePriorityResponse;
 import org.apache.ignite.internal.compute.message.JobResultRequest;
 import org.apache.ignite.internal.compute.message.JobResultResponse;
 import org.apache.ignite.internal.compute.message.JobStatusRequest;
@@ -161,6 +164,12 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
     @Captor
     private ArgumentCaptor<JobCancelResponse> jobCancelResponseCaptor;
 
+    @Captor
+    private ArgumentCaptor<JobChangePriorityRequest> jobChangePriorityRequestCaptor;
+
+    @Captor
+    private ArgumentCaptor<JobChangePriorityResponse> jobChangePriorityResponseCaptor;
+
     private final ClusterNode remoteNode = new ClusterNodeImpl("remote", "remote", new NetworkAddress("remote-host", 1));
 
     private final AtomicReference<NetworkMessageHandler> computeMessageHandlerRef = new AtomicReference<>();
@@ -205,6 +214,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
         assertThat(execution.resultAsync(), willBe("jobResponse"));
         assertThat(execution.statusAsync(), willBe(jobStatusWithState(COMPLETED)));
         assertThat(execution.cancelAsync(), willThrow(CancellingException.class));
+        assertThat(execution.changePriorityAsync(1), willThrow(ComputeException.class));
 
         assertThatNoRequestsWereSent();
     }
@@ -244,7 +254,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
         respondWithExecuteResponseWhenExecuteRequestIsSent(jobId);
         respondWithJobResultResponseWhenJobResultRequestIsSent(jobId);
         respondWithJobStatusResponseWhenJobStatusRequestIsSent(jobId, COMPLETED);
-        respondWithCancellingExceptionhenJobCancelRequestIsSent(jobId);
+        respondWithCancellingExceptionWhenJobCancelRequestIsSent(jobId);
 
         JobExecution<String> execution = computeComponent.executeRemotely(remoteNode, List.of(), SimpleJob.class.getName(), "a", 42);
         assertThat(execution.resultAsync(), willBe("remoteResponse"));
@@ -279,6 +289,19 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
         assertThatJobCancelRequestWasSent(jobId);
     }
 
+    @Test
+    void changePriorityRemotelyUsingNetworkCommunication() {
+        UUID jobId = UUID.randomUUID();
+        respondWithExecuteResponseWhenExecuteRequestIsSent(jobId);
+        respondWithJobChangePriorityResponseWhenJobChangePriorityRequestIsSent(jobId);
+
+        JobExecution<String> execution = computeComponent.executeRemotely(remoteNode, List.of(), LongJob.class.getName());
+
+        assertThat(execution.changePriorityAsync(1), willCompleteSuccessfully());
+
+        assertThatJobChangePriorityRequestWasSent(jobId);
+    }
+
     private void respondWithExecuteResponseWhenExecuteRequestIsSent(UUID jobId) {
         ExecuteResponse executeResponse = new ComputeMessagesFactory().executeResponse()
                 .jobId(jobId)
@@ -310,12 +333,19 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
                 .thenReturn(completedFuture(jobCancelResponse));
     }
 
-    private void respondWithCancellingExceptionhenJobCancelRequestIsSent(UUID jobId) {
+    private void respondWithCancellingExceptionWhenJobCancelRequestIsSent(UUID jobId) {
         JobCancelResponse jobCancelResponse = new ComputeMessagesFactory().jobCancelResponse()
                 .throwable(new CancellingException(jobId))
                 .build();
         when(messagingService.invoke(any(ClusterNode.class), argThat(msg -> jobCancelRequestWithJobId(msg, jobId)), anyLong()))
                 .thenReturn(completedFuture(jobCancelResponse));
+    }
+
+    private void respondWithJobChangePriorityResponseWhenJobChangePriorityRequestIsSent(UUID jobId) {
+        JobChangePriorityResponse jobChangePriorityResponse = new ComputeMessagesFactory().jobChangePriorityResponse()
+                .build();
+        when(messagingService.invoke(any(ClusterNode.class), argThat(msg -> jobChangePriorityRequestWithJobId(msg, jobId)), anyLong()))
+                .thenReturn(completedFuture(jobChangePriorityResponse));
     }
 
     private static boolean jobResultRequestWithJobId(NetworkMessage argument, UUID jobId) {
@@ -338,6 +368,14 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
         if (argument instanceof JobCancelRequest) {
             JobCancelRequest jobCancelRequest = (JobCancelRequest) argument;
             return jobCancelRequest.jobId() == jobId;
+        }
+        return false;
+    }
+
+    private static boolean jobChangePriorityRequestWithJobId(NetworkMessage argument, UUID jobId) {
+        if (argument instanceof JobChangePriorityRequest) {
+            JobChangePriorityRequest jobChangePriorityRequest = (JobChangePriorityRequest) argument;
+            return jobChangePriorityRequest.jobId() == jobId;
         }
         return false;
     }
@@ -371,6 +409,14 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
         verify(messagingService).invoke(eq(remoteNode), jobCancelRequestCaptor.capture(), anyLong());
 
         JobCancelRequest capturedRequest = jobCancelRequestCaptor.getValue();
+
+        assertThat(capturedRequest.jobId(), is(jobId));
+    }
+
+    private void assertThatJobChangePriorityRequestWasSent(UUID jobId) {
+        verify(messagingService).invoke(eq(remoteNode), jobChangePriorityRequestCaptor.capture(), anyLong());
+
+        JobChangePriorityRequest capturedRequest = jobChangePriorityRequestCaptor.getValue();
 
         assertThat(capturedRequest.jobId(), is(jobId));
     }
@@ -599,6 +645,34 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
 
         verify(messagingService).respond(eq(sender), jobCancelResponseCaptor.capture(), eq(456L));
         JobCancelResponse response = jobCancelResponseCaptor.getValue();
+
+        assertThat(response.throwable(), is(instanceOf(IgniteInternalException.class)));
+        assertThat(response.throwable().getCause(), is(instanceOf(NodeStoppingException.class)));
+    }
+
+    @Test
+    void stoppedComponentReturnsExceptionOnJobChangePriorityRequestAttempt() throws Exception {
+        computeComponent.stop();
+
+        markResponseSentOnResponseSend();
+        assertThat(computeMessageHandlerRef.get(), is(notNullValue()));
+
+        String sender = "test";
+
+        JobChangePriorityRequest jobChangePriorityRequest = new ComputeMessagesFactory().jobChangePriorityRequest()
+                .jobId(UUID.randomUUID())
+                .priority(1)
+                .build();
+        computeMessageHandlerRef.get().onReceived(jobChangePriorityRequest, sender, 456L);
+
+        assertThatJobChangePriorityRequestSendsNodeStoppingExceptionTo(sender);
+    }
+
+    private void assertThatJobChangePriorityRequestSendsNodeStoppingExceptionTo(String sender) throws InterruptedException {
+        assertTrue(waitForCondition(responseSent::get, 1000), "No response sent");
+
+        verify(messagingService).respond(eq(sender), jobChangePriorityResponseCaptor.capture(), eq(456L));
+        JobChangePriorityResponse response = jobChangePriorityResponseCaptor.getValue();
 
         assertThat(response.throwable(), is(instanceOf(IgniteInternalException.class)));
         assertThat(response.throwable().getCause(), is(instanceOf(NodeStoppingException.class)));

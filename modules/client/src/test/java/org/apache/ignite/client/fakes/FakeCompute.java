@@ -178,6 +178,11 @@ public class FakeCompute implements IgniteCompute {
             public CompletableFuture<Void> cancelAsync() {
                 return nullCompletedFuture();
             }
+
+            @Override
+            public CompletableFuture<Void> changePriorityAsync(int newPriority) {
+                return nullCompletedFuture();
+            }
         };
     }
 }

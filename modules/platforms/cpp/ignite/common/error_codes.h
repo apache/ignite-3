@@ -187,6 +187,8 @@ enum class code : underlying_t {
     RESULT_NOT_FOUND = 0x100007,
     FAIL_TO_GET_JOB_STATUS = 0x100008,
     COMPUTE_JOB_FAILED = 0x100009,
+    CHANGE_JOB_PRIORITY_NO_JOB = 0x10000a,
+    CHANGE_JOB_PRIORITY_JOB_EXECUTING = 0x10000b,
 
     // Catalog group. Group code: 17
     VALIDATION = 0x110001,
