@@ -22,8 +22,6 @@ namespace Apache.Ignite.Tests
     using System.Linq;
     using System.Threading.Tasks;
     using Ignite.Table;
-    using Internal.Buffers;
-    using Internal.Common;
     using Internal.Proto;
     using Microsoft.Extensions.Logging;
     using NUnit.Framework;
