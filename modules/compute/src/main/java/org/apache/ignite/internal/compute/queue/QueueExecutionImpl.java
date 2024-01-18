@@ -22,10 +22,8 @@ import static org.apache.ignite.lang.ErrorGroups.Compute.QUEUE_OVERFLOW_ERR;
 import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Function;
 import org.apache.ignite.compute.ComputeException;
 import org.apache.ignite.compute.JobStatus;
 import org.apache.ignite.internal.compute.state.ComputeStateMachine;
@@ -46,14 +44,12 @@ class QueueExecutionImpl<R> implements QueueExecution<R> {
     private final UUID jobId;
     private final Callable<R> job;
     private final AtomicInteger priority;
-    private final ThreadPoolExecutor executor;
+    private final ComputeThreadPoolExecutor executor;
     private final ComputeStateMachine stateMachine;
 
     private final CompletableFuture<R> result = new CompletableFuture<>();
 
     private final AtomicReference<QueueEntry<R>> queueEntry = new AtomicReference<>();
-
-    private final Function<QueueEntry<R>, Boolean> removeQueueEntry;
 
     private final AtomicInteger retries = new AtomicInteger();
 
@@ -65,23 +61,18 @@ class QueueExecutionImpl<R> implements QueueExecution<R> {
      * @param priority Job priority.
      * @param executor Executor on which the queue entry is running.
      * @param stateMachine State machine.
-     * @param removeQueueEntry function to remove queue entry from the execution queue. In order to change priority of the job
-     *                          we need to remove {@link QueueEntry} from workQueue of Executor.
      */
     QueueExecutionImpl(
             UUID jobId,
             Callable<R> job,
             int priority,
-            ThreadPoolExecutor executor,
-            ComputeStateMachine stateMachine,
-            Function<QueueEntry<R>, Boolean> removeQueueEntry
-    ) {
+            ComputeThreadPoolExecutor executor,
+            ComputeStateMachine stateMachine) {
         this.jobId = jobId;
         this.job = job;
         this.priority = new AtomicInteger(priority);
         this.executor = executor;
         this.stateMachine = stateMachine;
-        this.removeQueueEntry = removeQueueEntry;
     }
 
     @Override
@@ -116,7 +107,7 @@ class QueueExecutionImpl<R> implements QueueExecution<R> {
             return;
         }
         QueueEntry<R> queueEntry = this.queueEntry.get();
-        if (removeQueueEntry.apply(queueEntry)) {
+        if (executor.removeFromQueue(queueEntry)) {
             this.priority.set(newPriority);
             this.queueEntry.set(null);
             run();

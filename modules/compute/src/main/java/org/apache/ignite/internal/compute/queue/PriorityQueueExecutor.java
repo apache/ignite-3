@@ -22,7 +22,6 @@ import java.util.UUID;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ThreadFactory;
-import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.compute.configuration.ComputeConfiguration;
 import org.apache.ignite.internal.compute.state.ComputeStateMachine;
@@ -36,11 +35,9 @@ public class PriorityQueueExecutor {
 
     private final ComputeConfiguration configuration;
 
-    private final ThreadPoolExecutor executor;
+    private final ComputeThreadPoolExecutor executor;
 
     private final ComputeStateMachine stateMachine;
-
-    private final BlockingQueue<Runnable> workQueue;
 
     /**
      * Constructor.
@@ -55,8 +52,8 @@ public class PriorityQueueExecutor {
     ) {
         this.configuration = configuration;
         this.stateMachine = stateMachine;
-        workQueue = new BoundedPriorityBlockingQueue<>(() -> configuration.queueMaxSize().value());
-        executor = new ThreadPoolExecutor(
+        BlockingQueue<Runnable> workQueue = new BoundedPriorityBlockingQueue<>(() -> configuration.queueMaxSize().value());
+        executor = new ComputeThreadPoolExecutor(
                 configuration.threadPoolSize().value(),
                 configuration.threadPoolSize().value(),
                 THREAD_KEEP_ALIVE_SECONDS,
@@ -79,7 +76,7 @@ public class PriorityQueueExecutor {
         Objects.requireNonNull(job);
 
         UUID jobId = stateMachine.initJob();
-        QueueExecutionImpl<R> execution = new QueueExecutionImpl<>(jobId, job, priority, executor, stateMachine, workQueue::remove);
+        QueueExecutionImpl<R> execution = new QueueExecutionImpl<>(jobId, job, priority, executor, stateMachine);
         execution.run(maxRetries);
         return execution;
     }
@@ -101,6 +98,6 @@ public class PriorityQueueExecutor {
      */
     public void shutdown() {
         Long stopTimeout = configuration.threadPoolStopTimeoutMillis().value();
-        IgniteUtils.shutdownAndAwaitTermination(executor, stopTimeout, TimeUnit.MILLISECONDS);
+        IgniteUtils.shutdownAndAwaitTermination(executor.executorService(), stopTimeout, TimeUnit.MILLISECONDS);
     }
 }

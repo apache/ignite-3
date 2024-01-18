@@ -50,7 +50,9 @@ public interface QueueExecution<R> {
     void cancel();
 
     /**
-     * Change job priority. After priority change entry will be the last in the queue of entries with the same priority.
+     * Change job priority. Priority can be changed only if task still in executor's queue.
+     * After priority change task will be removed from the execution queue and run once again.
+     * Queue entry will be executed last in the queue of entries with the same priority (FIFO).
      *
      * @param newPriority new priority.
      */
