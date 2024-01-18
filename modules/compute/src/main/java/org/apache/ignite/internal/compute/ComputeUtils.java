@@ -19,7 +19,6 @@ package org.apache.ignite.internal.compute;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
-import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Compute.CLASS_INITIALIZATION_ERR;
 
 import java.lang.reflect.Constructor;
@@ -178,13 +177,15 @@ public class ComputeUtils {
      * @param jobChangePriorityResponse Job change priority message response.
      * @return Completable future with result.
      */
-    public static CompletableFuture<Void> changePriorityFromJobChangePriorityResponse(JobChangePriorityResponse jobChangePriorityResponse) {
+    public static CompletableFuture<@Nullable Boolean> changePriorityFromJobChangePriorityResponse(
+            JobChangePriorityResponse jobChangePriorityResponse
+    ) {
         Throwable throwable = jobChangePriorityResponse.throwable();
         if (throwable != null) {
             return failedFuture(throwable);
         }
 
-        return nullCompletedFuture();
+        return completedFuture(jobChangePriorityResponse.result());
     }
 
     /**

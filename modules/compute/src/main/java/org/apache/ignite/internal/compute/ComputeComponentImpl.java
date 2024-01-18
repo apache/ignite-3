@@ -155,6 +155,11 @@ public class ComputeComponentImpl implements ComputeComponent {
         return messaging.broadcastCancelAsync(jobId);
     }
 
+    @Override
+    public CompletableFuture<@Nullable Boolean> changePriorityAsync(UUID jobId, int newPriority) {
+        return messaging.broadcastChangePriorityAsync(jobId, newPriority);
+    }
+
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> start() {

@@ -53,6 +53,11 @@ public class JobExecutionInternal<R> {
         return execution.status();
     }
 
+    /**
+     * Cancel job execution.
+     *
+     * @return {@code true} if job was successfully cancelled.
+     */
     public boolean cancel() {
         isInterrupted.set(true);
         return execution.cancel();
@@ -62,8 +67,9 @@ public class JobExecutionInternal<R> {
      * Change priority of job execution.
      *
      * @param newPriority new priority.
+     * @return {@code true} if priority was successfully changed.
      */
-    public void changePriority(int newPriority) {
-        execution.changePriority(newPriority);
+    public boolean changePriority(int newPriority) {
+        return execution.changePriority(newPriority);
     }
 }

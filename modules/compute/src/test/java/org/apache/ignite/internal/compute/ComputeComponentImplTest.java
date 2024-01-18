@@ -66,7 +66,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.compute.ComputeException;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.JobExecution;
@@ -224,7 +223,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
         assertThat(execution.resultAsync(), willBe("jobResponse"));
         assertThat(execution.statusAsync(), willBe(jobStatusWithState(COMPLETED)));
         assertThat(execution.cancelAsync(), willBe(false));
-        assertThat(execution.changePriorityAsync(1), willThrow(ComputeException.class));
+        assertThat(execution.changePriorityAsync(1), willBe(false));
 
         assertThatNoRequestsWereSent();
     }
@@ -309,7 +308,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
 
         JobExecution<String> execution = computeComponent.executeRemotely(remoteNode, List.of(), LongJob.class.getName());
 
-        assertThat(execution.changePriorityAsync(1), willCompleteSuccessfully());
+        assertThat(execution.changePriorityAsync(1), willBe(true));
 
         assertThatJobChangePriorityRequestWasSent(jobId);
     }
@@ -348,6 +347,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
 
     private void respondWithJobChangePriorityResponseWhenJobChangePriorityRequestIsSent(UUID jobId) {
         JobChangePriorityResponse jobChangePriorityResponse = new ComputeMessagesFactory().jobChangePriorityResponse()
+                .result(true)
                 .build();
         when(messagingService.invoke(any(ClusterNode.class), argThat(msg -> jobChangePriorityRequestWithJobId(msg, jobId)), anyLong()))
                 .thenReturn(completedFuture(jobChangePriorityResponse));

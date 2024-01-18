@@ -65,7 +65,9 @@ public interface JobExecution<R> {
      * Changes job priority. After priority change job will be the last in the queue of jobs with the same priority.
      *
      * @param newPriority new priority.
-     * @return The future which will be completed when change priority request is processed.
+     * @return The future which will be completed with {@code true} when the priority is changed, {@code false} when the priority couldn't
+     *         be changed (it's already executing or completed), or {@code null} if the job no longer exists due to
+     *         exceeding the retention time limit.
      */
-    CompletableFuture<Void> changePriorityAsync(int newPriority);
+    CompletableFuture<@Nullable Boolean> changePriorityAsync(int newPriority);
 }

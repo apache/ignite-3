@@ -116,7 +116,18 @@ public interface ComputeComponent extends IgniteComponent {
      * Cancels the job running on any node in the cluster.
      *
      * @param jobId Job id.
-     * @return The future which will be completed when cancel request is processed.
+     * @return The future which will be completed with {@code true} when the job is cancelled, {@code false} when the job couldn't be
+     *         cancelled (either it's not yet started, or it's already completed), or {@code null} if there's no job with the specified id.
      */
     CompletableFuture<@Nullable Boolean> cancelAsync(UUID jobId);
+
+    /**
+     * Changes compute job priority.
+     *
+     * @param jobId Job id.
+     * @param newPriority New priority.
+     * @return The future which will be completed with {@code true} when the priority is changed, {@code false} when the priority couldn't
+     *         be changed (it's already executing or completed), or {@code null} if there's no job with the specified id.
+     */
+    CompletableFuture<@Nullable Boolean> changePriorityAsync(UUID jobId, int newPriority);
 }

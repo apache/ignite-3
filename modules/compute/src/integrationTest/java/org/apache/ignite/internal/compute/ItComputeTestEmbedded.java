@@ -19,8 +19,8 @@ package org.apache.ignite.internal.compute;
 
 import static java.util.stream.Collectors.joining;
 import static org.apache.ignite.internal.compute.utils.ComputeTestUtils.assertPublicException;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.JobStatusMatcher.jobStatusWithState;
 import static org.apache.ignite.lang.ErrorGroups.Compute.CLASS_INITIALIZATION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Compute.COMPUTE_ERR_GROUP;
@@ -150,23 +150,23 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
     }
 
     @Test
-    void changeJobPriorityLocallyComputeException() {
+    void changeExecutingJobPriorityLocally() {
         IgniteImpl entryNode = node(0);
 
         JobExecution<String> execution = entryNode.compute().executeAsync(Set.of(entryNode.node()), units(), LongJob.class.getName());
         await().until(execution::statusAsync, willBe(jobStatusWithState(JobState.EXECUTING)));
 
-        assertThat(execution.changePriorityAsync(2), willThrow(ComputeException.class));
+        assertThat(execution.changePriorityAsync(2), willBe(false));
     }
 
     @Test
-    void changeJobPriorityRemotelyComputeException() {
+    void changeExecutingJobPriorityRemotely() {
         IgniteImpl entryNode = node(0);
 
         JobExecution<String> execution = entryNode.compute().executeAsync(Set.of(node(1).node()), units(), LongJob.class.getName());
         await().until(execution::statusAsync, willBe(jobStatusWithState(JobState.EXECUTING)));
 
-        assertThat(execution.changePriorityAsync(2), willThrow(ComputeException.class));
+        assertThat(execution.changePriorityAsync(2), willBe(false));
     }
 
     @Test
@@ -190,7 +190,7 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
         assertThat(execution3.resultAsync().isDone(), is(false));
 
         // Change priority of task 3, so it should be executed before task 2
-        assertThat(execution3.changePriorityAsync(2), willCompleteSuccessfully());
+        assertThat(execution3.changePriorityAsync(2), willBe(true));
 
         // Run 1 and 3 task
         WaitLatchJob.latch.countDown();

@@ -30,7 +30,6 @@ import org.apache.ignite.internal.compute.state.ComputeStateMachine;
 import org.apache.ignite.internal.compute.state.IllegalJobStateTransition;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.lang.ErrorGroups.Compute;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -103,19 +102,19 @@ class QueueExecutionImpl<R> implements QueueExecution<R> {
     }
 
     @Override
-    public void changePriority(int newPriority) {
+    public boolean changePriority(int newPriority) {
         if (newPriority == priority.get()) {
-            return;
+            return false;
         }
         QueueEntry<R> queueEntry = this.queueEntry.get();
         if (executor.removeFromQueue(queueEntry)) {
             this.priority.set(newPriority);
             this.queueEntry.set(null);
             run();
-        } else {
-            throw new ComputeException(Compute.CHANGE_JOB_PRIORITY_JOB_EXECUTING_ERR, "Can not change job priority,"
-                    + " job already processing. [job id = " + jobId + "]");
+            return true;
         }
+        LOG.info("Cannot change job priority, job already processing. [job id = {}]", job);
+        return false;
     }
 
     /**

@@ -118,4 +118,19 @@ public class ExecutionManager {
         }
         return nullCompletedFuture();
     }
+
+    /**
+     * Changes job priority.
+     *
+     * @param jobId Job id.
+     * @return The future which will be completed with {@code true} when the priority is changed, {@code false} when the priority couldn't
+     *         be changed (it's already executing or completed), or {@code null} iif there's no job with the specified id.
+     */
+    public CompletableFuture<@Nullable Boolean> changePriorityAsync(UUID jobId, int newPriority) {
+        JobExecution<?> execution = executions.get(jobId);
+        if (execution != null) {
+            return execution.changePriorityAsync(newPriority);
+        }
+        return nullCompletedFuture();
+    }
 }

@@ -26,6 +26,7 @@ import static org.apache.ignite.internal.compute.ComputeUtils.statusFromJobStatu
 import static org.apache.ignite.internal.compute.ComputeUtils.toDeploymentUnit;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Compute.CANCELLING_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Compute.CHANGE_JOB_PRIORITY_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Compute.FAIL_TO_GET_JOB_STATUS_ERR;
 
 import java.util.List;
@@ -57,7 +58,6 @@ import org.apache.ignite.internal.compute.message.JobStatusResponse;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
-import org.apache.ignite.lang.ErrorGroups.Compute;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.network.NetworkMessage;
@@ -133,7 +133,7 @@ public class ComputeMessaging {
         } else if (message instanceof JobCancelRequest) {
             sendJobCancelResponse(null, ex, senderConsistentId, correlationId);
         } else if (message instanceof JobChangePriorityRequest) {
-            sendJobChangePriorityResponse(ex, senderConsistentId, correlationId);
+            sendJobChangePriorityResponse(null, ex, senderConsistentId, correlationId);
         }
     }
 
@@ -345,7 +345,7 @@ public class ComputeMessaging {
      *
      * @return Job change priority future (will be completed when change priority request is processed).
      */
-    CompletableFuture<Void> remoteChangePriorityAsync(ClusterNode remoteNode, UUID jobId, int newPriority) {
+    CompletableFuture<@Nullable Boolean> remoteChangePriorityAsync(ClusterNode remoteNode, UUID jobId, int newPriority) {
         JobChangePriorityRequest jobChangePriorityRequest = messagesFactory.jobChangePriorityRequest()
                 .jobId(jobId)
                 .priority(newPriority)
@@ -356,25 +356,19 @@ public class ComputeMessaging {
     }
 
     private void processJobChangePriorityRequest(JobChangePriorityRequest request, String senderConsistentId, long correlationId) {
-        UUID jobId = request.jobId();
-        JobExecution<Object> execution = executions.get(jobId);
-        if (execution != null) {
-            execution.changePriorityAsync(request.priority())
-                    .whenComplete((result, err) -> sendJobChangePriorityResponse(err, senderConsistentId, correlationId));
-        } else {
-            ComputeException ex = new ComputeException(Compute.CHANGE_JOB_PRIORITY_NO_JOB_ERR, "Can not change job priority,"
-                    + " job not found for the job id " + jobId);
-            sendJobChangePriorityResponse(ex, senderConsistentId, correlationId);
-        }
+        executionManager.changePriorityAsync(request.jobId(), request.priority())
+                .whenComplete((result, err) -> sendJobChangePriorityResponse(result, err, senderConsistentId, correlationId));
     }
 
     private void sendJobChangePriorityResponse(
+            @Nullable Boolean result,
             @Nullable Throwable throwable,
             String senderConsistentId,
             Long correlationId
     ) {
         JobChangePriorityResponse jobChangePriorityResponse = messagesFactory.jobChangePriorityResponse()
                 .throwable(throwable)
+                .result(result)
                 .build();
 
         messagingService.respond(senderConsistentId, jobChangePriorityResponse, correlationId);
@@ -409,6 +403,24 @@ public class ComputeMessaging {
                 throwable -> new ComputeException(
                         CANCELLING_ERR,
                         "Failed to cancel job with ID: " + jobId,
+                        throwable
+                ));
+    }
+
+    /**
+     * Broadcasts job priority change request to all nodes in the cluster.
+     *
+     * @param jobId Job id.
+     * @param newPriority New priority.
+     * @return The future which will be completed with {@code true} when the priority is changed, {@code false} when the priority couldn't
+     *         be changed (it's already executing or completed), or {@code null} if there's no job with the specified id.
+     */
+    public CompletableFuture<@Nullable Boolean> broadcastChangePriorityAsync(UUID jobId, int newPriority) {
+        return broadcastAsync(
+                node -> remoteChangePriorityAsync(node, jobId, newPriority),
+                throwable -> new ComputeException(
+                        CHANGE_JOB_PRIORITY_ERR,
+                        "Failed to change priority for job with ID: " + jobId,
                         throwable
                 ));
     }

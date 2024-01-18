@@ -43,6 +43,7 @@ import javax.net.ssl.SSLException;
 import org.apache.ignite.client.handler.configuration.ClientConnectorView;
 import org.apache.ignite.client.handler.requests.cluster.ClientClusterGetNodesRequest;
 import org.apache.ignite.client.handler.requests.compute.ClientComputeCancelRequest;
+import org.apache.ignite.client.handler.requests.compute.ClientComputeChangePriorityRequest;
 import org.apache.ignite.client.handler.requests.compute.ClientComputeExecuteColocatedRequest;
 import org.apache.ignite.client.handler.requests.compute.ClientComputeExecuteRequest;
 import org.apache.ignite.client.handler.requests.compute.ClientComputeGetStatusRequest;
@@ -732,6 +733,9 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
 
             case ClientOp.COMPUTE_CANCEL:
                 return ClientComputeCancelRequest.process(in, out, compute);
+
+            case ClientOp.COMPUTE_CHANGE_PRIORITY:
+                return ClientComputeChangePriorityRequest.process(in, out, compute);
 
             case ClientOp.CLUSTER_GET_NODES:
                 return ClientClusterGetNodesRequest.process(out, clusterService);

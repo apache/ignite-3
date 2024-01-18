@@ -206,8 +206,8 @@ public class FakeCompute implements IgniteComputeInternal {
             }
 
             @Override
-            public CompletableFuture<Void> changePriorityAsync(int newPriority) {
-                return nullCompletedFuture();
+            public CompletableFuture<@Nullable Boolean> changePriorityAsync(int newPriority) {
+                return trueCompletedFuture();
             }
         };
     }
@@ -219,6 +219,11 @@ public class FakeCompute implements IgniteComputeInternal {
 
     @Override
     public CompletableFuture<@Nullable Boolean> cancelAsync(UUID jobId) {
+        return trueCompletedFuture();
+    }
+
+    @Override
+    public CompletableFuture<@Nullable Boolean> changePriorityAsync(UUID jobId, int newPriority) {
         return trueCompletedFuture();
     }
 }

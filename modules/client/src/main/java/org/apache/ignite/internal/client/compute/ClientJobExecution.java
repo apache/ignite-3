@@ -86,6 +86,14 @@ class ClientJobExecution<R> implements JobExecution<R> {
         return jobIdFuture.thenCompose(this::cancelJob);
     }
 
+    @Override
+    public CompletableFuture<@Nullable Boolean> changePriorityAsync(int newPriority) {
+        if (statusFuture.isDone()) {
+            return falseCompletedFuture();
+        }
+        return jobIdFuture.thenCompose(jobId -> changePriority(jobId, newPriority));
+    }
+
     private CompletableFuture<@Nullable JobStatus> getJobStatus(UUID jobId) {
         // Send the request to any node, the request will be broadcast since client doesn't know which particular node is running the job
         // especially in case of colocated execution.
@@ -105,7 +113,23 @@ class ClientJobExecution<R> implements JobExecution<R> {
         return ch.serviceAsync(
                 ClientOp.COMPUTE_CANCEL,
                 w -> w.out().packUuid(jobId),
-                ClientJobExecution::unpackCancelResult,
+                ClientJobExecution::unpackBooleanResult,
+                null,
+                null,
+                false
+        );
+    }
+
+    private CompletableFuture<@Nullable Boolean> changePriority(UUID jobId, int newPriority) {
+        // Send the request to any node, the request will be broadcast since client doesn't know which particular node is running the job
+        // especially in case of colocated execution.
+        return ch.serviceAsync(
+                ClientOp.COMPUTE_CHANGE_PRIORITY,
+                w -> {
+                    w.out().packUuid(jobId);
+                    w.out().packInt(newPriority);
+                },
+                ClientJobExecution::unpackBooleanResult,
                 null,
                 null,
                 false
@@ -126,7 +150,7 @@ class ClientJobExecution<R> implements JobExecution<R> {
                 .build();
     }
 
-    private static @Nullable Boolean unpackCancelResult(PayloadInputChannel payloadInputChannel) {
+    private static @Nullable Boolean unpackBooleanResult(PayloadInputChannel payloadInputChannel) {
         ClientMessageUnpacker unpacker = payloadInputChannel.in();
         if (unpacker.tryUnpackNil()) {
             return null;
@@ -140,11 +164,5 @@ class ClientJobExecution<R> implements JobExecution<R> {
             return JOB_STATES[id];
         }
         throw new IgniteException(PROTOCOL_ERR, "Invalid job state id: " + id);
-    }
-
-    @Override
-    public CompletableFuture<Void> changePriorityAsync(int newPriority) {
-        // TODO https://issues.apache.org/jira/browse/IGNITE-21148
-        return nullCompletedFuture();
     }
 }

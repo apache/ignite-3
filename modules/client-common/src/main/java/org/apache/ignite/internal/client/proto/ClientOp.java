@@ -161,4 +161,7 @@ public class ClientOp {
 
     /** Cancel compute job. */
     public static final int COMPUTE_CANCEL = 60;
+
+    /** Change compute job priority. */
+    public static final int COMPUTE_CHANGE_PRIORITY = 61;
 }

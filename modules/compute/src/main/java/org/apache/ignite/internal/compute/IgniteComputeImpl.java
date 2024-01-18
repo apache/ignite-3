@@ -284,4 +284,9 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
     public CompletableFuture<@Nullable Boolean> cancelAsync(UUID jobId) {
         return computeComponent.cancelAsync(jobId);
     }
+
+    @Override
+    public CompletableFuture<@Nullable Boolean> changePriorityAsync(UUID jobId, int newPriority) {
+        return computeComponent.changePriorityAsync(jobId, newPriority);
+    }
 }
