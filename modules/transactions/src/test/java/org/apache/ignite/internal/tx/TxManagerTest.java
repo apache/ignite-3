@@ -127,7 +127,7 @@ public class TxManagerTest extends IgniteAbstractTest {
 
     @BeforeEach
     public void setup() {
-        when(clusterService.topologyService().localMember().address()).thenReturn(LOCAL_NODE.address());
+        when(clusterService.topologyService().localMember()).thenReturn(LOCAL_NODE);
 
         when(replicaService.invoke(any(ClusterNode.class), any())).thenReturn(nullCompletedFuture());
 

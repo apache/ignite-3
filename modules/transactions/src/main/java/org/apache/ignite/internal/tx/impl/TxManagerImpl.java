@@ -399,7 +399,12 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                         enlistedGroups,
                         txId,
                         finishingStateMeta.txFinishFuture()
-                )).thenAccept(unused -> decrementRwTxCount(txId));
+                )
+        ).thenAccept(unused -> {
+            if (localNodeId.equals(finishingStateMeta.txCoordinatorId())) {
+                decrementRwTxCount(txId);
+            }
+        });
     }
 
     private static CompletableFuture<Void> checkTxOutcome(boolean commit, UUID txId, TransactionMeta stateMeta) {
