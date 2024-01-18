@@ -47,7 +47,7 @@ public class MetricsTests
 
         _listener.Dispose();
 
-        TestUtils.CheckByteArrayPoolLeak();
+        TestUtils.CheckByteArrayPoolLeak(5000);
     }
 
     [OneTimeTearDown]

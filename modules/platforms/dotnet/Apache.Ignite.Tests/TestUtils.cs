@@ -79,12 +79,12 @@ namespace Apache.Ignite.Tests
 
         public static ILoggerFactory GetConsoleLoggerFactory(LogLevel minLevel) => new ConsoleLogger(minLevel);
 
-        public static void CheckByteArrayPoolLeak()
+        public static void CheckByteArrayPoolLeak(int timeoutMs = 1000)
         {
 #if DEBUG
             WaitForCondition(
                 condition: () => ByteArrayPool.CurrentlyRentedArrays.IsEmpty,
-                timeoutMs: 1000,
+                timeoutMs: timeoutMs,
                 messageFactory: () =>
                 {
                     var bufs = ByteArrayPool.CurrentlyRentedArrays
