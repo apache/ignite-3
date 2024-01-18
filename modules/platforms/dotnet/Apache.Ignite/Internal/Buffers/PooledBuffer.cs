@@ -19,35 +19,27 @@ namespace Apache.Ignite.Internal.Buffers
 {
     using System;
     using System.Diagnostics;
-    using System.Diagnostics.CodeAnalysis;
     using Proto.MsgPack;
 
     /// <summary>
     /// Pooled byte buffer. Wraps a byte array rented from <see cref="ByteArrayPool"/>,
     /// returns it to the pool on <see cref="Dispose"/>.
     /// </summary>
-    [SuppressMessage(
-        "Microsoft.Performance",
-        "CA1815:OverrideEqualsAndOperatorEqualsOnValueTypes",
-        Justification = "Not used in comparisons")]
-    internal readonly struct PooledBuffer : IDisposable
+    internal sealed class PooledBuffer : IDisposable
     {
         /// <summary>
         /// Default capacity for all buffers.
         /// </summary>
         public const int DefaultCapacity = 65_535;
 
-        /** Bytes. */
         private readonly byte[] _bytes;
 
-        /** Position. */
-        private readonly int _position;
-
-        /** Length. */
         private readonly int _length;
 
+        private bool _disposed;
+
         /// <summary>
-        /// Initializes a new instance of the <see cref="PooledBuffer"/> struct.
+        /// Initializes a new instance of the <see cref="PooledBuffer"/> class.
         /// </summary>
         /// <param name="bytes">Bytes.</param>
         /// <param name="position">Data position within specified byte array.</param>
@@ -56,56 +48,55 @@ namespace Apache.Ignite.Internal.Buffers
         public PooledBuffer(byte[] bytes, int position, int length, object? metadata = null)
         {
             _bytes = bytes;
-            _position = position;
+            Position = position;
             _length = length;
             Metadata = metadata;
         }
 
         /// <summary>
-        /// Gets the optional metadata.
+        /// Gets or sets the position.
         /// </summary>
-        public object? Metadata { get; }
+        public int Position { get; set; }
+
+        /// <summary>
+        /// Gets or sets the optional metadata.
+        /// </summary>
+        public object? Metadata { get; set; }
 
         /// <summary>
         /// Gets a <see cref="MsgPackReader"/> for this buffer.
         /// </summary>
         /// <param name="offset">Offset.</param>
         /// <returns><see cref="MsgPackReader"/> for this buffer.</returns>
-        public MsgPackReader GetReader(int offset = 0) => new(_bytes.AsSpan(_position + offset, _length - offset));
+        public MsgPackReader GetReader(int offset = 0)
+        {
+            Debug.Assert(!_disposed, "Buffer is disposed");
+            return new MsgPackReader(_bytes.AsSpan(Position + offset, _length - offset - Position));
+        }
 
         /// <summary>
         /// Gets this buffer contents as memory.
         /// </summary>
         /// <param name="offset">Offset.</param>
         /// <returns>Memory of byte.</returns>
-        public ReadOnlyMemory<byte> AsMemory(int offset = 0) => new(_bytes, _position + offset, _length - offset);
-
-        /// <summary>
-        /// Gets a slice of the current buffer.
-        /// </summary>
-        /// <param name="offset">Offset.</param>
-        /// <returns>Sliced buffer.</returns>
-        public PooledBuffer Slice(int offset)
+        public ReadOnlyMemory<byte> AsMemory(int offset = 0)
         {
-            Debug.Assert(offset > 0, "offset > 0");
-            Debug.Assert(offset <= _length, "offset <= _length");
-
-            return new(_bytes, _position + offset, _length - offset);
+            Debug.Assert(!_disposed, "Buffer is disposed");
+            return new ReadOnlyMemory<byte>(_bytes, Position + offset, _length - offset - Position);
         }
-
-        /// <summary>
-        /// Gets a copy of the current buffer with the specified metadata.
-        /// </summary>
-        /// <param name="metadata">Metadata.</param>
-        /// <returns>Buffer.</returns>
-        public PooledBuffer WithMetadata(object? metadata) => new(_bytes, _position, _length, metadata);
 
         /// <summary>
         /// Releases the pooled buffer.
         /// </summary>
         public void Dispose()
         {
+            if (_disposed)
+            {
+                return;
+            }
+
             ByteArrayPool.Return(_bytes);
+            _disposed = true;
         }
     }
 }

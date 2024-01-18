@@ -302,10 +302,9 @@ namespace Apache.Ignite.Internal
             {
                 await SendRequestAsync(request, clientOp, requestId).ConfigureAwait(false);
                 PooledBuffer resBuf = await taskCompletionSource.Task.ConfigureAwait(false);
+                resBuf.Metadata = notificationHandler;
 
-                return notificationHandler == null
-                    ? resBuf
-                    : resBuf.WithMetadata(notificationHandler);
+                return resBuf;
             }
             catch (Exception e)
             {
@@ -697,9 +696,35 @@ namespace Apache.Ignite.Internal
             }
         }
 
+        [SuppressMessage("Design", "CA1031:Do not catch general exception types", Justification = "Thread root.")]
         private void HandleResponse(PooledBuffer response)
         {
-            // TODO: Buffer is not released in some cases.
+            bool handled = false;
+
+            try
+            {
+                handled = HandleResponse0(response);
+            }
+            catch (IgniteClientConnectionException e)
+            {
+                Dispose(e);
+            }
+            catch (Exception e)
+            {
+                var message = "Exception while handling response, connection closed: " + e.Message;
+                Dispose(new IgniteClientConnectionException(ErrorGroups.Client.Connection, message, e));
+            }
+            finally
+            {
+                if (!handled)
+                {
+                    response.Dispose();
+                }
+            }
+        }
+
+        private bool HandleResponse0(PooledBuffer response)
+        {
             var reader = response.GetReader();
 
             var requestId = reader.ReadInt64();
@@ -714,8 +739,7 @@ namespace Apache.Ignite.Internal
 
             if (flags.HasFlag(ResponseFlags.Notification))
             {
-                HandleNotification(requestId, exception, response, reader.Consumed);
-                return;
+                return HandleNotification(requestId, exception, response, reader.Consumed);
             }
 
             if (!_requests.TryRemove(requestId, out var taskCompletionSource))
@@ -724,29 +748,24 @@ namespace Apache.Ignite.Internal
                               $"[remoteAddress={ConnectionContext.ClusterNode.Address}], closing the socket.";
 
                 _logger.LogUnexpectedResponseIdError(null, message);
-                Dispose(new IgniteClientConnectionException(ErrorGroups.Client.Protocol, message));
-
-                return;
+                throw new IgniteClientConnectionException(ErrorGroups.Client.Protocol, message);
             }
 
             Metrics.RequestsActiveDecrement();
 
             if (exception != null)
             {
-                response.Dispose();
-
                 Metrics.RequestsFailed.Add(1);
 
                 taskCompletionSource.TrySetException(exception);
+                return false;
             }
-            else
-            {
-                var resultBuffer = response.Slice(reader.Consumed);
 
-                Metrics.RequestsCompleted.Add(1);
+            Metrics.RequestsCompleted.Add(1);
 
-                taskCompletionSource.TrySetResult(resultBuffer);
-            }
+            response.Position += reader.Consumed;
+            taskCompletionSource.TrySetResult(response);
+            return true;
         }
 
         private void HandleObservableTimestamp(ref MsgPackReader reader)
@@ -767,7 +786,7 @@ namespace Apache.Ignite.Internal
             }
         }
 
-        private void HandleNotification(long requestId, Exception? exception, PooledBuffer response, int consumed)
+        private bool HandleNotification(long requestId, Exception? exception, PooledBuffer response, int consumed)
         {
             if (!_notificationHandlers.TryRemove(requestId, out var notificationHandler))
             {
@@ -775,19 +794,18 @@ namespace Apache.Ignite.Internal
                               $"[remoteAddress={ConnectionContext.ClusterNode.Address}], closing the socket.";
 
                 _logger.LogUnexpectedResponseIdError(null, message);
-                Dispose(new IgniteClientConnectionException(ErrorGroups.Client.Protocol, message));
-
-                return;
+                throw new IgniteClientConnectionException(ErrorGroups.Client.Protocol, message);
             }
 
             if (exception != null)
             {
                 notificationHandler.TrySetException(exception);
+                return false;
             }
-            else
-            {
-                notificationHandler.TrySetResult(response.Slice(consumed));
-            }
+
+            response.Position += consumed;
+            notificationHandler.TrySetResult(response);
+            return true;
         }
 
         /// <summary>

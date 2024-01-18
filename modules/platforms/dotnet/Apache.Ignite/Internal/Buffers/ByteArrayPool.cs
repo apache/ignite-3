@@ -21,7 +21,6 @@ namespace Apache.Ignite.Internal.Buffers
     using System.Collections.Concurrent;
     using System.Diagnostics;
     using System.Reflection;
-    using System.Text;
 
     /// <summary>
     /// Wrapper for the standard <see cref="ArrayPool{T}.Shared"/> with safety checks in debug mode.
