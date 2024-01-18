@@ -20,6 +20,7 @@ package org.apache.ignite.internal.catalog.commands;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.sql.ColumnType.INT32;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 
 import java.util.List;
 import org.apache.ignite.internal.catalog.Catalog;
@@ -304,7 +305,7 @@ public class CreateTableCommandValidationTest extends AbstractCommandValidationT
     }
 
     @Test
-    void exceptionIsThrownIfZoneDoesNotContainTableStoragePofile() {
+    void exceptionIsThrownIfZoneDoesNotContainTableStorageProfile() {
         CreateTableCommandBuilder builder = CreateTableCommand.builder();
 
         String zoneName = "testZone";
@@ -321,9 +322,11 @@ public class CreateTableCommandValidationTest extends AbstractCommandValidationT
                 format("Zone with name '{}' does not contain table's storage profile [storageProfile='{}']", zoneName, tableProfile)
         );
 
-        // Let's check the success case.
-        Catalog newCatalog = catalog(List.of(createZoneCommand(zoneName, List.of("profile1", "profile2", tableProfile))));
+        assertDoesNotThrow(() -> {
+            // Let's check the success case.
+            Catalog newCatalog = catalog(List.of(createZoneCommand(zoneName, List.of("profile1", "profile2", tableProfile))));
 
-        command.get(newCatalog);
+            command.get(newCatalog);
+        });
     }
 }

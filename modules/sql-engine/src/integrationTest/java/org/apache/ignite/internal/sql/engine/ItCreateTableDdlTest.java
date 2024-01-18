@@ -360,4 +360,38 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
 
         assertEquals(zone.storageProfiles().defaultProfile().storageProfile(), table.storageProfile());
     }
+
+    @Test
+    public void tableStorageProfileWithCustomZoneDefaultProfile() {
+        sql("CREATE ZONE ZONE1 WITH PARTITIONS = 1, STORAGE_PROFILES = '" + DUMMY_STORAGE_PROFILE + "'");
+
+        sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT) WITH PRIMARY_ZONE='ZONE1'");
+
+        IgniteImpl node = CLUSTER.aliveNode();
+
+        CatalogTableDescriptor table = node.catalogManager().table("TEST", node.clock().nowLong());
+
+        assertEquals(DUMMY_STORAGE_PROFILE, table.storageProfile());
+
+        sql("DROP TABLE TEST");
+
+        sql("DROP ZONE ZONE1");
+    }
+
+    @Test
+    public void tableStorageProfileWithCustomZoneExplicitProfile() {
+        sql("CREATE ZONE ZONE1 WITH PARTITIONS = 1, STORAGE_PROFILES = '" + DUMMY_STORAGE_PROFILE + "'");
+
+        sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT) WITH PRIMARY_ZONE='ZONE1', STORAGE_PROFILE='" + DUMMY_STORAGE_PROFILE + "'");
+
+        IgniteImpl node = CLUSTER.aliveNode();
+
+        CatalogTableDescriptor table = node.catalogManager().table("TEST", node.clock().nowLong());
+
+        assertEquals(DUMMY_STORAGE_PROFILE, table.storageProfile());
+
+        sql("DROP TABLE TEST");
+
+        sql("DROP ZONE ZONE1");
+    }
 }
