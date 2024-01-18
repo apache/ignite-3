@@ -220,7 +220,7 @@ namespace Apache.Ignite.Tests
                 messageFactory: () =>
                 {
                     var bufs = ByteArrayPool.CurrentlyRentedArrays
-                        .Select(x => $"{x.Value.DeclaringType?.Name}.{x.Value.Name}")
+                        .Select(x => $"{x.Value.DeclaringType}.{x.Value.Name}")
                         .StringJoin();
 
                     return $"Leaked buffers: {bufs}";
