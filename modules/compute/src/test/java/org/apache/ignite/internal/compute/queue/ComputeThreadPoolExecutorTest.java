@@ -24,7 +24,6 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
-import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -68,7 +67,6 @@ class ComputeThreadPoolExecutorTest {
         assertTrue(workQueue.isEmpty());
     }
 
-    @NotNull
     private static QueueEntry<Void> longTask() {
         return new QueueEntry<>(() -> {
             TimeUnit.MINUTES.sleep(1);
