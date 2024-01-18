@@ -38,6 +38,8 @@ public class PartitionAwarenessRealClusterTests : IgniteTestsBase
     [Test]
     public async Task TestPutRoutesRequestToPrimaryNode()
     {
+        TestUtils.CheckByteArrayPoolLeak();
+
         var proxies = GetProxies();
         using var client = await IgniteClient.StartAsync(GetConfig(proxies));
         var recordView = (await client.Tables.GetTableAsync(TableName))!.RecordBinaryView;
