@@ -21,12 +21,14 @@ import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUt
 import static org.apache.ignite.internal.table.TableTestUtils.getTableId;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.affinity.Assignment;
@@ -162,6 +164,65 @@ public class ItRebalanceTriggersRecoveryTest extends ClusterPerTestIntegrationTe
 
         // Check that new replica from 'global' zone received the data and rebalance really happened.
         assertTrue(waitForCondition(() -> containsPartition(cluster.node(2)), 10_000));
+    }
+
+    @Test
+    void testRebalanceTriggersRecoveryWhenUpdatesWereProcessedByAnotherNodesAlready() throws Exception {
+        // The nodes from different regions/zones needed to implement the predictable way of nodes choice.
+        startNode(1, US_NODE_BOOTSTRAP_CFG_TEMPLATE);
+        startNode(2, GLOBAL_NODE_BOOTSTRAP_CFG_TEMPLATE);
+        startNode(3, GLOBAL_NODE_BOOTSTRAP_CFG_TEMPLATE);
+
+        cluster.doInSession(0, session -> {
+            session.execute(null, "CREATE ZONE TEST_ZONE WITH PARTITIONS=1, REPLICAS=1, DATA_NODES_FILTER='$[?(@.zone == \"global\")]'");
+            session.execute(null, "CREATE TABLE TEST (id INT PRIMARY KEY, name INT) WITH PRIMARY_ZONE='TEST_ZONE'");
+            session.execute(null, "INSERT INTO TEST VALUES (0, 0)");
+        });
+
+        assertTrue(waitForCondition(() -> containsPartition(cluster.node(1)), 10_000));
+        assertFalse(containsPartition(cluster.node(2)));
+
+        stopNode(3);
+
+        cluster.doInSession(0, session -> {
+            session.execute(null, "ALTER ZONE TEST_ZONE SET REPLICAS=2");
+        });
+
+        // Check that metastore node schedule the rebalance procedure.
+        assertTrue(waitForCondition(
+                (() -> getPartitionPendingClusterNodes(node(0), 0).equals(Set.of(
+                        Assignment.forPeer(node(2).name()),
+                        Assignment.forPeer(node(1).name())))),
+                10_000));
+
+        // Check that new replica from 'global' zone received the data and rebalance really happened.
+        assertTrue(waitForCondition(() -> containsPartition(cluster.node(2)), 10_000));
+        assertTrue(waitForCondition(
+                (() -> getPartitionPendingClusterNodes(node(0), 0).equals(Set.of())),
+                10_000));
+
+        TablePartitionId tablePartitionId =
+                new TablePartitionId(
+                        getTableId(node(0).catalogManager(),
+                                "TEST",
+                                new HybridClockImpl().nowLong()),
+                        0
+                );
+        long pendingsKeysRevisionBeforeRecovery = node(0).metaStorageManager()
+                .get(pendingPartAssignmentsKey(
+                        new TablePartitionId(getTableId(node(0).catalogManager(), "TEST", new HybridClockImpl().nowLong()), 0)))
+                .get(10, TimeUnit.SECONDS).revision();
+
+
+        startNode(3, GLOBAL_NODE_BOOTSTRAP_CFG_TEMPLATE);
+
+        long pendingsKeysRevisionAfterRecovery = node(0).metaStorageManager()
+                .get(pendingPartAssignmentsKey(
+                        new TablePartitionId(getTableId(node(0).catalogManager(), "TEST", new HybridClockImpl().nowLong()), 0)))
+                .get(10, TimeUnit.SECONDS).revision();
+
+        // Check that recovered node doesn't produce new rebalances for already processed triggers.
+        assertEquals(pendingsKeysRevisionBeforeRecovery, pendingsKeysRevisionAfterRecovery);
     }
 
     private static Set<Assignment> getPartitionPendingClusterNodes(IgniteImpl node, int partNum) {
