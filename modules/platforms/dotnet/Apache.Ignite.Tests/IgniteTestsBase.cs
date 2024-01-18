@@ -213,19 +213,7 @@ namespace Apache.Ignite.Tests
                 timeoutMs: 1000,
                 messageFactory: () => $"rented = {listener.BuffersRented}, returned = {listener.BuffersReturned}");
 
-#if DEBUG
-            TestUtils.WaitForCondition(
-                condition: () => ByteArrayPool.CurrentlyRentedArrays.IsEmpty,
-                timeoutMs: 1000,
-                messageFactory: () =>
-                {
-                    var bufs = ByteArrayPool.CurrentlyRentedArrays
-                        .Select(x => $"{x.Value.DeclaringType}.{x.Value.Name}")
-                        .StringJoin();
-
-                    return $"Leaked buffers: {bufs}";
-                });
-#endif
+            TestUtils.CheckByteArrayPoolLeak();
         }
     }
 }
