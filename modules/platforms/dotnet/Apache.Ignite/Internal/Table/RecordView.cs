@@ -158,10 +158,10 @@ namespace Apache.Ignite.Internal.Table
                 return resultFactory(0);
             }
 
-            var resSchema = await _table.ReadSchemaAsync(resBuf.Value).ConfigureAwait(false);
+            var resSchema = await _table.ReadSchemaAsync(resBuf).ConfigureAwait(false);
 
             // TODO: Read value parts only (IGNITE-16022).
-            return _ser.ReadMultipleNullable(resBuf.Value, resSchema, resultFactory, addAction);
+            return _ser.ReadMultipleNullable(resBuf, resSchema, resultFactory, addAction);
         }
 
         /// <inheritdoc/>
@@ -211,11 +211,11 @@ namespace Apache.Ignite.Internal.Table
                 return Array.Empty<T>();
             }
 
-            var resSchema = await _table.ReadSchemaAsync(resBuf.Value).ConfigureAwait(false);
+            var resSchema = await _table.ReadSchemaAsync(resBuf).ConfigureAwait(false);
 
             // TODO: Read value parts only (IGNITE-16022).
             return _ser.ReadMultiple(
-                buf: resBuf.Value,
+                buf: resBuf,
                 schema: resSchema,
                 keyOnly: false,
                 resultFactory: static count => count == 0
@@ -370,11 +370,11 @@ namespace Apache.Ignite.Internal.Table
                 return resultFactory(0);
             }
 
-            var resSchema = await _table.ReadSchemaAsync(resBuf.Value).ConfigureAwait(false);
+            var resSchema = await _table.ReadSchemaAsync(resBuf).ConfigureAwait(false);
 
             // TODO: Read value parts only (IGNITE-16022).
             return _ser.ReadMultiple(
-                buf: resBuf.Value,
+                buf: resBuf,
                 schema: resSchema,
                 keyOnly: !exact,
                 resultFactory: resultFactory,

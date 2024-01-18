@@ -84,19 +84,27 @@ public abstract class IgniteServerBase : IDisposable
         int received = 0;
         var buf = ByteArrayPool.Rent(size);
 
-        while (received < size)
+        try
         {
-            var res = socket.Receive(buf, received, size - received, SocketFlags.None);
-
-            if (res == 0)
+            while (received < size)
             {
-                throw new ConnectionLostException();
+                var res = socket.Receive(buf, received, size - received, SocketFlags.None);
+
+                if (res == 0)
+                {
+                    throw new ConnectionLostException();
+                }
+
+                received += res;
             }
 
-            received += res;
+            return new PooledBuffer(buf, 0, size);
         }
-
-        return new PooledBuffer(buf, 0, size);
+        catch (Exception)
+        {
+            ByteArrayPool.Return(buf);
+            throw;
+        }
     }
 
     protected virtual void Handle(Socket handler, CancellationToken cancellationToken)
