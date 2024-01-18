@@ -703,7 +703,7 @@ namespace Apache.Ignite.Internal
 
             try
             {
-                handled = HandleResponse0(response);
+                handled = HandleResponseInner(response);
             }
             catch (IgniteClientConnectionException e)
             {
@@ -723,7 +723,14 @@ namespace Apache.Ignite.Internal
             }
         }
 
-        private bool HandleResponse0(PooledBuffer response)
+        /// <summary>
+        /// Handles a server response.
+        /// </summary>
+        /// <param name="response">Response buffer.</param>
+        /// <returns>
+        /// A value indicating whether the response buffer was passed on to the final handler and does not need to be disposed.
+        /// </returns>
+        private bool HandleResponseInner(PooledBuffer response)
         {
             var reader = response.GetReader();
 
@@ -736,10 +743,11 @@ namespace Apache.Ignite.Internal
             HandleObservableTimestamp(ref reader);
 
             var exception = flags.HasFlag(ResponseFlags.Error) ? ReadError(ref reader) : null;
+            response.Position += reader.Consumed;
 
             if (flags.HasFlag(ResponseFlags.Notification))
             {
-                return HandleNotification(requestId, exception, response, reader.Consumed);
+                return HandleNotification(requestId, exception, response);
             }
 
             if (!_requests.TryRemove(requestId, out var taskCompletionSource))
@@ -763,8 +771,37 @@ namespace Apache.Ignite.Internal
 
             Metrics.RequestsCompleted.Add(1);
 
-            response.Position += reader.Consumed;
             taskCompletionSource.TrySetResult(response);
+            return true;
+        }
+
+        /// <summary>
+        /// Handles a server notification.
+        /// </summary>
+        /// <param name="requestId">Request id.</param>
+        /// <param name="exception">Exception.</param>
+        /// <param name="response">Response buffer.</param>
+        /// <returns>
+        /// A value indicating whether the response buffer was passed on to the final handler and does not need to be disposed.
+        /// </returns>
+        private bool HandleNotification(long requestId, Exception? exception, PooledBuffer response)
+        {
+            if (!_notificationHandlers.TryRemove(requestId, out var notificationHandler))
+            {
+                var message = $"Unexpected notification ID ({requestId}) received from the server " +
+                              $"[remoteAddress={ConnectionContext.ClusterNode.Address}], closing the socket.";
+
+                _logger.LogUnexpectedResponseIdError(null, message);
+                throw new IgniteClientConnectionException(ErrorGroups.Client.Protocol, message);
+            }
+
+            if (exception != null)
+            {
+                notificationHandler.TrySetException(exception);
+                return false;
+            }
+
+            notificationHandler.TrySetResult(response);
             return true;
         }
 
@@ -784,28 +821,6 @@ namespace Apache.Ignite.Internal
 
                 _listener.OnAssignmentChanged(timestamp);
             }
-        }
-
-        private bool HandleNotification(long requestId, Exception? exception, PooledBuffer response, int consumed)
-        {
-            if (!_notificationHandlers.TryRemove(requestId, out var notificationHandler))
-            {
-                var message = $"Unexpected notification ID ({requestId}) received from the server " +
-                              $"[remoteAddress={ConnectionContext.ClusterNode.Address}], closing the socket.";
-
-                _logger.LogUnexpectedResponseIdError(null, message);
-                throw new IgniteClientConnectionException(ErrorGroups.Client.Protocol, message);
-            }
-
-            if (exception != null)
-            {
-                notificationHandler.TrySetException(exception);
-                return false;
-            }
-
-            response.Position += consumed;
-            notificationHandler.TrySetResult(response);
-            return true;
         }
 
         /// <summary>
