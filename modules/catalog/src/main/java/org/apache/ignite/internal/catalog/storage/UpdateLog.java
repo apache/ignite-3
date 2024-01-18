@@ -54,9 +54,11 @@ public interface UpdateLog extends IgniteComponent {
      * <p>Log replay is a part of a component start up process, thus the handler must
      * be registered prior to start is invoked, otherwise exception will be thrown.
      *
+     * @return Completable future.
      * @throws IgniteInternalException If no handler has been registered.
      */
-    @Override void start() throws IgniteInternalException;
+    @Override
+    CompletableFuture<Void> start() throws IgniteInternalException;
 
     /** An interface describing a handler that will receive notification when a new update is added to the log. */
     @FunctionalInterface

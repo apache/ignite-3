@@ -25,7 +25,6 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.OptionalLong;
 import java.util.concurrent.CompletableFuture;
@@ -37,6 +36,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.Entry;
@@ -172,12 +172,18 @@ public class WatchProcessor implements ManuallyCloseable {
                                 CompletableFuture<Void> notifyUpdateRevisionFuture = notifyUpdateRevisionListeners(newRevision);
 
                                 CompletableFuture<Void> notificationFuture = allOf(notifyWatchesFuture, notifyUpdateRevisionFuture)
-                                        .thenComposeAsync(
-                                                unused -> invokeOnRevisionCallback(watchAndEvents, newRevision, time),
+                                        .thenRunAsync(
+                                                () -> invokeOnRevisionCallback(newRevision, time),
                                                 watchExecutor
                                         );
 
-                                notificationFuture.whenComplete((unused, e) -> maybeLogLongProcessing(updatedEntries, startTimeNanos));
+                                notificationFuture.whenComplete((unused, e) -> {
+                                    maybeLogLongProcessing(updatedEntries, startTimeNanos);
+
+                                    if (e != null) {
+                                        LOG.error("Error occurred when notifying watches", e);
+                                    }
+                                });
 
                                 return notificationFuture;
                             }, watchExecutor);
@@ -210,8 +216,10 @@ public class WatchProcessor implements ManuallyCloseable {
                                     e = e.getCause();
                                 }
 
-                                // TODO: IGNITE-14693 Implement Meta storage exception handling
-                                LOG.error("Error occurred when processing a watch event", e);
+                                if (!(e instanceof NodeStoppingException)) {
+                                    // TODO: IGNITE-14693 Implement Meta storage exception handling
+                                    LOG.error("Error occurred when processing a watch event", e);
+                                }
 
                                 watchAndEvents.watch.onError(e);
                             }
@@ -284,30 +292,10 @@ public class WatchProcessor implements ManuallyCloseable {
         }, watchExecutor);
     }
 
-    private CompletableFuture<Void> invokeOnRevisionCallback(List<WatchAndEvents> watchAndEventsList, long revision, HybridTimestamp time) {
-        try {
-            // Only notify about entries that have been accepted by at least one Watch.
-            var acceptedEntries = new HashSet<EntryEvent>();
+    private void invokeOnRevisionCallback(long revision, HybridTimestamp time) {
+        revisionCallback.onSafeTimeAdvanced(time);
 
-            for (WatchAndEvents watchAndEvents : watchAndEventsList) {
-                acceptedEntries.addAll(watchAndEvents.events);
-            }
-
-            var event = new WatchEvent(acceptedEntries, revision, time);
-
-            revisionCallback.onSafeTimeAdvanced(time);
-
-            return revisionCallback.onRevisionApplied(event)
-                    .whenComplete((ignored, e) -> {
-                        if (e != null) {
-                            LOG.error("Error occurred when notifying watches", e);
-                        }
-                    });
-        } catch (Throwable e) {
-            LOG.error("Error occurred when notifying watches", e);
-
-            return failedFuture(e);
-        }
+        revisionCallback.onRevisionApplied(revision);
     }
 
     /**

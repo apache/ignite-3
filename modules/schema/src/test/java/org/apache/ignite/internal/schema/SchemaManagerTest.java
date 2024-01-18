@@ -56,8 +56,6 @@ import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.internal.vault.VaultManager;
-import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
 import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -87,8 +85,6 @@ class SchemaManagerTest extends BaseIgniteAbstractTest {
     @Mock
     private CatalogService catalogService;
 
-    private VaultManager vaultManager;
-
     private MetaStorageManager metaStorageManager;
 
     private final SimpleInMemoryKeyValueStorage metaStorageKvStorage = new SimpleInMemoryKeyValueStorage("test");
@@ -102,10 +98,7 @@ class SchemaManagerTest extends BaseIgniteAbstractTest {
 
     @BeforeEach
     void setUp() {
-        vaultManager = new VaultManager(new InMemoryVaultService());
-        vaultManager.start();
-
-        metaStorageManager = spy(StandaloneMetaStorageManager.create(vaultManager, metaStorageKvStorage));
+        metaStorageManager = spy(StandaloneMetaStorageManager.create(metaStorageKvStorage));
         metaStorageManager.start();
 
         doAnswer(invocation -> {
@@ -128,7 +121,6 @@ class SchemaManagerTest extends BaseIgniteAbstractTest {
     void tearDown() throws Exception {
         schemaManager.stop();
         metaStorageManager.stop();
-        vaultManager.stop();
     }
 
     private void createSomeTable() {

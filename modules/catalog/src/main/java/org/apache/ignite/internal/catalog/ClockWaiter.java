@@ -93,10 +93,12 @@ public class ClockWaiter implements IgniteComponent {
     }
 
     @Override
-    public void start() {
+    public CompletableFuture<Void> start() {
         clock.addUpdateListener(updateListener);
 
         scheduler = Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory(nodeName + "-clock-waiter-scheduler", LOG));
+
+        return nullCompletedFuture();
     }
 
     @Override

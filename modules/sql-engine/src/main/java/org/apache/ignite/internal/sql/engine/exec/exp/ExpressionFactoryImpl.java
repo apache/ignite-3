@@ -148,6 +148,16 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
                 int fieldIdx = field.getFieldIndex();
                 int nullComparison = field.nullDirection.nullComparison;
 
+                if (o1 == null || o2 == null) {
+                    if (o1 == o2) {
+                        return 0;
+                    } else if (o1 == null) {
+                        return nullComparison;
+                    } else {
+                        return -nullComparison;
+                    }
+                }
+
                 Object c1 = hnd.get(fieldIdx, o1);
                 Object c2 = hnd.get(fieldIdx, o2);
 
@@ -221,7 +231,7 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
     }
 
     @SuppressWarnings("rawtypes")
-    private static int compare(Object o1, Object o2, int nullComparison) {
+    private static int compare(@Nullable Object o1, @Nullable Object o2, int nullComparison) {
         final Comparable c1 = (Comparable) o1;
         final Comparable c2 = (Comparable) o2;
         return RelFieldCollation.compare(c1, c2, nullComparison);
@@ -770,10 +780,10 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
 
     private class RangeConditionImpl implements RangeCondition<RowT> {
         /** Lower bound expression. */
-        private final SingleScalar lowerBound;
+        private final @Nullable SingleScalar lowerBound;
 
         /** Upper bound expression. */
-        private final SingleScalar upperBound;
+        private final @Nullable SingleScalar upperBound;
 
         /** Inclusive lower bound flag. */
         private final boolean lowerInclude;
@@ -793,9 +803,6 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         /** Upper bound row factory. */
         private final RowBuilder<RowT> upperRowBuilder;
 
-        /** Cached skip range flag. */
-        private @Nullable Boolean skip;
-
         private RangeConditionImpl(
                 List<RexNode> lower,
                 List<RexNode> upper,
@@ -806,8 +813,8 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
                 RowFactory<RowT> lowerFactory,
                 RowFactory<RowT> upperFactory
         ) {
-            this.lowerBound = scalar(lower, rowTypeLower);
-            this.upperBound = scalar(upper, rowTypeUpper);
+            this.lowerBound = nullOrEmpty(lower) ? null : scalar(lower, rowTypeLower);
+            this.upperBound = nullOrEmpty(upper) ? null : scalar(upper, rowTypeUpper);
             this.lowerInclude = lowerInclude;
             this.upperInclude = upperInclude;
 
@@ -818,12 +825,20 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         /** {@inheritDoc} */
         @Override
         public @Nullable RowT lower() {
+            if (lowerBound == null) {
+                return null;
+            }
+
             return lowerRow != null ? lowerRow : (lowerRow = getRow(lowerBound, lowerRowBuilder));
         }
 
         /** {@inheritDoc} */
         @Override
         public @Nullable RowT upper() {
+            if (upperBound == null) {
+                return null;
+            }
+
             return upperRow != null ? upperRow : (upperRow = getRow(upperBound, upperRowBuilder));
         }
 
@@ -842,62 +857,14 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         /** Compute row. */
         private RowT getRow(SingleScalar scalar, RowBuilder<RowT> rowBuilder) {
             scalar.execute(ctx, null, rowBuilder);
-            RowT res = rowBuilder.buildAndReset();
 
-            RowHandler<RowT> hnd = ctx.rowHandler();
-
-            // Check bound for NULL values. If bound contains NULLs, the whole range should be skipped.
-            // There is special placeholder for searchable NULLs, make this replacement here too.
-            boolean hasNullBounds = false;
-
-            for (int i = 0; i < hnd.columnCount(res); i++) {
-                Object fldVal = hnd.get(i, res);
-
-                if (fldVal == null) {
-                    skip = Boolean.TRUE;
-                }
-
-                if (fldVal == ctx.nullBound()) {
-                    hasNullBounds = true;
-                }
-            }
-
-            if (!hasNullBounds) {
-                return res;
-            } else {
-                for (int i = 0; i < hnd.columnCount(res); i++) {
-                    Object fldVal = hnd.get(i, res);
-                    if (fldVal == ctx.nullBound()) {
-                        rowBuilder.addField(null);
-                    } else {
-                        rowBuilder.addField(fldVal);
-                    }
-                }
-
-                return rowBuilder.buildAndReset();
-            }
+            return rowBuilder.buildAndReset();
         }
 
         /** Clear cached rows. */
         void clearCache() {
             lowerRow = null;
             upperRow = null;
-            skip = null;
-        }
-
-        /** Skip this range. */
-        public boolean skip() {
-            if (skip == null) {
-                // Precalculate skip flag.
-                lower();
-                upper();
-
-                if (skip == null) {
-                    skip = Boolean.FALSE;
-                }
-            }
-
-            return skip;
         }
     }
 
@@ -927,11 +894,7 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
             ranges.forEach(b -> ((RangeConditionImpl) b).clearCache());
 
             if (ranges.size() == 1) {
-                if (((RangeConditionImpl) ranges.get(0)).skip()) {
-                    return Collections.emptyIterator();
-                } else {
-                    return ranges.iterator();
-                }
+                return ranges.iterator();
             }
 
             // Sort ranges using collation comparator to produce sorted output. There should be no ranges
@@ -943,7 +906,7 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
                 sorted = true;
             }
 
-            return ranges.stream().filter(r -> !((RangeConditionImpl) r).skip()).iterator();
+            return ranges.iterator();
         }
     }
 

@@ -69,6 +69,14 @@ public interface InternalTable extends ManuallyCloseable {
     String name();
 
     /**
+     * Sets the name of the table.
+     *
+     * @param newName New name.
+     */
+    // TODO: revisit this approach, see https://issues.apache.org/jira/browse/IGNITE-21235.
+    void name(String newName);
+
+    /**
      * Extracts an identifier of a partition from a given row.
      *
      * @param row A row to extract partition from.
@@ -422,16 +430,6 @@ public interface InternalTable extends ManuallyCloseable {
      * @return Count of partitions.
      */
     int partitions();
-
-    /**
-     * Gets a list of current table assignments.
-     *
-     * <p>Returns a list where on the i-th place resides a node id that considered as a leader for
-     * the i-th partition on the moment of invocation.
-     *
-     * @return List of current assignments.
-     */
-    List<String> assignments();
 
     /**
      * Returns cluster node that is the leader of the corresponding partition group or throws an exception if
