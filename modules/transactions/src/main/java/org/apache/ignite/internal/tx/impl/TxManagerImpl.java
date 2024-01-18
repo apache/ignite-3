@@ -418,7 +418,6 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                 prepareFinish(
                         observableTimestampTracker,
                         commitPartition,
-                        commitIntent,
                         commit,
                         enlistedGroups,
                         txId,
@@ -454,7 +453,6 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     private CompletableFuture<Void> prepareFinish(
             HybridTimestampTracker observableTimestampTracker,
             TablePartitionId commitPartition,
-            boolean commitIntent,
             boolean commit,
             Map<TablePartitionId, Long> enlistedGroups,
             UUID txId,
