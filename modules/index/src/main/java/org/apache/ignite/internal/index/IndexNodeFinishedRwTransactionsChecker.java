@@ -165,8 +165,8 @@ public class IndexNodeFinishedRwTransactionsChecker implements LocalRwTxCounter,
     }
 
     /**
-     * Returns {@code true} iff the requested catalog version is active and all RW transactions up to that version have finished on the
-     * node.
+     * Returns {@code true} iff the requested catalog version is active and all RW transactions started on versions strictly before that
+     * version have finished on the node.
      *
      * @param catalogVersion Catalog version of interest.
      */

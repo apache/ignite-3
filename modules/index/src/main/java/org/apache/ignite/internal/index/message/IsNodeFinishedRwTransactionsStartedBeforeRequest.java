@@ -26,7 +26,7 @@ import org.apache.ignite.network.annotations.Transferable;
  * <p>Check will return {@code true} under the conditions:</p>
  * <ul>
  *     <li>Requested catalog version is active on the node.</li>
- *     <li>All RW transactions up to the requested catalog version are finished on the node.</li>
+ *     <li>All RW transactions started on versions strictly before the requested catalog version are finished on the node.</li>
  * </ul>
  *
  * <p>Such a check is needed, for example, to start building an index; first, we need to make sure that all RW transactions up to the
