@@ -90,8 +90,8 @@ public class TableRowConverterImpl implements TableRowConverter {
 
         tableOrder.sort(Entry.comparingByKey());
 
-        int l = 0;
-        int m = 0;
+        int keyIndex = 0;
+        int requiredIndex = 0;
         keyMapping = new int[schemaDescriptor.keyColumns().length()];
 
         for (Map.Entry<Integer, Column> e : tableOrder) {
@@ -101,11 +101,11 @@ public class TableRowConverterImpl implements TableRowConverter {
             fullMapping[i] = column.columnOrder();
 
             if (schemaDescriptor.isKeyColumn(i)) {
-                keyMapping[l++] = i;
+                keyMapping[keyIndex++] = i;
             }
 
             if (requiredColumns == null || requiredColumns.get(column.columnOrder())) {
-                requiredColumnsMapping[m++] = i;
+                requiredColumnsMapping[requiredIndex++] = i;
             }
         }
     }
