@@ -57,7 +57,7 @@ public class ClientComputeGetStatusRequest {
             out.packNil();
         } else {
             out.packUuid(jobStatus.id());
-            out.packString(jobStatus.state().name());
+            out.packInt(jobStatus.state().ordinal());
             out.packInstant(jobStatus.createTime());
             out.packInstant(jobStatus.startTime());
             out.packInstant(jobStatus.finishTime());

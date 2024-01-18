@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.client.compute;
 
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
+import static org.apache.ignite.lang.ErrorGroups.Client.PROTOCOL_ERR;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -28,6 +29,7 @@ import org.apache.ignite.internal.client.PayloadInputChannel;
 import org.apache.ignite.internal.client.ReliableChannel;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
+import org.apache.ignite.lang.IgniteException;
 import org.jetbrains.annotations.Nullable;
 
 
@@ -35,6 +37,8 @@ import org.jetbrains.annotations.Nullable;
  * Client job execution implementation.
  */
 class ClientJobExecution<R> implements JobExecution<R> {
+    private static final JobState[] JOB_STATES = JobState.values();
+
     private final ReliableChannel ch;
 
     private final CompletableFuture<UUID> jobIdFuture;
@@ -115,7 +119,7 @@ class ClientJobExecution<R> implements JobExecution<R> {
         }
         return JobStatus.builder()
                 .id(unpacker.unpackUuid())
-                .state(JobState.valueOf(unpacker.unpackString()))
+                .state(unpackJobState(unpacker))
                 .createTime(unpacker.unpackInstant())
                 .startTime(unpacker.unpackInstantNullable())
                 .finishTime(unpacker.unpackInstantNullable())
@@ -128,5 +132,13 @@ class ClientJobExecution<R> implements JobExecution<R> {
             return null;
         }
         return unpacker.unpackBoolean();
+    }
+
+    private static JobState unpackJobState(ClientMessageUnpacker unpacker) {
+        int id = unpacker.unpackInt();
+        if (id >= 0 && id < JOB_STATES.length) {
+            return JOB_STATES[id];
+        }
+        throw new IgniteException(PROTOCOL_ERR, "Invalid job state id: " + id);
     }
 }
