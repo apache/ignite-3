@@ -31,9 +31,13 @@ public class TransactionAlreadyFinishedException extends TransactionException {
     /** Stored transaction result. */
     private final TransactionResult transactionResult;
 
-    public TransactionAlreadyFinishedException(String message, TransactionResult transactionResult) {
-        super(TX_UNEXPECTED_STATE_ERR, message);
+    public TransactionAlreadyFinishedException(int errorCode, String message, TransactionResult transactionResult, Throwable cause) {
+        super(errorCode, message, cause);
         this.transactionResult = transactionResult;
+    }
+
+    public TransactionAlreadyFinishedException(String message, TransactionResult transactionResult) {
+        this(TX_UNEXPECTED_STATE_ERR, message, transactionResult, null);
     }
 
     public TransactionResult transactionResult() {

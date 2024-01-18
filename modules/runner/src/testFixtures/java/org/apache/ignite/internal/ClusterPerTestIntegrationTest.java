@@ -19,6 +19,7 @@ package org.apache.ignite.internal;
 
 import java.nio.file.Path;
 import java.util.List;
+import java.util.stream.Stream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.internal.app.IgniteImpl;
@@ -169,6 +170,22 @@ public abstract class ClusterPerTestIntegrationTest extends IgniteIntegrationTes
      */
     protected final void stopNode(int nodeIndex) {
         cluster.stopNode(nodeIndex);
+    }
+
+    /**
+     * Stops a node by name.
+     *
+     * @param name Name of the node in the cluster.
+     */
+    protected void stopNode(String name) {
+        cluster.stopNode(name);
+    }
+
+    /**
+     * Returns nodes that are started and not stopped. This can include knocked out nodes.
+     */
+    protected final Stream<IgniteImpl> runningNodes() {
+        return cluster.runningNodes();
     }
 
     /**
