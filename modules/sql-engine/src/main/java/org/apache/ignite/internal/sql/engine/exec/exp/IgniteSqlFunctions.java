@@ -234,14 +234,13 @@ public class IgniteSqlFunctions {
         return roundedValue.setScale(originalScale, RoundingMode.UNNECESSARY);
     }
 
-    /** Returns {@link Integer#MAX_VALUE} if input is greater than {@link Integer#MAX_VALUE},
-     * otherwise return integer input number representation. */
+    /** Returns {@link Integer} bounded value. */
     private static int normalizeRegardingInt(BigDecimal num) {
         int res;
 
-        if (num.compareTo(MAX_INT) > 0) {
+        if (num.compareTo(MAX_INT) >= 0) {
             res = Integer.MAX_VALUE;
-        } else if (num.compareTo(MIN_INT) < 0) {
+        } else if (num.compareTo(MIN_INT) <= 0) {
             res = Integer.MIN_VALUE;
         } else {
             res = num.intValue();
@@ -276,12 +275,24 @@ public class IgniteSqlFunctions {
 
     /** SQL SUBSTRING(string FROM ...) function. */
     public static String substring(String c, int s, BigDecimal l) {
+        if (s < 0) {
+            if (l.signum() > 0) {
+                l = l.add(BigDecimal.valueOf(s));
+                return substring(c, 0, l);
+            }
+        }
         int l0 = normalizeRegardingInt(l);
         return SqlFunctions.substring(c, s, l0);
     }
 
     /** SQL SUBSTRING(string FROM ...) function. */
     public static String substring(String c, BigDecimal s, BigDecimal l) {
+        if (s.signum() < 0) {
+            if (l.signum() > 0) {
+                l = l.add(s);
+                return substring(c, 0, l);
+            }
+        }
         int s0 = normalizeRegardingInt(s);
         int l0 = normalizeRegardingInt(l);
         return SqlFunctions.substring(c, s0, l0);

@@ -341,11 +341,14 @@ public class ItFunctionsTest extends BaseSqlIntegrationTest {
         assertQuery("SELECT substring('1234567', 2.1, 3.1);").returns("234").check();
         assertQuery("SELECT substring('1234567', 2.1, 3);").returns("234").check();
         assertQuery("SELECT substring('1234567', 2, 3.1);").returns("234").check();
-        assertQuery(String.format("SELECT substring('1234567', 1, %d)", Long.MAX_VALUE)).returns("1234567").check();
-
         assertQuery("SELECT substring('1234567', 2.1);").returns("234567").check();
+
+        assertQuery(String.format("SELECT substring('1234567', 1, %d)", Long.MAX_VALUE)).returns("1234567").check();
         assertQuery(String.format("SELECT substring('1234567', %d)", Long.MAX_VALUE)).returns("").check();
         assertQuery(String.format("SELECT substring('1234567', %d)", Long.MIN_VALUE)).returns("1234567").check();
+        assertQuery(String.format("SELECT substring('1234567', %d)", Integer.MIN_VALUE)).returns("1234567").check();
+        assertQuery(String.format("SELECT substring('1234567', %d, %d)", Integer.MIN_VALUE, 10L + Integer.MAX_VALUE))
+                .returns("1234567").check();
         assertQuery(String.format("SELECT substring('1234567', %d, %d)", -1, 5)).returns("123").check();
 
         assertThrowsSqlException(Sql.RUNTIME_ERR, "negative substring length", () -> sql("SELECT substring('1234567', 1, -1)"));
