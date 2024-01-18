@@ -108,26 +108,26 @@ public class NoIndexHintPlannerTest extends AbstractPlannerTest {
         assertNoCertainIndex("SELECT /*+ NO_INDEX(TBL1_IDX_VAL2_VAL3) */ * FROM TBL1 t1 WHERE t1.val2 = " +
                 "(SELECT val2 from TBL2 WHERE val3='v')", TBL1, "TBL1_IDX_VAL2_VAL3");
 
-//        assertNoCertainIndex("SELECT /*+ NO_INDEX(TBL2_IDX_VAL3) */ * FROM TBL1 t1 WHERE t1.val2 = " +
-//                "(SELECT val2 from TBL2 WHERE val3='v')", TBL2, "TBL2_IDX_VAL3");
+        assertNoCertainIndex("SELECT /*+ NO_INDEX(TBL2_IDX_VAL3) */ * FROM TBL1 t1 WHERE t1.val2 = " +
+                "(SELECT val2 from TBL2 WHERE val3='v')", TBL2, "TBL2_IDX_VAL3");
 
-//        assertNoCertainIndex("SELECT * FROM TBL1 t1 WHERE t1.val2 = " +
-//                "(SELECT /*+ NO_INDEX(TBL2_IDX_VAL3) */ val2 from TBL2 WHERE val3='v')", TBL2, "TBL2_IDX_VAL3");
+        assertNoCertainIndex("SELECT * FROM TBL1 t1 WHERE t1.val2 = " +
+                "(SELECT /*+ NO_INDEX(TBL2_IDX_VAL3) */ val2 from TBL2 WHERE val3='v')", TBL2, "TBL2_IDX_VAL3");
 
         assertCertainIndex("SELECT t2.val3 FROM TBL2 t2 WHERE t2.val2 = " +
                 "(SELECT /*+ NO_INDEX(TBL2_IDX_VAL2) */ t1.val2 from TBL1 t1 WHERE t1.val3='v')", TBL2, "TBL2_IDX_VAL2");
 
-//        assertNoAnyIndex("SELECT /*+ NO_INDEX */ * FROM TBL1 t1 WHERE t1.val3 = " +
-//                "(SELECT val2 from TBL2 WHERE val3='v')");
+        assertNoAnyIndex("SELECT /*+ NO_INDEX */ * FROM TBL1 t1 WHERE t1.val3 = " +
+                "(SELECT val2 from TBL2 WHERE val3='v')");
 
-//        assertNoAnyIndex("SELECT /*+ NO_INDEX(TBL1_IDX_VAL3, TBL2_IDX_VAL3) */ * FROM TBL1 t1 WHERE t1.val3 = " +
-//                "(SELECT val2 from TBL2 WHERE val3='v')");
+        assertNoAnyIndex("SELECT /*+ NO_INDEX(TBL1_IDX_VAL3, TBL2_IDX_VAL3) */ * FROM TBL1 t1 WHERE t1.val3 = " +
+                "(SELECT val2 from TBL2 WHERE val3='v')");
 
-//        assertNoAnyIndex("SELECT /*+ NO_INDEX(TBL1_IDX_VAL3), NO_INDEX(TBL2_IDX_VAL3) */ * FROM TBL1 t1 WHERE t1.val3 = " +
-//                "(SELECT val2 from TBL2 WHERE val3='v')");
+        assertNoAnyIndex("SELECT /*+ NO_INDEX(TBL1_IDX_VAL3), NO_INDEX(TBL2_IDX_VAL3) */ * FROM TBL1 t1 WHERE t1.val3 = " +
+                "(SELECT val2 from TBL2 WHERE val3='v')");
 
-//        assertNoAnyIndex("SELECT /*+ NO_INDEX(TBL1_IDX_VAL3) */ * FROM TBL1 t1 WHERE t1.val3 = " +
-//                "(SELECT /*+ NO_INDEX(TBL2_IDX_VAL3) */ val2 from TBL2 WHERE val3='v')");
+        assertNoAnyIndex("SELECT /*+ NO_INDEX(TBL1_IDX_VAL3) */ * FROM TBL1 t1 WHERE t1.val3 = " +
+                "(SELECT /*+ NO_INDEX(TBL2_IDX_VAL3) */ val2 from TBL2 WHERE val3='v')");
     }
 
     @Test
