@@ -280,7 +280,7 @@ namespace Apache.Ignite.Tests.Sql
             // Insert data.
             for (var i = 0; i < 10; i++)
             {
-                var insertRes = await Client.Sql.ExecuteAsync(null, "INSERT INTO TestDdlDml VALUES (?, ?)", i, "hello " + i);
+                await using var insertRes = await Client.Sql.ExecuteAsync(null, "INSERT INTO TestDdlDml VALUES (?, ?)", i, "hello " + i);
 
                 Assert.IsFalse(insertRes.HasRowSet);
                 Assert.IsFalse(insertRes.WasApplied);
@@ -289,7 +289,7 @@ namespace Apache.Ignite.Tests.Sql
             }
 
             // Query data.
-            var selectRes = await Client.Sql.ExecuteAsync(null, "SELECT VAL as MYVALUE, ID, ID + 1 FROM TestDdlDml ORDER BY ID");
+            await using var selectRes = await Client.Sql.ExecuteAsync(null, "SELECT VAL as MYVALUE, ID, ID + 1 FROM TestDdlDml ORDER BY ID");
 
             Assert.IsTrue(selectRes.HasRowSet);
             Assert.IsFalse(selectRes.WasApplied);
@@ -319,7 +319,7 @@ namespace Apache.Ignite.Tests.Sql
             Assert.IsNull(columns[2].Origin);
 
             // Update data.
-            var updateRes = await Client.Sql.ExecuteAsync(null, "UPDATE TESTDDLDML SET VAL='upd' WHERE ID < 5");
+            await using var updateRes = await Client.Sql.ExecuteAsync(null, "UPDATE TESTDDLDML SET VAL='upd' WHERE ID < 5");
 
             Assert.IsFalse(updateRes.WasApplied);
             Assert.IsFalse(updateRes.HasRowSet);
@@ -327,7 +327,7 @@ namespace Apache.Ignite.Tests.Sql
             Assert.AreEqual(5, updateRes.AffectedRows);
 
             // Drop table.
-            var deleteRes = await Client.Sql.ExecuteAsync(null, "DROP TABLE TESTDDLDML");
+            await using var deleteRes = await Client.Sql.ExecuteAsync(null, "DROP TABLE TESTDDLDML");
 
             Assert.IsFalse(deleteRes.HasRowSet);
             Assert.IsNull(deleteRes.Metadata);
