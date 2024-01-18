@@ -133,6 +133,7 @@ namespace Apache.Ignite.Tests
         public void SetUp()
         {
             Console.WriteLine("SetUp: " + TestContext.CurrentContext.Test.Name);
+            TestUtils.CheckByteArrayPoolLeak();
         }
 
         [TearDown]

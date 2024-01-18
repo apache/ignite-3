@@ -46,6 +46,8 @@ public class MetricsTests
         AssertMetric("connections-active", 0);
 
         _listener.Dispose();
+
+        TestUtils.CheckByteArrayPoolLeak();
     }
 
     [OneTimeTearDown]
