@@ -11,7 +11,7 @@ using the given channel type. There a few standard channel types:
  * Default (used by default when channel type is not specified), id=0
  * Scalecube (used by all ScaleCube messages), id=1
  * Deploy (used to send deployment artifacts that might be quite heavy), id=2
- * Files (used to exchange with files), id=3
+ * Files (used to exchange files), id=3
 
 ## Message serialization
 Ignite uses direct marshalling to serialize and deserialize messages.
@@ -52,7 +52,7 @@ The default `MessagingService` implementation handles incoming messages in the i
 `{consistentId}-MessagingService-inbound-X-Y` (one per channel type), where X stands per channel ID. Deserialization of the
 incoming messages happens in these threads as well.
 
-It also uses an outbound thread `{consistentId}-MessagingService-outbound-X` for sending messages (in this thread serialization happens).
+It also uses an outbound thread `{consistentId}-MessagingService-outbound-X` for sending messages (message serialization also happens in this thread).
 
 ScaleCube uses `sc-cluster-X` (where X is an address of the node, e.g. `localhost-3344`) scheduler for the failure 
 detector, gossip protocol, metadata store and the membership protocol.
