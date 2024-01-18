@@ -35,7 +35,7 @@ namespace Apache.Ignite.Tests.Transactions
         [TearDown]
         public async Task CleanTable()
         {
-            await TupleView.DeleteAllAsync(null, Enumerable.Range(1, 2).Select(x => GetTuple(x)));
+            await TupleView.DeleteAllAsync(null, Enumerable.Range(1, 3).Select(x => GetTuple(x)));
         }
 
         [Test]
