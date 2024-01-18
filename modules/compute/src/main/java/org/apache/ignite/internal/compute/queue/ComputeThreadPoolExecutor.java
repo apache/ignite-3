@@ -18,10 +18,10 @@
 package org.apache.ignite.internal.compute.queue;
 
 import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import org.apache.ignite.internal.util.IgniteUtils;
 
 /**
  * Wrapper for {@link ThreadPoolExecutor}. Allows removing task from work queue.
@@ -71,13 +71,12 @@ public class ComputeThreadPoolExecutor {
     }
 
     /**
-     * Getter for internal execution service.
+     * Shuts down the given executor service gradually, first disabling new submissions and later, if necessary, cancelling remaining
+     * tasks.
      *
-     * @return internal execution service
+     * {@link IgniteUtils#shutdownAndAwaitTermination}
      */
-    ExecutorService executorService() {
-        return executor;
+    public void shutdown(long stopTimeout) {
+        IgniteUtils.shutdownAndAwaitTermination(executor, stopTimeout, TimeUnit.MILLISECONDS);
     }
-
-
 }

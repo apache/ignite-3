@@ -25,7 +25,6 @@ import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.compute.configuration.ComputeConfiguration;
 import org.apache.ignite.internal.compute.state.ComputeStateMachine;
-import org.apache.ignite.internal.util.IgniteUtils;
 
 /**
  * Compute job executor with priority mechanism.
@@ -97,7 +96,6 @@ public class PriorityQueueExecutor {
      * Shutdown executor. After shutdown executor is not usable anymore.
      */
     public void shutdown() {
-        Long stopTimeout = configuration.threadPoolStopTimeoutMillis().value();
-        IgniteUtils.shutdownAndAwaitTermination(executor.executorService(), stopTimeout, TimeUnit.MILLISECONDS);
+        executor.shutdown(configuration.threadPoolStopTimeoutMillis().value());
     }
 }
