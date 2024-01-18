@@ -51,7 +51,7 @@ public class LoggingTests
             client.WaitForConnections(3);
 
             await client.Tables.GetTablesAsync();
-            await client.Sql.ExecuteAsync(null, "select 1");
+            await using var cursor = await client.Sql.ExecuteAsync(null, "select 1");
         }
 
         var log = logger.GetLogString();
