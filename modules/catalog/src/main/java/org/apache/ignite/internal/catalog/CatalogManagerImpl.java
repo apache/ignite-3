@@ -329,6 +329,15 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
         return saveUpdateAndWaitForActivation(new BulkUpdateProducer(List.copyOf(commands)));
     }
 
+    public void compactCatalog(long timestamp) {
+        Catalog catalog = catalogAt(timestamp);
+
+        catalogByVer.headMap(catalog.version(), false).clear();
+        catalogByTs.headMap(catalog.time(), false).clear();
+
+    //    compactCatalogTo(catalog.version());
+    }
+
     private void registerCatalog(Catalog newCatalog) {
         catalogByVer.put(newCatalog.version(), newCatalog);
         catalogByTs.put(newCatalog.time(), newCatalog);

@@ -43,6 +43,7 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.pkIndexNa
 import static org.apache.ignite.internal.catalog.commands.DefaultValue.constant;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation.ASC_NULLS_LAST;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation.DESC_NULLS_FIRST;
+import static org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation.values;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
@@ -150,6 +151,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
     private static final String SCHEMA_NAME = DEFAULT_SCHEMA_NAME;
     private static final String ZONE_NAME = DEFAULT_ZONE_NAME;
     private static final String TABLE_NAME_2 = "myTable2";
+    private static final String INDEX_NAME_2 = "myIndex2";
     private static final String NEW_COLUMN_NAME = "NEWCOL";
     private static final String NEW_COLUMN_NAME_2 = "NEWCOL2";
     private static final int DFLT_TEST_PRECISION = 11;
@@ -2163,6 +2165,49 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertThat(eventParameters, is(instanceOf(RenameTableEventParameters.class)));
         assertThat(((RenameTableEventParameters) eventParameters).tableId(), is(tableDescriptor.id()));
         assertThat(((RenameTableEventParameters) eventParameters).newTableName(), is(tableDescriptor.name()));
+    }
+
+    @Test
+    public void testCatalogCompaction() {
+        assertThat(manager.execute(simpleTable(TABLE_NAME)), willBe(nullValue()));
+        assertThat(manager.execute(simpleTable(TABLE_NAME_2)), willBe(nullValue()));
+
+        long timestamp = clock.nowLong();
+        Catalog catalog = manager.catalog(manager.latestCatalogVersion());
+
+        // Add more updates
+        assertThat(manager.execute(simpleIndex(TABLE_NAME, INDEX_NAME)), willBe(nullValue()));
+        assertThat(manager.execute(simpleIndex(TABLE_NAME, INDEX_NAME_2)), willBe(nullValue()));
+
+        manager.compactCatalog(timestamp);
+
+        assertEquals(catalog.version(), manager.earliestCatalogVersion());
+
+        assertNull(manager.catalog(catalog.version() - 1));
+        assertNotNull(manager.catalog(catalog.version()));
+
+        assertThrows(IllegalStateException.class, () -> manager.activeCatalogVersion(catalog.time() - 1));
+        assertSame(catalog.version(), manager.activeCatalogVersion(catalog.time()));
+        assertSame(catalog.version(), manager.activeCatalogVersion(timestamp));
+    }
+
+    @Test
+    public void testEmptyCatalogCompaction() {
+        assertEquals(0, manager.latestCatalogVersion());
+
+        long timestamp = clock.nowLong();
+        Catalog catalog = manager.catalog(manager.latestCatalogVersion());
+
+        manager.compactCatalog(timestamp);
+
+        assertEquals(catalog.version(), manager.earliestCatalogVersion());
+
+        assertNull(manager.catalog(catalog.version() - 1));
+        assertNotNull(manager.catalog(catalog.version()));
+
+        assertThrows(IllegalStateException.class, () -> manager.activeCatalogVersion(catalog.time() - 1));
+        assertSame(catalog.version(), manager.activeCatalogVersion(catalog.time()));
+        assertSame(catalog.version(), manager.activeCatalogVersion(timestamp));
     }
 
     private CompletableFuture<Void> changeColumn(
