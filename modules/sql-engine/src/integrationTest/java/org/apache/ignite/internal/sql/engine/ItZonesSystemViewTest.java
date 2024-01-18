@@ -54,7 +54,8 @@ public class ItZonesSystemViewTest extends BaseSqlIntegrationTest {
                 DEFAULT_REPLICA_COUNT,
                 IMMEDIATE_TIMER_VALUE,
                 INFINITE_TIMER_VALUE,
-                DEFAULT_FILTER
+                DEFAULT_FILTER,
+                true
         ).check();
     }
 
@@ -68,7 +69,8 @@ public class ItZonesSystemViewTest extends BaseSqlIntegrationTest {
                 2,
                 3,
                 4,
-                DEFAULT_FILTER
+                DEFAULT_FILTER,
+                false
         ).check();
 
         sql("DROP ZONE " + ZONE_NAME);
@@ -84,7 +86,8 @@ public class ItZonesSystemViewTest extends BaseSqlIntegrationTest {
                 2,
                 3,
                 4,
-                DEFAULT_FILTER
+                DEFAULT_FILTER,
+                false
         ).check();
 
         sql("ALTER ZONE " + ZONE_NAME + " SET REPLICAS = 100");
@@ -95,7 +98,8 @@ public class ItZonesSystemViewTest extends BaseSqlIntegrationTest {
                 100,
                 3,
                 4,
-                DEFAULT_FILTER
+                DEFAULT_FILTER,
+                false
         ).check();
 
         sql("DROP ZONE " + ZONE_NAME);
@@ -111,7 +115,8 @@ public class ItZonesSystemViewTest extends BaseSqlIntegrationTest {
                 2,
                 3,
                 4,
-                DEFAULT_FILTER
+                DEFAULT_FILTER,
+                false
         ).check();
 
         sql("ALTER ZONE " + ZONE_NAME + " RENAME TO " + ALTER_ZONE_NAME);
@@ -122,7 +127,8 @@ public class ItZonesSystemViewTest extends BaseSqlIntegrationTest {
                 2,
                 3,
                 4,
-                DEFAULT_FILTER
+                DEFAULT_FILTER,
+                false
         ).check();
 
         assertQuery("SELECT COUNT(*) FROM SYSTEM.ZONES").returns(2L).check();
