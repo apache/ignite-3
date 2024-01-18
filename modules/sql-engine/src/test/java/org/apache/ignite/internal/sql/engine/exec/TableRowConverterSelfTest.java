@@ -36,12 +36,6 @@ import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.SqlRowHandler.RowWrapper;
 import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
-import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
-import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptorImpl;
-import org.apache.ignite.internal.sql.engine.schema.DefaultValueStrategy;
-import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
-import org.apache.ignite.internal.sql.engine.schema.TableDescriptorImpl;
-import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypes;
@@ -66,16 +60,13 @@ public class TableRowConverterSelfTest extends BaseIgniteAbstractTest {
     @Test
     public void testToEngineRowSameVersion() {
         SchemaDescriptor schema = newSchema(
+                List.of("c2", "c1"),
                 List.of(
                         Map.entry("c1", NativeTypes.INT32)
                 ),
                 List.of(
                         Map.entry("c2", NativeTypes.STRING)
                 )
-        );
-        TableDescriptor table = newTableDescriptor(
-                schema,
-                "c2", "c1"
         );
 
         RowSchema rowSchema = RowSchema.builder()
@@ -93,7 +84,7 @@ public class TableRowConverterSelfTest extends BaseIgniteAbstractTest {
 
         BinaryRow binaryRow = new BinaryRowImpl(schema.version(), tupleBuf);
 
-        TableRowConverterImpl converter = new TableRowConverterImpl(schemaRegistry, schema, table, null);
+        TableRowConverterImpl converter = new TableRowConverterImpl(schemaRegistry, schema, null);
 
         RowWrapper row = converter.toRow(executionContext, binaryRow, rowFactory);
         assertEquals("ABC", rowHandler.get(0, row));
@@ -104,6 +95,7 @@ public class TableRowConverterSelfTest extends BaseIgniteAbstractTest {
     @Test
     public void testToKeyValueRow() {
         SchemaDescriptor schema = newSchema(
+                List.of("c4", "c2", "c3", "c1"),
                 List.of(
                         Map.entry("c1", NativeTypes.INT32),
                         Map.entry("c2", NativeTypes.BOOLEAN)
@@ -112,10 +104,6 @@ public class TableRowConverterSelfTest extends BaseIgniteAbstractTest {
                         Map.entry("c3", NativeTypes.INT32),
                         Map.entry("c4", NativeTypes.STRING)
                 )
-        );
-        TableDescriptor table = newTableDescriptor(
-                schema,
-                "c4", "c2", "c3", "c1"
         );
 
         RowSchema rowSchema = RowSchema.builder()
@@ -132,7 +120,7 @@ public class TableRowConverterSelfTest extends BaseIgniteAbstractTest {
 
         RowWrapper wrapper = rowFactory.create("654", true, (int) Short.MAX_VALUE, 5);
 
-        TableRowConverterImpl converter = new TableRowConverterImpl(schemaRegistry, schema, table, null);
+        TableRowConverterImpl converter = new TableRowConverterImpl(schemaRegistry, schema, null);
         BinaryRowEx convertedRow = converter.toBinaryRow(executionContext, wrapper, false);
 
         BinaryTupleReader reader = new BinaryTupleReader(schema.length(), convertedRow.tupleSlice());
@@ -146,8 +134,9 @@ public class TableRowConverterSelfTest extends BaseIgniteAbstractTest {
 
     /** Test conversion to storage that key-only binary row keys in the order expected by a physical schema. */
     @Test
-    public void testToKeyOnlyRow() {
+    public void testToKeyOnlyRowDifferentKeyOrder() {
         SchemaDescriptor schema = newSchema(
+                List.of("c1", "c2", "c3", "c4"),
                 List.of(
                         Map.entry("c1", NativeTypes.INT32),
                         Map.entry("c2", NativeTypes.BOOLEAN)
@@ -156,10 +145,6 @@ public class TableRowConverterSelfTest extends BaseIgniteAbstractTest {
                         Map.entry("c3", NativeTypes.INT32),
                         Map.entry("c4", NativeTypes.STRING)
                 )
-        );
-        TableDescriptor table = newTableDescriptor(
-                schema,
-                "c1", "c2", "c3", "c4"
         );
 
         RowSchema rowSchema = RowSchema.builder()
@@ -174,7 +159,7 @@ public class TableRowConverterSelfTest extends BaseIgniteAbstractTest {
 
         RowWrapper wrapper = rowFactory.create((int) Short.MAX_VALUE, true);
 
-        TableRowConverterImpl converter = new TableRowConverterImpl(schemaRegistry, schema, table, null);
+        TableRowConverterImpl converter = new TableRowConverterImpl(schemaRegistry, schema, null);
         BinaryRowEx convertedRow = converter.toBinaryRow(executionContext, wrapper, true);
 
         Columns keyColumns = schema.keyColumns();
@@ -187,8 +172,9 @@ public class TableRowConverterSelfTest extends BaseIgniteAbstractTest {
 
     /** Test conversion to storage that key-only binary row keys in the order expected by a physical schema. */
     @Test
-    public void testToKeyOnlyRow2() {
+    public void testToKeyOnlyRowSameKeyOrder() {
         SchemaDescriptor schema = newSchema(
+                List.of("c1", "c2", "c3", "c4"),
                 List.of(
                         Map.entry("c2", NativeTypes.INT32),
                         Map.entry("c4", NativeTypes.STRING)
@@ -198,14 +184,17 @@ public class TableRowConverterSelfTest extends BaseIgniteAbstractTest {
                         Map.entry("c3", NativeTypes.INT32)
                 )
         );
-        TableDescriptor table = newTableDescriptor(
-                schema,
-                "c1", "c2", "c3", "c4"
-        );
+
+        List<String> schemaOrder = new ArrayList<>();
+        for (int i = 0; i < schema.length(); i++) {
+            schemaOrder.add(schema.column(i).name());
+        }
+
+        assertEquals(List.of("c2", "c4", "c1", "c3"), schemaOrder);
 
         RowSchema rowSchema = RowSchema.builder()
-                .addField(NativeTypes.STRING)
                 .addField(NativeTypes.INT32)
+                .addField(NativeTypes.STRING)
                 .build();
 
         RowHandler<RowWrapper> rowHandler = SqlRowHandler.INSTANCE;
@@ -213,27 +202,32 @@ public class TableRowConverterSelfTest extends BaseIgniteAbstractTest {
 
         when(executionContext.rowHandler()).thenReturn(rowHandler);
 
-        RowWrapper wrapper = rowFactory.create("abc", 2);
+        RowWrapper wrapper = rowFactory.create(2, "abc");
 
-        TableRowConverterImpl converter = new TableRowConverterImpl(schemaRegistry, schema, table, null);
+        TableRowConverterImpl converter = new TableRowConverterImpl(schemaRegistry, schema, null);
         BinaryRowEx convertedRow = converter.toBinaryRow(executionContext, wrapper, true);
 
         Columns keyColumns = schema.keyColumns();
         BinaryTupleReader reader = new BinaryTupleReader(keyColumns.length(), convertedRow.tupleSlice());
 
-        // Schema stores in key columns in the following order: c4, c2
-        assertEquals("abc", reader.stringValue(0));
-        assertEquals(2, reader.intValue(1));
+        // Schema stores in key columns in the following order: c2, c4
+        assertEquals(2, reader.intValue(0));
+        assertEquals("abc", reader.stringValue(1));
+
+        convertedRow.colocationHash();
     }
 
-    private static SchemaDescriptor newSchema(List<Map.Entry<String, NativeType>> keyCols,
+    private static SchemaDescriptor newSchema(List<String> definitionOrder, List<Map.Entry<String, NativeType>> keyCols,
             List<Map.Entry<String, NativeType>> valueCols) {
 
         Column[] keyColDescriptors = new Column[keyCols.size()];
         int i = 0;
 
         for (Map.Entry<String, NativeType> col : keyCols) {
-            keyColDescriptors[i] = new Column(col.getKey(), col.getValue(), false);
+            String name = col.getKey();
+            int order = definitionOrder.indexOf(name);
+
+            keyColDescriptors[i] = new Column(order, name, col.getValue(), false);
             i++;
         }
 
@@ -241,35 +235,13 @@ public class TableRowConverterSelfTest extends BaseIgniteAbstractTest {
         i = 0;
 
         for (Map.Entry<String, NativeType> col : valueCols) {
-            valColDescriptors[i] = new Column(col.getKey(), col.getValue(), true);
+            String name = col.getKey();
+            int order = definitionOrder.indexOf(name);
+
+            valColDescriptors[i] = new Column(order, name, col.getValue(), true);
             i++;
         }
 
         return new SchemaDescriptor(1, keyColDescriptors, valColDescriptors);
-    }
-
-    private static TableDescriptor newTableDescriptor(SchemaDescriptor schema, String... columnOrder) {
-        List<ColumnDescriptor> columnList = new ArrayList<>();
-
-        for (int i = 0; i < columnOrder.length; i++) {
-            Column column = schema.column(columnOrder[i]);
-            assert column != null;
-
-            boolean key = schema.isKeyColumn(column.schemaIndex());
-
-            ColumnDescriptorImpl descriptor = new ColumnDescriptorImpl(
-                    column.name(),
-                    key,
-                    column.nullable(),
-                    i,
-                    column.type(),
-                    DefaultValueStrategy.DEFAULT_NULL,
-                    () -> null
-            );
-
-            columnList.add(descriptor);
-        }
-
-        return new TableDescriptorImpl(columnList, IgniteDistributions.single());
     }
 }
