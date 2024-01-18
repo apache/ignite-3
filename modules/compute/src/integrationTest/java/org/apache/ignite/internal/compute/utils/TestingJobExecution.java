@@ -96,6 +96,11 @@ public class TestingJobExecution<R> implements JobExecution<R> {
         return jobExecution.cancelAsync();
     }
 
+    @Override
+    public CompletableFuture<Void> changePriorityAsync(int newPriority) {
+        return jobExecution.changePriorityAsync(newPriority);
+    }
+
     /**
      * Checks that the job execution object has EXECUTING state.
      */
