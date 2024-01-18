@@ -32,6 +32,7 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.TimeUnit;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.compute.JobExecution;
@@ -49,6 +50,7 @@ import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.TopologyService;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Implementation of {@link IgniteCompute}.
@@ -171,19 +173,6 @@ public class IgniteComputeImpl implements IgniteCompute {
         }
     }
 
-    private <R> JobExecution<R> executeOnOneNode(
-            ClusterNode targetNode,
-            List<DeploymentUnit> units,
-            String jobClassName,
-            Object[] args
-    ) {
-        if (isLocal(targetNode)) {
-            return computeComponent.executeLocally(units, jobClassName, args);
-        } else {
-            return computeComponent.executeRemotely(targetNode, units, jobClassName, args);
-        }
-    }
-
     private boolean isLocal(ClusterNode targetNode) {
         return targetNode.equals(topologyService.localMember());
     }
@@ -204,7 +193,7 @@ public class IgniteComputeImpl implements IgniteCompute {
 
         return new JobExecutionFutureWrapper<>(
                 requiredTable(tableName)
-                        .thenApply(table -> leaderOfTablePartitionByTupleKey(table, tuple))
+                        .thenApply(table -> primaryReplicaForPartitionByTupleKey(table, tuple))
                         .thenApply(primaryNode -> executeOnOneNodeWithFailover(
                                 primaryNode,
                                 new NextCollocatedWorkerSelector<>(tables, placementDriver, topologyService, clock, tableName, tuple),
@@ -229,7 +218,7 @@ public class IgniteComputeImpl implements IgniteCompute {
         Objects.requireNonNull(jobClassName);
 
         return new JobExecutionFutureWrapper<>(requiredTable(tableName)
-                .thenApply(table -> leaderOfTablePartitionByMappedKey(table, key, keyMapper))
+                .thenApply(table -> primaryReplicaForPartitionByMappedKey(table, key, keyMapper))
                 .thenApply(primaryNode -> executeOnOneNodeWithFailover(primaryNode,
                         new NextCollocatedWorkerSelector<>(tables, placementDriver, topologyService, clock, tableName, key, keyMapper),
                         units, jobClassName, args)));
@@ -280,29 +269,25 @@ public class IgniteComputeImpl implements IgniteCompute {
                 });
     }
 
-    private ClusterNode leaderOfTablePartitionByTupleKey(TableViewInternal table, Tuple key) {
-        return requiredLeaderByPartition(table, table.partition(key));
+    private @Nullable ClusterNode primaryReplicaForPartitionByTupleKey(TableViewInternal table, Tuple key) {
+        return primaryReplicaForPartition(table, table.partition(key));
     }
 
-    private <K> ClusterNode leaderOfTablePartitionByMappedKey(TableViewInternal table, K key, Mapper<K> keyMapper) {
-        return requiredLeaderByPartition(table, table.partition(key, keyMapper));
+    private <K> @Nullable ClusterNode primaryReplicaForPartitionByMappedKey(TableViewInternal table, K key, Mapper<K> keyMapper) {
+        return primaryReplicaForPartition(table, table.partition(key, keyMapper));
     }
 
-    private ClusterNode requiredLeaderByPartition(TableViewInternal table, int partitionIndex) {
-
-        var tt = new TablePartitionId(table.tableId(), partitionIndex);
-        ReplicaMeta replicaMeta = null;
+    private @Nullable ClusterNode primaryReplicaForPartition(TableViewInternal table, int partitionIndex) {
+        TablePartitionId tablePartitionId = new TablePartitionId(table.tableId(), partitionIndex);
         try {
-            replicaMeta = placementDriver.getPrimaryReplica(tt, clock.now()).get();
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
-        } catch (ExecutionException e) {
+            ReplicaMeta replicaMeta = placementDriver.awaitPrimaryReplica(tablePartitionId, clock.now(), 30, TimeUnit.SECONDS).get();
+            if (replicaMeta != null && replicaMeta.getLeaseholderId() != null) {
+                return topologyService.getById(replicaMeta.getLeaseholderId());
+            }
+        } catch (InterruptedException | ExecutionException e) {
             throw new RuntimeException(e);
         }
 
-        if (replicaMeta != null && replicaMeta.getLeaseholder() != null) {
-            return topologyService.getById(replicaMeta.getLeaseholderId());
-        }
         return null;
     }
 

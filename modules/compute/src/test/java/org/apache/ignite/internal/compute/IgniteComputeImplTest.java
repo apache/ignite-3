@@ -23,8 +23,10 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -34,6 +36,10 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobStatus;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
+import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.placementdriver.PlacementDriver;
+import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
@@ -62,6 +68,15 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
 
     @Mock
     private ComputeComponent computeComponent;
+
+    @Mock
+    private LogicalTopologyService logicalTopologyService;
+
+    @Mock
+    private PlacementDriver placementDriver;
+
+    @Mock
+    private HybridClock clock;
 
     @InjectMocks
     private IgniteComputeImpl compute;
@@ -107,10 +122,7 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
     @Test
     void executesColocatedOnLeaderNodeOfPartitionCorrespondingToTupleKey() {
         respondWhenExecutingSimpleJobRemotely();
-
-        when(igniteTables.tableViewAsync("TEST")).thenReturn(completedFuture(table));
-        doReturn(42).when(table).partition(any());
-        doReturn(remoteNode).when(table).leaderAssignment(42);
+        respondWhenAskForPrimaryReplica();
 
         assertThat(
                 compute.<String>executeColocatedAsync(
@@ -127,10 +139,7 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
     @Test
     void executesColocatedOnLeaderNodeOfPartitionCorrespondingToMappedKey() {
         respondWhenExecutingSimpleJobRemotely();
-
-        when(igniteTables.tableViewAsync("TEST")).thenReturn(completedFuture(table));
-        doReturn(42).when(table).partition(any(), any());
-        doReturn(remoteNode).when(table).leaderAssignment(42);
+        respondWhenAskForPrimaryReplica();
 
         assertThat(
                 compute.<Integer, String>executeColocatedAsync(
@@ -143,6 +152,15 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
                 ).resultAsync(),
                 willBe("remoteResponse")
         );
+    }
+
+    private void respondWhenAskForPrimaryReplica() {
+        when(igniteTables.tableViewAsync("TEST")).thenReturn(completedFuture(table));
+        ReplicaMeta replicaMeta = mock(ReplicaMeta.class);
+        doReturn("").when(replicaMeta).getLeaseholderId();
+        CompletableFuture<ReplicaMeta> toBeReturned = completedFuture(replicaMeta);
+        doReturn(toBeReturned).when(placementDriver).awaitPrimaryReplica(any(), any(), anyLong(), any());
+        doReturn(remoteNode).when(topologyService).getById(any());
     }
 
     private void respondWhenExecutingSimpleJobLocally() {
