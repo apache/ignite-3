@@ -203,10 +203,3 @@ Besides local node stopping logic two more actions took place on a cluster as a 
  * Both range and watch cursors will be removed on server side. Given process is linearized with meta storage
   operations by using a meta storage raft.
  * Baseline update and corresponding baseline recalculation with ongoing partition raft groups redeployment.
-
-## Threading
-
-The following global thread pools are defined:
-
- * `{consistentId}-partition-operations-X` executes operations that are part of transactions (including those that make I/O
-or potentially block on locks). All operations related to the same partition get executed on the same thread in this pool.
