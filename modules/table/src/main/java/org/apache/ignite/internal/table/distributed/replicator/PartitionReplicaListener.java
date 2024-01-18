@@ -740,12 +740,30 @@ public class PartitionReplicaListener implements ReplicaListener {
         return placementDriver.getPrimaryReplica(replicationGroupId, hybridClock.now())
                 .thenCompose(replicaMeta -> {
                     if (replicaMeta == null || replicaMeta.getLeaseholder() == null) {
-                        return failedFuture(new PrimaryReplicaMissException(localNode.name(), null, null, null, null));
+                        return failedFuture(
+                                new PrimaryReplicaMissException(
+                                        localNode.name(),
+                                        null,
+                                        localNode.id(),
+                                        null,
+                                        null,
+                                        null,
+                                        null
+                                )
+                        );
                     }
 
-                    if (!isLocalPeer(replicaMeta.getLeaseholder())) {
+                    if (!isLocalPeer(replicaMeta.getLeaseholderId())) {
                         return failedFuture(
-                                new PrimaryReplicaMissException(localNode.name(), replicaMeta.getLeaseholder(), null, null, null)
+                                new PrimaryReplicaMissException(
+                                        localNode.name(),
+                                        replicaMeta.getLeaseholder(),
+                                        localNode.id(),
+                                        replicaMeta.getLeaseholderId(),
+                                        null,
+                                        null,
+                                        null
+                                )
                         );
                     }
 
@@ -3362,13 +3380,17 @@ public class PartitionReplicaListener implements ReplicaListener {
             return placementDriver.getPrimaryReplica(replicationGroupId, now)
                     .thenCompose(primaryReplicaMeta -> {
                         if (primaryReplicaMeta == null) {
-                            return failedFuture(new PrimaryReplicaMissException(
-                                    localNode.name(),
-                                    null,
-                                    enlistmentConsistencyToken,
-                                    null,
-                                    null
-                            ));
+                            return failedFuture(
+                                    new PrimaryReplicaMissException(
+                                            localNode.name(),
+                                            null,
+                                            localNode.id(),
+                                            primaryReplicaMeta.getLeaseholderId(),
+                                            enlistmentConsistencyToken,
+                                            null,
+                                            null
+                                    )
+                            );
                         }
 
                         long currentEnlistmentConsistencyToken = primaryReplicaMeta.getStartTime().longValue();
@@ -3376,22 +3398,25 @@ public class PartitionReplicaListener implements ReplicaListener {
                         // TODO: https://issues.apache.org/jira/browse/IGNITE-20377
                         if (enlistmentConsistencyToken != currentEnlistmentConsistencyToken
                                 || primaryReplicaMeta.getExpirationTime().before(now)
-                                || !primaryReplicaMeta.getLeaseholderId().equals(localNode.id())
+                                || !isLocalPeer(primaryReplicaMeta.getLeaseholderId())
                         ) {
-                            return failedFuture(new PrimaryReplicaMissException(
-                                    localNode.name(),
-                                    primaryReplicaMeta.getLeaseholder(),
-                                    enlistmentConsistencyToken,
-                                    currentEnlistmentConsistencyToken,
-                                    null
-                            ));
+                            return failedFuture(
+                                    new PrimaryReplicaMissException(
+                                            localNode.name(),
+                                            primaryReplicaMeta.getLeaseholder(),
+                                            localNode.id(),
+                                            primaryReplicaMeta.getLeaseholderId(),
+                                            enlistmentConsistencyToken,
+                                            currentEnlistmentConsistencyToken,
+                                            null)
+                            );
                         }
 
                         return nullCompletedFuture();
                     });
         } else if (request instanceof ReadOnlyReplicaRequest || request instanceof ReplicaSafeTimeSyncRequest) {
             return placementDriver.getPrimaryReplica(replicationGroupId, now)
-                    .thenApply(primaryReplica -> (primaryReplica != null && isLocalPeer(primaryReplica.getLeaseholder())));
+                    .thenApply(primaryReplica -> (primaryReplica != null && isLocalPeer(primaryReplica.getLeaseholderId())));
         } else {
             return nullCompletedFuture();
         }
@@ -3705,8 +3730,8 @@ public class PartitionReplicaListener implements ReplicaListener {
         return replicationGroupId.tableId();
     }
 
-    private boolean isLocalPeer(String nodeName) {
-        return localNode.name().equals(nodeName);
+    private boolean isLocalPeer(String nodeId) {
+        return localNode.id().equals(nodeId);
     }
 
     /**

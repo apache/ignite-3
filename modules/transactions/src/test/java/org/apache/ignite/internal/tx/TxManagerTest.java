@@ -396,6 +396,8 @@ public class TxManagerTest extends IgniteAbstractTest {
                         failedFuture(new PrimaryReplicaMissException(
                                 LOCAL_NODE.name(),
                                 null,
+                                LOCAL_NODE.id(),
+                                null,
                                 10L,
                                 null,
                                 null
