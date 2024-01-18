@@ -40,6 +40,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.atomic.LongAdder;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
@@ -1041,6 +1042,50 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
         lockManager.release(tx1, key, IX);
 
         expectConflict(tx2Lock);
+    }
+
+    @Test
+    public void testLocksInIterator() {
+        UUID txId1 = TestTransactionIds.newTransactionId();
+
+        LockKey key = new LockKey(0);
+
+        lockManager.acquire(txId1, key, S).join();
+
+        assertTrue(lockManager.locks(txId1).hasNext());
+
+        LockKey key2 = new LockKey(1, 1);
+
+        lockManager.acquire(txId1, key2, S).join();
+
+        AtomicInteger counter = new AtomicInteger();
+
+        lockManager.locks(txId1).forEachRemaining(lock -> counter.incrementAndGet());
+
+        assertEquals(2, counter.get());
+    }
+
+    @Test
+    public void testLockIsReleased() {
+        LockKey key = new LockKey(0);
+
+        UUID txId1 = TestTransactionIds.newTransactionId();
+
+        lockManager.acquire(txId1, key, X).join();
+
+        assertFalse(lockManager.isEmpty());
+
+        lockManager.release(txId1, key, X);
+
+        assertTrue(lockManager.isEmpty());
+
+        UUID txId2 = TestTransactionIds.newTransactionId();
+
+        lockManager.acquire(txId2, key, X).join();
+
+        lockManager.release(txId2, key, X);
+
+        assertTrue(lockManager.isEmpty());
     }
 
     /**
