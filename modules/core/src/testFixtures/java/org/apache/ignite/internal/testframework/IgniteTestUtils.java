@@ -289,7 +289,7 @@ public final class IgniteTestUtils {
      *
      * @param cls Expected exception class.
      * @param run Runnable to check.
-     * @param errorCode Error code to be registered.
+     * @param errorCode Error code to be checked.
      * @param errorMessageFragment Fragment of the error text in the expected exception, {@code null} if not to be checked.
      * @return Thrown throwable.
      */
@@ -299,13 +299,9 @@ public final class IgniteTestUtils {
             int errorCode,
             @Nullable String errorMessageFragment
     ) {
-        T ie = Assertions.assertThrows(cls, run);
+        T ie = assertThrows(cls, run, errorMessageFragment);
 
         assertEquals(errorCode, ie.code(), "Error code doesn't match");
-
-        if (errorMessageFragment != null) {
-            assertThat(ie.getMessage(), containsString(errorMessageFragment));
-        }
 
         return ie;
     }
