@@ -44,7 +44,6 @@ import java.util.RandomAccess;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
-import java.util.function.Predicate;
 import java.util.stream.Stream;
 import org.apache.ignite.configuration.ConfigurationProperty;
 import org.apache.ignite.configuration.ConfigurationWrongPolymorphicTypeIdException;
@@ -81,9 +80,6 @@ public class ConfigurationUtil {
     /** Configuration source that copies values without modifying tham. */
     public static final ConfigurationSource EMPTY_CFG_SRC = new ConfigurationSource() {
     };
-
-    /** Special object for determining that there is no next element. */
-    private static final Object NO_NEXT_ELEMENT = new Object();
 
     /**
      * Seperator string for both public and internal representations of configuration keys.
@@ -942,73 +938,6 @@ public class ConfigurationUtil {
                     return result;
                 }
             };
-        };
-    }
-
-    /**
-     * Maps iterable via provided mapper function.
-     *
-     * @param iterable Basic iterable.
-     * @param mapper Conversion function.
-     * @param predicate Predicate to apply to each element of basic iterable.
-     * @param <T1> Base type of the iterable.
-     * @param <T2> Type for view.
-     * @return Mapped iterable.
-     */
-    public static <T1, T2> Iterable<T2> mapIterable(
-            @Nullable Iterable<? extends T1> iterable,
-            @Nullable Function<? super T1, ? extends T2> mapper,
-            @Nullable Predicate<? super T1> predicate
-    ) {
-        if (iterable == null) {
-            return Collections.emptyList();
-        }
-
-        if (mapper == null && predicate == null) {
-            return (Iterable<T2>) iterable;
-        }
-
-        return new Iterable<>() {
-            @Override
-            public Iterator<T2> iterator() {
-                Iterator<? extends T1> innerIterator = iterable.iterator();
-                return new Iterator<>() {
-                    @Nullable
-                    T1 current = advance();
-
-                    /** {@inheritDoc} */
-                    @Override
-                    public boolean hasNext() {
-                        return current != NO_NEXT_ELEMENT;
-                    }
-
-                    /** {@inheritDoc} */
-                    @Override
-                    public T2 next() {
-                        T1 current = this.current;
-
-                        if (current == NO_NEXT_ELEMENT) {
-                            throw new NoSuchElementException();
-                        }
-
-                        this.current = advance();
-
-                        return mapper == null ? (T2) current : mapper.apply(current);
-                    }
-
-                    private @Nullable T1 advance() {
-                        while (innerIterator.hasNext()) {
-                            T1 next = innerIterator.next();
-
-                            if (predicate == null || predicate.test(next)) {
-                                return next;
-                            }
-                        }
-
-                        return (T1) NO_NEXT_ELEMENT;
-                    }
-                };
-            }
         };
     }
 
