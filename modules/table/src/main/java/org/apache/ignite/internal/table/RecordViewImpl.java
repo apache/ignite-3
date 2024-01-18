@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.table;
 
+import static org.apache.ignite.internal.marshaller.Marshaller.createMarshaller;
+import static org.apache.ignite.internal.schema.marshaller.MarshallerUtil.toMarshallerColumns;
+
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -25,29 +28,27 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
 import java.util.function.Function;
+import org.apache.ignite.internal.marshaller.Marshaller;
+import org.apache.ignite.internal.marshaller.TupleReader;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
+import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.marshaller.RecordMarshaller;
 import org.apache.ignite.internal.schema.marshaller.reflection.RecordMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.streamer.StreamerBatchSender;
-import org.apache.ignite.internal.table.criteria.CursorAdapter;
-import org.apache.ignite.internal.table.criteria.QueryCriteriaAsyncCursor;
-import org.apache.ignite.internal.table.criteria.SqlSerializer;
+import org.apache.ignite.internal.table.criteria.SqlRowProjection;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
 import org.apache.ignite.internal.tx.InternalTransaction;
-import org.apache.ignite.lang.AsyncCursor;
-import org.apache.ignite.lang.Cursor;
+import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.lang.MarshallerException;
 import org.apache.ignite.sql.IgniteSql;
-import org.apache.ignite.sql.Session;
-import org.apache.ignite.sql.Statement;
+import org.apache.ignite.sql.ResultSetMetadata;
+import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.RecordView;
-import org.apache.ignite.table.criteria.Criteria;
-import org.apache.ignite.table.criteria.CriteriaQueryOptions;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
@@ -55,7 +56,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Record view implementation.
  */
-public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R> {
+public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordView<R> {
     /** Record class mapper. */
     private final Mapper<R> mapper;
 
@@ -541,28 +542,16 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
 
     /** {@inheritDoc} */
     @Override
-    public Cursor<R> query(@Nullable Transaction tx, @Nullable Criteria criteria, @Nullable CriteriaQueryOptions opts) {
-        return new CursorAdapter<>(sync(queryAsync(tx, criteria, opts)));
-    }
+    protected Function<SqlRow, R> queryMapper(ResultSetMetadata meta, SchemaDescriptor schema) {
+        Column[] cols = ArrayUtils.concat(schema.keyColumns().columns(), schema.valueColumns().columns());
+        Marshaller marsh = createMarshaller(toMarshallerColumns(cols), mapper, false, true);
 
-    /** {@inheritDoc} */
-    @Override
-    public CompletableFuture<AsyncCursor<R>> queryAsync(
-            @Nullable Transaction tx,
-            @Nullable Criteria criteria,
-            @Nullable CriteriaQueryOptions opts
-    ) {
-        var opts0 = opts == null ? CriteriaQueryOptions.DEFAULT : opts;
-
-        return withSchemaSync(tx, (schemaVersion) -> {
-            SchemaDescriptor schema = rowConverter.registry().schema(schemaVersion);
-            SqlSerializer ser = createSqlSerializer(tbl.name(), schema.columnNames(), criteria);
-
-            Statement statement = sql.statementBuilder().query(ser.toString()).pageSize(opts0.pageSize()).build();
-            Session session = sql.createSession();
-
-            return session.executeAsync(tx, mapper, statement, ser.getArguments())
-                    .thenApply(resultSet -> new QueryCriteriaAsyncCursor<>(resultSet, session::close));
-        });
+        return (row) -> {
+            try {
+                return (R) marsh.readObject(new TupleReader(new SqlRowProjection(row, meta, columnNames(cols))), null);
+            } catch (org.apache.ignite.internal.marshaller.MarshallerException e) {
+                throw new MarshallerException(e);
+            }
+        };
     }
 }

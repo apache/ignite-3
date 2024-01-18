@@ -603,6 +603,17 @@ public final class ExceptionUtils {
     }
 
     /**
+     * Checks if passed in {@code 'Throwable'} has given class in {@code 'cause'} hierarchy <b>including</b> that throwable itself.
+     *
+     * @param exceptionClass Cause class to check.
+     * @param ex Throwable to check (if {@code null}, {@code false} is returned).
+     * @return {@code True} if one of the causing exception is an instance of passed in classes, {@code false} otherwise.
+     */
+    public static boolean isOrCausedBy(Class<? extends Exception> exceptionClass, @Nullable Throwable ex) {
+        return ex != null && (exceptionClass.isInstance(ex) || isOrCausedBy(exceptionClass, ex.getCause()));
+    }
+
+    /**
      * Creates and return a copy of an exception that is a cause of the given {@code exception}.
      * If the original exception does not contain a cause, then the original exception will be returned.
      * In order to preserve a stack trace, the original completion exception will be set as the cause of the newly created exception.
