@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.tx.impl;
 
-import static java.util.Collections.emptyIterator;
 import static java.util.Collections.emptyList;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.ACQUIRE_LOCK_ERR;
@@ -54,6 +53,7 @@ import org.apache.ignite.internal.tx.LockMode;
 import org.apache.ignite.internal.tx.Waiter;
 import org.apache.ignite.internal.tx.event.LockEvent;
 import org.apache.ignite.internal.tx.event.LockEventParameters;
+import org.apache.ignite.internal.util.CollectionUtils;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -200,6 +200,13 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
 
     @Override
     public void release(UUID txId, LockKey lockKey, LockMode lockMode) {
+        // TODO: Delegation to parentLockManager might change after https://issues.apache.org/jira/browse/IGNITE-20895 
+        if (lockKey.contextId() == null) { // Treat this lock as a hierarchy lock.
+            parentLockManager.release(txId, lockKey, lockMode);
+
+            return;
+        }
+
         LockState state = lockState(lockKey);
 
         if (state.tryRelease(txId, lockMode)) {
@@ -247,8 +254,9 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
     public Iterator<Lock> locks(UUID txId) {
         ConcurrentLinkedQueue<LockState> lockStates = txMap.get(txId);
 
+        // TODO: Delegation to parentLockManager might change after https://issues.apache.org/jira/browse/IGNITE-20895
         if (lockStates == null) {
-            return emptyIterator();
+            return parentLockManager.locks(txId);
         }
 
         List<Lock> result = new ArrayList<>();
@@ -261,7 +269,7 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
             }
         }
 
-        return result.iterator();
+        return CollectionUtils.concat(result.iterator(), parentLockManager.locks(txId));
     }
 
     /**
@@ -316,7 +324,7 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
             }
         }
 
-        return true;
+        return parentLockManager.isEmpty();
     }
 
     /**
