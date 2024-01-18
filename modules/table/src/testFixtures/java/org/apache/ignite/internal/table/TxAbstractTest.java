@@ -27,6 +27,7 @@ import static org.hamcrest.Matchers.contains;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -429,7 +430,13 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         });
 
         var err = assertThrows(CompletionException.class, fut0::join);
-        assertEquals(IllegalArgumentException.class, err.getCause().getClass());
+
+        try {
+            assertInstanceOf(IllegalArgumentException.class, err.getCause());
+        } catch (AssertionError e) {
+            throw new AssertionError("Unexpected exception type", err);
+        }
+
         assertEquals(balance, view.get(null, makeKey(1)).doubleValue("balance"));
     }
 
@@ -449,7 +456,12 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         });
 
         var err = assertThrows(CompletionException.class, fut0::join);
-        assertEquals(NullPointerException.class, err.getCause().getClass());
+
+        try {
+            assertInstanceOf(NullPointerException.class, err.getCause());
+        } catch (AssertionError e) {
+            throw new AssertionError("Unexpected exception type", err);
+        }
     }
 
     @Test
