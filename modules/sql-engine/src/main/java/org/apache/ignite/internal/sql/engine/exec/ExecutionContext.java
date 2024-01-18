@@ -37,7 +37,6 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.RunnableX;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.schema.BinaryRowConverter;
 import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactory;
 import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactoryImpl;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ColocationGroup;
@@ -374,11 +373,6 @@ public class ExecutionContext<RowT> implements DataContext {
         ExecutionContext<?> context = (ExecutionContext<?>) o;
 
         return qryId.equals(context.qryId) && description.fragmentId() == context.description.fragmentId();
-    }
-
-    /** Null bound. */
-    public Object nullBound() {
-        return BinaryRowConverter.NULL_BOUND;
     }
 
     /** {@inheritDoc} */

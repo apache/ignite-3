@@ -74,6 +74,7 @@ public class AbstractMultiNodeBenchmark {
      */
     @Setup
     public final void nodeSetUp() throws Exception {
+        System.setProperty("jraft.available_processors", "2");
         startCluster();
 
         try {

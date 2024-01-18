@@ -169,7 +169,6 @@ import static org.apache.calcite.sql.fun.SqlLibraryOperators.TO_BASE64;
 import static org.apache.calcite.sql.fun.SqlLibraryOperators.TO_CHAR;
 import static org.apache.calcite.sql.fun.SqlLibraryOperators.TO_HEX;
 import static org.apache.calcite.sql.fun.SqlLibraryOperators.TRANSLATE3;
-import static org.apache.calcite.sql.fun.SqlLibraryOperators.TRUNC;
 import static org.apache.calcite.sql.fun.SqlLibraryOperators.TRY_CAST;
 import static org.apache.calcite.sql.fun.SqlLibraryOperators.UNIX_DATE;
 import static org.apache.calcite.sql.fun.SqlLibraryOperators.UNIX_MICROS;
@@ -334,7 +333,6 @@ import static org.apache.calcite.sql.fun.SqlStdOperatorTable.UNARY_PLUS;
 import static org.apache.calcite.sql.fun.SqlStdOperatorTable.UPPER;
 import static org.apache.calcite.sql.fun.SqlStdOperatorTable.USER;
 import static org.apache.calcite.util.ReflectUtil.isStatic;
-import static org.apache.ignite.internal.sql.engine.sql.fun.IgniteSqlOperatorTable.NULL_BOUND;
 import static org.apache.ignite.internal.sql.engine.sql.fun.IgniteSqlOperatorTable.SUBSTR;
 import static org.apache.ignite.internal.sql.engine.sql.fun.IgniteSqlOperatorTable.SYSTEM_RANGE;
 import static org.apache.ignite.internal.sql.engine.sql.fun.IgniteSqlOperatorTable.TYPEOF;
@@ -1021,7 +1019,6 @@ public class RexImpTable {
       defineMethod(TRUNCATE, IgniteMethod.TRUNCATE.method(), NullPolicy.STRICT);
 
       map.put(TYPEOF, systemFunctionImplementor);
-      map.put(NULL_BOUND, systemFunctionImplementor);
       map.put(SYSTEM_RANGE, systemFunctionImplementor);
       return this;
     }
@@ -1036,7 +1033,6 @@ public class RexImpTable {
       Expression implementSafe(final RexToLixTranslator translator,
               final RexCall call, final List<Expression> argValueList) {
         final SqlOperator op = call.getOperator();
-        final Expression root = translator.getRoot();
         if (op == SYSTEM_RANGE) {
           if (call.getOperands().size() == 2) {
             return createTableFunctionImplementor(IgniteMethod.SYSTEM_RANGE2.method())
@@ -1053,8 +1049,6 @@ public class RexImpTable {
 
             return implementor.implement(translator, call, NullAs.NOT_POSSIBLE);
           }
-        } else if (op == NULL_BOUND) {
-          return Expressions.call(root, IgniteMethod.CONTEXT_NULL_BOUND.method());
         }
 
         throw new AssertionError("unknown function " + op);

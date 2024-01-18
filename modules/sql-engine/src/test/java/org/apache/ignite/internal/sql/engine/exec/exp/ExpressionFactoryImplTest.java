@@ -30,12 +30,16 @@ import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 import java.util.function.BiPredicate;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import org.apache.calcite.rel.RelCollations;
+import org.apache.calcite.rel.RelFieldCollation;
+import org.apache.calcite.rel.RelFieldCollation.Direction;
+import org.apache.calcite.rel.RelFieldCollation.NullDirection;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory.Builder;
 import org.apache.calcite.rel.type.RelDataTypeField;
@@ -62,7 +66,6 @@ import org.apache.ignite.internal.sql.engine.prepare.bounds.ExactBounds;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.MultiBounds;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.RangeBounds;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.SearchBounds;
-import org.apache.ignite.internal.sql.engine.sql.fun.IgniteSqlOperatorTable;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.RexUtils;
@@ -125,75 +128,187 @@ public class ExpressionFactoryImplTest extends BaseIgniteAbstractTest {
         assertNotSame(scalar1, scalar2);
     }
 
-    /**
-     * Column with {@link IgniteSqlOperatorTable#NULL_BOUND} is converted to {@code null}.
-     */
     @Test
-    public void testNullBoundIsConvertedToNull() {
+    void multiBoundConditionAreOrderedCorrectly() {
         RexBuilder rexBuilder = Commons.rexBuilder();
 
         // condition expression is not used
         RexLiteral condition = rexBuilder.makeLiteral(true);
+
+        RelDataType rowType = new Builder(typeFactory)
+                .add("C1", SqlTypeName.INTEGER)
+                .build();
 
         RexNode intValue1 = rexBuilder.makeExactLiteral(new BigDecimal("1"));
-        RexNode intValue2 = rexBuilder.makeExactLiteral(new BigDecimal("2"));
-        RexNode nullBound = rexBuilder.makeCall(IgniteSqlOperatorTable.NULL_BOUND);
-
-        List<SearchBounds> boundsList = List.of(
-                new MultiBounds(condition, List.of(
-                        new ExactBounds(condition, intValue1),
-                        new ExactBounds(condition, nullBound))
-                ),
-                new ExactBounds(condition, intValue2)
-        );
-
-        RelDataType rowType = new Builder(typeFactory)
-                .add("C1", SqlTypeName.INTEGER)
-                .add("C2", SqlTypeName.INTEGER)
-                .build();
-
-        RangeIterable<Object[]> ranges = expFactory.ranges(boundsList, rowType, null);
-        List<TestRange> list = new ArrayList<>();
-
-        ranges.forEach(r -> list.add(new TestRange(r.lower(), r.upper())));
-
-        List<TestRange> expected = List.of(
-                new TestRange(new Object[]{1, 2}),
-                new TestRange(new Object[]{null, 2}));
-
-        assertEquals(expected, list);
-    }
-
-    /**
-     * {@link RangeCondition} with {@code NULL} bound is ignored.
-     */
-    @Test
-    public void testRangeConditionWithNullIsIgnored() {
-        RexBuilder rexBuilder = Commons.rexBuilder();
-
-        // condition expression is not used
-        RexLiteral condition = rexBuilder.makeLiteral(true);
-
-        RexNode intValue = rexBuilder.makeExactLiteral(new BigDecimal("1"));
+        RexNode intValue5 = rexBuilder.makeExactLiteral(new BigDecimal("5"));
         RexNode nullValue = rexBuilder.makeNullLiteral(typeFactory.createSqlType(SqlTypeName.INTEGER));
 
-        List<SearchBounds> boundsList = List.of(
-                new MultiBounds(condition, List.of(
-                        new ExactBounds(condition, intValue),
-                        new ExactBounds(condition, nullValue))
-                )
-        );
+        { // two non-null value should be ordered according to collation (ASC)
+            List<SearchBounds> boundsList = List.of(
+                    new MultiBounds(condition, List.of(
+                            new ExactBounds(condition, intValue1),
+                            new ExactBounds(condition, intValue5)
+                    ))
+            );
 
-        RelDataType rowType = new Builder(typeFactory)
-                .add("C1", SqlTypeName.INTEGER)
-                .build();
+            Comparator<Object[]> comparator = expFactory.comparator(RelCollations.of(0));
 
-        RangeIterable<Object[]> ranges = expFactory.ranges(boundsList, rowType, null);
-        List<TestRange> list = new ArrayList<>();
+            RangeIterable<Object[]> ranges = expFactory.ranges(boundsList, rowType, comparator);
+            List<TestRange> list = new ArrayList<>();
 
-        ranges.forEach(r -> list.add(new TestRange(r.lower(), r.upper())));
+            ranges.forEach(r -> list.add(new TestRange(r.lower(), r.upper())));
 
-        assertEquals(List.of(new TestRange(new Object[]{1})), list);
+            assertEquals(List.of(new TestRange(new Object[]{1}), new TestRange(new Object[]{5})), list);
+        }
+
+        { // two non-null value should be ordered according to collation (DESC)
+            List<SearchBounds> boundsList = List.of(
+                    new MultiBounds(condition, List.of(
+                            new ExactBounds(condition, intValue1),
+                            new ExactBounds(condition, intValue5)
+                    ))
+            );
+
+            Comparator<Object[]> comparator = expFactory.comparator(RelCollations.of(new RelFieldCollation(0, Direction.DESCENDING)));
+
+            RangeIterable<Object[]> ranges = expFactory.ranges(boundsList, rowType, comparator);
+            List<TestRange> list = new ArrayList<>();
+
+            ranges.forEach(r -> list.add(new TestRange(r.lower(), r.upper())));
+
+            assertEquals(List.of(new TestRange(new Object[]{5}), new TestRange(new Object[]{1})), list);
+        }
+
+        { // null value should respect collation (NULLS FIRST)
+            List<SearchBounds> boundsList = List.of(
+                    new MultiBounds(condition, List.of(
+                            new ExactBounds(condition, intValue1),
+                            new ExactBounds(condition, nullValue)
+                    ))
+            );
+
+            Comparator<Object[]> comparator = expFactory.comparator(RelCollations.of(
+                    new RelFieldCollation(0, Direction.DESCENDING, NullDirection.FIRST)));
+
+            RangeIterable<Object[]> ranges = expFactory.ranges(boundsList, rowType, comparator);
+            List<TestRange> list = new ArrayList<>();
+
+            ranges.forEach(r -> list.add(new TestRange(r.lower(), r.upper())));
+
+            assertEquals(List.of(new TestRange(new Object[]{null}), new TestRange(new Object[]{1})), list);
+        }
+
+        { // null value should respect collation (NULLS LAST)
+            List<SearchBounds> boundsList = List.of(
+                    new MultiBounds(condition, List.of(
+                            new ExactBounds(condition, intValue1),
+                            new ExactBounds(condition, nullValue)
+                    ))
+            );
+
+            Comparator<Object[]> comparator = expFactory.comparator(RelCollations.of(
+                    new RelFieldCollation(0, Direction.DESCENDING, NullDirection.LAST)));
+
+            RangeIterable<Object[]> ranges = expFactory.ranges(boundsList, rowType, comparator);
+            List<TestRange> list = new ArrayList<>();
+
+            ranges.forEach(r -> list.add(new TestRange(r.lower(), r.upper())));
+
+            assertEquals(List.of(new TestRange(new Object[]{1}), new TestRange(new Object[]{null})), list);
+        }
+
+        { // range condition with lower bound should be ordered according to collation (ASC)
+            List<SearchBounds> boundsList = List.of(
+                    new MultiBounds(condition, List.of(
+                            new ExactBounds(condition, intValue1),
+                            new RangeBounds(condition, intValue5, null, true, true)
+                    ))
+            );
+
+            Comparator<Object[]> comparator = expFactory.comparator(RelCollations.of(0));
+
+            RangeIterable<Object[]> ranges = expFactory.ranges(boundsList, rowType, comparator);
+            List<TestRange> list = new ArrayList<>();
+
+            ranges.forEach(r -> list.add(new TestRange(r.lower(), r.upper())));
+
+            assertEquals(List.of(new TestRange(new Object[]{1}), new TestRange(new Object[]{5}, null)), list);
+        }
+
+        { // range condition with lower bound should be ordered according to collation (DESC)
+            List<SearchBounds> boundsList = List.of(
+                    new MultiBounds(condition, List.of(
+                            new ExactBounds(condition, intValue1),
+                            new RangeBounds(condition, intValue5, null, true, true)
+                    ))
+            );
+
+            Comparator<Object[]> comparator = expFactory.comparator(RelCollations.of(new RelFieldCollation(0, Direction.DESCENDING)));
+
+            RangeIterable<Object[]> ranges = expFactory.ranges(boundsList, rowType, comparator);
+            List<TestRange> list = new ArrayList<>();
+
+            ranges.forEach(r -> list.add(new TestRange(r.lower(), r.upper())));
+
+            assertEquals(List.of(new TestRange(new Object[]{5}, null), new TestRange(new Object[]{1})), list);
+        }
+
+        { // range condition with null value as lower bound should respect collation (NULLS FIRST)
+            List<SearchBounds> boundsList = List.of(
+                    new MultiBounds(condition, List.of(
+                            new ExactBounds(condition, intValue1),
+                            new RangeBounds(condition, nullValue, null, true, true)
+                    ))
+            );
+
+            Comparator<Object[]> comparator = expFactory.comparator(RelCollations.of(
+                    new RelFieldCollation(0, Direction.DESCENDING, NullDirection.FIRST)));
+
+            RangeIterable<Object[]> ranges = expFactory.ranges(boundsList, rowType, comparator);
+            List<TestRange> list = new ArrayList<>();
+
+            ranges.forEach(r -> list.add(new TestRange(r.lower(), r.upper())));
+
+            assertEquals(List.of(new TestRange(new Object[]{null}, null), new TestRange(new Object[]{1})), list);
+        }
+
+        { // range condition with null value as lower bound should respect collation (NULLS LAST)
+            List<SearchBounds> boundsList = List.of(
+                    new MultiBounds(condition, List.of(
+                            new ExactBounds(condition, intValue1),
+                            new RangeBounds(condition, nullValue, null, true, true)
+                    ))
+            );
+
+            Comparator<Object[]> comparator = expFactory.comparator(RelCollations.of(
+                    new RelFieldCollation(0, Direction.DESCENDING, NullDirection.LAST)));
+
+            RangeIterable<Object[]> ranges = expFactory.ranges(boundsList, rowType, comparator);
+            List<TestRange> list = new ArrayList<>();
+
+            ranges.forEach(r -> list.add(new TestRange(r.lower(), r.upper())));
+
+            assertEquals(List.of(new TestRange(new Object[]{1}), new TestRange(new Object[]{null}, null)), list);
+        }
+
+        { // range condition without lower bound should respect collation (NULLS FIRST)
+            List<SearchBounds> boundsList = List.of(
+                    new MultiBounds(condition, List.of(
+                            new ExactBounds(condition, intValue1),
+                            new RangeBounds(condition, null, intValue5, true, true)
+                    ))
+            );
+
+            Comparator<Object[]> comparator = expFactory.comparator(RelCollations.of(
+                    new RelFieldCollation(0, Direction.DESCENDING, NullDirection.FIRST)));
+
+            RangeIterable<Object[]> ranges = expFactory.ranges(boundsList, rowType, comparator);
+            List<TestRange> list = new ArrayList<>();
+
+            ranges.forEach(r -> list.add(new TestRange(r.lower(), r.upper())));
+
+            assertEquals(List.of(new TestRange(null, new Object[]{5}), new TestRange(new Object[]{1})), list);
+        }
     }
 
     @ParameterizedTest(name = "condition satisfies the index: [{0}]")
@@ -387,7 +502,7 @@ public class ExpressionFactoryImplTest extends BaseIgniteAbstractTest {
             this(lower, lower);
         }
 
-        TestRange(Object[] lower, @Nullable Object[] upper) {
+        TestRange(Object @Nullable [] lower, Object @Nullable [] upper) {
             this.lower = lower;
             this.upper = upper;
         }

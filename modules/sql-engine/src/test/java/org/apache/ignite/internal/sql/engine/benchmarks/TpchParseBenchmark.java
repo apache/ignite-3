@@ -20,6 +20,7 @@ package org.apache.ignite.internal.sql.engine.benchmarks;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlParser;
 import org.apache.ignite.internal.sql.engine.sql.StatementParseResult;
+import org.apache.ignite.internal.sql.engine.util.tpch.TpchHelper;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;

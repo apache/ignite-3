@@ -33,7 +33,6 @@ import java.util.stream.Stream;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
-import org.apache.ignite.internal.sql.engine.prepare.ParameterMetadata;
 import org.apache.ignite.internal.sql.engine.prepare.ParameterType;
 import org.apache.ignite.internal.sql.engine.property.SqlProperties;
 import org.apache.ignite.internal.sql.engine.property.SqlPropertiesHelper;
@@ -88,6 +87,7 @@ public class ItDynamicParameterTest extends BaseSqlIntegrationTest {
     public void testDynamicParameters() {
         assertQuery("SELECT COALESCE(null, ?)").withParams(13).returns(13).check();
         assertQuery("SELECT LOWER(?)").withParams("ASD").returns("asd").check();
+        assertQuery("SELECT LOWER(?)").withParams(null).returns(null).check();
         assertQuery("SELECT POWER(?, ?)").withParams(2, 3).returns(8d).check();
         assertQuery("SELECT SQRT(?)").withParams(4d).returns(2d).check();
         assertQuery("SELECT ?").withParams("asd").returns("asd").check();
@@ -294,9 +294,9 @@ public class ItDynamicParameterTest extends BaseSqlIntegrationTest {
     @ParameterizedTest
     @MethodSource("statementsWithParameters")
     public void testGetParameterTypesSimple(String stmt, List<ColumnType> expectedTypes, Object[] params) {
-        ParameterMetadata parameterTypes = getParameterMetadata(stmt, params);
+        List<ParameterType> parameterTypes = getParameterTypes(stmt, params);
 
-        List<ColumnType> columnTypes = parameterTypes.parameterTypes()
+        List<ColumnType> columnTypes = parameterTypes
                 .stream()
                 .map(ParameterType::columnType)
                 .collect(Collectors.toList());
@@ -321,7 +321,7 @@ public class ItDynamicParameterTest extends BaseSqlIntegrationTest {
         assertThrowsSqlException(
                 Sql.STMT_VALIDATION_ERR,
                 "Unexpected number of query parameters",
-                () -> getParameterMetadata("SELECT ? + ?", 1, 2, 3));
+                () -> getParameterTypes("SELECT ? + ?", 1, 2, 3));
     }
 
     @Test
@@ -341,9 +341,9 @@ public class ItDynamicParameterTest extends BaseSqlIntegrationTest {
 
         log.info("SELECT from column names: {}", stmt);
 
-        ParameterMetadata parameterTypes = getParameterMetadata(stmt.toString());
+        List<ParameterType> parameterTypes = getParameterTypes(stmt.toString());
 
-        List<NativeType> actualTypes = parameterTypes.parameterTypes().stream()
+        List<NativeType> actualTypes = parameterTypes.stream()
                 .map(p -> TypeUtils.columnType2NativeType(p.columnType(), p.precision(), p.scale(), p.precision()))
                 .collect(Collectors.toList());
 
@@ -362,9 +362,9 @@ public class ItDynamicParameterTest extends BaseSqlIntegrationTest {
 
         log.info("INSERT from column names: {}", stmt);
 
-        ParameterMetadata parameterTypes = getParameterMetadata(stmt.toString());
+        List<ParameterType> parameterTypes = getParameterTypes(stmt.toString());
 
-        List<NativeType> actualTypes = parameterTypes.parameterTypes().stream()
+        List<NativeType> actualTypes = parameterTypes.stream()
                 .map(p -> TypeUtils.columnType2NativeType(p.columnType(), p.precision(), p.scale(), p.precision()))
                 .collect(Collectors.toList());
 
@@ -389,9 +389,9 @@ public class ItDynamicParameterTest extends BaseSqlIntegrationTest {
 
         log.info("UPDATE from column names: {}", stmt);
 
-        ParameterMetadata parameterTypes = getParameterMetadata(stmt.toString());
+        List<ParameterType> parameterTypes = getParameterTypes(stmt.toString());
 
-        List<NativeType> actualTypes = parameterTypes.parameterTypes().stream()
+        List<NativeType> actualTypes = parameterTypes.stream()
                 .map(p -> TypeUtils.columnType2NativeType(p.columnType(), p.precision(), p.scale(), p.precision()))
                 .collect(Collectors.toList());
 
@@ -452,9 +452,9 @@ public class ItDynamicParameterTest extends BaseSqlIntegrationTest {
                 () -> assertQuery(query).withParams(params).check());
     }
 
-    private ParameterMetadata getParameterMetadata(String query, Object... params) {
+    private List<ParameterType> getParameterTypes(String query, Object... params) {
         QueryProcessor qryProc = queryProcessor();
         SqlProperties properties = SqlPropertiesHelper.emptyProperties();
-        return await(qryProc.prepareSingleAsync(properties, null, query, params));
+        return await(qryProc.prepareSingleAsync(properties, null, query, params)).parameterTypes();
     }
 }

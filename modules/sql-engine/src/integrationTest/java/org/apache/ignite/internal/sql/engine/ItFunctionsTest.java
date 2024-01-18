@@ -344,6 +344,15 @@ public class ItFunctionsTest extends BaseSqlIntegrationTest {
                 "negative substring length");
     }
 
+    /** Tests LOWER, UPPER functions. */
+    @Test
+    public void testLowerUpper() {
+        assertQuery("SELECT LOWER(NULL)").returns(null).check();
+        assertQuery("SELECT LOWER('NULL')").returns("null").check();
+        assertQuery("SELECT UPPER(NULL)").returns(null).check();
+        assertQuery("SELECT UPPER('NULL')").returns("NULL").check();
+    }
+
     /**
      * Tests for {@code SUBSTR(str, start[, length])} function.
      */
