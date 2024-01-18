@@ -421,7 +421,7 @@ public class ItCriteriaQueryTest extends ClusterPerClassIntegrationTest {
         AsyncCursor<TestObject> ars = await(view.queryAsync(null, null, builder().pageSize(3).build()));
 
         assertNotNull(ars);
-        assertThrows(CriteriaException.class, () -> await(ars.fetchNextPage()), Criteria.CURSOR_NO_MORE_PAGES_ERR,
+        assertThrows(CriteriaException.class, () -> await(ars.fetchNextPage()), Criteria.CRITERIA_CURSOR_NO_MORE_PAGES_ERR,
                 "There are no more pages");
     }
 
@@ -433,7 +433,7 @@ public class ItCriteriaQueryTest extends ClusterPerClassIntegrationTest {
 
         assertNotNull(ars);
         await(ars.closeAsync());
-        assertThrows(CriteriaException.class, () -> await(ars.fetchNextPage()), Criteria.CURSOR_CLOSED_ERR, "Cursor is closed");
+        assertThrows(CriteriaException.class, () -> await(ars.fetchNextPage()), Criteria.CRITERIA_CURSOR_CLOSED_ERR, "Cursor is closed");
     }
 
     @Test

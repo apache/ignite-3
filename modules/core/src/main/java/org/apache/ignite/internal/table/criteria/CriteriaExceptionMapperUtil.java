@@ -61,11 +61,11 @@ public class CriteriaExceptionMapperUtil {
             SqlException sqle = (SqlException) e;
 
             if (sqle.code() == Sql.CURSOR_NO_MORE_PAGES_ERR) {
-                return new CriteriaException(Criteria.CURSOR_NO_MORE_PAGES_ERR, e);
+                return new CriteriaException(Criteria.CRITERIA_CURSOR_NO_MORE_PAGES_ERR, e);
             }
 
             if (sqle.code() == Sql.CURSOR_CLOSED_ERR) {
-                return new CriteriaException(Criteria.CURSOR_CLOSED_ERR, e);
+                return new CriteriaException(Criteria.CRITERIA_CURSOR_CLOSED_ERR, e);
             }
 
             return new CriteriaException(INTERNAL_ERR, e);

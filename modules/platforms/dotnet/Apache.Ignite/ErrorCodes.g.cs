@@ -547,11 +547,11 @@ namespace Apache.Ignite
             /// <summary> Criteria group name. </summary>
             public const String GroupName = "CRITERIA";
 
-            /// <summary> CursorNoMorePages error. </summary>
-            public const int CursorNoMorePages = (GroupCode << 16) | (1 & 0xFFFF);
+            /// <summary> CriteriaCursorNoMorePages error. </summary>
+            public const int CriteriaCursorNoMorePages = (GroupCode << 16) | (1 & 0xFFFF);
 
-            /// <summary> CursorClosed error. </summary>
-            public const int CursorClosed = (GroupCode << 16) | (2 & 0xFFFF);
+            /// <summary> CriteriaCursorClosed error. </summary>
+            public const int CriteriaCursorClosed = (GroupCode << 16) | (2 & 0xFFFF);
         }
     }
 }

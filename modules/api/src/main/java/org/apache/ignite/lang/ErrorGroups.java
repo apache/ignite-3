@@ -585,9 +585,9 @@ public class ErrorGroups {
         public static final ErrorGroup CRITERIA_ERR_GROUP = registerGroup("CRITERIA", (short) 19);
 
         /** No more pages in the cursor error. */
-        public static final int CURSOR_NO_MORE_PAGES_ERR = CRITERIA_ERR_GROUP.registerErrorCode((short) 1);
+        public static final int CRITERIA_CURSOR_NO_MORE_PAGES_ERR = CRITERIA_ERR_GROUP.registerErrorCode((short) 1);
 
         /** Cursor is already closed error. */
-        public static final int CURSOR_CLOSED_ERR = CRITERIA_ERR_GROUP.registerErrorCode((short) 2);
+        public static final int CRITERIA_CURSOR_CLOSED_ERR = CRITERIA_ERR_GROUP.registerErrorCode((short) 2);
     }
 }

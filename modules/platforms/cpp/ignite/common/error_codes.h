@@ -197,8 +197,8 @@ enum class code : underlying_t {
     PRIMARY_REPLICA_AWAIT = 0x120002,
 
     // Criteria group. Group code: 19
-    CURSOR_NO_MORE_PAGES = 0x130001,
-    CURSOR_CLOSED = 0x130002
+    CRITERIA_CURSOR_NO_MORE_PAGES = 0x130001,
+    CRITERIA_CURSOR_CLOSED = 0x130002
 };
 
 } // namespace error
