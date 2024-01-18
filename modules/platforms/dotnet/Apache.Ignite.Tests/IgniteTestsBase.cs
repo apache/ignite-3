@@ -140,10 +140,10 @@ namespace Apache.Ignite.Tests
         {
             Console.WriteLine("TearDown start: " + TestContext.CurrentContext.Test.Name);
 
-            CheckPooledBufferLeak();
-
             _disposables.ForEach(x => x.Dispose());
             _disposables.Clear();
+
+            CheckPooledBufferLeak();
 
             Console.WriteLine("TearDown end: " + TestContext.CurrentContext.Test.Name);
         }
