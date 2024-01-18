@@ -70,7 +70,7 @@ namespace Apache.Ignite.Internal.Buffers
         /// <returns><see cref="MsgPackReader"/> for this buffer.</returns>
         public MsgPackReader GetReader(int offset = 0)
         {
-            Debug.Assert(!_disposed, "Buffer is disposed");
+            CheckDisposed();
             return new MsgPackReader(_bytes.AsSpan(Position + offset, _length - offset - Position));
         }
 
@@ -81,7 +81,7 @@ namespace Apache.Ignite.Internal.Buffers
         /// <returns>Memory of byte.</returns>
         public ReadOnlyMemory<byte> AsMemory(int offset = 0)
         {
-            Debug.Assert(!_disposed, "Buffer is disposed");
+            CheckDisposed();
             return new ReadOnlyMemory<byte>(_bytes, Position + offset, _length - offset - Position);
         }
 
@@ -97,6 +97,14 @@ namespace Apache.Ignite.Internal.Buffers
 
             ByteArrayPool.Return(_bytes);
             _disposed = true;
+        }
+
+        private void CheckDisposed()
+        {
+            if (_disposed)
+            {
+                throw new ObjectDisposedException(nameof(PooledBuffer));
+            }
         }
     }
 }

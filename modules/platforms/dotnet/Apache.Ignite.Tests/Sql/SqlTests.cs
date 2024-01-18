@@ -241,7 +241,6 @@ namespace Apache.Ignite.Tests.Sql
             Assert.ThrowsAsync<ObjectDisposedException>(async () => await resultSet.ToListAsync());
 
             var enumerator = resultSet2.GetAsyncEnumerator();
-            await enumerator.MoveNextAsync(); // Skip first element.
             Assert.ThrowsAsync<ObjectDisposedException>(async () => await enumerator.MoveNextAsync());
         }
 
