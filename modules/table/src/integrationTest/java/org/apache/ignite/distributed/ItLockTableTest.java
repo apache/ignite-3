@@ -129,7 +129,6 @@ public class ItLockTableTest extends IgniteAbstractTest {
                     PlacementDriver placementDriver
             ) {
                 return new TxManagerImpl(
-                        node.name(),
                         txConfiguration,
                         clusterService,
                         replicaSvc,

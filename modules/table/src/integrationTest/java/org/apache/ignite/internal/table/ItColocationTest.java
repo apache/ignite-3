@@ -161,7 +161,6 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
         ReplicaService replicaService = mock(ReplicaService.class, RETURNS_DEEP_STUBS);
 
         txManager = new TxManagerImpl(
-                clusterNode.name(),
                 txConfiguration,
                 clusterService,
                 replicaService,

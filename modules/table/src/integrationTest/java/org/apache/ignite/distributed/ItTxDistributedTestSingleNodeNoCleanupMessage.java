@@ -112,7 +112,6 @@ public class ItTxDistributedTestSingleNodeNoCleanupMessage extends ItTxDistribut
                     PlacementDriver placementDriver
             ) {
                 return new TxManagerImpl(
-                        node.name(),
                         txConfiguration,
                         clusterService,
                         replicaSvc,

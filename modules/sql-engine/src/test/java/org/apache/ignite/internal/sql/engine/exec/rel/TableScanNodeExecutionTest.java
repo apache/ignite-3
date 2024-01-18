@@ -140,7 +140,6 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
             ReplicaService replicaSvc = mock(ReplicaService.class, RETURNS_DEEP_STUBS);
 
             TxManagerImpl txManager = new TxManagerImpl(
-                    leaseholder,
                     txConfiguration,
                     clusterService,
                     replicaSvc,

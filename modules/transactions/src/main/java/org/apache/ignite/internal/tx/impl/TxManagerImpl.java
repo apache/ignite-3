@@ -176,7 +176,6 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     /**
      * The constructor.
      *
-     * @param nodeName Node name.
      * @param txConfig Transaction configuration.
      * @param clusterService Cluster service.
      * @param replicaService Replica service.
@@ -188,7 +187,6 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
      * @param localRwTxCounter Counter of read-write transactions that were created and completed locally on the node.
      */
     public TxManagerImpl(
-            String nodeName,
             TransactionConfiguration txConfig,
             ClusterService clusterService,
             ReplicaService replicaService,
@@ -219,7 +217,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                 100,
                 TimeUnit.MILLISECONDS,
                 new LinkedBlockingQueue<>(),
-                NamedThreadFactory.create(nodeName, "tx-async-cleanup", LOG)
+                NamedThreadFactory.create(clusterService.nodeName(), "tx-async-cleanup", LOG)
         );
 
         orphanDetector = new OrphanDetector(topologyService, replicaService, placementDriverHelper, lockManager);

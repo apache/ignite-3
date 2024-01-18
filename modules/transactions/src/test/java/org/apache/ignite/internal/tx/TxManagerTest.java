@@ -134,7 +134,6 @@ public class TxManagerTest extends IgniteAbstractTest {
         when(replicaService.invoke(anyString(), any())).thenReturn(nullCompletedFuture());
 
         txManager = new TxManagerImpl(
-                LOCAL_NODE.name(),
                 txConfiguration,
                 clusterService,
                 replicaService,

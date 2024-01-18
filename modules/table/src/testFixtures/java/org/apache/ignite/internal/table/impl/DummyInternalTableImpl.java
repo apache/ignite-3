@@ -440,7 +440,6 @@ public class DummyInternalTableImpl extends InternalTableImpl {
         when(clusterService.topologyService()).thenReturn(topologyService);
 
         var txManager = new TxManagerImpl(
-                LOCAL_NODE.name(),
                 txConfiguration,
                 clusterService,
                 replicaSvc,

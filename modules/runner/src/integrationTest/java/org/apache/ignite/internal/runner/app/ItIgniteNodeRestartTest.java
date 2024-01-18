@@ -353,7 +353,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         );
 
         var txManager = new TxManagerImpl(
-                name,
                 txConfiguration,
                 clusterSvc,
                 replicaService,
