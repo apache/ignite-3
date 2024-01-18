@@ -217,7 +217,14 @@ namespace Apache.Ignite.Tests
             TestUtils.WaitForCondition(
                 condition: () => ByteArrayPool.CurrentlyRentedArrays.IsEmpty,
                 timeoutMs: 1000,
-                messageFactory: () => $"Leaked buffers: {ByteArrayPool.CurrentlyRentedArrays.Select(x => x.Value).StringJoin()}");
+                messageFactory: () =>
+                {
+                    var bufs = ByteArrayPool.CurrentlyRentedArrays
+                        .Select(x => $"{x.Value.DeclaringType?.Name}.{x.Value.Name}")
+                        .StringJoin();
+
+                    return $"Leaked buffers: {bufs}";
+                });
 #endif
         }
     }

@@ -20,6 +20,8 @@ namespace Apache.Ignite.Internal.Buffers
     using System.Buffers;
     using System.Collections.Concurrent;
     using System.Diagnostics;
+    using System.Reflection;
+    using System.Text;
 
     /// <summary>
     /// Wrapper for the standard <see cref="ArrayPool{T}.Shared"/> with safety checks in debug mode.
@@ -30,7 +32,7 @@ namespace Apache.Ignite.Internal.Buffers
         /// <summary>
         /// Gets the currently rented arrays.
         /// </summary>
-        public static readonly ConcurrentDictionary<byte[], string> CurrentlyRentedArrays = new();
+        public static readonly ConcurrentDictionary<byte[], MethodBase> CurrentlyRentedArrays = new();
 
         /// <summary>
         /// Track pooled arrays in debug mode to detect double-return - the most dangerous scenario which can cause application-wide
@@ -52,7 +54,10 @@ namespace Apache.Ignite.Internal.Buffers
             var bytes = ArrayPool<byte>.Shared.Rent(minimumLength);
 
 #if DEBUG
-            CurrentlyRentedArrays.TryAdd(bytes, new StackTrace(1, false).ToString());
+            var stackTrace = new StackTrace();
+            var frame = stackTrace.GetFrame(1);
+
+            CurrentlyRentedArrays.TryAdd(bytes, frame!.GetMethod()!);
             ReturnedArrays.Remove(bytes);
 #endif
 
