@@ -43,7 +43,7 @@ public class TableRowConverterImpl implements TableRowConverter {
 
     private final SchemaDescriptor schemaDescriptor;
 
-    private final BinaryTupleSchema binaryTupleSchema;
+    private final BinaryTupleSchema fullTupleSchema;
 
     private final BinaryTupleSchema keyTupleSchema;
 
@@ -73,17 +73,18 @@ public class TableRowConverterImpl implements TableRowConverter {
         this.schemaRegistry = schemaRegistry;
         this.schemaDescriptor = schemaDescriptor;
 
-        this.binaryTupleSchema = BinaryTupleSchema.createRowSchema(schemaDescriptor);
+        this.fullTupleSchema = BinaryTupleSchema.createRowSchema(schemaDescriptor);
         this.keyTupleSchema = BinaryTupleSchema.createKeySchema(schemaDescriptor);
 
-        int size = requiredColumns == null ? schemaDescriptor.length() : requiredColumns.cardinality();
+        int elementCount = schemaDescriptor.length();
+        int size = requiredColumns == null ? elementCount : requiredColumns.cardinality();
 
         requiredColumnsMapping = new int[size];
-        fullMapping = new int[schemaDescriptor.length()];
+        fullMapping = new int[elementCount];
 
-        List<Map.Entry<Integer, Column>> tableOrder = new ArrayList<>(schemaDescriptor.length());
+        List<Map.Entry<Integer, Column>> tableOrder = new ArrayList<>(elementCount);
 
-        for (int i = 0; i < schemaDescriptor.length(); i++) {
+        for (int i = 0; i < elementCount; i++) {
             Column column = schemaDescriptor.column(i);
             tableOrder.add(Map.entry(column.columnOrder(), column));
         }
@@ -117,7 +118,7 @@ public class TableRowConverterImpl implements TableRowConverter {
 
         if (!key) {
             FormatAwareProjectedTuple tuple = new FormatAwareProjectedTuple(binaryTuple, fullMapping);
-            return SqlOutputBinaryRow.newRow(tuple, schemaDescriptor, binaryTupleSchema);
+            return SqlOutputBinaryRow.newRow(tuple, schemaDescriptor, fullTupleSchema);
         } else {
             FormatAwareProjectedTuple tuple = new FormatAwareProjectedTuple(binaryTuple, keyMapping);
             return SqlOutputBinaryRow.newRow(tuple, schemaDescriptor, keyTupleSchema);
@@ -143,7 +144,7 @@ public class TableRowConverterImpl implements TableRowConverter {
             InternalTuple tableTuple = schemaRegistry.resolve(tableRow, schemaDescriptor);
 
             tuple = new FieldDeserializingProjectedTuple(
-                    binaryTupleSchema,
+                    fullTupleSchema,
                     tableTuple,
                     requiredColumnsMapping
             );
