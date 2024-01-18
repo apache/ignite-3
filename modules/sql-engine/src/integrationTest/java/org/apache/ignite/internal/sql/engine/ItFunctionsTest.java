@@ -336,28 +336,29 @@ public class ItFunctionsTest extends BaseSqlIntegrationTest {
         assertQuery("SELECT SUBSTRING('text' FROM 1 FOR null)").returns(null).check();
         assertQuery("SELECT SUBSTRING('test' FROM null FOR 2)").returns(null).check();
 
-        assertQuery("select SUBSTRING(s from i for l) from (values ('abc', null, 2)) as t (s, i, l);").returns(null).check();
+        assertQuery("SELECT SUBSTRING(s from i for l) from (values ('abc', null, 2)) as t (s, i, l);").returns(null).check();
 
-        assertQuery("SELECT substring('1234567', 2.1, 3.1);").returns("234").check();
-        assertQuery("SELECT substring('1234567', 2.1, 3);").returns("234").check();
-        assertQuery("SELECT substring('1234567', 2, 3.1);").returns("234").check();
-        assertQuery("SELECT substring('1234567', 2.1);").returns("234567").check();
+        assertQuery("SELECT SUBSTRING('1234567', 2.1, 3.1);").returns("234").check();
+        assertQuery("SELECT SUBSTRING('1234567', 2.1, 3);").returns("234").check();
+        assertQuery("SELECT SUBSTRING('1234567', 2, 3.1);").returns("234").check();
+        assertQuery("SELECT SUBSTRING('1234567', 2.1);").returns("234567").check();
 
         // type coercion
-        assertQuery("SELECT substring('1234567', 2, '1');").returns("2").check();
-        assertQuery("SELECT substring('1234567', '2', 1);").returns("2").check();
+        assertQuery("SELECT SUBSTRING('1234567', 2, '1');").returns("2").check();
+        assertQuery("SELECT SUBSTRING('1234567', '2', 1);").returns("2").check();
 
-        assertQuery(String.format("SELECT substring('1234567', 1, %d)", Long.MAX_VALUE)).returns("1234567").check();
-        assertQuery(String.format("SELECT substring('1234567', %d)", Long.MAX_VALUE)).returns("").check();
-        assertQuery(String.format("SELECT substring('1234567', %d)", Long.MIN_VALUE)).returns("1234567").check();
-        assertQuery(String.format("SELECT substring('1234567', %d)", Integer.MIN_VALUE)).returns("1234567").check();
-        assertQuery(String.format("SELECT substring('1234567', %d, %d)", Integer.MIN_VALUE, 10L + Integer.MAX_VALUE))
+        assertQuery(String.format("SELECT SUBSTRING('1234567', 1, %d)", Long.MAX_VALUE)).returns("1234567").check();
+        assertQuery(String.format("SELECT SUBSTRING('1234567', %d)", Long.MAX_VALUE)).returns("").check();
+        assertQuery(String.format("SELECT SUBSTRING('1234567', %d::BIGINT)", 1)).returns("1234567").check();
+        assertQuery(String.format("SELECT SUBSTRING('1234567', %d)", Long.MIN_VALUE)).returns("1234567").check();
+        assertQuery(String.format("SELECT SUBSTRING('1234567', %d)", Integer.MIN_VALUE)).returns("1234567").check();
+        assertQuery(String.format("SELECT SUBSTRING('1234567', %d, %d)", Integer.MIN_VALUE, 10L + Integer.MAX_VALUE))
                 .returns("1234567").check();
-        assertQuery(String.format("SELECT substring('1234567', %d, %d)", -1, 5)).returns("123").check();
+        assertQuery(String.format("SELECT SUBSTRING('1234567', %d, %d)", -1, 5)).returns("123").check();
 
-        assertThrowsSqlException(Sql.RUNTIME_ERR, "negative substring length", () -> sql("SELECT substring('1234567', 1, -1)"));
+        assertThrowsSqlException(Sql.RUNTIME_ERR, "negative substring length", () -> sql("SELECT SUBSTRING('1234567', 1, -1)"));
         assertThrowsSqlException(Sql.RUNTIME_ERR, "negative substring length", () ->
-                sql(String.format("SELECT substring('1234567', %d, %d)", Long.MIN_VALUE, Long.MIN_VALUE)));
+                sql(String.format("SELECT SUBSTRING('1234567', %d, %d)", Long.MIN_VALUE, Long.MIN_VALUE)));
         assertThrowsSqlException(Sql.RUNTIME_ERR, "negative substring length", () -> sql("SELECT SUBSTRING('abcdefg', 1, -3)"));
         assertThrowsSqlException(Sql.RUNTIME_ERR, "negative substring length", () -> sql("SELECT SUBSTRING('abcdefg' FROM 1 FOR -1)"));
     }

@@ -251,7 +251,7 @@ public class IgniteSqlFunctions {
 
     /** SQL SUBSTRING(string FROM ...) function. */
     public static String substring(String c, int s) {
-        if (s < 0) {
+        if (s <= 1) {
             return c;
         }
 
@@ -260,7 +260,7 @@ public class IgniteSqlFunctions {
 
     /** SQL SUBSTRING(string FROM ...) function. */
     public static String substring(String c, BigDecimal s) {
-        if (s.signum() < 0) {
+        if (s.compareTo(BigDecimal.ONE) <= 0) {
             return c;
         }
 
