@@ -57,4 +57,13 @@ public class JobExecutionInternal<R> {
         isInterrupted.set(true);
         return execution.cancel();
     }
+
+    /**
+     * Change priority of job execution.
+     *
+     * @param newPriority new priority.
+     */
+    public void changePriority(int newPriority) {
+        execution.changePriority(newPriority);
+    }
 }

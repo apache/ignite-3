@@ -15,14 +15,29 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed.command;
+package org.apache.ignite.internal.compute.message;
 
-import org.apache.ignite.internal.table.distributed.TableMessageGroup.Commands;
+import java.util.UUID;
+import org.apache.ignite.internal.compute.ComputeMessageTypes;
+import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.Transferable;
 
 /**
- * Command that is used to replicate the locks released update for tx state storage.
+ * Remote change job priority request.
  */
-@Transferable(Commands.MARK_LOCKS_RELEASED)
-public interface MarkLocksReleasedCommand extends PartitionCommand {
+@Transferable(ComputeMessageTypes.JOB_CHANGE_PRIORITY_REQUEST)
+public interface JobChangePriorityRequest extends NetworkMessage {
+    /**
+     * Returns job id.
+     *
+     * @return Job id.
+     */
+    UUID jobId();
+
+    /**
+     * Returns job priority.
+     *
+     * @return job priority.
+     */
+    int priority();
 }

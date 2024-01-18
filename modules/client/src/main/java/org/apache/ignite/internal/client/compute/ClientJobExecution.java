@@ -141,4 +141,10 @@ class ClientJobExecution<R> implements JobExecution<R> {
         }
         throw new IgniteException(PROTOCOL_ERR, "Invalid job state id: " + id);
     }
+
+    @Override
+    public CompletableFuture<Void> changePriorityAsync(int newPriority) {
+        // TODO https://issues.apache.org/jira/browse/IGNITE-21148
+        return nullCompletedFuture();
+    }
 }

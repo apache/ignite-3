@@ -173,6 +173,11 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
             public CompletableFuture<@Nullable Boolean> cancelAsync() {
                 return trueCompletedFuture();
             }
+
+            @Override
+            public CompletableFuture<Void> changePriorityAsync(int newPriority) {
+                return nullCompletedFuture();
+            }
         };
     }
 }

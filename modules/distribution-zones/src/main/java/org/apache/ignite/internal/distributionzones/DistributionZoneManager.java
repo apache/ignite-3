@@ -119,7 +119,6 @@ import org.apache.ignite.internal.metastorage.dsl.Update;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.thread.StripedScheduledThreadPoolExecutor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
-import org.apache.ignite.internal.vault.VaultManager;
 import org.jetbrains.annotations.TestOnly;
 
 /**
@@ -202,7 +201,6 @@ public class DistributionZoneManager implements IgniteComponent {
      * @param registry Registry for versioned values.
      * @param metaStorageManager Meta Storage manager.
      * @param logicalTopologyService Logical topology service.
-     * @param vaultMgr Vault manager.
      * @param catalogManager Catalog manager.
      */
     public DistributionZoneManager(
@@ -210,7 +208,6 @@ public class DistributionZoneManager implements IgniteComponent {
             Consumer<LongFunction<CompletableFuture<?>>> registry,
             MetaStorageManager metaStorageManager,
             LogicalTopologyService logicalTopologyService,
-            VaultManager vaultMgr,
             CatalogManager catalogManager
     ) {
         this.metaStorageManager = metaStorageManager;

@@ -19,6 +19,7 @@ package org.apache.ignite.internal.compute;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Compute.CLASS_INITIALIZATION_ERR;
 
 import java.lang.reflect.Constructor;
@@ -34,6 +35,7 @@ import org.apache.ignite.compute.version.Version;
 import org.apache.ignite.internal.compute.message.DeploymentUnitMsg;
 import org.apache.ignite.internal.compute.message.ExecuteResponse;
 import org.apache.ignite.internal.compute.message.JobCancelResponse;
+import org.apache.ignite.internal.compute.message.JobChangePriorityResponse;
 import org.apache.ignite.internal.compute.message.JobResultResponse;
 import org.apache.ignite.internal.compute.message.JobStatusResponse;
 import org.jetbrains.annotations.Nullable;
@@ -168,6 +170,21 @@ public class ComputeUtils {
         }
 
         return completedFuture(jobCancelResponse.result());
+    }
+
+    /**
+     * Extract compute job change priority result from change priority response.
+     *
+     * @param jobChangePriorityResponse Job change priority message response.
+     * @return Completable future with result.
+     */
+    public static CompletableFuture<Void> changePriorityFromJobChangePriorityResponse(JobChangePriorityResponse jobChangePriorityResponse) {
+        Throwable throwable = jobChangePriorityResponse.throwable();
+        if (throwable != null) {
+            return failedFuture(throwable);
+        }
+
+        return nullCompletedFuture();
     }
 
     /**

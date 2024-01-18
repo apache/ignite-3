@@ -934,7 +934,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
             );
 
             metaStorageManager = new MetaStorageManagerImpl(
-                    vaultManager,
                     clusterService,
                     cmgManager,
                     logicalTopologyService,
@@ -1035,7 +1034,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     registry,
                     metaStorageManager,
                     logicalTopologyService,
-                    vaultManager,
                     catalogManager
             );
 

@@ -15,17 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed.replicator;
+package org.apache.ignite.internal.tx;
 
-import org.apache.ignite.lang.ErrorGroups.Transactions;
-import org.apache.ignite.tx.TransactionException;
+import org.apache.ignite.internal.tx.impl.WaitDieDeadlockPreventionPolicy;
 
 /**
- * Thrown when, during an attempt to commit a transaction, it turns out that the transaction cannot be committed
- * because an incompatible schema change has happened.
+ * Enum representing transaction priorities. These priorities are used in the context of the {@link WaitDieDeadlockPreventionPolicy} to
+ * resolve conflicts between transactions. The priorities are ordered from lowest to highest importance.
  */
-public class IncompatibleSchemaAbortException extends TransactionException {
-    public IncompatibleSchemaAbortException(String message) {
-        super(Transactions.TX_COMMIT_ERR, message);
-    }
+public enum TxPriority {
+    LOW,
+    NORMAL;
 }

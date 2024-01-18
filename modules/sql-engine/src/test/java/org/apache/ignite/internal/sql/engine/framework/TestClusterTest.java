@@ -20,6 +20,7 @@ package org.apache.ignite.internal.sql.engine.framework;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.convertSqlRows;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -43,6 +44,7 @@ import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Collation;
 import org.apache.ignite.internal.systemview.api.SystemViews;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.type.NativeTypes;
+import org.apache.ignite.internal.util.AsyncCursor;
 import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
 import org.apache.ignite.internal.util.SubscriptionUtils;
 import org.apache.ignite.internal.util.subscription.TransformingPublisher;
@@ -210,6 +212,36 @@ public class TestClusterTest extends BaseIgniteAbstractTest {
         assertTrue(plan instanceof MultiStepPlan);
         assertTrue(lastNode(((MultiStepPlan) plan).root()) instanceof IgniteIndexScan);
         assertEquals("SORTED_IDX", ((IgniteIndexScan) lastNode(((MultiStepPlan) plan).root())).indexName());
+    }
+
+    /** Check that already stopped message service correctly process incoming message. */
+    @Test
+    public void stoppedMessageServiceNotThrowsException() throws Exception {
+        cluster.start();
+
+        TestNode gatewayNode = cluster.node("N1");
+
+        TestNode stoppedNode = cluster.node("N2");
+
+        QueryPlan plan = gatewayNode.prepare("SELECT * FROM t1 WHERE ID > 1");
+
+        AsyncCursor<InternalSqlRow> cur = gatewayNode.executePlan(plan);
+
+        await(cur.requestNextAsync(1));
+
+        stoppedNode.holdLock().block();
+
+        try {
+            stoppedNode.messageService().stop();
+
+            await(cur.closeAsync());
+
+            gatewayNode.stop();
+
+            assertFalse(stoppedNode.exceptionRaised);
+        } finally {
+            stoppedNode.holdLock().unblock();
+        }
     }
 
     private static IgniteRel lastNode(IgniteRel root) {

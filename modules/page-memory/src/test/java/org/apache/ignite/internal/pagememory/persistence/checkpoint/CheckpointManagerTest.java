@@ -18,14 +18,16 @@
 package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.pagememory.persistence.CheckpointUrgency.MUST_TRIGGER;
+import static org.apache.ignite.internal.pagememory.persistence.CheckpointUrgency.NOT_REQUIRED;
+import static org.apache.ignite.internal.pagememory.persistence.CheckpointUrgency.SHOULD_TRIGGER;
+import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointManager.checkpointUrgency;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointManager.pageIndexesForDeltaFilePageStore;
-import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointManager.safeToUpdateAllPageMemories;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.pageId;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
-import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
@@ -38,7 +40,6 @@ import static org.mockito.Mockito.when;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.IntFunction;
 import java.util.function.Supplier;
@@ -49,6 +50,7 @@ import org.apache.ignite.internal.pagememory.DataRegion;
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryCheckpointConfiguration;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
+import org.apache.ignite.internal.pagememory.persistence.CheckpointUrgency;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMetaManager;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
@@ -103,36 +105,36 @@ public class CheckpointManagerTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void testSafeToUpdateAllPageMemories() {
-        assertTrue(safeToUpdateAllPageMemories(List.of()));
+    void testCheckpointUrgency() {
+        assertEquals(NOT_REQUIRED, checkpointUrgency(List.of()));
 
-        AtomicBoolean safeToUpdate0 = new AtomicBoolean();
-        AtomicBoolean safeToUpdate1 = new AtomicBoolean();
+        AtomicReference<CheckpointUrgency> urgency0 = new AtomicReference<>(MUST_TRIGGER);
+        AtomicReference<CheckpointUrgency> urgency1 = new AtomicReference<>(SHOULD_TRIGGER);
 
         PersistentPageMemory pageMemory0 = mock(PersistentPageMemory.class);
         PersistentPageMemory pageMemory1 = mock(PersistentPageMemory.class);
 
-        when(pageMemory0.safeToUpdate()).then(answer -> safeToUpdate0.get());
-        when(pageMemory1.safeToUpdate()).then(answer -> safeToUpdate1.get());
+        when(pageMemory0.checkpointUrgency()).then(answer -> urgency0.get());
+        when(pageMemory1.checkpointUrgency()).then(answer -> urgency1.get());
 
         DataRegion<PersistentPageMemory> dataRegion0 = () -> pageMemory0;
         DataRegion<PersistentPageMemory> dataRegion1 = () -> pageMemory1;
 
-        assertFalse(safeToUpdateAllPageMemories(List.of(dataRegion0)));
-        assertFalse(safeToUpdateAllPageMemories(List.of(dataRegion1)));
-        assertFalse(safeToUpdateAllPageMemories(List.of(dataRegion0, dataRegion1)));
+        assertEquals(MUST_TRIGGER, checkpointUrgency(List.of(dataRegion0)));
+        assertEquals(SHOULD_TRIGGER, checkpointUrgency(List.of(dataRegion1)));
+        assertEquals(MUST_TRIGGER, checkpointUrgency(List.of(dataRegion0, dataRegion1)));
 
-        safeToUpdate0.set(true);
+        urgency0.set(NOT_REQUIRED);
 
-        assertTrue(safeToUpdateAllPageMemories(List.of(dataRegion0)));
-        assertFalse(safeToUpdateAllPageMemories(List.of(dataRegion1)));
-        assertFalse(safeToUpdateAllPageMemories(List.of(dataRegion0, dataRegion1)));
+        assertEquals(NOT_REQUIRED, checkpointUrgency(List.of(dataRegion0)));
+        assertEquals(SHOULD_TRIGGER, checkpointUrgency(List.of(dataRegion1)));
+        assertEquals(SHOULD_TRIGGER, checkpointUrgency(List.of(dataRegion0, dataRegion1)));
 
-        safeToUpdate1.set(true);
+        urgency1.set(NOT_REQUIRED);
 
-        assertTrue(safeToUpdateAllPageMemories(List.of(dataRegion0)));
-        assertTrue(safeToUpdateAllPageMemories(List.of(dataRegion1)));
-        assertTrue(safeToUpdateAllPageMemories(List.of(dataRegion0, dataRegion1)));
+        assertEquals(NOT_REQUIRED, checkpointUrgency(List.of(dataRegion0)));
+        assertEquals(NOT_REQUIRED, checkpointUrgency(List.of(dataRegion1)));
+        assertEquals(NOT_REQUIRED, checkpointUrgency(List.of(dataRegion0, dataRegion1)));
     }
 
     @Test

@@ -17,15 +17,27 @@
 
 package org.apache.ignite.internal.table.criteria;
 
+import static org.apache.ignite.internal.util.CollectionUtils.mapIterable;
+
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
 import org.apache.ignite.lang.AsyncCursor;
+import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.async.AsyncResultSet;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Wrapper over {@link AsyncResultSet} for criteria queries.
+ *
+ * @param <R> A type of the objects contained by wrapped result set. This will be either {@link SqlRow} if no explicit mapper is provided
+ *      or a particular type defined by supplied mapper.
+ * @param <T> The type of elements returned by this cursor.
  */
-public class QueryCriteriaAsyncCursor<T> implements AsyncCursor<T> {
-    private final AsyncResultSet<T> ars;
+public class QueryCriteriaAsyncCursor<T, R> implements AsyncCursor<T> {
+    private final AsyncResultSet<R> ars;
+
+    @Nullable
+    private final Function<R, T> mapper;
 
     private final Runnable closeRun;
 
@@ -33,17 +45,19 @@ public class QueryCriteriaAsyncCursor<T> implements AsyncCursor<T> {
      * Constructor.
      *
      * @param ars Asynchronous result set.
-     * @param closeRun Callback to be invoked after result is closed.
+     * @param mapper Conversion function for objects contained by result set (if {@code null}, conversion isn't required).
+     * @param closeRun Callback to be invoked after result set is closed.
      */
-    public QueryCriteriaAsyncCursor(AsyncResultSet<? extends T> ars, Runnable closeRun) {
-        this.ars = (AsyncResultSet<T>) ars;
+    public QueryCriteriaAsyncCursor(AsyncResultSet<R> ars, @Nullable Function<R, T> mapper, Runnable closeRun) {
+        this.ars = ars;
+        this.mapper = mapper;
         this.closeRun = closeRun;
     }
 
     /** {@inheritDoc} */
     @Override
     public Iterable<T> currentPage() {
-        return ars.currentPage();
+        return mapIterable(ars.currentPage(), mapper, null);
     }
 
     /** {@inheritDoc} */
@@ -54,12 +68,14 @@ public class QueryCriteriaAsyncCursor<T> implements AsyncCursor<T> {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<? extends AsyncResultSet<T>> fetchNextPage() {
+    public CompletableFuture<? extends AsyncCursor<T>> fetchNextPage() {
         return ars.fetchNextPage()
-                .whenComplete((v, t) -> {
-                    if (t == null && !hasMorePages()) {
-                        closeRun.run();
+                .thenApply((rs) -> {
+                    if (!hasMorePages()) {
+                        closeAsync();
                     }
+
+                    return new QueryCriteriaAsyncCursor<>(rs, mapper, closeRun);
                 });
     }
 

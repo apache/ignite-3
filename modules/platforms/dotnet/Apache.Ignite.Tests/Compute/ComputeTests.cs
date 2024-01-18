@@ -302,7 +302,7 @@ namespace Apache.Ignite.Tests.Compute
         }
 
         [Test]
-        public async Task TestExecuteColocatedUpdatesTableCacheOnTableDrop()
+        public async Task TestExecuteColocatedUpdatesTableCacheOnTableDrop([Values(false, true)] bool forceLoadAssignment)
         {
             // Create table and use it in ExecuteColocated.
             var nodes = await GetNodeAsync(0);
@@ -317,6 +317,12 @@ namespace Apache.Ignite.Tests.Compute
                 // This should update the cached table and complete the computation successfully.
                 await Client.Compute.ExecuteAsync<string>(nodes, Units, DropTableJob, tableName);
                 await Client.Compute.ExecuteAsync<string>(nodes, Units, CreateTableJob, tableName);
+
+                if (forceLoadAssignment)
+                {
+                    var table = Client.Compute.GetFieldValue<IDictionary>("_tableCache")[tableName]!;
+                    table.SetFieldValue("_partitionAssignment", null);
+                }
 
                 var resNodeName2 = await Client.Compute.ExecuteColocatedAsync<string>(tableName, keyTuple, Units, NodeNameJob);
 

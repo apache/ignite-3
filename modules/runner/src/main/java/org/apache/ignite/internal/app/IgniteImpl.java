@@ -459,7 +459,6 @@ public class IgniteImpl implements Ignite {
         );
 
         metaStorageMgr = new MetaStorageManagerImpl(
-                vaultMgr,
                 clusterSvc,
                 cmgMgr,
                 logicalTopologyService,
@@ -569,7 +568,6 @@ public class IgniteImpl implements Ignite {
                 registry,
                 metaStorageMgr,
                 logicalTopologyService,
-                vaultMgr,
                 catalogManager
         );
 

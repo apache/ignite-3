@@ -20,28 +20,43 @@ package org.apache.ignite.internal.table;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.function.Function.identity;
 import static org.apache.ignite.internal.lang.IgniteExceptionMapperUtil.convertToPublicFuture;
+import static org.apache.ignite.internal.util.ExceptionUtils.isOrCausedBy;
 import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
+import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 
-import java.util.Collection;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
+import java.util.function.Function;
 import org.apache.ignite.internal.lang.IgniteExceptionMapperUtil;
+import org.apache.ignite.internal.schema.Column;
+import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
+import org.apache.ignite.internal.table.criteria.CursorAdapter;
+import org.apache.ignite.internal.table.criteria.QueryCriteriaAsyncCursor;
 import org.apache.ignite.internal.table.criteria.SqlSerializer;
 import org.apache.ignite.internal.table.distributed.replicator.InternalSchemaVersionMismatchException;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.ExceptionUtils;
+import org.apache.ignite.lang.AsyncCursor;
+import org.apache.ignite.lang.Cursor;
 import org.apache.ignite.sql.IgniteSql;
+import org.apache.ignite.sql.ResultSetMetadata;
+import org.apache.ignite.sql.Session;
+import org.apache.ignite.sql.SqlRow;
+import org.apache.ignite.sql.Statement;
 import org.apache.ignite.table.criteria.Criteria;
+import org.apache.ignite.table.criteria.CriteriaQueryOptions;
+import org.apache.ignite.table.criteria.CriteriaQuerySource;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Base class for Table views.
  */
-abstract class AbstractTableView {
+abstract class AbstractTableView<R> implements CriteriaQuerySource<R> {
     /** Internal table. */
     protected final InternalTable tbl;
 
@@ -136,25 +151,76 @@ abstract class AbstractTableView {
         return convertToPublicFuture(future);
     }
 
-    private static boolean isOrCausedBy(Class<? extends Exception> exceptionClass, @Nullable Throwable ex) {
-        return ex != null && (exceptionClass.isInstance(ex) || isOrCausedBy(exceptionClass, ex.getCause()));
+    /**
+     * Map columns to it's names.
+     *
+     * @param columns Target columns.
+     * @return Column names.
+     */
+    protected static String[] columnNames(Column[] columns) {
+        String[] columnNames = new String[columns.length];
+
+        for (int i = 0; i < columns.length; i++) {
+            columnNames[i] = columns[i].name();
+        }
+
+        return columnNames;
     }
 
     /**
-     * Construct SQL query and arguments for prepare statement.
+     * Create conversion function for objects contained by result set to criteria query objects.
      *
-     * @param tableName Table name.
-     * @param columnNames Column names.
-     * @param criteria The predicate to filter entries or {@code null} to return all entries from the underlying table.
-     * @return SQL query and it's arguments.
+     * @param meta Result set columns' metadata.
+     * @param schema Schema.
+     * @return Conversion function (if {@code null} conversions isn't required).
      */
-    static SqlSerializer createSqlSerializer(String tableName, Collection<String> columnNames, @Nullable Criteria criteria) {
-        return new SqlSerializer.Builder()
-                .tableName(tableName)
-                .columns(columnNames)
-                .where(criteria)
-                .build();
+    protected @Nullable Function<SqlRow, R> queryMapper(ResultSetMetadata meta, SchemaDescriptor schema) {
+        return null;
     }
+
+    /** {@inheritDoc} */
+    @Override
+    public Cursor<R> query(@Nullable Transaction tx, @Nullable Criteria criteria, CriteriaQueryOptions opts) {
+        return new CursorAdapter<>(sync(queryAsync(tx, criteria, opts)));
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<AsyncCursor<R>> queryAsync(
+            @Nullable Transaction tx,
+            @Nullable Criteria criteria,
+            @Nullable CriteriaQueryOptions opts
+    ) {
+        CriteriaQueryOptions opts0 = opts == null ? CriteriaQueryOptions.DEFAULT : opts;
+
+        return withSchemaSync(tx, (schemaVersion) -> {
+            SchemaDescriptor schema = rowConverter.registry().schema(schemaVersion);
+
+            SqlSerializer ser = new SqlSerializer.Builder()
+                    .tableName(tbl.name())
+                    .columns(schema.columnNames())
+                    .where(criteria)
+                    .build();
+
+            Statement statement = sql.statementBuilder().query(ser.toString()).pageSize(opts0.pageSize()).build();
+            Session session = sql.createSession();
+
+            return session.executeAsync(tx, statement, ser.getArguments())
+                    .<AsyncCursor<R>>thenApply(resultSet -> {
+                        ResultSetMetadata meta = resultSet.metadata();
+
+                        assert meta != null : "Metadata can't be null.";
+
+                        return new QueryCriteriaAsyncCursor<>(resultSet, queryMapper(meta, schema), session::closeAsync);
+                    })
+                    .exceptionally(th -> {
+                        session.closeAsync();
+
+                        throw new CompletionException(unwrapCause(th));
+                    });
+        });
+    }
+
 
     /**
      * Action representing some KV operation. When executed, the action is supplied with schema version corresponding

@@ -28,10 +28,12 @@ import static org.apache.ignite.lang.ErrorGroups.Table.TABLE_NOT_FOUND_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -42,6 +44,7 @@ import org.apache.ignite.client.fakes.FakeIgniteTables;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.version.Version;
+import org.apache.ignite.internal.client.table.ClientTable;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -51,6 +54,8 @@ import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Compute tests.
@@ -181,8 +186,9 @@ public class ClientComputeTest extends BaseIgniteAbstractTest {
         }
     }
 
-    @Test
-    void testExecuteColocatedUpdatesTableCacheOnTableDrop() throws Exception {
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void testExecuteColocatedUpdatesTableCacheOnTableDrop(boolean forceLoadAssignment) throws Exception {
         String tableName = "drop-me";
 
         initServers(reqId -> false);
@@ -197,6 +203,13 @@ public class ClientComputeTest extends BaseIgniteAbstractTest {
             // Drop table and create a new one with a different ID.
             ((FakeIgniteTables) ignite.tables()).dropTable(tableName);
             ((FakeIgniteTables) ignite.tables()).createTable(tableName);
+
+            if (forceLoadAssignment) {
+                Map<String, ClientTable> tables = IgniteTestUtils.getFieldValue(client.compute(), "tableCache");
+                ClientTable table = tables.get(tableName);
+                assertNotNull(table);
+                IgniteTestUtils.setFieldValue(table, "partitionAssignment", null);
+            }
 
             String res2 = client.compute()
                     .<Long, String>executeColocatedAsync(tableName, 1L, Mapper.of(Long.class), List.of(), "job").resultAsync().join();

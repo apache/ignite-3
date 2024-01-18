@@ -49,7 +49,7 @@ class QueueEntry<R> implements Runnable, Comparable<QueueEntry<R>> {
 
     private final Lock lock = new ReentrantLock();
 
-    private boolean isInterrupted;
+    private volatile boolean isInterrupted;
 
     /**
      * Constructor.
@@ -103,8 +103,10 @@ class QueueEntry<R> implements Runnable, Comparable<QueueEntry<R>> {
         lock.lock();
         try {
             if (workerThread != null) {
-                workerThread.interrupt();
+                // Set the interrupted flag first since it's used to determine the final status of the job.
+                // Job could handle interruption and exit before this flag is set moving the job to completed state rather than canceled.
                 isInterrupted = true;
+                workerThread.interrupt();
             }
         } finally {
             lock.unlock();

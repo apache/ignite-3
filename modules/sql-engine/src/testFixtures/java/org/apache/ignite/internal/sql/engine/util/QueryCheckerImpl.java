@@ -27,6 +27,7 @@ import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.not;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.fail;
 
 import java.lang.reflect.Type;
@@ -48,6 +49,7 @@ import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.QueryProperty;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.hint.IgniteHint;
+import org.apache.ignite.internal.sql.engine.prepare.QueryMetadata;
 import org.apache.ignite.internal.sql.engine.property.SqlProperties;
 import org.apache.ignite.internal.sql.engine.property.SqlPropertiesHelper;
 import org.apache.ignite.internal.tx.InternalTransaction;
@@ -300,6 +302,18 @@ abstract class QueryCheckerImpl implements QueryChecker {
                 }
             }
         }
+
+        // Check column metadata only.
+        if (resultChecker == null && metadataMatchers != null) {
+            QueryMetadata queryMetadata = await(qryProc.prepareSingleAsync(PROPERTIES, tx, qry, params));
+
+            assertNotNull(queryMetadata);
+
+            checkColumnsMetadata(queryMetadata.columns());
+
+            return;
+        }
+
         // Check result.
         CompletableFuture<AsyncSqlCursor<InternalSqlRow>> cursors =
                 qryProc.querySingleAsync(PROPERTIES, transactions(), tx, qry, params);
@@ -309,19 +323,7 @@ abstract class QueryCheckerImpl implements QueryChecker {
         checkMetadata(cur.metadata());
 
         if (metadataMatchers != null) {
-            List<ColumnMetadata> columnMetadata = cur.metadata().columns();
-
-            Iterator<ColumnMetadata> valueIterator = columnMetadata.iterator();
-            Iterator<ColumnMatcher> matcherIterator = metadataMatchers.iterator();
-
-            while (matcherIterator.hasNext() && valueIterator.hasNext()) {
-                ColumnMatcher matcher = matcherIterator.next();
-                ColumnMetadata actualElement = valueIterator.next();
-
-                matcher.check(actualElement);
-            }
-
-            assertEquals(metadataMatchers.size(), columnMetadata.size(), "Column metadata doesn't match");
+            checkColumnsMetadata(cur.metadata().columns());
         }
 
         List<InternalSqlRow> rows = Commons.cast(getAllFromCursor(cur));
@@ -330,6 +332,20 @@ abstract class QueryCheckerImpl implements QueryChecker {
         if (resultChecker != null) {
             resultChecker.check(res, ordered);
         }
+    }
+
+    private void checkColumnsMetadata(List<ColumnMetadata> columnsMetadata) {
+        Iterator<ColumnMetadata> valueIterator = columnsMetadata.iterator();
+        Iterator<ColumnMatcher> matcherIterator = metadataMatchers.iterator();
+
+        while (matcherIterator.hasNext() && valueIterator.hasNext()) {
+            ColumnMatcher matcher = matcherIterator.next();
+            ColumnMetadata actualElement = valueIterator.next();
+
+            matcher.check(actualElement);
+        }
+
+        assertEquals(metadataMatchers.size(), columnsMetadata.size(), "Column metadata doesn't match");
     }
 
     @Override

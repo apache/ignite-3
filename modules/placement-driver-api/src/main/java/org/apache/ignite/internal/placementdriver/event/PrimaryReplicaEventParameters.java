@@ -66,7 +66,6 @@ public class PrimaryReplicaEventParameters extends CausalEventParameters {
     }
 
     /** Returns leaseholder node consistent ID. */
-    @Deprecated
     public String leaseholder() {
         return leaseholder;
     }

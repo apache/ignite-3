@@ -34,6 +34,7 @@ import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
+import java.util.function.Function;
 import org.apache.ignite.client.RetryLimitPolicy;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
@@ -41,14 +42,19 @@ import org.apache.ignite.internal.client.PayloadInputChannel;
 import org.apache.ignite.internal.client.PayloadOutputChannel;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.proto.TuplePart;
+import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.marshaller.ClientMarshallerReader;
 import org.apache.ignite.internal.marshaller.ClientMarshallerWriter;
 import org.apache.ignite.internal.marshaller.Marshaller;
 import org.apache.ignite.internal.marshaller.MarshallerException;
+import org.apache.ignite.internal.marshaller.TupleReader;
 import org.apache.ignite.internal.streamer.StreamerBatchSender;
+import org.apache.ignite.internal.table.criteria.SqlRowProjection;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.NullableValue;
 import org.apache.ignite.lang.UnexpectedNullValueException;
+import org.apache.ignite.sql.ResultSetMetadata;
+import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.mapper.Mapper;
@@ -58,10 +64,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Client key-value view implementation.
  */
-public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
-    /** Underlying table. */
-    private final ClientTable tbl;
-
+public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> implements KeyValueView<K, V> {
     /** Key serializer.  */
     private final ClientRecordSerializer<K> keySer;
 
@@ -76,11 +79,10 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
      * @param valMapper value mapper.
      */
     public ClientKeyValueView(ClientTable tbl, Mapper<K> keyMapper, Mapper<V> valMapper) {
-        assert tbl != null;
+        super(tbl);
+
         assert keyMapper != null;
         assert valMapper != null;
-
-        this.tbl = tbl;
 
         keySer = new ClientRecordSerializer<>(tbl.tableId(), keyMapper);
         valSer = new ClientRecordSerializer<>(tbl.tableId(), valMapper);
@@ -542,6 +544,27 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
                 new RetryLimitPolicy().retryLimit(opts.retryLimit()));
 
         return ClientDataStreamer.streamData(publisher, opts, batchSender, provider, tbl);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    protected Function<SqlRow, Entry<K, V>> queryMapper(ResultSetMetadata meta, ClientSchema schema) {
+        String[] keyCols = columnNames(schema.columns(), 0, schema.keyColumnCount());
+        String[] valCols = columnNames(schema.columns(), schema.keyColumnCount(), schema.columns().length);
+
+        Marshaller keyMarsh = schema.getMarshaller(keySer.mapper(), TuplePart.KEY, true);
+        Marshaller valMarsh = schema.getMarshaller(valSer.mapper(), TuplePart.VAL, true);
+
+        return (row) -> {
+            try {
+                return new IgniteBiTuple<>(
+                        (K) keyMarsh.readObject(new TupleReader(new SqlRowProjection(row, meta, keyCols)), null),
+                        (V) valMarsh.readObject(new TupleReader(new SqlRowProjection(row, meta, valCols)), null)
+                );
+            } catch (MarshallerException e) {
+                throw new org.apache.ignite.lang.MarshallerException(e);
+            }
+        };
     }
 
     private static <T> T throwIfNull(T obj) {

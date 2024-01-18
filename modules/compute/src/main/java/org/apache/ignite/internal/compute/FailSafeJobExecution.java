@@ -160,6 +160,11 @@ class FailSafeJobExecution<T> implements JobExecution<T> {
         return runningJobExecution.get().cancelAsync();
     }
 
+    @Override
+    public CompletableFuture<Void> changePriorityAsync(int newPriority) {
+        return runningJobExecution.get().changePriorityAsync(newPriority);
+    }
+
     /**
      * Completes the future with the exception. This method can be called only once.
      *

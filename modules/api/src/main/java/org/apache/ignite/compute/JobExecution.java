@@ -60,4 +60,12 @@ public interface JobExecution<R> {
      *         exceeding the retention time limit.
      */
     CompletableFuture<@Nullable Boolean> cancelAsync();
+
+    /**
+     * Changes job priority. After priority change job will be the last in the queue of jobs with the same priority.
+     *
+     * @param newPriority new priority.
+     * @return The future which will be completed when change priority request is processed.
+     */
+    CompletableFuture<Void> changePriorityAsync(int newPriority);
 }

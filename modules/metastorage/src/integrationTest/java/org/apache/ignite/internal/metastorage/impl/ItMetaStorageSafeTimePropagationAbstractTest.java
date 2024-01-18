@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.metastorage.impl;
 
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
-import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.lessThan;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -54,8 +53,8 @@ public abstract class ItMetaStorageSafeTimePropagationAbstractTest extends Abstr
             }
 
             @Override
-            public CompletableFuture<Void> onRevisionApplied(WatchEvent e) {
-                return nullCompletedFuture();
+            public void onRevisionApplied(long revision) {
+                // No-op.
             }
         });
     }

@@ -55,12 +55,13 @@ CREATE TABLE supplier (
 CREATE INDEX s_nk ON supplier (s_nationkey ASC);
 
 CREATE TABLE partsupp (
+    ps_pk         varchar(64)    DEFAULT gen_random_uuid,
     ps_partkey    integer        NOT NULL,
     ps_suppkey    integer        NOT NULL,
     ps_availqty   integer        NOT NULL,
     ps_supplycost decimal(15, 2) NOT NULL,
     ps_comment    varchar(199)   NOT NULL,
-    PRIMARY KEY (ps_partkey, ps_suppkey)
+    PRIMARY KEY (ps_pk)
 );
 
 CREATE INDEX ps_sk ON partsupp (ps_suppkey ASC);

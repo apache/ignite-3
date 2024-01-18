@@ -19,6 +19,7 @@ package org.apache.ignite.internal.compute.messaging;
 
 import static java.util.concurrent.CompletableFuture.allOf;
 import static org.apache.ignite.internal.compute.ComputeUtils.cancelFromJobCancelResponse;
+import static org.apache.ignite.internal.compute.ComputeUtils.changePriorityFromJobChangePriorityResponse;
 import static org.apache.ignite.internal.compute.ComputeUtils.jobIdFromExecuteResponse;
 import static org.apache.ignite.internal.compute.ComputeUtils.resultFromJobResultResponse;
 import static org.apache.ignite.internal.compute.ComputeUtils.statusFromJobStatusResponse;
@@ -47,6 +48,8 @@ import org.apache.ignite.internal.compute.message.ExecuteRequest;
 import org.apache.ignite.internal.compute.message.ExecuteResponse;
 import org.apache.ignite.internal.compute.message.JobCancelRequest;
 import org.apache.ignite.internal.compute.message.JobCancelResponse;
+import org.apache.ignite.internal.compute.message.JobChangePriorityRequest;
+import org.apache.ignite.internal.compute.message.JobChangePriorityResponse;
 import org.apache.ignite.internal.compute.message.JobResultRequest;
 import org.apache.ignite.internal.compute.message.JobResultResponse;
 import org.apache.ignite.internal.compute.message.JobStatusRequest;
@@ -54,6 +57,7 @@ import org.apache.ignite.internal.compute.message.JobStatusResponse;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.apache.ignite.lang.ErrorGroups.Compute;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.network.NetworkMessage;
@@ -128,6 +132,8 @@ public class ComputeMessaging {
             sendJobStatusResponse(null, ex, senderConsistentId, correlationId);
         } else if (message instanceof JobCancelRequest) {
             sendJobCancelResponse(null, ex, senderConsistentId, correlationId);
+        } else if (message instanceof JobChangePriorityRequest) {
+            sendJobChangePriorityResponse(ex, senderConsistentId, correlationId);
         }
     }
 
@@ -145,6 +151,8 @@ public class ComputeMessaging {
             processJobStatusRequest((JobStatusRequest) message, senderConsistentId, correlationId);
         } else if (message instanceof JobCancelRequest) {
             processJobCancelRequest((JobCancelRequest) message, senderConsistentId, correlationId);
+        } else if (message instanceof JobChangePriorityRequest) {
+            processJobChangePriorityRequest((JobChangePriorityRequest) message, senderConsistentId, correlationId);
         }
     }
 
@@ -326,6 +334,50 @@ public class ComputeMessaging {
                 .build();
 
         messagingService.respond(senderConsistentId, jobCancelResponse, correlationId);
+    }
+
+    /**
+     * Changes compute job priority on the remote node.
+     *
+     * @param remoteNode The priority of the job will be changed on this node.
+     * @param jobId Compute job id.
+     * @param newPriority new job priority.
+     *
+     * @return Job change priority future (will be completed when change priority request is processed).
+     */
+    CompletableFuture<Void> remoteChangePriorityAsync(ClusterNode remoteNode, UUID jobId, int newPriority) {
+        JobChangePriorityRequest jobChangePriorityRequest = messagesFactory.jobChangePriorityRequest()
+                .jobId(jobId)
+                .priority(newPriority)
+                .build();
+
+        return messagingService.invoke(remoteNode, jobChangePriorityRequest, NETWORK_TIMEOUT_MILLIS)
+                .thenCompose(networkMessage -> changePriorityFromJobChangePriorityResponse((JobChangePriorityResponse) networkMessage));
+    }
+
+    private void processJobChangePriorityRequest(JobChangePriorityRequest request, String senderConsistentId, long correlationId) {
+        UUID jobId = request.jobId();
+        JobExecution<Object> execution = executions.get(jobId);
+        if (execution != null) {
+            execution.changePriorityAsync(request.priority())
+                    .whenComplete((result, err) -> sendJobChangePriorityResponse(err, senderConsistentId, correlationId));
+        } else {
+            ComputeException ex = new ComputeException(Compute.CHANGE_JOB_PRIORITY_NO_JOB_ERR, "Can not change job priority,"
+                    + " job not found for the job id " + jobId);
+            sendJobChangePriorityResponse(ex, senderConsistentId, correlationId);
+        }
+    }
+
+    private void sendJobChangePriorityResponse(
+            @Nullable Throwable throwable,
+            String senderConsistentId,
+            Long correlationId
+    ) {
+        JobChangePriorityResponse jobChangePriorityResponse = messagesFactory.jobChangePriorityResponse()
+                .throwable(throwable)
+                .build();
+
+        messagingService.respond(senderConsistentId, jobChangePriorityResponse, correlationId);
     }
 
     /**

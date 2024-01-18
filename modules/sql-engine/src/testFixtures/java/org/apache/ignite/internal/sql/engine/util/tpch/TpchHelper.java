@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.benchmarks;
+package org.apache.ignite.internal.sql.engine.util.tpch;
 
 import com.google.common.io.CharStreams;
 import java.io.IOException;
@@ -66,11 +66,20 @@ public final class TpchHelper {
     }
 
     /**
+     * Returns a string representing DML statement to fill the given table with data.
+     */
+    public static String getDmlForTable(String tableName) {
+        String queryFile = String.format("tpch/%s_dml.sql", tableName.toLowerCase());
+
+        return loadFromResource(queryFile);
+    }
+
+    /**
      * Returns a string representing DDL script with all the tables' and indexes' definitions
      * required execute queries from TPC-H suite.
      */
     public static String getSchemaDefinitionScript() {
-        return loadFromResource("tpch/schema_definition_ddl.sql");
+        return loadFromResource("tpch/tpch_schema_ddl.sql");
     }
 
     private static String loadFromResource(String resource) {
