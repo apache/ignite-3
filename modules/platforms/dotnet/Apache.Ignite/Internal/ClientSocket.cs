@@ -771,8 +771,7 @@ namespace Apache.Ignite.Internal
 
             Metrics.RequestsCompleted.Add(1);
 
-            taskCompletionSource.TrySetResult(response);
-            return true;
+            return taskCompletionSource.TrySetResult(response);
         }
 
         /// <summary>
@@ -801,8 +800,7 @@ namespace Apache.Ignite.Internal
                 return false;
             }
 
-            notificationHandler.TrySetResult(response);
-            return true;
+            return notificationHandler.TrySetResult(response);
         }
 
         private void HandleObservableTimestamp(ref MsgPackReader reader)
