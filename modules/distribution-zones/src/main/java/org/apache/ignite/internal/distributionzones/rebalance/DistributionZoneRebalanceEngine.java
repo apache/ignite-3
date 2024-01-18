@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.distributionzones.rebalance;
 
 import static java.util.concurrent.CompletableFuture.allOf;
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.ZONE_ALTER;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.extractZoneId;
@@ -75,8 +76,6 @@ public class DistributionZoneRebalanceEngine {
     /** Catalog service. */
     private final CatalogService catalogService;
 
-    public static final CompletableFuture<Void> recoveryFuture = new CompletableFuture<>();
-
     /**
      * Constructor.
      *
@@ -102,17 +101,8 @@ public class DistributionZoneRebalanceEngine {
     /**
      * Starts the rebalance engine by registering corresponding meta storage and configuration listeners.
      */
-    public void start() {
-        IgniteUtils.inBusyLock(busyLock, () -> {
-            CompletableFuture<Long> recoveryFinishFuture = metaStorageManager.recoveryFinishedFuture();
-
-            // At the moment of the start of this manager, it is guaranteed that Meta Storage has been recovered.
-            assert recoveryFinishFuture.isDone();
-
-            long recoveryRevision = recoveryFinishFuture.join();
-
-            rebalanceTriggersRecovery(recoveryRevision);
-
+    public CompletableFuture<Void> start() {
+        return IgniteUtils.inBusyLockAsync(busyLock, () -> {
             catalogService.listen(ZONE_ALTER, new CatalogAlterZoneEventListener(catalogService) {
                 @Override
                 protected CompletableFuture<Void> onReplicasUpdate(AlterZoneEventParameters parameters, int oldReplicas) {
@@ -122,6 +112,15 @@ public class DistributionZoneRebalanceEngine {
 
             // TODO: IGNITE-18694 - Recovery for the case when zones watch listener processed event but assignments were not updated.
             metaStorageManager.registerPrefixWatch(zoneDataNodesKey(), dataNodesListener);
+
+            CompletableFuture<Long> recoveryFinishFuture = metaStorageManager.recoveryFinishedFuture();
+
+            // At the moment of the start of this manager, it is guaranteed that Meta Storage has been recovered.
+            assert recoveryFinishFuture.isDone();
+
+            long recoveryRevision = recoveryFinishFuture.join();
+
+            return rebalanceTriggersRecovery(recoveryRevision);
         });
     }
 
@@ -133,7 +132,7 @@ public class DistributionZoneRebalanceEngine {
     // TODO: https://issues.apache.org/jira/browse/IGNITE-21058 At the moment this method produce many metastore multi-invokes
     // TODO: which can be avoided by the local logic, which mirror the logic of metastore invokes.
     // TODO: And then run the remote invoke, only if needed.
-    private void rebalanceTriggersRecovery(long recoveryRevision) {
+    private CompletableFuture<Void> rebalanceTriggersRecovery(long recoveryRevision) {
         if (recoveryRevision > 0) {
             List<CompletableFuture<Void>> zonesRecoveryFutures = catalogService.zones(catalogService.latestCatalogVersion())
                     .stream()
@@ -146,18 +145,9 @@ public class DistributionZoneRebalanceEngine {
                     )
                     .collect(Collectors.toUnmodifiableList());
 
-            IgniteUtils.inBusyLockAsync(busyLock, () ->
-                    allOf(zonesRecoveryFutures.toArray(new CompletableFuture[0]))
-                            .whenComplete((v, th) -> {
-                                if (th != null) {
-                                    recoveryFuture.completeExceptionally(th);
-                                } else {
-                                    recoveryFuture.complete(null);
-                                }
-                            })
-            );
+            return allOf(zonesRecoveryFutures.toArray(new CompletableFuture[0]));
         } else {
-            recoveryFuture.complete(null);
+            return completedFuture(null);
         }
     }
 
@@ -244,8 +234,8 @@ public class DistributionZoneRebalanceEngine {
             CatalogZoneDescriptor zoneDescriptor,
             long causalityToken,
             int catalogVersion) {
-        return IgniteUtils.inBusyLockAsync(busyLock, () ->
-            distributionZoneManager.dataNodes(causalityToken, catalogVersion, zoneDescriptor.id())
+
+        return distributionZoneManager.dataNodes(causalityToken, catalogVersion, zoneDescriptor.id())
                 .thenCompose(dataNodes -> {
                     if (dataNodes.isEmpty()) {
                         return nullCompletedFuture();
@@ -259,8 +249,7 @@ public class DistributionZoneRebalanceEngine {
                             dataNodes,
                             tableDescriptors
                     );
-                })
-        );
+                });
     }
 
     private CompletableFuture<Void> triggerPartitionsRebalanceForAllTables(

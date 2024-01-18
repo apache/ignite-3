@@ -266,7 +266,7 @@ public class DistributionZoneManager implements IgniteComponent {
             return allOf(
                     createOrRestoreZonesStates(recoveryRevision),
                     restoreLogicalTopologyChangeEventAndStartTimers(recoveryRevision)
-            ).thenRun(rebalanceEngine::start);
+            ).thenCompose((notUsed) -> rebalanceEngine.start());
         });
     }
 
