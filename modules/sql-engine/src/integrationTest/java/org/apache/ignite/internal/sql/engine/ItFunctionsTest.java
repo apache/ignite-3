@@ -343,6 +343,10 @@ public class ItFunctionsTest extends BaseSqlIntegrationTest {
         assertQuery("SELECT substring('1234567', 2, 3.1);").returns("234").check();
         assertQuery("SELECT substring('1234567', 2.1);").returns("234567").check();
 
+        // type coercion
+        assertQuery("SELECT substring('1234567', 2, '1');").returns("2").check();
+        assertQuery("SELECT substring('1234567', '2', 1);").returns("2").check();
+
         assertQuery(String.format("SELECT substring('1234567', 1, %d)", Long.MAX_VALUE)).returns("1234567").check();
         assertQuery(String.format("SELECT substring('1234567', %d)", Long.MAX_VALUE)).returns("").check();
         assertQuery(String.format("SELECT substring('1234567', %d)", Long.MIN_VALUE)).returns("1234567").check();
