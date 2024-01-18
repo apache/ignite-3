@@ -53,6 +53,14 @@ namespace Apache.Ignite.Internal.Buffers
         }
 
         /// <summary>
+        /// Finalizes an instance of the <see cref="PooledBuffer"/> class.
+        /// </summary>
+        ~PooledBuffer()
+        {
+            Dispose();
+        }
+
+        /// <summary>
         /// Gets or sets the position.
         /// </summary>
         public int Position { get; set; }
@@ -96,6 +104,8 @@ namespace Apache.Ignite.Internal.Buffers
 
             ByteArrayPool.Return(_bytes);
             _disposed = true;
+
+            GC.SuppressFinalize(this);
         }
 
         private void CheckDisposed()
