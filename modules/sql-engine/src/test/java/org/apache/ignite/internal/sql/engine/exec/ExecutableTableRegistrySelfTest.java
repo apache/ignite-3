@@ -144,7 +144,6 @@ public class ExecutableTableRegistrySelfTest extends BaseIgniteAbstractTest {
 
             when(tableManager.tableAsync(tableId)).thenReturn(CompletableFuture.completedFuture(table));
             when(schemaManager.schemaRegistry(tableId)).thenReturn(schemaRegistry);
-            when(descriptor.columnsCount()).thenReturn(0);
             when(schemaRegistry.schema(tableVersion)).thenReturn(schemaDescriptor);
 
             IgniteTable sqlTable = new IgniteTableImpl(
