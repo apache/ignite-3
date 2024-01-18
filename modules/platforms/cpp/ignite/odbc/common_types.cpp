@@ -287,6 +287,11 @@ sql_state error_code_to_sql_state(error::code code) {
             return sql_state::SHYT00_TIMEOUT_EXPIRED;
         case error::code::PRIMARY_REPLICA_AWAIT:
             return sql_state::SHY000_GENERAL_ERROR;
+
+        // Criteria group. Group code: 19
+        case error::code::CRITERIA_CURSOR_NO_MORE_PAGES_ERR:
+        case error::code::CRITERIA_CURSOR_CLOSED_ERR:
+            return sql_state::SHY000_GENERAL_ERROR;
     }
 
     return sql_state::SHY000_GENERAL_ERROR;
