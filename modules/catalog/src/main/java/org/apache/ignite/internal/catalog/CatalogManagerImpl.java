@@ -33,6 +33,7 @@ import java.util.NavigableMap;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.Flow.Publisher;
+import java.util.function.Function;
 import java.util.function.LongSupplier;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
@@ -409,7 +410,8 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     public List<SystemView<?>> systemViews() {
         return List.of(
                 createSystemViewsView(),
-                createSystemViewColumnsView()
+                createSystemViewColumnsView(),
+                createSystemViewZonesView()
         );
     }
 
@@ -555,6 +557,24 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
                 .addColumn("LENGTH", NativeTypes.INT32, entry -> entry.descriptor.length())
                 .dataProvider(viewDataPublisher)
                 .build();
+    }
+
+    private SystemView<?> createSystemViewZonesView() {
+        return SystemViews.<CatalogZoneDescriptor>clusterViewBuilder()
+                .name("ZONES")
+                .addColumn("NAME", NativeTypes.STRING, CatalogZoneDescriptor::name)
+                .addColumn("PARTITIONS", NativeTypes.INT32, CatalogZoneDescriptor::partitions)
+                .addColumn("REPLICAS", NativeTypes.INT32, CatalogZoneDescriptor::replicas)
+                .addColumn("DATA_NODES_AUTO_ADJUST_SCALE_UP", NativeTypes.INT32, CatalogZoneDescriptor::dataNodesAutoAdjustScaleUp)
+                .addColumn("DATA_NODES_AUTO_ADJUST_SCALE_DOWN", NativeTypes.INT32, CatalogZoneDescriptor::dataNodesAutoAdjustScaleDown)
+                .addColumn("DATA_NODES_FILTER", NativeTypes.STRING, CatalogZoneDescriptor::filter)
+                .addColumn("IS_DEFAULT_ZONE", NativeTypes.BOOLEAN, isDefaultZone())
+                .dataProvider(SubscriptionUtils.fromIterable(() -> catalog(latestCatalogVersion()).zones().iterator()))
+                .build();
+    }
+
+    private static Function<CatalogZoneDescriptor, Boolean> isDefaultZone() {
+        return zone -> zone.name().equals(DEFAULT_ZONE_NAME);
     }
 
     /**
