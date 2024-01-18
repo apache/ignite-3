@@ -18,7 +18,6 @@
 namespace Apache.Ignite.Internal.Buffers
 {
     using System;
-    using System.Diagnostics;
     using Proto.MsgPack;
 
     /// <summary>
