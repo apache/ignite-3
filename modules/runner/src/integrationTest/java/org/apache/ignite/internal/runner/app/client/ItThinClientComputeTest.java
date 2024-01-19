@@ -382,20 +382,29 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
     @ParameterizedTest
     @CsvSource({"1,3344", "2,3345", "3,3345", "10,3344"})
-    void testExecuteColocatedRunsComputeJobOnKeyNode(int key, int port) {
-        var table = TABLE_NAME;
+    void testExecuteColocatedTupleRunsComputeJobOnKeyNode(int key, int port) {
         var keyTuple = Tuple.create().set(COLUMN_KEY, key);
-        var keyPojo = new TestPojo(key);
 
         JobExecution<String> tupleExecution = client().compute().executeColocatedAsync(
-                table,
+                TABLE_NAME,
                 keyTuple,
                 List.of(),
                 NodeNameJob.class.getName()
         );
 
+        String expectedNode = "itcct_n_" + port;
+        assertThat(tupleExecution.resultAsync(), willBe(expectedNode));
+
+        assertThat(tupleExecution.statusAsync(), willBe(jobStatusWithState(COMPLETED)));
+    }
+
+    @ParameterizedTest
+    @CsvSource({"1,3344", "2,3345", "3,3345", "10,3344"})
+    void testExecuteColocatedPojoRunsComputeJobOnKeyNode(int key, int port) {
+        var keyPojo = new TestPojo(key);
+
         JobExecution<String> pojoExecution = client().compute().executeColocatedAsync(
-                table,
+                TABLE_NAME,
                 keyPojo,
                 Mapper.of(TestPojo.class),
                 List.of(),
@@ -403,10 +412,8 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         );
 
         String expectedNode = "itcct_n_" + port;
-        assertThat(tupleExecution.resultAsync(), willBe(expectedNode));
         assertThat(pojoExecution.resultAsync(), willBe(expectedNode));
 
-        assertThat(tupleExecution.statusAsync(), willBe(jobStatusWithState(COMPLETED)));
         assertThat(pojoExecution.statusAsync(), willBe(jobStatusWithState(COMPLETED)));
     }
 
