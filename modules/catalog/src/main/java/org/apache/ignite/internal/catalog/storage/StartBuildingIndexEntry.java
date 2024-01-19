@@ -25,7 +25,7 @@ import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.events.StartBuildingIndexEventParameters;
 
 /** Entry for {@link StartBuildingIndexCommand}. */
-public class StartBuildingIndexEntry extends AbstractChangeIndexStatusEntry implements Fireable{
+public class StartBuildingIndexEntry extends AbstractChangeIndexStatusEntry implements Fireable {
     private static final long serialVersionUID = 6738120002994636883L;
 
     /** Constructor. */

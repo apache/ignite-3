@@ -35,6 +35,7 @@ import org.apache.ignite.internal.catalog.storage.UpdateEntry;
  * Makes the index available, switches from the {@link CatalogIndexStatus#BUILDING} to the {@link CatalogIndexStatus#AVAILABLE}
  * {@link CatalogIndexDescriptor#status() status} in the catalog.
  *
+ * @see CatalogIndexStatus
  * @see IndexNotFoundValidationException
  * @see ChangeIndexStatusValidationException
  */

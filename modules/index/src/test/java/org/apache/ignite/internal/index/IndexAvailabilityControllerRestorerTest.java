@@ -29,8 +29,8 @@ import static org.apache.ignite.internal.index.TestIndexManagementUtils.assertMe
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.awaitTillGlobalMetastoreRevisionIsApplied;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.createIndex;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.createTable;
-import static org.apache.ignite.internal.index.TestIndexManagementUtils.indexDescriptor;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.indexId;
+import static org.apache.ignite.internal.index.TestIndexManagementUtils.isIndexAvailable;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.makeIndexAvailable;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -129,8 +129,8 @@ public class IndexAvailabilityControllerRestorerTest extends BaseIgniteAbstractT
         assertMetastoreKeyAbsent(metaStorageManager, inProgressBuildIndexMetastoreKey(indexId0));
         assertMetastoreKeyAbsent(metaStorageManager, inProgressBuildIndexMetastoreKey(indexId1));
 
-        assertTrue(indexDescriptor(catalogManager, INDEX_NAME + 0, clock).available());
-        assertTrue(indexDescriptor(catalogManager, INDEX_NAME + 1, clock).available());
+        assertTrue(isIndexAvailable(catalogManager, INDEX_NAME + 0, clock));
+        assertTrue(isIndexAvailable(catalogManager, INDEX_NAME + 1, clock));
     }
 
     @Test
@@ -145,7 +145,7 @@ public class IndexAvailabilityControllerRestorerTest extends BaseIgniteAbstractT
 
         // Let's do checks.
         assertMetastoreKeyAbsent(metaStorageManager, inProgressBuildIndexMetastoreKey(indexId));
-        assertTrue(indexDescriptor(catalogManager, INDEX_NAME, clock).available());
+        assertTrue(isIndexAvailable(catalogManager, INDEX_NAME, clock));
     }
 
     @Test
@@ -166,7 +166,7 @@ public class IndexAvailabilityControllerRestorerTest extends BaseIgniteAbstractT
             assertMetastoreKeyPresent(metaStorageManager, partitionBuildIndexMetastoreKey(indexId, partitionId));
         }
 
-        assertFalse(indexDescriptor(catalogManager, INDEX_NAME, clock).available());
+        assertFalse(isIndexAvailable(catalogManager, INDEX_NAME, clock));
     }
 
     private void putInProgressBuildIndexMetastoreKeyInMetastore(int indexId) {

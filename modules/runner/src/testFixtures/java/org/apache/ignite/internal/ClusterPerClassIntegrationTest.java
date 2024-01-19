@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal;
 
+import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.AVAILABLE;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -412,7 +413,7 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
 
                         return difference.stream()
                                 .map(id -> catalogManager.index(id, now))
-                                .allMatch(indexDescriptor -> indexDescriptor != null && indexDescriptor.available());
+                                .allMatch(indexDescriptor -> indexDescriptor != null && indexDescriptor.status() == AVAILABLE);
                     },
                     10_000L
             ));
@@ -443,7 +444,7 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
 
         CatalogIndexDescriptor indexDescriptor = catalogManager.index(indexName, clock.nowLong());
 
-        return indexDescriptor != null && indexDescriptor.available();
+        return indexDescriptor != null && indexDescriptor.status() == AVAILABLE;
     }
 
     /**

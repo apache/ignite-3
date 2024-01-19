@@ -21,6 +21,7 @@ import static java.util.Collections.binarySearch;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Comparator.comparingInt;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.AVAILABLE;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
@@ -44,6 +45,7 @@ import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 
 /** Index chooser for various operations, for example for RW transactions. */
+// TODO: IGNITE-21238 подумтьа на счет этого класса может тут нужно будет поменять я хз
 class IndexChooser implements ManuallyCloseable {
     private static final Comparator<CatalogIndexDescriptor> INDEX_COMPARATOR = comparingInt(CatalogObjectDescriptor::id);
 
@@ -125,7 +127,7 @@ class IndexChooser implements ManuallyCloseable {
                             : String.format("Table should not be dropped: [catalogVersion=%s, tableId=%s]", nextCatalogVersion, tableId);
 
                     for (CatalogIndexDescriptor tableIndex : tableIndexes) {
-                        if (tableIndex.available() && !contains(nextCatalogVersionTableIndexes, tableIndex)) {
+                        if (tableIndex.status() == AVAILABLE && !contains(nextCatalogVersionTableIndexes, tableIndex)) {
                             addDroppedAvailableIndex(tableIndex, nextCatalogVersion);
                         }
                     }
@@ -198,7 +200,7 @@ class IndexChooser implements ManuallyCloseable {
 
             assert droppedIndexDescriptor != null : "indexId=" + parameters.indexId() + ", catalogVersion=" + previousCatalogVersion;
 
-            if (!droppedIndexDescriptor.available()) {
+            if (droppedIndexDescriptor.status() != AVAILABLE) {
                 return nullCompletedFuture();
             }
 
@@ -241,7 +243,7 @@ class IndexChooser implements ManuallyCloseable {
      * @param catalogVersion Catalog version on which the index was dropped.
      */
     private void addDroppedAvailableIndex(CatalogIndexDescriptor droppedIndex, int catalogVersion) {
-        assert droppedIndex.available() : droppedIndex.id();
+        assert droppedIndex.status() == AVAILABLE : droppedIndex.id();
 
         int tableId = droppedIndex.tableId();
 

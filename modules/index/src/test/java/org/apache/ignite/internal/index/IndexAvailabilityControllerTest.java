@@ -20,6 +20,7 @@ package org.apache.ignite.internal.index;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.pkIndexName;
+import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.AVAILABLE;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.COLUMN_NAME;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.INDEX_NAME;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.NODE_NAME;
@@ -44,7 +45,6 @@ import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogTestUtils;
 import org.apache.ignite.internal.catalog.commands.AlterZoneCommand;
-import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
@@ -173,7 +173,7 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
             assertPartitionBuildIndexKeyExists(indexId, partitionId);
         }
 
-        assertFalse(indexDescriptor(INDEX_NAME).available());
+        assertFalse(isIndexAvailable(INDEX_NAME));
     }
 
     @Test
@@ -197,7 +197,7 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
             assertPartitionBuildIndexKeyAbsent(indexId, partitionId);
         }
 
-        assertTrue(indexDescriptor(INDEX_NAME).available());
+        assertTrue(isIndexAvailable(INDEX_NAME));
     }
 
     @Test
@@ -305,8 +305,8 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
         return TableTestUtils.getTableIdStrict(catalogManager, tableName, clock.nowLong());
     }
 
-    private CatalogIndexDescriptor indexDescriptor(String indexName) {
-        return TableTestUtils.getIndexStrict(catalogManager, indexName, clock.nowLong());
+    private boolean isIndexAvailable(String indexName) {
+        return TableTestUtils.getIndexStrict(catalogManager, indexName, clock.nowLong()).status() == AVAILABLE;
     }
 
     private void changePartitionCountInCatalog(int newPartitions) {
