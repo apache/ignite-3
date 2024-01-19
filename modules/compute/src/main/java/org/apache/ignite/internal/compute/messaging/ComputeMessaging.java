@@ -195,20 +195,10 @@ public class ComputeMessaging {
                 .thenCompose(networkMessage -> jobIdFromExecuteResponse((ExecuteResponse) networkMessage));
     }
 
-    private void processExecuteRequest(
-            JobStarter starter,
-            ExecuteRequest request,
-            String senderConsistentId,
-            long correlationId
-    ) {
+    private void processExecuteRequest(JobStarter starter, ExecuteRequest request, String senderConsistentId, long correlationId) {
         List<DeploymentUnit> units = toDeploymentUnit(request.deploymentUnits());
 
-        JobExecution<Object> execution = starter.start(
-                request.executeOptions(),
-                units,
-                request.jobClassName(),
-                request.args()
-        );
+        JobExecution<Object> execution = starter.start(request.executeOptions(), units, request.jobClassName(), request.args());
         execution.idAsync().whenComplete((jobId, err) -> sendExecuteResponse(jobId, err, senderConsistentId, correlationId));
     }
 
@@ -238,11 +228,7 @@ public class ComputeMessaging {
                 .thenCompose(networkMessage -> resultFromJobResultResponse((JobResultResponse) networkMessage));
     }
 
-    private void processJobResultRequest(
-            JobResultRequest request,
-            String senderConsistentId,
-            long correlationId
-    ) {
+    private void processJobResultRequest(JobResultRequest request, String senderConsistentId, long correlationId) {
         executionManager.resultAsync(request.jobId())
                 .whenComplete((result, err) -> sendJobResultResponse(result, err, senderConsistentId, correlationId));
     }
