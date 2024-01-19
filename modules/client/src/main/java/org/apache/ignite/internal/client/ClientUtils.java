@@ -221,6 +221,9 @@ public class ClientUtils {
             case ClientOp.COMPUTE_CANCEL:
                 return ClientOperationType.COMPUTE_CANCEL;
 
+            case ClientOp.COMPUTE_CHANGE_PRIORITY:
+                return ClientOperationType.COMPUTE_CHANGE_PRIORITY;
+
             case ClientOp.CLUSTER_GET_NODES:
                 return null;
 
