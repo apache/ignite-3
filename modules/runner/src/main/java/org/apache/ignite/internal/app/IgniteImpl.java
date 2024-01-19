@@ -163,6 +163,7 @@ import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.VaultService;
 import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
+import org.apache.ignite.internal.worker.CriticalWorkerWatchdog;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ChannelType;
 import org.apache.ignite.network.ClusterNode;
@@ -170,6 +171,7 @@ import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.DefaultMessagingService;
 import org.apache.ignite.network.MessageSerializationRegistryImpl;
 import org.apache.ignite.network.NettyBootstrapFactory;
+import org.apache.ignite.network.NettyWorkersRegistrar;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.NodeMetadata;
@@ -235,8 +237,12 @@ public class IgniteImpl implements Ignite {
 
     private final ComputeComponent computeComponent;
 
+    private final CriticalWorkerWatchdog criticalWorkerRegistry;
+
     /** Netty bootstrap factory. */
     private final NettyBootstrapFactory nettyBootstrapFactory;
+
+    private final NettyWorkersRegistrar nettyWorkersRegistrar;
 
     /** Raft manager. */
     private final Loza raftMgr;
@@ -374,7 +380,14 @@ public class IgniteImpl implements Ignite {
 
         MessageSerializationRegistry serializationRegistry = createSerializationRegistry(serviceProviderClassLoader);
 
+        criticalWorkerRegistry = new CriticalWorkerWatchdog(threadPoolsManager.commonScheduler());
+
         nettyBootstrapFactory = new NettyBootstrapFactory(networkConfiguration, name);
+        nettyWorkersRegistrar = new NettyWorkersRegistrar(
+                criticalWorkerRegistry,
+                threadPoolsManager.commonScheduler(),
+                nettyBootstrapFactory
+        );
 
         clusterSvc = new ScaleCubeClusterServiceFactory().createClusterService(
                 name,
@@ -799,7 +812,9 @@ public class IgniteImpl implements Ignite {
             lifecycleManager.startComponents(
                     threadPoolsManager,
                     clockWaiter,
+                    criticalWorkerRegistry,
                     nettyBootstrapFactory,
+                    nettyWorkersRegistrar,
                     clusterSvc,
                     restComponent,
                     raftMgr,
@@ -1031,6 +1046,7 @@ public class IgniteImpl implements Ignite {
      * @throws IgniteInternalException if the REST module is not started.
      */
     // TODO: should be encapsulated in local properties, see https://issues.apache.org/jira/browse/IGNITE-15131
+    @Nullable
     public NetworkAddress restHttpsAddress() {
         String host = restComponent.hostName();
         int port = restComponent.httpsPort();

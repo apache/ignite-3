@@ -17,16 +17,18 @@
 
 package org.apache.ignite.network;
 
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import io.netty.bootstrap.Bootstrap;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.ChannelOption;
 import io.netty.channel.EventLoopGroup;
+import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.network.configuration.InboundView;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
@@ -46,18 +48,18 @@ public class NettyBootstrapFactory implements IgniteComponent {
     private final String eventLoopGroupNamePrefix;
 
     /** Server boss socket channel handler event loop group. */
-    private EventLoopGroup bossGroup;
+    private NioEventLoopGroup bossGroup;
 
     /** Server work socket channel handler event loop group. */
-    private EventLoopGroup workerGroup;
+    private NioEventLoopGroup workerGroup;
 
     /** Client socket channel handler event loop group. */
-    private EventLoopGroup clientWorkerGroup;
+    private NioEventLoopGroup clientWorkerGroup;
 
     /**
      * Constructor.
      *
-     * @param networkConfiguration     Network configuration.
+     * @param networkConfiguration Network configuration.
      * @param eventLoopGroupNamePrefix Prefix for event loop group names.
      */
     public NettyBootstrapFactory(NetworkConfiguration networkConfiguration, String eventLoopGroupNamePrefix) {
@@ -132,6 +134,13 @@ public class NettyBootstrapFactory implements IgniteComponent {
         return serverBootstrap;
     }
 
+    /**
+     * Returns all event loop groups managed by this factory.
+     */
+    List<NioEventLoopGroup> eventLoopGroups() {
+        return List.of(bossGroup, workerGroup, clientWorkerGroup);
+    }
+
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> start() {
@@ -160,8 +169,8 @@ public class NettyBootstrapFactory implements IgniteComponent {
         long quietPeriod = configurationView.shutdownQuietPeriod();
         long shutdownTimeout = configurationView.shutdownTimeout();
 
-        clientWorkerGroup.shutdownGracefully(quietPeriod, shutdownTimeout, TimeUnit.MILLISECONDS).sync();
-        workerGroup.shutdownGracefully(quietPeriod, shutdownTimeout, TimeUnit.MILLISECONDS).sync();
-        bossGroup.shutdownGracefully(quietPeriod, shutdownTimeout, TimeUnit.MILLISECONDS).sync();
+        clientWorkerGroup.shutdownGracefully(quietPeriod, shutdownTimeout, MILLISECONDS).sync();
+        workerGroup.shutdownGracefully(quietPeriod, shutdownTimeout, MILLISECONDS).sync();
+        bossGroup.shutdownGracefully(quietPeriod, shutdownTimeout, MILLISECONDS).sync();
     }
 }
