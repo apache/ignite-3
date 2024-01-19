@@ -53,7 +53,7 @@ import org.apache.ignite.internal.table.distributed.replication.request.ReadWrit
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
-import org.apache.ignite.internal.tx.TransactionAlreadyFinishedException;
+import org.apache.ignite.internal.tx.MismatchingTransactionOutcomeException;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
@@ -502,7 +502,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
 
         ErrorTimestampAwareReplicaResponse errorResponse = (ErrorTimestampAwareReplicaResponse) response;
 
-        assertInstanceOf(TransactionAlreadyFinishedException.class, ExceptionUtils.unwrapCause(errorResponse.throwable()));
+        assertInstanceOf(MismatchingTransactionOutcomeException.class, ExceptionUtils.unwrapCause(errorResponse.throwable()));
 
         assertEquals(TxState.ABORTED, txStoredState(commitPartNode, orphanTx.id()));
     }
@@ -618,7 +618,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
                 rwTx1Id
         );
 
-        assertThat(finish2, willThrow(TransactionAlreadyFinishedException.class));
+        assertThat(finish2, willThrow(MismatchingTransactionOutcomeException.class));
     }
 
     @Test
@@ -762,7 +762,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
 
         cancelLease(commitPartNode, tblReplicationGrp);
 
-        assertThat(commitFut, willThrow(TransactionAlreadyFinishedException.class, 30, SECONDS));
+        assertThat(commitFut, willThrow(MismatchingTransactionOutcomeException.class, 30, SECONDS));
 
         RecordView<Tuple> view = txCrdNode.tables().table(TABLE_NAME).recordView();
 

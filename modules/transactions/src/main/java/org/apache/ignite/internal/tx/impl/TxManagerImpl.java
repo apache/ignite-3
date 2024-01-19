@@ -80,7 +80,7 @@ import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.LockManager;
-import org.apache.ignite.internal.tx.TransactionAlreadyFinishedException;
+import org.apache.ignite.internal.tx.MismatchingTransactionOutcomeException;
 import org.apache.ignite.internal.tx.TransactionMeta;
 import org.apache.ignite.internal.tx.TransactionResult;
 import org.apache.ignite.internal.tx.TxManager;
@@ -444,7 +444,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             return nullCompletedFuture();
         }
 
-        return failedFuture(new TransactionAlreadyFinishedException(
+        return failedFuture(new MismatchingTransactionOutcomeException(
                 "Failed to change the outcome of a finished transaction [txId=" + txId + ", txState=" + stateMeta.txState() + "].",
                 new TransactionResult(stateMeta.txState(), stateMeta.commitTimestamp()))
         );
@@ -514,8 +514,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                     if (ex != null) {
                         Throwable cause = ExceptionUtils.unwrapCause(ex);
 
-                        if (cause instanceof TransactionAlreadyFinishedException) {
-                            TransactionAlreadyFinishedException transactionException = (TransactionAlreadyFinishedException) cause;
+                        if (cause instanceof MismatchingTransactionOutcomeException) {
+                            MismatchingTransactionOutcomeException transactionException = (MismatchingTransactionOutcomeException) cause;
 
                             TransactionResult result = transactionException.transactionResult();
 
@@ -602,7 +602,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                     txResult.transactionState()
             );
 
-            throw new TransactionAlreadyFinishedException(
+            throw new MismatchingTransactionOutcomeException(
                     "Failed to change the outcome of a finished transaction [txId=" + txId + ", txState=" + txResult.transactionState()
                             + "].",
                     txResult
@@ -855,7 +855,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                 }
             } else {
                 if (commit && readyToFinishException instanceof PrimaryReplicaExpiredException) {
-                    finishInProgressFuture.completeExceptionally(new TransactionAlreadyFinishedException(
+                    finishInProgressFuture.completeExceptionally(new MismatchingTransactionOutcomeException(
                             TX_PRIMARY_REPLICA_EXPIRED_ERR,
                             "Failed to commit the transaction.",
                             new TransactionResult(ABORTED, null),
