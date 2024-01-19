@@ -15,22 +15,27 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.catalog.commands;
+package org.apache.ignite.internal.catalog.events;
 
-import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.BUILDING;
+/** {@link CatalogEvent#INDEX_BUILDING} event parameters. */
+public class StartBuildingIndexEventParameters extends CatalogEventParameters {
+    private final int indexId;
 
-import org.apache.ignite.internal.catalog.CatalogCommand;
-import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
+    /**
+     * Constructor.
+     *
+     * @param causalityToken Causality token.
+     * @param catalogVersion Catalog version.
+     * @param indexId Index ID.
+     */
+    public StartBuildingIndexEventParameters(long causalityToken, int catalogVersion, int indexId) {
+        super(causalityToken, catalogVersion);
 
-/** Tests to verify validation of {@link MakeIndexAvailableCommand}. */
-public class MakeIndexAvailableCommandValidationTest extends AbstractChangeIndexStatusCommandValidationTest {
-    @Override
-    CatalogCommand createCommand(int indexId) {
-        return MakeIndexAvailableCommand.builder().indexId(indexId).build();
+        this.indexId = indexId;
     }
 
-    @Override
-    boolean isInvalidPreviousIndexStatus(CatalogIndexStatus indexStatus) {
-        return indexStatus != BUILDING;
+    /** Returns index ID. */
+    public int indexId() {
+        return indexId;
     }
 }

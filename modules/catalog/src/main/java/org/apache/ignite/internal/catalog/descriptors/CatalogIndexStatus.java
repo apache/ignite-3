@@ -22,7 +22,7 @@ package org.apache.ignite.internal.catalog.descriptors;
  *
  * <p>Possible status transitions:</p>
  * <ul>
- *     <li>{@link #REGISTERED} -> {@link #BEING_BUILT} -> {@link #AVAILABLE}.</li>
+ *     <li>{@link #REGISTERED} -> {@link #BUILDING} -> {@link #AVAILABLE}.</li>
  *     <li>{@link #AVAILABLE} (PK index).</li>
  * </ul>
  */
@@ -39,7 +39,7 @@ public enum CatalogIndexStatus {
      *
      * <p>Write only.</p>
      */
-    BEING_BUILT,
+    BUILDING,
 
     /**
      * Index is built and ready to use.

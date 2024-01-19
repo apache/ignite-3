@@ -18,8 +18,8 @@
 package org.apache.ignite.internal.catalog.commands;
 
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.indexOrThrow;
-import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.AVAILABLE;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.BUILDING;
+import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.REGISTERED;
 
 import java.util.List;
 import org.apache.ignite.internal.catalog.Catalog;
@@ -28,26 +28,26 @@ import org.apache.ignite.internal.catalog.ChangeIndexStatusValidationException;
 import org.apache.ignite.internal.catalog.IndexNotFoundValidationException;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
-import org.apache.ignite.internal.catalog.storage.MakeIndexAvailableEntry;
+import org.apache.ignite.internal.catalog.storage.StartBuildingIndexEntry;
 import org.apache.ignite.internal.catalog.storage.UpdateEntry;
 
 /**
- * Makes the index available, switches from the {@link CatalogIndexStatus#BUILDING} to the {@link CatalogIndexStatus#AVAILABLE}
+ * Start building the index, switches from the {@link CatalogIndexStatus#REGISTERED} to the {@link CatalogIndexStatus#BUILDING}
  * {@link CatalogIndexDescriptor#status() status} in the catalog.
  *
  * @see IndexNotFoundValidationException
  * @see ChangeIndexStatusValidationException
  */
-public class MakeIndexAvailableCommand implements CatalogCommand {
-    /** Returns builder to make an index available. */
-    public static MakeIndexAvailableCommandBuilder builder() {
+public class StartBuildingIndexCommand implements CatalogCommand {
+    /** Returns builder to start building index. */
+    public static StartBuildingIndexCommandBuilder builder() {
         return new Builder();
     }
 
     private final int indexId;
 
     /** Constructor. */
-    private MakeIndexAvailableCommand(int indexId) {
+    private StartBuildingIndexCommand(int indexId) {
         this.indexId = indexId;
     }
 
@@ -55,14 +55,14 @@ public class MakeIndexAvailableCommand implements CatalogCommand {
     public List<UpdateEntry> get(Catalog catalog) {
         CatalogIndexDescriptor index = indexOrThrow(catalog, indexId);
 
-        if (index.status() != BUILDING) {
-            throw new ChangeIndexStatusValidationException(indexId, index.status(), AVAILABLE, BUILDING);
+        if (index.status() != REGISTERED) {
+            throw new ChangeIndexStatusValidationException(indexId, index.status(), BUILDING, REGISTERED);
         }
 
-        return List.of(new MakeIndexAvailableEntry(indexId));
+        return List.of(new StartBuildingIndexEntry(indexId));
     }
 
-    private static class Builder implements MakeIndexAvailableCommandBuilder {
+    private static class Builder implements StartBuildingIndexCommandBuilder {
         private int indexId;
 
         @Override
@@ -74,7 +74,7 @@ public class MakeIndexAvailableCommand implements CatalogCommand {
 
         @Override
         public CatalogCommand build() {
-            return new MakeIndexAvailableCommand(indexId);
+            return new StartBuildingIndexCommand(indexId);
         }
     }
 }

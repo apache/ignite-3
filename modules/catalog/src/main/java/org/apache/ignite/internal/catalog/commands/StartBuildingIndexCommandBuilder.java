@@ -17,20 +17,13 @@
 
 package org.apache.ignite.internal.catalog.commands;
 
-import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.BUILDING;
-
 import org.apache.ignite.internal.catalog.CatalogCommand;
-import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 
-/** Tests to verify validation of {@link MakeIndexAvailableCommand}. */
-public class MakeIndexAvailableCommandValidationTest extends AbstractChangeIndexStatusCommandValidationTest {
-    @Override
-    CatalogCommand createCommand(int indexId) {
-        return MakeIndexAvailableCommand.builder().indexId(indexId).build();
-    }
+/** Builder for {@link StartBuildingIndexCommand}. */
+public interface StartBuildingIndexCommandBuilder {
+    /** Index ID. */
+    StartBuildingIndexCommandBuilder indexId(int indexId);
 
-    @Override
-    boolean isInvalidPreviousIndexStatus(CatalogIndexStatus indexStatus) {
-        return indexStatus != BUILDING;
-    }
+    /** Returns a command with specified parameters. */
+    CatalogCommand build();
 }

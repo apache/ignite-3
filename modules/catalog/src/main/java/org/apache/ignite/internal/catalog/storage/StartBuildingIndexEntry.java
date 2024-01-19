@@ -17,29 +17,29 @@
 
 package org.apache.ignite.internal.catalog.storage;
 
-import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.AVAILABLE;
+import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.BUILDING;
 
-import org.apache.ignite.internal.catalog.commands.MakeIndexAvailableCommand;
+import org.apache.ignite.internal.catalog.commands.StartBuildingIndexCommand;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
-import org.apache.ignite.internal.catalog.events.MakeIndexAvailableEventParameters;
+import org.apache.ignite.internal.catalog.events.StartBuildingIndexEventParameters;
 
-/** Entry for {@link MakeIndexAvailableCommand}. */
-public class MakeIndexAvailableEntry extends AbstractChangeIndexStatusEntry implements Fireable {
-    private static final long serialVersionUID = -5686678143537999594L;
+/** Entry for {@link StartBuildingIndexCommand}. */
+public class StartBuildingIndexEntry extends AbstractChangeIndexStatusEntry implements Fireable{
+    private static final long serialVersionUID = 6738120002994636883L;
 
     /** Constructor. */
-    public MakeIndexAvailableEntry(int indexId) {
-        super(indexId, AVAILABLE);
+    public StartBuildingIndexEntry(int indexId) {
+        super(indexId, BUILDING);
     }
 
     @Override
     public CatalogEvent eventType() {
-        return CatalogEvent.INDEX_AVAILABLE;
+        return CatalogEvent.INDEX_BUILDING;
     }
 
     @Override
     public CatalogEventParameters createEventParameters(long causalityToken, int catalogVersion) {
-        return new MakeIndexAvailableEventParameters(causalityToken, catalogVersion, indexId);
+        return new StartBuildingIndexEventParameters(causalityToken, catalogVersion, indexId);
     }
 }
