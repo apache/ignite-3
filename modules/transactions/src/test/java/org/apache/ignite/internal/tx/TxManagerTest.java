@@ -49,9 +49,7 @@ import static org.mockito.Mockito.when;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import java.util.function.LongSupplier;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
@@ -61,6 +59,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
+import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.placementdriver.TestReplicaMetaImpl;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
@@ -242,6 +241,10 @@ public class TxManagerTest extends IgniteAbstractTest {
 
     @Test
     public void testRepeatedCommitRollbackAfterCommit() throws Exception {
+        ReplicaMeta meta = mock(ReplicaMeta.class);
+        when(meta.getStartTime()).thenReturn(hybridTimestamp(1));
+
+        when(placementDriver.currentLease(any())).thenReturn(meta);
         when(placementDriver.getPrimaryReplica(any(), any())).thenReturn(completedFuture(
                 new TestReplicaMetaImpl(LOCAL_NODE, hybridTimestamp(1), HybridTimestamp.MAX_VALUE)));
         when(placementDriver.awaitPrimaryReplica(any(), any(), anyLong(), any())).thenReturn(completedFuture(
@@ -290,9 +293,7 @@ public class TxManagerTest extends IgniteAbstractTest {
     }
 
     @Test
-    void testRepeatedCommitRollbackAfterCommitWithException() throws ExecutionException, InterruptedException, TimeoutException {
-        when(placementDriver.getPrimaryReplica(any(), any())).thenReturn(completedFuture(
-                new TestReplicaMetaImpl(LOCAL_NODE, hybridTimestamp(1), HybridTimestamp.MAX_VALUE)));
+    void testRepeatedCommitRollbackAfterCommitWithException() throws Exception {
         when(placementDriver.awaitPrimaryReplica(any(), any(), anyLong(), any())).thenReturn(completedFuture(
                 new TestReplicaMetaImpl(LOCAL_NODE, hybridTimestamp(1), HybridTimestamp.MAX_VALUE)));
 
